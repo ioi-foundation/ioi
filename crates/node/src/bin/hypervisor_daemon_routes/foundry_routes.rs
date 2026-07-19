@@ -308,9 +308,13 @@ pub(crate) async fn handle_foundry_spec_create(
     let backend_refs = str_refs(&body, "backend_refs");
     let endpoint_refs = str_refs(&body, "endpoint_refs");
     let cat = fetch_catalog(&st.base_url).await;
-    if let Err((code, message)) =
-        validate_bindings(&cat, &route_refs, &provider_refs, &backend_refs, &endpoint_refs)
-    {
+    if let Err((code, message)) = validate_bindings(
+        &cat,
+        &route_refs,
+        &provider_refs,
+        &backend_refs,
+        &endpoint_refs,
+    ) {
         return bad(&code, &message);
     }
     let id = format!("fspec_{:x}", nanos());
@@ -337,7 +341,10 @@ pub(crate) async fn handle_foundry_spec_create(
         "updated_at": now
     });
     let _ = persist_record(&st.data_dir, SPEC_KIND, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "spec": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "spec": record })),
+    )
 }
 
 /// GET /v1/hypervisor/foundry/specs/:id — fetch one FoundrySpec.
@@ -417,7 +424,11 @@ pub(crate) async fn handle_foundry_run_plans_list(
     Query(q): Query<HashMap<String, String>>,
 ) -> Json<Value> {
     let mut plans = read_record_dir(&st.data_dir, RUN_PLAN_KIND);
-    if let Some(sref) = q.get("spec_ref").map(|s| s.trim()).filter(|s| !s.is_empty()) {
+    if let Some(sref) = q
+        .get("spec_ref")
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
         plans.retain(|p| p.get("spec_ref").and_then(|v| v.as_str()) == Some(sref));
     }
     plans.sort_by(|a, b| {
@@ -565,7 +576,11 @@ mod foundry_tests {
     use super::*;
 
     fn cat() -> Catalog {
-        let mk = |xs: &[&str]| xs.iter().map(|s| s.to_string()).collect::<HashSet<String>>();
+        let mk = |xs: &[&str]| {
+            xs.iter()
+                .map(|s| s.to_string())
+                .collect::<HashSet<String>>()
+        };
         Catalog {
             routes: mk(&["route.local-first"]),
             providers: mk(&["provider.hypervisor.local"]),
@@ -589,8 +604,8 @@ mod foundry_tests {
             validate_bindings(&cat(), &[], &["provider.hypervisor.local".into()], &[], &[]).is_ok()
         );
         // An unknown route ref is rejected with the unresolved code.
-        let err = validate_bindings(&cat(), &["route.does-not-exist".into()], &[], &[], &[])
-            .unwrap_err();
+        let err =
+            validate_bindings(&cat(), &["route.does-not-exist".into()], &[], &[], &[]).unwrap_err();
         assert_eq!(err.0, "foundry_ref_unresolved");
         // An unknown backend ref (alongside a valid route) is also rejected.
         let err = validate_bindings(
@@ -609,7 +624,10 @@ mod foundry_tests {
         // top-level array
         assert_eq!(as_list(&json!([{"id":"a"},{"id":"b"}])).len(), 2);
         // {runs:[...]} wrapper (agent-run-transcripts shape)
-        assert_eq!(as_list(&json!({"ok":true,"runs":[{"run_id":"r1"}]})).len(), 1);
+        assert_eq!(
+            as_list(&json!({"ok":true,"runs":[{"run_id":"r1"}]})).len(),
+            1
+        );
         // null / non-list → empty
         assert_eq!(as_list(&Value::Null).len(), 0);
     }
@@ -631,7 +649,10 @@ mod foundry_tests {
     #[test]
     fn str_refs_filters_non_strings_and_empties() {
         let body = json!({ "refs": ["a", "", 7, "b", null] });
-        assert_eq!(str_refs(&body, "refs"), vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(
+            str_refs(&body, "refs"),
+            vec!["a".to_string(), "b".to_string()]
+        );
         assert!(str_refs(&body, "missing").is_empty());
     }
 }

@@ -1,0 +1,22 @@
+{
+  "receipt_id": "receipt://empty-facts",
+  "receipt_type": "policy_decision",
+  "receipt_profile_ref": "schema://ioi/receipts/policy-decision/v1",
+  "attested_boundary_fact_refs": [],
+  "claim_scope_ref": null,
+  "run_id": null,
+  "task_id": null,
+  "actor_id": "system://acme",
+  "authority_grant_id": null,
+  "primitive_capabilities": [],
+  "authority_scopes": [],
+  "artifact_refs": [],
+  "evidence_bundle_refs": [],
+  "verification_ref": null,
+  "acceptance_ref": null,
+  "adjudication_ref": null,
+  "settlement_ref": null,
+  "timestamp": "2026-07-16T12:00:00Z",
+  "signature": null,
+  "public_commitment_ref": null
+}

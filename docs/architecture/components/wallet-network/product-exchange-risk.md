@@ -9,7 +9,7 @@ Supersedes: wallet product, swap, trade, risk-center, and route-authority
 language embedded only in prototypes or supporting product notes when it
 conflicts with this file.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
 Implementation status: planned (exchange/trade/prediction product design; SDK candidate-source seams exist, no live exchange or trade surface)
 Last implementation audit: 2026-07-05
@@ -273,6 +273,38 @@ Canonical invariant:
 > **The Wallet authority pipeline is reusable infrastructure. The Wallet
 > console is one presentation of that pipeline, not the universal dapp UI.**
 
+Every presentation profile projects the same canonical semantic disclosure
+document at the density appropriate to its user. Layout, explanatory copy, and
+pixel arrangement may vary; the required consequential facts and
+`reviewed_representation_hash` may not. The review contract separately binds
+the authenticated principal, acting subject, product session and origin,
+immutable request body, authorization subject, action, resources and
+destination, budget or amount, policy and risk, expiry, selected presentation
+surface and evidence profile, satisfied AuthFactor and GuardianSurface posture,
+ceremony evidence, and resulting grant, denial, and receipt. A compact card may
+hide protocol jargon; it may not omit or weaken facts needed to understand the
+consequence or prevent cross-principal, cross-session, cross-origin,
+changed-request, changed-review, or changed-effect replay.
+
+Presentation evidence is profile-qualified rather than a single assurance
+ladder. A profile declares independently:
+
+- who operates the presentation surface and under which enrollment or
+  attestation evidence;
+- whether the exact canonical representation is bound;
+- whether the evidence is request-bound, exact-effect-bound, batch-bound, or
+  standing-envelope-bound;
+- which user-presence or user-verification posture was observed;
+- freshness and replay protections; and
+- whether the presentation path is independent from the proposing client.
+
+Independence alone is not stronger: an independently operated surface with an
+unbound content channel can be weaker than a same-client surface with an
+admitted presentation mechanism that commits the exact representation. A plain
+WebAuthn assertion remains separately inspectable authenticator evidence; by
+itself it does not give wallet.network independently verifiable evidence that
+the application-defined representation was displayed or understood.
+
 ### Approval Modes
 
 Review-per-action does not scale. Wallet must support approval modes that
@@ -280,22 +312,27 @@ preserve authority while reducing modal fatigue:
 
 ```text
 one_shot_review
-  Approve or deny exactly one consequential action.
+  Approve or deny exactly one consequential action. Final admission requires
+  equality between the approved exact-effect commitment and the daemon-computed
+  actual effect hash.
 
 session_envelope
   Allow repeated actions inside explicit caps, resources, TTL, and revocation
   epoch.
 
 batch_review
-  Approve or deny many similar actions under one policy result and receipt
-  bundle.
+  Approve or deny a committed manifest of similar actions under one policy
+  result. Each later effect requires membership and constraint verification;
+  it is not represented as individually human-reviewed.
 
 silent_within_policy
   Execute low-risk pre-authorized actions without interrupting the user, while
-  still producing receipts.
+  still producing receipts and proving compliance with the standing envelope.
 
 after_the_fact_receipt
-  Surface receipt after an action already allowed by an active session envelope.
+  Surface receipt after an action already allowed by an active session or
+  standing envelope. It must not claim that the individual effect received a
+  one-shot human review.
 
 step_up_review
   Require stronger authentication or human approval when an action exceeds the
@@ -665,7 +702,8 @@ user or agent requests exchange
   -> chain executes
   -> Wallet emits ExchangeReceipt
   -> Agentgres records receipt/evidence/outcome refs
-  -> IOI L1 receives only selected public/economic/dispute commitments
+  -> IOI L1 receives public/economic/dispute commitments only when the
+     declared enrollment and settlement profiles select it
 ```
 
 ## Canonical Trade Flow
@@ -684,7 +722,8 @@ user or agent requests exposure
   -> venue executes and maintains venue-native position state
   -> Wallet/venue adapter monitors position risk and emits receipts
   -> Agentgres records receipt/evidence/outcome refs
-  -> IOI L1 receives only selected public/economic/dispute commitments
+  -> IOI L1 receives public/economic/dispute commitments only when the
+     declared enrollment and settlement profiles select it
 ```
 
 ## Minimal Implementation Objects
@@ -906,7 +945,11 @@ simulation hash.
 
 ### WalletReceipt
 
-Wallet receipts are human-readable and machine-verifiable.
+Wallet receipts are human-readable and machine-verifiable for the exact fields
+and evidence links they bind. A wallet receipt is not automatically proof that
+a user saw or understood particular pixels, that an external-world result is
+correct, or that an effect was individually reviewed when authority came from a
+batch or standing envelope.
 
 ```rust
 struct WalletReceipt {
@@ -916,7 +959,13 @@ struct WalletReceipt {
     account_id: AccountId,
     action_summary: String,
 
-    request_hash: Hash,
+    authority_request_body_hash: Hash,
+    reviewed_representation_hash: Option<Hash>,
+    presentation_evidence_profile_ref: Option<PolicyRef>,
+    presentation_evidence_refs: Vec<EvidenceRef>,
+    approval_ceremony_context_hash: Option<Hash>,
+    authority_review_receipt_ref: Option<ReceiptRef>,
+    authorization_subject: Option<AuthorizationSubjectCommitment>,
     policy_hash: Hash,
     grant_id: Option<Hash>,
     lease_id: Option<Hash>,
@@ -927,6 +976,8 @@ struct WalletReceipt {
     simulation_hash: Option<Hash>,
 
     execution_refs: Vec<ExecutionRef>,
+    actual_effect_hashes: Vec<Hash>,
+    effect_receipt_refs: Vec<ReceiptRef>,
     agentgres_ref: Option<AgentgresRef>,
     ioi_commitment: Option<L1CommitmentRef>,
 
@@ -934,6 +985,16 @@ struct WalletReceipt {
     signatures: HybridSignatureBlock
 }
 ```
+
+An end-to-end exact-action claim requires a verifiable chain from the immutable
+authority request through the canonical reviewed representation, qualified
+presentation and authenticator evidence, authority grant, daemon-computed
+actual effect, and execution or refusal receipt. A receipt lacking one of those
+links remains valid only for the narrower facts it actually records. One-shot
+receipts require exact-effect equality; batch receipts identify the approved
+manifest and membership evidence; standing-envelope receipts identify the
+admitted constraint evaluation. Silent and after-the-fact modes never acquire a
+human-review claim by presentation wording.
 
 User-facing receipt types include:
 
@@ -1277,7 +1338,8 @@ A conforming Wallet Exchange path must prove:
 - approval/revocation/emergency-stop invalidates stale executable intents;
 - Agentgres receives exchange receipt/evidence refs when the exchange affects
   operational truth;
-- IOI L1 receives commitments only when settlement triggers apply.
+- IOI L1 receives commitments only when the declared enrollment and settlement
+  profiles select it and their trigger applies.
 
 A conforming Wallet Trade path must prove:
 
@@ -1303,7 +1365,8 @@ A conforming Wallet Trade path must prove:
   policy outcomes, not buried in UI text;
 - Agentgres receives trade receipt/evidence refs when the trade affects
   operational truth;
-- IOI L1 receives commitments only when settlement triggers apply.
+- IOI L1 receives commitments only when the declared enrollment and settlement
+  profiles select it and their trigger applies.
 
 ## Anti-Patterns
 
@@ -1346,7 +1409,8 @@ Provider execution and restore validity live in Hypervisor and Agentgres.
 Prediction markets and event contracts live in selected venues and resolution
 rules.
 Agentgres records receipts and evidence.
-IOI L1 anchors only selected public/economic commitments.
+Each system settles locally by default; IOI L1 anchors public/economic
+commitments only when the declared enrollment and settlement profiles select it.
 ```
 
 ## Related Canon

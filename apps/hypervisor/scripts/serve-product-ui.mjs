@@ -203,8 +203,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // for both shell trees, so the module split is invisible at the wire.
 const AUG_DIR = join(HERE, "augmentation");
 function augmentationBundle() {
-  return readdirSync(AUG_DIR).filter((f) => f.endsWith(".js")).sort()
+  const staticCatalog = JSON.stringify(appCatalog()).replace(/</g, "\\u003c");
+  const modules = readdirSync(AUG_DIR).filter((f) => f.endsWith(".js")).sort()
     .map((f) => readFileSync(join(AUG_DIR, f), "utf8")).join("");
+  // A safe first-party baseline keeps the shell usable when the projection request fails. It
+  // contains no tenant/install/System inventory; a valid request-scoped projection may replace it.
+  return `window.__ioiStaticProductSurfaceCatalog=${staticCatalog};\n${modules}`;
 }
 // WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits the seeded SPA's DOM).
 const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
@@ -789,11 +793,10 @@ function renderAutomationNewForm(projectId, projects) {
   return automationsShell("New automation", inner);
 }
 
-// ---- Applications estate — the owned breadth launcher for the 11 open-application surfaces.
-// Beyond the core rail (Home · Projects · Automations), surfaces open from here. Connections is
-// re-homed as the "Developer & Integrations" surface (routes to the existing cockpit; NOT rebuilt).
-// Catalog: internal-docs/.../surfaces/catalog/README.md. Honest status — live surfaces link, the
-// rest are "planned" / "in a session" (no fabricated routes).
+// ---- Applications estate — taxonomy-v2 grouped launcher.
+// Typed core-workspace/application registrations provide membership; owner-bound tools and views
+// attach separately. Current compatibility routes remain explicit, and planned entries stay
+// nonlaunchable. Capture and certification evidence never creates catalog membership.
 // ---- Home full readout (03-home graft). THE Home is the SPA composer home; its injected
 // governed-work band (ioi-augmentation.js mountHomeBand) summarizes this page and deep-links here.
 // Four strips over live daemon truth — what needs a DECISION (pending approval requests), what is
@@ -847,7 +850,7 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
       <td><code>${CX_ESC(s.session_ref || "")}</code><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(s.project_ref || "—")} · ${CX_ESC(s.created_at || "")}</div></td>
       <td><span class="pill muted">${CX_ESC(s.lifecycle_state || "—")}</span></td>
       <td>${hb && hb.profile_ref ? `<span class="pill ok">${CX_ESC(hb.harness || "harness")}</span>` : `<span class="pill muted" title="no harness binding recorded at create">execute-time default</span>`}</td>
-      <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">workbench</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
+      <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">developer workspace</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
     </tr>`;
   };
   const runRow = (r) => `<tr>
@@ -931,8 +934,8 @@ function renderFeedbackQueue(ov, entries, flash) {
 // capture (/__apps/evalsuites, /workspace/evals/) is the familiar eval-suite library baseline; this
 // IOI-owned owner surface renders the SAME table/list grammar over REAL daemon truth: the inert
 // eval-suite contract (a suite DECLARES what it would assess + under what admissibility — never how
-// it scores), the real assessment SUBJECTS available (mission runs / failed runs / GoalRun blockers,
-// from the Missions plane), the consent ladder + feedback candidate source, and Foundry model_eval
+// it scores), the real assessment SUBJECTS available (typed runs / failures / GoalRun blockers,
+// from the Work compatibility projection), the consent ladder + feedback candidate source, and Foundry model_eval
 // draft specs as adjacent inputs. NOTHING is scored/executed here — EvalRun execution, verdicts,
 // judges, scorecards, auto-mining, the analysis/Quiver canvases, and promotion are NAMED GAPS.
 // Naming: Evaluations is the owner surface; /__ioi/feedback stays a compatibility sublane.
@@ -986,7 +989,7 @@ function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedback
       ? `<table><thead><tr><th>Suite</th><th>Subject scope</th><th>Consent required</th><th>Evidence required</th><th>Candidates</th><th>Status</th><th></th></tr></thead><tbody>${list.map(suiteRow).join("")}</tbody></table>`
       : omBoundaryNote(`<b>No eval suites declared yet</b> — declare one above. A suite is an inert declaration (subject scope · admissibility · candidate handoffs); it never scores or executes. This library reads the real daemon eval-suite contract; nothing is fabricated.`));
 
-  // Assessment subjects in scope — REAL Missions execution truth (mission runs / failures / blockers).
+  // Assessment subjects in scope — REAL typed Work execution truth (runs / failures / blockers).
   const subjRow = (kind, label, when, proof) => `<tr><td><span class="pill muted" style="margin:0">${CX_ESC(kind)}</span></td><td>${CX_ESC(label)}</td><td class="sub" style="margin:0">${CX_ESC(when || "")}</td><td>${proof ? `<a href="${CX_ESC(proof)}" target="_blank" rel="noopener">proof ↗</a>` : "—"}</td></tr>`;
   const subjRows = [
     ...missionRuns.slice(0, 6).map((r) => subjRow("mission_run", r.name || r.execution_id || "—", r.started_at, r.timeline_ref)),
@@ -996,8 +999,8 @@ function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedback
   const totalSubjects = missionRuns.length + failedRuns.length + blockers.length;
   const subjectsPane = `<h2 id="eval-subjects">Assessment subjects in scope ${sub(`— real execution truth a suite can draw on (${totalSubjects})`)}</h2>`
     + (totalSubjects
-      ? `<table><thead><tr><th>Kind</th><th>Subject</th><th>When</th><th>Evidence</th></tr></thead><tbody>${subjRows}</tbody></table><p class="sub" style="margin:6px 0 0">Subjects come from <a href="/__ioi/missions">Missions</a>; each carries its own proof/timeline as admissible evidence.</p>`
-      : omBoundaryNote(`No mission runs or blockers to assess yet — subjects appear as <a href="/__ioi/missions">Missions</a> produces real runs.`));
+      ? `<table><thead><tr><th>Kind</th><th>Subject</th><th>When</th><th>Evidence</th></tr></thead><tbody>${subjRows}</tbody></table><p class="sub" style="margin:6px 0 0">Subjects come from the <a href="/__ioi/missions">Work projection</a>; each carries its own proof/timeline as admissible evidence.</p>`
+      : omBoundaryNote(`No runs or blockers to assess yet — subjects appear as the <a href="/__ioi/missions">Work projection</a> receives real typed work.`));
 
   // Consent + candidate inputs (feedback plane) and Foundry model_eval drafts (adjacent, not execution).
   const fbTotal = (feedbackOv || {}).total || 0;
@@ -1027,7 +1030,7 @@ function renderSearchResults(q, groups, sources) {
   return automationsShell("Search", `<h1>Search</h1><p class="sub">Cross-estate discovery over live daemon projections — each result opens in its owning surface. Matching is exact-substring at query time; nothing is indexed, so nothing is stale.</p>${form}${body}`);
 }
 
-// ---- Code Repositories (13-code-repositories graft — folds into the Workbench container, no
+// ---- Code Repositories (13-code-repositories graft — folds into Developer Workspace, no
 // catalog card). Repos as FIRST-CLASS over project truth: every repository-backed project, the
 // SCM host bindings with their real auth posture, and the governed-publish trail from the proof
 // stream. Publishing itself stays a wallet-authorized crossing on the SCM lanes — nothing here
@@ -1050,7 +1053,7 @@ function renderCodeRepositories(projectsRes, scmRes, ledgerEntries) {
       <span><a class="act ghost" href="/projects/${enc(p.project_id || pid)}" target="_top">Project →</a> <a class="act ghost" href="/__ioi/automations?project=${enc(pid)}">Automations →</a></span></div>`;
   };
   const pubRows = publishes.slice(0, 10).map((e) => `<tr><td>${CX_ESC(e.kind || e.op || "")}</td><td><span class="pill ${(e.status === "done" || e.status === "published" || e.status === "success") ? "ok" : "muted"}">${CX_ESC(e.status || "—")}</span></td><td>${CX_ESC(e.timestamp || "")}</td><td><code style="font-size:10px">${CX_ESC((e.state_root || "").slice(0, 18) || "—")}</code></td></tr>`).join("");
-  const inner = `<h1>Code Repositories</h1><p class="sub">Repository-backed work as first-class truth — every project's repo, the SCM host bindings with their sealed-credential posture, and the governed-publish trail. Publishing is a wallet-authorized crossing; nothing on this page mutates a repository. <a href="/__ioi/workbench">Workbench →</a></p>
+  const inner = `<h1>Code Repositories</h1><p class="sub">Repository-backed work as first-class truth — every project's repo, the SCM host bindings with their sealed-credential posture, and the governed-publish trail. Publishing is a wallet-authorized crossing; nothing on this page mutates a repository. <a href="/__ioi/workbench">Developer Workspace →</a></p>
     <h2>SCM hosts</h2>${scmStrip}
     <h2>Repositories (${projects.length})</h2>${projects.length ? projects.map(repoCard).join("") : `<div class="empty">No repository-backed projects yet — create a project with a repository_url and it lands here.</div>`}
     <h2>Governed publishes</h2>${publishes.length ? `<table><thead><tr><th>Kind</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody>${pubRows}</tbody></table>` : `<div class="empty">No governed publishes recorded yet — a wallet-authorized publish writes its receipt to the proof stream and appears here.</div>`}`;
@@ -1077,7 +1080,7 @@ function renderSessionsRoot(sessionsRes, envSummary) {
       <td><span class="pill muted">${CX_ESC(s.lifecycle_state || "—")}</span></td>
       <td>${hb && hb.profile_ref ? `<span class="pill ok">${CX_ESC(hb.harness || "harness")}</span> <code style="font-size:10px">${CX_ESC(hb.model_route_ref || "")}</code><div style="color:#878a93;font-size:10.5px;margin-top:1px" title="${CX_ESC(hb.admission_id || "")}">admitted at create</div>` : `<span class="pill muted" title="no harness binding recorded at create; execution uses the daemon default lane">execute-time default</span>`}</td>
       <td>${envId ? `<code style="font-size:10.5px">${CX_ESC(envId)}</code>${envPhase[envId] ? ` <span class="pill ${envPhase[envId] === "running" ? "ok" : "muted"}">${CX_ESC(envPhase[envId])}</span>` : ""}` : "—"}</td>
-      <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">workbench</a> · <a href="/details/${enc(envId)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
+      <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">developer workspace</a> · <a href="/details/${enc(envId)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
     </tr>`;
   }).join("");
   const inner = `<h1>Sessions</h1><p class="sub">Every governed session with its lifecycle facts and ADMITTED harness binding — selection is session truth recorded at create, never UI state. New work starts from the rail's New Session; replay lives in <a href="/__ioi/run-replay">Run Replay</a>. <a href="/__apps/jobs">Run/job queue (daemon-truth rebind) →</a> · <a href="/__apps/incidents">Incident inbox (daemon-truth rebind) →</a></p>
@@ -1088,46 +1091,35 @@ function renderSessionsRoot(sessionsRes, envSummary) {
 }
 
 function renderApplications() {
-  // The autonomous-systems suite + the substrate lane (canon: core-clients-surfaces.md "The
-  // Autonomous-Systems Application Suite"; detail: internal-docs/prompts/autonomous-systems-
-  // suite/suite-guide.md). Every href opens a REAL surface today; where a suite identity is
-  // wider than its current surface, the copy names what is live and what is adopting.
-  const SUITE = [
-    { icon: "🎨", name: "Studio", desc: "Compose systems & agents — agent lens live (inventory, model routes, runner adapters); system canvas adopting.", href: "/__ioi/agent-studio" },
-    { icon: "⚡", name: "Automations", desc: "Durable triggers, schedules, monitors, services — condition → governed effect.", href: "/__ioi/automations" },
-    { icon: "🧬", name: "Ontology", desc: "The semantic world-model — Ontology Manager over the typed COM; Object Explorer + ODK substrate linked within.", href: "/__ioi/ontology/manager" },
-    { icon: "🌐", name: "Data", desc: "Supply the world-model — sources, syncs, data recipes, datasets, media sets, consent posture.", href: "/__ioi/odk#data-planes" },
-    { icon: "🛡", name: "Governance", desc: "Authority — approvals, identity, leases, revocation, release gates, kill switches, budgets, gaps.", href: "/__ioi/governance" },
-    { icon: "🚀", name: "Missions", desc: "Fleet of running systems — the mission run queue + incident/blocker inbox over daemon truth.", href: "/__ioi/missions" },
-    { icon: "📒", name: "Provenance", desc: "Proof plane — unified receipts stream, state roots, timelines live; lineage canvas adopting.", href: "/__ioi/work-ledger" },
-    { icon: "🧪", name: "Evaluations", desc: "Eval-suite library over real subjects/consent + feedback candidate source; scoring & EvalRun adopting.", href: "/__ioi/evaluations" },
-    { icon: "📈", name: "Improvement", desc: "Proposals, what-if simulation, apply-under-gates — proposal lane live; change inbox adopting.", href: "/__ioi/agent-studio#improvement-proposals" },
-    { icon: "🏗", name: "Foundry", desc: "Model substrate — catalog, routes, draft specs, run plans, promotion previews.", href: "/__ioi/foundry" },
-    { icon: "🛒", name: "Marketplace", desc: "Distribution — listings, publish candidates, admission reviews (admission-only).", href: "/__ioi/marketplace" },
-    { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench" },
-    { icon: "🔌", name: "Developer Console", desc: "Extend the environment — connectors, MCP, sealed credentials, SDK on-ramps, developer tools.", href: "/__ioi/connections" },
-  ];
-  const SUBSTRATE = [
-    { icon: "🖥", name: "Environments", desc: "Lifecycle, readiness, services/ports/tasks, kernel-boundary posture.", href: "/__ioi/environments" },
-    { icon: "⚙", name: "Operations", desc: "Infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend.", href: "/__ioi/operations" },
-  ];
-  const card = (s) => {
-    const inner = `<div class="main"><div class="name">${s.icon} ${CX_ESC(s.name)}<span class="pill ok">open</span></div><div class="meta">${CX_ESC(s.desc)}</div></div>`;
-    return `<a class="card" href="${s.href}">${inner}<span class="act ghost">Open →</span></a>`;
+  // Taxonomy-v2 shadow projection. Membership comes from typed product registrations; certified
+  // UX ports appear only as owner-bound tools or Work views. Launch routes remain compatibility
+  // routes until their canonical target routes actually ship.
+  const catalog = appCatalog();
+  const ownerApps = catalog.applications.filter((entry) => entry.registration_kind === "owner_application" && entry.owner_cohort === "enduring");
+  const substrateApps = catalog.applications.filter((entry) => entry.registration_kind === "substrate_application");
+  const conditionalApps = catalog.applications.filter((entry) => entry.registration_kind === "owner_application" && entry.owner_cohort === "conditional");
+  const contextualSurfaces = [...catalog.tools, ...catalog.workspace_views];
+  const applicationCard = (entry) => {
+    const pill = entry.launchable
+      ? `<span class="pill ${entry.route_posture === "canonical" ? "ok" : "muted"}">${entry.route_posture === "canonical" ? CX_ESC(entry.implementation_state) : "compatibility"}</span>`
+      : `<span class="pill muted">planned</span>`;
+    const body = `<div class="main"><div class="name">${entry.icon} ${CX_ESC(entry.name)}${pill}</div><div class="meta">${CX_ESC(entry.description)}</div></div>`;
+    return entry.launchable
+      ? `<a class="card" href="${CX_ESC(entry.launch_route)}">${body}<span class="act ghost">Open →</span></a>`
+      : `<div class="card">${body}</div>`;
   };
-  // Ported application surfaces — rendered from the app catalog (parity-matrix membership), the
-  // same projection the shell launcher fetches at /__ioi/api/applications; never a hand list.
-  const portedCard = (a) => {
-    const ico = a.icon ? `<img src="${a.icon}" alt="" style="width:18px;height:18px;vertical-align:-4px;border-radius:4px"> ` : "◳ ";
-    return `<a class="card" href="${a.route}"><div class="main"><div class="name">${ico}${CX_ESC(a.title)}<span class="pill ok">open</span></div><div class="meta">${CX_ESC(a.family)} · ${CX_ESC(a.route)}</div></div><span class="act ghost">Open →</span></a>`;
+  const contextualCard = (entry) => {
+    const ico = entry.icon ? `<img src="${entry.icon}" alt="" style="width:18px;height:18px;vertical-align:-4px;border-radius:4px"> ` : "◳ ";
+    return `<a class="card" href="${CX_ESC(entry.launch_route)}"><div class="main"><div class="name">${ico}${CX_ESC(entry.title)}<span class="pill ok">${CX_ESC(entry.implementation_state)}</span></div><div class="meta">${CX_ESC(entry.placement)}</div></div><span class="act ghost">Open →</span></a>`;
   };
-  const ported = appCatalog().apps;
   return automationsShell(
     "Applications",
-    `<h1>Applications</h1><p class="sub">The autonomous-systems suite — compose, ground, govern, run, prove, evaluate, improve, package, distribute, operate. Generated apps land here as launchable entries. Home's governed-work band expands into the <a href="/__ioi/home">full readout</a>.</p>${SUITE.map(card).join("")}
-    ${ported.length ? `<h2 style="margin-top:26px">Ported apps</h2><p class="sub">Faithful ports of reference application surfaces inside the suite families — pixel-parity shell over daemon truth.</p>${ported.map(portedCard).join("")}` : ""}
-    <h2 style="margin-top:26px">Substrate</h2><p class="sub">The type 1 + 2 hypervisor face — the foundation the suite runs on, kept distinct from it.</p>${SUBSTRATE.map(card).join("")}
-    <h2 style="margin-top:26px">Horizon</h2><div class="card"><div class="main"><div class="name">🤖 HypervisorOS<span class="pill muted">horizon</span></div><div class="meta">Embodied systems lane over the same governed substrate — named only; no surfaces yet.</div></div></div>`,
+    `<h1>Applications</h1><p class="sub">The transitional typed catalog for composing, grounding, governing, proving, evaluating, improving, packaging, developing, and operating bounded systems. Request-scoped policy filtering and dynamic installed-extension inventory are not connected yet. Tools stay nested under their owner; certification never creates a peer application. Home's governed-work band expands into the <a href="/__ioi/home">full readout</a>.</p>
+    ${ownerApps.map(applicationCard).join("")}
+    ${contextualSurfaces.length ? `<h2 style="margin-top:26px">Tools and views</h2><p class="sub">Direct entry points inside an application or core workspace. Each has one primary placement and may be reused contextually without becoming another application.</p>${contextualSurfaces.map(contextualCard).join("")}` : ""}
+    <h2 style="margin-top:26px">Substrate</h2><p class="sub">Environment and infrastructure operations remain distinct from logical Systems and Work.</p>${substrateApps.map(applicationCard).join("")}
+    <h2 style="margin-top:26px">Specialist applications</h2>${conditionalApps.map(applicationCard).join("")}
+    <h2 style="margin-top:26px">Extensions</h2><div class="card"><div class="main"><div class="name">＋ Generated and installed applications<span class="pill muted">contract only</span></div><div class="meta">The extension-application contract is registered, but daemon-admitted release, installation, System-binding, serving, and request-scoped inventory are not connected. No placeholder application is launchable.</div></div></div>`,
   );
 }
 
@@ -1575,7 +1567,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     <div class="chips" style="margin:0 0 8px"><span class="chiplabel">run funnel</span><span class="pill muted">total ${waTotal}</span><span class="pill ok">done ${runs.done || 0}</span><span class="pill warn">failed ${runs.failed || 0}</span><span class="pill muted">running ${runs.running || 0}</span><span class="pill ${waFailRate > 20 ? "warn" : "muted"}">failure rate ${waFailRate}%</span></div>
     <div class="chips" style="margin:0 0 8px"><span class="chiplabel">ledger kinds</span>${Object.entries(waKinds).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, n]) => `<span class="pill muted">${CX_ESC(k)} ${n}</span>`).join("") || `<span class="sub" style="margin:0">no entries yet</span>`}</div>
     <p class="sub" style="margin:4px 0 0">${(runs.failed || 0) > 0 ? `${runs.failed} failed run${runs.failed > 1 ? "s are" : " is an"} improvement candidate${runs.failed > 1 ? "s" : ""} — mine them in <a href="/__ioi/agent-studio">Studio →</a>` : "No failed runs — nothing to mine right now."} · capture operator judgment in <a href="/__ioi/feedback">Feedback &amp; Annotations →</a></p></div>`;
-  const inner = `<h1>Operations</h1><p class="sub">Substrate &amp; infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend. Select an automation run to inspect and act on it in place. Suite/run work — the mission run queue + incident inbox — lives in <a href="/__ioi/missions">Missions →</a>. <a href="/__ioi/work-ledger">Open Provenance →</a></p>
+  const inner = `<h1>Operations</h1><p class="sub">Substrate &amp; infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend. Select an automation run to inspect and act on it in place. Logical runs, reviews, and incidents live in the transitional <a href="/__ioi/missions">Work projection →</a>. <a href="/__ioi/work-ledger">Open Provenance →</a></p>
     <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · IOI Agent coordination · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
     ${workAnalytics}
     <h2>Scheduler</h2>${schedSection}
@@ -1752,7 +1744,7 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
       <td>${CX_ESC(e.project_id || "—")}</td>
       <td>${CX_ESC(e.environment_class_id || "—")} · ${CX_ESC(e.substrate || "")}</td>
       <td>${e.ports_count || 0}p · ${e.services_count || 0}s · ${e.tasks_count || 0}t</td>
-      <td onclick="event.stopPropagation()"><a href="/details/${enc(id)}" target="_top">session</a> · <a href="/workspaces/${enc(id)}" target="_top">workbench</a> · <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
+      <td onclick="event.stopPropagation()"><a href="/details/${enc(id)}" target="_top">session</a> · <a href="/workspaces/${enc(id)}" target="_top">developer workspace</a> · <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
     </tr>`;
   }).join("");
   const pager = envPager("/__ioi/environments", summary);
@@ -1783,7 +1775,7 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
         var obs=(e.lifecycle_observations||[]).slice(-8).reverse();
         h+='<div class="envd-k">Lifecycle observations ('+(e.lifecycle_observations||[]).length+')</div>';
         h+=obs.map(function(o){return '<div class="envd-obs"><span class="pill '+envPhaseCls(o.condition_kind==='admitted'||o.condition_kind==='ready'?'ready':o.condition_kind)+'">'+envEsc(o.component||'')+' · '+envEsc(o.condition_kind||'')+'</span><div style="color:#9a9da6;margin-top:2px">'+envEsc(o.message||'')+'</div><div style="color:#5f626b;font-size:11px">'+envEsc(o.at||'')+'</div></div>';}).join('')||'<div class="sub" style="margin:0">—</div>';
-        h+='<div class="envd-k">Open</div><div><a class="act" href="/workspaces/'+encodeURIComponent(id)+'" target="_top">Workbench</a> <a class="act ghost" href="/details/'+encodeURIComponent(id)+'" target="_top">Session</a> <a href="/__ioi/run-timeline/env/'+encodeURIComponent(id)+'" target="_blank" rel="noopener">timeline ↗</a></div>';
+        h+='<div class="envd-k">Open</div><div><a class="act" href="/workspaces/'+encodeURIComponent(id)+'" target="_top">Developer Workspace</a> <a class="act ghost" href="/details/'+encodeURIComponent(id)+'" target="_top">Session</a> <a href="/__ioi/run-timeline/env/'+encodeURIComponent(id)+'" target="_blank" rel="noopener">timeline ↗</a></div>';
         h+='<details style="margin-top:10px"><summary class="sub" style="cursor:pointer">Raw record (advanced)</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:11px">'+envEsc(JSON.stringify(e,null,2).slice(0,4000))+'</pre></details>';
         d.innerHTML=h;
       }).catch(function(){d.innerHTML='<div class="ioi-ns-err">Could not load the environment record.</div>';});
@@ -1878,8 +1870,8 @@ function renderWorkbenchGoalRuns(goalRuns) {
   return `<h2 id="goal-runs">IOI Agent runs</h2><p class="sub" style="margin:-4px 0 12px">IOI Agent–coordinated work — parallel implementer cells over isolated candidate workspaces, verifier-admitted reconciliation into the session workspace. GoalRun refs are the internal proof objects.</p>${body}`;
 }
 
-// ---- Workbench — a LAUNCHER into an environment's live console (files/terminal/ports/tasks).
-// Reads the daemon env-summary projection (paged); "Open Workbench" navigates top-level to
+// ---- Developer Workspace — a LAUNCHER into an environment's live console (files/terminal/ports/tasks).
+// Reads the daemon env-summary projection (paged); the legacy /workbench route navigates top-level to
 // /workspaces/:id (the real console; NOT iframed here). No owned terminal/editor.
 function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
   summary = summary || {};
@@ -1888,7 +1880,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
   const targets = (editorTargets && editorTargets.targets) || [];
   const vb = targets.find((t) => t.target_id === "vscode-browser");
   const vbOpenable = vb?.open_posture?.openable === true;
-  const head = `<h1>Workbench</h1><p class="sub">Enter an environment's live console — files, terminal, ports, and tasks. Pick an active environment to get to work, or open its session or run timeline. <a href="/__ioi/environments">Environment posture →</a> · <a href="/__ioi/code">Code Repositories →</a></p>`;
+  const head = `<h1>Developer Workspace <span class="pill muted">Workbench compatibility route</span></h1><p class="sub">Enter an environment's live console — files, terminal, ports, and tasks. Pick an active environment to get to work, or open its session or run timeline. <a href="/__ioi/environments">Environment posture →</a> · <a href="/__ioi/code">Code Repositories →</a></p>`;
   // Editor targets — the daemon registry with PROBED open posture. An editor that cannot open on
   // this host renders disabled WITH the probe's reason (never hidden, never a dead link).
   const etRows = targets.map((t) => {
@@ -1910,7 +1902,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
     ? `<h2 id="editor-targets">Editors</h2><p class="sub" style="margin:-4px 0 12px">The daemon editor-target registry — every way to open a workspace, with its probed open posture and lease/revocation contract. Only an <b>openable</b> target is offered on environments below.</p><table><thead><tr><th>Editor</th><th>Open kind</th><th>Open posture</th><th>Lease / revocation</th></tr></thead><tbody>${etRows}</tbody></table>`
     : "";
   if (!(summary.total_matching || 0)) {
-    return automationsShell("Workbench", head + editorsPanel + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>` + renderWorkbenchSessions(sessionsRes) + renderWorkbenchGoalRuns(goalRuns));
+    return automationsShell("Developer Workspace", head + editorsPanel + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its developer workspace here.</div>` + renderWorkbenchSessions(sessionsRes) + renderWorkbenchGoalRuns(goalRuns));
   }
   // Master-detail working shell (source shape: Workbench is the composition container, not a flat
   // launcher): environment rows select into a detail pane composed ENTIRELY from the three
@@ -1926,7 +1918,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
       <td><code>${CX_ESC(id)}</code><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px">${CX_ESC(e.project_id || "—")} · ${CX_ESC(e.environment_class_id || "")}</div></td>
       <td><span class="pill ${envPhasePill(e.phase)}">${CX_ESC(e.phase || "—")}</span> ${CX_ESC(e.readiness_mode || "")}</td>
       <td>${e.ports_count || 0}p · ${e.services_count || 0}s · ${e.tasks_count || 0}t</td>
-      <td onclick="event.stopPropagation()"><a class="act" href="/workspaces/${enc(id)}" target="_top">Open Workbench</a>${vbLink} <a class="act ghost" href="/details/${enc(id)}" target="_top">Session</a> <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
+      <td onclick="event.stopPropagation()"><a class="act" href="/workspaces/${enc(id)}" target="_top">Open workspace</a>${vbLink} <a class="act ghost" href="/details/${enc(id)}" target="_top">Session</a> <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
     </tr>`;
   }).join("");
   const pager = envPager("/__ioi/workbench", summary);
@@ -1976,7 +1968,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
     });});
   </script>`;
   const table = `${pager}<div class="wlwrap"><div><table><thead><tr><th>Environment</th><th>Phase · readiness</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}</div>${drawer}</div>`;
-  return automationsShell("Workbench", head + editorsPanel + table + renderWorkbenchSessions(sessionsRes) + renderWorkbenchGoalRuns(goalRuns) + script);
+  return automationsShell("Developer Workspace", head + editorsPanel + table + renderWorkbenchSessions(sessionsRes) + renderWorkbenchGoalRuns(goalRuns) + script);
 }
 
 // Sessions panel — the daemon session records with their ADMITTED harness bindings (selection is
@@ -3244,14 +3236,14 @@ function lineageLegend() {
   return `<div class="chips" style="margin:0 0 10px"><span class="chiplabel">Nodes</span>${LINEAGE_NODE_KINDS.map(([, ic, l]) => `<span class="pill muted" style="margin:0">${ic} ${CX_ESC(l)}</span>`).join(" ")}</div>`
     + `<div class="chips" style="margin:0 0 12px"><span class="chiplabel">Edges</span>${["mapped_by", "gated_by", "planned_by", "projected_as", "read_under", "produced_by", "receipted_by", "contains", "hashed_as", "mapped_from"].map((e) => `<span class="pill muted" style="margin:0"><code>${e}</code></span>`).join(" ")}</div>`;
 }
-// ============================ MISSIONS (owner surface for suite/run work — jobs + incidents seeds)
-// The Reference UX Port program (post-#31 reset), substrate for the Missions owner-family. The reference
+// ============================ WORK (legacy /missions route; jobs + incidents compatibility seeds)
+// The Reference UX Port program (post-#31 reset), substrate for the transitional Work projection. The reference
 // captures (/__apps/jobs = job-tracker "Builds", /__apps/incidents = issues-app) are the familiar
 // baselines; this IOI-owned surface renders the SAME table/list grammar — a run/job status queue and
 // a status-lane remediation inbox — but over REAL daemon truth: the operations run queue (recent
-// runs, statuses, scheduled missions) and the mission-level incidents (run failures + GoalRun
-// blockers, each linking back to its own proof/timeline). Naming: Missions is the owner surface for
-// suite/run work; Operations stays substrate/infra (its storage-repair / provider-failover incidents
+// runs, statuses, scheduled automations) and typed incidents (run failures + GoalRun
+// blockers, each linking back to its own proof/timeline). Work is the core workspace projection;
+// Operations stays substrate/infra (its storage-repair / provider-failover incidents
 // live there, NOT here). Nothing is fabricated — empty run queue / zero incidents render honest empty
 // states. Unsupported reference lanes (create/assign incidents, edit job definitions, board views,
 // SLA/escalation, comments/assignees) are named gaps, not hidden.
@@ -3266,7 +3258,7 @@ function renderMissions(ops, goalRuns) {
   const sub = (txt) => `<span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">${txt}</span>`;
   const statusPill = (st) => { const s = String(st || "").toLowerCase(); const cls = ["done", "succeeded", "ok", "completed"].includes(s) ? "ok" : (["failed", "error", "errored"].includes(s) ? "warn" : "muted"); return `<span class="pill ${cls}" style="margin:0">${CX_ESC(st || "—")}</span>`; };
 
-  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Missions</h1><p class="sub" style="margin:4px 0 0">The fleet of running systems — mission runs, their queue and status, and the incidents and blockers that need attention, over IOI daemon truth. Reference grammar: <a href="/__apps/jobs">Builds ↗</a> · <a href="/__apps/incidents">Issues ↗</a> (secondary captures).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/operations">Operations (substrate)</a><a class="act ghost" href="/__ioi/work-ledger">Proof stream</a></div></div>`;
+  const head = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h1 style="margin:0">Work <span class="pill muted">legacy /missions route</span></h1><p class="sub" style="margin:4px 0 0">A transitional read-only projection across real AutomationRuns, GoalRuns, schedules, incidents, and blockers. It does not mint a Mission object or collapse their typed lifecycles. Reference grammar: <a href="/__apps/jobs">Builds ↗</a> · <a href="/__apps/incidents">Issues ↗</a> (secondary captures).</p></div><div class="row" style="gap:8px"><a class="act ghost" href="/__ioi/operations">Operations (substrate)</a><a class="act ghost" href="/__ioi/work-ledger">Proof stream</a></div></div>`;
 
   const total = runs.total || 0, running = runs.running || 0, done = runs.done || 0, failed = runs.failed || 0;
   const incidentCount = failures.length + blocked.length;
@@ -3276,13 +3268,13 @@ function renderMissions(ops, goalRuns) {
 
   // Lane A — run/job queue (jobs seed).
   const runRows = recent.map((r) => `<tr><td>${CX_ESC(r.name || r.execution_id || "—")}</td><td>${statusPill(r.status)}</td><td><code style="font-size:10.5px">${CX_ESC(r.project_id || "—")}</code></td><td class="sub" style="margin:0">${CX_ESC(r.started_at || "")}</td><td>${r.timeline_ref ? `<a href="${CX_ESC(r.timeline_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"} · <a href="/__ioi/work-ledger">proof</a></td></tr>`).join("");
-  const queue = `<h2 id="missions-queue">Run queue ${sub(`— recent mission runs (${recent.length} of ${total})`)}</h2>`
-    + (recent.length ? `<table><thead><tr><th>Mission run</th><th>Status</th><th>Project</th><th>Started</th><th>Proof</th></tr></thead><tbody>${runRows}</tbody></table>`
-      : omBoundaryNote(`<b>No mission runs yet</b> — run an automation to populate the queue. This lane reads the real daemon run queue; nothing is fabricated.`));
+  const queue = `<h2 id="missions-queue">Run queue ${sub(`— recent typed runs (${recent.length} of ${total})`)}</h2>`
+    + (recent.length ? `<table><thead><tr><th>Automation run</th><th>Status</th><th>Project</th><th>Started</th><th>Proof</th></tr></thead><tbody>${runRows}</tbody></table>`
+      : omBoundaryNote(`<b>No runs yet</b> — run an automation to populate the queue. This lane reads the real daemon run queue; nothing is fabricated.`));
 
-  // Scheduled missions (only when present — no fabricated schedule rows).
+  // Scheduled automations (only when present — no fabricated schedule rows).
   const schedRows = scheduled.map((a) => `<tr><td>${CX_ESC(a.name || a.automation_id || "—")}</td><td><code style="font-size:10.5px">${CX_ESC((a.schedule_spec && a.schedule_spec.cron) || a.trigger_kind || "—")}</code></td><td>${a.enabled ? `<span class="pill ok" style="margin:0">enabled</span>` : `<span class="pill muted" style="margin:0">paused</span>`}</td><td class="sub" style="margin:0">${CX_ESC(a.next_run_at || "")}</td></tr>`).join("");
-  const scheduledPane = scheduled.length ? `<h2 id="missions-scheduled">Scheduled missions ${sub(`— ${scheduled.length}`)}</h2><table><thead><tr><th>Automation</th><th>Schedule</th><th>State</th><th>Next run</th></tr></thead><tbody>${schedRows}</tbody></table>` : "";
+  const scheduledPane = scheduled.length ? `<h2 id="missions-scheduled">Scheduled automations ${sub(`— ${scheduled.length}`)}</h2><table><thead><tr><th>Automation</th><th>Schedule</th><th>State</th><th>Next run</th></tr></thead><tbody>${schedRows}</tbody></table>` : "";
 
   // Lane B — incident / remediation inbox (incidents seed): real run failures + GoalRun blockers.
   const failRows = failures.map((r) => `<tr><td><span class="pill warn" style="margin:0">run failure</span></td><td>${CX_ESC(r.name || r.execution_id || "—")}</td><td><code style="font-size:10.5px">${CX_ESC(r.status || "failed")}</code></td><td class="sub" style="margin:0">${CX_ESC(r.finished_at || r.started_at || "")}</td><td>${r.timeline_ref ? `<a href="${CX_ESC(r.timeline_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td></tr>`).join("");
@@ -3290,13 +3282,13 @@ function renderMissions(ops, goalRuns) {
   const blockerRows = blocked.slice(0, BLOCKER_CAP).map((r) => { const b = (r.blockers && r.blockers[0]) || {}; return `<tr><td><span class="pill warn" style="margin:0">blocker</span></td><td>${CX_ESC(r.normalized_goal || r.goal_ref || r.goal_run_id || "—")}</td><td><code style="font-size:10.5px">${CX_ESC(b.reason_code || "—")}${b.role_key ? ` · ${CX_ESC(b.role_key)}` : ""}</code></td><td class="sub" style="margin:0">${CX_ESC(r.updated_at || r.created_at || "")}</td><td>${r.goal_run_id ? `<a href="/__ioi/run-timeline/goal-run/${enc(r.goal_run_id)}" target="_blank" rel="noopener">proof ↗</a>` : "—"}</td></tr>`; }).join("");
   const shown = failures.length + Math.min(blocked.length, BLOCKER_CAP);
   const capNote = shown < incidentCount ? ` (showing first ${shown})` : "";
-  const incidents = `<h2 id="missions-incidents">Incidents &amp; blockers ${sub(`— run failures + mission blockers needing remediation (${incidentCount})${capNote} · <a href="/__ioi/missions/incidents">Incidents inbox (reference-faithful) →</a>`)}</h2>`
+  const incidents = `<h2 id="missions-incidents">Incidents &amp; blockers ${sub(`— run failures + GoalRun blockers needing remediation (${incidentCount})${capNote} · <a href="/__ioi/missions/incidents">Work / Incidents →</a>`)}</h2>`
     + (incidentCount ? `<table><thead><tr><th>Kind</th><th>Subject</th><th>Reason</th><th>When</th><th>Remediation</th></tr></thead><tbody>${failRows}${blockerRows}</tbody></table>`
-      : omBoundaryNote(`<b>No incidents</b> — no failed mission runs and no blocked mission runs right now. This lane reads real run failures + GoalRun blockers; it never fabricates incidents or remediation actions.`));
+      : omBoundaryNote(`<b>No incidents</b> — no failed AutomationRuns and no blocked GoalRuns right now. This lane reads real typed records; it never fabricates incidents or remediation actions.`));
 
-  const gaps = omBoundaryNote(`Supported lanes above are real daemon truth (run queue · scheduled missions · incidents/blockers, each with its remediation proof link). Unsupported reference lanes — creating/assigning incidents, editing job/build definitions, board/kanban views, SLA &amp; escalation policy, comments/assignees — are <b>named gaps</b> (no authority contract yet), not silently hidden. Substrate/infra incidents (storage repair, provider failover) live in <a href="/__ioi/operations">Operations</a>, not here. The <a href="/__apps/jobs">Builds</a> + <a href="/__apps/incidents">Issues</a> captures are the familiar baselines, never rebound surfaces.`);
+  const gaps = omBoundaryNote(`Supported lanes above are real daemon truth (run queue · scheduled automations · incidents/blockers, each with its remediation proof link). Unsupported reference lanes — creating/assigning incidents, editing job/build definitions, board/kanban views, SLA &amp; escalation policy, comments/assignees — are <b>named gaps</b> (no authority contract yet), not silently hidden. Substrate/infra incidents (storage repair, provider failover) live in <a href="/__ioi/operations">Operations</a>, not here. The <a href="/__apps/jobs">Builds</a> + <a href="/__apps/incidents">Issues</a> captures are the familiar baselines, never rebound surfaces.`);
 
-  return automationsShell("Missions", head + banner + queue + scheduledPane + incidents + gaps);
+  return automationsShell("Work", head + banner + queue + scheduledPane + incidents + gaps);
 }
 // ============================ VERTEX (Provenance graph/exploration lens over real materialized truth)
 // The Reference UX Port program (post-#31 reset), substrate for Vertex. The reference capture (/__apps/vertex,
@@ -3686,7 +3678,7 @@ function renderEvalsuitesPort(suitesJson) {
       <div class="evl-truthcol"><h3>By health <span class="evl-meta">(declared-completeness)</span></h3><div class="evl-chips">${chips(byHealth)}</div><h3 style="margin-top:12px">By status</h3><div class="evl-chips">${chips(byStatus)}</div></div>
       <div class="evl-truthcol"><h3>Declared suites <span class="evl-meta">(${list.length}, full records)</span></h3>${list.length ? `<ul>${list.slice(0, 8).map(suiteDetail).join("")}</ul>${list.length > 8 ? `<p class="evl-gapnote">…and ${list.length - 8} more on the substrate.</p>` : ""}` : `<p class="evl-gapnote">No suites declared — honest empty, nothing fabricated.</p>`}</div>
     </div>
-    <p class="evl-foot">Unsupported reference lanes — New evaluation suite here, favorites, marketplace example installs — are <b>named gaps disabled in place</b>, never hidden. Suites are declared/edited on the <a href="/__ioi/evaluations">Evaluations owner surface →</a> (with the consent ladder + feedback candidate source at <a href="/__ioi/feedback">Feedback &amp; Annotations</a>); assessment subjects come from real Missions runs/failures/blockers. Reference: the origin-aligned <a href="http://localhost:9225/workspace/evals/" rel="noopener">AIP Evals capture</a> — the <a href="/__apps/evalsuites">/__apps/evalsuites proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
+    <p class="evl-foot">Unsupported reference lanes — New evaluation suite here, favorites, marketplace example installs — are <b>named gaps disabled in place</b>, never hidden. Suites are declared/edited on the <a href="/__ioi/evaluations">Evaluations owner surface →</a> (with the consent ladder + feedback candidate source at <a href="/__ioi/feedback">Feedback &amp; Annotations</a>); assessment subjects come from the real typed Work projection. Reference: the origin-aligned <a href="http://localhost:9225/workspace/evals/" rel="noopener">AIP Evals capture</a> — the <a href="/__apps/evalsuites">/__apps/evalsuites proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
   </section>`;
 
   const globalRail = ioiGlobalRailHtml({ label: "AIP Evals", href: "/__ioi/evaluations/evalsuites", iconUri: EVL_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
@@ -4260,7 +4252,7 @@ function renderMonitorsPort(automations, runsById) {
     <body><div class="mon-shell">${globalRail}<div class="mon-main">${header}<div class="mon-body">${hero}<main class="mon-content">${gettingStarted}${stats}${recents}${triggered}</main></div></div></div></body></html>`;
 }
 
-// ============================ STUDIO · MACHINERY (process/state-machine DEFINITIONS — landing port, #50)
+// ============================ AUTOMATIONS · PROCESS GRAPHS (legacy /studio/machinery route — landing port, #50)
 // The Reference UX Port program — the SECOND origin-alignment-queue port (after #49 designer).
 // The reference is the origin-aligned Machinery landing capture
 // (http://localhost:9225/workspace/machinery-app/ — the /__apps/machinery proxy lane fails with
@@ -4277,8 +4269,8 @@ function renderMonitorsPort(automations, runsById) {
 // full DEFINITION truth renders with real records (states initial/normal/final · transitions
 // from→to/event/guard · guards · declared inputs/outputs · owners · history · health).
 // THE SEMANTIC BOUNDARY IS HARD: definitions, NEVER execution — no run/step/execute, no
-// current_state, no scheduling, no Automations/Missions/ODK binding; the daemon's own
-// authority_note renders verbatim. Owner: Studio (/__ioi/agent-studio); no route rename.
+// current_state, no AutomationSpec/AutomationRun, Work, Ontology, or Data binding; the daemon's
+// authority_note renders verbatim. Owner: Automations; the legacy route remains until migration.
 function renderMachineryPort(machines, selectedId) {
   const esc = CX_ESC;
   const enc = (s) => encodeURIComponent(String(s || ""));
@@ -4351,8 +4343,8 @@ function renderMachineryPort(machines, selectedId) {
         ${history.length ? `<p class="mch-histnote">History: ${history.length} edit record${history.length === 1 ? "" : "s"} on the definition${history[0] && (history[0].at || history[0].note) ? ` (latest: ${esc(history[0].note || history[0].at || "")})` : ""}.</p>` : ""}
       </div>
     </div>
-    <p class="mch-foot">These are <b>definitions, not running processes</b> — nothing here executes, steps, schedules, or carries a current state; run/step/execute, scheduling, Automations/Missions/ODK binding, simulation, and versioning are <b>named gaps</b> (a later authority-crossing cut), and the marketplace example band above is the reference's own example content (verbatim capture chrome), not estate process truth. Unsupported reference lanes — graph authoring (New graph), the Recent-installations store menu, favorites, marketplace example installs — are disabled in place, never hidden. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/designer">Solution Designer</a> · reference-only: <a href="/__apps/workshop">workshop</a> and <a href="/__apps/module">module</a> builders. Reference: the origin-aligned <a href="http://localhost:9225/workspace/machinery-app/" rel="noopener">Machinery capture</a> — the <a href="/__apps/machinery">/__apps/machinery proxy lane ↗</a> is documented insufficient (its Marketplace-examples fetch fails on the proxy origin; #44 sweep evidence).</p>
-  </section>` : `<section class="mch-truth" id="machinery-truth"><p class="mch-gapnote">No state machines defined yet — the plane holds inert <b>definitions</b> only; nothing executes and nothing is fabricated. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · sibling: <a href="/__ioi/studio/designer">Solution Designer</a> · reference: <a href="/__apps/machinery">/__apps/machinery ↗</a>.</p></section>`;
+    <p class="mch-foot">These are <b>definitions, not running processes</b> — nothing here executes, steps, schedules, or carries a current state; run/step/execute, scheduling, AutomationSpec/AutomationRun, Work, Ontology, and Data binding, simulation, and versioning are <b>named gaps</b> (a later authority-crossing cut), and the marketplace example band above is the reference's own example content (verbatim capture chrome), not estate process truth. Unsupported reference lanes — graph authoring (New graph), the Recent-installations store menu, favorites, marketplace example installs — are disabled in place, never hidden. Owner: <a href="/__ioi/automations">Automations / Process Graphs</a> · contextual composition: <a href="/__ioi/agent-studio">Studio</a> · sibling tool: <a href="/__ioi/studio/designer">System Designer</a> · reference-only: <a href="/__apps/workshop">workshop</a> and <a href="/__apps/module">module</a> builders. Reference: the origin-aligned <a href="http://localhost:9225/workspace/machinery-app/" rel="noopener">Machinery capture</a> — the <a href="/__apps/machinery">/__apps/machinery proxy lane ↗</a> is documented insufficient (its Marketplace-examples fetch fails on the proxy origin; #44 sweep evidence).</p>
+  </section>` : `<section class="mch-truth" id="machinery-truth"><p class="mch-gapnote">No state machines defined yet — the plane holds inert <b>definitions</b> only; nothing executes and nothing is fabricated. Owner: <a href="/__ioi/automations">Automations / Process Graphs</a> · contextual composition: <a href="/__ioi/agent-studio">Studio</a> · sibling tool: <a href="/__ioi/studio/designer">System Designer</a> · reference: <a href="/__apps/machinery">/__apps/machinery ↗</a>.</p></section>`;
 
   const globalRail = ioiGlobalRailHtml({ label: "Machinery", href: "/__ioi/studio/machinery", iconUri: MCH_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
 
@@ -4615,9 +4607,9 @@ function renderDataLineage(lists, selectedId, objectSetSel) {
 // ============================ PIPELINE BUILDER: EXTRACTED to surfaces/pipeline/index.mjs =========
 // (functional-runtime wave) — the first app module; the surface registry mounts it. The INCIDENTS
 // banner below is the next inline surface awaiting extraction.
-// ============================ INCIDENTS (#45 — the Missions incident inbox as a faithful
+// ============================ WORK / INCIDENTS (#45 — the legacy /missions incident inbox as a faithful
 // reference port of the issues-app capture, over REAL daemon truth: run failures + GoalRun
-// blockers). Status-lane grammar: open = blockers on non-terminal mission runs + failed runs
+// blockers). Status-lane grammar: open = blockers on non-terminal GoalRuns + failed runs
 // (needing remediation) · closed = blockers recorded on runs that reached a terminal state
 // (the blocker no longer blocks) · all = both. Every row is a real goal-run/run: id, reason
 // code, timestamps, and a proof link into its own run timeline. Nothing is fabricated — no
@@ -4679,7 +4671,7 @@ function renderIncidentsPort(ops, goalRuns, lane) {
     <div class="in-rmain"><a class="in-rtitle" href="${esc(i.proof)}">${esc(i.title)}</a><div class="in-rsub">Created&nbsp;&nbsp;${esc(ago(i.created) || "—")} · <a href="${esc(i.proof)}">proof ↗</a>${i.detail ? ` · ${esc(i.detail)}` : ""}</div></div>
     <div class="in-rright"><span class="in-rpill${i.kind === "Blocker" ? "" : " fail"}"><span class="in-pdot">${bpIcon("issue-dot")}</span>${esc(i.kind)}</span><div class="in-rkind">Kind</div></div>
   </div>`;
-  const emptyLane = `<div class="in-empty"><b>No ${lane === "all" ? "" : lane + " "}incidents</b> — ${lane === "closed" ? "no mission blocker has been resolved by a terminal run yet" : "no failed mission runs and no blocked mission runs right now"}. This inbox reads real run failures + GoalRun blockers from the daemon; it never fabricates incidents. <a href="/__ioi/missions">Missions overview →</a></div>`;
+  const emptyLane = `<div class="in-empty"><b>No ${lane === "all" ? "" : lane + " "}incidents</b> — ${lane === "closed" ? "no GoalRun blocker has been resolved by a terminal run yet" : "no failed AutomationRuns and no blocked GoalRuns right now"}. This inbox reads real typed run failures + GoalRun blockers from the daemon; it never fabricates incidents. <a href="/__ioi/missions">Work overview →</a></div>`;
 
   const header = `<header class="in-header">
     <span class="in-hchip"></span>
@@ -4936,7 +4928,7 @@ function renderModelCatalogPort(routesJson) {
 // The Stores ROW REGION is masked data; the store card chrome, hero, and the install-wizard
 // band are compared shell. Publish/install/hire/settle/runtime semantics do NOT exist here —
 // the install wizard is reference chrome (named gap); drafting/publish/admission stay on the
-// /__ioi/marketplace substrate (linked first-class). No fake marketplace products, ever.
+// Packages / Marketplace compatibility surface (linked first-class). No fake products, ever.
 function renderMarketplaceBrowsePort(listingsJson) {
   const esc = CX_ESC;
   const listings = (listingsJson && listingsJson.listings) || [];
@@ -4979,7 +4971,7 @@ function renderMarketplaceBrowsePort(listingsJson) {
       <div class="mk-wizcopy">
         <h4 class="mk-wizt">Install your first product</h4>
         <p class="mk-wizsub">A store holds a collection of products. Select a store to browse or search for a product to install.</p>
-        <p class="mk-wizsub2">Installing from this surface is a reference-only lane (named gap) — products enter the estate through the governed path on the <a href="/__ioi/marketplace">Marketplace substrate</a>: draft → admitted review → open release.</p>
+        <p class="mk-wizsub2">Installing from this surface is a reference-only lane (named gap) — products enter the estate through the governed path in <a href="/__ioi/marketplace">Packages / Marketplace</a>: draft → admitted review → open release.</p>
       </div>
       <div class="mk-wizsteps">
         <img class="w1" src="${MK_WIZ1_URI}" width="80" height="78" alt="">
@@ -4990,7 +4982,7 @@ function renderMarketplaceBrowsePort(listingsJson) {
         <span class="wc1">Choose a product to install</span><span class="wc2">Configure product inputs</span><span class="wc3">Install and explore</span>
       </div>
     </div>
-    <div class="mk-foot">The store row is daemon truth: ${listings.length} listing${listings.length === 1 ? "" : "s"} on the governed plane (${published.length} published). Draft/publish/admission: <a href="/__ioi/marketplace">Marketplace substrate →</a> · reference: <a href="/__apps/listings" target="_blank" rel="noopener">Marketplace capture ↗</a></div>
+    <div class="mk-foot">The store row is daemon truth: ${listings.length} listing${listings.length === 1 ? "" : "s"} on the governed plane (${published.length} published). Owner: <a href="/__ioi/marketplace">Packages / Marketplace →</a> · reference: <a href="/__apps/listings" target="_blank" rel="noopener">Marketplace capture ↗</a></div>
   </div>`;
 
   const css = `:root{color-scheme:light}*{box-sizing:border-box}
@@ -5330,7 +5322,7 @@ function domainAppCard(a) {
 function renderDomainAppsLanding(ov, apps, manifests) {
   const o = ov || {}; const sub = o.substrate || {}; const dm = o.domain_apps || {};
   const note = o.status_note || "Domain Apps are draft candidates over ODK descriptors. No generated runtime is mounted.";
-  const head = `<h1>Generated Apps</h1><p class="sub">Draft app <b>candidates</b> over <code>domain_app</code> surface descriptors — bind a descriptor, optionally a manifest, and set visibility. Generated apps are launchable catalog entries (authored in Studio, distributed via Marketplace); nothing here generates or mounts a running app. <a href="/__ioi/odk">Open Grounding →</a></p>`;
+  const head = `<h1>Generated Apps</h1><p class="sub">Draft app <b>candidates</b> over <code>domain_app</code> surface descriptors — bind a descriptor, optionally a manifest, and set visibility. Generated apps become launchable only through typed extension registration and admission; Studio may author them and Packages / Marketplace may distribute them, but nothing here generates or mounts a running app. <a href="/__ioi/odk">Open Grounding →</a></p>`;
   const banner = `<div class="chips"><span class="pill warn">draft-only</span> <span class="sub" style="margin:0">${CX_ESC(note)}</span></div>`;
   const stat = (label, val) => `<div style="flex:1;min-width:120px;padding:12px 14px;border:1px solid #24262d;border-radius:10px;background:#15171c"><div style="font-size:22px;font-weight:700;color:#fff">${CX_ESC(String(val == null ? "—" : val))}</div><div style="color:#878a93;font-size:12px;margin-top:2px">${CX_ESC(label)}</div></div>`;
   const stats = `<h2>Substrate (ODK)</h2><div class="row" style="gap:10px;align-items:stretch">${stat("domain_app descriptors", sub.odk_domain_app_descriptors)}${stat("Surface descriptors", sub.odk_surface_descriptors)}${stat("Ontologies", sub.odk_domain_ontologies)}${stat("Data recipes", sub.odk_data_recipes)}${stat("Manifests", sub.odk_manifests)}</div>`;
@@ -5770,7 +5762,7 @@ function renderMarketplaceHome(ov, listings, q, storeFilter) {
   let shown = listings.filter((l) => !storeFilter || l.listing_kind === storeFilter);
   if (qn) shown = shown.filter((l) => `${l.name || ""} ${l.subject_ref || ""} ${l.listing_kind || ""}`.toLowerCase().includes(qn));
   const styles = `<style>.wrap{max-width:1100px}.mpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.mpstores{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:0 0 20px}.mpstore{display:block;padding:13px 15px;border:1px solid #24262d;border-radius:12px;background:#15171c;text-decoration:none;color:inherit}.mpstore:hover{border-color:#3a82f6}.mpstore.on{border-color:#3a82f6;box-shadow:0 0 0 1px #3a82f6 inset}.mpstore .sn{font-weight:600;color:#fff}.mpstore .sc{color:#878a93;font-size:12px;margin-top:3px}.mpsearch{width:100%;max-width:420px;box-sizing:border-box;padding:9px 12px;border-radius:9px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit}</style>`;
-  const head = `<h1>Marketplace</h1><p class="sub">Discover, inspect, and take through admission — agents, domain apps, ODK packs, data recipes, and Foundry capabilities. Nothing is published, hired, installed, or settled here. <a href="/__apps/listings">Store-browse seed (adopting) →</a></p>`;
+  const head = `<h1>Packages <span class="pill muted">Marketplace compatibility route</span></h1><p class="sub">The current Marketplace mode for discovering and taking agents, domain apps, ontology packs, data recipes, and Foundry capabilities through admission. Package release, dependency, install, impact, recall, and System-specific disposition remain the broader owner lifecycle; nothing is published, hired, installed, or settled merely by appearing here. <a href="/__apps/listings">Store-browse tool →</a></p>`;
   const banner = `<div class="chips"><span class="pill warn">publish = admitted review + open release + serving runtime</span> <span class="sub" style="margin:0">${CX_ESC(o.status_note || "A domain_app publishes only with runtime backing; published = read-only distribution metadata.")}</span></div>`;
   const storeCards = MP_STORES.map((s) => `<a class="mpstore${storeFilter === s.kind ? " on" : ""}" href="/__ioi/marketplace?store=${enc(s.kind)}"><div class="sn">${s.icon} ${CX_ESC(s.label)} <span class="pill muted">${byKind[s.kind] || 0}</span></div><div class="sc">${CX_ESC(s.desc)}</div></a>`).join("");
   const stores = `<h2>Stores${storeFilter ? ` · <a href="/__ioi/marketplace">show all</a>` : ""}</h2><div class="mpstores">${storeCards}</div>`;
@@ -5782,7 +5774,7 @@ function renderMarketplaceHome(ov, listings, q, storeFilter) {
     <form method="get" action="/__ioi/marketplace" style="margin:0 0 14px">${storeFilter ? `<input type="hidden" name="store" value="${CX_ESC(storeFilter)}">` : ""}<input class="mpsearch" name="q" value="${CX_ESC(q || "")}" placeholder="Search listings by name, subject, or kind…"></form>
     ${shown.length ? `<div class="mpgrid">${shown.map(card).join("")}</div>` : `<div class="empty">No listings${storeFilter ? ` in ${CX_ESC(mpStoreOf(storeFilter).label)}` : ""} yet. Draft one over a real agent, domain app, ODK pack, recipe, or Foundry capability.</div>`}`;
   const activity = `<h2>Admission activity</h2><div class="chips"><span class="pill muted">publish candidates: ${mk.publish_candidates || 0}</span> <span class="pill muted">admission reviews: ${mk.admission_reviews || 0}</span> <span class="pill muted">managed offers: ${mk.managed_instance_offers || 0}</span> <span class="pill ok">published: ${mk.published || 0}</span></div><p class="sub" style="margin:6px 0 0">Substrate: ${sub.agents || 0} agents · ${sub.domain_apps_marketplace_candidates || 0} domain-app candidates · ${sub.foundry_specs || 0} foundry specs. <a href="/__ioi/governance">Governance posture →</a></p>`;
-  return automationsShell("Marketplace", styles + head + banner + stores + catalog + activity);
+  return automationsShell("Packages", styles + head + banner + stores + catalog + activity);
 }
 function renderMarketplaceListingForm(existing, opts) {
   const enc = encodeURIComponent; const ex = existing || {}; const isEdit = !!existing;
@@ -8007,8 +7999,8 @@ async function handleEstateRequest(req, res, body) {
       }
     }
 
-    // ---- App catalog — the registry of ported application surfaces (membership = parity-matrix
-    // truth via app-catalog.mjs; every launcher lane renders from this one projection).
+    // ---- Product-surface catalog — peer membership comes from typed registrations;
+    // certified runtime surfaces attach only as contextual tools/views.
     if (pathname === "/__ioi/api/applications" && req.method === "GET") {
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(appCatalog()));
@@ -8130,7 +8122,7 @@ async function handleEstateRequest(req, res, body) {
       res.end(renderSearchResults(q, groups, SOURCES));
       return;
     }
-    // ---- Code Repositories (folds into Workbench; repos over project truth + SCM posture).
+    // ---- Code Repositories (folds into Developer Workspace; repos over project truth + SCM posture).
     if (pathname === "/__ioi/code" && req.method === "GET") {
       const [pjRes, scmRes, ledRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/projects`).then((x) => x.json()).catch(() => ({})),
@@ -8177,9 +8169,9 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
-    // ---- Missions — owner surface for suite/run work (jobs + incidents seeds). Reads the real
-    // operations run queue + goal-runs; renders the run/job queue and the mission-level incident
-    // inbox (run failures + GoalRun blockers). Operations stays substrate/infra (separate route).
+    // ---- Work compatibility projection (legacy /missions route). Reads the real operations
+    // run queue + GoalRuns and renders the run/job queue plus Work / Incidents. Operations stays
+    // substrate/infra (separate route).
     if (pathname === "/__ioi/marketplace/listings" && req.method === "GET") {
       const listingsJson = await fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`).then((x) => x.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
@@ -8249,7 +8241,7 @@ async function handleEstateRequest(req, res, body) {
       res.end(renderEnvironments(sRes, cRes.environmentClasses || [], paRes, pvRes, ppRes, srRes, saRes, pdRes, fpRes));
       return;
     }
-    // ---- Workbench — launcher; reads the daemon env-summary projection (paged).
+    // ---- Developer Workspace compatibility route; reads the daemon env-summary projection (paged).
     if (pathname === "/__ioi/workbench" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
       const [sRes, etRes, sessRes, grRes] = await Promise.all([
@@ -9074,7 +9066,7 @@ async function handleEstateRequest(req, res, body) {
       }, selectedOntology, new URL(req.url, "http://x").searchParams.get("objectSet") || ""));
       return;
     }
-    // ---- Surface registry dispatch — ported application surfaces mount through the explicit
+    // ---- Surface registry dispatch — certified contextual tools/views mount through the explicit
     // table (surface-registry.mjs), not the flat branch chain. This sits exactly where the
     // pipeline branch lived so registry surfaces keep the chain position (after auth/posture
     // gates) the flat branches had. Surface MODULES (surfaces/<slug>/index.mjs) bind in the
@@ -9347,7 +9339,7 @@ async function handleEstateRequest(req, res, body) {
       if (cfg && req.method === "POST") {
         const api = `/v1/hypervisor/governance/${cfg.api}`;
         const p = new URLSearchParams(body.toString());
-        // Redirect back to the caller's surface — the ported Approvals inbox (#33) posts a `return`
+        // Redirect back to the caller's surface — the Governance / Approvals tool posts a `return`
         // to land back on itself; everything else falls back to the substrate tab. Same-origin only.
         const ret = p.get("return");
         // Same-origin path only, and no characters that could break out of an HTML attribute / a header
@@ -9390,7 +9382,7 @@ async function handleEstateRequest(req, res, body) {
         }
       }
     }
-    // ---- Marketplace — source-grafted catalog/detail/admission surface (estate #8, last card).
+    // ---- Packages / Marketplace compatibility surface — catalog/detail/admission mode.
     if (pathname === "/__ioi/marketplace" && req.method === "GET") {
       const u = new URL(req.url, "http://x");
       const [ov, ls] = await Promise.all([

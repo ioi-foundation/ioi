@@ -157,7 +157,10 @@ pub trait AgentgresSubstrate {
     fn validate(&self, op: &Operation) -> Result<(), Refusal>;
     /// append + advance-head + root — one durable admission batch.
     /// Per-op results preserve input order; refusals do not poison the batch.
-    fn admit_batch(&mut self, ops: Vec<Operation>) -> std::io::Result<Vec<Result<AdmitAck, Refusal>>>;
+    fn admit_batch(
+        &mut self,
+        ops: Vec<Operation>,
+    ) -> std::io::Result<Vec<Result<AdmitAck, Refusal>>>;
     /// current head for an object.
     fn head(&self, object_ref: &str) -> Option<&Head>;
     /// current batch root.
@@ -286,10 +289,16 @@ impl SubstrateEngine {
                 valid += 4 + len as u64;
             }
             if valid < file_len {
-                OpenOptions::new().write(true).open(&log_path)?.set_len(valid)?;
+                OpenOptions::new()
+                    .write(true)
+                    .open(&log_path)?
+                    .set_len(valid)?;
             }
         }
-        let log = OpenOptions::new().create(true).append(true).open(&log_path)?;
+        let log = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)?;
         Ok(Self {
             dir: dir.to_path_buf(),
             log,
@@ -303,7 +312,11 @@ impl SubstrateEngine {
 
     /// Fork a new engine directory from a checkpoint: O(1) in log length —
     /// no history bytes are copied; the checkpoint's head map seeds the fork.
-    pub fn fork_from(checkpoint: &CheckpointRecord, parent_dir: &Path, new_dir: &Path) -> std::io::Result<()> {
+    pub fn fork_from(
+        checkpoint: &CheckpointRecord,
+        parent_dir: &Path,
+        new_dir: &Path,
+    ) -> std::io::Result<()> {
         std::fs::create_dir_all(new_dir)?;
         let mut ck = checkpoint.clone();
         ck.parent_log = Some(parent_dir.join("oplog.bin").to_string_lossy().into_owned());
@@ -345,7 +358,10 @@ impl AgentgresSubstrate for SubstrateEngine {
         }
     }
 
-    fn admit_batch(&mut self, ops: Vec<Operation>) -> std::io::Result<Vec<Result<AdmitAck, Refusal>>> {
+    fn admit_batch(
+        &mut self,
+        ops: Vec<Operation>,
+    ) -> std::io::Result<Vec<Result<AdmitAck, Refusal>>> {
         if ops.is_empty() {
             return Ok(Vec::new());
         }
@@ -533,7 +549,10 @@ impl SubstrateHandle {
 
 /// Spawn the single-writer group-commit loop over an opened engine.
 /// `max_batch` bounds how many queued ops one durable batch may absorb.
-pub fn spawn_writer(mut engine: SubstrateEngine, max_batch: usize) -> (SubstrateHandle, SubstrateWriter) {
+pub fn spawn_writer(
+    mut engine: SubstrateEngine,
+    max_batch: usize,
+) -> (SubstrateHandle, SubstrateWriter) {
     let (tx, rx) = mpsc::channel::<WriterMsg>();
     let join = std::thread::spawn(move || -> std::io::Result<()> {
         loop {
@@ -605,7 +624,10 @@ mod tests {
     }
 
     fn tmp(name: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("agentgres-substrate-test-{name}-{}", std::process::id()));
+        let d = std::env::temp_dir().join(format!(
+            "agentgres-substrate-test-{name}-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&d);
         d
     }
@@ -615,7 +637,13 @@ mod tests {
         let (d1, d2) = (tmp("det1"), tmp("det2"));
         let mut e1 = SubstrateEngine::open(&d1, false).unwrap();
         let mut e2 = SubstrateEngine::open(&d2, false).unwrap();
-        let ops = || vec![op("obj://a", "create", None, 1), op("obj://b", "create", None, 2), op("obj://a", "update", None, 3)];
+        let ops = || {
+            vec![
+                op("obj://a", "create", None, 1),
+                op("obj://b", "create", None, 2),
+                op("obj://a", "update", None, 3),
+            ]
+        };
         e1.admit_batch(ops()).unwrap();
         e2.admit_batch(ops()).unwrap();
         assert_eq!(e1.current_root(), e2.current_root());
@@ -625,7 +653,9 @@ mod tests {
     #[test]
     fn expected_head_conflict_refuses_without_poisoning_batch() {
         let mut e = SubstrateEngine::open(&tmp("conflict"), false).unwrap();
-        let r = e.admit_batch(vec![op("obj://a", "create", None, 1)]).unwrap();
+        let r = e
+            .admit_batch(vec![op("obj://a", "create", None, 1)])
+            .unwrap();
         let head = r[0].as_ref().unwrap().new_head.clone();
         let r = e
             .admit_batch(vec![
@@ -645,7 +675,8 @@ mod tests {
         {
             let mut e = SubstrateEngine::open(&d, false).unwrap();
             for i in 0..50u64 {
-                e.admit_batch(vec![op(&format!("obj://{}", i % 7), "w", None, i)]).unwrap();
+                e.admit_batch(vec![op(&format!("obj://{}", i % 7), "w", None, i)])
+                    .unwrap();
             }
             root_before = e.current_root().clone();
             head_before = e.head("obj://3").cloned();
@@ -660,12 +691,15 @@ mod tests {
         let dp = tmp("fork-parent");
         let df = tmp("fork-child");
         let mut parent = SubstrateEngine::open(&dp, false).unwrap();
-        parent.admit_batch(vec![op("obj://a", "create", None, 1)]).unwrap();
+        parent
+            .admit_batch(vec![op("obj://a", "create", None, 1)])
+            .unwrap();
         let ck = parent.checkpoint(2_000).unwrap();
         SubstrateEngine::fork_from(&ck, &dp, &df).unwrap();
         let mut fork = SubstrateEngine::open(&df, false).unwrap();
         assert_eq!(fork.current_root(), parent.current_root());
-        fork.admit_batch(vec![op("obj://a", "update", None, 2)]).unwrap();
+        fork.admit_batch(vec![op("obj://a", "update", None, 2)])
+            .unwrap();
         assert_ne!(fork.current_root(), parent.current_root());
         assert_eq!(parent.head("obj://a"), parent.heads.get("obj://a"));
     }

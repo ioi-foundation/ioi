@@ -92,7 +92,9 @@ async function run() {
   const apps = await page(`${SERVE}/__ioi/applications`);
   ok("the Applications estate routes Ontology to the Manager (owner surface)", apps.status === 200 && /Ontology[\s\S]{0,400}?href="\/__ioi\/ontology\/manager"/.test(apps.text.replace(/\n/g, " ")) || apps.text.includes('href="/__ioi/ontology/manager"'));
   const aug = await page(`${SERVE}/ioi-augmentation.js`);
-  ok("the launcher catalog routes Ontology to the Manager; the substrate stays a Data-lane link", /name: "Ontology"[^}]*href: "\/__ioi\/ontology\/manager"/.test(aug.text) && /name: "Data"[^}]*href: "\/__ioi\/odk#data-planes"/.test(aug.text));
+  const catalogPage = await page(`${SERVE}/__ioi/api/applications`);
+  let catalog = null; try { catalog = JSON.parse(catalogPage.text); } catch { /* non-json */ }
+  ok("the typed launcher catalog routes Ontology to the Manager; Data keeps its current data-plane launch", catalogPage.status === 200 && (catalog?.applications || []).some((entry) => entry.ref === "application:ontology" && entry.launch_route === "/__ioi/ontology/manager") && (catalog?.applications || []).some((entry) => entry.ref === "application:data" && entry.launch_route === "/__ioi/odk#data-planes"));
   const em = await page(`${SERVE}/__ioi/ontology/manager?embed=1`);
   ok("the Manager keeps the substrate linked from within (odk stays the advanced contract surface)", em.text.includes("/__ioi/odk"));
   ok("NO rail injection ships in the augmentation (#70 stack correction); openApplication() owns embed (URL-normalized, forced embed=1)", !aug.text.includes("mountOntologyNav") && !aug.text.includes("ioi-ontology-rail") && aug.text.includes("embeddedAppSrc") && aug.text.includes('u.searchParams.set("embed", "1")'));
@@ -137,11 +139,11 @@ async function run() {
         return null;
       };
 
-      // #65: EVERY registry surface, opened from the REAL native Applications launcher.
+      // #65: EVERY certified contextual surface, opened from the REAL native Applications launcher.
       for (const s of SURFACES) {
         await pg.click('a[href="#applications"]');
-        await pg.waitForSelector(`.ioi-mrow[data-href="${s.route}"]`, { timeout: 15000 }); // catalog projection is async
-        await pg.click(`.ioi-mrow[data-href="${s.route}"]`);
+        await pg.waitForSelector(`.ioi-mrow[data-surface-key="${s.slug}"]`, { timeout: 15000 }); // typed catalog projection is async
+        await pg.click(`.ioi-mrow[data-surface-key="${s.slug}"]`);
         await pg.waitForSelector("#ioi-open-app iframe", { timeout: 15000 });
         const src = (await pg.locator("#ioi-open-app iframe").getAttribute("src")) || "";
         const f = await frameFor(s.route, LOCAL_NAV[s.slug]);
@@ -158,8 +160,8 @@ async function run() {
 
       // #65 regression: Pipeline from the catalog — in-app node selection + refresh keep embed.
       await pg.click('a[href="#applications"]');
-      await pg.waitForSelector('.ioi-mrow[data-href="/__ioi/pipeline"]', { timeout: 15000 });
-      await pg.click('.ioi-mrow[data-href="/__ioi/pipeline"]');
+      await pg.waitForSelector('.ioi-mrow[data-surface-key="pipeline"]', { timeout: 15000 });
+      await pg.click('.ioi-mrow[data-surface-key="pipeline"]');
       let pf = await frameFor("/__ioi/pipeline", ".pb-main");
       ok("Pipeline opens from the catalog embedded (the #61 Ontology-only journey gap is closed)", !!pf && pf.url().includes("embed=1"));
       await pf.click('a[href*="node="]');
@@ -180,8 +182,8 @@ async function run() {
       // In-app CROSS-application navigation stays embedded, stays single-slot (Manager → Explorer).
       // Ontology launches from the REAL Applications catalog (#70 stack correction).
       await pg.click('a[href="#applications"]');
-      await pg.waitForSelector('.ioi-mrow[data-name="Ontology"]', { timeout: 15000 });
-      await pg.click('.ioi-mrow[data-name="Ontology"]');
+      await pg.waitForSelector('.ioi-mrow[data-registration-ref="application:ontology"]', { timeout: 15000 });
+      await pg.click('.ioi-mrow[data-registration-ref="application:ontology"]');
       const mf = await frameFor("/__ioi/ontology/manager", ".og-arail");
       ok("Ontology launches FROM THE CATALOG into the Manager embedded (openApplication forces embed)", !!mf && mf.url().includes("embed=1"));
       await mf.click('a[href^="/__ioi/ontology/explorer"][href*="embed=1"]');
@@ -195,8 +197,8 @@ async function run() {
       ok("closing the app preserves native navigation (rail + Home explorer intact; still no Ontology rail item)", await rail.isVisible() && await pg.locator("#ioi-ontology-rail").count() === 0 && await pg.locator('[data-testid="ioi-home-explorer"]').count() === 1);
       // Reopen from the catalog — normal launcher behavior preserved.
       await pg.click('a[href="#applications"]');
-      await pg.waitForSelector('.ioi-mrow[data-name="Ontology"]', { timeout: 15000 });
-      await pg.click('.ioi-mrow[data-name="Ontology"]');
+      await pg.waitForSelector('.ioi-mrow[data-registration-ref="application:ontology"]', { timeout: 15000 });
+      await pg.click('.ioi-mrow[data-registration-ref="application:ontology"]');
       await pg.waitForSelector("#ioi-open-app iframe", { timeout: 15000 });
       ok("reopening uses the same singular slot (never a second one)", await pg.locator("#ioi-open-app").count() === 1 && await pg.locator("#ioi-open-app iframe").count() === 1);
     } finally {

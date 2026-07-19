@@ -86,8 +86,11 @@ async function run() {
   // 4. PORT SHELL SEMANTICS — gaps disabled IN PLACE and NAMED, discoverability, substrate intact.
   ok("unsupported reference controls are DISABLED IN PLACE + named as gaps (New · search · facet inputs · checkboxes), never hidden", (pClosed.text.match(/disabled/g) || []).length >= 10 && /named gap/.test(pClosed.text) && /reference-only/.test(pClosed.text) && /aria-disabled="true"/.test(pClosed.text));
   ok("the filter sidebar renders the full reference facet set as chrome (Priority · Assignees · Reporters · Mentions · Labels · Support types · date ranges)", ["Priority", "Assignees", "Reporters", "Mentions", "Labels", "Support types", "Reported on", "Last updated", "Clear filters"].every((l) => pClosed.text.includes(l)));
-  const missions = await page(`${SERVE}/__ioi/missions`);
-  ok("owner discoverability: /__ioi/missions links the incidents inbox first-class AND keeps its own incidents lane intact", missions.status === 200 && missions.text.includes("/__ioi/missions/incidents") && /Incidents (&amp;|&) blockers/.test(missions.text));
+  const work = await page(`${SERVE}/__ioi/missions`);
+  ok("Work compatibility projection links the incidents view first-class and keeps its incident lane intact", work.status === 200 && /<h1[^>]*>Work/.test(work.text) && work.text.includes("/__ioi/missions/incidents") && /Incidents (&amp;|&) blockers/.test(work.text));
+  const catalogPage = await page(`${SERVE}/__ioi/api/applications`);
+  let catalog = null; try { catalog = JSON.parse(catalogPage.text); } catch { /* non-json */ }
+  ok("typed placement is exactly Work / Incidents and creates no Missions application", (catalog?.workspace_views || []).some((entry) => entry.slug === "incidents" && entry.placement_owner_ref === "workspace:work" && entry.placement === "Work / Incidents") && !(catalog?.applications || []).some((entry) => entry.name === "Missions"));
   ok("brand/reference clean: reference capture linked nowhere as a rebound surface; no Palantir branding", !/\bPalantir\b/.test(pClosed.text) && !/\bFoundry\b/.test(pClosed.text));
 
   // 5. SHELL-PIXEL CERTIFICATION — committed non-pinned evidence; body excluded by design.

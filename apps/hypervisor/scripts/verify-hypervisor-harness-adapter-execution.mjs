@@ -18,7 +18,7 @@
 //      driver executes into the environment workspace the editor serves → VS Code Browser
 //      open lane serves that root → Work Ledger indexes the harness_execution entry with
 //      receipt + state_root + Run Timeline link → transcript plane state_root matches →
-//      Workbench renders the admitted harness binding.
+//      Developer Workspace renders the admitted harness binding.
 //
 // Both suites run REAL executions against the live Ollama route (qwen2.5:7b); nothing is
 // faked and external CLI state is never treated as truth. Expect ~2–5 min total.

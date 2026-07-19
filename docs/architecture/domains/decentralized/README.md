@@ -48,7 +48,8 @@ wallet.network authorizes.
 Hypervisor executes autonomous work when runtime work is involved.
 Venues, pools, chains, and providers perform.
 Agentgres records admitted truth.
-IOI L1 settles only triggered public, economic, dispute, registry,
+The system settles locally unless its declared profile selects an external
+service such as IOI L1 for triggered public, economic, dispute, registry,
 rights, reputation, or cross-domain commitments.
 ```
 

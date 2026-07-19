@@ -6,12 +6,12 @@ streaming, run lifecycle, OutcomeRoom/GoalRun execution APIs, structured errors,
 and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-15.
 Doctrine status: reference
-Implementation status: partial (many route families live; source of truth is the daemon route registry)
+Implementation status: partial (many route families live; Cut 3 information-flow enforcement is live at HTTP connector, MCP tool, hosted-model, guarded browser-navigation, memory write/edit, signed automation-webhook, and WorkResult/OutcomeDelta label-ref-preservation seams; a shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and read-only status route are live as mechanisms but are not yet bound to owner write routes; generalized GoalRunProfile resolution, local-agent pairing, OutcomeRoom discussion/artifact resolution, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are target-only; source of truth is the daemon route registry)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-16 (information-flow Cut 3B1 propagation)
 
 ## Purpose
 
@@ -23,10 +23,11 @@ Last implementation audit: 2026-07-05
 > Generator TODO: emit the endpoint listing from a route scan and keep
 > only contract semantics hand-written here.
 
-The Hypervisor Daemon is the universal execution endpoint and hypervisor/control plane
-for canonical Web4 autonomous work. The IOI CLI/headless client, optional TUI
+The Hypervisor Daemon is the universal public admission, orchestration, and
+control-plane endpoint, and the general-purpose execution endpoint, for canonical
+Web4 autonomous work. The IOI CLI/headless client, optional TUI
 presentation, `@ioi/agent-sdk`, future IOI ADK, future IOI ODK, Hypervisor App,
-Hypervisor Web, Workbench/Foundry surfaces, other application surfaces,
+Hypervisor Web, Developer Workspace/Foundry surfaces, other application surfaces,
 Environments views, Workflow Compositor, harness profiles,
 benchmarks, OutcomeRoom/CollaborativeWorkGraph clients, editor extension-host
 code, and IOI
@@ -37,6 +38,18 @@ customer VPC nodes run daemon-compatible runtime nodes to execute workers,
 workflows, model calls, tools, connectors, computer-use leases, worker-training
 jobs, evaluation jobs, benchmark jobs, MoW routing decisions, and artifact
 production.
+
+Native Embodied Runtime does not require every controller, MCU, PLC, RTOS
+partition, robot, drone, or other physical leaf to host the full daemon or share
+one language, scheduler, transport, kernel, or hardware architecture. One or
+more daemon-compatible control endpoints admit the exact
+`EmbodiedRuntimeGraphManifest`, profile set, placements, policy and safety
+bindings, activation transaction, leases, and evidence. Composable `micro`,
+`edge`, and `site` footprints then execute their admitted native component and
+stream contracts beneath a local `LocalControlSupervisor`. The supervisor and
+independently available local safety paths remain authoritative at the physical
+boundary when the daemon, site coordinator, model, network, wallet, or ledger is
+unavailable.
 
 Compute nodes initialize daemon-compatible runtime-node profiles, optionally
 bridging into lower-level runtime services. The SDK may submit, inspect, stream,
@@ -73,6 +86,41 @@ GET /v1/runtime/policy
 GET /v1/runtime/nodes
 ```
 
+### Work-lifecycle mechanism status
+
+```http
+GET /v1/hypervisor/work-lifecycle/status
+```
+
+This read-only diagnostic reports the shared lifecycle kernel, durable local
+record/projection/archive/snapshot counts, per-kind legal-transition counts,
+and live owner-route bindings. It does not create or transition a GoalRun,
+GoalGroundingLoop, WorkRun, AutomationRun, HarnessInvocation, ContextCell, or
+external handle. Until an owner route is explicitly listed in
+`live_owner_route_bindings`, that route does not claim append-only lifecycle
+integration merely because the shared mechanism exists.
+
+The target owner-write sequence is:
+
+```text
+owner route validates domain intent and authority
+  -> submit exact-head WorkLifecycleRecord
+  -> shared kernel validates kind-specific edge, authority, time, hash,
+     idempotency, and child-ref typing
+  -> durable record commit
+  -> rebuildable active projection
+  -> owner/domain receipt and event
+```
+
+Cancellation remains a separate fanout execution after the cancel/revoke fact:
+the planner returns required drain/fence/timeout/compensation/reconciliation
+actions, but only child-owner receipts prove their completion. Automatic hot-
+log pruning, archive-only resume, production Agentgres persistence, and all
+owner-route bindings remain explicit nonclaims in the current status response.
+The mechanism checks declared authority classes and nonempty grant refs; the
+owning PEP must still verify grant signature, scope, expiry, and revocation
+before commit.
+
 ## Hypervisor Client Projections
 
 Hypervisor App, Hypervisor Web, and CLI/headless clients render Core
@@ -98,7 +146,7 @@ The response is an `ioi.hypervisor.home_cockpit_projection.v1` projection:
   "schema_version": "ioi.hypervisor.home_cockpit_projection.v1",
   "projection_id": "home-cockpit:hypervisor-core/default",
   "source": "daemon-home-cockpit-projection",
-  "selected_project_id": "project:...",
+  "project_ref": "project://...",
   "runtimeTruthSource": "daemon-runtime",
   "boundary_invariant": "Home renders daemon evidence projections; it does not become runtime truth.",
   "metrics": [
@@ -106,8 +154,9 @@ The response is an `ioi.hypervisor.home_cockpit_projection.v1` projection:
       "metric_ref": "home-cockpit:session",
       "label": "Active session",
       "value": "active",
-      "detail": "session:...",
-      "surface_ref": "surface:sessions",
+      "detail_route": "/work/sessions/session%3A%2F%2F...",
+      "workspace_ref": "hypervisor-workspace://work",
+      "session_ref": "session://...",
       "evidence_refs": ["receipt://..."]
     }
   ]
@@ -199,7 +248,7 @@ The response is an `ioi.hypervisor.project_state_projection.v1` projection:
   "schema_version": "ioi.hypervisor.project_state_projection.v1",
   "projection_id": "project-state:...",
   "source": "daemon-project-state-projection",
-  "selected_project_id": "project:...",
+  "project_ref": "project://...",
   "records": [
     {
       "project_id": "project:...",
@@ -380,26 +429,26 @@ projection:
   "schema_version": "ioi.hypervisor.automation_compositor_projection.v1",
   "projection_id": "automation-compositor:...",
   "source": "daemon-automation-compositor-projection",
-  "selected_project_id": "project:...",
+  "selected_project_ref": "project://...",
   "runtimeTruthSource": "daemon-runtime",
   "compositor_boundary_invariant": "Workflow Compositor edits and proposes; the Hypervisor Daemon admits execution; Agentgres records operational truth.",
-  "workflow_template_refs": ["workflow-template:..."],
-  "run_recipe_refs": ["run-recipe:..."],
+  "workflow_template_revision_refs": ["workflow-template://.../revision/..."],
+  "automation_spec_revision_refs": ["automation://.../revision/..."],
   "graph_refs": ["workflow://graph/..."],
   "templates": [
     {
-      "template_ref": "workflow-template:...",
+      "workflow_template_revision_ref": "workflow-template://.../revision/...",
       "label": "Template",
       "description": "Reusable workflow template.",
       "graph_ref": "workflow://graph/...",
-      "recipe_ref": "run-recipe:...",
+      "automation_spec_revision_ref": "automation://.../revision/... | null",
       "required_scope_refs": ["scope:workflow.run"],
       "model_route_policy_ref": "model-route-policy:...",
       "receipt_policy_ref": "receipt-policy:workflow/...",
       "latest_receipt_refs": ["receipt://..."]
     }
   ],
-  "run_recipes": [],
+  "automation_specs": [],
   "graphs": [],
   "runs": [],
   "latest_receipt_refs": ["receipt://..."],
@@ -409,8 +458,9 @@ projection:
 ```
 
 Automation compositor projections power Hypervisor Automations/Workflows
-surfaces, reusable recipes, scheduled/manual run previews, graph references,
-and workflow receipt evidence. The client may render and edit proposals through
+surfaces, immutable WorkflowTemplate revisions, AutomationSpecs,
+scheduled/manual run previews, graph references, and workflow receipt
+evidence. The client may render and edit proposals through
 the Workflow Compositor, but workflow execution, state-root mutation, receipt
 creation, and package promotion still require daemon admission, wallet.network
 authority where relevant, and Agentgres operation linkage.
@@ -420,9 +470,9 @@ POST /v1/hypervisor/automation-runs/proposals
 ```
 
 `POST /v1/hypervisor/automation-runs/proposals` creates a daemon-authored
-proposal to run, schedule, or promote an automation recipe. Hypervisor clients
-may request a projected recipe run, but the Workflow Compositor and App shell do
-not become runtime truth.
+proposal to activate one occurrence of an exact AutomationSpec revision.
+Hypervisor clients may request a projected activation, but the Workflow
+Compositor and App shell do not become runtime truth.
 
 The route dispatches through the daemon runtime lifecycle boundary with:
 
@@ -435,14 +485,19 @@ Request body:
 
 ```json
 {
-  "selected_project_id": "project:...",
-  "template_ref": "workflow-template:...",
-  "run_recipe_ref": "run-recipe:...",
-  "graph_ref": "workflow://graph/...",
-  "launch_action_ref": "action://workflow/...",
-  "operation_kind": "run_now | schedule_run | promote_package",
+  "project_ref": "project://...",
+  "automation_spec_revision_ref": "automation://.../revision/...",
+  "automation_spec_content_hash": "sha256:...",
+  "requested_automation_installation_binding_revision_ref": "install://automation/.../revision/...",
+  "requested_automation_installation_binding_hash": "sha256:...",
+  "requested_parameter_set_ref": "artifact://... | null",
+  "requested_parameter_set_hash": "sha256:... | null",
+  "requested_activation_override_set_ref": "artifact://... | null",
+  "requested_activation_override_set_hash": "sha256:... | null",
+  "operation_kind": "activate_occurrence",
+  "activation_kind": "manual | schedule | webhook | event | monitor | service | queue",
+  "activation_event_ref": "event://... | null",
   "required_scope_refs": ["scope:..."],
-  "model_route_policy_ref": "model-route-policy:...",
   "receipt_policy_ref": "receipt-policy:...",
   "context_cell_refs": ["context_cell://..."],
   "artifact_refs": ["artifact://..."],
@@ -456,16 +511,24 @@ The response is an `ioi.hypervisor.automation_run_proposal.v1` object:
 ```json
 {
   "schema_version": "ioi.hypervisor.automation_run_proposal.v1",
-  "proposal_ref": "automation-run:...",
+  "proposal_ref": "proposal://automation-run/...",
   "source": "daemon-automation-run-proposal",
-  "selected_project_id": "project:...",
-  "template_ref": "workflow-template:...",
-  "run_recipe_ref": "run-recipe:...",
-  "graph_ref": "workflow://graph/...",
-  "launch_action_ref": "action://workflow/...",
-  "operation_kind": "run_now",
+  "project_ref": "project://...",
+  "workflow_template_revision_ref": "workflow-template://.../revision/...",
+  "workflow_template_content_hash": "sha256:...",
+  "automation_spec_revision_ref": "automation://.../revision/...",
+  "automation_spec_content_hash": "sha256:...",
+  "candidate_automation_installation_binding_revision_ref": "install://automation/.../revision/...",
+  "candidate_automation_installation_binding_hash": "sha256:...",
+  "candidate_parameter_set_ref": "artifact://... | null",
+  "candidate_parameter_set_hash": "sha256:... | null",
+  "candidate_activation_override_set_ref": "artifact://... | null",
+  "candidate_activation_override_set_hash": "sha256:... | null",
+  "resolution_preview_ref": "artifact://... | null",
+  "operation_kind": "activate_occurrence",
+  "activation_kind": "manual | schedule | webhook | event | monitor | service | queue",
+  "activation_event_ref": "event://...",
   "admission_state": "ready_for_daemon_admission",
-  "wallet_lease_ref": "lease:wallet/automation/...",
   "required_scope_refs": ["scope:..."],
   "action_proposal_ref": "action://workflow/...",
   "agentgres_operation_ref": "agentgres://operation/automation/...",
@@ -481,6 +544,20 @@ The response is an `ioi.hypervisor.automation_run_proposal.v1` object:
 Automation run proposals are not execution admissions. Final execution still
 requires wallet.network approval where required, Agentgres operation refs,
 receipt refs, state roots, and the approved-operation admission boundary.
+The `AutomationSpec` supplies standing activation semantics and binds the
+immutable `WorkflowTemplate`; the request supplies only permitted parameters
+and activation overrides. It does not restate the graph, global harness hints,
+or concrete authority grants. The response is a nonbinding candidate and may
+carry a resolution-preview artifact; it never emits an
+`AutomationRunResolutionReceipt` or mints the `automation-run://` identity.
+Final approved-operation admission reloads the AutomationSpec and intended
+owner-scope AutomationInstallationBinding, verifies their exact hashes and the
+spec's bound WorkflowTemplate revision/hash, revalidates current enablement,
+policy, admission, and revocation state, resolves the permitted inputs and
+dependency closure, atomically creates the AutomationRun, and emits its
+resolution receipt. Multiple installations are never selected by guesswork;
+the requested binding is only a candidate until this atomic admission. Package promotion remains
+the Packages/Foundry governance path, never an AutomationRun activation kind.
 
 ```http
 GET /v1/hypervisor/model-infrastructure
@@ -898,17 +975,19 @@ state-root refs, and receipt refs before any provider-side deployment, access,
 archive, zero-to-idle, or restore operation can proceed.
 
 ```http
-GET /v1/hypervisor/core-taxonomy
+GET /v1/hypervisor/core-taxonomy?schema=ioi.runtime.hypervisor_core_taxonomy.v2
 ```
 
-`GET /v1/hypervisor/core-taxonomy` returns the daemon-visible Hypervisor Core
-taxonomy used by product clients and conformance checks.
+`GET /v1/hypervisor/core-taxonomy` returns daemon-visible stable Hypervisor
+Core registration metadata for bootstrap, compatibility, and conformance. It
+is not a request-scoped launch catalog and must never be used to bypass the
+policy-filtered product-surface projection.
 
-The response is an `ioi.runtime.hypervisor_core_taxonomy.v1` object:
+The target response is an `ioi.runtime.hypervisor_core_taxonomy.v2` object:
 
 ```json
 {
-  "schema_version": "ioi.runtime.hypervisor_core_taxonomy.v1",
+  "schema_version": "ioi.runtime.hypervisor_core_taxonomy.v2",
   "taxonomy_ref": "hypervisor-core-taxonomy:canonical",
   "core": {
     "id": "hypervisor-core",
@@ -923,15 +1002,167 @@ The response is an `ioi.runtime.hypervisor_core_taxonomy.v1` object:
   "optional_presentations": [
     { "kind": "tui_presentation", "parent_client": "hypervisor-cli-headless" }
   ],
-  "application_surfaces": [
-    { "id": "workbench", "truth_owner": "hypervisor-daemon" },
-    { "id": "automations", "truth_owner": "hypervisor-daemon" },
-    { "id": "foundry", "truth_owner": "hypervisor-daemon" }
+  "core_workspaces": [
+    { "workspace_ref": "hypervisor-workspace://home", "workspace_key": "home", "display_name": "Home", "canonical_route": "/home" },
+    { "workspace_ref": "hypervisor-workspace://systems", "workspace_key": "systems", "display_name": "Systems", "canonical_route": "/systems" },
+    { "workspace_ref": "hypervisor-workspace://projects", "workspace_key": "projects", "display_name": "Projects", "canonical_route": "/projects" },
+    { "workspace_ref": "hypervisor-workspace://applications", "workspace_key": "applications", "display_name": "Applications", "canonical_route": "/applications" },
+    { "workspace_ref": "hypervisor-workspace://work", "workspace_key": "work", "display_name": "Work", "canonical_route": "/work" }
   ],
-  "retired_surface_aliases": [
+  "owner_applications": [
+    { "surface_ref": "surface://hypervisor/studio", "surface_key": "studio", "surface_class": "owner_application", "canonical_route": "/studio" },
+    { "surface_ref": "surface://hypervisor/automations", "surface_key": "automations", "surface_class": "owner_application", "canonical_route": "/automations", "supported_placements": ["permanent_shell", "applications_catalog"] },
+    { "surface_ref": "surface://hypervisor/ontology", "surface_key": "ontology", "surface_class": "owner_application", "canonical_route": "/ontology" },
+    { "surface_ref": "surface://hypervisor/data", "surface_key": "data", "surface_class": "owner_application", "canonical_route": "/data" },
+    { "surface_ref": "surface://hypervisor/governance", "surface_key": "governance", "surface_class": "owner_application", "canonical_route": "/governance" },
+    { "surface_ref": "surface://hypervisor/provenance", "surface_key": "provenance", "surface_class": "owner_application", "canonical_route": "/provenance" },
+    { "surface_ref": "surface://hypervisor/evaluations", "surface_key": "evaluations", "surface_class": "owner_application", "canonical_route": "/evaluations" },
+    { "surface_ref": "surface://hypervisor/improvement", "surface_key": "improvement", "surface_class": "owner_application", "canonical_route": "/improvement" },
+    { "surface_ref": "surface://hypervisor/foundry", "surface_key": "foundry", "surface_class": "owner_application", "canonical_route": "/foundry" },
+    { "surface_ref": "surface://hypervisor/packages", "surface_key": "packages", "surface_class": "owner_application", "canonical_route": "/packages" },
+    { "surface_ref": "surface://hypervisor/developer-workspace", "surface_key": "developer-workspace", "surface_class": "owner_application", "canonical_route": "/developer-workspace" },
+    { "surface_ref": "surface://hypervisor/developer-console", "surface_key": "developer-console", "surface_class": "owner_application", "canonical_route": "/developer-console" },
+    { "surface_ref": "surface://hypervisor/embodied-systems", "surface_key": "embodied-systems", "surface_class": "owner_application", "canonical_route": "/embodied-systems", "surface_availability": "planned" }
+  ],
+  "substrate_applications": [
+    { "surface_ref": "surface://hypervisor/environments", "surface_key": "environments", "surface_class": "substrate_application", "canonical_route": "/environments" },
+    { "surface_ref": "surface://hypervisor/operations", "surface_key": "operations", "surface_class": "substrate_application", "canonical_route": "/operations" }
+  ],
+  "dynamic_registration_classes": [
+    "tool_surface",
+    "extension_application"
+  ],
+  "normalized_record_contracts": [
+    "HypervisorApplicationSurfaceRegistration",
+    "HypervisorRouteAliasRegistration",
+    "HypervisorSurfaceReleaseRecord",
+    "HypervisorSurfaceInstallationBinding",
+    "HypervisorSystemInterfaceBinding",
+    "HypervisorSurfaceServingBinding",
+    "HypervisorProductSurfaceProjection"
+  ],
+  "route_alias_registrations": [
     {
-      "alias": "fleet",
-      "replacement": "sessions/providers/environments"
+      "route_alias_ref": "route-alias://hypervisor/sessions",
+      "owner_ref": "hypervisor-workspace://work",
+      "alias_route_pattern": "/sessions",
+      "resolution": {
+        "kind": "static_route",
+        "target_route_template": "/work/sessions"
+      },
+      "preserve_context": {
+        "query": true,
+        "hash": true,
+        "embed_and_return_state": true,
+        "open_application_identity_and_back_stack": true,
+        "typed_context_kinds": [
+          "organization", "project", "system", "goal_run", "outcome_room",
+          "automation_run", "session", "work_queue", "work_item", "work_run"
+        ]
+      },
+      "failure_mode": "fail_closed"
+    },
+    {
+      "route_alias_ref": "route-alias://hypervisor/missions",
+      "owner_ref": "hypervisor-workspace://work",
+      "alias_route_pattern": "/missions/{legacy_subject_id?}",
+      "resolution": {
+        "kind": "typed_resolver",
+        "resolver_kind": "legacy_work_subject",
+        "resolver_contract_ref": "api://hypervisor/legacy-work-subject-resolution"
+      },
+      "preserve_context": {
+        "query": true,
+        "hash": true,
+        "embed_and_return_state": true,
+        "open_application_identity_and_back_stack": true,
+        "typed_context_kinds": [
+          "organization", "project", "system", "goal_run", "outcome_room",
+          "automation_run", "session", "work_queue", "work_item", "work_run"
+        ]
+      },
+      "failure_mode": "fail_closed"
+    },
+    {
+      "route_alias_ref": "route-alias://hypervisor/workbench",
+      "owner_ref": "surface://hypervisor/developer-workspace",
+      "alias_route_pattern": "/workbench",
+      "resolution": {
+        "kind": "static_route",
+        "target_route_template": "/developer-workspace"
+      },
+      "preserve_context": {
+        "query": true,
+        "hash": true,
+        "embed_and_return_state": true,
+        "open_application_identity_and_back_stack": true,
+        "typed_context_kinds": [
+          "organization", "project", "system", "goal_run", "outcome_room",
+          "automation_run", "session", "work_queue", "work_item", "work_run"
+        ]
+      },
+      "failure_mode": "fail_closed"
+    },
+    {
+      "route_alias_ref": "route-alias://hypervisor/marketplace",
+      "owner_ref": "surface://hypervisor/packages",
+      "alias_route_pattern": "/marketplace",
+      "resolution": {
+        "kind": "static_route",
+        "target_route_template": "/packages/marketplace"
+      },
+      "preserve_context": {
+        "query": true,
+        "hash": true,
+        "embed_and_return_state": true,
+        "open_application_identity_and_back_stack": true,
+        "typed_context_kinds": [
+          "organization", "project", "system", "goal_run", "outcome_room",
+          "automation_run", "session", "work_queue", "work_item", "work_run"
+        ]
+      },
+      "failure_mode": "fail_closed"
+    },
+    {
+      "route_alias_ref": "route-alias://hypervisor/legacy-agent-studio",
+      "owner_ref": "surface://hypervisor/studio",
+      "alias_route_pattern": "/__ioi/agent-studio",
+      "resolution": {
+        "kind": "static_route",
+        "target_route_template": "/studio"
+      },
+      "preserve_context": {
+        "query": true,
+        "hash": true,
+        "embed_and_return_state": true,
+        "open_application_identity_and_back_stack": true,
+        "typed_context_kinds": [
+          "organization", "project", "system", "goal_run", "outcome_room",
+          "automation_run", "session", "work_queue", "work_item", "work_run"
+        ]
+      },
+      "failure_mode": "fail_closed"
+    },
+    {
+      "route_alias_ref": "route-alias://hypervisor/fleet",
+      "owner_ref": "surface://hypervisor/embodied-systems",
+      "alias_route_pattern": "/fleet",
+      "resolution": {
+        "kind": "typed_resolver",
+        "resolver_kind": "contextual_surface",
+        "resolver_contract_ref": "api://hypervisor/fleet-context-resolution"
+      },
+      "preserve_context": {
+        "query": true,
+        "hash": true,
+        "embed_and_return_state": true,
+        "open_application_identity_and_back_stack": true,
+        "typed_context_kinds": [
+          "organization", "project", "system", "goal_run", "outcome_room",
+          "automation_run", "session", "work_queue", "work_item", "work_run"
+        ]
+      },
+      "failure_mode": "fail_closed"
     }
   ],
   "adapter_target_families": [
@@ -948,31 +1179,265 @@ The response is an `ioi.runtime.hypervisor_core_taxonomy.v1` object:
 }
 ```
 
-The taxonomy endpoint is not a runtime dispatcher. It is a stable
-implementation-visible boundary that keeps clients, application surfaces,
-adapter targets, AgentHarnessAdapters, and truth owners from collapsing back
-into editor-host or Fleet-era product language.
+The taxonomy endpoint is not a runtime dispatcher or launch-eligibility
+oracle. It exposes definition-owned workspace and application metadata plus
+compatibility and adapter contracts. It must not copy release distribution or
+admission, installation state, System-interface enablement, serving health, or
+derived launchability onto the stable registration rows.
+
+```http
+POST /v1/hypervisor/product-surface-projections
+```
+
+`POST /v1/hypervisor/product-surface-projections` compiles the one
+request-scoped, policy-filtered navigation, Applications, command-palette, and
+contextual-launch projection. Its inputs are the stable registrations plus
+`HypervisorSurfaceReleaseRecord`,
+`HypervisorSurfaceInstallationBinding`,
+`HypervisorSystemInterfaceBinding`, and
+`HypervisorSurfaceServingBinding` records admitted by their canonical owners.
+The compiler also applies authenticated organization/user preferences, current
+typed context, and policy decisions. No client may join these records or infer
+launchability locally.
+
+Request body:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.product_surface_projection_request.v1",
+  "user_ref": "user://...",
+  "org_ref": "org://...",
+  "context": {
+    "project_ref": "project://... | null",
+    "system_ref": "system://... | null",
+    "goal_run_ref": "goal://... | null",
+    "outcome_room_ref": "outcome-room://... | null",
+    "automation_run_ref": "automation-run://... | null",
+    "session_ref": "session://... | null",
+    "work_queue_ref": "work_queue://... | null",
+    "work_item_ref": "work_item://... | null",
+    "work_run_ref": "work_run://... | null"
+  },
+  "requested_group_kinds": [
+    "first_party_applications",
+    "tools_for_context",
+    "organization_applications",
+    "installed_applications",
+    "system_interfaces",
+    "recommended",
+    "recent",
+    "favorites"
+  ],
+  "preference_projection_refs": ["preference://..."]
+}
+```
+
+The daemon derives the authenticated principal and deployment tenant from the
+admitted request boundary. `user_ref` and `org_ref` are selectors that must
+match that principal and an admitted tenant-membership binding; they are never
+caller-asserted authority. A mismatch fails before preference lookup, policy
+filtering, aggregation, or caching. `request_context_hash` binds the
+authenticated principal, organization/tenant, policy and registration
+versions, requested groups, preferences, and every typed context ref so cached
+projections cannot cross users, organizations, Systems, or work subjects.
+
+The response is an
+`ioi.hypervisor.product_surface_projection.v1` object. The representative
+entries below are deliberately complete: real responses contain one row for
+every eligible workspace and application registration, not a second
+hand-maintained card catalog.
+
+```json
+{
+  "schema_version": "ioi.hypervisor.product_surface_projection.v1",
+  "projection": {
+    "projection_id": "projection://hypervisor/product-surface/...",
+    "request_context_hash": "hash:...",
+    "workspace_registration_refs": [
+      "hypervisor-workspace://home",
+      "hypervisor-workspace://systems",
+      "hypervisor-workspace://projects",
+      "hypervisor-workspace://applications",
+      "hypervisor-workspace://work"
+    ],
+    "application_registration_refs": [
+      "surface://hypervisor/studio",
+      "surface://hypervisor/embodied-systems"
+    ],
+    "workspace_entries": [
+      {
+        "workspace_ref": "hypervisor-workspace://work",
+        "display_name": "Work",
+        "canonical_route": "/work",
+        "route_alias_refs": [
+          "route-alias://hypervisor/sessions",
+          "route-alias://hypervisor/missions"
+        ],
+        "launchable": true,
+        "disabled_reason_codes": [],
+        "launch_binding": {
+          "kind": "core_workspace",
+          "workspace_ref": "hypervisor-workspace://work"
+        },
+        "typed_context_refs": [
+          "org://...",
+          "project://...",
+          "work_queue://..."
+        ]
+      }
+    ],
+    "application_entries": [
+      {
+        "surface_ref": "surface://hypervisor/studio",
+        "surface_key": "studio",
+        "family_id": "build",
+        "display_name": "Studio",
+        "summary": "Compose bounded autonomous institutions over real substrate objects.",
+        "primary_user_job": "Constitute and compose a System or direct autonomous-work package.",
+        "publisher_ref": "org://ioi",
+        "primary_owner_application_ref": null,
+        "tool_kind": null,
+        "selected_release_ref": "package://hypervisor/studio/release/...",
+        "selected_installation_ref": "install://hypervisor/studio/...",
+        "selected_system_binding_ref": null,
+        "selected_serving_binding_ref": "surface-serving://hypervisor/studio/...",
+        "eligible_release_refs": [
+          "package://hypervisor/studio/release/..."
+        ],
+        "eligible_installation_refs": [
+          "install://hypervisor/studio/..."
+        ],
+        "eligible_system_binding_refs": [],
+        "eligible_serving_binding_refs": [
+          "surface-serving://hypervisor/studio/..."
+        ],
+        "surface_class": "owner_application",
+        "surface_origin": "first_party",
+        "surface_creation_method": "hand_authored",
+        "surface_distribution": "bundled",
+        "surface_availability": "available",
+        "surface_admission_state": "not_applicable",
+        "surface_installation_state": "installed",
+        "surface_package_disposition": "active",
+        "selected_installation_enablement_state": "enabled",
+        "selected_system_enablement_state": null,
+        "effective_enablement_state": "enabled",
+        "surface_capability_depth": "workflow_complete",
+        "surface_operational_state": "serving",
+        "effective_visibility": "organization",
+        "effective_audience_refs": ["org://..."],
+        "effective_object_contract_refs": ["object-model://hypervisor/studio"],
+        "effective_allowed_action_refs": ["action://hypervisor/studio/compose"],
+        "effective_authority_preview_policy_ref": "policy://hypervisor/studio/default",
+        "group_kinds": ["first_party_applications"],
+        "canonical_route": "/studio",
+        "resolved_launch_route": "/studio",
+        "route_alias_refs": [
+          "route-alias://hypervisor/legacy-agent-studio"
+        ],
+        "launchable": true,
+        "disabled_reason_codes": [],
+        "launch_binding": {
+          "kind": "serving_binding",
+          "serving_binding_ref": "surface-serving://hypervisor/studio/..."
+        },
+        "typed_context_refs": ["org://...", "project://..."]
+      },
+      {
+        "surface_ref": "surface://hypervisor/embodied-systems",
+        "surface_key": "embodied-systems",
+        "family_id": "operate",
+        "display_name": "Embodied Systems",
+        "summary": "Commission and operate embodied units and fleets.",
+        "primary_user_job": "Coordinate embodied Systems through admitted native graphs and a deployment-bound LocalControlSupervisor.",
+        "publisher_ref": "org://ioi",
+        "primary_owner_application_ref": null,
+        "tool_kind": null,
+        "selected_release_ref": null,
+        "selected_installation_ref": null,
+        "selected_system_binding_ref": null,
+        "selected_serving_binding_ref": null,
+        "eligible_release_refs": [],
+        "eligible_installation_refs": [],
+        "eligible_system_binding_refs": [],
+        "eligible_serving_binding_refs": [],
+        "surface_class": "owner_application",
+        "surface_origin": "first_party",
+        "surface_creation_method": "hand_authored",
+        "surface_distribution": null,
+        "surface_availability": "planned",
+        "surface_admission_state": null,
+        "surface_installation_state": null,
+        "surface_package_disposition": null,
+        "selected_installation_enablement_state": null,
+        "selected_system_enablement_state": null,
+        "effective_enablement_state": "not_applicable",
+        "surface_capability_depth": null,
+        "surface_operational_state": null,
+        "effective_visibility": null,
+        "effective_audience_refs": [],
+        "effective_object_contract_refs": [],
+        "effective_allowed_action_refs": [],
+        "effective_authority_preview_policy_ref": null,
+        "group_kinds": ["recommended"],
+        "canonical_route": "/embodied-systems",
+        "resolved_launch_route": null,
+        "route_alias_refs": ["route-alias://hypervisor/fleet"],
+        "launchable": false,
+        "disabled_reason_codes": ["planned"],
+        "launch_binding": null,
+        "typed_context_refs": ["org://...", "system://..."]
+      }
+    ],
+    "policy_decision_refs": ["decision://..."],
+    "generated_at": "timestamp",
+    "read_model_only": true
+  }
+}
+```
+
+Every selected ref must belong to its corresponding eligible set. Release,
+installation, System-interface, and serving records must preserve identical
+`surface_ref`; installation, System-interface, and serving records must
+preserve the selected `release_ref`; and a System-scoped serving binding must
+preserve the selected installation and System binding. The launch binding is a
+discriminated one-of mapping and must name exactly the selected compatible ref.
+Effective enablement is disabled when either the selected installation gate or
+selected System-interface gate is disabled. A null release-, installation-, or
+serving-owned projected axis means no eligible source record was selected; it
+is not another canonical enum state.
+
+Implementation status: the current core-taxonomy code path still emits the
+narrower v1 hard-coded taxonomy, and the product-surface projection endpoint is
+not implemented. Until typed registrations, normalized owner records, and the
+request-scoped policy compiler exist, a v2 taxonomy request and a
+product-surface projection request must return typed unavailable/unsupported
+responses rather than relabeling v1 data or compiling launch state in a client.
+The v1 shape is transitional implementation evidence, not target product
+doctrine.
 
 ```http
 POST /v1/hypervisor/session-launch-recipe-admissions
 ```
 
 `POST /v1/hypervisor/session-launch-recipe-admissions` admits a selected
-Hypervisor New Session recipe before the client may request harness binding or
-spawn. The recipe admission binds the selected recipe, target binding, project,
-surface route, model route, privacy posture, authority scopes, receipt preview,
-Agentgres operation refs, and state-root intent under daemon runtime truth.
+`HypervisorSessionLaunchRecipe` before the client may request harness binding
+or spawn. The admission binds its exact owner-qualified recipe revision, target
+binding, project, surface route, model route, privacy posture, authority
+scopes, receipt preview, Agentgres operation refs, and state-root intent under
+daemon runtime truth.
 
 Request body:
 
 ```json
 {
   "schema_version": "ioi.hypervisor.session_launch_recipe_admission_request.v1",
-  "recipe": {
+  "session_launch_recipe": {
     "schema_version": "ioi.hypervisor.session_launch_recipe.v1",
-    "recipe_id": "workbench.default",
-    "kind": "workbench",
-    "surface_id": "workbench",
+    "session_launch_recipe_ref": "session-launch-recipe://developer-workspace/default/revision/1",
+    "content_hash": "sha256:...",
+    "kind": "developer_workspace",
+    "surface_ref": "surface://hypervisor/developer-workspace",
     "required_inputs": ["project", "adapter_preference", "harness"],
     "model_mount_policy": "inherit",
     "harness_profile_policy": "select",
@@ -981,27 +1446,27 @@ Request body:
   },
   "target_binding": {
     "schema_version": "ioi.hypervisor.new_session_target_binding.v1",
-    "target_binding_ref": "target-binding:new-session/workbench.default/ioi",
-    "recipe_ref": "workbench.default",
-    "target_kind": "workbench",
-    "surface_id": "workbench",
-    "project_ref": "project:ioi",
-    "session_route_ref": "session-route:workbench/workbench.default/ioi",
+    "target_binding_ref": "target-binding:new-session/developer-workspace.default/ioi",
+    "session_launch_recipe_ref": "session-launch-recipe://developer-workspace/default/revision/1",
+    "target_kind": "developer_workspace",
+    "surface_ref": "surface://hypervisor/developer-workspace",
+    "project_ref": "project://ioi",
+    "session_route_ref": "session-route:developer-workspace/developer-workspace.default/ioi",
     "code_editor_adapter_target_ref": "code-editor-target:vscode",
     "runtimeTruthSource": "daemon-runtime"
   },
   "model_route_ref": "model-route:hypervisor/default-local",
   "privacy_posture_ref": "privacy:redacted-projection",
   "authority_scope_refs": ["scope:workspace.read", "scope:workspace.patch"],
-  "receipt_preview_ref": "receipt-preview:new-session/workbench",
+  "receipt_preview_ref": "receipt-preview:new-session/developer-workspace",
   "expected_receipt_refs": [
-    "receipt-preview:new-session/workbench",
+    "receipt-preview:new-session/developer-workspace",
     "receipt-policy:harness-adapter/default"
   ],
   "agentgres_operation_refs": [
-    "agentgres://operation/hypervisor/session-launch-recipe/workbench"
+    "agentgres://operation/hypervisor/session-launch-recipe/developer-workspace"
   ],
-  "receipt_refs": ["receipt://hypervisor/session-launch-recipe/workbench"],
+  "receipt_refs": ["receipt://hypervisor/session-launch-recipe/developer-workspace"],
   "requires_daemon_gate": true,
   "runtimeTruthSource": "daemon-runtime"
 }
@@ -1012,6 +1477,11 @@ The response is an
 session must not be considered `daemon_admitted` unless it carries this recipe
 admission, followed by harness binding admission, harness launch, spawn, and
 readiness records.
+
+The live v1 adapter may still accept the historical nested `recipe` and
+`recipe_ref` field names. It must normalize them to the owner-qualified
+`session_launch_recipe` and exact `session_launch_recipe_ref` above before
+admission and must not emit a generic Recipe identity in target v2 state.
 
 ```http
 POST /v1/hypervisor/approved-operations
@@ -1026,21 +1496,30 @@ Request body:
 ```json
 {
   "operation_family": "session | provider | project | automation",
-  "proposal_ref": "session-operation:... | provider-operation:... | project-operation:... | automation-run:...",
+  "proposal_ref": "session-operation:... | provider-operation:... | project-operation:... | proposal://automation-run/...",
   "proposal_schema_version": "ioi.hypervisor.session_operation_proposal.v1",
   "proposal_source": "daemon-session-operation-proposal",
-  "project_ref": "project:...",
+  "proposal_revision_ref": "session-operation:... | provider-operation:... | project-operation:... | null",
+  "proposal_content_hash": "sha256:...",
+  "proposal_resolution_receipt_ref": "receipt://... | null",
+  "automation_activation_binding": {
+    "automation_run_proposal_ref": "proposal://automation-run/...",
+    "automation_spec_revision_ref": "automation://.../revision/...",
+    "automation_spec_content_hash": "sha256:...",
+    "automation_installation_binding_revision_ref": "install://automation/.../revision/...",
+    "automation_installation_binding_hash": "sha256:...",
+    "activation_event_ref": "event://...",
+    "candidate_parameter_set_hash": "sha256:... | null",
+    "candidate_activation_override_set_hash": "sha256:... | null"
+  },
+  "project_ref": "project://...",
   "workspace_ref": "workspace://...",
-  "template_ref": "workflow-template:...",
-  "run_recipe_ref": "run-recipe:...",
-  "graph_ref": "workflow://graph/...",
-  "launch_action_ref": "action://workflow/...",
-  "session_ref": "session:...",
-  "environment_ref": "environment:...",
-  "provider_candidate_ref": "provider:...",
+  "session_ref": "session://...",
+  "environment_ref": "environment://...",
+  "provider_candidate_ref": "provider://...",
   "candidate_ref": "provider-candidate:...",
-  "direct_provider_ref": "provider:...",
-  "operation_kind": "restore_session | zero_to_idle | ...",
+  "direct_provider_ref": "provider://...",
+  "operation_kind": "restore_session | zero_to_idle | activate_occurrence | ...",
   "target_ref": "agentgres://restore/...",
   "wallet_approval_ref": "approval://wallet/...",
   "wallet_lease_ref": "lease:wallet/...",
@@ -1065,7 +1544,10 @@ object:
   "proposal_ref": "session-operation:...",
   "proposal_schema_version": "ioi.hypervisor.session_operation_proposal.v1",
   "proposal_source": "daemon-session-operation-proposal",
-  "project_ref": "project:...",
+  "proposal_revision_ref": "session-operation:...",
+  "proposal_content_hash": "sha256:...",
+  "proposal_resolution_receipt_ref": "receipt://...",
+  "project_ref": "project://...",
   "operation_kind": "restore_session",
   "decision": "admitted",
   "execution_status": "admitted_for_execution",
@@ -1091,12 +1573,48 @@ object:
 }
 ```
 
+For `operation_family: automation`, `proposal_revision_ref` and
+`proposal_resolution_receipt_ref` are null. The exact
+`proposal://automation-run/...` plus `proposal_content_hash` identifies the
+candidate, while `automation_activation_binding` supplies the spec,
+installation-binding, occurrence, parameter, and override commitments to
+revalidate. Final admission alone returns and stores:
+
+```json
+{
+  "automation_run_ref": "automation-run://...",
+  "automation_run_resolution_receipt_ref": "receipt://...",
+  "automation_spec_revision_ref": "automation://.../revision/...",
+  "automation_spec_content_hash": "sha256:...",
+  "automation_installation_binding_revision_ref": "install://automation/.../revision/...",
+  "automation_installation_binding_hash": "sha256:...",
+  "workflow_template_revision_ref": "workflow-template://.../revision/...",
+  "workflow_template_content_hash": "sha256:...",
+  "execution_status": "admitted_for_execution"
+}
+```
+
+The automation proposal is not an AutomationSpec revision and has no
+pre-admission AutomationRun resolution receipt. Mismatch, disabled/revoked
+binding, stale proposal hash, or changed policy fails closed before the
+`automation-run://` identity is minted.
+
 Approved operation admission rejects fixture or unverified proposal sources.
 The endpoint is not a provider adapter and not a wallet approval UI. It is the
 daemon admission boundary that proves the selected proposal, wallet approval,
 wallet lease, Agentgres operation refs, receipts, archive/restore refs, and
 state root are bound before Hypervisor executes the session or provider
 lifecycle operation.
+
+The approved-operation boundary consumes the proposal's already frozen typed
+composition. It never restates an unversioned template, graph, launch action,
+or generic run recipe. The current Rust v1 input's `template_ref`,
+`run_recipe_ref`, `graph_ref`, and `launch_action_ref` fields are deprecated
+compatibility inputs only: an adapter may accept them long enough to resolve
+and verify the exact `AutomationSpec` and `WorkflowTemplate` revision, then
+must record the normalized revision/hash/resolution receipt and omit those
+aliases from canonical output. Resolution failure is typed-unavailable, not a
+best-effort execution.
 
 The admission response also returns a daemon-owned execution plan. The plan is
 not execution by itself and must remain `awaiting_executor` until a concrete
@@ -1203,7 +1721,7 @@ letting approved UI actions become direct side effects.
   "default_harness_profile": "2026.05.default-harness-profile.v1",
   "agentgres_version": "0.2.0",
   "supported_execution_profiles": ["local", "hosted", "provider", "depin_mutual_blind", "hypervisoros_bare_metal", "tee_enterprise", "customer_vpc"],
-  "supported_interfaces": ["agents", "managed_instances", "projects", "sessions", "missions", "adapter_targets", "environment_ops", "threads", "runs", "workers", "training", "benchmarks", "routing", "tools", "models", "connectors", "authority_gateway", "action_requests", "artifacts", "receipts", "trace", "replay", "scorecards"],
+  "supported_interfaces": ["agents", "managed_instances", "projects", "work", "sessions", "goal_runs", "outcome_rooms", "automation_runs", "adapter_targets", "environment_ops", "threads", "runs", "workers", "training", "benchmarks", "routing", "tools", "models", "connectors", "authority_gateway", "action_requests", "artifacts", "receipts", "trace", "replay", "scorecards"],
   "primitive_capabilities": ["prim:fs.read", "prim:fs.write", "prim:sys.exec", "prim:net.request", "prim:model.invoke"],
   "attestation": {
     "required": false,
@@ -1324,7 +1842,7 @@ state, delivery refs, receipts, and replay refs.
 {
   "work_item": {
     "source_kind": "new_session | automation_trigger | pull_request | issue_event | webhook | schedule | api",
-    "project_ref": "project:...",
+    "project_ref": "project://...",
     "original_request_ref": "artifact://...",
     "code_context": {
       "repository_refs": ["repo://..."],
@@ -1336,7 +1854,7 @@ state, delivery refs, receipts, and replay refs.
     "authority_scope_refs": ["grant://..."]
   },
   "work_run": {
-    "session_ref": "hypervisor_session:...",
+    "session_ref": "session://...",
     "harness_selection_ref": "harness_selection:...",
     "model_configuration_ref": "model_configuration:...",
     "reasoning_profile_ref": "reasoning_profile:...",
@@ -1437,10 +1955,10 @@ unadmitted execution into the client.
 ```json
 {
   "agent_ref": "agent://...",
-  "project_ref": "project:...",
+  "project_ref": "project://...",
   "environment_request": {
-    "create_from_project_ref": "project:...",
-    "development_environment_recipe_ref": "dev-recipe://...",
+    "create_from_project_ref": "project://...",
+    "development_environment_recipe_ref": "development-environment-recipe://.../revision/...",
     "environment_class_ref": "environment-class://..."
   },
   "initial_input": {
@@ -1463,11 +1981,11 @@ The response binds all created or selected runtime objects:
 
 ```json
 {
-  "session_ref": "hypervisor_session:...",
+  "session_ref": "session://...",
   "environment_ref": "hypervisor_environment_lifecycle:...",
   "agent_execution_ref": "agent-execution://...",
-  "work_item_ref": "hypervisor_work_item:...",
-  "work_run_ref": "hypervisor_work_run:...",
+  "work_item_ref": "work_item://...",
+  "work_run_ref": "work_run://...",
   "thread_ref": "thread:...",
   "conversation_projection_ref": "hypervisor_work_run_conversation:...",
   "wallet_lease_refs": ["lease:wallet/..."],
@@ -1660,7 +2178,7 @@ POST /v1/threads/{thread_id}/turns/{turn_id}/steer
 ```
 
 Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
-Workflow Compositor, Workbench/Foundry surfaces, other application surfaces,
+Workflow Compositor, Developer Workspace/Foundry surfaces, other application surfaces,
 and Environments views may render these controls differently, but
 they must converge on these daemon contracts rather than maintaining private
 session loops.
@@ -1688,11 +2206,11 @@ session loops.
 }
 ```
 
-## Project, Session, Mission, and Adapter APIs
+## Project, Work, Session, and Adapter APIs
 
-Projects, sessions, missions, adapter targets, and environment operations are
+Projects, typed work records, sessions, adapter targets, and environment operations are
 daemon/Core APIs. Hypervisor App, Hypervisor Web, CLI/headless clients,
-Workbench, Foundry, other application surfaces, Environments
+Developer Workspace, Foundry, other application surfaces, Environments
 views, SDK/ADK/ODK clients, and agent harness adapters may render or call these
 APIs, but they must not maintain parallel lifecycle truth.
 
@@ -1704,7 +2222,7 @@ POST /v1/projects
 GET  /v1/projects/{project_id}
 PATCH /v1/projects/{project_id}
 GET  /v1/projects/{project_id}/sessions
-GET  /v1/projects/{project_id}/missions
+GET  /v1/projects/{project_id}/work
 GET  /v1/projects/{project_id}/adapter-connection-profiles
 ```
 
@@ -1769,7 +2287,7 @@ Canonical session/environment API objects include
 `HypervisorWorkRunReviewState`.
 
 Development environment recipe APIs manage reusable setup contracts for
-Workbench and other development-oriented sessions: substrate, image or
+Developer Workspace and other development-oriented sessions: substrate, image or
 devcontainer refs, checkout/workspace locations, init tasks, services, ports,
 editor adapters, environment variable refs, secret requirements, SCM auth,
 cache/warmup policy, model/harness defaults, privacy posture, and authority
@@ -1872,25 +2390,44 @@ Adapter APIs resolve concrete connection profiles for editor, terminal,
 browser, VM/container, HypervisorOS, and hosted-worker targets. A raw editor
 name is not an execution or mediation contract.
 
-### Background Missions
+### Work Projection And Legacy Mission Aliases
 
 ```http
-POST /v1/missions
+GET  /v1/work
+GET  /v1/work/{subject_kind}/{subject_id}
+GET  /v1/projects/{project_id}/work
+GET  /v1/hypervisor/autonomous-systems/{system_id}/work
+
 GET  /v1/missions
-GET  /v1/missions/{mission_id}
-PATCH /v1/missions/{mission_id}
-POST /v1/missions/{mission_id}/start
-POST /v1/missions/{mission_id}/disable
-GET  /v1/missions/{mission_id}/executions
-GET  /v1/mission-executions/{execution_id}
-GET  /v1/mission-executions/{execution_id}/actions
-GET  /v1/mission-executions/{execution_id}/outputs
-GET  /v1/mission-executions/{execution_id}/receipts
+GET  /v1/missions/{legacy_mission_id}
 ```
 
-Missions are background/manual/scheduled/webhook/event-triggered autonomous
-work with trigger policy, review contract, output contract, and receipts. They
-are not hidden interactive sessions.
+`/v1/work` is a policy-filtered read projection. Every row returns a canonical
+`subject_kind` and `subject_ref` for exactly one `GoalRun`, `OutcomeRoom`,
+`AutomationRun`, `Session`, `WorkQueue`, `WorkItem`, or `WorkRun`, plus only the status,
+authority, cost, evidence, review, incident, and replay facets the caller may
+see. The projection has no universal writable lifecycle and owns no runtime,
+authority, budget, evidence, or receipt truth.
+
+`Reviews` and `Incidents` are Work views over facet-bearing typed rows, not
+additional `subject_kind` values. RuntimeAssignment is a placement facet. The
+legacy Issues route resolves to the Incidents view while detail actions route
+to the domain or owner application that owns the review or incident record.
+
+Background, interactive, and supervisory are execution modes on Session,
+WorkRun, RuntimeAssignment, or participant execution; they do not define a
+Mission object. Reusable trigger, schedule, webhook, workflow, monitor,
+approval-flow, and service behavior remains an `AutomationSpec`; one activation
+is an `AutomationRun`; durable bounded pursuit is a `GoalRun`; shared pursuit is
+an `OutcomeRoom`.
+
+The two `/v1/missions` reads are migration aliases only. A legacy identifier
+must resolve through an admitted alias/migration receipt to exactly one GoalRun
+or OutcomeRoom and return that typed subject and its canonical URL. New Mission
+writes, universal Mission updates, and Mission execution subresources are
+non-conformant. Clients start, disable, review, or reconcile work through the
+typed owner APIs. An ambiguous legacy record enters typed review and may not be
+silently guessed.
 
 ## Event Stream
 
@@ -1925,7 +2462,7 @@ Approval request shape:
 ```json
 {
   "approval_id": "approval_123",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "request_hash": "sha256:...",
   "policy_hash": "sha256:...",
   "action": "gmail.send",
@@ -1979,7 +2516,7 @@ Action request shape:
     "policy_hash": "sha256:..."
   },
   "receipt_obligations": ["policy_decision", "execution", "artifact_or_diff"],
-  "run_id": "run_123",
+  "run_id": "run://123",
   "thread_id": "thread_123"
 }
 ```
@@ -2040,7 +2577,7 @@ POST /v1/connectors/{connector_id}/subscriptions
 
 MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
 tool invocation to Hypervisor App, Hypervisor Web, CLI/headless clients,
-optional TUI views, SDK, ADK, Workbench, Workflow Compositor, Foundry
+optional TUI views, SDK, ADK, Developer Workspace, Workflow Compositor, Foundry
 surfaces, other application surfaces, and Environments views.
 Global MCP routes are thread-scoped daemon protocol APIs; retired top-level
 `/v1/mcp*` and legacy `/api/v1/mcp*` routes are not compatibility fallbacks.
@@ -2056,11 +2593,49 @@ POST /v1/threads/{thread_id}/mcp/servers/{server_id}/disable
 GET  /v1/threads/{thread_id}/mcp/tools/search
 GET  /v1/threads/{thread_id}/mcp/tools/{tool_id}
 POST /v1/threads/{thread_id}/mcp/tools/{tool_id}/invoke
+GET  /v1/threads/{thread_id}/mcp/resources/search
+GET  /v1/threads/{thread_id}/mcp/resources/{resource_id}
+POST /v1/threads/{thread_id}/mcp/resources/{resource_id}/read
+GET  /v1/threads/{thread_id}/mcp/prompts/search
+GET  /v1/threads/{thread_id}/mcp/prompts/{prompt_id}
+POST /v1/threads/{thread_id}/mcp/prompts/{prompt_id}/imports
+POST /v1/threads/{thread_id}/mcp/elicitation-requests
+POST /v1/threads/{thread_id}/mcp/elicitation-requests/{request_id}/responses
+POST /v1/threads/{thread_id}/mcp/external-task-bindings
+GET  /v1/threads/{thread_id}/mcp/external-task-bindings/{binding_id}
+POST /v1/threads/{thread_id}/mcp/external-task-bindings/{binding_id}/cancel
+GET  /v1/threads/{thread_id}/mcp/apps/search
+GET  /v1/threads/{thread_id}/mcp/apps/{app_id}/descriptor
 POST /v1/threads/{thread_id}/mcp/serve
 ```
 
 MCP endpoints do not bypass runtime tool contracts, primitive capability
 requirements, authority scopes, or receipts.
+
+The route families normalize protocol objects before use:
+
+```text
+tools        -> RuntimeToolContract
+resources    -> PolicyBoundDataView | ArtifactRef | MemoryProjection + ContextLease
+prompts      -> tainted import input for SkillManifest | GoalRunProfile | invocation
+elicitation  -> typed user-input request; wallet approval remains separate
+tasks        -> opaque external handle bound to HarnessInvocation
+Apps         -> sandboxed extension_application descriptor and surface
+```
+
+Every response returns the canonical backing ref, effective gateway-profile
+revision, policy/lease posture, source protocol version, and normalization or
+typed-unavailable decision. A prompt import never auto-installs a skill or
+profile. A resource read never mints its own access. An elicitation response is
+never authority approval. An MCP Task never supplies GoalRun, AutomationRun,
+WorkRun, or receipt identity. An MCP App descriptor never authorizes direct
+host or provider mutation.
+
+Implementation status: the audited live slice remains tool-centric and has
+protocol-version/session-assumption drift across transports. Resource, prompt,
+elicitation, external-task, and App normalization routes above are target
+contract. Until implemented, they fail typed-unavailable; clients must not
+simulate them with top-level `/v1/mcp*` routes or private state.
 
 ## Memory API
 
@@ -2091,6 +2666,17 @@ POST /v1/threads/{thread_id}/memory
 PATCH /v1/threads/{thread_id}/memory/{memory_id}
 DELETE /v1/threads/{thread_id}/memory/{memory_id}
 ```
+
+`POST` and `PATCH` durable record mutations require
+`information_flow_parent_labels`; they may also supply
+`information_flow_label_ref` and
+`information_flow_derivation_kind = memory_import | summarization`. Immediately
+before `persist_record`, the daemon hashes the actual planned payload, joins
+every supplied parent plus any replayed prior record label, stores the derived
+`information_flow_label`, and only then invokes storage. Missing or invalid
+parents fail closed without a write. This built seam does not imply that delete,
+policy/event records, portable export, or external memory connectors have the
+same propagation; those remain with their owning contracts.
 
 ## Subagent API
 
@@ -2270,7 +2856,170 @@ PUT    /v1/hypervisor/budget
 POST   /v1/hypervisor/budget/reconcile
 ```
 
-## OutcomeRoom, GoalRun, And Harness Broker APIs
+## Autonomous-System Control APIs
+
+These target-only routes expose one logical bounded autonomous system across
+its constitution, deployment, observed membership, failover, lifecycle, and
+optional IOI Network enrollment. They are not present in the currently audited
+daemon registry.
+
+```http
+POST /v1/hypervisor/autonomous-systems
+GET  /v1/hypervisor/autonomous-systems/{system_id}
+GET  /v1/hypervisor/autonomous-systems/{system_id}/topology
+GET  /v1/hypervisor/autonomous-systems/{system_id}/constitution
+POST /v1/hypervisor/autonomous-systems/{system_id}/upgrade-proposals
+
+GET  /v1/hypervisor/autonomous-systems/{system_id}/node-memberships
+POST /v1/hypervisor/autonomous-systems/{system_id}/node-memberships/propose
+POST /v1/hypervisor/autonomous-systems/{system_id}/node-memberships/{membership_id}/transition
+POST /v1/hypervisor/autonomous-systems/{system_id}/node-memberships/{membership_id}/catch-up
+POST /v1/hypervisor/autonomous-systems/{system_id}/node-memberships/{membership_id}/verify-root
+
+POST /v1/hypervisor/autonomous-systems/{system_id}/failover/evaluate
+POST /v1/hypervisor/autonomous-systems/{system_id}/failover/restore
+POST /v1/hypervisor/autonomous-systems/{system_id}/failover/promote
+POST /v1/hypervisor/autonomous-systems/{system_id}/failover/profile-native-transition
+
+POST /v1/hypervisor/autonomous-systems/{system_id}/lifecycle/transitions
+POST /v1/hypervisor/autonomous-systems/{system_id}/network-enrollment/transitions
+POST /v1/hypervisor/autonomous-systems/{system_id}/network-service-invocations
+```
+
+`POST /autonomous-systems` accepts a package release, constitution and initial
+profile candidates and governing decision/authority refs. The daemon derives
+the sequence-zero operation/transition/state/receipt commitments from canonical
+admitted inputs and may compare caller-supplied expected values; callers never
+author commitment truth. It compiles an `AutonomousSystemGenesisEnvelope` and
+`initialize`/`activate` lifecycle proposals; it never creates an already-active
+free-floating system. Genesis/activation receipts must bind release,
+constitution, profiles, authority decision, initial state/receipt roots, and the
+genesis transition commitment.
+
+All mutation routes create typed proposals or lifecycle transitions; none
+directly mutates a constitution, membership role, writer epoch, ordering rule,
+oracle policy, successor, dissolution state, or enrollment. Local/domain
+governance and the applicable authority provider authorize; the daemon admits,
+enforces, executes, receipts, and fails closed; Agentgres records desired
+profiles and observed state.
+
+The topology projection distinguishes desired role counts from observed
+memberships, readiness, catch-up offsets, verified roots, leases, writer epochs,
+fencing, failure-domain evidence, RPO/RTO, partition/degraded posture, and
+conformance receipts. `restore` is valid only when the active recovery mechanism
+is `single_writer_restore`; `unavailable_fail_closed` exposes no recovery effect
+until governance admits a profile change. `promote` is valid only when the
+active mechanism is `single_writer_promotion` under `single_authority` or
+`replicated_single_authority`; it requires an admitted hot standby, current
+catch-up and root evidence, a higher writer epoch, and old-writer fencing.
+Threshold, BFT, and external-finality systems use `profile-native-transition`
+only when the mechanism is `ordering_profile_native`; the typed transition must
+bind the active profile plus its
+threshold, view/round, membership, or external-finality recovery proof and may
+not synthesize a writer epoch. An ambiguous partition cannot be promoted or
+reconfigured through either API. Node addition never widens system authority or
+finality implicitly.
+
+## Native Embodied Runtime APIs
+
+These routes are the target public control and admission surface for native
+Embodied Runtime. They are not present in the currently audited daemon registry.
+The object and execution semantics are owned by
+[`embodied-runtime.md`](./embodied-runtime.md); canonical wire contracts are
+owned by
+[`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md),
+and physical authority and safety remain owned by
+[`physical-action-safety.md`](../../foundations/physical-action-safety.md).
+
+Definitions, compilation, and admission:
+
+```http
+GET  /v1/hypervisor/embodied/runtime-capabilities
+POST /v1/hypervisor/embodied/runtime-graphs/compile
+POST /v1/hypervisor/embodied/runtime-graphs/admit
+GET  /v1/hypervisor/embodied/runtime-graphs/{manifest_id}
+POST /v1/hypervisor/embodied/physical-stream-contracts/admit
+POST /v1/hypervisor/embodied/embodiment-adapters/admit
+POST /v1/hypervisor/embodied/action-policy-contracts/admit
+POST /v1/hypervisor/embodied/resource-groups/admit
+GET  /v1/hypervisor/embodied/resource-groups/{group_revision_id}/resolved-leaves
+```
+
+Compilation produces an inert candidate. Admission freezes one exact
+`EmbodiedRuntimeGraphManifest`, transitive component and stream hashes,
+`NativeEmbodiedRuntimeProfile` footprints, `EmbodiedRuntimeExecutionStratum`
+placements, exact resource leaves, adapters, policies, and assurance
+requirements. None of these endpoints grants authority, activates a graph,
+arms a controller, or proves a physical state safe.
+
+Transactional graph lifecycle and separate mission arming:
+
+```http
+POST /v1/hypervisor/embodied/graph-activations
+GET  /v1/hypervisor/embodied/graph-activations/{activation_id}
+POST /v1/hypervisor/embodied/graph-activations/{activation_id}/prepare
+POST /v1/hypervisor/embodied/graph-activations/{activation_id}/validate
+POST /v1/hypervisor/embodied/graph-activations/{activation_id}/commit
+POST /v1/hypervisor/embodied/graph-activations/{activation_id}/abort
+POST /v1/hypervisor/embodied/graph-activations/{activation_id}/deactivate
+POST /v1/hypervisor/embodied/graph-activations/{activation_id}/rollback
+POST /v1/hypervisor/embodied/physical-mission-controls/{control_id}/arming-transitions
+```
+
+The activation routes operate one `EmbodiedGraphActivationTransaction` through
+local prepare, validation, commit-or-abort, deactivation, and rollback. Commit
+may reach only `active_unarmed`. Arming and disarming are separate typed
+physical-mission transitions requiring current authority, safety, mission,
+resource, world/sensor, lease, and supervisor admission; graph activation never
+implies either transition. Multi-node coordination records local receipts and
+fences but does not claim global physical atomicity.
+
+Live local supervision and proposal-only action chunks:
+
+```http
+GET  /v1/hypervisor/embodied/local-control-supervisors
+GET  /v1/hypervisor/embodied/local-control-supervisors/{supervisor_id}
+POST /v1/hypervisor/embodied/local-control-supervisors/{supervisor_id}/lifecycle-transitions
+POST /v1/hypervisor/embodied/action-chunks
+GET  /v1/hypervisor/embodied/action-chunks/{action_chunk_id}
+POST /v1/hypervisor/embodied/action-chunks/{action_chunk_id}/transitions
+```
+
+An `EmbodiedActionChunk` remains a finite, expiring,
+`non_authoritative_proposal`. Its transition endpoint may record selection,
+rejection, expiry, supersession, or safety-gated queue admission; it may not
+directly execute the chunk or bypass the `LocalControlSupervisor`. Supervisor
+lifecycle transitions cannot weaken its final local veto, exclusive actuator
+writer fence, watchdog, recovery, or emergency behavior. There is deliberately
+no generic raw-actuator-command endpoint.
+
+Same-system fleet work, physical-space coordination, replay, and assurance:
+
+```http
+POST /v1/hypervisor/embodied/fleet-mission-allocations
+GET  /v1/hypervisor/embodied/fleet-mission-allocations/{allocation_id}
+POST /v1/hypervisor/embodied/fleet-mission-allocations/{allocation_id}/transitions
+POST /v1/hypervisor/embodied/spacetime-reservations
+GET  /v1/hypervisor/embodied/spacetime-reservations/{reservation_id}
+POST /v1/hypervisor/embodied/spacetime-reservations/{reservation_id}/transitions
+GET  /v1/hypervisor/embodied/telemetry-streams
+GET  /v1/hypervisor/embodied/telemetry-streams/{stream_id}
+POST /v1/hypervisor/embodied/physical-replay-bundles
+GET  /v1/hypervisor/embodied/physical-replay-bundles/{replay_bundle_id}
+POST /v1/hypervisor/assurance/evidence-bundles/{bundle_id}/embodied-deployment-case
+GET  /v1/hypervisor/assurance/evidence-bundles/{bundle_id}/embodied-deployment-case
+```
+
+`FleetMissionAllocationLease` answers which unit owns which work;
+`SpacetimeReservationLease` independently answers where and when an admitted
+attempt may occupy shared physical space. Neither is actuator authority or a
+safety decision. The assurance binding records one
+`EmbodiedDeploymentAssuranceCase` inside its owning `AssuranceEvidenceBundle`;
+it creates no second assurance registry, blanket certification, or arming
+right. Same-system fleet and swarm work uses these native L0 contracts. AIIP is
+reserved for independently governed system boundaries.
+
+## OutcomeRoom, GoalRun, And Step-Resolution APIs
 
 Goal-shaped work should not be coordinated by copying prompts between harnesses.
 Two API scales compose:
@@ -2280,7 +3029,7 @@ OutcomeRoom / CollaborativeWorkGraph
   dynamic participants, shared frontier, claim/resource leases, attempts,
   findings, verifier challenges, admission, contribution lineage, and replay
 
-GoalRun / Harness Broker
+GoalRun / step-resolution broker behavior
   one bounded grounding, execution, verification, repair, course-correction,
   and completion loop for a goal or claimed frontier item
 ```
@@ -2289,8 +3038,9 @@ The currently audited live slice exposes only GoalRun create/list/get,
 `start`, `reconcile`, and event projection. It admits
 `parallel_implement_reconcile` with one deterministic conductor, at most two
 implementers, and software-shaped `ImplementationResultPayload` results. The
-room, dynamic-participation, generic-result, and remaining fine-grained routes
-below are target contract; their presence here is not a live-route claim.
+local-agent pairing, room, dynamic-participation, generic-result, and remaining
+fine-grained routes below are target contract; their presence here is not a
+live-route claim.
 
 Live audited GoalRun routes:
 
@@ -2303,13 +3053,124 @@ POST /v1/hypervisor/goal-runs/{goal_ref}/reconcile
 GET  /v1/hypervisor/goal-runs/{goal_ref}/events
 ```
 
+Target pursuit-profile discovery and nonbinding validation routes:
+
+```http
+GET  /v1/hypervisor/goal-run-profiles
+GET  /v1/hypervisor/goal-run-profiles/{profile_id}/revisions/{revision_id}
+POST /v1/hypervisor/goal-run-profiles/{profile_id}/revisions/{revision_id}/validate
+```
+
+Studio and Packages own profile authoring, successor-revision release, and
+registry lifecycle. These daemon routes discover an exact eligible revision,
+or return a nonbinding validation/compatibility preview. They do not create a
+resolution identity, mutate the released profile, grant authority, or reserve
+components. `POST /goal-runs` atomically revalidates, resolves, admits, creates
+the resolved-component and active-skill snapshots, emits the
+`GoalRunProfileResolutionReceipt`, and creates the GoalRun so no preview can be
+replayed across registry, policy, revocation, or availability drift.
+
+The target `POST /v1/hypervisor/goal-runs` request supplies the exact immutable
+profile and requested inputs; its admitted response binds the atomic resolution
+explicitly:
+
+```json
+{
+  "goal_run_profile_revision_ref": "goal-run-profile://.../revision/...",
+  "goal_run_profile_content_hash": "sha256:...",
+  "requested_override_set_ref": "artifact://... | null",
+  "requested_override_set_hash": "sha256:... | null",
+  "owner_ref": "user://... | org://... | project://... | system://...",
+  "user_intent_ref": "intent://... | prompt://...",
+  "constraint_refs": ["constraint://..."],
+  "outcome_room_ref": "outcome-room://... | null",
+  "room_participant_lease_ref": "participant-lease://... | null"
+}
+```
+
+```json
+{
+  "goal_run_id": "goal://...",
+  "goal_run_profile_revision_ref": "goal-run-profile://.../revision/...",
+  "goal_run_profile_content_hash": "sha256:...",
+  "admitted_override_set_ref": "artifact://... | null",
+  "admitted_override_set_hash": "sha256:... | null",
+  "effective_constraint_envelope_ref": "constraint://...",
+  "effective_constraint_envelope_hash": "sha256:...",
+  "resolved_component_set_snapshot_ref": "artifact://...",
+  "resolved_component_set_hash": "sha256:...",
+  "active_skill_set_snapshot_ref": "active-skill-set://...",
+  "active_skill_set_hash": "sha256:...",
+  "initial_role_topology_revision_ref": "role_topology://.../revision/... | null",
+  "initial_role_topology_content_hash": "sha256:... | null",
+  "goal_run_profile_resolution_receipt_ref": "receipt://...",
+  "admission_status": "admitted",
+  "run_status": "draft"
+}
+```
+
+Every newly admitted GoalRun binds exactly one profile revision. Simple or
+ad-hoc UX resolves the built-in generic-adaptive profile instead of creating a
+profileless exception. A later profile edit cannot rewrite the run; adopting a
+successor or different profile requires an explicit receipted migration or
+fork. The audited live create route predates generalized profile resolution and
+remains partial until it emits these fields.
+
+Target local-agent pairing routes:
+
+```http
+POST /v1/hypervisor/local-agent-pairings
+GET  /v1/hypervisor/local-agent-pairings/{pairing_ref}
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/claim
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/complete
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/cancel
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/revoke
+```
+
+`POST /v1/hypervisor/local-agent-pairings` is an authenticated operator action that creates a
+short-lived `LocalAgentPairingSessionEnvelope` with target `room_guest`,
+`private_worker`, or `organization_worker`. It returns the one-time plaintext
+challenge/device code and generated bootstrap instruction exactly once; the
+server persists only its commitment/hash and must not log or re-display the
+secret. The envelope binds expiry, claim-attempt limit and count, pairing
+transport, room or registry target, allowed bootstrap operations, and creator
+principal.
+
+`POST .../claim` proves possession of the challenge and binds the candidate
+public key, observed origin, and harness/agent descriptor. It does not
+mint a bearer credential with general API access. `POST .../complete` accepts
+only the signed `WorkerComposition` draft/ref and/or
+`RoomParticipationRequestEnvelope` allowed by the session target. Completion
+does not admit the worker, create a `RoomParticipantLease`, grant context,
+tools, authority, resources, or budget, expose room state, publish a
+marketplace listing, establish reputation, or authorize payment. Those remain
+separate owner decisions and leases.
+
+The creator may inspect status, cancel an incomplete session, or revoke future
+bootstrap use after a binding exists. Candidate polling, if a
+deployment permits it, is possession-bound and returns only pairing lifecycle
+state and the next allowed bootstrap action. Expired, replayed,
+origin-mismatched, key-mismatched, attempt-exhausted, completed, or revoked
+sessions fail closed. Rate limits apply by creator, origin, network posture,
+and target. Lifecycle and admission evidence reuse the existing
+authentication, policy-decision, and room-admission event/receipt owners rather
+than inventing a pairing receipt that claims competence.
+
+A prompt-only bootstrap is proposal-only and remains tainted. Pairing evidence
+alone cannot raise its result above `attested`; any stronger assurance must
+come from the admitted claim's evidence, isolation, verifier, acceptance,
+adjudication, and settlement path. Pairing is pre-AIIP first-mile
+authentication. After admission, cross-domain work uses AIIP and the same
+scoped Hypervisor MCP/tool gateway and lease contracts as any other participant.
+
 Target OutcomeRoom / CollaborativeWorkGraph routes:
 
 ```http
 POST  /v1/hypervisor/outcome-rooms
 GET   /v1/hypervisor/outcome-rooms
 GET   /v1/hypervisor/outcome-rooms/{room_ref}
-PATCH /v1/hypervisor/outcome-rooms/{room_ref}
+POST  /v1/hypervisor/outcome-rooms/{room_ref}/upgrade-proposals
+POST  /v1/hypervisor/outcome-rooms/{room_ref}/lifecycle/transitions
 
 POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery
 POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery/pause
@@ -2353,9 +3214,26 @@ POST /v1/hypervisor/outcome-rooms/{room_ref}/claims/{claim_ref}/reassign
 POST /v1/hypervisor/outcome-rooms/{room_ref}/attempts
 POST /v1/hypervisor/outcome-rooms/{room_ref}/findings
 POST /v1/hypervisor/outcome-rooms/{room_ref}/verifier-challenges
-POST /v1/hypervisor/outcome-rooms/{room_ref}/admit
+POST /v1/hypervisor/outcome-rooms/{room_ref}/admission-proposals
+POST /v1/hypervisor/outcome-rooms/{room_ref}/admission-proposals/{proposal_ref}/decide
 GET  /v1/hypervisor/outcome-rooms/{room_ref}/replay
 ```
+
+`POST /outcome-rooms` is a package-to-genesis convenience over the autonomous-
+system create path. It selects the reusable OutcomeRoom release and proposes one
+new room `system_id`, constitution, active profile set, and cryptographic origin;
+the room cannot become open/active until genesis and activation are admitted.
+The hosted service/domain may operate many such room systems.
+
+Room create/update routes never mint free-form mutable aggregates. Every
+frontier item, offer, claim, attempt, finding, challenge, result, delta, lease,
+budget transition, and state export compiles into a typed admission proposal
+carrying schema/kind, exact participant lease or room-system issuer, expected
+room revision and predecessor commitment, payload root, policy, and decision.
+The admitted response returns the admission receipt, monotonic sequence,
+resulting revision, transition commitment, state root, and receipt root. The
+object-specific routes above are conveniences over this one
+`RoomAdmittedObjectBase` transition contract, not bypasses around it.
 
 Discovery list/query accepts policy-qualified filters such as
 `category_ref`, `semantic_profile_ref`, `capability_ref`,
@@ -2441,6 +3319,87 @@ Hard rules:
 - background workers expose participant/claim leases, heartbeat or wake
   condition, spend, blockers, evidence, verification, and control state.
 
+## Bounded Improvement Campaign APIs
+
+The routes in this section are target contract and are not present in the
+currently audited daemon. The live improvement surface remains the narrower
+proposal/simulation/apply path described by
+[`improvement-governance-gates.md`](./improvement-governance-gates.md).
+
+Ordinary one-shot changes may continue to submit a direct `UpgradeProposal`.
+Only adaptive, repeated, sealed-evaluation, multi-epoch, or recursively claimed
+work needs an `ImprovementCampaign`.
+
+Target agenda and campaign routes:
+
+```http
+POST /v1/hypervisor/improvement-agendas
+GET  /v1/hypervisor/improvement-agendas
+GET  /v1/hypervisor/improvement-agendas/{agenda_ref}/revisions/{revision_ref}
+POST /v1/hypervisor/improvement-agendas/{agenda_ref}/revisions/{revision_ref}/release
+
+POST /v1/hypervisor/improvement-campaigns
+GET  /v1/hypervisor/improvement-campaigns
+GET  /v1/hypervisor/improvement-campaigns/{campaign_ref}
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/admit
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/start
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/pause
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/stop
+GET  /v1/hypervisor/improvement-campaigns/{campaign_ref}/candidates
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/attempts
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/findings
+```
+
+Target evaluation and exposure routes:
+
+```http
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/evaluation-epochs
+GET  /v1/hypervisor/evaluation-epochs/{epoch_ref}
+POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/freeze
+POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/activate
+POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/challenge
+POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/close
+POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/invalidate
+GET  /v1/hypervisor/evaluation-epochs/{epoch_ref}/exposure
+POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/exposure/reserve
+POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/exposure/spend
+POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/exposure/release
+POST /v1/hypervisor/evaluation-epochs/{epoch_ref}/rotate
+```
+
+Target synchronization, claim, and promotion routes:
+
+```http
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/order-cutoffs
+GET  /v1/hypervisor/improvement-campaigns/{campaign_ref}/order-cutoffs
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/evidence-claims
+GET  /v1/hypervisor/improvement-evidence-claims/{claim_ref}
+POST /v1/hypervisor/improvement-evidence-claims/{claim_ref}/challenge
+POST /v1/hypervisor/improvement-campaigns/{campaign_ref}/upgrade-proposals
+```
+
+Create and admit are separate. Campaign creation records a proposed immutable
+contract revision; admission resolves the owner-scope improvement-governance
+profile and, when System-scoped, the constitution, plus the mutable target,
+protected exclusions, exact incumbent root, selected GoalRunProfile and
+component closure, target path/order, active-depth ceiling, learning boundary,
+evaluator-independence posture, and disjoint ancestor budget reservations. Only
+admission may create the coordinating GoalRun or make the campaign runnable.
+
+Epoch freeze commits the evaluator contract before confirmatory candidate
+access. Exposure operations append entries against the frozen ledger head and
+must use expected-head concurrency; changing candidate identity, spawning a
+child, or raising claimed target order never restores spent exposure or
+statistical-risk allowance. Challenge and invalidation append lifecycle records
+and dependent-claim impact; they never mutate the frozen epoch body.
+
+`POST .../order-cutoffs` emits an `ImprovementOrderCutoffReceipt`, not an
+authority-bearing synchronization object. It accepts only eligible typed
+evidence at one adjacent target-order edge, binds denied or quarantined classes,
+and cannot include evidence produced by a successor activated in the same sync
+wave. Promotion remains an `UpgradeProposal` evaluated by the target owner's
+ordinary Governance and release API.
+
 ## Structured Error Shape
 
 Every public daemon error uses the same redacted shape:
@@ -2504,7 +3463,7 @@ POST /v1/runtime/assignments/{assignment_id}/reject
     Thread/Turn, HarnessProfile, ModelConfiguration, wallet, Agentgres, and
     receipt contracts for long-running or background work; hidden
     service-local job state is not canonical run state.
-14. Project, session, mission, adapter, environment-ops, access-token,
+14. Project, typed work, session, adapter, environment-ops, access-token,
     log-token, port, browser-open, and support-bundle APIs are daemon/Core
     lifecycle APIs; product clients and agent harnesses must not invent private
     lifecycle truth for them.
@@ -2529,3 +3488,9 @@ POST /v1/runtime/assignments/{assignment_id}/reject
 21. Work Credit projections must reconcile to route attempts and supplier cost
     before paid allowance claims; flat OCU-per-receipt metering is not
     invoice-grade reconciliation.
+22. Every newly admitted GoalRun freezes one exact GoalRunProfile revision,
+    permitted overrides, resolved-component snapshot/hash, and profile-
+    resolution receipt; an ad-hoc request uses the generic-adaptive profile.
+23. MCP protocol objects normalize to canonical IOI tool, context, input,
+    invocation, and extension-surface owners. Protocol sessions and task
+    handles never replace run, authority, state-root, or receipt identity.

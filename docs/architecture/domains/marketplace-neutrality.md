@@ -1,13 +1,13 @@
 # Marketplace Neutrality and Contribution Accounting Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for marketplace neutrality, first-party seed-supply neutrality, contribution and derivation accounting, assurance-state attribution, and anti-cannibalization doctrine.
+Canonical owner: this file for marketplace neutrality, first-party seed-supply neutrality, contribution and derivation accounting, assurance-state attribution, marketplace dispute-rail use, and anti-cannibalization doctrine.
 Supersedes: overlapping plan prose when marketplace neutrality or attribution conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: planned (neutrality covenant; routing, affiliation, contribution, assurance, challenge, and settlement receipts not implemented)
-Last implementation audit: 2026-07-05
+Implementation status: mixed (neutrality covenant and marketplace routing/contribution/settlement remain planned; the shared registered dispute contract and deterministic admission/allocation kernel are partial built substrate, without marketplace escrow, adjudication, remedy execution, or receipts)
+Last implementation audit: 2026-07-16
 
 ## Canonical Definition
 
@@ -230,6 +230,28 @@ non-transferable product budget units; worker payouts use the approved
 marketplace or settlement rail and must not silently turn unused seat credits
 into cash claims.
 
+## Marketplace Dispute Rail
+
+A marketplace dispute uses the shared `DisputeRailProfileEnvelope`,
+`DisputeEnvelope`, and `DisputeResolutionEnvelope`; this domain does not define
+a second marketplace-only dispute object. The `marketplace_escrow` profile
+binds the exact order/delivery, escrow ref, parties, case head, evidence and
+response windows, remedy rules, and bond distribution.
+
+The profile also freezes one `DisputeValueUnitBinding`. Disputed order value,
+any admitted refund or payout, both bond holds, and all bond-allocation legs are
+integer atomic units of that same asset/unit ref, version, and body hash.
+Marketplace UI, a provider, or an adjudicator cannot substitute store credit,
+Work Credits, a differently scaled token, or another settlement asset. V1
+performs no conversion.
+
+The deterministic dispute kernel selects only a profile-allowed remedy, applies
+declared timeout/unavailable-evidence defaults, and conserves the bound bond
+pool. It does not verify evidence substance, hold escrow, execute refunds,
+payouts, or slashes, create reputation finality, or move money. Those effects
+remain with the marketplace, settlement, Agentgres, authority, and receipt
+owners and require their own admitted execution and evidence.
+
 ## Relationship to IOI L1
 
 IOI L1 may store:
@@ -242,21 +264,37 @@ IOI L1 may store:
 - disputes.
 
 Agentgres domains store detailed contribution, attempt, assurance, challenge,
-and routing accounting. IOI L1 receives sparse roots only when portable rights,
-reputation, bonds, dispute finality, or economic settlement adds value. There is
+and routing accounting. For explicitly enrolled systems, IOI L1 receives sparse
+roots only when the selected service and settlement profiles name portable
+rights, reputation, bonds, dispute finality, or economic settlement. There is
 no chain, token transfer, or public commitment required per worker, GoalRun,
 attempt, ContributionReceipt, or OutcomeRoom update.
 
-## Why This Completes the IoI Economy
+## When External Contribution Creates Value
 
-The Internet of Intelligence needs incentives for intelligence sharing. This layer answers:
+Sovereign systems contribute only when payment, licensing, reciprocal access,
+portable reputation, reusable learning, strategic benefit, or shared-risk
+reduction exceeds execution, opportunity, verification, disclosure,
+coordination, counterparty, and settlement cost. They may sell bounded work,
+evidence, access, or rights while retaining private cognition, data, memory,
+authority, and operational truth. This layer makes selective contribution
+attributable and contractible by answering:
 
 - who contributed intelligence;
 - how it was used;
 - whether it improved the outcome;
 - how reputation accrues;
 - how payment/reward accrues;
-- why providers should participate without fear of appropriation.
+- under which accepted terms participation is rational and appropriation risk
+  is bounded.
+
+Attribution alone does not create the incentive. The ex-ante
+`CollaborationTermsEnvelope` and contribution policy define eligible work,
+rights, consideration, negative-result treatment, assurance thresholds, and
+reward basis. The ex-post contribution, verification, acceptance or
+adjudication, and settlement path determines whether declared consideration is
+actually due. A later terms amendment cannot rewrite an admitted contribution's
+eligibility or reward basis.
 
 ## Invariants
 
@@ -288,6 +326,10 @@ The Internet of Intelligence needs incentives for intelligence sharing. This lay
     dependencies.
 14. No L1 transaction or standalone blockchain per worker, GoalRun, attempt,
     receipt, or room update by default.
+15. No external work obligation, contribution eligibility, reward basis, or
+    payout from discovery, invitation, routing, or attribution alone. The exact
+    accepted terms root and admitted work claim govern, and amendments are
+    non-retroactive (`INV-30`, `INV-31`).
 
 ## One-Line Doctrine
 

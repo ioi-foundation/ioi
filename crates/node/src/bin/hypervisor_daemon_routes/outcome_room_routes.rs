@@ -51,10 +51,25 @@ const ROOM_RECEIPT_DIR: &str = "outcome-room-registry-receipts";
 const GOAL_RUN_DIR: &str = "goal-runs";
 
 /// Canonical vocabularies (OutcomeRoomEnvelope, verbatim).
-const ROOM_MODES: &[&str] = &["private_goal", "permissioned_team", "cross_org", "open_challenge"];
+const ROOM_MODES: &[&str] = &[
+    "private_goal",
+    "permissioned_team",
+    "cross_org",
+    "open_challenge",
+];
 const ROOM_STATUSES: &[&str] = &[
-    "proposed", "open", "active", "paused", "blocked", "verifying",
-    "accepted", "disputed", "settled", "closed", "revoked", "archived",
+    "proposed",
+    "open",
+    "active",
+    "paused",
+    "blocked",
+    "verifying",
+    "accepted",
+    "disputed",
+    "settled",
+    "closed",
+    "revoked",
+    "archived",
 ];
 const TOPOLOGIES: &[&str] = &["hosted_admission", "federated_admission"];
 /// Step-2 lifecycle transitions: name → (allowed from-statuses, to-status).
@@ -75,7 +90,13 @@ const UNAVAILABLE_TRANSITIONS: &[(&str, &str)] = &[
     ("revoke", "governance revocation authority (build step 3)"),
 ];
 const SENSITIVE_KEY_FRAGMENTS: &[&str] = &[
-    "password", "secret", "credential", "authorization", "privatekey", "apikey", "token",
+    "password",
+    "secret",
+    "credential",
+    "authorization",
+    "privatekey",
+    "apikey",
+    "token",
 ];
 
 /// Serializes every ROOM-SCOPE critical section (one daemon writer per data directory): room
@@ -91,7 +112,10 @@ const OBJECTIVE_MAX: usize = 2000;
 const HISTORY_MAX: usize = 100;
 
 fn nanos() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
 }
 fn s(v: &Value, k: &str, d: &str) -> String {
     v.get(k).and_then(|x| x.as_str()).unwrap_or(d).to_string()
@@ -106,8 +130,16 @@ fn reject_sensitive_keys(v: &Value, path: &str) -> Result<(), VErr> {
     match v {
         Value::Object(map) => {
             for (k, child) in map {
-                let normalized: String = k.to_lowercase().chars().filter(|c| !matches!(c, '_' | '-' | ' ' | '.')).collect();
-                if SENSITIVE_KEY_FRAGMENTS.iter().any(|f| normalized.contains(f)) && !child.is_null() {
+                let normalized: String = k
+                    .to_lowercase()
+                    .chars()
+                    .filter(|c| !matches!(c, '_' | '-' | ' ' | '.'))
+                    .collect();
+                if SENSITIVE_KEY_FRAGMENTS
+                    .iter()
+                    .any(|f| normalized.contains(f))
+                    && !child.is_null()
+                {
                     return Err(verr("outcome_room_plaintext_secret_rejected", format!("sensitive key `{path}{k}` is never accepted anywhere in the body — rooms carry canonical refs; secrets stay in the daemon credential planes")));
                 }
                 reject_sensitive_keys(child, &format!("{path}{k}."))?;
@@ -129,13 +161,23 @@ fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(raw)) => {
             if raw.chars().count() > max {
-                return Err(verr("outcome_room_field_too_long", format!("`{key}` exceeds the bounded length ({max} chars)")));
+                return Err(verr(
+                    "outcome_room_field_too_long",
+                    format!("`{key}` exceeds the bounded length ({max} chars)"),
+                ));
             }
             let trimmed = raw.trim();
-            if trimmed.is_empty() { return Ok(None); }
+            if trimmed.is_empty() {
+                return Ok(None);
+            }
             Ok(Some(trimmed.to_string()))
         }
-        Some(_) => Err(verr("outcome_room_field_type_invalid", format!("`{key}` must be a string when present — a non-string value is never defaulted"))),
+        Some(_) => Err(verr(
+            "outcome_room_field_type_invalid",
+            format!(
+                "`{key}` must be a string when present — a non-string value is never defaulted"
+            ),
+        )),
     }
 }
 
@@ -147,7 +189,17 @@ fn ref_scheme_ok(v: &str, schemes: &[&str]) -> bool {
 }
 
 fn scheme_err(key: &str, schemes: &[&str]) -> VErr {
-    verr("outcome_room_ref_scheme_invalid", format!("`{key}` must be a canonical ref [{}] — a raw string is never a ref", schemes.iter().map(|s| format!("{s}://")).collect::<Vec<_>>().join("|")))
+    verr(
+        "outcome_room_ref_scheme_invalid",
+        format!(
+            "`{key}` must be a canonical ref [{}] — a raw string is never a ref",
+            schemes
+                .iter()
+                .map(|s| format!("{s}://"))
+                .collect::<Vec<_>>()
+                .join("|")
+        ),
+    )
 }
 
 fn scalar_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<Option<String>, VErr> {
@@ -171,36 +223,66 @@ fn list_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<Vec<String>, VE
         None | Some(Value::Null) => Ok(Vec::new()),
         Some(Value::Array(items)) => {
             if items.len() > LIST_MAX {
-                return Err(verr("outcome_room_field_too_long", format!("`{key}` exceeds the bounded list length ({LIST_MAX})")));
+                return Err(verr(
+                    "outcome_room_field_too_long",
+                    format!("`{key}` exceeds the bounded list length ({LIST_MAX})"),
+                ));
             }
             let mut out = Vec::with_capacity(items.len());
             for it in items {
                 match it {
                     Value::String(raw) => {
                         let t = raw.trim();
-                        if t.is_empty() { continue; }
+                        if t.is_empty() {
+                            continue;
+                        }
                         if t.chars().count() > REF_MAX {
-                            return Err(verr("outcome_room_field_too_long", format!("a `{key}` member exceeds the bounded length ({REF_MAX} chars)")));
+                            return Err(verr(
+                                "outcome_room_field_too_long",
+                                format!(
+                                    "a `{key}` member exceeds the bounded length ({REF_MAX} chars)"
+                                ),
+                            ));
                         }
                         if !ref_scheme_ok(t, schemes) {
                             return Err(scheme_err(key, schemes));
                         }
                         out.push(t.to_string());
                     }
-                    _ => return Err(verr("outcome_room_field_type_invalid", format!("`{key}` members must be strings"))),
+                    _ => {
+                        return Err(verr(
+                            "outcome_room_field_type_invalid",
+                            format!("`{key}` members must be strings"),
+                        ))
+                    }
                 }
             }
             Ok(out)
         }
-        Some(_) => Err(verr("outcome_room_field_type_invalid", format!("`{key}` must be an array of refs when present"))),
+        Some(_) => Err(verr(
+            "outcome_room_field_type_invalid",
+            format!("`{key}` must be an array of refs when present"),
+        )),
     }
 }
 
 fn vocab_required(body: &Value, key: &str, vocab: &[&str], code: &str) -> Result<String, VErr> {
     match str_opt_bounded(body, key, 80)? {
         Some(v) if vocab.contains(&v.as_str()) => Ok(v),
-        Some(v) => Err(verr(code, format!("`{key}` value '{v}' is not a member of the canonical vocabulary [{}]", vocab.join("|")))),
-        None => Err(verr(code, format!("`{key}` is required and must be a member of [{}]", vocab.join("|")))),
+        Some(v) => Err(verr(
+            code,
+            format!(
+                "`{key}` value '{v}' is not a member of the canonical vocabulary [{}]",
+                vocab.join("|")
+            ),
+        )),
+        None => Err(verr(
+            code,
+            format!(
+                "`{key}` is required and must be a member of [{}]",
+                vocab.join("|")
+            ),
+        )),
     }
 }
 
@@ -209,29 +291,48 @@ fn plane_owned_list(body: &Value, key: &str, code: &str, why: &str) -> Result<()
     match body.get(key) {
         None | Some(Value::Null) => Ok(()),
         Some(Value::Array(items)) => {
-            if items.iter().any(|it| !matches!(it, Value::String(s) if s.trim().is_empty())) {
-                Err(verr(code, format!("`{key}` is not caller-authored — {why}")))
+            if items
+                .iter()
+                .any(|it| !matches!(it, Value::String(s) if s.trim().is_empty()))
+            {
+                Err(verr(
+                    code,
+                    format!("`{key}` is not caller-authored — {why}"),
+                ))
             } else {
                 Ok(())
             }
         }
-        Some(_) => Err(verr("outcome_room_field_type_invalid", format!("`{key}` must be an array when present"))),
+        Some(_) => Err(verr(
+            "outcome_room_field_type_invalid",
+            format!("`{key}` must be an array when present"),
+        )),
     }
 }
 
 fn record_output_hash(record: &Value, excludes: &[&str]) -> String {
     let mut clone = record.clone();
     if let Some(obj) = clone.as_object_mut() {
-        for k in excludes { obj.remove(*k); }
+        for k in excludes {
+            obj.remove(*k);
+        }
     }
-    format!("sha256:{:x}", Sha256::digest(serde_json::to_vec(&clone).unwrap_or_default()))
+    format!(
+        "sha256:{:x}",
+        Sha256::digest(serde_json::to_vec(&clone).unwrap_or_default())
+    )
 }
 
 /// ADMISSION hash scope: the admission receipt binds the DECLARED room shape — plane-owned
 /// mutable fields are excluded so later receipted transitions never invalidate it.
 const ROOM_HASH_EXCLUDES: &[&str] = &[
-    "admission_receipt_ref", "updated_at", "revision", "status", "status_history",
-    "member_goal_run_refs", "admission_and_replay_refs",
+    "admission_receipt_ref",
+    "updated_at",
+    "revision",
+    "status",
+    "status_history",
+    "member_goal_run_refs",
+    "admission_and_replay_refs",
 ];
 /// TRANSITION hash scope (#72 review finding 4): a transition receipt hashes the transition's
 /// OUTPUT — resulting status, revision, membership, and updated_at ARE included; only the
@@ -239,7 +340,9 @@ const ROOM_HASH_EXCLUDES: &[&str] = &[
 /// ref, and admission_receipt_ref is the creation receipt). Distinct transitions therefore emit
 /// DISTINCT hashes.
 const TRANSITION_HASH_EXCLUDES: &[&str] = &[
-    "admission_receipt_ref", "admission_and_replay_refs", "status_history",
+    "admission_receipt_ref",
+    "admission_and_replay_refs",
+    "status_history",
 ];
 
 // ================================================================================================
@@ -259,7 +362,12 @@ const TRANSITION_HASH_EXCLUDES: &[&str] = &[
 fn is_canonical_receipt_tail(tail: &str, prefix: &str) -> bool {
     tail.strip_prefix(prefix)
         .and_then(|rest| rest.strip_prefix('_'))
-        .map(|hex| !hex.is_empty() && hex.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()))
+        .map(|hex| {
+            !hex.is_empty()
+                && hex
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        })
         .unwrap_or(false)
 }
 
@@ -272,14 +380,19 @@ fn is_canonical_room_tail(tail: &str) -> bool {
 /// round 17 finding 2): otherwise two distinct ids (e.g. `ort/collision` and `ort_collision`)
 /// would silently target the same evidence file.
 fn is_normalization_safe(id: &str) -> bool {
-    !id.is_empty() && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    !id.is_empty()
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
 /// RFC3339 timestamp validation (#72 round 17 finding 3): replay must reject any timestamp
 /// production could not emit (null, empty, or malformed) rather than coerce it to "".
 fn is_rfc3339(v: &Value) -> bool {
     v.as_str()
-        .map(|s| time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339).is_ok())
+        .map(|s| {
+            time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339).is_ok()
+        })
         .unwrap_or(false)
 }
 
@@ -335,7 +448,9 @@ fn read_dir_with_stems(data_dir: &str, family: &str) -> Result<Vec<(String, Valu
     let names = enumerate_pinned(&dir).map_err(|e| format!("family '{family}' could not be enumerated through its pinned fd ({e}) — refusing to report a false-empty registry"))?;
     let mut out = Vec::new();
     for name in names {
-        let Some(stem) = name.strip_suffix(".json") else { continue };
+        let Some(stem) = name.strip_suffix(".json") else {
+            continue;
+        };
         // Canonicalize the stem BEFORE any open (#72 round 20 finding 2).
         if !is_canonical_room_tail(stem) {
             continue;
@@ -373,12 +488,19 @@ fn slot_cstr(name: &str) -> std::io::Result<std::ffi::CString> {
 /// occupant opened O_NOFOLLOW and read; Ok(None) = definitively ABSENT (ENOENT only). EVERY
 /// other outcome — unreadable occupant, symlink (ELOOP), FIFO/device — is Err: the caller must
 /// REFUSE, never treat the slot as empty.
-fn read_slot_strict(dir: &std::fs::File, name: &str) -> std::io::Result<Option<(std::fs::File, Vec<u8>)>> {
+fn read_slot_strict(
+    dir: &std::fs::File,
+    name: &str,
+) -> std::io::Result<Option<(std::fs::File, Vec<u8>)>> {
     use std::io::Read;
     use std::os::unix::io::{AsRawFd, FromRawFd};
     let c = slot_cstr(name)?;
     let fd = unsafe {
-        libc::openat(dir.as_raw_fd(), c.as_ptr(), libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
+        libc::openat(
+            dir.as_raw_fd(),
+            c.as_ptr(),
+            libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC,
+        )
     };
     if fd < 0 {
         let e = std::io::Error::last_os_error();
@@ -389,7 +511,10 @@ fn read_slot_strict(dir: &std::fs::File, name: &str) -> std::io::Result<Option<(
     }
     let mut f = unsafe { std::fs::File::from_raw_fd(fd) };
     if !f.metadata()?.is_file() {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, format!("slot '{name}' is occupied by a non-regular file")));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("slot '{name}' is occupied by a non-regular file"),
+        ));
     }
     let mut bytes = Vec::new();
     f.read_to_end(&mut bytes)?;
@@ -403,7 +528,12 @@ fn open_tmpfile_at(dir: &std::fs::File) -> std::io::Result<std::fs::File> {
     use std::os::unix::io::{AsRawFd, FromRawFd};
     let dot = slot_cstr(".")?;
     let fd = unsafe {
-        libc::openat(dir.as_raw_fd(), dot.as_ptr(), libc::O_WRONLY | libc::O_TMPFILE | libc::O_CLOEXEC, 0o644 as libc::c_uint)
+        libc::openat(
+            dir.as_raw_fd(),
+            dot.as_ptr(),
+            libc::O_WRONLY | libc::O_TMPFILE | libc::O_CLOEXEC,
+            0o644 as libc::c_uint,
+        )
     };
     if fd < 0 {
         return Err(std::io::Error::last_os_error());
@@ -419,7 +549,16 @@ fn link_tmpfile_at(tmp: &std::fs::File, dir: &std::fs::File, to: &str) -> std::i
     use std::os::unix::io::AsRawFd;
     let src = slot_cstr(&format!("/proc/self/fd/{}", tmp.as_raw_fd()))?;
     let ct = slot_cstr(to)?;
-    if unsafe { libc::linkat(libc::AT_FDCWD, src.as_ptr(), dir.as_raw_fd(), ct.as_ptr(), libc::AT_SYMLINK_FOLLOW) } != 0 {
+    if unsafe {
+        libc::linkat(
+            libc::AT_FDCWD,
+            src.as_ptr(),
+            dir.as_raw_fd(),
+            ct.as_ptr(),
+            libc::AT_SYMLINK_FOLLOW,
+        )
+    } != 0
+    {
         return Err(std::io::Error::last_os_error());
     }
     Ok(())
@@ -448,12 +587,22 @@ fn same_inode(a: &std::fs::File, b: &std::fs::File) -> std::io::Result<bool> {
 /// exercised. Absent env = no effect. `point` is "new" (fresh linkat) or "replay" (byte-compare).
 fn test_swap_receipt_target(dir: &std::fs::File, target: &str, point: &str) {
     use std::io::Write;
-    if std::env::var("IOI_TEST_FORCE_RECEIPT_TARGET_SWAP").ok().as_deref() != Some(point) {
+    if std::env::var("IOI_TEST_FORCE_RECEIPT_TARGET_SWAP")
+        .ok()
+        .as_deref()
+        != Some(point)
+    {
         return;
     }
     let _ = unlink_at(dir, target);
     if let Ok(mut f) = open_tmpfile_at(dir) {
-        let _ = f.write_all(format!("{{\"foreign\":\"REPLACED_AFTER_{}\"}}", point.to_uppercase()).as_bytes());
+        let _ = f.write_all(
+            format!(
+                "{{\"foreign\":\"REPLACED_AFTER_{}\"}}",
+                point.to_uppercase()
+            )
+            .as_bytes(),
+        );
         let _ = f.sync_all();
         let _ = link_tmpfile_at(&f, dir, target);
     }
@@ -462,7 +611,13 @@ fn test_swap_receipt_target(dir: &std::fs::File, target: &str, point: &str) {
 /// Re-verify the canonical name AFTER the file + directory fsyncs (#72 round 21 finding 1):
 /// re-open the target O_NOFOLLOW, prove it is the SAME inode as the committed descriptor, and
 /// re-read its bytes — a target swapped during the durability barrier is caught and refused.
-fn certify_receipt_target(dir: &std::fs::File, target: &str, committed: &std::fs::File, bytes: &[u8], point: &str) -> Result<(), VErr> {
+fn certify_receipt_target(
+    dir: &std::fs::File,
+    target: &str,
+    committed: &std::fs::File,
+    bytes: &[u8],
+    point: &str,
+) -> Result<(), VErr> {
     test_swap_receipt_target(dir, target, point);
     match read_slot_strict(dir, target) {
         Ok(Some((reopened, on_disk))) => {
@@ -474,8 +629,14 @@ fn certify_receipt_target(dir: &std::fs::File, target: &str, committed: &std::fs
             }
             Ok(())
         }
-        Ok(None) => Err(verr("outcome_room_receipt_swapped", format!("the receipt name '{target}' vanished after commit — refused"))),
-        Err(e) => Err(verr("outcome_room_receipt_slot_unreadable", format!("post-commit re-verify of '{target}' failed ({e}) — refused"))),
+        Ok(None) => Err(verr(
+            "outcome_room_receipt_swapped",
+            format!("the receipt name '{target}' vanished after commit — refused"),
+        )),
+        Err(e) => Err(verr(
+            "outcome_room_receipt_slot_unreadable",
+            format!("post-commit re-verify of '{target}' failed ({e}) — refused"),
+        )),
     }
 }
 
@@ -485,7 +646,9 @@ fn certify_receipt_target(dir: &std::fs::File, target: &str, committed: &std::fs
 /// non-regular / non-JSON occupant — WRITE-side callers refuse, read paths map Err to invisible.
 fn read_room_slot_strict(data_dir: &str, stem: &str) -> Result<Option<Value>, String> {
     if !is_canonical_room_tail(stem) {
-        return Err(format!("non-canonical room stem '{stem}' — refused before any filesystem access"));
+        return Err(format!(
+            "non-canonical room stem '{stem}' — refused before any filesystem access"
+        ));
     }
     let dir = match open_family_dir_pinned(data_dir, ROOM_DIR) {
         Ok(d) => d,
@@ -497,7 +660,9 @@ fn read_room_slot_strict(data_dir: &str, stem: &str) -> Result<Option<Value>, St
         Ok(Some((_f, bytes))) => serde_json::from_slice::<Value>(&bytes)
             .map(Some)
             .map_err(|e| format!("room slot '{stem}' holds non-JSON content ({e})")),
-        Err(e) => Err(format!("room slot '{stem}' is occupied but not readable as a regular file ({e})")),
+        Err(e) => Err(format!(
+            "room slot '{stem}' is occupied but not readable as a regular file ({e})"
+        )),
     }
 }
 
@@ -510,11 +675,26 @@ fn load_room_file(data_dir: &str, stem: &str) -> Option<Value> {
 /// Plane-owned + identity fields the creation constructor sets itself — stripped from a sealed
 /// room to recover the ORIGINAL declaration body for reconstruction (#72 round 16).
 const ROOM_PLANE_OWNED_FIELDS: &[&str] = &[
-    "schema_version", "runtimeTruthSource", "outcome_room_id", "created_at", "updated_at",
-    "status", "revision", "status_history", "admission_receipt_ref", "admission_and_replay_refs",
-    "member_goal_run_refs", "participant_lease_refs", "participation_request_refs",
-    "frontier_item_refs", "attempt_refs", "finding_refs", "verifier_challenge_refs",
-    "discussion_projection_refs", "contribution_refs", "participant_state_bundle_refs",
+    "schema_version",
+    "runtimeTruthSource",
+    "outcome_room_id",
+    "created_at",
+    "updated_at",
+    "status",
+    "revision",
+    "status_history",
+    "admission_receipt_ref",
+    "admission_and_replay_refs",
+    "member_goal_run_refs",
+    "participant_lease_refs",
+    "participation_request_refs",
+    "frontier_item_refs",
+    "attempt_refs",
+    "finding_refs",
+    "verifier_challenge_refs",
+    "discussion_projection_refs",
+    "contribution_refs",
+    "participant_state_bundle_refs",
 ];
 
 /// Reconstruct the COMPLETE admission room from a sealed one, through the SAME declaration
@@ -522,12 +702,19 @@ const ROOM_PLANE_OWNED_FIELDS: &[&str] = &[
 /// owner/objective/host/mode/topology/policy refs) is REJECTED by `validate_room_create` — it
 /// can never pass as "matching facts" the way `None == None` did. The plane-owned identity and
 /// timestamps are then reattached from the sealed room; the caller byte-compares the result.
-fn reconstruct_admission_room(final_room: &Value, receipt_ref: &Value, trusted_room_id: &str) -> Result<Value, String> {
+fn reconstruct_admission_room(
+    final_room: &Value,
+    receipt_ref: &Value,
+    trusted_room_id: &str,
+) -> Result<Value, String> {
     let mut body = final_room.clone();
     if let Some(obj) = body.as_object_mut() {
-        for k in ROOM_PLANE_OWNED_FIELDS { obj.remove(*k); }
+        for k in ROOM_PLANE_OWNED_FIELDS {
+            obj.remove(*k);
+        }
     }
-    let mut record = validate_room_create(&body).map_err(|(code, _)| format!("declaration invalid ({code})"))?;
+    let mut record =
+        validate_room_create(&body).map_err(|(code, _)| format!("declaration invalid ({code})"))?;
     // Creation stamps ONE `now` into created_at, updated_at, and the receipt timestamp — which
     // must be a real RFC3339 timestamp production could emit (#72 round 17 finding 3).
     let now = final_room.get("updated_at").cloned().unwrap_or(Value::Null);
@@ -553,13 +740,20 @@ fn reconstruct_admission_room(final_room: &Value, receipt_ref: &Value, trusted_r
 fn validate_admission_intent(intent: &Value, room_id: &str, room_tail: &str) -> Result<(), String> {
     let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
     let final_room = intent.get("final_room").cloned().unwrap_or(Value::Null);
-    let intent_receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("");
+    let intent_receipt_id = intent
+        .get("receipt_id")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     // Self-consistency of the intent seals (fast reject).
-    if intent.get("receipt_hash").and_then(Value::as_str) != Some(record_output_hash(&receipt, &[]).as_str()) {
+    if intent.get("receipt_hash").and_then(Value::as_str)
+        != Some(record_output_hash(&receipt, &[]).as_str())
+    {
         return Err("receipt seal".into());
     }
-    if intent.get("final_room_hash").and_then(Value::as_str) != Some(record_output_hash(&final_room, &[]).as_str()) {
+    if intent.get("final_room_hash").and_then(Value::as_str)
+        != Some(record_output_hash(&final_room, &[]).as_str())
+    {
         return Err("final-room seal".into());
     }
     // STORAGE-KEY BINDING (#72 round 17 finding 1): the TRUSTED key is the filename stem — every
@@ -572,7 +766,10 @@ fn validate_admission_intent(intent: &Value, room_id: &str, room_tail: &str) -> 
         || intent.get("room_ref").and_then(Value::as_str) != Some(room_id)
         || final_room.get("outcome_room_id").and_then(Value::as_str) != Some(room_id)
         || receipt.get("subject_ref").and_then(Value::as_str) != Some(room_id)
-        || receipt.pointer("/attested_boundary_fact_refs/0").and_then(Value::as_str) != Some(room_id)
+        || receipt
+            .pointer("/attested_boundary_fact_refs/0")
+            .and_then(Value::as_str)
+            != Some(room_id)
     {
         return Err("room identity does not bind to the storage key".into());
     }
@@ -594,18 +791,38 @@ fn validate_admission_intent(intent: &Value, room_id: &str, room_tail: &str) -> 
     // RECONSTRUCT the complete room through the creation constructor with the TRUSTED id;
     // byte-compare (a sealed outcome_room_id != the stem now fails here).
     let expected_room = reconstruct_admission_room(&final_room, &receipt_ref, room_id)?;
-    if serde_json::to_vec(&expected_room).unwrap_or_default() != serde_json::to_vec(&final_room).unwrap_or_default() {
+    if serde_json::to_vec(&expected_room).unwrap_or_default()
+        != serde_json::to_vec(&final_room).unwrap_or_default()
+    {
         return Err("not the canonical admission room".into());
     }
     // RECONSTRUCT the EXACT admission receipt from the validated room; byte-compare.
-    let now = expected_room.get("updated_at").and_then(Value::as_str).unwrap_or("");
+    let now = expected_room
+        .get("updated_at")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let expected_receipt = build_room_receipt_at(
-        intent_receipt_id, ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", room_id, "admitted",
+        intent_receipt_id,
+        ADMISSION_RECEIPT_SCHEMA,
+        "OutcomeRoomAdmissionReceipt",
+        room_id,
+        "admitted",
         json!({ "room_mode": expected_room["room_mode"], "coordination_topology": expected_room["coordination_topology"], "owner_or_sponsor_ref": expected_room["owner_or_sponsor_ref"], "objective_ref": expected_room["objective_ref"], "host_domain_ref": expected_room["host_domain_ref"], "status_at_admission": "open" }),
-        vec![json!(room_id), expected_room["owner_or_sponsor_ref"].clone(), expected_room["objective_ref"].clone(), expected_room["host_domain_ref"].clone()],
-        record_output_hash(&expected_room, ROOM_HASH_EXCLUDES), ROOM_HASH_EXCLUDES, "admitted_not_verified", ADMISSION_NOTE, now,
+        vec![
+            json!(room_id),
+            expected_room["owner_or_sponsor_ref"].clone(),
+            expected_room["objective_ref"].clone(),
+            expected_room["host_domain_ref"].clone(),
+        ],
+        record_output_hash(&expected_room, ROOM_HASH_EXCLUDES),
+        ROOM_HASH_EXCLUDES,
+        "admitted_not_verified",
+        ADMISSION_NOTE,
+        now,
     );
-    if serde_json::to_vec(&expected_receipt).unwrap_or_default() != serde_json::to_vec(&receipt).unwrap_or_default() {
+    if serde_json::to_vec(&expected_receipt).unwrap_or_default()
+        != serde_json::to_vec(&receipt).unwrap_or_default()
+    {
         return Err("not the canonical admission receipt".into());
     }
     Ok(())
@@ -616,15 +833,27 @@ fn validate_admission_intent(intent: &Value, room_id: &str, room_tail: &str) -> 
 /// byte (#72 rounds 15-16 finding 2). `prior` is the durable room with its `transition_intent`
 /// stripped — so a forged declaration, status, revision, trail, OR receipt (bound facts,
 /// boundary refs, posture, actor, timestamps) can never match the deterministic reconstruction.
-fn validate_transition_intent(intent: &Value, prior: &Value, room_id: &str, room_tail: &str) -> Result<(), String> {
+fn validate_transition_intent(
+    intent: &Value,
+    prior: &Value,
+    room_id: &str,
+    room_tail: &str,
+) -> Result<(), String> {
     let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
     let final_room = intent.get("final_room").cloned().unwrap_or(Value::Null);
-    let intent_receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("");
+    let intent_receipt_id = intent
+        .get("receipt_id")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
-    if intent.get("receipt_hash").and_then(Value::as_str) != Some(record_output_hash(&receipt, &[]).as_str()) {
+    if intent.get("receipt_hash").and_then(Value::as_str)
+        != Some(record_output_hash(&receipt, &[]).as_str())
+    {
         return Err("receipt seal".into());
     }
-    if intent.get("final_room_hash").and_then(Value::as_str) != Some(record_output_hash(&final_room, &[]).as_str()) {
+    if intent.get("final_room_hash").and_then(Value::as_str)
+        != Some(record_output_hash(&final_room, &[]).as_str())
+    {
         return Err("final-room seal".into());
     }
     // Storage-key + canonical-tail binding (#72 round 17 findings 1-2): the prior room's own id,
@@ -635,7 +864,10 @@ fn validate_transition_intent(intent: &Value, prior: &Value, room_id: &str, room
     if prior.get("outcome_room_id").and_then(Value::as_str) != Some(room_id)
         || final_room.get("outcome_room_id").and_then(Value::as_str) != Some(room_id)
         || receipt.get("subject_ref").and_then(Value::as_str) != Some(room_id)
-        || receipt.pointer("/attested_boundary_fact_refs/0").and_then(Value::as_str) != Some(room_id)
+        || receipt
+            .pointer("/attested_boundary_fact_refs/0")
+            .and_then(Value::as_str)
+            != Some(room_id)
     {
         return Err("room identity does not bind to the storage key".into());
     }
@@ -667,25 +899,50 @@ fn validate_transition_intent(intent: &Value, prior: &Value, room_id: &str, room
         obj.insert("status".into(), json!(to_status));
         obj.insert("revision".into(), json!(prior_rev + 1));
         obj.insert("updated_at".into(), now.clone());
-        let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let mut trail: Vec<Value> = obj
+            .get("admission_and_replay_refs")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
         trail.push(receipt_ref.clone());
         obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
-        let mut history: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-        history.push(json!({ "op": op, "at": now, "receipt_ref": receipt_ref, "revision": prior_rev + 1 }));
-        if history.len() > HISTORY_MAX { let drop_n = history.len() - HISTORY_MAX; history.drain(0..drop_n); }
+        let mut history: Vec<Value> = obj
+            .get("status_history")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        history.push(
+            json!({ "op": op, "at": now, "receipt_ref": receipt_ref, "revision": prior_rev + 1 }),
+        );
+        if history.len() > HISTORY_MAX {
+            let drop_n = history.len() - HISTORY_MAX;
+            history.drain(0..drop_n);
+        }
         obj.insert("status_history".into(), Value::Array(history));
     }
-    if serde_json::to_vec(&expected).unwrap_or_default() != serde_json::to_vec(&final_room).unwrap_or_default() {
+    if serde_json::to_vec(&expected).unwrap_or_default()
+        != serde_json::to_vec(&final_room).unwrap_or_default()
+    {
         return Err("not the deterministic successor".into());
     }
     // Reconstruct the EXACT transition receipt as mutate_room would; byte-compare.
     let expected_receipt = build_room_receipt_at(
-        intent_receipt_id, TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", room_id, op,
+        intent_receipt_id,
+        TRANSITION_RECEIPT_SCHEMA,
+        "OutcomeRoomTransitionReceipt",
+        room_id,
+        op,
         json!({ "transition": op, "from": from, "to": to_status, "revision_before": prior_rev, "revision_after": prior_rev + 1 }),
         vec![json!(room_id)],
-        record_output_hash(&expected, TRANSITION_HASH_EXCLUDES), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", TRANSITION_NOTE, now_str,
+        record_output_hash(&expected, TRANSITION_HASH_EXCLUDES),
+        TRANSITION_HASH_EXCLUDES,
+        "admitted_not_verified",
+        TRANSITION_NOTE,
+        now_str,
     );
-    if serde_json::to_vec(&expected_receipt).unwrap_or_default() != serde_json::to_vec(&receipt).unwrap_or_default() {
+    if serde_json::to_vec(&expected_receipt).unwrap_or_default()
+        != serde_json::to_vec(&receipt).unwrap_or_default()
+    {
         return Err("not the canonical transition receipt".into());
     }
     Ok(())
@@ -695,16 +952,31 @@ fn validate_transition_intent(intent: &Value, prior: &Value, room_id: &str, room
 /// the EXACT attach receipt, then require the sealed `updated_room` + receipt to equal them
 /// byte-for-byte (#72 rounds 15-16 finding 2). `prior` is the durable room with its
 /// `attach_intent` stripped.
-fn validate_attach_intent(intent: &Value, prior: &Value, room_id: &str, room_tail: &str) -> Result<(), String> {
+fn validate_attach_intent(
+    intent: &Value,
+    prior: &Value,
+    room_id: &str,
+    room_tail: &str,
+) -> Result<(), String> {
     let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
     let updated_room = intent.get("updated_room").cloned().unwrap_or(Value::Null);
-    let intent_receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("");
-    let run_file_id = intent.get("run_file_id").and_then(Value::as_str).unwrap_or("");
+    let intent_receipt_id = intent
+        .get("receipt_id")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let run_file_id = intent
+        .get("run_file_id")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
-    if intent.get("receipt_hash").and_then(Value::as_str) != Some(record_output_hash(&receipt, &[]).as_str()) {
+    if intent.get("receipt_hash").and_then(Value::as_str)
+        != Some(record_output_hash(&receipt, &[]).as_str())
+    {
         return Err("receipt seal".into());
     }
-    if intent.get("updated_room_hash").and_then(Value::as_str) != Some(record_output_hash(&updated_room, &[]).as_str()) {
+    if intent.get("updated_room_hash").and_then(Value::as_str)
+        != Some(record_output_hash(&updated_room, &[]).as_str())
+    {
         return Err("updated-room seal".into());
     }
     // Storage-key + canonical-tail binding (#72 round 17 findings 1-2).
@@ -714,14 +986,22 @@ fn validate_attach_intent(intent: &Value, prior: &Value, room_id: &str, room_tai
     if prior.get("outcome_room_id").and_then(Value::as_str) != Some(room_id)
         || updated_room.get("outcome_room_id").and_then(Value::as_str) != Some(room_id)
         || receipt.get("subject_ref").and_then(Value::as_str) != Some(room_id)
-        || receipt.pointer("/attested_boundary_fact_refs/0").and_then(Value::as_str) != Some(room_id)
+        || receipt
+            .pointer("/attested_boundary_fact_refs/0")
+            .and_then(Value::as_str)
+            != Some(room_id)
     {
         return Err("room identity does not bind to the storage key".into());
     }
     if !is_canonical_receipt_tail(intent_receipt_id, "ort") {
         return Err("non-canonical attach receipt tail".into());
     }
-    if !is_rfc3339(&updated_room.get("updated_at").cloned().unwrap_or(Value::Null)) {
+    if !is_rfc3339(
+        &updated_room
+            .get("updated_at")
+            .cloned()
+            .unwrap_or(Value::Null),
+    ) {
         return Err("attach updated_at not RFC3339".into());
     }
     if receipt_ref.as_str() != Some(format!("receipt://{intent_receipt_id}").as_str()) {
@@ -734,12 +1014,23 @@ fn validate_attach_intent(intent: &Value, prior: &Value, room_id: &str, room_tai
         return Err("attach not admitted from prior status".into());
     }
     let member = format!("goal://{run_file_id}");
-    let members: Vec<String> = prior.get("member_goal_run_refs").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
+    let members: Vec<String> = prior
+        .get("member_goal_run_refs")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
     if members.iter().any(|m| m == &member) {
         return Err("run already a member of the prior room".into());
     }
     let prior_rev = prior.get("revision").and_then(Value::as_u64).unwrap_or(0);
-    let now = updated_room.get("updated_at").cloned().unwrap_or(Value::Null);
+    let now = updated_room
+        .get("updated_at")
+        .cloned()
+        .unwrap_or(Value::Null);
     let now_str = now.as_str().unwrap_or("");
     let mut expected = prior.clone();
     if let Some(obj) = expected.as_object_mut() {
@@ -749,25 +1040,48 @@ fn validate_attach_intent(intent: &Value, prior: &Value, room_id: &str, room_tai
         obj.insert("member_goal_run_refs".into(), Value::Array(arr));
         obj.insert("revision".into(), json!(prior_rev + 1));
         obj.insert("updated_at".into(), now.clone());
-        let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let mut trail: Vec<Value> = obj
+            .get("admission_and_replay_refs")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
         trail.push(receipt_ref.clone());
         obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
-        let mut history: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let mut history: Vec<Value> = obj
+            .get("status_history")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
         history.push(json!({ "op": "goal_run_attached", "at": now, "receipt_ref": receipt_ref, "revision": prior_rev + 1 }));
-        if history.len() > HISTORY_MAX { let drop_n = history.len() - HISTORY_MAX; history.drain(0..drop_n); }
+        if history.len() > HISTORY_MAX {
+            let drop_n = history.len() - HISTORY_MAX;
+            history.drain(0..drop_n);
+        }
         obj.insert("status_history".into(), Value::Array(history));
     }
-    if serde_json::to_vec(&expected).unwrap_or_default() != serde_json::to_vec(&updated_room).unwrap_or_default() {
+    if serde_json::to_vec(&expected).unwrap_or_default()
+        != serde_json::to_vec(&updated_room).unwrap_or_default()
+    {
         return Err("not the deterministic membership successor".into());
     }
     // Reconstruct the EXACT attach receipt as the attach handler would; byte-compare.
     let expected_receipt = build_room_receipt_at(
-        intent_receipt_id, TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", room_id, "goal_run_attached",
+        intent_receipt_id,
+        TRANSITION_RECEIPT_SCHEMA,
+        "OutcomeRoomTransitionReceipt",
+        room_id,
+        "goal_run_attached",
         json!({ "goal_run_ref": member, "reciprocal_outcome_room_ref_stamped": true, "member_count_after": members.len() + 1, "revision_before": prior_rev, "revision_after": prior_rev + 1 }),
         vec![json!(room_id), json!(member)],
-        record_output_hash(&expected, TRANSITION_HASH_EXCLUDES), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", ATTACH_NOTE, now_str,
+        record_output_hash(&expected, TRANSITION_HASH_EXCLUDES),
+        TRANSITION_HASH_EXCLUDES,
+        "admitted_not_verified",
+        ATTACH_NOTE,
+        now_str,
     );
-    if serde_json::to_vec(&expected_receipt).unwrap_or_default() != serde_json::to_vec(&receipt).unwrap_or_default() {
+    if serde_json::to_vec(&expected_receipt).unwrap_or_default()
+        != serde_json::to_vec(&receipt).unwrap_or_default()
+    {
         return Err("not the canonical attach receipt".into());
     }
     Ok(())
@@ -790,7 +1104,20 @@ fn build_room_receipt(
     now: &str,
 ) -> (String, Value) {
     let id_tail = format!("{prefix}_{:x}", nanos());
-    let rec = build_room_receipt_at(&id_tail, schema, receipt_type, subject_ref, op, bound_facts, boundary_refs, output_hash, hash_scope_excludes, posture, note, now);
+    let rec = build_room_receipt_at(
+        &id_tail,
+        schema,
+        receipt_type,
+        subject_ref,
+        op,
+        bound_facts,
+        boundary_refs,
+        output_hash,
+        hash_scope_excludes,
+        posture,
+        note,
+        now,
+    );
     (id_tail, rec)
 }
 
@@ -859,7 +1186,12 @@ fn build_room_receipt_at(
 /// file fsync + rename + checked directory fsync, with the same NotCommitted /
 /// RenamedDurabilityUnconfirmed outcome split — room records and receipts carry the same
 /// crash-durability contract as goal-run evidence.
-fn persist_atomic(data_dir: &str, family: &str, record_id: &str, record: &Value) -> Result<(), super::goalrun_routes::PersistFailure> {
+fn persist_atomic(
+    data_dir: &str,
+    family: &str,
+    record_id: &str,
+    record: &Value,
+) -> Result<(), super::goalrun_routes::PersistFailure> {
     // Evidence keys must be filesystem-safe AS WRITTEN (#72 round 17 finding 2): the durable
     // writer normalizes unsafe characters, so `ort/collision` and `ort_collision` would silently
     // target the same file. Reject rather than collide — the room plane only ever writes
@@ -892,16 +1224,27 @@ fn persist_atomic(data_dir: &str, family: &str, record_id: &str, record: &Value)
 fn persist_receipt_no_clobber(data_dir: &str, tail: &str, receipt: &Value) -> Result<(), VErr> {
     use std::io::Write;
     if !is_normalization_safe(tail) {
-        return Err(verr("outcome_room_receipt_key_invalid", format!("receipt tail '{tail}' is not filesystem-safe")));
+        return Err(verr(
+            "outcome_room_receipt_key_invalid",
+            format!("receipt tail '{tail}' is not filesystem-safe"),
+        ));
     }
     let bytes = serde_json::to_vec_pretty(receipt).unwrap_or_default();
     let fam_path = std::path::Path::new(data_dir).join(ROOM_RECEIPT_DIR);
     if let Err(e) = std::fs::create_dir_all(&fam_path) {
-        return Err(verr("outcome_room_receipt_persist_failed", format!("receipt directory unavailable ({e}) — nothing was written")));
+        return Err(verr(
+            "outcome_room_receipt_persist_failed",
+            format!("receipt directory unavailable ({e}) — nothing was written"),
+        ));
     }
     let dir = match open_family_dir_pinned(data_dir, ROOM_RECEIPT_DIR) {
         Ok(d) => d,
-        Err(e) => return Err(verr("outcome_room_receipt_persist_failed", format!("receipt directory pin failed ({e}) — nothing was written"))),
+        Err(e) => {
+            return Err(verr(
+                "outcome_room_receipt_persist_failed",
+                format!("receipt directory pin failed ({e}) — nothing was written"),
+            ))
+        }
     };
     let target = format!("{tail}.json");
     // The durability barrier: fsync the receipt file's directory AND — UNCONDITIONALLY, every
@@ -911,13 +1254,21 @@ fn persist_receipt_no_clobber(data_dir: &str, tail: &str, receipt: &Value) -> Re
     let confirm_dir_durable = |dir: &std::fs::File| -> Result<(), VErr> {
         // DELIBERATE TEST FAULT POINT (same contract as the typed durable writer): absent env =
         // no effect; the receipt is already VISIBLE when this fires.
-        if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED").ok().as_deref() == Some(ROOM_RECEIPT_DIR) {
+        if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED")
+            .ok()
+            .as_deref()
+            == Some(ROOM_RECEIPT_DIR)
+        {
             return Err(verr("outcome_room_receipt_durability_unconfirmed", "test-forced directory-sync failure — the receipt is VISIBLE but its durability is unconfirmed".to_string()));
         }
         dir.sync_all().map_err(|e| verr("outcome_room_receipt_durability_unconfirmed", format!("receipt directory sync failed ({e}) — the receipt is VISIBLE but its durability is unconfirmed")))?;
         // Parent (data_dir) fsync — UNCONDITIONAL (#72 round 21 finding 2); a separate fault hook
         // fails only the parent leg so the failure→restart lane is exact.
-        if std::env::var("IOI_TEST_FORCE_PARENT_FSYNC_UNCONFIRMED").ok().as_deref() == Some(ROOM_RECEIPT_DIR) {
+        if std::env::var("IOI_TEST_FORCE_PARENT_FSYNC_UNCONFIRMED")
+            .ok()
+            .as_deref()
+            == Some(ROOM_RECEIPT_DIR)
+        {
             return Err(verr("outcome_room_receipt_durability_unconfirmed", "test-forced parent-directory-sync failure — the receipt family entry is VISIBLE but not durable".to_string()));
         }
         (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })()
@@ -993,7 +1344,8 @@ fn list_rooms_exact(data_dir: &str) -> Result<Vec<Value>, String> {
         .into_iter()
         .filter(|(stem, room)| {
             is_canonical_room_tail(stem)
-                && room.get("outcome_room_id").and_then(|v| v.as_str()) == Some(format!("outcome-room://{stem}").as_str())
+                && room.get("outcome_room_id").and_then(|v| v.as_str())
+                    == Some(format!("outcome-room://{stem}").as_str())
         })
         .map(|(_, room)| room)
         .collect())
@@ -1052,14 +1404,27 @@ fn finalize_room_create(
             return Err(verr("outcome_room_admission_pending_convergence", format!("the admission intent is {}; the room is NOT in the registry — a restart either admits this same room (completer) or it never existed; do not re-create", f.detail())));
         }
         Err(f) => {
-            return Err(verr("outcome_room_record_persist_failed", format!("the admission intent persist is {} — nothing changed", f.detail())));
+            return Err(verr(
+                "outcome_room_record_persist_failed",
+                format!(
+                    "the admission intent persist is {} — nothing changed",
+                    f.detail()
+                ),
+            ));
         }
     }
     if let Err((code, msg)) = persist_receipt_no_clobber(data_dir, receipt_id, receipt) {
         // Occupied/unreadable slots surface their own code; everything else — including
         // VISIBLE-BUT-UNCONFIRMED (#72 round 19 finding 2) — is pending convergence: the room is
         // NOT committed and the intent is NOT consumed until the receipt is DURABLE.
-        let ecode = if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" || code == "outcome_room_receipt_swapped" { code.as_str() } else { "outcome_room_admission_pending_convergence" };
+        let ecode = if code == "outcome_room_receipt_conflict"
+            || code == "outcome_room_receipt_slot_unreadable"
+            || code == "outcome_room_receipt_swapped"
+        {
+            code.as_str()
+        } else {
+            "outcome_room_admission_pending_convergence"
+        };
         return Err(verr(ecode, format!("the admission receipt is not durably committed ({code}: {msg}); the DURABLE intent is retained internally and the room is NOT in the registry — a restart converges this same admission; do not re-create")));
     }
     match persist_atomic(data_dir, ROOM_DIR, room_tail, record) {
@@ -1115,7 +1480,13 @@ fn finalize_room_mutation(
             return Err(verr("outcome_room_mutation_pending_convergence", format!("the transition intent is {}; the visible room still shows the PRIOR state — a restart either applies the sealed transition (completer) or nothing happened", f.detail())));
         }
         Err(f) => {
-            return Err(verr("outcome_room_record_persist_failed", format!("the transition intent persist is {} — nothing changed", f.detail())));
+            return Err(verr(
+                "outcome_room_record_persist_failed",
+                format!(
+                    "the transition intent persist is {} — nothing changed",
+                    f.detail()
+                ),
+            ));
         }
     }
     match persist_receipt_no_clobber(data_dir, receipt_id, receipt) {
@@ -1126,12 +1497,24 @@ fn finalize_room_mutation(
             // the byte-identical receipt, then applies the transition.
             return Err(verr("outcome_room_mutation_pending_convergence", format!("{msg}; the DURABLE intent is retained with the room still showing its PRIOR state — a restart confirms the sealed receipt and applies the transition")));
         }
-        Err((code, msg)) if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" || code == "outcome_room_receipt_swapped" => {
+        Err((code, msg))
+            if code == "outcome_room_receipt_conflict"
+                || code == "outcome_room_receipt_slot_unreadable"
+                || code == "outcome_room_receipt_swapped" =>
+        {
             // A foreign/unreadable occupant at the receipt slot — roll the intent back exactly
             // and refuse (append-only; never overwrite, never replace on uncertainty).
             return match persist_atomic(data_dir, ROOM_DIR, room_tail, prior) {
-                Ok(()) => Err(verr(&code, format!("{msg}; the intent was rolled back EXACTLY — nothing changed"))),
-                Err(_) => Err(verr(&code, format!("{msg} AND the intent rollback did not commit — manual repair required"))),
+                Ok(()) => Err(verr(
+                    &code,
+                    format!("{msg}; the intent was rolled back EXACTLY — nothing changed"),
+                )),
+                Err(_) => Err(verr(
+                    &code,
+                    format!(
+                        "{msg} AND the intent rollback did not commit — manual repair required"
+                    ),
+                )),
             };
         }
         Err((_code, msg)) => {
@@ -1164,11 +1547,17 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
     // rather than silently "converging" an unreadable registry as if it had no pending work.
     let admission_intents = match read_dir_with_stems(data_dir, ADMISSION_INTENT_DIR) {
         Ok(v) => v,
-        Err(e) => { eprintln!("outcome-room completer: admission-intent scan failed ({e}) — retrying next boot, nothing converged"); return; }
+        Err(e) => {
+            eprintln!("outcome-room completer: admission-intent scan failed ({e}) — retrying next boot, nothing converged");
+            return;
+        }
     };
     let rooms = match read_dir_with_stems(data_dir, ROOM_DIR) {
         Ok(v) => v,
-        Err(e) => { eprintln!("outcome-room completer: registry scan failed ({e}) — retrying next boot, nothing converged"); return; }
+        Err(e) => {
+            eprintln!("outcome-room completer: registry scan failed ({e}) — retrying next boot, nothing converged");
+            return;
+        }
     };
     for (stem, intent) in admission_intents {
         work.push(("admission", intent, stem));
@@ -1181,9 +1570,17 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
     for (kind, intent, room_tail) in work {
         let room_id = format!("outcome-room://{room_tail}");
         let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
-        let receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
+        let receipt_id = intent
+            .get("receipt_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
         let final_room = intent.get("final_room").cloned().unwrap_or(Value::Null);
-        if room_tail.is_empty() || receipt.is_null() || receipt_id.is_empty() || final_room.is_null() {
+        if room_tail.is_empty()
+            || receipt.is_null()
+            || receipt_id.is_empty()
+            || final_room.is_null()
+        {
             eprintln!("outcome-room {kind} completer: intent on '{room_tail}' fails schema — left in place for manual repair");
             continue;
         }
@@ -1196,7 +1593,9 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
         } else {
             match load_room_file(data_dir, &room_tail) {
                 Some(mut prior) => {
-                    if let Some(obj) = prior.as_object_mut() { obj.remove("transition_intent"); }
+                    if let Some(obj) = prior.as_object_mut() {
+                        obj.remove("transition_intent");
+                    }
                     validate_transition_intent(&intent, &prior, &room_id, &room_tail)
                 }
                 None => Err("transition intent has no durable prior room".into()),
@@ -1240,14 +1639,21 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
                 //       provided scope (legitimate transitions only ever touch excluded fields).
                 // Any mismatch refuses with room, receipt family, and intent byte-unchanged.
                 let sealed_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
-                let anchor = |r: &Value| r.pointer("/admission_and_replay_refs/0").cloned().unwrap_or(Value::Null);
+                let anchor = |r: &Value| {
+                    r.pointer("/admission_and_replay_refs/0")
+                        .cloned()
+                        .unwrap_or(Value::Null)
+                };
                 let refs_ok = !sealed_ref.is_null()
                     && anchor(&existing_room) == sealed_ref
                     && existing_room.get("admission_receipt_ref") == Some(&sealed_ref)
                     && receipt.get("receipt_id") == Some(&sealed_ref);
-                let identity_ok = receipt.get("schema_version").and_then(Value::as_str) == Some(ADMISSION_RECEIPT_SCHEMA)
-                    && receipt.get("receipt_type").and_then(Value::as_str) == Some("OutcomeRoomAdmissionReceipt")
-                    && receipt.get("receipt_profile_ref").and_then(Value::as_str) == Some(format!("schema://{ADMISSION_RECEIPT_SCHEMA}").as_str())
+                let identity_ok = receipt.get("schema_version").and_then(Value::as_str)
+                    == Some(ADMISSION_RECEIPT_SCHEMA)
+                    && receipt.get("receipt_type").and_then(Value::as_str)
+                        == Some("OutcomeRoomAdmissionReceipt")
+                    && receipt.get("receipt_profile_ref").and_then(Value::as_str)
+                        == Some(format!("schema://{ADMISSION_RECEIPT_SCHEMA}").as_str())
                     && receipt.get("op").and_then(Value::as_str) == Some("admitted")
                     && receipt.get("subject_ref").and_then(Value::as_str) == Some(room_id.as_str());
                 // The receipt's declared scope must be EXACTLY the canonical list — same length,
@@ -1255,7 +1661,11 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
                 let declared_scope: Vec<&str> = receipt
                     .get("hash_scope_excludes")
                     .and_then(Value::as_array)
-                    .map(|a| a.iter().map(|v| v.as_str().unwrap_or("\0non-string")).collect())
+                    .map(|a| {
+                        a.iter()
+                            .map(|v| v.as_str().unwrap_or("\0non-string"))
+                            .collect()
+                    })
                     .unwrap_or_default();
                 let scope_ok = declared_scope == ROOM_HASH_EXCLUDES;
                 // Recompute under the CONSTANT, never the receipt's field.
@@ -1296,9 +1706,15 @@ pub(crate) fn complete_room_intents(data_dir: &str) {
             // The room is durably in the registry (or was already) — NOW the intent may go
             // (#72 round 12 finding 1). A crash-lost unlink resurrects only an idempotent
             // byte-exact replay.
-            let _ = std::fs::remove_file(std::path::Path::new(data_dir).join(ADMISSION_INTENT_DIR).join(format!("{room_tail}.json")));
+            let _ = std::fs::remove_file(
+                std::path::Path::new(data_dir)
+                    .join(ADMISSION_INTENT_DIR)
+                    .join(format!("{room_tail}.json")),
+            );
         }
-        eprintln!("outcome-room {kind} completer: converged the interrupted {kind} on '{room_tail}'");
+        eprintln!(
+            "outcome-room {kind} completer: converged the interrupted {kind} on '{room_tail}'"
+        );
     }
 }
 
@@ -1346,7 +1762,13 @@ fn finalize_attach(
             return Err(verr("outcome_room_attach_intent_durability_unconfirmed", format!("the attach intent is {} — nothing else was written; a restart either completes the visible intent or nothing happened", f.detail())));
         }
         Err(f) => {
-            return Err(verr("outcome_room_record_persist_failed", format!("the attach intent persist is {} — nothing changed", f.detail())));
+            return Err(verr(
+                "outcome_room_record_persist_failed",
+                format!(
+                    "the attach intent persist is {} — nothing changed",
+                    f.detail()
+                ),
+            ));
         }
     }
     // (2) Reciprocal stamp — DURABLE required before the receipt exists.
@@ -1355,13 +1777,15 @@ fn finalize_attach(
     let stamped = super::goalrun_routes::update_goal_run_guarded(
         data_dir,
         run_file_id,
-        move |fresh| match fresh.get("outcome_room_ref").and_then(Value::as_str) {
+        move |fresh| {
+            match fresh.get("outcome_room_ref").and_then(Value::as_str) {
             None => Ok(()),
             Some(r) if r.is_empty() || r == ref_for_predicate => Ok(()),
             Some(other) => Err((
                 "outcome_room_conflicting_binding".to_string(),
                 format!("the run is already bound to '{other}' — singular room identity holds at the write itself, not just at validation"),
             )),
+        }
         },
         |obj| {
             obj.insert("outcome_room_ref".into(), json!(room_ref));
@@ -1386,7 +1810,14 @@ fn finalize_attach(
     // round 19 finding 2) — keeps the intent for replay (never unstamp, never delete, never
     // overwrite existing evidence); membership does not advance until the receipt is DURABLE.
     if let Err((code, msg)) = persist_receipt_no_clobber(data_dir, receipt_id, receipt) {
-        let ecode = if code == "outcome_room_receipt_conflict" || code == "outcome_room_receipt_slot_unreadable" || code == "outcome_room_receipt_swapped" { code.as_str() } else { "outcome_room_attach_pending_convergence" };
+        let ecode = if code == "outcome_room_receipt_conflict"
+            || code == "outcome_room_receipt_slot_unreadable"
+            || code == "outcome_room_receipt_swapped"
+        {
+            code.as_str()
+        } else {
+            "outcome_room_attach_pending_convergence"
+        };
         return Err(verr(ecode, format!("the attach receipt is not durably committed ({code}: {msg}); the DURABLE intent and the stamp are retained — a restart converges the sealed receipt (append-only) and completes the membership")));
     }
     // (4) TERMINAL: membership in, intent consumed — visible-unconfirmed tolerated (a
@@ -1410,17 +1841,40 @@ pub(crate) fn complete_attach_intents(data_dir: &str) {
     // NEVER a false-empty pass (#72 round 21 finding 3): log and retry next boot.
     let rooms = match read_dir_with_stems(data_dir, ROOM_DIR) {
         Ok(v) => v,
-        Err(e) => { eprintln!("outcome-room attach completer: registry scan failed ({e}) — retrying next boot, nothing converged"); return; }
+        Err(e) => {
+            eprintln!("outcome-room attach completer: registry scan failed ({e}) — retrying next boot, nothing converged");
+            return;
+        }
     };
     for (room_tail, room) in rooms {
-        let Some(intent) = room.get("attach_intent").cloned() else { continue };
+        let Some(intent) = room.get("attach_intent").cloned() else {
+            continue;
+        };
         let room_id = format!("outcome-room://{room_tail}");
         let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
-        let receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
+        let receipt_id = intent
+            .get("receipt_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
         let updated_room = intent.get("updated_room").cloned().unwrap_or(Value::Null);
-        let run_file_id = intent.get("run_file_id").and_then(Value::as_str).unwrap_or("").to_string();
-        let room_ref = intent.get("room_ref").and_then(Value::as_str).unwrap_or("").to_string();
-        if room_tail.is_empty() || receipt.is_null() || receipt_id.is_empty() || updated_room.is_null() || run_file_id.is_empty() || room_ref.is_empty() {
+        let run_file_id = intent
+            .get("run_file_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let room_ref = intent
+            .get("room_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if room_tail.is_empty()
+            || receipt.is_null()
+            || receipt_id.is_empty()
+            || updated_room.is_null()
+            || run_file_id.is_empty()
+            || room_ref.is_empty()
+        {
             eprintln!("outcome-room attach completer: intent on '{room_tail}' fails schema — left in place for manual repair");
             continue;
         }
@@ -1433,7 +1887,9 @@ pub(crate) fn complete_attach_intents(data_dir: &str) {
             continue;
         }
         let mut prior = room.clone();
-        if let Some(obj) = prior.as_object_mut() { obj.remove("attach_intent"); }
+        if let Some(obj) = prior.as_object_mut() {
+            obj.remove("attach_intent");
+        }
         if let Err(why) = validate_attach_intent(&intent, &prior, &room_id, &room_tail) {
             eprintln!("outcome-room attach completer: intent on '{room_tail}' is NOT the canonical membership successor ({why}) — nothing was written (room, receipts, and intent are byte-unchanged); left for manual repair");
             continue;
@@ -1447,13 +1903,15 @@ pub(crate) fn complete_attach_intents(data_dir: &str) {
         let stamped = super::goalrun_routes::update_goal_run_guarded(
             data_dir,
             &run_file_id,
-            move |fresh| match fresh.get("outcome_room_ref").and_then(Value::as_str) {
+            move |fresh| {
+                match fresh.get("outcome_room_ref").and_then(Value::as_str) {
                 None => Ok(()),
                 Some(r) if r.is_empty() || r == ref_for_predicate => Ok(()),
                 Some(other) => Err((
                     "outcome_room_conflicting_binding".to_string(),
                     format!("the run is already bound to '{other}' — replay never overwrites another room's reciprocal binding"),
                 )),
+            }
             },
             |obj| {
                 obj.insert("outcome_room_ref".into(), json!(ref_for_stamp));
@@ -1525,33 +1983,105 @@ fn validate_room_create(body: &Value) -> Result<Value, VErr> {
     if body.get("status").map(|v| !v.is_null()).unwrap_or(false) {
         return Err(verr("outcome_room_status_plane_owned", "`status` is plane-owned: a hosted room admits as `open`; lifecycle changes go through receipted transitions"));
     }
-    if body.get("revision").map(|v| !v.is_null()).unwrap_or(false) || body.get("admission_receipt_ref").map(|v| !v.is_null()).unwrap_or(false) {
-        return Err(verr("outcome_room_field_plane_owned", "`revision` and `admission_receipt_ref` are minted by this plane"));
+    if body.get("revision").map(|v| !v.is_null()).unwrap_or(false)
+        || body
+            .get("admission_receipt_ref")
+            .map(|v| !v.is_null())
+            .unwrap_or(false)
+    {
+        return Err(verr(
+            "outcome_room_field_plane_owned",
+            "`revision` and `admission_receipt_ref` are minted by this plane",
+        ));
     }
     // Step-3 object lists refuse per-field.
     for (key, code, why) in [
-        ("participant_lease_refs", "outcome_room_participants_unavailable", "RoomParticipantLease is build step 3"),
-        ("participation_request_refs", "outcome_room_participation_unavailable", "RoomParticipationRequest is build step 3"),
-        ("frontier_item_refs", "outcome_room_frontier_unavailable", "WorkFrontierItem is build step 3"),
-        ("attempt_refs", "outcome_room_attempts_unavailable", "the Attempt plane is build step 3"),
-        ("finding_refs", "outcome_room_findings_unavailable", "the Finding plane is build step 3"),
-        ("verifier_challenge_refs", "outcome_room_challenges_unavailable", "the VerifierChallenge plane is build step 3"),
-        ("participant_state_bundle_refs", "outcome_room_state_bundles_unavailable", "ParticipantStateBundle is build step 7"),
-        ("discussion_projection_refs", "outcome_room_discussion_unavailable", "discussion projections arrive with the Missions surface (build step 4)"),
-        ("contribution_refs", "outcome_room_contributions_unavailable", "contribution lineage arrives with participant leases (build step 3)"),
-        ("admission_and_replay_refs", "outcome_room_replay_plane_owned", "the receipt trail is appended by this plane's own admitted transitions"),
-        ("member_goal_run_refs", "outcome_room_membership_plane_owned", "membership registers through the receipted attach-goal-run transition"),
+        (
+            "participant_lease_refs",
+            "outcome_room_participants_unavailable",
+            "RoomParticipantLease is build step 3",
+        ),
+        (
+            "participation_request_refs",
+            "outcome_room_participation_unavailable",
+            "RoomParticipationRequest is build step 3",
+        ),
+        (
+            "frontier_item_refs",
+            "outcome_room_frontier_unavailable",
+            "WorkFrontierItem is build step 3",
+        ),
+        (
+            "attempt_refs",
+            "outcome_room_attempts_unavailable",
+            "the Attempt plane is build step 3",
+        ),
+        (
+            "finding_refs",
+            "outcome_room_findings_unavailable",
+            "the Finding plane is build step 3",
+        ),
+        (
+            "verifier_challenge_refs",
+            "outcome_room_challenges_unavailable",
+            "the VerifierChallenge plane is build step 3",
+        ),
+        (
+            "participant_state_bundle_refs",
+            "outcome_room_state_bundles_unavailable",
+            "ParticipantStateBundle is build step 7",
+        ),
+        (
+            "discussion_projection_refs",
+            "outcome_room_discussion_unavailable",
+            "discussion projections arrive with the Missions surface (build step 4)",
+        ),
+        (
+            "contribution_refs",
+            "outcome_room_contributions_unavailable",
+            "contribution lineage arrives with participant leases (build step 3)",
+        ),
+        (
+            "admission_and_replay_refs",
+            "outcome_room_replay_plane_owned",
+            "the receipt trail is appended by this plane's own admitted transitions",
+        ),
+        (
+            "member_goal_run_refs",
+            "outcome_room_membership_plane_owned",
+            "membership registers through the receipted attach-goal-run transition",
+        ),
     ] {
         plane_owned_list(body, key, code, why)?;
     }
-    let owner = required_ref(body, "owner_or_sponsor_ref", &["user", "org", "project", "domain", "service"], "outcome_room_owner_required")?;
-    let objective_ref = required_ref(body, "objective_ref", &["goal", "task", "service"], "outcome_room_objective_ref_required")?;
+    let owner = required_ref(
+        body,
+        "owner_or_sponsor_ref",
+        &["user", "org", "project", "domain", "service"],
+        "outcome_room_owner_required",
+    )?;
+    let objective_ref = required_ref(
+        body,
+        "objective_ref",
+        &["goal", "task", "service"],
+        "outcome_room_objective_ref_required",
+    )?;
     let objective = match str_opt_bounded(body, "objective", OBJECTIVE_MAX)? {
         Some(o) => o,
-        None => return Err(verr("outcome_room_objective_required", "A room declares its shared `objective` (bounded plain statement).")),
+        None => {
+            return Err(verr(
+                "outcome_room_objective_required",
+                "A room declares its shared `objective` (bounded plain statement).",
+            ))
+        }
     };
     let room_mode = vocab_required(body, "room_mode", ROOM_MODES, "outcome_room_mode_invalid")?;
-    let topology = vocab_required(body, "coordination_topology", TOPOLOGIES, "outcome_room_topology_invalid")?;
+    let topology = vocab_required(
+        body,
+        "coordination_topology",
+        TOPOLOGIES,
+        "outcome_room_topology_invalid",
+    )?;
     if topology == "federated_admission" {
         return Err(verr("outcome_room_federated_unavailable", "`federated_admission` needs the AIIP leg (build steps 7-8: discovery, typed participation, portable exit, federated shared-state ordering) — hosted_admission is the step-2 contract"));
     }
@@ -1616,11 +2146,21 @@ fn sorted_newest(data_dir: &str) -> Result<Vec<Value>, String> {
 
 // ================================ HANDLERS =======================================================
 
-pub(crate) async fn handle_outcome_rooms_list(State(st): State<Arc<DaemonState>>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_outcome_rooms_list(
+    State(st): State<Arc<DaemonState>>,
+) -> (StatusCode, Json<Value>) {
     // A scanner error is a TYPED 5xx, NEVER a false-empty 200 (#72 round 21 finding 3).
     match sorted_newest(&st.data_dir) {
-        Ok(rooms) => (StatusCode::OK, Json(json!({ "schema_version": ROOM_SCHEMA, "outcome_rooms": rooms, "runtimeTruthSource": "daemon-runtime" }))),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": { "code": "outcome_room_registry_unreadable", "message": e } }))),
+        Ok(rooms) => (
+            StatusCode::OK,
+            Json(
+                json!({ "schema_version": ROOM_SCHEMA, "outcome_rooms": rooms, "runtimeTruthSource": "daemon-runtime" }),
+            ),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": { "code": "outcome_room_registry_unreadable", "message": e } })),
+        ),
     }
 }
 
@@ -1630,33 +2170,53 @@ pub(crate) async fn handle_outcome_room_get(
 ) -> (StatusCode, Json<Value>) {
     match load_room(&st.data_dir, &format!("outcome-room://{id}")) {
         Some(r) => (StatusCode::OK, Json(json!({ "outcome_room": r }))),
-        None => (StatusCode::NOT_FOUND, Json(json!({ "error": { "code": "not_found", "outcome_room": id } }))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "not_found", "outcome_room": id } })),
+        ),
     }
 }
 
-pub(crate) async fn handle_outcome_rooms_overview(State(st): State<Arc<DaemonState>>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_outcome_rooms_overview(
+    State(st): State<Arc<DaemonState>>,
+) -> (StatusCode, Json<Value>) {
     let rooms = match list_rooms_exact(&st.data_dir) {
         Ok(r) => r,
         // A scanner error is a TYPED 5xx, NEVER a false-empty overview (#72 round 21 finding 3).
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": { "code": "outcome_room_registry_unreadable", "message": e } }))),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "error": { "code": "outcome_room_registry_unreadable", "message": e } }),
+                ),
+            )
+        }
     };
-    let by_status = |status: &str| rooms.iter().filter(|r| s(r, "status", "") == status).count();
-    (StatusCode::OK, Json(json!({
-        "schema_version": OVERVIEW_SCHEMA,
-        "outcome_rooms": rooms.len(),
-        "by_status": ROOM_STATUSES.iter().filter(|st2| by_status(st2) > 0).map(|st2| json!({ "status": st2, "count": by_status(st2) })).collect::<Vec<_>>(),
-        "room_modes": ROOM_MODES,
-        "room_statuses": ROOM_STATUSES,
-        "coordination_topologies": TOPOLOGIES,
-        "lifecycle_transitions": TRANSITIONS.iter().map(|(t, from, to)| json!({ "transition": t, "from": from, "to": to })).collect::<Vec<_>>(),
-        "governance_gaps": [
-            "hosted_admission only — federated_admission needs the AIIP leg (build steps 7-8) and is refused typed at creation, never faked",
-            "participant leases, participation requests, frontier items, attempts, findings, challenges, contributions, and state bundles are build-step-3+ planes: their room lists stay plane-owned empties until those planes exist",
-            "membership is singular and reciprocal: attach-goal-run stamps GoalRun.outcome_room_ref atomically with the room-side member list, and a run already belonging to any room refuses typed — one GoalRun, at most one room",
-            "richer lifecycle statuses (active/blocked/verifying/accepted/disputed/settled/revoked) are named-gap transitions requiring later authority; a receipt is not proof of correctness — acceptance and settlement are assurance rungs above admission"
-        ],
-        "runtimeTruthSource": "daemon-runtime"
-    })))
+    let by_status = |status: &str| {
+        rooms
+            .iter()
+            .filter(|r| s(r, "status", "") == status)
+            .count()
+    };
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": OVERVIEW_SCHEMA,
+            "outcome_rooms": rooms.len(),
+            "by_status": ROOM_STATUSES.iter().filter(|st2| by_status(st2) > 0).map(|st2| json!({ "status": st2, "count": by_status(st2) })).collect::<Vec<_>>(),
+            "room_modes": ROOM_MODES,
+            "room_statuses": ROOM_STATUSES,
+            "coordination_topologies": TOPOLOGIES,
+            "lifecycle_transitions": TRANSITIONS.iter().map(|(t, from, to)| json!({ "transition": t, "from": from, "to": to })).collect::<Vec<_>>(),
+            "governance_gaps": [
+                "hosted_admission only — federated_admission needs the AIIP leg (build steps 7-8) and is refused typed at creation, never faked",
+                "participant leases, participation requests, frontier items, attempts, findings, challenges, contributions, and state bundles are build-step-3+ planes: their room lists stay plane-owned empties until those planes exist",
+                "membership is singular and reciprocal: attach-goal-run stamps GoalRun.outcome_room_ref atomically with the room-side member list, and a run already belonging to any room refuses typed — one GoalRun, at most one room",
+                "richer lifecycle statuses (active/blocked/verifying/accepted/disputed/settled/revoked) are named-gap transitions requiring later authority; a receipt is not proof of correctness — acceptance and settlement are assurance rungs above admission"
+            ],
+            "runtimeTruthSource": "daemon-runtime"
+        })),
+    )
 }
 
 /// POST /v1/hypervisor/outcome-rooms — admit a HOSTED room (fail-closed, atomic, receipted).
@@ -1664,7 +2224,12 @@ pub(crate) async fn handle_outcome_room_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let err400 = |(code, msg): VErr| (StatusCode::BAD_REQUEST, Json(json!({ "error": { "code": code, "message": msg } })));
+    let err400 = |(code, msg): VErr| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": { "code": code, "message": msg } })),
+        )
+    };
     let mut record = match validate_room_create(&body) {
         Ok(r) => r,
         Err(e) => return err400(e),
@@ -1680,7 +2245,11 @@ pub(crate) async fn handle_outcome_room_create(
         obj.insert("updated_at".into(), json!(now));
     }
     let (receipt_id, receipt) = build_room_receipt(
-        ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", &room_id, "admitted",
+        ADMISSION_RECEIPT_SCHEMA,
+        "OutcomeRoomAdmissionReceipt",
+        "orr",
+        &room_id,
+        "admitted",
         json!({
             "room_mode": record["room_mode"],
             "coordination_topology": record["coordination_topology"],
@@ -1689,7 +2258,12 @@ pub(crate) async fn handle_outcome_room_create(
             "host_domain_ref": record["host_domain_ref"],
             "status_at_admission": "open",
         }),
-        vec![json!(room_id), record["owner_or_sponsor_ref"].clone(), record["objective_ref"].clone(), record["host_domain_ref"].clone()],
+        vec![
+            json!(room_id),
+            record["owner_or_sponsor_ref"].clone(),
+            record["objective_ref"].clone(),
+            record["host_domain_ref"].clone(),
+        ],
         record_output_hash(&record, ROOM_HASH_EXCLUDES),
         ROOM_HASH_EXCLUDES,
         "admitted_not_verified",
@@ -1698,10 +2272,18 @@ pub(crate) async fn handle_outcome_room_create(
     );
     {
         let obj = record.as_object_mut().expect("object");
-        obj.insert("admission_receipt_ref".into(), receipt["receipt_ref"].clone());
-        obj.insert("admission_and_replay_refs".into(), json!([receipt["receipt_ref"]]));
+        obj.insert(
+            "admission_receipt_ref".into(),
+            receipt["receipt_ref"].clone(),
+        );
+        obj.insert(
+            "admission_and_replay_refs".into(),
+            json!([receipt["receipt_ref"]]),
+        );
     }
-    if let Err((code, msg)) = finalize_room_create(&st.data_dir, &id_tail, &record, &receipt_id, &receipt) {
+    if let Err((code, msg)) =
+        finalize_room_create(&st.data_dir, &id_tail, &record, &receipt_id, &receipt)
+    {
         // The refusal CARRIES the room's identity (#72 round 11 finding 2): a 500 retry must be
         // able to recognize that THIS room may still converge at restart instead of blindly
         // creating a second one.
@@ -1714,7 +2296,10 @@ pub(crate) async fn handle_outcome_room_create(
             })),
         );
     }
-    (StatusCode::CREATED, Json(json!({ "outcome_room": record, "outcome_room_receipt": receipt })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "outcome_room": record, "outcome_room_receipt": receipt })),
+    )
 }
 
 /// Shared mutation core for transition + attach: revision check, mutate, receipt, finalize.
@@ -1727,7 +2312,10 @@ fn mutate_room(
 ) -> Result<(Value, Value), VErr> {
     let room_id = format!("outcome-room://{room_tail}");
     let Some(prior) = load_room(data_dir, &room_id) else {
-        return Err(verr("outcome_room_not_found", format!("no admitted room '{room_id}'")));
+        return Err(verr(
+            "outcome_room_not_found",
+            format!("no admitted room '{room_id}'"),
+        ));
     };
     // MUTUAL EXCLUSION (#72 round 10 finding 2): a mutation admitted while an intent is in
     // flight would be silently erased when the completer replays the sealed final state.
@@ -1745,7 +2333,11 @@ fn mutate_room(
         obj.insert("updated_at".into(), json!(now));
     }
     let (receipt_id, receipt) = build_room_receipt(
-        TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", &room_id, op,
+        TRANSITION_RECEIPT_SCHEMA,
+        "OutcomeRoomTransitionReceipt",
+        "ort",
+        &room_id,
+        op,
         bound_facts,
         vec![json!(room_id)],
         record_output_hash(&updated, TRANSITION_HASH_EXCLUDES),
@@ -1756,12 +2348,23 @@ fn mutate_room(
     );
     {
         let obj = updated.as_object_mut().expect("object");
-        let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let mut trail: Vec<Value> = obj
+            .get("admission_and_replay_refs")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
         trail.push(receipt["receipt_ref"].clone());
         obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
-        let mut history: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let mut history: Vec<Value> = obj
+            .get("status_history")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
         history.push(json!({ "op": op, "at": now, "receipt_ref": receipt["receipt_ref"], "revision": current_rev + 1 }));
-        if history.len() > HISTORY_MAX { let drop_n = history.len() - HISTORY_MAX; history.drain(0..drop_n); }
+        if history.len() > HISTORY_MAX {
+            let drop_n = history.len() - HISTORY_MAX;
+            history.drain(0..drop_n);
+        }
         obj.insert("status_history".into(), Value::Array(history));
     }
     finalize_room_mutation(data_dir, room_tail, &prior, &updated, &receipt_id, &receipt)?;
@@ -1774,20 +2377,63 @@ pub(crate) async fn handle_outcome_room_transition(
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let err = |status: StatusCode, (code, msg): VErr| (status, Json(json!({ "error": { "code": code, "message": msg } })));
+    let err = |status: StatusCode, (code, msg): VErr| {
+        (
+            status,
+            Json(json!({ "error": { "code": code, "message": msg } })),
+        )
+    };
     if let Err(e) = reject_sensitive_keys(&body, "") {
         return err(StatusCode::BAD_REQUEST, e);
     }
     let transition = match str_opt_bounded(&body, "transition", 40) {
         Ok(Some(t)) => t,
-        Ok(None) => return err(StatusCode::BAD_REQUEST, verr("outcome_room_transition_invalid", format!("`transition` is required — step-2 lifecycle: [{}]", TRANSITIONS.iter().map(|(t, _, _)| *t).collect::<Vec<_>>().join("|")))),
+        Ok(None) => {
+            return err(
+                StatusCode::BAD_REQUEST,
+                verr(
+                    "outcome_room_transition_invalid",
+                    format!(
+                        "`transition` is required — step-2 lifecycle: [{}]",
+                        TRANSITIONS
+                            .iter()
+                            .map(|(t, _, _)| *t)
+                            .collect::<Vec<_>>()
+                            .join("|")
+                    ),
+                ),
+            )
+        }
         Err(e) => return err(StatusCode::BAD_REQUEST, e),
     };
-    if let Some((_, why)) = UNAVAILABLE_TRANSITIONS.iter().find(|(t, _)| *t == transition) {
-        return err(StatusCode::BAD_REQUEST, verr("outcome_room_transition_unavailable", format!("transition '{transition}' needs {why} — a named gap, never faked")));
+    if let Some((_, why)) = UNAVAILABLE_TRANSITIONS
+        .iter()
+        .find(|(t, _)| *t == transition)
+    {
+        return err(
+            StatusCode::BAD_REQUEST,
+            verr(
+                "outcome_room_transition_unavailable",
+                format!("transition '{transition}' needs {why} — a named gap, never faked"),
+            ),
+        );
     }
-    let Some((_, allowed_from, to_status)) = TRANSITIONS.iter().find(|(t, _, _)| *t == transition) else {
-        return err(StatusCode::BAD_REQUEST, verr("outcome_room_transition_invalid", format!("unknown transition '{transition}' — step-2 lifecycle: [{}]", TRANSITIONS.iter().map(|(t, _, _)| *t).collect::<Vec<_>>().join("|"))));
+    let Some((_, allowed_from, to_status)) = TRANSITIONS.iter().find(|(t, _, _)| *t == transition)
+    else {
+        return err(
+            StatusCode::BAD_REQUEST,
+            verr(
+                "outcome_room_transition_invalid",
+                format!(
+                    "unknown transition '{transition}' — step-2 lifecycle: [{}]",
+                    TRANSITIONS
+                        .iter()
+                        .map(|(t, _, _)| *t)
+                        .collect::<Vec<_>>()
+                        .join("|")
+                ),
+            ),
+        );
     };
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let result = mutate_room(&st.data_dir, &id, &body, &transition, |room| {
@@ -1795,15 +2441,31 @@ pub(crate) async fn handle_outcome_room_transition(
         if !allowed_from.contains(&from.as_str()) {
             return Err(verr("outcome_room_transition_invalid", format!("transition '{transition}' is not admitted from status '{from}' (allowed from: [{}])", allowed_from.join("|"))));
         }
-        room.as_object_mut().expect("object").insert("status".into(), json!(to_status));
+        room.as_object_mut()
+            .expect("object")
+            .insert("status".into(), json!(to_status));
         let rev = room.get("revision").and_then(|v| v.as_u64()).unwrap_or(0);
-        Ok(json!({ "transition": transition, "from": from, "to": to_status, "revision_before": rev, "revision_after": rev + 1 }))
+        Ok(
+            json!({ "transition": transition, "from": from, "to": to_status, "revision_before": rev, "revision_after": rev + 1 }),
+        )
     });
     match result {
-        Ok((room, receipt)) => (StatusCode::OK, Json(json!({ "outcome_room": room, "outcome_room_receipt": receipt }))),
+        Ok((room, receipt)) => (
+            StatusCode::OK,
+            Json(json!({ "outcome_room": room, "outcome_room_receipt": receipt })),
+        ),
         Err(e) if e.0 == "outcome_room_not_found" => err(StatusCode::NOT_FOUND, e),
-        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") => err(StatusCode::CONFLICT, e),
-        Err(e) if e.0.ends_with("_persist_failed") || e.0.ends_with("_pending_convergence") || e.0.ends_with("_durability_unconfirmed") || e.0 == "outcome_room_rollback_failed" => err(StatusCode::INTERNAL_SERVER_ERROR, e),
+        Err(e) if e.0 == "outcome_room_revision_conflict" || e.0.ends_with("_in_flight") => {
+            err(StatusCode::CONFLICT, e)
+        }
+        Err(e)
+            if e.0.ends_with("_persist_failed")
+                || e.0.ends_with("_pending_convergence")
+                || e.0.ends_with("_durability_unconfirmed")
+                || e.0 == "outcome_room_rollback_failed" =>
+        {
+            err(StatusCode::INTERNAL_SERVER_ERROR, e)
+        }
         Err(e) => err(StatusCode::BAD_REQUEST, e),
     }
 }
@@ -1817,7 +2479,12 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let err = |status: StatusCode, (code, msg): VErr| (status, Json(json!({ "error": { "code": code, "message": msg } })));
+    let err = |status: StatusCode, (code, msg): VErr| {
+        (
+            status,
+            Json(json!({ "error": { "code": code, "message": msg } })),
+        )
+    };
     if let Err(e) = reject_sensitive_keys(&body, "") {
         return err(StatusCode::BAD_REQUEST, e);
     }
@@ -1828,13 +2495,17 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
         Ok(None) => return err(StatusCode::BAD_REQUEST, verr("outcome_room_goal_run_required", "`goal_run_ref` is required (the run's canonical goal:// identity)")),
         Err(e) => return err(StatusCode::BAD_REQUEST, e),
     };
-    let run_file_id = goal_run_canonical.strip_prefix("goal://").unwrap_or("").to_string();
+    let run_file_id = goal_run_canonical
+        .strip_prefix("goal://")
+        .unwrap_or("")
+        .to_string();
     let room_id = format!("outcome-room://{id}");
     // ROOM-SCOPE critical section: resolution through finalization under the one room lock.
     let _guard = ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let Some(prior_run) = read_record_dir(&st.data_dir, GOAL_RUN_DIR)
         .into_iter()
-        .find(|r| r.get("goal_run_id").and_then(|v| v.as_str()) == Some(run_file_id.as_str())) else {
+        .find(|r| r.get("goal_run_id").and_then(|v| v.as_str()) == Some(run_file_id.as_str()))
+    else {
         return err(StatusCode::BAD_REQUEST, verr("outcome_room_goal_run_unbound", format!("`goal_run_ref` does not resolve to an admitted GoalRun ('{goal_run_canonical}') — the aggregate binds only real bounded runs")));
     };
     // SINGULAR ROOM IDENTITY: a run already in ANY room (this one included) refuses typed.
@@ -1844,19 +2515,49 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
         }
     }
     let Some(prior_room) = load_room(&st.data_dir, &room_id) else {
-        return err(StatusCode::NOT_FOUND, verr("outcome_room_not_found", format!("no admitted room '{room_id}'")));
+        return err(
+            StatusCode::NOT_FOUND,
+            verr(
+                "outcome_room_not_found",
+                format!("no admitted room '{room_id}'"),
+            ),
+        );
     };
     if let Some((field, code)) = pending_intent(&prior_room) {
         return err(StatusCode::CONFLICT, verr(code, format!("a durable {field} is pending on this room — a restart (boot completer) converges it before new membership is admitted")));
     }
-    let current_rev = prior_room.get("revision").and_then(|v| v.as_u64()).unwrap_or(0);
+    let current_rev = prior_room
+        .get("revision")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     if let Err(e) = check_expected_revision(&body, current_rev) {
-        return if e.0 == "outcome_room_revision_conflict" { err(StatusCode::CONFLICT, e) } else { err(StatusCode::BAD_REQUEST, e) };
+        return if e.0 == "outcome_room_revision_conflict" {
+            err(StatusCode::CONFLICT, e)
+        } else {
+            err(StatusCode::BAD_REQUEST, e)
+        };
     }
     if s(&prior_room, "status", "") != "open" {
-        return err(StatusCode::BAD_REQUEST, verr("outcome_room_not_open", format!("membership changes are admitted only on an `open` room (status is '{}')", s(&prior_room, "status", ""))));
+        return err(
+            StatusCode::BAD_REQUEST,
+            verr(
+                "outcome_room_not_open",
+                format!(
+                    "membership changes are admitted only on an `open` room (status is '{}')",
+                    s(&prior_room, "status", "")
+                ),
+            ),
+        );
     }
-    let members: Vec<String> = prior_room.get("member_goal_run_refs").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
+    let members: Vec<String> = prior_room
+        .get("member_goal_run_refs")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
     if members.iter().any(|m| m == &goal_run_canonical) {
         return err(StatusCode::BAD_REQUEST, verr("outcome_room_goal_run_duplicate", format!("GoalRun '{goal_run_canonical}' is already a member — attachment is idempotent-refusing, never double-registered")));
     }
@@ -1872,7 +2573,11 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
     }
     let member_count = members.len() + 1;
     let (receipt_id, receipt) = build_room_receipt(
-        TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", &room_id, "goal_run_attached",
+        TRANSITION_RECEIPT_SCHEMA,
+        "OutcomeRoomTransitionReceipt",
+        "ort",
+        &room_id,
+        "goal_run_attached",
         json!({ "goal_run_ref": goal_run_canonical, "reciprocal_outcome_room_ref_stamped": true, "member_count_after": member_count, "revision_before": current_rev, "revision_after": current_rev + 1 }),
         vec![json!(room_id), json!(goal_run_canonical)],
         record_output_hash(&updated_room, TRANSITION_HASH_EXCLUDES),
@@ -1883,19 +2588,47 @@ pub(crate) async fn handle_outcome_room_attach_goal_run(
     );
     {
         let obj = updated_room.as_object_mut().expect("object");
-        let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let mut trail: Vec<Value> = obj
+            .get("admission_and_replay_refs")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
         trail.push(receipt["receipt_ref"].clone());
         obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
-        let mut history: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let mut history: Vec<Value> = obj
+            .get("status_history")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
         history.push(json!({ "op": "goal_run_attached", "at": now, "receipt_ref": receipt["receipt_ref"], "revision": current_rev + 1 }));
-        if history.len() > HISTORY_MAX { let drop_n = history.len() - HISTORY_MAX; history.drain(0..drop_n); }
+        if history.len() > HISTORY_MAX {
+            let drop_n = history.len() - HISTORY_MAX;
+            history.drain(0..drop_n);
+        }
         obj.insert("status_history".into(), Value::Array(history));
     }
     let _ = &prior_run; // resolved above for the already-member check; the seam re-reads fresh
-    if let Err((code, msg)) = finalize_attach(&st.data_dir, &id, &prior_room, &updated_room, &run_file_id, &room_id, &receipt_id, &receipt) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": { "code": code, "message": msg } })));
+    if let Err((code, msg)) = finalize_attach(
+        &st.data_dir,
+        &id,
+        &prior_room,
+        &updated_room,
+        &run_file_id,
+        &room_id,
+        &receipt_id,
+        &receipt,
+    ) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": { "code": code, "message": msg } })),
+        );
     }
-    (StatusCode::OK, Json(json!({ "outcome_room": updated_room, "outcome_room_receipt": receipt, "goal_run_stamped": { "goal_run_ref": goal_run_canonical, "outcome_room_ref": room_id } })))
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "outcome_room": updated_room, "outcome_room_receipt": receipt, "goal_run_stamped": { "goal_run_ref": goal_run_canonical, "outcome_room_ref": room_id } }),
+        ),
+    )
 }
 
 #[cfg(test)]
@@ -1936,10 +2669,23 @@ mod outcome_room_tests {
         record["created_at"] = json!("2026-01-01T00:00:00Z");
         record["updated_at"] = json!("2026-01-01T00:00:00Z");
         let (rid, receipt) = build_room_receipt(
-            ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", &room_id, "admitted",
+            ADMISSION_RECEIPT_SCHEMA,
+            "OutcomeRoomAdmissionReceipt",
+            "orr",
+            &room_id,
+            "admitted",
             json!({ "room_mode": record["room_mode"], "coordination_topology": record["coordination_topology"], "owner_or_sponsor_ref": record["owner_or_sponsor_ref"], "objective_ref": record["objective_ref"], "host_domain_ref": record["host_domain_ref"], "status_at_admission": "open" }),
-            vec![json!(room_id), record["owner_or_sponsor_ref"].clone(), record["objective_ref"].clone(), record["host_domain_ref"].clone()],
-            record_output_hash(&record, ROOM_HASH_EXCLUDES), ROOM_HASH_EXCLUDES, "admitted_not_verified", ADMISSION_NOTE, "2026-01-01T00:00:00Z",
+            vec![
+                json!(room_id),
+                record["owner_or_sponsor_ref"].clone(),
+                record["objective_ref"].clone(),
+                record["host_domain_ref"].clone(),
+            ],
+            record_output_hash(&record, ROOM_HASH_EXCLUDES),
+            ROOM_HASH_EXCLUDES,
+            "admitted_not_verified",
+            ADMISSION_NOTE,
+            "2026-01-01T00:00:00Z",
         );
         record["admission_receipt_ref"] = receipt["receipt_ref"].clone();
         record["admission_and_replay_refs"] = json!([receipt["receipt_ref"]]);
@@ -1958,21 +2704,47 @@ mod outcome_room_tests {
         let rev = prior["revision"].as_u64().unwrap();
         let now = "2026-06-06T00:00:00Z";
         let mut updated = prior.clone();
-        updated.as_object_mut().unwrap().insert("status".into(), json!(to));
-        updated.as_object_mut().unwrap().insert("revision".into(), json!(rev + 1));
-        updated.as_object_mut().unwrap().insert("updated_at".into(), json!(now));
+        updated
+            .as_object_mut()
+            .unwrap()
+            .insert("status".into(), json!(to));
+        updated
+            .as_object_mut()
+            .unwrap()
+            .insert("revision".into(), json!(rev + 1));
+        updated
+            .as_object_mut()
+            .unwrap()
+            .insert("updated_at".into(), json!(now));
         let from = prior["status"].as_str().unwrap();
         let (rid, receipt) = build_room_receipt(
-            TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", &room_id, op,
-            json!({ "transition": op, "from": from, "to": to, "revision_before": rev, "revision_after": rev + 1 }), vec![json!(room_id)],
-            record_output_hash(&updated, TRANSITION_HASH_EXCLUDES), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", TRANSITION_NOTE, now,
+            TRANSITION_RECEIPT_SCHEMA,
+            "OutcomeRoomTransitionReceipt",
+            "ort",
+            &room_id,
+            op,
+            json!({ "transition": op, "from": from, "to": to, "revision_before": rev, "revision_after": rev + 1 }),
+            vec![json!(room_id)],
+            record_output_hash(&updated, TRANSITION_HASH_EXCLUDES),
+            TRANSITION_HASH_EXCLUDES,
+            "admitted_not_verified",
+            TRANSITION_NOTE,
+            now,
         );
         {
             let obj = updated.as_object_mut().unwrap();
-            let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let mut trail: Vec<Value> = obj
+                .get("admission_and_replay_refs")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
             trail.push(receipt["receipt_ref"].clone());
             obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
-            let mut hist: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let mut hist: Vec<Value> = obj
+                .get("status_history")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
             hist.push(json!({ "op": op, "at": now, "receipt_ref": receipt["receipt_ref"], "revision": rev + 1 }));
             obj.insert("status_history".into(), Value::Array(hist));
         }
@@ -1989,24 +2761,53 @@ mod outcome_room_tests {
         let rev = prior["revision"].as_u64().unwrap();
         let now = "2026-06-06T00:00:00Z";
         let member = format!("goal://{run_file_id}");
-        let mut members: Vec<Value> = prior.get("member_goal_run_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let mut members: Vec<Value> = prior
+            .get("member_goal_run_refs")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
         members.push(json!(member));
         let mut updated = prior.clone();
-        updated.as_object_mut().unwrap().insert("member_goal_run_refs".into(), Value::Array(members));
-        updated.as_object_mut().unwrap().insert("revision".into(), json!(rev + 1));
-        updated.as_object_mut().unwrap().insert("updated_at".into(), json!(now));
+        updated
+            .as_object_mut()
+            .unwrap()
+            .insert("member_goal_run_refs".into(), Value::Array(members));
+        updated
+            .as_object_mut()
+            .unwrap()
+            .insert("revision".into(), json!(rev + 1));
+        updated
+            .as_object_mut()
+            .unwrap()
+            .insert("updated_at".into(), json!(now));
         let (rid, receipt) = build_room_receipt(
-            TRANSITION_RECEIPT_SCHEMA, "OutcomeRoomTransitionReceipt", "ort", &room_id, "goal_run_attached",
+            TRANSITION_RECEIPT_SCHEMA,
+            "OutcomeRoomTransitionReceipt",
+            "ort",
+            &room_id,
+            "goal_run_attached",
             json!({ "goal_run_ref": member, "reciprocal_outcome_room_ref_stamped": true, "member_count_after": prior.get("member_goal_run_refs").and_then(|v| v.as_array()).map(|a| a.len() + 1).unwrap_or(1), "revision_before": rev, "revision_after": rev + 1 }),
             vec![json!(room_id), json!(member)],
-            record_output_hash(&updated, TRANSITION_HASH_EXCLUDES), TRANSITION_HASH_EXCLUDES, "admitted_not_verified", ATTACH_NOTE, now,
+            record_output_hash(&updated, TRANSITION_HASH_EXCLUDES),
+            TRANSITION_HASH_EXCLUDES,
+            "admitted_not_verified",
+            ATTACH_NOTE,
+            now,
         );
         {
             let obj = updated.as_object_mut().unwrap();
-            let mut trail: Vec<Value> = obj.get("admission_and_replay_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let mut trail: Vec<Value> = obj
+                .get("admission_and_replay_refs")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
             trail.push(receipt["receipt_ref"].clone());
             obj.insert("admission_and_replay_refs".into(), Value::Array(trail));
-            let mut hist: Vec<Value> = obj.get("status_history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let mut hist: Vec<Value> = obj
+                .get("status_history")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
             hist.push(json!({ "op": "goal_run_attached", "at": now, "receipt_ref": receipt["receipt_ref"], "revision": rev + 1 }));
             obj.insert("status_history".into(), Value::Array(hist));
         }
@@ -2026,29 +2827,80 @@ mod outcome_room_tests {
         assert_eq!(rec["member_goal_run_refs"], json!([]));
         assert_eq!(rec["participant_lease_refs"], json!([]));
         let cases: Vec<(&str, Value, &str)> = vec![
-            ("host_domain_ref", Value::Null, "outcome_room_host_domain_required"),
-            ("host_domain_ref", json!("not-a-ref"), "outcome_room_ref_scheme_invalid"),
-            ("coordination_topology", json!("federated_admission"), "outcome_room_federated_unavailable"),
-            ("coordination_topology", json!("mesh"), "outcome_room_topology_invalid"),
+            (
+                "host_domain_ref",
+                Value::Null,
+                "outcome_room_host_domain_required",
+            ),
+            (
+                "host_domain_ref",
+                json!("not-a-ref"),
+                "outcome_room_ref_scheme_invalid",
+            ),
+            (
+                "coordination_topology",
+                json!("federated_admission"),
+                "outcome_room_federated_unavailable",
+            ),
+            (
+                "coordination_topology",
+                json!("mesh"),
+                "outcome_room_topology_invalid",
+            ),
             ("room_mode", json!("party"), "outcome_room_mode_invalid"),
-            ("owner_or_sponsor_ref", json!("not-a-ref"), "outcome_room_ref_scheme_invalid"),
-            ("stop_policy_ref", json!(Value::Null), "outcome_room_policy_required"),
-            ("status", json!("accepted"), "outcome_room_status_plane_owned"),
+            (
+                "owner_or_sponsor_ref",
+                json!("not-a-ref"),
+                "outcome_room_ref_scheme_invalid",
+            ),
+            (
+                "stop_policy_ref",
+                json!(Value::Null),
+                "outcome_room_policy_required",
+            ),
+            (
+                "status",
+                json!("accepted"),
+                "outcome_room_status_plane_owned",
+            ),
             ("revision", json!(7), "outcome_room_field_plane_owned"),
-            ("participant_lease_refs", json!(["participant-lease://ghost"]), "outcome_room_participants_unavailable"),
-            ("frontier_item_refs", json!(["frontier://ghost"]), "outcome_room_frontier_unavailable"),
-            ("admission_and_replay_refs", json!(["receipt://forged"]), "outcome_room_replay_plane_owned"),
-            ("member_goal_run_refs", json!(["gr_x"]), "outcome_room_membership_plane_owned"),
+            (
+                "participant_lease_refs",
+                json!(["participant-lease://ghost"]),
+                "outcome_room_participants_unavailable",
+            ),
+            (
+                "frontier_item_refs",
+                json!(["frontier://ghost"]),
+                "outcome_room_frontier_unavailable",
+            ),
+            (
+                "admission_and_replay_refs",
+                json!(["receipt://forged"]),
+                "outcome_room_replay_plane_owned",
+            ),
+            (
+                "member_goal_run_refs",
+                json!(["gr_x"]),
+                "outcome_room_membership_plane_owned",
+            ),
         ];
         for (key, val, code) in cases {
             let mut b = valid_room_body();
             b[key] = val;
-            assert_eq!(validate_room_create(&b).unwrap_err().0, code, "field: {key}");
+            assert_eq!(
+                validate_room_create(&b).unwrap_err().0,
+                code,
+                "field: {key}"
+            );
         }
         // Recursive secrets refuse.
         let mut b = valid_room_body();
         b["notes"] = json!({ "api_key": "x" });
-        assert_eq!(validate_room_create(&b).unwrap_err().0, "outcome_room_plaintext_secret_rejected");
+        assert_eq!(
+            validate_room_create(&b).unwrap_err().0,
+            "outcome_room_plaintext_secret_rejected"
+        );
     }
 
     #[test]
@@ -2065,27 +2917,61 @@ mod outcome_room_tests {
         }
         persist_atomic(data_dir, ROOM_DIR, "or_1", &room).unwrap();
         // Missing/stale revision → typed, ZERO mutation (byte-for-byte).
-        let before = serde_json::to_vec(&load_room(data_dir, "outcome-room://or_1").unwrap()).unwrap();
+        let before =
+            serde_json::to_vec(&load_room(data_dir, "outcome-room://or_1").unwrap()).unwrap();
         let e = mutate_room(data_dir, "or_1", &json!({}), "pause", |_| Ok(json!({}))).unwrap_err();
         assert_eq!(e.0, "outcome_room_expected_revision_invalid");
-        let e = mutate_room(data_dir, "or_1", &json!({ "expected_revision": 9 }), "pause", |_| Ok(json!({}))).unwrap_err();
+        let e = mutate_room(
+            data_dir,
+            "or_1",
+            &json!({ "expected_revision": 9 }),
+            "pause",
+            |_| Ok(json!({})),
+        )
+        .unwrap_err();
         assert_eq!(e.0, "outcome_room_revision_conflict");
-        assert_eq!(serde_json::to_vec(&load_room(data_dir, "outcome-room://or_1").unwrap()).unwrap(), before, "refused mutations change NOTHING");
+        assert_eq!(
+            serde_json::to_vec(&load_room(data_dir, "outcome-room://or_1").unwrap()).unwrap(),
+            before,
+            "refused mutations change NOTHING"
+        );
         // Exact revision → transition lands with revision+1, receipt in the trail, bound facts.
-        let (updated, receipt) = mutate_room(data_dir, "or_1", &json!({ "expected_revision": 1 }), "pause", |room| {
-            room.as_object_mut().unwrap().insert("status".into(), json!("paused"));
-            Ok(json!({ "transition": "pause", "from": "open", "to": "paused" }))
-        }).unwrap();
+        let (updated, receipt) = mutate_room(
+            data_dir,
+            "or_1",
+            &json!({ "expected_revision": 1 }),
+            "pause",
+            |room| {
+                room.as_object_mut()
+                    .unwrap()
+                    .insert("status".into(), json!("paused"));
+                Ok(json!({ "transition": "pause", "from": "open", "to": "paused" }))
+            },
+        )
+        .unwrap();
         assert_eq!(updated["revision"], json!(2));
         assert_eq!(updated["status"], json!("paused"));
         assert!(s(&receipt, "receipt_id", "").starts_with("receipt://ort_"));
-        assert_eq!(receipt["receipt_type"], json!("OutcomeRoomTransitionReceipt"));
+        assert_eq!(
+            receipt["receipt_type"],
+            json!("OutcomeRoomTransitionReceipt")
+        );
         assert_eq!(receipt["bound_facts"]["to"], json!("paused"));
-        assert_eq!(updated["admission_and_replay_refs"].as_array().unwrap().last().unwrap(), &receipt["receipt_ref"]);
+        assert_eq!(
+            updated["admission_and_replay_refs"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap(),
+            &receipt["receipt_ref"]
+        );
         // The hash recomputes from the persisted record minus the receipt's OWN declared
         // excludes — the TRANSITION scope, which includes the resulting status/revision.
         let persisted = load_room(data_dir, "outcome-room://or_1").unwrap();
-        assert_eq!(s(&receipt, "output_hash", ""), record_output_hash(&persisted, TRANSITION_HASH_EXCLUDES));
+        assert_eq!(
+            s(&receipt, "output_hash", ""),
+            record_output_hash(&persisted, TRANSITION_HASH_EXCLUDES)
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2101,17 +2987,32 @@ mod outcome_room_tests {
             obj.insert("updated_at".into(), json!("2026-01-01T11:11:11Z"));
         }
         persist_atomic(data_dir, ROOM_DIR, "or_1", &room).unwrap();
-        let before = serde_json::to_vec(&load_room(data_dir, "outcome-room://or_1").unwrap()).unwrap();
+        let before =
+            serde_json::to_vec(&load_room(data_dir, "outcome-room://or_1").unwrap()).unwrap();
         std::fs::write(dir.join(ROOM_RECEIPT_DIR), b"blocker").unwrap();
-        let e = mutate_room(data_dir, "or_1", &json!({ "expected_revision": 1 }), "pause", |room| {
-            room.as_object_mut().unwrap().insert("status".into(), json!("paused"));
-            Ok(json!({}))
-        }).unwrap_err();
+        let e = mutate_room(
+            data_dir,
+            "or_1",
+            &json!({ "expected_revision": 1 }),
+            "pause",
+            |room| {
+                room.as_object_mut()
+                    .unwrap()
+                    .insert("status".into(), json!("paused"));
+                Ok(json!({}))
+            },
+        )
+        .unwrap_err();
         assert_eq!(e.0, "outcome_room_receipt_persist_failed");
-        let after = serde_json::to_vec(&load_room(data_dir, "outcome-room://or_1").unwrap()).unwrap();
-        assert_eq!(after, before, "the room is BYTE-FOR-BYTE the prior record (status, revision, updated_at)");
+        let after =
+            serde_json::to_vec(&load_room(data_dir, "outcome-room://or_1").unwrap()).unwrap();
+        assert_eq!(
+            after, before,
+            "the room is BYTE-FOR-BYTE the prior record (status, revision, updated_at)"
+        );
         // No temp artifact survives.
-        let tmp_leaks: Vec<String> = std::fs::read_dir(dir.join(ROOM_DIR)).unwrap()
+        let tmp_leaks: Vec<String> = std::fs::read_dir(dir.join(ROOM_DIR))
+            .unwrap()
             .filter_map(|e2| e2.ok())
             .map(|e2| e2.file_name().to_string_lossy().into_owned())
             .filter(|n| n.contains(".tmp-"))
@@ -2127,12 +3028,16 @@ mod outcome_room_tests {
         let record_dir = dir.join(ROOM_DIR);
         std::fs::create_dir_all(record_dir.join("or_block.json").join("occupied")).unwrap();
         assert!(persist_atomic(data_dir, ROOM_DIR, "or_block", &json!({})).is_err());
-        let tmp_leaks: Vec<String> = std::fs::read_dir(&record_dir).unwrap()
+        let tmp_leaks: Vec<String> = std::fs::read_dir(&record_dir)
+            .unwrap()
             .filter_map(|e| e.ok())
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .filter(|n| n.contains(".tmp-"))
             .collect();
-        assert!(tmp_leaks.is_empty(), "no temporary artifact survives: {tmp_leaks:?}");
+        assert!(
+            tmp_leaks.is_empty(),
+            "no temporary artifact survives: {tmp_leaks:?}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2143,18 +3048,26 @@ mod outcome_room_tests {
         // declaration hash scope).
         let base = json!({ "outcome_room_id": "outcome-room://or_h", "status": "open", "revision": 1, "member_goal_run_refs": [], "objective": "x", "updated_at": "2026-01-01T00:00:00Z" });
         let mut paused = base.clone();
-        paused["status"] = json!("paused"); paused["revision"] = json!(2);
+        paused["status"] = json!("paused");
+        paused["revision"] = json!(2);
         let mut resumed = base.clone();
-        resumed["status"] = json!("open"); resumed["revision"] = json!(3);
+        resumed["status"] = json!("open");
+        resumed["revision"] = json!(3);
         let h_admit = record_output_hash(&base, ROOM_HASH_EXCLUDES);
         let h_pause = record_output_hash(&paused, TRANSITION_HASH_EXCLUDES);
         let h_resume = record_output_hash(&resumed, TRANSITION_HASH_EXCLUDES);
         assert_ne!(h_pause, h_resume, "distinct output states hash distinctly");
-        assert_ne!(h_pause, h_admit, "the transition hash is not the static declaration hash");
+        assert_ne!(
+            h_pause, h_admit,
+            "the transition hash is not the static declaration hash"
+        );
         // Membership changes the hash too.
         let mut member = resumed.clone();
         member["member_goal_run_refs"] = json!(["goal://gr_1"]);
-        assert_ne!(record_output_hash(&member, TRANSITION_HASH_EXCLUDES), h_resume);
+        assert_ne!(
+            record_output_hash(&member, TRANSITION_HASH_EXCLUDES),
+            h_resume
+        );
     }
 
     #[test]
@@ -2165,30 +3078,69 @@ mod outcome_room_tests {
         let dir = temp_dir("attach");
         let data_dir = dir.to_str().unwrap();
         let (_ai, prior_room, _arid, _arcpt) = canonical_admission("or_1");
-        let prior_run = json!({ "goal_run_id": "gr_1", "normalized_goal": "x", "status": "active" });
+        let prior_run =
+            json!({ "goal_run_id": "gr_1", "normalized_goal": "x", "status": "active" });
         persist_atomic(data_dir, ROOM_DIR, "or_1", &prior_room).unwrap();
         persist_atomic(data_dir, GOAL_RUN_DIR, "gr_1", &prior_run).unwrap();
         let (_intent, updated_room, rid, receipt) = canonical_attach(&prior_room, "gr_1");
         std::fs::write(dir.join(ROOM_RECEIPT_DIR), b"blocker").unwrap();
-        let (code, _) = finalize_attach(data_dir, "or_1", &prior_room, &updated_room, "gr_1", "outcome-room://or_1", &rid, &receipt).unwrap_err();
+        let (code, _) = finalize_attach(
+            data_dir,
+            "or_1",
+            &prior_room,
+            &updated_room,
+            "gr_1",
+            "outcome-room://or_1",
+            &rid,
+            &receipt,
+        )
+        .unwrap_err();
         assert_eq!(code, "outcome_room_attach_pending_convergence");
         let room_after = load_room(data_dir, "outcome-room://or_1").unwrap();
-        assert!(room_after.get("attach_intent").is_some(), "the DURABLE intent is retained for replay");
-        assert_eq!(room_after["member_goal_run_refs"], json!([]), "membership is still pending (terminal write never ran)");
+        assert!(
+            room_after.get("attach_intent").is_some(),
+            "the DURABLE intent is retained for replay"
+        );
+        assert_eq!(
+            room_after["member_goal_run_refs"],
+            json!([]),
+            "membership is still pending (terminal write never ran)"
+        );
         let run_after = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
-        assert_eq!(run_after["outcome_room_ref"], json!("outcome-room://or_1"), "the durable stamp STAYS — no unstamp, no split-brain");
+        assert_eq!(
+            run_after["outcome_room_ref"],
+            json!("outcome-room://or_1"),
+            "the durable stamp STAYS — no unstamp, no split-brain"
+        );
         // Restart: the completer re-persists the sealed receipt and finishes the membership.
         std::fs::remove_file(dir.join(ROOM_RECEIPT_DIR)).unwrap();
         complete_attach_intents(data_dir);
         let converged = load_room(data_dir, "outcome-room://or_1").unwrap();
-        assert_eq!(converged["member_goal_run_refs"], json!(["goal://gr_1"]), "membership converged");
-        assert!(converged.get("attach_intent").is_none(), "the intent was consumed by the terminal write");
-        assert_eq!(read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap()["outcome_room_ref"], json!("outcome-room://or_1"), "EXACT reciprocal convergence: member ⇔ stamp");
-        let persisted_receipt = read_record_dir(data_dir, ROOM_RECEIPT_DIR).into_iter().find(|r| r["receipt_id"] == receipt["receipt_id"]).expect("the sealed receipt was persisted");
+        assert_eq!(
+            converged["member_goal_run_refs"],
+            json!(["goal://gr_1"]),
+            "membership converged"
+        );
+        assert!(
+            converged.get("attach_intent").is_none(),
+            "the intent was consumed by the terminal write"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap()["outcome_room_ref"],
+            json!("outcome-room://or_1"),
+            "EXACT reciprocal convergence: member ⇔ stamp"
+        );
+        let persisted_receipt = read_record_dir(data_dir, ROOM_RECEIPT_DIR)
+            .into_iter()
+            .find(|r| r["receipt_id"] == receipt["receipt_id"])
+            .expect("the sealed receipt was persisted");
         assert_eq!(persisted_receipt["receipt_id"], receipt["receipt_id"]);
         // Idempotent: a second boot pass changes nothing.
         complete_attach_intents(data_dir);
-        assert_eq!(load_room(data_dir, "outcome-room://or_1").unwrap()["member_goal_run_refs"], json!(["goal://gr_1"]));
+        assert_eq!(
+            load_room(data_dir, "outcome-room://or_1").unwrap()["member_goal_run_refs"],
+            json!(["goal://gr_1"])
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2205,13 +3157,27 @@ mod outcome_room_tests {
         persist_atomic(data_dir, ROOM_DIR, "or_71", &pending).unwrap();
         complete_room_intents(data_dir);
         let converged = load_room(data_dir, "outcome-room://or_71").unwrap();
-        assert_eq!(converged["status"], json!("paused"), "the sealed transition was applied");
+        assert_eq!(
+            converged["status"],
+            json!("paused"),
+            "the sealed transition was applied"
+        );
         assert_eq!(converged["revision"], json!(2));
-        assert!(converged.get("transition_intent").is_none(), "the intent was consumed");
-        assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), 1, "the sealed receipt was persisted");
+        assert!(
+            converged.get("transition_intent").is_none(),
+            "the intent was consumed"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(),
+            1,
+            "the sealed receipt was persisted"
+        );
         // Idempotent second boot.
         complete_room_intents(data_dir);
-        assert_eq!(load_room(data_dir, "outcome-room://or_71").unwrap()["status"], json!("paused"));
+        assert_eq!(
+            load_room(data_dir, "outcome-room://or_71").unwrap()["status"],
+            json!("paused")
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2224,12 +3190,26 @@ mod outcome_room_tests {
         let data_dir = dir.to_str().unwrap();
         let (intent, _final_room, _rid, _rcpt) = canonical_admission("or_72");
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_72", &intent).unwrap();
-        assert!(load_room(data_dir, "outcome-room://or_72").is_none(), "the registry never lists a pending admission");
+        assert!(
+            load_room(data_dir, "outcome-room://or_72").is_none(),
+            "the registry never lists a pending admission"
+        );
         complete_room_intents(data_dir);
         let admitted = load_room(data_dir, "outcome-room://or_72").expect("admitted at boot");
-        assert_eq!(admitted["status"], json!("open"), "the sealed CANONICAL status — no pending_admission enum ever existed");
-        assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), 1, "the sealed receipt was persisted");
-        assert!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(), "the consumed intent was dropped");
+        assert_eq!(
+            admitted["status"],
+            json!("open"),
+            "the sealed CANONICAL status — no pending_admission enum ever existed"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(),
+            1,
+            "the sealed receipt was persisted"
+        );
+        assert!(
+            read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(),
+            "the consumed intent was dropped"
+        );
         // CONFLICT-FIRST (#72 round 12 finding 2): a FOREIGN room at the same identity (a
         // DIFFERENT canonical admission, different anchor) refuses BEFORE any write — room,
         // receipt family, and intent stay byte-for-byte unchanged, incl. the intent's receipt.
@@ -2238,9 +3218,16 @@ mod outcome_room_tests {
         let receipts_before = read_record_dir(data_dir, ROOM_RECEIPT_DIR).len();
         complete_room_intents(data_dir);
         let still = load_room(data_dir, "outcome-room://or_72").unwrap();
-        assert_eq!(still["admission_receipt_ref"], admitted["admission_receipt_ref"], "the ORIGINAL admission stands — the foreign intent did not overwrite it");
+        assert_eq!(
+            still["admission_receipt_ref"], admitted["admission_receipt_ref"],
+            "the ORIGINAL admission stands — the foreign intent did not overwrite it"
+        );
         assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), receipts_before, "NO receipt was persisted for the room the completer refused to admit (#72 r12 finding 2)");
-        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "the conflicting intent is retained for manual repair");
+        assert_eq!(
+            read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(),
+            1,
+            "the conflicting intent is retained for manual repair"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2261,8 +3248,15 @@ mod outcome_room_tests {
         persist_atomic(data_dir, ROOM_RECEIPT_DIR, &rid, &receipt).unwrap();
         complete_room_intents(data_dir);
         let room = load_room(data_dir, "outcome-room://or_a2").unwrap();
-        assert_eq!(room["status"], json!("paused"), "the newer legitimate state is NOT overwritten by the replay");
-        assert!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(), "the intent was recognized as consumed and dropped");
+        assert_eq!(
+            room["status"],
+            json!("paused"),
+            "the newer legitimate state is NOT overwritten by the replay"
+        );
+        assert!(
+            read_record_dir(data_dir, ADMISSION_INTENT_DIR).is_empty(),
+            "the intent was recognized as consumed and dropped"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2289,8 +3283,12 @@ mod outcome_room_tests {
         f.sync_all().unwrap();
         link_tmpfile_at(&f, &dir, "orr_s0.json").unwrap();
         // Re-verify with the ORIGINAL committed descriptor → inode mismatch → refused.
-        let (code, _) = certify_receipt_target(&dir, "orr_s0.json", &committed, &bytes, "unit").unwrap_err();
-        assert_eq!(code, "outcome_room_receipt_swapped", "a name resolving to a different inode after the barrier is refused");
+        let (code, _) =
+            certify_receipt_target(&dir, "orr_s0.json", &committed, &bytes, "unit").unwrap_err();
+        assert_eq!(
+            code, "outcome_room_receipt_swapped",
+            "a name resolving to a different inode after the barrier is refused"
+        );
         let _ = std::fs::remove_dir_all(&dir_t);
     }
 
@@ -2306,8 +3304,14 @@ mod outcome_room_tests {
         std::fs::rename(dir.join(ROOM_DIR), dir.join("registry-moved")).unwrap();
         std::os::unix::fs::symlink(dir.join("registry-moved"), dir.join(ROOM_DIR)).unwrap();
         // The pinned open is O_NOFOLLOW → ELOOP → typed Err, NOT a false-empty Ok(vec![]).
-        assert!(read_dir_with_stems(data_dir, ROOM_DIR).is_err(), "a symlinked registry directory is a typed error");
-        assert!(sorted_newest(data_dir).is_err(), "list surfaces the error, never a false-empty list");
+        assert!(
+            read_dir_with_stems(data_dir, ROOM_DIR).is_err(),
+            "a symlinked registry directory is a typed error"
+        );
+        assert!(
+            sorted_newest(data_dir).is_err(),
+            "list surfaces the error, never a false-empty list"
+        );
         assert!(list_rooms_exact(data_dir).is_err());
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -2323,17 +3327,44 @@ mod outcome_room_tests {
         let receipt = json!({ "receipt_id": "receipt://orr_c0", "attested": true });
         persist_receipt_no_clobber(data_dir, "orr_c0", &receipt).unwrap();
         let rdir = dir.join(ROOM_RECEIPT_DIR);
-        let names: Vec<String> = std::fs::read_dir(&rdir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();
-        assert_eq!(names, vec!["orr_c0.json".to_string()], "exactly the target file — no .nc-* temp residue");
+        let names: Vec<String> = std::fs::read_dir(&rdir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["orr_c0.json".to_string()],
+            "exactly the target file — no .nc-* temp residue"
+        );
         let meta = std::fs::metadata(rdir.join("orr_c0.json")).unwrap();
-        assert_eq!(meta.nlink(), 1, "the committed inode has exactly ONE name (no hard-link residue)");
-        let on_disk: Value = serde_json::from_slice(&std::fs::read(rdir.join("orr_c0.json")).unwrap()).unwrap();
-        assert_eq!(on_disk, receipt, "the committed bytes are exactly ours (descriptor-bound, unswappable)");
+        assert_eq!(
+            meta.nlink(),
+            1,
+            "the committed inode has exactly ONE name (no hard-link residue)"
+        );
+        let on_disk: Value =
+            serde_json::from_slice(&std::fs::read(rdir.join("orr_c0.json")).unwrap()).unwrap();
+        assert_eq!(
+            on_disk, receipt,
+            "the committed bytes are exactly ours (descriptor-bound, unswappable)"
+        );
         // Idempotent replay: still exactly one file, still nlink 1.
         persist_receipt_no_clobber(data_dir, "orr_c0", &receipt).unwrap();
-        let names2: Vec<String> = std::fs::read_dir(&rdir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();
-        assert_eq!(names2, vec!["orr_c0.json".to_string()], "replay leaves no residue either");
-        assert_eq!(std::fs::metadata(rdir.join("orr_c0.json")).unwrap().nlink(), 1);
+        let names2: Vec<String> = std::fs::read_dir(&rdir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(
+            names2,
+            vec!["orr_c0.json".to_string()],
+            "replay leaves no residue either"
+        );
+        assert_eq!(
+            std::fs::metadata(rdir.join("orr_c0.json")).unwrap().nlink(),
+            1
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2347,14 +3378,45 @@ mod outcome_room_tests {
         let (_i, room, _rid, _rcpt) = canonical_admission("or_c1");
         persist_atomic(data_dir, ROOM_DIR, "or_c1", &room).unwrap();
         // An external file with forged content, symlinked into the room dir under a canonical name.
-        std::fs::write(dir.join("EXTERNAL.json"), serde_json::to_vec(&json!({ "outcome_room_id": "outcome-room://or_c2", "forged": true })).unwrap()).unwrap();
-        std::os::unix::fs::symlink(dir.join("EXTERNAL.json"), dir.join(ROOM_DIR).join("or_c2.json")).unwrap();
+        std::fs::write(
+            dir.join("EXTERNAL.json"),
+            serde_json::to_vec(
+                &json!({ "outcome_room_id": "outcome-room://or_c2", "forged": true }),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            dir.join("EXTERNAL.json"),
+            dir.join(ROOM_DIR).join("or_c2.json"),
+        )
+        .unwrap();
         // A real file under a NON-canonical stem (uppercase / non-hex).
-        std::fs::write(dir.join(ROOM_DIR).join("or_ZZ.json"), serde_json::to_vec(&json!({ "outcome_room_id": "outcome-room://or_ZZ" })).unwrap()).unwrap();
-        let stems: Vec<String> = read_dir_with_stems(data_dir, ROOM_DIR).unwrap().into_iter().map(|(s, _)| s).collect();
-        assert_eq!(stems, vec!["or_c1".to_string()], "only the genuine canonical regular file is scanned");
-        let listed: Vec<String> = sorted_newest(data_dir).unwrap().into_iter().filter_map(|r| r["outcome_room_id"].as_str().map(str::to_string)).collect();
-        assert_eq!(listed, vec!["outcome-room://or_c1".to_string()], "the symlink's forged content never reaches the public list");
+        std::fs::write(
+            dir.join(ROOM_DIR).join("or_ZZ.json"),
+            serde_json::to_vec(&json!({ "outcome_room_id": "outcome-room://or_ZZ" })).unwrap(),
+        )
+        .unwrap();
+        let stems: Vec<String> = read_dir_with_stems(data_dir, ROOM_DIR)
+            .unwrap()
+            .into_iter()
+            .map(|(s, _)| s)
+            .collect();
+        assert_eq!(
+            stems,
+            vec!["or_c1".to_string()],
+            "only the genuine canonical regular file is scanned"
+        );
+        let listed: Vec<String> = sorted_newest(data_dir)
+            .unwrap()
+            .into_iter()
+            .filter_map(|r| r["outcome_room_id"].as_str().map(str::to_string))
+            .collect();
+        assert_eq!(
+            listed,
+            vec!["outcome-room://or_c1".to_string()],
+            "the symlink's forged content never reaches the public list"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2366,17 +3428,40 @@ mod outcome_room_tests {
         let data_dir = dir.to_str().unwrap();
         let planted = json!({ "outcome_room_id": "outcome-room://../goal-runs/gr_esc", "status": "open", "schema_version": ROOM_SCHEMA });
         std::fs::create_dir_all(dir.join("goal-runs")).unwrap();
-        std::fs::write(dir.join("goal-runs/gr_esc.json"), serde_json::to_vec_pretty(&planted).unwrap()).unwrap();
-        assert!(load_room(data_dir, "outcome-room://../goal-runs/gr_esc").is_none(), "traversal id refused BEFORE any filesystem access");
-        assert!(resolve_open_room(data_dir, "outcome-room://../goal-runs/gr_esc").is_none(), "cross-plane binding resolution refuses the traversal id");
-        assert!(load_room_file(data_dir, "../goal-runs/gr_esc").is_none(), "non-canonical stems never reach a path join");
+        std::fs::write(
+            dir.join("goal-runs/gr_esc.json"),
+            serde_json::to_vec_pretty(&planted).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            load_room(data_dir, "outcome-room://../goal-runs/gr_esc").is_none(),
+            "traversal id refused BEFORE any filesystem access"
+        );
+        assert!(
+            resolve_open_room(data_dir, "outcome-room://../goal-runs/gr_esc").is_none(),
+            "cross-plane binding resolution refuses the traversal id"
+        );
+        assert!(
+            load_room_file(data_dir, "../goal-runs/gr_esc").is_none(),
+            "non-canonical stems never reach a path join"
+        );
         // A SYMLINKED room slot is equally invisible (pinned no-follow read).
         let (_i, room, _rid, _rcpt) = canonical_admission("or_a0");
         std::fs::create_dir_all(dir.join(ROOM_DIR)).unwrap();
-        std::fs::write(dir.join(ROOM_DIR).join("real.json"), serde_json::to_vec_pretty(&room).unwrap()).unwrap();
+        std::fs::write(
+            dir.join(ROOM_DIR).join("real.json"),
+            serde_json::to_vec_pretty(&room).unwrap(),
+        )
+        .unwrap();
         std::os::unix::fs::symlink("real.json", dir.join(ROOM_DIR).join("or_a0.json")).unwrap();
-        assert!(load_room(data_dir, "outcome-room://or_a0").is_none(), "a symlinked room slot is refused (O_NOFOLLOW)");
-        assert!(sorted_newest(data_dir).unwrap().is_empty(), "neither the symlink nor the non-canonical stem is listed");
+        assert!(
+            load_room(data_dir, "outcome-room://or_a0").is_none(),
+            "a symlinked room slot is refused (O_NOFOLLOW)"
+        );
+        assert!(
+            sorted_newest(data_dir).unwrap().is_empty(),
+            "neither the symlink nor the non-canonical stem is listed"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2394,15 +3479,31 @@ mod outcome_room_tests {
         std::fs::set_permissions(&slot, std::fs::Permissions::from_mode(0o000)).unwrap();
         let ours = json!({ "receipt_id": "receipt://orr_aa", "mine": true });
         let (code, _) = persist_receipt_no_clobber(data_dir, "orr_aa", &ours).unwrap_err();
-        assert_eq!(code, "outcome_room_receipt_slot_unreadable", "an unreadable occupant is REFUSED, never treated as empty");
+        assert_eq!(
+            code, "outcome_room_receipt_slot_unreadable",
+            "an unreadable occupant is REFUSED, never treated as empty"
+        );
         std::fs::set_permissions(&slot, std::fs::Permissions::from_mode(0o644)).unwrap();
         let on_disk: Value = serde_json::from_slice(&std::fs::read(&slot).unwrap()).unwrap();
-        assert_eq!(on_disk, foreign, "the unreadable occupant was NOT overwritten");
+        assert_eq!(
+            on_disk, foreign,
+            "the unreadable occupant was NOT overwritten"
+        );
         // Symlinked occupant: refused at the open (O_NOFOLLOW), the link survives as a link.
-        std::os::unix::fs::symlink("orr_aa.json", dir.join(ROOM_RECEIPT_DIR).join("orr_ab.json")).unwrap();
+        std::os::unix::fs::symlink(
+            "orr_aa.json",
+            dir.join(ROOM_RECEIPT_DIR).join("orr_ab.json"),
+        )
+        .unwrap();
         let (code2, _) = persist_receipt_no_clobber(data_dir, "orr_ab", &ours).unwrap_err();
         assert_eq!(code2, "outcome_room_receipt_slot_unreadable");
-        assert!(std::fs::symlink_metadata(dir.join(ROOM_RECEIPT_DIR).join("orr_ab.json")).unwrap().file_type().is_symlink(), "the symlink occupant was NOT replaced");
+        assert!(
+            std::fs::symlink_metadata(dir.join(ROOM_RECEIPT_DIR).join("orr_ab.json"))
+                .unwrap()
+                .file_type()
+                .is_symlink(),
+            "the symlink occupant was NOT replaced"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2420,11 +3521,21 @@ mod outcome_room_tests {
         std::fs::set_permissions(&slot, std::fs::Permissions::from_mode(0o000)).unwrap();
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_a1", &intent).unwrap();
         complete_room_intents(data_dir);
-        assert!(load_room_file(data_dir, "or_a1").is_none(), "the room was NOT admitted over an unreadable receipt slot");
-        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "intent retained for manual repair");
+        assert!(
+            load_room_file(data_dir, "or_a1").is_none(),
+            "the room was NOT admitted over an unreadable receipt slot"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(),
+            1,
+            "intent retained for manual repair"
+        );
         std::fs::set_permissions(&slot, std::fs::Permissions::from_mode(0o644)).unwrap();
         let on_disk: Value = serde_json::from_slice(&std::fs::read(&slot).unwrap()).unwrap();
-        assert_eq!(on_disk, foreign, "the unreadable occupant survived byte-for-byte");
+        assert_eq!(
+            on_disk, foreign,
+            "the unreadable occupant survived byte-for-byte"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2438,9 +3549,18 @@ mod outcome_room_tests {
         persist_atomic(data_dir, ROOM_RECEIPT_DIR, "orr_deadbeef", &foreign).unwrap();
         let ours = json!({ "receipt_id": "receipt://orr_deadbeef", "mine": true });
         let (code, _) = persist_receipt_no_clobber(data_dir, "orr_deadbeef", &ours).unwrap_err();
-        assert_eq!(code, "outcome_room_receipt_conflict", "a different occupant is refused");
-        let on_disk: Value = serde_json::from_slice(&std::fs::read(dir.join(ROOM_RECEIPT_DIR).join("orr_deadbeef.json")).unwrap()).unwrap();
-        assert_eq!(on_disk, foreign, "the foreign sentinel evidence is UNTOUCHED");
+        assert_eq!(
+            code, "outcome_room_receipt_conflict",
+            "a different occupant is refused"
+        );
+        let on_disk: Value = serde_json::from_slice(
+            &std::fs::read(dir.join(ROOM_RECEIPT_DIR).join("orr_deadbeef.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            on_disk, foreign,
+            "the foreign sentinel evidence is UNTOUCHED"
+        );
         // Idempotent: writing the SAME bytes that are already there is Ok, no error.
         persist_receipt_no_clobber(data_dir, "orr_cafe", &ours).unwrap();
         persist_receipt_no_clobber(data_dir, "orr_cafe", &ours).unwrap();
@@ -2458,10 +3578,23 @@ mod outcome_room_tests {
         persist_atomic(data_dir, ROOM_RECEIPT_DIR, &rid, &foreign).unwrap();
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_90", &intent).unwrap();
         complete_room_intents(data_dir);
-        assert!(load_room_file(data_dir, "or_90").is_none(), "the room was NOT admitted over an occupied receipt slot");
-        let on_disk: Value = serde_json::from_slice(&std::fs::read(dir.join(ROOM_RECEIPT_DIR).join(format!("{rid}.json"))).unwrap()).unwrap();
-        assert_eq!(on_disk, foreign, "the foreign sentinel evidence is UNTOUCHED");
-        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "intent retained for manual repair");
+        assert!(
+            load_room_file(data_dir, "or_90").is_none(),
+            "the room was NOT admitted over an occupied receipt slot"
+        );
+        let on_disk: Value = serde_json::from_slice(
+            &std::fs::read(dir.join(ROOM_RECEIPT_DIR).join(format!("{rid}.json"))).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            on_disk, foreign,
+            "the foreign sentinel evidence is UNTOUCHED"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(),
+            1,
+            "intent retained for manual repair"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2476,11 +3609,20 @@ mod outcome_room_tests {
         // Store the room (claiming outcome-room://or_91) at a DIFFERENT stem or_92.json.
         persist_atomic(data_dir, ROOM_DIR, "or_92", &room).unwrap();
         // GET by the ORIGINAL id: the file or_91.json does not exist → None.
-        assert!(load_room(data_dir, "outcome-room://or_91").is_none(), "GET original id: no file at that stem");
+        assert!(
+            load_room(data_dir, "outcome-room://or_91").is_none(),
+            "GET original id: no file at that stem"
+        );
         // GET by the NEW filename's id: content id (or_91) != stem (or_92) → None.
-        assert!(load_room(data_dir, "outcome-room://or_92").is_none(), "GET new stem: content id != stem, refused");
+        assert!(
+            load_room(data_dir, "outcome-room://or_92").is_none(),
+            "GET new stem: content id != stem, refused"
+        );
         // LIST/resolve exclude the relocated file entirely.
-        assert!(sorted_newest(data_dir).unwrap().is_empty(), "the relocated room is not listed");
+        assert!(
+            sorted_newest(data_dir).unwrap().is_empty(),
+            "the relocated room is not listed"
+        );
         assert!(resolve_open_room(data_dir, "outcome-room://or_91").is_none());
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -2495,10 +3637,23 @@ mod outcome_room_tests {
         // The intent is canonical for stem or_80, but we persist it at file or_81.json.
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_81", &intent).unwrap();
         complete_room_intents(data_dir);
-        assert!(load_room_file(data_dir, "or_81").is_none(), "the mismatched-stem intent was NOT admitted");
-        assert!(load_room_file(data_dir, "or_80").is_none(), "and nothing was written under the content id either");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt persisted");
-        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "intent retained for manual repair");
+        assert!(
+            load_room_file(data_dir, "or_81").is_none(),
+            "the mismatched-stem intent was NOT admitted"
+        );
+        assert!(
+            load_room_file(data_dir, "or_80").is_none(),
+            "and nothing was written under the content id either"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "no receipt persisted"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(),
+            1,
+            "intent retained for manual repair"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2508,9 +3663,24 @@ mod outcome_room_tests {
         // file — the room writer rejects unsafe keys instead of colliding.
         let dir = temp_dir("norm-safe");
         let data_dir = dir.to_str().unwrap();
-        persist_atomic(data_dir, ROOM_RECEIPT_DIR, "ort_deadbeef", &json!({ "ok": true })).unwrap();
-        let err = persist_atomic(data_dir, ROOM_RECEIPT_DIR, "ort/collision", &json!({ "evil": true })).unwrap_err();
-        assert!(matches!(err, super::super::goalrun_routes::PersistFailure::NotCommitted(_)));
+        persist_atomic(
+            data_dir,
+            ROOM_RECEIPT_DIR,
+            "ort_deadbeef",
+            &json!({ "ok": true }),
+        )
+        .unwrap();
+        let err = persist_atomic(
+            data_dir,
+            ROOM_RECEIPT_DIR,
+            "ort/collision",
+            &json!({ "evil": true }),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            super::super::goalrun_routes::PersistFailure::NotCommitted(_)
+        ));
         // The canonical file is untouched; no collided file was written.
         assert_eq!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).len(), 1);
         let _ = std::fs::remove_dir_all(&dir);
@@ -2535,8 +3705,14 @@ mod outcome_room_tests {
         });
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_82", &forged).unwrap();
         complete_room_intents(data_dir);
-        assert!(load_room_file(data_dir, "or_82").is_none(), "a null-timestamp room was NOT admitted");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt persisted");
+        assert!(
+            load_room_file(data_dir, "or_82").is_none(),
+            "a null-timestamp room was NOT admitted"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "no receipt persisted"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2551,7 +3727,22 @@ mod outcome_room_tests {
         // Strip the governing declaration from the sealed room; reseal the intent hashes so ONLY
         // the semantic reconstruction stands between the hollow envelope and admission.
         let mut final_room = canonical["final_room"].clone();
-        for k in ["owner_or_sponsor_ref", "objective_ref", "objective", "host_domain_ref", "room_mode", "coordination_topology", "stop_policy_ref", "visibility_policy_ref", "participation_policy_ref", "privacy_policy_ref", "contribution_policy_ref", "coordination_policy_ref", "ordering_and_merge_policy_ref", "conflict_and_failover_policy_ref"] {
+        for k in [
+            "owner_or_sponsor_ref",
+            "objective_ref",
+            "objective",
+            "host_domain_ref",
+            "room_mode",
+            "coordination_topology",
+            "stop_policy_ref",
+            "visibility_policy_ref",
+            "participation_policy_ref",
+            "privacy_policy_ref",
+            "contribution_policy_ref",
+            "coordination_policy_ref",
+            "ordering_and_merge_policy_ref",
+            "conflict_and_failover_policy_ref",
+        ] {
             final_room.as_object_mut().unwrap().remove(k);
         }
         let receipt = canonical["receipt"].clone();
@@ -2562,9 +3753,19 @@ mod outcome_room_tests {
         });
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_73", &hollow).unwrap();
         complete_room_intents(data_dir);
-        assert!(load_room(data_dir, "outcome-room://or_73").is_none(), "the hollow envelope was NOT admitted");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt persisted for a hollow envelope");
-        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "intent retained for manual repair");
+        assert!(
+            load_room(data_dir, "outcome-room://or_73").is_none(),
+            "the hollow envelope was NOT admitted"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "no receipt persisted for a hollow envelope"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(),
+            1,
+            "intent retained for manual repair"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2591,9 +3792,16 @@ mod outcome_room_tests {
         persist_atomic(data_dir, ROOM_DIR, "or_74", &pending).unwrap();
         complete_room_intents(data_dir);
         let after = load_room(data_dir, "outcome-room://or_74").unwrap();
-        assert_eq!(serde_json::to_vec(&after).unwrap(), pending_bytes, "room byte-unchanged — the lying receipt never became durable");
+        assert_eq!(
+            serde_json::to_vec(&after).unwrap(),
+            pending_bytes,
+            "room byte-unchanged — the lying receipt never became durable"
+        );
         assert_eq!(after["status"], json!("open"), "status never advanced");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no false receipt persisted");
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "no false receipt persisted"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2604,7 +3812,13 @@ mod outcome_room_tests {
         let dir = temp_dir("lying-attach");
         let data_dir = dir.to_str().unwrap();
         let (_ai, prior, _arid, _arcpt) = canonical_admission("or_75");
-        persist_atomic(data_dir, GOAL_RUN_DIR, "gr_la", &json!({ "goal_run_id": "gr_la", "status": "active" })).unwrap();
+        persist_atomic(
+            data_dir,
+            GOAL_RUN_DIR,
+            "gr_la",
+            &json!({ "goal_run_id": "gr_la", "status": "active" }),
+        )
+        .unwrap();
         let (aintent, _updated, _rid, _rcpt) = canonical_attach(&prior, "gr_la");
         let mut forged_intent = aintent.clone();
         let mut lying = forged_intent["receipt"].clone();
@@ -2618,10 +3832,20 @@ mod outcome_room_tests {
         persist_atomic(data_dir, ROOM_DIR, "or_75", &with_intent).unwrap();
         complete_attach_intents(data_dir);
         let after = load_room(data_dir, "outcome-room://or_75").unwrap();
-        assert_eq!(serde_json::to_vec(&after).unwrap(), with_bytes, "room byte-unchanged");
+        assert_eq!(
+            serde_json::to_vec(&after).unwrap(),
+            with_bytes,
+            "room byte-unchanged"
+        );
         let run = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
-        assert!(run.get("outcome_room_ref").is_none(), "the run was NEVER stamped for a lying attach receipt");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no false receipt persisted");
+        assert!(
+            run.get("outcome_room_ref").is_none(),
+            "the run was NEVER stamped for a lying attach receipt"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "no false receipt persisted"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2641,19 +3865,43 @@ mod outcome_room_tests {
         final_room["objective"] = json!("FORGED");
         final_room["owner_or_sponsor_ref"] = json!("org://attacker");
         receipt["op"] = json!("not-admitted");
-        receipt["hash_scope_excludes"] = json!(ROOM_HASH_EXCLUDES.iter().copied().chain(["objective", "owner_or_sponsor_ref"]).collect::<Vec<_>>());
-        receipt["output_hash"] = json!(record_output_hash(&final_room, &ROOM_HASH_EXCLUDES.iter().copied().chain(["objective", "owner_or_sponsor_ref"]).collect::<Vec<_>>()));
+        receipt["hash_scope_excludes"] = json!(ROOM_HASH_EXCLUDES
+            .iter()
+            .copied()
+            .chain(["objective", "owner_or_sponsor_ref"])
+            .collect::<Vec<_>>());
+        receipt["output_hash"] = json!(record_output_hash(
+            &final_room,
+            &ROOM_HASH_EXCLUDES
+                .iter()
+                .copied()
+                .chain(["objective", "owner_or_sponsor_ref"])
+                .collect::<Vec<_>>()
+        ));
         let forged = json!({
             "room_tail": "or_fa", "room_ref": "outcome-room://or_fa",
             "receipt_id": canonical["receipt_id"], "receipt": receipt, "receipt_hash": record_output_hash(&receipt, &[]),
             "final_room": final_room, "final_room_hash": record_output_hash(&final_room, &[]), "at": "2026-01-01T00:00:00Z",
         });
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_fa", &forged).unwrap();
-        assert!(load_room(data_dir, "outcome-room://or_fa").is_none(), "the room is ABSENT — the normal recovery state");
+        assert!(
+            load_room(data_dir, "outcome-room://or_fa").is_none(),
+            "the room is ABSENT — the normal recovery state"
+        );
         complete_room_intents(data_dir);
-        assert!(load_room(data_dir, "outcome-room://or_fa").is_none(), "the forged room was NOT admitted");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt was persisted for the forgery");
-        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "the intent is retained for manual repair");
+        assert!(
+            load_room(data_dir, "outcome-room://or_fa").is_none(),
+            "the forged room was NOT admitted"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "no receipt was persisted for the forgery"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(),
+            1,
+            "the intent is retained for manual repair"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2680,8 +3928,15 @@ mod outcome_room_tests {
         complete_room_intents(data_dir);
         let after = load_room(data_dir, "outcome-room://or_76").unwrap();
         assert_eq!(serde_json::to_vec(&after).unwrap(), pending_bytes, "the room (still carrying the forged intent) is byte-for-byte unchanged — the forgery was NOT applied");
-        assert_eq!(after["status"], json!("open"), "the visible status never advanced to the forged 'accepted'");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt was persisted for the forged transition");
+        assert_eq!(
+            after["status"],
+            json!("open"),
+            "the visible status never advanced to the forged 'accepted'"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "no receipt was persisted for the forged transition"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2693,7 +3948,13 @@ mod outcome_room_tests {
         let dir = temp_dir("forged-attach");
         let data_dir = dir.to_str().unwrap();
         let (_ai, prior, _arid, _arcpt) = canonical_admission("or_77");
-        persist_atomic(data_dir, GOAL_RUN_DIR, "gr_fm", &json!({ "goal_run_id": "gr_fm", "status": "active" })).unwrap();
+        persist_atomic(
+            data_dir,
+            GOAL_RUN_DIR,
+            "gr_fm",
+            &json!({ "goal_run_id": "gr_fm", "status": "active" }),
+        )
+        .unwrap();
         let (aintent, _updated, _rid, _rcpt) = canonical_attach(&prior, "gr_fm");
         let mut forged_intent = aintent.clone();
         let mut forged_room = forged_intent["updated_room"].clone();
@@ -2706,11 +3967,24 @@ mod outcome_room_tests {
         persist_atomic(data_dir, ROOM_DIR, "or_77", &with_intent).unwrap();
         complete_attach_intents(data_dir);
         let after = load_room(data_dir, "outcome-room://or_77").unwrap();
-        assert!(after.get("attach_intent").is_some(), "the forged intent is retained (refused, not applied)");
-        assert_eq!(after["member_goal_run_refs"], json!([]), "no membership was manufactured");
+        assert!(
+            after.get("attach_intent").is_some(),
+            "the forged intent is retained (refused, not applied)"
+        );
+        assert_eq!(
+            after["member_goal_run_refs"],
+            json!([]),
+            "no membership was manufactured"
+        );
         let run = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
-        assert!(run.get("outcome_room_ref").is_none(), "the run was NEVER stamped for a forged successor");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt was persisted");
+        assert!(
+            run.get("outcome_room_ref").is_none(),
+            "the run was NEVER stamped for a forged successor"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "no receipt was persisted"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2726,10 +4000,27 @@ mod outcome_room_tests {
         // The room the attacker WANTS admitted (tampered declaration).
         let mut tampered = json!({ "outcome_room_id": "outcome-room://or_78", "objective": "TAMPERED", "owner_or_sponsor_ref": "org://attacker", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
         // A WIDENED scope that also excludes the tampered declaration fields.
-        let widened: Vec<&str> = ROOM_HASH_EXCLUDES.iter().copied().chain(["objective", "owner_or_sponsor_ref"]).collect();
+        let widened: Vec<&str> = ROOM_HASH_EXCLUDES
+            .iter()
+            .copied()
+            .chain(["objective", "owner_or_sponsor_ref"])
+            .collect();
         // The receipt's output_hash is computed over the tampered room under the WIDENED scope,
         // so declaration_ok would pass if the completer trusted the receipt's own scope.
-        let (rid, mut receipt) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_78", "admitted", json!({}), vec![], record_output_hash(&tampered, &widened), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        let (rid, mut receipt) = build_room_receipt(
+            ADMISSION_RECEIPT_SCHEMA,
+            "OutcomeRoomAdmissionReceipt",
+            "orr",
+            "outcome-room://or_78",
+            "admitted",
+            json!({}),
+            vec![],
+            record_output_hash(&tampered, &widened),
+            ROOM_HASH_EXCLUDES,
+            "admitted_not_verified",
+            "n",
+            "2026-01-01T00:00:00Z",
+        );
         receipt["hash_scope_excludes"] = json!(widened);
         tampered["admission_receipt_ref"] = receipt["receipt_ref"].clone();
         tampered["admission_and_replay_refs"] = json!([receipt["receipt_ref"]]);
@@ -2741,12 +4032,24 @@ mod outcome_room_tests {
         });
         persist_atomic(data_dir, ADMISSION_INTENT_DIR, "or_78", &intent).unwrap();
         persist_atomic(data_dir, ROOM_DIR, "or_78", &tampered).unwrap();
-        let room_bytes = serde_json::to_vec(&load_room(data_dir, "outcome-room://or_78").unwrap()).unwrap();
+        let room_bytes =
+            serde_json::to_vec(&load_room(data_dir, "outcome-room://or_78").unwrap()).unwrap();
         complete_room_intents(data_dir);
         let after = load_room(data_dir, "outcome-room://or_78").unwrap();
-        assert_eq!(serde_json::to_vec(&after).unwrap(), room_bytes, "the tampered room is byte-for-byte unchanged — the widened scope did not admit it");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "NO receipt was persisted for the forged admission");
-        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "the intent is retained for manual repair");
+        assert_eq!(
+            serde_json::to_vec(&after).unwrap(),
+            room_bytes,
+            "the tampered room is byte-for-byte unchanged — the widened scope did not admit it"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "NO receipt was persisted for the forged admission"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(),
+            1,
+            "the intent is retained for manual repair"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2758,7 +4061,20 @@ mod outcome_room_tests {
         let dir = temp_dir("admission-tamper");
         let data_dir = dir.to_str().unwrap();
         let mut final_room = json!({ "outcome_room_id": "outcome-room://or_79", "objective": "original objective", "owner_or_sponsor_ref": "org://original", "status": "open", "revision": 1, "member_goal_run_refs": [], "updated_at": "2026-01-01T00:00:00Z" });
-        let (rid, receipt) = build_room_receipt(ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_79", "admitted", json!({}), vec![], record_output_hash(&final_room, ROOM_HASH_EXCLUDES), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z");
+        let (rid, receipt) = build_room_receipt(
+            ADMISSION_RECEIPT_SCHEMA,
+            "OutcomeRoomAdmissionReceipt",
+            "orr",
+            "outcome-room://or_79",
+            "admitted",
+            json!({}),
+            vec![],
+            record_output_hash(&final_room, ROOM_HASH_EXCLUDES),
+            ROOM_HASH_EXCLUDES,
+            "admitted_not_verified",
+            "n",
+            "2026-01-01T00:00:00Z",
+        );
         final_room["admission_receipt_ref"] = receipt["receipt_ref"].clone();
         final_room["admission_and_replay_refs"] = json!([receipt["receipt_ref"]]);
         let intent = json!({
@@ -2773,12 +4089,24 @@ mod outcome_room_tests {
         tampered["objective"] = json!("TAMPERED objective");
         tampered["owner_or_sponsor_ref"] = json!("org://attacker");
         persist_atomic(data_dir, ROOM_DIR, "or_79", &tampered).unwrap();
-        let tampered_bytes = serde_json::to_vec(&load_room(data_dir, "outcome-room://or_79").unwrap()).unwrap();
+        let tampered_bytes =
+            serde_json::to_vec(&load_room(data_dir, "outcome-room://or_79").unwrap()).unwrap();
         complete_room_intents(data_dir);
         let after = load_room(data_dir, "outcome-room://or_79").unwrap();
-        assert_eq!(serde_json::to_vec(&after).unwrap(), tampered_bytes, "the room is byte-for-byte unchanged — neither receipted over nor 'repaired'");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "NO receipt was persisted for an admission the declaration does not prove");
-        assert_eq!(read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(), 1, "the intent is retained for manual repair");
+        assert_eq!(
+            serde_json::to_vec(&after).unwrap(),
+            tampered_bytes,
+            "the room is byte-for-byte unchanged — neither receipted over nor 'repaired'"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "NO receipt was persisted for an admission the declaration does not prove"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, ADMISSION_INTENT_DIR).len(),
+            1,
+            "the intent is retained for manual repair"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2798,11 +4126,25 @@ mod outcome_room_tests {
         persist_atomic(data_dir, GOAL_RUN_DIR, "gr_ab", &json!({ "goal_run_id": "gr_ab", "status": "active", "outcome_room_ref": "outcome-room://or_7c" })).unwrap();
         complete_attach_intents(data_dir);
         let run = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
-        assert_eq!(run["outcome_room_ref"], json!("outcome-room://or_7c"), "room B's reciprocal binding is UNTOUCHED");
+        assert_eq!(
+            run["outcome_room_ref"],
+            json!("outcome-room://or_7c"),
+            "room B's reciprocal binding is UNTOUCHED"
+        );
         let room_a = load_room(data_dir, "outcome-room://or_7a").unwrap();
-        assert!(room_a.get("attach_intent").is_some(), "room A's intent is left as a manual conflict, never overwritten");
-        assert_eq!(room_a["member_goal_run_refs"], json!([]), "room A gained no membership");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt was manufactured");
+        assert!(
+            room_a.get("attach_intent").is_some(),
+            "room A's intent is left as a manual conflict, never overwritten"
+        );
+        assert_eq!(
+            room_a["member_goal_run_refs"],
+            json!([]),
+            "room A gained no membership"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "no receipt was manufactured"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2820,9 +4162,19 @@ mod outcome_room_tests {
         persist_atomic(data_dir, ROOM_DIR, "or_7b", &with_intent).unwrap();
         complete_attach_intents(data_dir);
         let room_after = load_room(data_dir, "outcome-room://or_7b").unwrap();
-        assert!(room_after.get("attach_intent").is_none(), "the intent was rolled back");
-        assert_eq!(room_after["member_goal_run_refs"], json!([]), "no membership was manufactured");
-        assert!(read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(), "no receipt was manufactured");
+        assert!(
+            room_after.get("attach_intent").is_none(),
+            "the intent was rolled back"
+        );
+        assert_eq!(
+            room_after["member_goal_run_refs"],
+            json!([]),
+            "no membership was manufactured"
+        );
+        assert!(
+            read_record_dir(data_dir, ROOM_RECEIPT_DIR).is_empty(),
+            "no receipt was manufactured"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2834,51 +4186,120 @@ mod outcome_room_tests {
         // writer merges its OWN fields onto the LATEST record through the shared seam.
         let dir = temp_dir("interleave-run");
         let data_dir = dir.to_str().unwrap();
-        persist_atomic(data_dir, GOAL_RUN_DIR, "gr_race", &json!({ "goal_run_id": "gr_race", "status": "active", "normalized_goal": "x" })).unwrap();
+        persist_atomic(
+            data_dir,
+            GOAL_RUN_DIR,
+            "gr_race",
+            &json!({ "goal_run_id": "gr_race", "status": "active", "normalized_goal": "x" }),
+        )
+        .unwrap();
         // 1. "reconcile reads first" — the stale snapshot exists (and is deliberately unused for
         //    the persist; the old bug persisted exactly this value wholesale).
         let stale_snapshot = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
         assert!(stale_snapshot.get("outcome_room_ref").is_none());
         // 2. "attach lands second" — the stamp goes through the seam.
-        super::super::goalrun_routes::update_goal_run_guarded(data_dir, "gr_race", |_| Ok(()), |obj| {
-            obj.insert("outcome_room_ref".into(), json!("outcome-room://or_race"));
-        })
+        super::super::goalrun_routes::update_goal_run_guarded(
+            data_dir,
+            "gr_race",
+            |_| Ok(()),
+            |obj| {
+                obj.insert("outcome_room_ref".into(), json!("outcome-room://or_race"));
+            },
+        )
         .unwrap();
         // 3. "reconcile persists last" — through the seam, merging ONLY its lifecycle fields.
-        let merged = super::super::goalrun_routes::update_goal_run_guarded(data_dir, "gr_race", |_| Ok(()), |obj| {
-            obj.insert("status".into(), json!("complete"));
-            obj.insert("reconciliation_ref".into(), json!("reconciliation_result://rec_1"));
-        })
+        let merged = super::super::goalrun_routes::update_goal_run_guarded(
+            data_dir,
+            "gr_race",
+            |_| Ok(()),
+            |obj| {
+                obj.insert("status".into(), json!("complete"));
+                obj.insert(
+                    "reconciliation_ref".into(),
+                    json!("reconciliation_result://rec_1"),
+                );
+            },
+        )
         .unwrap()
         .into_record();
-        assert_eq!(merged["status"], json!("complete"), "the reconciliation state survived");
-        assert_eq!(merged["outcome_room_ref"], json!("outcome-room://or_race"), "the reciprocal room binding SURVIVED the later lifecycle persist");
+        assert_eq!(
+            merged["status"],
+            json!("complete"),
+            "the reconciliation state survived"
+        );
+        assert_eq!(
+            merged["outcome_room_ref"],
+            json!("outcome-room://or_race"),
+            "the reciprocal room binding SURVIVED the later lifecycle persist"
+        );
         let durable = read_record_dir(data_dir, GOAL_RUN_DIR).pop().unwrap();
         assert_eq!(durable["outcome_room_ref"], json!("outcome-room://or_race"));
-        assert_eq!(durable["reconciliation_ref"], json!("reconciliation_result://rec_1"));
+        assert_eq!(
+            durable["reconciliation_ref"],
+            json!("reconciliation_result://rec_1")
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn admission_receipt_carries_the_pinned_envelope_base() {
         let (_, receipt) = build_room_receipt(
-            ADMISSION_RECEIPT_SCHEMA, "OutcomeRoomAdmissionReceipt", "orr", "outcome-room://or_k", "admitted",
-            json!({ "room_mode": "private_goal" }), vec![json!("outcome-room://or_k")],
-            "sha256:x".into(), ROOM_HASH_EXCLUDES, "admitted_not_verified", "n", "2026-01-01T00:00:00Z",
+            ADMISSION_RECEIPT_SCHEMA,
+            "OutcomeRoomAdmissionReceipt",
+            "orr",
+            "outcome-room://or_k",
+            "admitted",
+            json!({ "room_mode": "private_goal" }),
+            vec![json!("outcome-room://or_k")],
+            "sha256:x".into(),
+            ROOM_HASH_EXCLUDES,
+            "admitted_not_verified",
+            "n",
+            "2026-01-01T00:00:00Z",
         );
         let expected = [
-            "schema_version", "receipt_id", "receipt_ref", "receipt_type", "receipt_profile_ref",
-            "actor_id", "subject_ref", "op", "attested_boundary_fact_refs", "bound_facts",
-            "output_hash", "hash_scope_excludes", "assurance_posture", "assurance_note",
-            "verification_ref", "acceptance_ref", "claim_scope_ref", "run_id", "task_id",
-            "input_hash", "policy_hash", "authority_grant_id", "primitive_capabilities",
-            "authority_scopes", "artifact_refs", "evidence_bundle_refs", "adjudication_ref",
-            "settlement_ref", "signature", "l1_commitment", "timestamp", "outcome", "at",
+            "schema_version",
+            "receipt_id",
+            "receipt_ref",
+            "receipt_type",
+            "receipt_profile_ref",
+            "actor_id",
+            "subject_ref",
+            "op",
+            "attested_boundary_fact_refs",
+            "bound_facts",
+            "output_hash",
+            "hash_scope_excludes",
+            "assurance_posture",
+            "assurance_note",
+            "verification_ref",
+            "acceptance_ref",
+            "claim_scope_ref",
+            "run_id",
+            "task_id",
+            "input_hash",
+            "policy_hash",
+            "authority_grant_id",
+            "primitive_capabilities",
+            "authority_scopes",
+            "artifact_refs",
+            "evidence_bundle_refs",
+            "adjudication_ref",
+            "settlement_ref",
+            "signature",
+            "l1_commitment",
+            "timestamp",
+            "outcome",
+            "at",
         ];
         let mut exp: Vec<&str> = expected.to_vec();
         exp.sort_unstable();
         let mut actual: Vec<String> = receipt.as_object().unwrap().keys().cloned().collect();
         actual.sort_unstable();
-        assert_eq!(actual, exp.iter().map(|k| k.to_string()).collect::<Vec<_>>(), "room receipt base drifted from the pinned ReceiptEnvelope key set");
+        assert_eq!(
+            actual,
+            exp.iter().map(|k| k.to_string()).collect::<Vec<_>>(),
+            "room receipt base drifted from the pinned ReceiptEnvelope key set"
+        );
     }
 }

@@ -55,7 +55,10 @@ fn main() -> std::io::Result<()> {
             .and_then(|x| x.as_str())
             .map(str::to_string)
             .unwrap_or_else(|| {
-                path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string()
+                path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("unknown")
+                    .to_string()
             });
         legacy.insert(id, payload_hash(&v));
     }
@@ -64,7 +67,11 @@ fn main() -> std::io::Result<()> {
     let mut engine: BTreeMap<String, String> = BTreeMap::new();
     let mut collect = |object_ref: &str, payload: &serde_json::Value| {
         // object_ref shape: agentgres://<domain>/<record_id> — key by tail.
-        let id = object_ref.rsplit('/').next().unwrap_or(object_ref).to_string();
+        let id = object_ref
+            .rsplit('/')
+            .next()
+            .unwrap_or(object_ref)
+            .to_string();
         engine.insert(id, payload_hash(payload));
     };
     if engine_dir.join("muxlog.bin").exists() {
@@ -84,7 +91,10 @@ fn main() -> std::io::Result<()> {
             }
         })?;
     } else {
-        eprintln!("parity: no engine log at {} (named refusal)", engine_dir.display());
+        eprintln!(
+            "parity: no engine log at {} (named refusal)",
+            engine_dir.display()
+        );
         std::process::exit(2);
     }
 
@@ -97,7 +107,11 @@ fn main() -> std::io::Result<()> {
             None => missing += 1,
         }
     }
-    let extra: Vec<String> = engine.keys().filter(|k| !legacy.contains_key(*k)).cloned().collect();
+    let extra: Vec<String> = engine
+        .keys()
+        .filter(|k| !legacy.contains_key(*k))
+        .cloned()
+        .collect();
 
     let faithful = diverged.is_empty() && extra.is_empty();
     let report = serde_json::json!({

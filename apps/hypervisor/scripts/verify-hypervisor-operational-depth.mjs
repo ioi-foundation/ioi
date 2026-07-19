@@ -161,11 +161,11 @@ async function run() {
   // application-UX backlog, and the contract-first build sequence remains canonical.
   const deltaDoc = readFileSync(join(APP, "..", "..", "docs", "architecture", "_meta", "canon-to-code-delta.md"), "utf8");
   const backlog = deltaDoc.split("## Deferred application-UX backlog")[1] || "";
-  const BACKLOG_ROW = { changes: "| Changes", monitors: "| Monitors", models: "| Models", designer: "| Designer", incidents: "| Incidents", machinery: "| Machinery", evalsuites: "| Evalsuites", explorer: "| Explorer", listings: "| Marketplace" };
+  const BACKLOG_ROW = { changes: "| Changes", monitors: "| Monitors", models: "| Models", designer: "| Designer", incidents: "| Incidents", machinery: "| Machinery", evalsuites: "| Evalsuites", explorer: "| Explorer", listings: "| Packages / Marketplace" };
   ok("every unfinished registry surface appears exactly once in the canon's deferred UX backlog", unfinished.every((u) => BACKLOG_ROW[u] && backlog.split(`\n${BACKLOG_ROW[u]} `).length === 2), unfinished.filter((u) => !(BACKLOG_ROW[u] && backlog.split(`\n${BACKLOG_ROW[u]} `).length === 2)).join(",") || `${unfinished.length} surfaces`);
   ok("backlog rows resume only when PULLED by an implemented contract (no PR-number sequence)", /resumes? (only )?when pulled by an implemented contract/i.test(backlog) && !/\| Changes[^\n]*#7\d/.test(backlog));
   const horizons = readFileSync(join(APP, "..", "..", "docs", "architecture", "_meta", "execution-horizons.md"), "utf8");
-  ok("the contract-first build sequence remains canonical (8 ordered steps; closure = working proof, no PR numbers)", horizons.includes("## The build sequence (contract-first)") && /8\. Two-sovereign-node conformance proof/.test(horizons) && /Completion is not forced into an arbitrary PR\s+number|not forced into an arbitrary PR number/.test(horizons.replace(/\n/g, " ")) && deltaDoc.includes("execution-horizons.md#the-build-sequence-contract-first"));
+  ok("the contract-first build sequence remains canonical (14 ordered steps; closure = working proof, no PR numbers)", horizons.includes("## The build sequence (contract-first)") && /14\. Connected\/secured network-service proof/.test(horizons) && /Completion is not forced into an arbitrary PR\s+number|not forced into an arbitrary PR number/.test(horizons.replace(/\n/g, " ")) && /\]\(\.\/execution-horizons\.md#the-build-sequence-contract-first\)/.test(deltaDoc));
 
   // FALSE-CLAIM GUARDS (#70 review): the exact overstatements caught in review must not return.
   const row = (name) => (deltaDoc.split("\n").find((l) => l.startsWith(`| \`${name}\` |`)) || "");

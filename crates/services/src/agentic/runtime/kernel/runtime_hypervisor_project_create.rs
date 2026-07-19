@@ -275,7 +275,10 @@ mod tests {
     fn carries_automation_ready_hooks() {
         // Defaults: empty refs + null policy refs (the durable container the automations plane writes to).
         let record = RuntimeHypervisorProjectCreateCore
-            .plan(&json!({ "repository_url": "https://x/y", "project_name": "y" }), "now")
+            .plan(
+                &json!({ "repository_url": "https://x/y", "project_name": "y" }),
+                "now",
+            )
             .expect("planned");
         assert_eq!(record["automation_refs"], json!([]));
         assert_eq!(record["default_runtime_policy_ref"], Value::Null);
@@ -295,7 +298,10 @@ mod tests {
             )
             .expect("planned");
         assert_eq!(record["automation_refs"], json!(["automation:demo-loop"]));
-        assert_eq!(record["default_runtime_policy_ref"], "runtime-policy:local-default");
+        assert_eq!(
+            record["default_runtime_policy_ref"],
+            "runtime-policy:local-default"
+        );
         assert_eq!(record["authority_policy_ref"], "authority-policy:operator");
     }
 

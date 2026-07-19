@@ -5,7 +5,7 @@ Doctrine status: canonical
 Implementation status: mixed (export/import with bidirectional credential scrub and basic memory-mutation review built; OutcomeRoom finding/attempt lineage, taint, license/export, and assurance gates planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs`
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-13.
 Last implementation audit: 2026-07-05
 Canonical owner: this file for the vault serialization format and the memory-mutation
 proposal review lane. Object/envelope authority remains
@@ -14,8 +14,9 @@ proposal review lane. Object/envelope authority remains
 
 ## Doctrine
 
-Persistent IOI Agent intelligence is workspace/project/domain daemon truth. Harness-local
-memory is cache. Harnesses receive scoped `MemoryProjection`s, never the raw store — and they
+Persistent IOI Agent intelligence is workspace/project/domain daemon truth. Adapter- and
+HarnessInvocation-local memory is cache. Selected HarnessProfiles and adapters receive scoped
+`MemoryProjection`s, never the raw store — and they
 **propose** durable changes, never write them silently (canon: "runs propose
 ContextMutationEnvelope changes").
 
@@ -35,6 +36,25 @@ counterevidence. Memory promotion does not automatically change an ontology,
 route policy, evaluator, worker package, or production behavior; those use
 their own proposal/evaluation/governance path.
 
+The Portable Memory Vault is the memory slice of the
+`InstitutionalIntelligenceExportBundle` owned by
+[`institutional-learning-boundary.md`](../../foundations/institutional-learning-boundary.md).
+It is not by itself a complete enterprise-capability export. A complete eligible
+bundle may additionally reference ontology/data-recipe manifests, Agentgres
+archive and operation roots, private evals and rubrics, policies, workflows,
+workers, datasets, adapters/checkpoints, packages, route-rights contracts,
+lineage, and receipts. Import of either the memory slice or the full bundle
+re-runs current admission; possession never manufactures source, output-use,
+training, publication, or resale rights.
+
+Every exported memory record must bind the applicable
+`InstitutionalLearningBoundaryProfile` revision or an explicit reason why no
+profile applies, plus source-rights, eligibility, retention, export, and
+revocation-impact refs when the record can affect durable behavior. A provider
+thread, hosted harness workspace, or vendor memory feature must never be the only
+durable copy of institutional memory required for a declared model-swap
+continuity claim.
+
 ## Vault format — `ioi.hypervisor.memory-vault.v1`
 
 An Obsidian-class, human-readable bundle for a `MemorySpace` and its records:
@@ -43,7 +63,8 @@ An Obsidian-class, human-readable bundle for a `MemorySpace` and its records:
 vault/
   space.md                    MemorySpace (frontmatter + description body)
   entries/<entry_id>.md       MemoryEntry
-  skills/<skill_id>.md        SkillEntry
+  skills/<skill_entry_id>/<binding_revision_id>.md
+                               SkillEntry binding revision
   affinities/<affinity_id>.md AutomationAffinity
 manifest.json                 schema_version, space_ref, exported_at, counts,
                               sidecars.structured_payloads (JSON-only fields),
@@ -55,6 +76,10 @@ manifest.json                 schema_version, space_ref, exported_at, counts,
 - Preserved verbatim: `memory-space://`, `memory-entry://`, `skill-entry://`,
   `automation-affinity://` refs, tags, source refs, confidence, sensitivity, compatibility
   refs, expiry, archive/revoke status, connector refs, timestamps.
+- Every exported SkillEntry record includes its exact binding revision/hash,
+  pinned SkillManifest revision/content hash, effective configuration/policy
+  refs, and admission receipt. Import never reconstructs those facts from a
+  filename or the mutable current entry head.
 - `structured_payload` travels ONLY in the manifest sidecar (Markdown cannot carry it safely).
 - **No credential material, ever**: export scrubs-and-reports any record carrying credential
   markers; import rejects the whole bundle (`memory_vault_credential_material_forbidden`).

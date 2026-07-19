@@ -3,7 +3,8 @@ use super::{
     hosted_provider_base_url_hash, hosted_provider_transport_binding, provider_auth_evidence_refs,
     provider_invocation_backend, provider_invocation_backend_id, provider_invocation_evidence_refs,
     provider_invocation_hash, provider_invocation_response_kind,
-    ModelMountProviderInvocationRequest, ModelMountProviderInvocationResult,
+    provider_output_information_flow_label, ModelMountProviderInvocationRequest,
+    ModelMountProviderInvocationResult,
 };
 use crate::agentic::runtime::kernel::model_mount::{
     ModelMountError, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
@@ -18,6 +19,7 @@ pub(super) fn invoke_provider(
     let token_count = estimate_tokens(&request.input, &output_text);
     let backend = provider_invocation_backend(request);
     let backend_id = provider_invocation_backend_id(request);
+    let information_flow_label = provider_output_information_flow_label(request, &output_text)?;
     let mut result = ModelMountProviderInvocationResult {
         schema_version: MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION.to_string(),
         provider_execution_ref: request.provider_execution_ref.clone(),
@@ -66,6 +68,7 @@ pub(super) fn invoke_provider(
         provider_auth_evidence_refs: provider_auth_evidence_refs(request),
         backend_evidence_refs: backend_evidence_refs(request),
         evidence_refs: provider_invocation_evidence_refs(request),
+        information_flow_label,
         invocation_hash: String::new(),
     };
     result.invocation_hash = provider_invocation_hash(&result)?;
@@ -149,6 +152,7 @@ mod tests {
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
             admitted_provider_execution: Some(admission),
+            information_flow: serde_json::Value::Null,
         }
     }
 

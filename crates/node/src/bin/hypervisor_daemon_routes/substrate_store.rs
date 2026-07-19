@@ -24,6 +24,7 @@ use axum::{extract::State, Json};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Families whose truth is the substrate engine. Extend only after the
 /// candidate family has passed a dual-write soak with clean parity.
@@ -39,7 +40,9 @@ pub(crate) fn is_promoted(record_dir: &str) -> bool {
 }
 
 fn soak_enabled() -> bool {
-    std::env::var("IOI_SUBSTRATE_DUAL_WRITE").map(|v| v == "1").unwrap_or(false)
+    std::env::var("IOI_SUBSTRATE_DUAL_WRITE")
+        .map(|v| v == "1")
+        .unwrap_or(false)
 }
 
 fn soak_domains() -> Vec<String> {
@@ -55,12 +58,114 @@ fn engine_dir(data_dir: &str) -> std::path::PathBuf {
     std::path::Path::new(data_dir).join("substrate")
 }
 
-fn build_op(record_dir: &str, record_id: &str, record: &Value) -> Operation {
+fn now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as i64)
+        .unwrap_or(0)
+}
+
+fn prepare_system_domain_mutation(
+    data_dir: &str,
+    record_dir: &str,
+    record_id: &str,
+    owner_record: &Value,
+    candidate_record: &Value,
+    read_evidence: Option<&crate::distributed_fencing::DurableReadEvidence>,
+) -> std::io::Result<Value> {
+    let resource_id = format!("agentgres://{record_dir}/{record_id}");
+    crate::distributed_fencing::generate_and_admit_system_scoped_effect(
+        data_dir,
+        owner_record,
+        &resource_id,
+        "agentgres.domain_mutation",
+        candidate_record,
+        None,
+        None,
+        false,
+        read_evidence,
+        record_id,
+        now_ms(),
+    )
+    .and_then(|admission| {
+        let Some(admission) = admission else {
+            return Ok(candidate_record.clone());
+        };
+        let mut prepared = candidate_record.clone();
+        let object = prepared.as_object_mut().ok_or_else(|| {
+            crate::distributed_fencing::FenceStoreError::InvalidRecord(
+                "Agentgres mutation payload must be an object".into(),
+            )
+        })?;
+        object.insert(
+            crate::distributed_fencing::EFFECT_CONTEXT_FIELD.to_string(),
+            serde_json::to_value(admission.context).map_err(|error| {
+                crate::distributed_fencing::FenceStoreError::InvalidRecord(format!(
+                    "generated effect context could not be encoded: {error}"
+                ))
+            })?,
+        );
+        Ok(prepared)
+    })
+    .map_err(|error| {
+        std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            format!("System writer fence refused Agentgres mutation: {error}"),
+        )
+    })
+}
+
+fn owner_system_id(record: &Value) -> std::io::Result<Option<&str>> {
+    match record.get("system_id") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) if !value.trim().is_empty() => Ok(Some(value.as_str())),
+        Some(_) => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "durable Agentgres owner has a malformed system_id",
+        )),
+    }
+}
+
+fn require_owner_continuity(owner: &Value, candidate: &Value) -> std::io::Result<()> {
+    let current = owner_system_id(owner)?;
+    let proposed = owner_system_id(candidate)?;
+    if current != proposed {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "Agentgres owner system_id is immutable on this mutation path; a governed ownership transition is required",
+        ));
+    }
+    Ok(())
+}
+
+fn resolve_live_owner<'a>(
+    existing_owner: Option<&'a Value>,
+    candidate: &Value,
+) -> std::io::Result<Option<&'a Value>> {
+    match existing_owner {
+        Some(owner) => {
+            require_owner_continuity(owner, candidate)?;
+            Ok(Some(owner))
+        }
+        None if owner_system_id(candidate)?.is_some() => Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "new System-scoped Agentgres objects require a separately admitted durable owner binding; candidate bytes cannot self-assign ownership",
+        )),
+        None => Ok(None),
+    }
+}
+
+fn build_op(
+    record_dir: &str,
+    record_id: &str,
+    record: &Value,
+    expected_head: Option<String>,
+) -> Operation {
     Operation {
         domain: record_dir.to_string(),
         object_ref: format!("agentgres://{record_dir}/{record_id}"),
         op_kind: format!("{record_dir}.persist"),
-        expected_head: None,
+        expected_head,
         payload: record.clone(),
         recorded_at_ms: record
             .get("at")
@@ -74,49 +179,124 @@ fn build_op(record_dir: &str, record_id: &str, record: &Value) -> Operation {
 /// One-time idempotent backfill of a promoted family's legacy JSON dir into
 /// the engine, in canonical `(at, record_id)` order. Legacy files are left
 /// on disk as inert history; the engine is truth from here on.
-fn backfill_domain(engine: &mut MuxEngine, data_dir: &str, domain: &str) {
+fn backfill_domain(engine: &mut MuxEngine, data_dir: &str, domain: &str) -> std::io::Result<()> {
     let legacy = std::path::Path::new(data_dir).join(domain);
-    let Ok(entries) = std::fs::read_dir(&legacy) else { return };
+    let entries = match std::fs::read_dir(&legacy) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            ERRORS.fetch_add(1, Ordering::Relaxed);
+            return Err(error);
+        }
+    };
     let mut pending: Vec<(String, String, Value)> = Vec::new();
-    for entry in entries.flatten() {
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            ERRORS.fetch_add(1, Ordering::Relaxed);
+            error
+        })?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("json") {
             continue;
         }
-        let Ok(bytes) = std::fs::read(&path) else { continue };
-        let Ok(v) = serde_json::from_slice::<Value>(&bytes) else { continue };
+        let bytes = std::fs::read(&path).map_err(|error| {
+            ERRORS.fetch_add(1, Ordering::Relaxed);
+            error
+        })?;
+        let v = serde_json::from_slice::<Value>(&bytes).map_err(|error| {
+            ERRORS.fetch_add(1, Ordering::Relaxed);
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "legacy promoted-domain record {} is malformed: {error}",
+                    path.display()
+                ),
+            )
+        })?;
         let id = v
             .get("receipt_id")
             .or_else(|| v.get("id"))
             .and_then(|x| x.as_str())
             .map(str::to_string)
             .unwrap_or_else(|| {
-                path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string()
+                path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("unknown")
+                    .to_string()
             });
         let object_ref = format!("agentgres://{domain}/{id}");
         if engine.domain_head(domain, &object_ref).is_some() {
             continue; // already admitted — idempotent re-run
         }
-        let at = v.get("at").and_then(|x| x.as_str()).unwrap_or("").to_string();
+        let at = v
+            .get("at")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
         pending.push((at, id, v));
     }
     if pending.is_empty() {
-        return;
+        return Ok(());
     }
     pending.sort_by(|a, b| (a.0.as_str(), a.1.as_str()).cmp(&(b.0.as_str(), b.1.as_str())));
     let mut done = 0u64;
     for chunk in pending.chunks(512) {
-        let ops: Vec<Operation> = chunk.iter().map(|(_, id, v)| build_op(domain, id, v)).collect();
+        let mut ops: Vec<Operation> = Vec::with_capacity(chunk.len());
+        for (_, id, value) in chunk {
+            // Legacy files are inert immutable owner facts during first
+            // promotion. They may seed their own owner identity, but still
+            // require the current active System fence and trusted daemon
+            // node identity before entering canonical truth.
+            let read_evidence =
+                crate::distributed_fencing::durable_read_evidence_from_owner(value).ok();
+            match prepare_system_domain_mutation(
+                data_dir,
+                domain,
+                id,
+                value,
+                value,
+                read_evidence.as_ref(),
+            ) {
+                Ok(prepared) => ops.push(build_op(domain, id, &prepared, None)),
+                Err(error) => {
+                    ERRORS.fetch_add(1, Ordering::Relaxed);
+                    eprintln!(
+                        "substrate-store: fenced legacy backfill REFUSED for {domain}/{id}: {error}"
+                    );
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        format!("promoted-domain backfill refused for {domain}/{id}: {error}"),
+                    ));
+                }
+            }
+        }
+        if ops.is_empty() {
+            continue;
+        }
         match engine.admit_batch(ops) {
-            Ok(results) => done += results.iter().filter(|r| r.is_ok()).count() as u64,
+            Ok(results) => {
+                if let Some(refusal) = results.iter().find_map(|result| result.as_ref().err()) {
+                    ERRORS.fetch_add(1, Ordering::Relaxed);
+                    return Err(std::io::Error::other(format!(
+                        "promoted-domain backfill admission refused for {domain}: {refusal}"
+                    )));
+                }
+                done += results.len() as u64;
+            }
             Err(e) => {
+                ERRORS.fetch_add(1, Ordering::Relaxed);
                 eprintln!("substrate-store: backfill batch FAILED for {domain}: {e}");
-                break;
+                return Err(std::io::Error::other(format!(
+                    "promoted-domain backfill batch failed for {domain}: {e}"
+                )));
             }
         }
     }
     BACKFILLED.fetch_add(done, Ordering::Relaxed);
-    eprintln!("substrate-store: backfilled {done} legacy {domain} records into the substrate engine");
+    eprintln!(
+        "substrate-store: backfilled {done} legacy {domain} records into the substrate engine"
+    );
+    Ok(())
 }
 
 fn replica_addrs() -> Vec<String> {
@@ -140,7 +320,12 @@ fn handle(data_dir: &str) -> &'static Option<MuxHandle> {
         match MuxEngine::open(&engine_dir(data_dir), !want_async) {
             Ok(mut engine) => {
                 for domain in PROMOTED_DOMAINS {
-                    backfill_domain(&mut engine, data_dir, domain);
+                    if let Err(error) = backfill_domain(&mut engine, data_dir, domain) {
+                        eprintln!(
+                            "substrate-store: promoted-domain initialization REFUSED because {domain} backfill was incomplete: {error}"
+                        );
+                        return None;
+                    }
                 }
                 let mut replicas = Vec::new();
                 if !addrs.is_empty() {
@@ -205,15 +390,70 @@ pub(crate) fn persist_promoted(
         ERRORS.fetch_add(1, Ordering::Relaxed);
         return Err(std::io::Error::other("substrate engine unavailable"));
     };
-    match h.admit(build_op(record_dir, record_id, record)) {
+    if record
+        .get(crate::distributed_fencing::EFFECT_CONTEXT_FIELD)
+        .is_some()
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "consequential_effect_fence_context is daemon-generated and cannot be supplied in an Agentgres mutation",
+        ));
+    }
+    let resource_id = format!("agentgres://{record_dir}/{record_id}");
+    let existing_owner = h.project_object(record_dir, &resource_id)?;
+    let prepared = match existing_owner.as_ref() {
+        Some(projected) => {
+            let owner = resolve_live_owner(Some(&projected.payload), record)?
+                .expect("existing projection resolves an owner");
+            if owner_system_id(owner)?.is_some() {
+                let mut read_evidence =
+                    crate::distributed_fencing::durable_read_evidence_from_owner(owner).map_err(
+                        |error| {
+                            std::io::Error::new(
+                                std::io::ErrorKind::PermissionDenied,
+                                format!("durable Agentgres owner read evidence invalid: {error}"),
+                            )
+                        },
+                    )?;
+                read_evidence.consistency = ioi_services::agentic::runtime::kernel::distributed_fencing::ReadConsistency::LinearizedDomain;
+                read_evidence.watermark = projected.head.clone();
+                prepare_system_domain_mutation(
+                    data_dir,
+                    record_dir,
+                    record_id,
+                    owner,
+                    record,
+                    Some(&read_evidence),
+                )?
+            } else {
+                record.clone()
+            }
+        }
+        None => {
+            resolve_live_owner(None, record)?;
+            record.clone()
+        }
+    };
+    // The per-System PEP above runs before the lower storage writer. The mux
+    // epoch is only a durability/log-replication fence, never System authority.
+    match h.admit(build_op(
+        record_dir,
+        record_id,
+        &prepared,
+        existing_owner.map(|projected| projected.head),
+    )) {
         Ok(_) => {
             ADMITTED.fetch_add(1, Ordering::Relaxed);
             Ok(())
         }
         Err(refusal) => {
             ERRORS.fetch_add(1, Ordering::Relaxed);
-            eprintln!("substrate-store: admission refused ({refusal}) record={record_dir}/{record_id}");
-            Err(std::io::Error::other(format!("substrate admission refused: {refusal}")))
+            eprintln!(
+                "substrate-store: admission refused ({refusal}) record={record_dir}/{record_id}"
+            );
+            Err(std::io::Error::other(format!(
+                "substrate admission refused: {refusal}"
+            )))
         }
     }
 }
@@ -243,8 +483,10 @@ pub(crate) fn dual_write(data_dir: &str, record_dir: &str, record_id: &str, reco
     if !soak_domains().iter().any(|d| d == record_dir) {
         return;
     }
+    // This is diagnostic shadow truth only. It is not a consequential-resource
+    // PEP and is never evidence that the legacy canonical write was fenced.
     let Some(h) = handle(data_dir) else { return };
-    match h.admit(build_op(record_dir, record_id, record)) {
+    match h.admit(build_op(record_dir, record_id, record, None)) {
         Ok(_) => {
             ADMITTED.fetch_add(1, Ordering::Relaxed);
         }
@@ -318,4 +560,61 @@ pub(crate) async fn handle_substrate_status(
             "posture": "default device_flush sync; replicated-ack + async flush is opt-in and fail-safes to per-batch sync when no replica connects; quorum_replicated requires declared failure-independent peers (never same-host)",
         },
     }))
+}
+
+#[cfg(test)]
+mod system_owner_tests {
+    use super::*;
+
+    #[test]
+    fn live_owner_cannot_be_omitted_changed_or_self_assigned() {
+        let owner = json!({ "system_id": "system://one", "receipt_id": "r1" });
+        assert!(resolve_live_owner(Some(&owner), &json!({ "receipt_id": "r1" })).is_err());
+        assert!(resolve_live_owner(
+            Some(&owner),
+            &json!({ "system_id": "system://two", "receipt_id": "r1" })
+        )
+        .is_err());
+        assert!(resolve_live_owner(
+            None,
+            &json!({ "system_id": "system://one", "receipt_id": "new" })
+        )
+        .is_err());
+        assert!(resolve_live_owner(
+            Some(&owner),
+            &json!({ "system_id": "system://one", "receipt_id": "r1" })
+        )
+        .unwrap()
+        .is_some());
+        assert!(resolve_live_owner(None, &json!({ "receipt_id": "legacy" }))
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn fenced_legacy_backfill_refusal_keeps_promoted_domain_uninitialized() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        let domain = "provider-receipts";
+        let legacy_dir = directory.path().join(domain);
+        std::fs::create_dir_all(&legacy_dir).unwrap();
+        std::fs::write(
+            legacy_dir.join("receipt-1.json"),
+            serde_json::to_vec(&json!({
+                "receipt_id": "receipt-1",
+                "system_id": "system://one",
+                "at": "2026-07-16T00:00:00Z"
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let mut engine = MuxEngine::open(&directory.path().join("substrate"), true).unwrap();
+
+        let denial = backfill_domain(&mut engine, data_dir, domain).unwrap_err();
+
+        assert_eq!(denial.kind(), std::io::ErrorKind::PermissionDenied);
+        assert!(engine
+            .domain_head(domain, "agentgres://provider-receipts/receipt-1")
+            .is_none());
+    }
 }

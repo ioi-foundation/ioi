@@ -1,0 +1,127 @@
+{
+  "schema_version": "ioi.tests.information-flow-cases.v1",
+  "destination": "https://api.example.test/v1/send",
+  "changed_destination": "https://api.example.test/v1/other",
+  "request": {
+    "message": "approved payload"
+  },
+  "changed_request": {
+    "message": "mutated payload"
+  },
+  "reviewed_representation": {
+    "preview": "approved payload"
+  },
+  "changed_reviewed_representation": {
+    "preview": "mutated payload"
+  },
+  "cases": [
+    {
+      "id": "private_untrusted_egress",
+      "origin": "external_untrusted",
+      "integrity": "untrusted",
+      "confidentiality": "private",
+      "instruction_authority": "authoritative",
+      "with_approval": true,
+      "mutation": "none",
+      "tool_destination_declarations": ["https://api.example.test/v1/*"],
+      "expected_ok": false,
+      "expected_code": "ifc_private_untrusted_egress"
+    },
+    {
+      "id": "schema_valid_untrusted_instruction",
+      "origin": "operator",
+      "integrity": "verified",
+      "confidentiality": "public",
+      "instruction_authority": "untrusted",
+      "with_approval": false,
+      "mutation": "none",
+      "tool_destination_declarations": ["https://api.example.test/v1/*"],
+      "expected_ok": false,
+      "expected_code": "ifc_instruction_not_authoritative"
+    },
+    {
+      "id": "tool_output_injection",
+      "origin": "tool_output",
+      "integrity": "untrusted",
+      "confidentiality": "internal",
+      "instruction_authority": "untrusted",
+      "with_approval": false,
+      "mutation": "none",
+      "tool_destination_declarations": ["https://api.example.test/v1/*"],
+      "expected_ok": false,
+      "expected_code": "ifc_instruction_not_authoritative"
+    },
+    {
+      "id": "unknown_label_axis",
+      "origin": "unknown",
+      "integrity": "verified",
+      "confidentiality": "public",
+      "instruction_authority": "authoritative",
+      "with_approval": false,
+      "mutation": "none",
+      "tool_destination_declarations": ["https://api.example.test/v1/*"],
+      "expected_ok": false,
+      "expected_code": "ifc_unknown_label"
+    },
+    {
+      "id": "changed_destination",
+      "origin": "operator",
+      "integrity": "verified",
+      "confidentiality": "private",
+      "instruction_authority": "authoritative",
+      "with_approval": true,
+      "mutation": "destination",
+      "tool_destination_declarations": ["https://api.example.test/v1/*"],
+      "expected_ok": false,
+      "expected_code": "ifc_declassification_binding_mismatch"
+    },
+    {
+      "id": "changed_effect_bytes",
+      "origin": "operator",
+      "integrity": "verified",
+      "confidentiality": "private",
+      "instruction_authority": "authoritative",
+      "with_approval": true,
+      "mutation": "request",
+      "tool_destination_declarations": ["https://api.example.test/v1/*"],
+      "expected_ok": false,
+      "expected_code": "ifc_declassification_binding_mismatch"
+    },
+    {
+      "id": "changed_reviewed_representation",
+      "origin": "operator",
+      "integrity": "verified",
+      "confidentiality": "private",
+      "instruction_authority": "authoritative",
+      "with_approval": true,
+      "mutation": "reviewed_representation",
+      "tool_destination_declarations": ["https://api.example.test/v1/*"],
+      "expected_ok": false,
+      "expected_code": "ifc_declassification_binding_mismatch"
+    },
+    {
+      "id": "missing_destination_declarations",
+      "origin": "operator",
+      "integrity": "verified",
+      "confidentiality": "public",
+      "instruction_authority": "authoritative",
+      "with_approval": false,
+      "mutation": "none",
+      "tool_destination_declarations": [],
+      "expected_ok": false,
+      "expected_code": "ifc_tool_contract_invalid"
+    },
+    {
+      "id": "allowed_public_verified_flow",
+      "origin": "operator",
+      "integrity": "verified",
+      "confidentiality": "public",
+      "instruction_authority": "authoritative",
+      "with_approval": false,
+      "mutation": "none",
+      "tool_destination_declarations": ["https://api.example.test/v1/*"],
+      "expected_ok": true,
+      "expected_code": null
+    }
+  ]
+}

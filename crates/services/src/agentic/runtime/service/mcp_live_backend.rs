@@ -1,4 +1,8 @@
 use super::RuntimeAgentService;
+use crate::agentic::runtime::kernel::information_flow::{
+    admit_pre_effect, compile_admitted_effect_label, mcp_output_label, sha256_value,
+    PreEffectAdmission,
+};
 use ioi_types::app::WorkloadSpec;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -58,6 +62,16 @@ pub struct RuntimeMcpLiveBackendExecutionRequest {
     pub control: Value,
     #[serde(default)]
     pub planned_result: Value,
+    #[serde(default)]
+    pub information_flow_label: Value,
+    #[serde(default)]
+    pub information_flow_parent_labels: Vec<Value>,
+    #[serde(default)]
+    pub runtime_tool_contract: Value,
+    #[serde(default)]
+    pub reviewed_representation: Option<Value>,
+    #[serde(default)]
+    pub declassification_approval: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -86,6 +100,7 @@ pub struct RuntimeMcpLiveBackendExecutionRecord {
     pub receipt: Value,
     pub result: Value,
     pub evidence_refs: Vec<String>,
+    pub information_flow_label: Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,6 +115,10 @@ pub enum RuntimeMcpLiveBackendExecutionError {
     McpManagerRequired,
     WorkloadSpecRequired,
     DriverExecutionFailed(String),
+    InformationFlowDenied {
+        code: String,
+        message: String,
+    },
 }
 
 impl fmt::Display for RuntimeMcpLiveBackendExecutionError {
@@ -133,6 +152,10 @@ impl fmt::Display for RuntimeMcpLiveBackendExecutionError {
             Self::DriverExecutionFailed(message) => {
                 write!(formatter, "runtime MCP live backend driver failed: {message}")
             }
+            Self::InformationFlowDenied { code, message } => write!(
+                formatter,
+                "runtime MCP live backend information-flow denied ({code}): {message}"
+            ),
         }
     }
 }
@@ -145,11 +168,45 @@ impl RuntimeAgentService {
         request: &RuntimeMcpLiveBackendExecutionRequest,
     ) -> Result<RuntimeMcpLiveBackendExecutionRecord, RuntimeMcpLiveBackendExecutionError> {
         request.validate()?;
+        let method = request.backend_method()?;
+        let destination = request.information_flow_destination(&method)?;
+        let effect_request = request.information_flow_effect_request(&method)?;
+        let request_content_hash = sha256_value(&effect_request).map_err(|denial| {
+            RuntimeMcpLiveBackendExecutionError::InformationFlowDenied {
+                code: denial.code.to_string(),
+                message: denial.message,
+            }
+        })?;
+        let effective_label = compile_admitted_effect_label(
+            &request.information_flow_parent_labels,
+            &request.information_flow_label,
+            &request_content_hash,
+        )
+        .map_err(
+            |denial| RuntimeMcpLiveBackendExecutionError::InformationFlowDenied {
+                code: denial.code.to_string(),
+                message: denial.message,
+            },
+        )?;
+        admit_pre_effect(&PreEffectAdmission {
+            label: &effective_label,
+            tool_contract: &request.runtime_tool_contract,
+            destination: &destination,
+            method: "POST",
+            request: &effect_request,
+            reviewed_representation: request.reviewed_representation.as_ref(),
+            declassification_approval: request.declassification_approval.as_ref(),
+        })
+        .map_err(
+            |denial| RuntimeMcpLiveBackendExecutionError::InformationFlowDenied {
+                code: denial.code.to_string(),
+                message: denial.message,
+            },
+        )?;
         let mcp = self
             .mcp
             .as_ref()
             .ok_or(RuntimeMcpLiveBackendExecutionError::McpManagerRequired)?;
-        let method = request.backend_method()?;
         let driver_result = match method.as_str() {
             "tools/call" => {
                 let tool_ref = request.resolved_tool_ref()?;
@@ -212,7 +269,7 @@ impl RuntimeAgentService {
                 ))
             }
         };
-        Ok(build_execution_record(request, method, driver_result))
+        build_execution_record(request, method, driver_result, effective_label)
     }
 }
 
@@ -319,6 +376,39 @@ impl RuntimeMcpLiveBackendExecutionRequest {
             .unwrap_or(&tool);
         Ok(format!("{server_id}__{raw_tool}"))
     }
+
+    fn information_flow_destination(
+        &self,
+        method: &str,
+    ) -> Result<String, RuntimeMcpLiveBackendExecutionError> {
+        let server_id = self.server_id.as_deref().and_then(trimmed).ok_or(
+            RuntimeMcpLiveBackendExecutionError::MissingField("server_id"),
+        )?;
+        if method == "tools/call" {
+            Ok(format!(
+                "mcp://{server_id}/tools/{}",
+                self.resolved_tool_ref()?
+            ))
+        } else {
+            Ok(format!("mcp://{server_id}/tools"))
+        }
+    }
+
+    fn information_flow_effect_request(
+        &self,
+        method: &str,
+    ) -> Result<Value, RuntimeMcpLiveBackendExecutionError> {
+        Ok(if method == "tools/call" {
+            json!({
+                "method": method,
+                "server_id": self.server_id,
+                "tool_ref": self.resolved_tool_ref()?,
+                "arguments": self.arguments,
+            })
+        } else {
+            json!({ "method": method, "server_id": self.server_id })
+        })
+    }
 }
 
 fn is_retired_authority_proof_field(field: &str) -> bool {
@@ -334,8 +424,26 @@ fn build_execution_record(
     request: &RuntimeMcpLiveBackendExecutionRequest,
     method: String,
     driver_result: Value,
-) -> RuntimeMcpLiveBackendExecutionRecord {
+    effective_effect_label: Value,
+) -> Result<RuntimeMcpLiveBackendExecutionRecord, RuntimeMcpLiveBackendExecutionError> {
     let driver_result_hash = hash_json(&driver_result);
+    let mut output_parents = request.information_flow_parent_labels.clone();
+    output_parents.push(effective_effect_label);
+    let output_label = mcp_output_label(
+        &output_parents,
+        &format!(
+            "ifc-label://mcp/{}/{}",
+            request.server_id.as_deref().unwrap_or("unknown"),
+            driver_result_hash.trim_start_matches("sha256:")
+        ),
+        &driver_result_hash,
+    )
+    .map_err(
+        |denial| RuntimeMcpLiveBackendExecutionError::InformationFlowDenied {
+            code: denial.code.to_string(),
+            message: denial.message,
+        },
+    )?;
     let mut backend_execution = request.backend_execution.clone();
     if let Some(object) = backend_execution.as_object_mut() {
         object.insert(
@@ -353,7 +461,7 @@ fn build_execution_record(
         &driver_result_hash,
         &driver_result,
     );
-    RuntimeMcpLiveBackendExecutionRecord {
+    Ok(RuntimeMcpLiveBackendExecutionRecord {
         source: "rust_mcp_live_backend_execution_api".to_string(),
         backend: "rust_mcp_live_backend".to_string(),
         schema_version: RUNTIME_MCP_LIVE_BACKEND_EXECUTION_RESULT_SCHEMA_VERSION.to_string(),
@@ -380,7 +488,8 @@ fn build_execution_record(
             "runtime_mcp_live_backend_actual_mcp_manager_io".to_string(),
             "runtime_mcp_live_backend_no_js_transport".to_string(),
         ],
-    }
+        information_flow_label: output_label,
+    })
 }
 
 struct BoundLiveBackendTruth {
@@ -786,6 +895,92 @@ mod tests {
         }
     }
 
+    fn information_flow_label(method: &str) -> Value {
+        let destination = if method == "tools/call" {
+            "mcp://fixture/tools/fixture__query"
+        } else {
+            "mcp://fixture/tools"
+        };
+        json!({
+            "schema_version": "ioi.foundations.information-flow-label.v1",
+            "label_ref": "ifc-label://mcp/fixture/request",
+            "profile_ref": "policy://ifc/mcp-v1",
+            "content_hash": format!("sha256:{}", "a".repeat(64)),
+            "origin": "operator",
+            "integrity": "verified",
+            "confidentiality": "public",
+            "instruction_authority": "authoritative",
+            "egress_policy": {
+                "mode": "allow_declared",
+                "allowed_destination_patterns": [destination],
+                "allowed_data_classes": ["public"]
+            },
+            "purpose": "mcp-tool-execution",
+            "retention": { "max_seconds": 300, "disposition": "delete" },
+            "derivation_kind": "direct",
+            "derivation_parent_refs": [],
+            "derivation_closure_refs": ["ifc-label://mcp/fixture/request"]
+        })
+    }
+
+    fn information_flow_parent_label(method: &str) -> Value {
+        let destination = if method == "tools/call" {
+            "mcp://fixture/tools/fixture__query"
+        } else {
+            "mcp://fixture/tools"
+        };
+        json!({
+            "schema_version": "ioi.foundations.information-flow-label.v1",
+            "label_ref": "ifc-label://mcp/fixture/arguments",
+            "profile_ref": "policy://ifc/mcp-v1",
+            "content_hash": format!("sha256:{}", "d".repeat(64)),
+            "origin": "operator",
+            "integrity": "verified",
+            "confidentiality": "public",
+            "instruction_authority": "context_only",
+            "egress_policy": {
+                "mode": "allow_declared",
+                "allowed_destination_patterns": [destination],
+                "allowed_data_classes": ["public"]
+            },
+            "purpose": "mcp-tool-execution",
+            "retention": { "max_seconds": 300, "disposition": "delete" },
+            "derivation_kind": "direct",
+            "derivation_parent_refs": [],
+            "derivation_closure_refs": ["ifc-label://mcp/fixture/arguments"]
+        })
+    }
+
+    fn runtime_tool_contract(method: &str) -> Value {
+        let destination = if method == "tools/call" {
+            "mcp://fixture/tools/fixture__query"
+        } else {
+            "mcp://fixture/tools"
+        };
+        json!({
+            "schema_version": "ioi.components.connectors-tools.runtime-tool-contract.v1",
+            "tool_id": "tool://mcp.fixture.query",
+            "revision_ref": "tool://mcp.fixture.query/revision/1.0.0",
+            "predecessor_revision_ref": null,
+            "content_hash": format!("sha256:{}", "b".repeat(64)),
+            "namespace": "mcp.fixture",
+            "display_name": "Fixture MCP query",
+            "version": "1.0.0",
+            "risk_class": "external_message",
+            "effect_class": "external_message",
+            "primitive_capabilities_required": ["prim:net.request"],
+            "authority_scopes_required": ["scope:mcp.invoke"],
+            "approval_required": true,
+            "evidence_required": ["mcp_request"],
+            "owner": "connector://mcp/fixture",
+            "data_class_allowlist": ["public"],
+            "egress_policy": {
+                "default": "allow_declared",
+                "allowed_destination_patterns": [destination]
+            }
+        })
+    }
+
     fn request(method: &str) -> RuntimeMcpLiveBackendExecutionRequest {
         RuntimeMcpLiveBackendExecutionRequest {
             schema_version: RUNTIME_MCP_LIVE_BACKEND_EXECUTION_REQUEST_SCHEMA_VERSION.to_string(),
@@ -815,6 +1010,11 @@ mod tests {
             receipt: json!({ "id": "receipt_runtime_mcp_live_exit_fixture" }),
             control: json!({ "result_record_id": "result_runtime_mcp_live_exit_fixture" }),
             planned_result: planned_result(method),
+            information_flow_label: information_flow_label(method),
+            information_flow_parent_labels: vec![information_flow_parent_label(method)],
+            runtime_tool_contract: runtime_tool_contract(method),
+            reviewed_representation: None,
+            declassification_approval: None,
         }
     }
 
@@ -875,6 +1075,15 @@ mod tests {
             "query:hello"
         );
         assert!(record.driver_result_hash.starts_with("sha256:"));
+        assert_eq!(record.information_flow_label["origin"], "tool_output");
+        assert_eq!(record.information_flow_label["integrity"], "untrusted");
+        assert_eq!(
+            record.information_flow_label["instruction_authority"],
+            "none"
+        );
+        assert!(record.information_flow_label["derivation_closure_refs"]
+            .as_array()
+            .is_some_and(|refs| refs.contains(&json!("ifc-label://mcp/fixture/request"))));
         assert!(record
             .evidence_refs
             .contains(&"runtime_mcp_live_backend_actual_mcp_manager_io".to_string()));
@@ -888,6 +1097,47 @@ mod tests {
         );
         assert!(record.result["details"]["command_transport_fallback"].is_null());
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn runtime_mcp_live_backend_denies_injected_instruction_before_driver_resolution() {
+        let mut poisoned = request("tools/call");
+        poisoned.information_flow_label["origin"] = json!("external_untrusted");
+        poisoned.information_flow_label["integrity"] = json!("untrusted");
+        poisoned.information_flow_label["instruction_authority"] = json!("none");
+
+        let error = test_service(None)
+            .execute_runtime_mcp_live_backend(&poisoned)
+            .await
+            .expect_err("MCP prompt/tool-output injection must fail before driver resolution");
+        assert!(matches!(
+            error,
+            RuntimeMcpLiveBackendExecutionError::InformationFlowDenied { ref code, .. }
+                if code == "ifc_effect_authority_required"
+        ));
+    }
+
+    #[tokio::test]
+    async fn runtime_mcp_live_backend_recomputes_private_parent_join_before_driver() {
+        let mut laundering = request("tools/call");
+        laundering.information_flow_parent_labels[0]["origin"] = json!("external_untrusted");
+        laundering.information_flow_parent_labels[0]["integrity"] = json!("untrusted");
+        laundering.information_flow_parent_labels[0]["confidentiality"] = json!("private");
+        laundering.information_flow_parent_labels[0]["egress_policy"]["mode"] =
+            json!("declassification_required");
+        laundering.information_flow_parent_labels[0]["egress_policy"]["allowed_data_classes"] =
+            json!(["private"]);
+        // The caller-authored effect label remains public. The boundary must
+        // derive the effective label from the parent set instead of trusting it.
+        let error = test_service(None)
+            .execute_runtime_mcp_live_backend(&laundering)
+            .await
+            .expect_err("private parent cannot be laundered through a public effect label");
+        assert!(matches!(
+            error,
+            RuntimeMcpLiveBackendExecutionError::InformationFlowDenied { ref code, .. }
+                if code == "ifc_private_untrusted_egress"
+        ));
     }
 
     #[tokio::test]

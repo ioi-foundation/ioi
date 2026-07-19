@@ -41,13 +41,14 @@ const captureState = Object.fromEntries((startingPoints.seeds || []).map((s) => 
 //   reference_ported      — source-neutral reference shell/layout ported, still static/minimally wired.
 //   daemon_wired          — ported UX wired to daemon truth AND passes visual/structural parity (TRUE parity).
 //
-// substrate_surface = the existing dark IOI surface (kept as substrate/admin/debug view).
+// substrate_surface and surface_name preserve capture-era/current compatibility evidence. They
+// do not grant target product membership; surface-registry.mjs owns the explicit target placement.
 const SUBSTRATE_BOUND = {
   lineage: { substrate_surface: "/__ioi/lineage", binding: "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)", note: "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps" },
   // Canon: Work Ledger evolves into Provenance — Vertex is a Provenance graph/exploration lens.
   vertex: { substrate_surface: "/__ioi/vertex", surface_name: "Provenance", binding: "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)", note: "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps" },
-  // Missions owner-family: jobs + incidents seeds bound to /__ioi/missions (the owner surface for
-  // suite/run work). Operations stays substrate/infra. Both are the SAME owner surface, two lanes.
+  // Legacy Missions family: jobs + incidents remain bound to /__ioi/missions for reproducible
+  // compatibility evidence. The target product placement is Work; Operations stays substrate/infra.
   jobs: { substrate_surface: "/__ioi/missions", surface_name: "Missions", binding: "the Missions run/job queue — the real operations run queue (recent runs, statuses, run counts) + scheduled missions, table/list grammar over daemon truth", note: "run-queue lane of the Missions owner surface; honest empty when no runs; freeform job-definition editing / board views / arbitrary filtering = named gaps; substrate/infra scheduler health stays in Operations" },
 
   // Evaluations owner-family: only evalsuites binds in this cut (analysis + quiver stay reference_capture).

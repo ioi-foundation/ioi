@@ -120,9 +120,10 @@ field_service.inspection.v1
 
 ## Admission / Settlement Boundary
 
-Pack publication can commit package/version roots on IOI L1 when marketplace
-rights, reputation roots, payouts, disputes, or cross-domain commitments require
-it. Ordinary pack use remains local/domain Agentgres truth with receipts.
+Pack publication can commit package/version roots on IOI L1 only when an active
+connected/secured enrollment selected that service and its marketplace-rights,
+reputation, payout, dispute, or cross-domain trigger applies. Ordinary pack use
+remains local/domain Agentgres truth with receipts.
 
 ## Events And Receipts
 

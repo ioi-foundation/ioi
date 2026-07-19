@@ -63,7 +63,12 @@ fn nanos() -> u128 {
 }
 fn load(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
     serde_json::from_slice(
-        &std::fs::read(Path::new(data_dir).join(kind).join(format!("{}.json", safe(id)))).ok()?,
+        &std::fs::read(
+            Path::new(data_dir)
+                .join(kind)
+                .join(format!("{}.json", safe(id))),
+        )
+        .ok()?,
     )
     .ok()
 }
@@ -78,7 +83,10 @@ fn split_ref(r: &str) -> Option<(&str, &str)> {
         .filter(|(s, rest)| !s.is_empty() && !rest.is_empty())
 }
 fn str_field<'a>(body: &'a Value, key: &str) -> &'a str {
-    body.get(key).and_then(|v| v.as_str()).map(str::trim).unwrap_or("")
+    body.get(key)
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .unwrap_or("")
 }
 fn str_refs(body: &Value, key: &str) -> Vec<String> {
     body.get(key)
@@ -95,13 +103,21 @@ fn str_refs(body: &Value, key: &str) -> Vec<String> {
 fn histogram(items: &[Value], key: &str) -> HashMap<String, i64> {
     let mut h = HashMap::new();
     for it in items {
-        let k = it.get(key).and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+        let k = it
+            .get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown")
+            .to_string();
         *h.entry(k).or_insert(0) += 1;
     }
     h
 }
 async fn get_json(base: &str, path: &str) -> Value {
-    match reqwest::Client::new().get(format!("{base}{path}")).send().await {
+    match reqwest::Client::new()
+        .get(format!("{base}{path}"))
+        .send()
+        .await
+    {
         Ok(r) => match r.text().await {
             Ok(t) => serde_json::from_str(&t).unwrap_or(Value::Null),
             Err(_) => Value::Null,
@@ -149,7 +165,10 @@ async fn resolve_listing_subject(
             let agents = get_json(base, "/v1/agents").await;
             let ok = agents
                 .as_array()
-                .map(|a| a.iter().any(|x| x.get("id").and_then(|v| v.as_str()) == Some(subject_ref)))
+                .map(|a| {
+                    a.iter()
+                        .any(|x| x.get("id").and_then(|v| v.as_str()) == Some(subject_ref))
+                })
                 .unwrap_or(false);
             if ok {
                 Ok(())
@@ -160,9 +179,27 @@ async fn resolve_listing_subject(
                 ))
             }
         }
-        "domain_app" => resolve_scheme_ref(data_dir, subject_ref, "domain-app", "domain-apps", "domain_app subject_ref"),
-        "ontology_pack" => resolve_scheme_ref(data_dir, subject_ref, "odk", "odk-manifests", "ontology_pack subject_ref"),
-        "data_recipe" => resolve_scheme_ref(data_dir, subject_ref, "recipe", "odk-data-recipes", "data_recipe subject_ref"),
+        "domain_app" => resolve_scheme_ref(
+            data_dir,
+            subject_ref,
+            "domain-app",
+            "domain-apps",
+            "domain_app subject_ref",
+        ),
+        "ontology_pack" => resolve_scheme_ref(
+            data_dir,
+            subject_ref,
+            "odk",
+            "odk-manifests",
+            "ontology_pack subject_ref",
+        ),
+        "data_recipe" => resolve_scheme_ref(
+            data_dir,
+            subject_ref,
+            "recipe",
+            "odk-data-recipes",
+            "data_recipe subject_ref",
+        ),
         // Foundry capability: subject_ref is a Foundry spec or run-plan id (no scheme).
         "foundry_capability" => {
             if load(data_dir, "foundry-specs", subject_ref).is_some()
@@ -226,7 +263,13 @@ async fn governance_snapshot(base: &str) -> Value {
 /// Pure: the sharpened publish invariant — the reasons a candidate cannot publish, given resolved
 /// facts. Empty => publishable. domain_app-only; requires admitted review + open release + serving
 /// runtime.
-fn publish_reasons(kind: &str, dapp_ok: bool, has_admitted: bool, has_open_release: bool, has_serving: bool) -> Vec<String> {
+fn publish_reasons(
+    kind: &str,
+    dapp_ok: bool,
+    has_admitted: bool,
+    has_open_release: bool,
+    has_serving: bool,
+) -> Vec<String> {
     let mut r = Vec::new();
     if kind != "domain_app" {
         r.push("listing_not_domain_app".to_string());
@@ -260,8 +303,15 @@ struct PublishBacking {
 /// open ReleaseControl targeting candidate/listing, serving DomainAppRuntime for the subject).
 fn publish_gates(data_dir: &str, candidate: &Value) -> PublishBacking {
     let mut b = PublishBacking::default();
-    let cand_ref = candidate.get("ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let listing_ref = candidate.get("listing_ref").and_then(|v| v.as_str()).unwrap_or("");
+    let cand_ref = candidate
+        .get("ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let listing_ref = candidate
+        .get("listing_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     let listing = match split_ref(listing_ref) {
         Some(("marketplace-listing", id)) => load(data_dir, KIND_LISTING, id),
         _ => None,
@@ -270,9 +320,20 @@ fn publish_gates(data_dir: &str, candidate: &Value) -> PublishBacking {
         b.reasons.push("listing_unresolved".to_string());
         return b;
     };
-    b.listing_id = listing.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let kind = listing.get("listing_kind").and_then(|v| v.as_str()).unwrap_or("");
-    let subject = listing.get("subject_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    b.listing_id = listing
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let kind = listing
+        .get("listing_kind")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let subject = listing
+        .get("subject_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     b.subject_ref = subject.clone();
     // domain app resolves?
     let dapp_ok = match split_ref(&subject) {
@@ -280,10 +341,13 @@ fn publish_gates(data_dir: &str, candidate: &Value) -> PublishBacking {
         _ => false,
     };
     // admitted review for this candidate?
-    if let Some(rv) = read_record_dir(data_dir, KIND_REVIEW).into_iter().find(|r| {
-        r.get("candidate_ref").and_then(|v| v.as_str()) == Some(cand_ref.as_str())
-            && r.get("decision").and_then(|v| v.as_str()) == Some("admitted")
-    }) {
+    if let Some(rv) = read_record_dir(data_dir, KIND_REVIEW)
+        .into_iter()
+        .find(|r| {
+            r.get("candidate_ref").and_then(|v| v.as_str()) == Some(cand_ref.as_str())
+                && r.get("decision").and_then(|v| v.as_str()) == Some("admitted")
+        })
+    {
         b.admission_review_ref = rv.get("ref").and_then(|v| v.as_str()).map(str::to_string);
     }
     // open ReleaseControl targeting the candidate OR the listing?
@@ -294,16 +358,32 @@ fn publish_gates(data_dir: &str, candidate: &Value) -> PublishBacking {
         b.release_control_ref = rc.get("ref").and_then(|v| v.as_str()).map(str::to_string);
     }
     // serving DomainAppRuntime for the subject?
-    if let Some(rt) = read_record_dir(data_dir, KIND_RUNTIME).into_iter().find(|rt| {
-        rt.get("domain_app_ref").and_then(|v| v.as_str()) == Some(subject.as_str())
-            && rt.get("mounted").and_then(|v| v.as_bool()) == Some(true)
-            && rt.get("serving").and_then(|v| v.as_bool()) == Some(true)
-            && rt.get("internal_route_ref").and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false)
-    }) {
-        b.runtime_route = rt.get("internal_route_ref").and_then(|v| v.as_str()).map(str::to_string);
+    if let Some(rt) = read_record_dir(data_dir, KIND_RUNTIME)
+        .into_iter()
+        .find(|rt| {
+            rt.get("domain_app_ref").and_then(|v| v.as_str()) == Some(subject.as_str())
+                && rt.get("mounted").and_then(|v| v.as_bool()) == Some(true)
+                && rt.get("serving").and_then(|v| v.as_bool()) == Some(true)
+                && rt
+                    .get("internal_route_ref")
+                    .and_then(|v| v.as_str())
+                    .map(|s| !s.is_empty())
+                    .unwrap_or(false)
+        })
+    {
+        b.runtime_route = rt
+            .get("internal_route_ref")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
         b.runtime_ref = rt.get("ref").and_then(|v| v.as_str()).map(str::to_string);
     }
-    b.reasons = publish_reasons(kind, dapp_ok, b.admission_review_ref.is_some(), b.release_control_ref.is_some(), b.runtime_ref.is_some());
+    b.reasons = publish_reasons(
+        kind,
+        dapp_ok,
+        b.admission_review_ref.is_some(),
+        b.release_control_ref.is_some(),
+        b.runtime_ref.is_some(),
+    );
     b
 }
 
@@ -340,7 +420,12 @@ pub(crate) async fn handle_marketplace_overview(State(st): State<Arc<DaemonState
             })
         })
         .collect();
-    recent.sort_by(|a, b| b["updated_at"].as_str().unwrap_or("").cmp(a["updated_at"].as_str().unwrap_or("")));
+    recent.sort_by(|a, b| {
+        b["updated_at"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(a["updated_at"].as_str().unwrap_or(""))
+    });
     recent.truncate(8);
 
     Json(json!({
@@ -379,10 +464,19 @@ pub(crate) async fn handle_listing_list(
     Query(q): Query<HashMap<String, String>>,
 ) -> Json<Value> {
     let mut items = read_record_dir(&st.data_dir, KIND_LISTING);
-    if let Some(k) = q.get("listing_kind").map(|s| s.trim()).filter(|s| !s.is_empty()) {
+    if let Some(k) = q
+        .get("listing_kind")
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
         items.retain(|l| l.get("listing_kind").and_then(|v| v.as_str()) == Some(k));
     }
-    items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
+    items.sort_by(|a, b| {
+        b.get("updated_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
     Json(json!({ "ok": true, "listings": items }))
 }
 
@@ -393,13 +487,21 @@ pub(crate) async fn handle_listing_create(
 ) -> (StatusCode, Json<Value>) {
     let listing_kind = str_field(&body, "listing_kind");
     if !LISTING_KINDS.contains(&listing_kind) {
-        return bad("marketplace_listing_kind_invalid", &format!("listing_kind must be one of {LISTING_KINDS:?}"));
+        return bad(
+            "marketplace_listing_kind_invalid",
+            &format!("listing_kind must be one of {LISTING_KINDS:?}"),
+        );
     }
     let subject_ref = str_field(&body, "subject_ref");
     if subject_ref.is_empty() {
-        return bad("marketplace_subject_required", "A listing must declare a subject_ref.");
+        return bad(
+            "marketplace_subject_required",
+            "A listing must declare a subject_ref.",
+        );
     }
-    if let Err((c, m)) = resolve_listing_subject(&st.data_dir, &st.base_url, listing_kind, subject_ref).await {
+    if let Err((c, m)) =
+        resolve_listing_subject(&st.data_dir, &st.base_url, listing_kind, subject_ref).await
+    {
         return bad(&c, &m);
     }
     if let Err((c, m)) = check_evidence_refs(&st.data_dir, &str_refs(&body, "evidence_refs")) {
@@ -424,7 +526,10 @@ pub(crate) async fn handle_listing_create(
         "updated_at": now
     });
     let _ = persist_record(&st.data_dir, KIND_LISTING, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "listing": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "listing": record })),
+    )
 }
 
 pub(crate) async fn handle_listing_get(
@@ -451,7 +556,9 @@ pub(crate) async fn handle_listing_patch(
         .and_then(|v| v.as_str())
         .unwrap_or_else(|| l.get("listing_kind").and_then(|v| v.as_str()).unwrap_or(""));
     if body.get("listing_kind").is_some() && !LISTING_KINDS.contains(&new_kind) {
-        return Json(json!({ "ok": false, "error": { "code": "marketplace_listing_kind_invalid", "message": format!("listing_kind must be one of {LISTING_KINDS:?}") } }));
+        return Json(
+            json!({ "ok": false, "error": { "code": "marketplace_listing_kind_invalid", "message": format!("listing_kind must be one of {LISTING_KINDS:?}") } }),
+        );
     }
     if body.get("listing_kind").is_some() || body.get("subject_ref").is_some() {
         let subj = body
@@ -459,7 +566,9 @@ pub(crate) async fn handle_listing_patch(
             .and_then(|v| v.as_str())
             .map(str::trim)
             .unwrap_or_else(|| l.get("subject_ref").and_then(|v| v.as_str()).unwrap_or(""));
-        if let Err((c, m)) = resolve_listing_subject(&st.data_dir, &st.base_url, new_kind, subj).await {
+        if let Err((c, m)) =
+            resolve_listing_subject(&st.data_dir, &st.base_url, new_kind, subj).await
+        {
             return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
         }
     }
@@ -468,7 +577,13 @@ pub(crate) async fn handle_listing_patch(
             return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
         }
     }
-    for key in ["name", "description", "listing_kind", "subject_ref", "evidence_refs"] {
+    for key in [
+        "name",
+        "description",
+        "listing_kind",
+        "subject_ref",
+        "evidence_refs",
+    ] {
         if let Some(v) = body.get(key) {
             l[key] = v.clone();
         }
@@ -492,7 +607,11 @@ fn candidate_view(data_dir: &str, c: &Value) -> Value {
     let published = c.get("publish_state").and_then(|v| v.as_str()) == Some("published");
     let b = publish_gates(data_dir, c);
     let mut c = c.clone();
-    c["blocked_reasons"] = if published { json!([]) } else { json!(b.reasons) };
+    c["blocked_reasons"] = if published {
+        json!([])
+    } else {
+        json!(b.reasons)
+    };
     // Publishable only under the sharpened invariant (admitted review + open release + serving runtime).
     c["publishable"] = json!(!published && b.reasons.is_empty());
     c
@@ -503,7 +622,12 @@ pub(crate) async fn handle_candidate_list(State(st): State<Arc<DaemonState>>) ->
         .iter()
         .map(|c| candidate_view(&st.data_dir, c))
         .collect();
-    items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
+    items.sort_by(|a, b| {
+        b.get("updated_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
     Json(json!({ "ok": true, "publish_candidates": items }))
 }
 
@@ -514,9 +638,18 @@ pub(crate) async fn handle_candidate_create(
 ) -> (StatusCode, Json<Value>) {
     let listing_ref = str_field(&body, "listing_ref");
     if listing_ref.is_empty() {
-        return bad("marketplace_listing_ref_required", "A publish candidate must declare a listing_ref.");
+        return bad(
+            "marketplace_listing_ref_required",
+            "A publish candidate must declare a listing_ref.",
+        );
     }
-    if let Err((c, m)) = resolve_scheme_ref(&st.data_dir, listing_ref, "marketplace-listing", KIND_LISTING, "listing_ref") {
+    if let Err((c, m)) = resolve_scheme_ref(
+        &st.data_dir,
+        listing_ref,
+        "marketplace-listing",
+        KIND_LISTING,
+        "listing_ref",
+    ) {
         return bad(&c, &m);
     }
     let gov = governance_snapshot(&st.base_url).await;
@@ -537,7 +670,10 @@ pub(crate) async fn handle_candidate_create(
         "updated_at": now
     });
     let _ = persist_record(&st.data_dir, KIND_CANDIDATE, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &record) })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &record) })),
+    )
 }
 
 pub(crate) async fn handle_candidate_get(
@@ -545,7 +681,9 @@ pub(crate) async fn handle_candidate_get(
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
     match load(&st.data_dir, KIND_CANDIDATE, &id) {
-        Some(c) => Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &c) })),
+        Some(c) => {
+            Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &c) }))
+        }
         None => Json(json!({ "ok": false, "reason": "publish candidate not found" })),
     }
 }
@@ -559,10 +697,16 @@ pub(crate) async fn handle_candidate_publish(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut candidate) = load(&st.data_dir, KIND_CANDIDATE, &id) else {
-        return bad("marketplace_candidate_not_found", "publish candidate not found");
+        return bad(
+            "marketplace_candidate_not_found",
+            "publish candidate not found",
+        );
     };
     if candidate.get("publish_state").and_then(|v| v.as_str()) == Some("published") {
-        return bad("marketplace_already_published", "this candidate is already published");
+        return bad(
+            "marketplace_already_published",
+            "this candidate is already published",
+        );
     }
     let b = publish_gates(&st.data_dir, &candidate);
     if !b.reasons.is_empty() {
@@ -579,7 +723,11 @@ pub(crate) async fn handle_candidate_publish(
     let admission_review_ref = b.admission_review_ref.clone().unwrap_or_default();
     let release_control_ref = b.release_control_ref.clone().unwrap_or_default();
     let published_runtime_ref = b.runtime_ref.clone().unwrap_or_default();
-    let cand_ref = candidate.get("ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let cand_ref = candidate
+        .get("ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     // Publish receipt (real proof: sha256 state_root over the backing tuple).
     let prid = format!("pubr_{:x}", nanos());
     let state_root = sha256_hex_str(&format!("publish|{cand_ref}|{admission_review_ref}|{release_control_ref}|{published_runtime_ref}|{now}"));
@@ -620,7 +768,9 @@ pub(crate) async fn handle_candidate_publish(
     }
     (
         StatusCode::CREATED,
-        Json(json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &candidate), "receipt": receipt })),
+        Json(
+            json!({ "ok": true, "publish_candidate": candidate_view(&st.data_dir, &candidate), "receipt": receipt }),
+        ),
     )
 }
 
@@ -636,8 +786,12 @@ pub(crate) async fn handle_candidate_delete(
 
 /// Link/unlink an admission review onto its candidate (transactional, best-effort).
 fn link_candidate_review(data_dir: &str, candidate_ref: &str, review_ref: Option<&str>) {
-    let Some((_, cid)) = split_ref(candidate_ref) else { return };
-    let Some(mut c) = load(data_dir, KIND_CANDIDATE, cid) else { return };
+    let Some((_, cid)) = split_ref(candidate_ref) else {
+        return;
+    };
+    let Some(mut c) = load(data_dir, KIND_CANDIDATE, cid) else {
+        return;
+    };
     c["admission_review_ref"] = match review_ref {
         Some(r) => json!(r),
         None => Value::Null,
@@ -648,7 +802,12 @@ fn link_candidate_review(data_dir: &str, candidate_ref: &str, review_ref: Option
 
 pub(crate) async fn handle_review_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let mut items = read_record_dir(&st.data_dir, KIND_REVIEW);
-    items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
+    items.sort_by(|a, b| {
+        b.get("updated_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
     Json(json!({ "ok": true, "admission_reviews": items }))
 }
 
@@ -659,15 +818,30 @@ pub(crate) async fn handle_review_create(
 ) -> (StatusCode, Json<Value>) {
     let candidate_ref = str_field(&body, "candidate_ref");
     if candidate_ref.is_empty() {
-        return bad("marketplace_candidate_ref_required", "An admission review must declare a candidate_ref.");
+        return bad(
+            "marketplace_candidate_ref_required",
+            "An admission review must declare a candidate_ref.",
+        );
     }
-    if let Err((c, m)) = resolve_scheme_ref(&st.data_dir, candidate_ref, "marketplace-publish", KIND_CANDIDATE, "candidate_ref") {
+    if let Err((c, m)) = resolve_scheme_ref(
+        &st.data_dir,
+        candidate_ref,
+        "marketplace-publish",
+        KIND_CANDIDATE,
+        "candidate_ref",
+    ) {
         return bad(&c, &m);
     }
     let decision = {
-        let d = body.get("decision").and_then(|v| v.as_str()).unwrap_or("pending");
+        let d = body
+            .get("decision")
+            .and_then(|v| v.as_str())
+            .unwrap_or("pending");
         if !ADMISSION_DECISIONS.contains(&d) {
-            return bad("marketplace_decision_invalid", &format!("decision must be one of {ADMISSION_DECISIONS:?}"));
+            return bad(
+                "marketplace_decision_invalid",
+                &format!("decision must be one of {ADMISSION_DECISIONS:?}"),
+            );
         }
         d.to_string()
     };
@@ -692,8 +866,15 @@ pub(crate) async fn handle_review_create(
     });
     let _ = persist_record(&st.data_dir, KIND_REVIEW, &id, &record);
     // Link the review onto its candidate so blocked_reasons can reflect an admitted review.
-    link_candidate_review(&st.data_dir, candidate_ref, Some(&format!("marketplace-admission://{id}")));
-    (StatusCode::CREATED, Json(json!({ "ok": true, "admission_review": record })))
+    link_candidate_review(
+        &st.data_dir,
+        candidate_ref,
+        Some(&format!("marketplace-admission://{id}")),
+    );
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "admission_review": record })),
+    )
 }
 
 pub(crate) async fn handle_review_get(
@@ -716,7 +897,9 @@ pub(crate) async fn handle_review_patch(
     };
     if let Some(d) = body.get("decision").and_then(|v| v.as_str()) {
         if !ADMISSION_DECISIONS.contains(&d) {
-            return Json(json!({ "ok": false, "error": { "code": "marketplace_decision_invalid", "message": format!("decision must be one of {ADMISSION_DECISIONS:?}") } }));
+            return Json(
+                json!({ "ok": false, "error": { "code": "marketplace_decision_invalid", "message": format!("decision must be one of {ADMISSION_DECISIONS:?}") } }),
+            );
         }
     }
     for key in ["decision", "reviewer_ref", "findings"] {
@@ -747,7 +930,12 @@ pub(crate) async fn handle_review_delete(
 
 pub(crate) async fn handle_offer_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let mut items = read_record_dir(&st.data_dir, KIND_OFFER);
-    items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
+    items.sort_by(|a, b| {
+        b.get("updated_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
     Json(json!({ "ok": true, "managed_instance_offers": items }))
 }
 
@@ -759,19 +947,33 @@ pub(crate) async fn handle_offer_create(
 ) -> (StatusCode, Json<Value>) {
     let offer_kind = str_field(&body, "offer_kind");
     if !OFFER_KINDS.contains(&offer_kind) {
-        return bad("marketplace_offer_kind_invalid", &format!("offer_kind must be one of {OFFER_KINDS:?}"));
+        return bad(
+            "marketplace_offer_kind_invalid",
+            &format!("offer_kind must be one of {OFFER_KINDS:?}"),
+        );
     }
     let subject_ref = str_field(&body, "subject_ref");
     if subject_ref.is_empty() {
-        return bad("marketplace_subject_required", "A managed instance offer must declare a subject_ref.");
+        return bad(
+            "marketplace_subject_required",
+            "A managed instance offer must declare a subject_ref.",
+        );
     }
     // agent -> real /v1/agents id; domain_app -> real domain-app:// ref.
-    if let Err((c, m)) = resolve_listing_subject(&st.data_dir, &st.base_url, offer_kind, subject_ref).await {
+    if let Err((c, m)) =
+        resolve_listing_subject(&st.data_dir, &st.base_url, offer_kind, subject_ref).await
+    {
         return bad(&c, &m);
     }
     let listing_ref = str_field(&body, "listing_ref");
     if !listing_ref.is_empty() {
-        if let Err((c, m)) = resolve_scheme_ref(&st.data_dir, listing_ref, "marketplace-listing", KIND_LISTING, "listing_ref") {
+        if let Err((c, m)) = resolve_scheme_ref(
+            &st.data_dir,
+            listing_ref,
+            "marketplace-listing",
+            KIND_LISTING,
+            "listing_ref",
+        ) {
             return bad(&c, &m);
         }
     }
@@ -794,7 +996,10 @@ pub(crate) async fn handle_offer_create(
         "updated_at": now
     });
     let _ = persist_record(&st.data_dir, KIND_OFFER, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "managed_instance_offer": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "managed_instance_offer": record })),
+    )
 }
 
 pub(crate) async fn handle_offer_get(
@@ -820,7 +1025,9 @@ pub(crate) async fn handle_offer_patch(
         .and_then(|v| v.as_str())
         .unwrap_or_else(|| o.get("offer_kind").and_then(|v| v.as_str()).unwrap_or(""));
     if body.get("offer_kind").is_some() && !OFFER_KINDS.contains(&new_kind) {
-        return Json(json!({ "ok": false, "error": { "code": "marketplace_offer_kind_invalid", "message": format!("offer_kind must be one of {OFFER_KINDS:?}") } }));
+        return Json(
+            json!({ "ok": false, "error": { "code": "marketplace_offer_kind_invalid", "message": format!("offer_kind must be one of {OFFER_KINDS:?}") } }),
+        );
     }
     if body.get("offer_kind").is_some() || body.get("subject_ref").is_some() {
         let subj = body
@@ -828,11 +1035,19 @@ pub(crate) async fn handle_offer_patch(
             .and_then(|v| v.as_str())
             .map(str::trim)
             .unwrap_or_else(|| o.get("subject_ref").and_then(|v| v.as_str()).unwrap_or(""));
-        if let Err((c, m)) = resolve_listing_subject(&st.data_dir, &st.base_url, new_kind, subj).await {
+        if let Err((c, m)) =
+            resolve_listing_subject(&st.data_dir, &st.base_url, new_kind, subj).await
+        {
             return Json(json!({ "ok": false, "error": { "code": c, "message": m } }));
         }
     }
-    for key in ["name", "description", "offer_kind", "subject_ref", "listing_ref"] {
+    for key in [
+        "name",
+        "description",
+        "offer_kind",
+        "subject_ref",
+        "listing_ref",
+    ] {
         if let Some(v) = body.get(key) {
             o[key] = v.clone();
         }
@@ -877,26 +1092,44 @@ mod marketplace_tests {
     #[test]
     fn publish_reasons_flag_each_missing_gate() {
         // non-domain_app is rejected up front.
-        assert!(publish_reasons("agent", true, true, true, true).contains(&"listing_not_domain_app".to_string()));
+        assert!(publish_reasons("agent", true, true, true, true)
+            .contains(&"listing_not_domain_app".to_string()));
         // each missing gate names itself.
-        assert!(publish_reasons("domain_app", true, false, true, true).contains(&"no_admitted_admission_review".to_string()));
-        assert!(publish_reasons("domain_app", true, true, false, true).contains(&"no_open_release_control".to_string()));
-        assert!(publish_reasons("domain_app", true, true, true, false).contains(&"no_serving_runtime".to_string()));
-        assert!(publish_reasons("domain_app", false, true, true, true).contains(&"domain_app_unresolved".to_string()));
+        assert!(publish_reasons("domain_app", true, false, true, true)
+            .contains(&"no_admitted_admission_review".to_string()));
+        assert!(publish_reasons("domain_app", true, true, false, true)
+            .contains(&"no_open_release_control".to_string()));
+        assert!(publish_reasons("domain_app", true, true, true, false)
+            .contains(&"no_serving_runtime".to_string()));
+        assert!(publish_reasons("domain_app", false, true, true, true)
+            .contains(&"domain_app_unresolved".to_string()));
         // all failing -> all reasons present.
-        assert_eq!(publish_reasons("domain_app", false, false, false, false).len(), 4);
+        assert_eq!(
+            publish_reasons("domain_app", false, false, false, false).len(),
+            4
+        );
     }
 
     #[test]
     fn split_ref_parses_marketplace_schemes() {
-        assert_eq!(split_ref("marketplace-listing://mlist_1"), Some(("marketplace-listing", "mlist_1")));
-        assert_eq!(split_ref("marketplace-publish://mpub_1"), Some(("marketplace-publish", "mpub_1")));
+        assert_eq!(
+            split_ref("marketplace-listing://mlist_1"),
+            Some(("marketplace-listing", "mlist_1"))
+        );
+        assert_eq!(
+            split_ref("marketplace-publish://mpub_1"),
+            Some(("marketplace-publish", "mpub_1"))
+        );
         assert_eq!(split_ref("agent_2a9cc2ed"), None);
     }
 
     #[test]
     fn histogram_groups() {
-        let items = vec![json!({"listing_kind": "agent"}), json!({"listing_kind": "agent"}), json!({"listing_kind": "domain_app"})];
+        let items = vec![
+            json!({"listing_kind": "agent"}),
+            json!({"listing_kind": "agent"}),
+            json!({"listing_kind": "domain_app"}),
+        ];
         let h = histogram(&items, "listing_kind");
         assert_eq!(h.get("agent"), Some(&2));
         assert_eq!(h.get("domain_app"), Some(&1));

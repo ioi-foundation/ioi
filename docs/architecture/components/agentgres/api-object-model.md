@@ -4,9 +4,9 @@ Status: canonical low-level reference.
 Canonical owner: this file for Agentgres APIs, canonical object classes, runtime v0 state, operation logs, projection watermarks, and replay/export validity; artifact-ref meaning and restore/import validity live in [`artifact-ref-plane.md`](./artifact-ref-plane.md), and bridge/readiness semantics live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: older Agentgres-as-generic-store wording when runtime truth ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-15.
 Doctrine status: reference
-Implementation status: partial (object catalog; families land with their planes — Agent Execution Branch is planned over existing fork/replay/snapshot substrate, and OutcomeRoom discovery/participation/portable-exit/frontier/claim/attempt/finding/WorkResult/OutcomeDelta plus NetworkGoalBudget persistence and admission are planned)
+Implementation status: partial (object catalog; families land with their planes — Agent Execution Branch is planned over existing fork/replay/snapshot substrate; portable receipt-checkpoint/proof schemas and offline verifiers are built but Agentgres checkpoint admission/emission/export is planned; OutcomeRoom discovery/participation/portable-exit/frontier/claim/attempt/finding/WorkResult/OutcomeDelta and NetworkGoalBudget persistence/admission are planned; the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine is canonical but planned)
 Last implementation audit: 2026-07-05
 
 ## Purpose
@@ -22,7 +22,7 @@ references through Agentgres-governed artifact refs.
 
 For governed autonomous-system chains and Hypervisor Nodes, Agentgres records
 the local/domain operational truth: proposals, service-module invocations,
-local settlement records, state roots, receipt roots, upgrade decisions, and
+state-transition commitment records, state roots, receipt roots, upgrade decisions, and
 replayable projections.
 
 ## Core API
@@ -60,21 +60,54 @@ POST /v1/connector-mappings
 POST /v1/policy-bound-data-views
 POST /v1/distilled-ontology-datasets
 POST /v1/evaluation-datasets
+POST /v1/learning-evidence-eligibility
 POST /v1/ontology-projections
 POST /v1/ontology-to-worker-plans
 POST /v1/hypervisor-nodes
 POST /v1/autonomous-system-chains
+POST /v1/autonomous-system-constitutions
+POST /v1/improvement-governance-profiles
+POST /v1/autonomous-system-deployment-profiles
+POST /v1/autonomous-system-node-memberships
+POST /v1/autonomous-system-failover-profiles
+POST /v1/ordering-admission-finality-profiles
+POST /v1/oracle-evidence-profiles
+POST /v1/lifecycle-continuity-profiles
+POST /v1/lifecycle-transitions
+POST /v1/ioi-network-enrollments
 POST /v1/service-modules
 POST /v1/module-invocations
 POST /v1/upgrade-proposals
 POST /v1/upgrade-proposals/{proposal_id}/decisions
-POST /v1/local-settlements
+POST /v1/improvement-agendas
+POST /v1/improvement-campaigns
+POST /v1/improvement-campaigns/{campaign_id}/operations
+POST /v1/evaluation-epochs
+POST /v1/evaluation-exposure-ledgers
+POST /v1/evaluation-exposure-ledgers/{ledger_id}/entries
+POST /v1/improvement-evidence-claims
+POST /v1/state-transition-commitments
 POST /v1/worker-training
 POST /v1/worker-training/{training_id}/batch-plans
 POST /v1/worker-training/{training_id}/generation-batches
 POST /v1/worker-training/{training_id}/quality-gate-reports
 POST /v1/worker-training/{training_id}/cost-ledgers
 ```
+
+The following receipt-proof endpoints are target contracts, not implemented
+routes. They become live only when Agentgres admits exact receipt leaves and the
+daemon signs checkpoints through an enrolled key:
+
+```http
+POST /v1/receipt-checkpoints
+GET  /v1/receipt-checkpoints/{checkpoint_id}
+POST /v1/receipt-proof-bundles
+POST /v1/receipt-proof-bundles/{bundle_id}/verify
+```
+
+`POST /v1/receipt-proof-bundles` is an export over already-admitted receipts and
+signed checkpoints. It does not admit receipt truth, replace a DeliveryBundle,
+or manufacture checkpoint coverage for receipts outside the accumulator.
 
 ## Archive/Restore API
 
@@ -160,12 +193,33 @@ Policy
 PolicyDecision
 AuthorityGrantRef
 HypervisorNode
+AutonomousSystemManifest
+AutonomousSystemGenesis
 AutonomousSystemChain
+AutonomousSystemConstitution
+ImprovementGovernanceProfile
+AutonomousSystemDeploymentProfile
+AutonomousSystemNodeMembership
+AutonomousSystemFailoverProfile
+OrderingAdmissionFinalityProfile
+OrderingFinalityRecovery
+OracleEvidenceProfile
+LifecycleContinuityProfile
+LifecycleTransition
+IOINetworkEnrollment
 ServiceModuleManifest
 ModuleInvocation
 UpgradeProposal
 UpgradeDecision
-LocalSettlementRecord
+ImprovementAgenda
+ImprovementCampaign
+EvaluationEpoch
+EvaluationExposureLedger
+ImprovementEvidenceClaim
+ImprovementOrderCutoffReceipt
+StateTransitionCommitmentRecord
+Settlement
+NetworkServiceInvocation
 SchemaDefinition
 SchemaMigration
 ConstraintDefinition
@@ -197,6 +251,7 @@ TransformationRun
 TransformationReceipt
 DistilledOntologyDataset
 EvaluationDataset
+LearningEvidenceEligibility
 OntologyProjection
 OntologyToWorkerPlan
 ModelCapacityProfile
@@ -302,6 +357,28 @@ schemas:
 The semantic profile name remains queryable and receipted, but the mapped base
 class owns object heads, operation semantics, and migrations.
 
+Bounded-improvement registration follows the shared envelope canon rather than
+inventing Agentgres-local schemas:
+
+| Object class | Agentgres persistence contract |
+| --- | --- |
+| `ImprovementGovernanceProfile` | Immutable content-addressed revision plus rebuildable registry lifecycle; Governance selects the active owner-scope binding and, when System-scoped, the constitution-protected ref. |
+| `ImprovementAgenda` | Immutable revision plus release/supersession operations; item progress is projected from Campaign, Finding, and proposal lineage. |
+| `ImprovementCampaign` | Stable aggregate identity, immutable admitted contract revisions, append-only operation head, and derived lifecycle projection. |
+| `EvaluationEpoch` | Frozen evaluation-contract root plus linked challenge, closure, and invalidation operations. |
+| `EvaluationExposureLedger` | Append-only reservation/spend/return/contamination/rotation entries and a derived remaining-exposure projection. |
+| `ImprovementEvidenceClaim` | Immutable claim body/root plus linked support, dispute, downgrade, withdrawal, and supersession lifecycle. |
+| `ImprovementOrderCutoffReceipt` | Immutable `improvement_order_cutoff` receipt profile; it is not a live synchronization object. |
+| `LearningEvidenceEligibility` | One admitted reuse decision for training and non-training improvement; the `TrainingEvidenceEligibility` compatibility profile resolves to this same object ID. |
+
+The candidate DAG, archive/frontier, Campaign status, Agenda-item progress,
+remaining ancestor budgets, exposure/contamination posture, cross-order
+synchronization lineage, and claim-support view are projections over admitted
+objects and operations. They are not parallel mutable object classes. GoalRuns
+remain pursuit truth, Foundry trials remain execution truth, evaluation assets
+remain with their evaluator owners, and `UpgradeProposal` / `UpgradeDecision`
+remain the only promotion proposal/decision path.
+
 ## Domain Manifest
 
 ```json
@@ -330,20 +407,38 @@ class owns object heads, operation semantics, and migrations.
   "daemon_runtime_ref": "runtime://local",
   "agentgres_domain_ref": "agentgres://domain/hypervisor/local",
   "wallet_authority_ref": "wallet://user_123",
-  "autonomous_system_chain_refs": ["system://customer-ops"],
+  "supported_autonomous_system_node_roles": ["admission_writer", "state_replica", "execution_worker"],
+  "autonomous_system_membership_refs": ["node-membership://customer-ops/local"],
+  "node_attestation_refs": [],
+  "failure_domain_refs": ["failure-domain://local-workstation"],
   "local_registry_refs": ["agentgres://registry/modules"],
   "receipt_root": "sha256:...",
-  "latest_local_settlement_id": "transition://...",
-  "status": "local | hosted | hybrid | enterprise | archived"
+  "latest_state_transition_commitment_id": "transition://...",
+  "hosting_posture": "local | hosted | hybrid | enterprise",
+  "status": "candidate | active | draining | suspended | archived | revoked"
 }
 ```
 
 ```json
 {
   "object_class": "AutonomousSystemChain",
-  "autonomous_system_chain_id": "system://customer-ops",
-  "hypervisor_node_id": "node://local-hypervisor",
-  "manifest_ref": "ai://systems/customer-ops",
+  "system_id": "system://customer-ops",
+  "home_domain_ref": "domain://customer-ops",
+  "governance_owner_refs": ["org://customer"],
+  "genesis_ref": "genesis://customer-ops",
+  "package_id": "package://customer-ops",
+  "manifest_ref": "package://customer-ops/release/1.0.0",
+  "constitution_ref": "constitution://customer-ops/v1",
+  "deployment_profile_ref": "deployment-profile://customer-ops/production-v1",
+  "ordering_admission_finality_profile_ref": "ordering-profile://customer-ops/single-writer-v1",
+  "oracle_evidence_profile_refs": [],
+  "lifecycle_continuity_profile_ref": "lifecycle-profile://customer-ops/v1",
+  "network_enrollment_ref": null,
+  "node_membership_refs": ["node-membership://customer-ops/local"],
+  "node_membership_root": "sha256:...",
+  "active_writer_epoch": 1,
+  "latest_sequence": 42,
+  "latest_transition_commitment_ref": "commitment://customer-ops/transition/42",
   "policy_root": "sha256:...",
   "module_registry_root": "sha256:...",
   "proposal_queue_root": "sha256:...",
@@ -351,17 +446,39 @@ class owns object heads, operation semantics, and migrations.
   "latest_receipt_root": "sha256:...",
   "latest_transition_id": "transition://...",
   "upgrade_policy_ref": "policy://...",
-  "status": "draft | active | paused | archived | revoked"
+  "settlement_policy_ref": "policy://settlement/customer-ops",
+  "default_settlement_mode": "local_domain",
+  "allowed_settlement_modes": ["local_domain", "invoice", "external_escrow"],
+  "settlement_profile_refs": ["policy://settlement/customer-ops"],
+  "public_commitment_policy_ref": null,
+  "status": "draft | initialized | active | degraded | paused | suspended | dormant | recovering | quarantined | succession_pending | successor_governed | dissolution_pending | dissolving | dissolved | retired | archived | decommissioned | revoked"
 }
 ```
+
+The constitution, deployment, membership, failover, ordering/finality,
+oracle/evidence, lifecycle, and enrollment object bodies follow the canonical
+field schemas in
+[`../../foundations/common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#governed-autonomous-system-chain-envelopes).
+Agentgres records desired profiles and observed membership separately. A node
+cannot become ready, change roles, or acquire a writer epoch merely because a
+deployment profile requests it.
 
 ```json
 {
   "object_class": "ModuleInvocation",
   "module_invocation_id": "invocation://123",
   "module_id": "module://policy.evaluate.spend_limit.v3",
-  "autonomous_system_chain_id": "system://customer-ops",
+  "system_id": "system://customer-ops",
   "hypervisor_node_id": "node://local-hypervisor",
+  "acting_node_membership_ref": "node-membership://customer-ops/local",
+  "ordering_admission_finality_profile_ref": "ordering-profile://customer-ops/single-writer-v1",
+  "writer_epoch": 1,
+  "ordering_or_finality_proof_ref": null,
+  "sequence": 42,
+  "expected_predecessor_commitment_ref": "commitment://customer-ops/transition/41",
+  "operation_or_batch_commitment": "sha256:...",
+  "resulting_transition_commitment_ref": "commitment://customer-ops/transition/42",
+  "admission_proof_ref": "receipt://admission_42",
   "input_hash": "sha256:...",
   "predecessor_state_root": "sha256:...",
   "resulting_state_root": "sha256:...",
@@ -374,36 +491,49 @@ class owns object heads, operation semantics, and migrations.
 
 ```json
 {
-  "object_class": "LocalSettlementRecord",
-  "local_settlement_id": "transition://123",
+  "object_class": "StateTransitionCommitmentRecord",
+  "state_transition_commitment_id": "transition://123",
+  "system_id": "system://customer-ops",
   "hypervisor_node_id": "node://local-hypervisor",
-  "autonomous_system_chain_id": "system://customer-ops",
-  "settlement_kind": "module_invocation | workflow_transition | authority_outcome | task_handoff | upgrade_decision | receipt_root | dispute_escalation",
+  "acting_node_membership_ref": "node-membership://customer-ops/local",
+  "ordering_admission_finality_profile_ref": "ordering-profile://customer-ops/single-writer-v1",
+  "writer_epoch": 1,
+  "ordering_or_finality_proof_ref": null,
+  "sequence": 42,
+  "expected_predecessor_commitment_ref": "commitment://customer-ops/transition/41",
+  "operation_or_batch_commitment": "sha256:...",
+  "resulting_transition_commitment_ref": "commitment://customer-ops/transition/42",
+  "admission_proof_ref": "receipt://admission_42",
+  "transition_kind": "module_invocation | workflow_transition | authority_outcome | task_handoff | upgrade_decision | receipt_root | dispute_escalation",
   "operation_ref": "agentgres://operation/op_123",
   "predecessor_state_root": "sha256:...",
   "resulting_state_root": "sha256:...",
   "receipt_root": "sha256:...",
-  "l1_anchor_ref": "optional"
+  "external_settlement_ref": "settlement://... | null"
 }
 ```
+
+`writer_epoch` is nullable when the active ordering profile does not use a
+single admission writer. Threshold/BFT/external-finality records bind the
+profile-required ordering or finality proof instead.
 
 ## Operation Shape
 
 ```json
 {
-  "operation_id": "op_123",
+  "operation_id": "agentgres://operation/123",
   "domain_id": "agentgres://domain/aiagent.xyz",
-  "actor_id": "agent://... | wallet://... | runtime://...",
+  "actor_id": "system://... | participant-lease://... | agent://... | worker://... | service://... | user://... | wallet://... | org://... | domain://... | runtime://...",
   "operation_type": "WorkerInvocationCreated",
   "object_class": "WorkerInvocation",
-  "object_id": "invocation_123",
+  "object_id": "invocation://123",
   "expected_head": "optional",
   "expected_heads": {"file://src/foo.ts": "sha256:..."},
   "base_state_root": "optional",
   "patch_id": "optional",
   "schema_version": 12,
   "policy_hash": "sha256:...",
-  "authority_grant_refs": ["grant_..."],
+  "authority_grant_refs": ["grant://..."],
   "payload": {},
   "payload_refs": [
     {
@@ -523,7 +653,7 @@ executes the work.
 {
   "runtime_assignment_id": "assign_123",
   "domain_id": "agentgres://domain/sas.xyz",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "order_id": "order_123",
   "outcome_workspace_id": "outcome_workspace_123",
   "compute_session_id": "compute_session_123",
@@ -605,15 +735,17 @@ the profile discriminator rather than inventing profile-local shapes.
 ```json
 {
   "object_class": "DataRecipe",
-  "data_recipe_id": "recipe://construction/estimate-normalization/v1",
+  "data_recipe_id": "data-recipe://construction/estimate-normalization",
+  "revision_ref": "data-recipe://construction/estimate-normalization/revision/v1",
+  "content_hash": "sha256:...",
   "ontology_refs": ["ontology://construction-estimating/v1"],
   "connector_mapping_refs": ["mapping://drive-plan-sheets", "mapping://gmail-quote-thread"],
   "output_object_model_refs": ["object-model://Estimate", "object-model://LineItem"],
-  "output_distilled_dataset_refs": ["dataset://construction-estimate-distilled-v1"],
+  "output_dataset_contract_refs": ["schema://construction/estimate-dataset/v1"],
   "transformation_steps": ["extract", "redact", "normalize", "dedupe", "validate", "map", "link"],
   "policy_bound_data_view_refs": ["view://customer-estimate-training"],
   "receipt_obligations": ["data_recipe_run", "transformation"],
-  "status": "draft | active | deprecated"
+  "registry_status": "draft | active | deprecated | revoked"
 }
 ```
 
@@ -635,7 +767,8 @@ the profile discriminator rather than inventing profile-local shapes.
 {
   "object_class": "TransformationRun",
   "transformation_run_id": "transform://123",
-  "data_recipe_ref": "recipe://construction/estimate-normalization/v1",
+  "data_recipe_revision_ref": "data-recipe://construction/estimate-normalization/revision/v1",
+  "data_recipe_content_hash": "sha256:...",
   "input_refs": ["artifact://plans_pdf", "connector://gmail/thread_123"],
   "output_object_refs": ["agentgres://object/Estimate/est_123"],
   "output_dataset_refs": ["dataset://construction-estimate-holdout-v1"],
@@ -652,7 +785,7 @@ the profile discriminator rather than inventing profile-local shapes.
   "object_class": "DistilledOntologyDataset",
   "distilled_dataset_id": "dataset://construction-estimate-distilled-v1",
   "ontology_refs": ["ontology://construction-estimating/v1"],
-  "data_recipe_refs": ["recipe://construction/estimate-normalization/v1"],
+  "data_recipe_refs": ["data-recipe://construction/estimate-normalization/revision/v1"],
   "source_commitments": ["sha256:..."],
   "policy_bound_data_view_refs": ["view://customer-estimate-training"],
   "transformation_receipt_refs": ["receipt://transform_123"],
@@ -671,7 +804,7 @@ the profile discriminator rather than inventing profile-local shapes.
   "object_class": "EvaluationDataset",
   "evaluation_dataset_id": "dataset://construction-estimate-holdout-v1",
   "ontology_refs": ["ontology://construction-estimating/v1"],
-  "data_recipe_refs": ["recipe://construction/estimate-normalization/v1"],
+  "data_recipe_refs": ["data-recipe://construction/estimate-normalization/revision/v1"],
   "dataset_type": "golden | holdout | adversarial | regression | benchmark | synthetic | distilled",
   "rubric_ref": "rubric://construction-estimate/v1",
   "benchmark_profile_ref": "benchmark://ioi/categories/construction_estimate/v1",
@@ -687,7 +820,7 @@ the profile discriminator rather than inventing profile-local shapes.
   "plan_id": "plan://123",
   "ontology_refs": ["ontology://construction-estimating/v1"],
   "canonical_object_model_refs": ["object-model://Estimate", "object-model://LineItem"],
-  "data_recipe_refs": ["recipe://construction/estimate-normalization/v1"],
+  "data_recipe_refs": ["data-recipe://construction/estimate-normalization/revision/v1"],
   "policy_bound_data_view_refs": ["view://customer-estimate-training"],
   "distilled_dataset_refs": ["dataset://construction-estimate-distilled-v1"],
   "evaluation_dataset_refs": ["dataset://construction-estimate-holdout-v1"],
@@ -716,7 +849,7 @@ Filecoin/CAS and are referenced by hash/CID.
   "dataset_commitment": "sha256:...",
   "domain_ontology_ref": "ontology://construction-estimating/v1",
   "canonical_object_model_refs": ["object-model://Estimate", "object-model://LineItem"],
-  "data_recipe_refs": ["recipe://construction/estimate-normalization/v1"],
+  "data_recipe_refs": ["data-recipe://construction/estimate-normalization/revision/v1"],
   "policy_bound_data_view_refs": ["view://customer-estimate-training"],
   "distilled_dataset_refs": ["dataset://construction-estimate-distilled-v1"],
   "evaluation_dataset_refs": ["dataset://construction-estimate-holdout-v1"],
@@ -865,7 +998,7 @@ Filecoin/CAS and are referenced by hash/CID.
   "foundry_job_ref": "foundry_job://dataset_factory_123",
   "objective": "Create instruction/eval data for support triage model",
   "source_refs": ["artifact://idea", "view://policy_bound_support_tickets"],
-  "data_recipe_refs": ["recipe://support-triage-v1"],
+  "data_recipe_refs": ["data-recipe://support-triage/revision/v1"],
   "ontology_refs": ["ontology://support"],
   "policy_bound_data_view_refs": ["view://support-redacted"],
   "stage": "define | research | ground | generate | audit | export | runbook",
@@ -892,7 +1025,7 @@ Filecoin/CAS and are referenced by hash/CID.
   "resume_ref": "artifact://resume-token",
   "last_heartbeat_ref": "receipt://training-heartbeat",
   "authority_grant_refs": ["grant://training_data", "grant://gpu_spend"],
-  "training_evidence_eligibility_refs": ["eligibility://support-triage-traces"],
+  "learning_evidence_eligibility_refs": ["eligibility://support-triage-traces"],
   "training_data_posture": "synthetic_only | redacted_opt_in | full_private_opt_in | org_policy",
   "model_base_refs": ["model://base-9b"],
   "input_dataset_refs": ["dataset://support-triage-train-v1"],
@@ -921,24 +1054,45 @@ Filecoin/CAS and are referenced by hash/CID.
 {
   "object_class": "ExperimentOptimizationCycle",
   "optimization_cycle_id": "optcycle://persistent_training_123",
-  "target_training_pipeline_ref": "trainpipe://persistent_training_123",
+  "foundry_job_ref": "foundry_job://persistent_training_123",
+  "improvement_campaign_ref": "improvement-campaign://support-model | null",
+  "evaluation_epoch_ref": "evaluation-epoch://support-model-1 | null",
+  "coordinating_goal_run_ref": "goal://support-model-improvement | null",
+  "target_ref": "trainpipe://persistent_training_123",
+  "target_class": "training_pipeline | foundry_spec | run_plan | model | worker | goal_run_profile | workflow_template | harness_profile | skill_manifest | runtime_tool_contract_binding | model_route | evaluator_asset | other_admitted_component",
+  "target_owner_ref": "foundry_job://persistent_training_123",
+  "baseline_target_ref": "artifact://recipe-baseline",
+  "baseline_target_root": "sha256:...",
+  "resolved_component_snapshot_ref": "artifact://persistent-training-components",
   "optimizer_ref": "worker://training-recipe-optimizer",
-  "objective_metric": {
-    "name": "validation_bpb",
-    "direction": "minimize"
-  },
-  "baseline_recipe_ref": "artifact://recipe-baseline",
-  "best_candidate_ref": "artifact://recipe-best",
-  "trial_refs": ["run://trial_001", "run://trial_002"],
+  "search_policy_ref": "policy://support-model-search-v1",
+  "objective_and_guardrail_policy_ref": "policy://support-model-objective-v1",
+  "randomness_and_repetition_policy_ref": "policy://support-model-repetition-v1",
+  "resource_normalization_ref": "policy://support-model-cost-normalization-v1",
+  "best_candidate_ref": "artifact://recipe-candidate-2 | null",
+  "candidate_archive_projection_ref": "artifact://support-model-candidate-archive | null",
+  "trial_refs": ["trial://001", "trial://002"],
   "accepted_change_refs": ["artifact://recipe-delta-accepted"],
   "rejected_change_refs": ["artifact://recipe-delta-rejected"],
-  "seed_policy_ref": "policy://experiment-seeds",
+  "inconclusive_change_refs": [],
+  "exploit_or_invalid_change_refs": [],
+  "evaluation_result_refs": ["gate://support-model-scorecard", "receipt://support-model-eval"],
+  "typed_patch_candidate_ref": "artifact://support-model-patch | null",
+  "promotion_bundle_candidate_ref": "promotion_bundle://support-model | null",
   "budget_policy_ref": "policy://persistent-training-budget",
   "stop_policy_ref": "policy://stop-on-budget-or-no-lift",
   "receipt_root": "sha256:...",
-  "status": "planned | running | stopped | promoted_to_review | failed | rejected"
+  "status": "planned | running | stopped | proposed_for_review | failed | rejected"
 }
 ```
+
+The optimization cycle remains Foundry-owned and may exist without a Campaign.
+When campaign/epoch refs are present, the cycle is an execution child of those
+frozen contracts, not their state owner. A legacy
+`target_training_pipeline_ref` input normalizes to `target_ref` plus
+`target_class: training_pipeline`; canonical Agentgres state does not emit both.
+The local best candidate is not Campaign nomination or release authority, and a
+scalar fitness, Pareto archive, or bandit strategy is never mandatory.
 
 ```json
 {
@@ -963,7 +1117,7 @@ Filecoin/CAS and are referenced by hash/CID.
   "intended_consumer": "ioi_ai | hypervisor_operator_plane | custom_coordinator",
   "training_data_posture": "synthetic_only | redacted_opt_in | full_private_opt_in | org_policy",
   "training_consent_refs": ["grant://training_consent", "policy://training_data_use"],
-  "training_evidence_eligibility_refs": ["eligibility://conductor-training-traces"],
+  "learning_evidence_eligibility_refs": ["eligibility://conductor-training-traces"],
   "input_refs": ["dataset://conductor-training", "receipt://work-evidence"],
   "eval_suite_refs": ["benchmark://cross-session-routing"],
   "scorecard_refs": ["gate://conductor-scorecard"],
@@ -1044,22 +1198,36 @@ portability, restore, retention, export, or user-visible doctrine.
   "regression_id": "regression://support-worker-canary-001",
   "object_class": "CapabilityRegressionRecord",
   "capability_ref": "worker://support-triage@1.0.2",
-  "capability_kind": "worker | model_route | agent_harness | tool | mcp_server | connector | automation | service | environment_image | package | domain_app | fleet_policy",
+  "capability_kind": "worker | model_route | goal_run_profile | workflow_template | harness_profile | agent_harness | skill_manifest | runtime_tool_contract | evaluator | policy | tool | mcp_server | connector | automation | service | environment_image | package | domain_app | fleet_policy",
   "baseline_version_ref": "worker://support-triage@1.0.1",
   "candidate_or_active_version_ref": "worker://support-triage@1.0.2",
+  "improvement_campaign_ref": "improvement-campaign://support-triage | null",
+  "evaluation_epoch_ref": "evaluation-epoch://support-triage-2 | null",
+  "upgrade_proposal_ref": "proposal://promote-support-triage-1-0-2 | null",
   "detected_in": {
     "phase": "offline_eval | shadow | canary | rollout | production | recall_review",
     "run_refs": ["run://shadow_123"],
     "release_target_refs": ["release://support-tier1-canary"]
   },
-  "regression_class": "quality | safety | privacy | cost | latency | authority | reliability | policy | security | compliance | marketplace_reputation",
+  "regression_class": "quality | safety | privacy | cost | latency | authority | reliability | policy | security | compliance | maintainability | complexity | steerability | product_compatibility | monitorability | workgraph_integrity | irreversible_effect | marketplace_reputation",
   "severity": "info | warning | blocking | critical",
   "evidence_refs": ["receipt://eval_123", "artifact://failure-cluster"],
   "scorecard_refs": ["gate://support-scorecard"],
+  "maintainability_complexity_and_compatibility_refs": ["artifact://support-maintainability-delta"],
+  "monitorability_trace_quality_and_debuggability_refs": ["artifact://support-trace-quality"],
+  "aggregate_workgraph_effect_refs": ["artifact://support-workgraph-impact"],
+  "effect_recovery_posture": {
+    "reversible_state_rollback_refs": ["recovery://support-route-rollback"],
+    "containment_refs": [],
+    "compensation_refs": [],
+    "reconciliation_refs": [],
+    "irreversible_effect_refs": [],
+    "residual_unrecoverable_effect_refs": []
+  },
   "affected_scope_refs": ["project://support", "release://support-tier1-canary"],
   "recommended_action": "reject | hold | shadow_more | pause | rollback | recall | constrain | patch_and_retry | require_human_review",
   "adjudication_ref": "receipt://adjudication_123",
-  "training_evidence_eligibility_ref": "eligibility://support-regression-001",
+  "learning_evidence_eligibility_ref": "eligibility://support-regression-001",
   "future_eval_candidate_refs": ["dataset://support-regression-holdout-candidate"],
   "receipt_ref": "receipt://capability_regression_123",
   "status": "detected | adjudicating | blocked | rejected | shadowing | paused | rolled_back | recalled | constrained | converted_to_eval | closed"
@@ -1163,8 +1331,14 @@ portability, restore, retention, export, or user-visible doctrine.
     "tax_export_refs": ["tax://..."],
     "purchase_order_refs": ["procurement://..."]
   },
-  "l1_anchor_policy": "local_only | optional_anchor | dispute_only | required_public_root",
-  "l1_anchor_refs": ["l1://..."],
+  "settlement_policy": {
+    "default_settlement_mode": "local_domain | bilateral | invoice | external_escrow | external_chain | ioi_l1",
+    "allowed_settlement_modes": [],
+    "settlement_profile_refs": ["policy://..."],
+    "party_network_enrollment_refs": [],
+    "public_commitment_policy_ref": "policy://... | null"
+  },
+  "public_commitment_refs": ["commitment://... | settlement://... | tx://..."],
   "export_receipt_refs": ["receipt://compliance_audit_export_bundle"],
   "status": "requested | generated | delivered | revoked | superseded | expired"
 }
@@ -1243,7 +1417,10 @@ portability, restore, retention, export, or user-visible doctrine.
   "contribution_refs": ["receipt://contribution-provider-b"],
   "settlement_intent_refs": ["settlement-intent://payout-provider-b"],
   "audit_export_profile_refs": ["audit_export://auditor-review"],
-  "l1_anchor_policy": "local_only | optional_anchor | dispute_only | reputation_only | settlement_required | required_public_root",
+  "settlement_mode": "local_domain | bilateral | invoice | external_escrow | external_chain | ioi_l1",
+  "settlement_profile_ref": "policy://...",
+  "network_enrollment_ref": "network-enrollment://... | null",
+  "public_commitment_policy_ref": "policy://... | null",
   "history_policy": {
     "party_removal_effect": "no_new_access | revoke_live_access | tombstone_view | rotate_views",
     "historical_receipts": "immutable | sealed | export_limited"
@@ -1275,6 +1452,18 @@ Minimum persisted room graph:
 {
   "outcome_room_id": "outcome-room://research-123",
   "object_class": "OutcomeRoom",
+  "system_id": "system://outcome-room/research-123",
+  "genesis_ref": "genesis://outcome-room/research-123",
+  "package_id": "package://ioi/outcome-room",
+  "manifest_ref": "package://ioi/outcome-room/release/1.0.0",
+  "constitution_ref": "constitution://outcome-room/research-123/v1",
+  "active_profile_refs": {
+    "deployment": "deployment-profile://...",
+    "ordering_admission_finality": "ordering-profile://...",
+    "oracle_evidence": [],
+    "lifecycle_continuity": "lifecycle-profile://...",
+    "network_enrollment": null
+  },
   "goal_ref": "goal://research-123",
   "room_mode": "private_goal | permissioned_team | cross_org | open_challenge",
   "coordination_topology": "hosted_admission | federated_admission",
@@ -1291,7 +1480,10 @@ Minimum persisted room graph:
   "finding_refs": [],
   "verifier_challenge_refs": [],
   "contribution_refs": [],
+  "latest_sequence": 42,
+  "latest_transition_commitment_ref": "commitment://outcome-room/research-123/42",
   "room_state_root": "sha256:...",
+  "room_receipt_root": "sha256:...",
   "status": "proposed | open | active | paused | blocked | verifying | accepted | disputed | settled | closed | revoked | archived"
 }
 ```
@@ -1339,9 +1531,13 @@ OutcomeRoom
 Room messages, boards, inboxes, digests, feeds, taskforce lists, leaderboards,
 and replay timelines are projection definitions over those objects. They are
 not canonical state classes. Participant inputs remain tainted until the
-declared room admission path accepts an object or delta. Admission records the
-predecessor room root, resulting root, policy/version refs, operation refs, and
-receipt refs without rewriting rejected or superseded history.
+declared room admission path accepts an object or delta. Every mutable relation
+implements `RoomAdmittedObjectBase`: exact participant lease or room-system
+issuer, expected room revision and predecessor transition commitment, payload/
+operation commitment, policy/decision, monotonic sequence, admission proof,
+and resulting revision, transition commitment, state root, and receipt root.
+Agentgres preserves rejected and superseded proposals without rewriting
+history.
 
 For a federated room, a local domain stores its own object heads plus signed
 remote refs and the last admitted federation watermark. It must not import a
@@ -1409,6 +1605,17 @@ MultiPartyCollaborationPartyRemoved
 MultiPartyCollaborationViewGranted
 MultiPartyCollaborationViewRevoked
 MultiPartyCollaborationProofBundleGenerated
+ImprovementGovernanceProfileRegistered
+LearningEvidenceEligibilityRecorded
+ImprovementAgendaRevisionReleased
+ImprovementCampaignAdmitted
+ImprovementCampaignOperationAppended
+EvaluationEpochFrozen
+EvaluationEpochChallenged
+EvaluationExposureEntryAdmitted
+ImprovementOrderCutoffReceiptRecorded
+ImprovementEvidenceClaimRecorded
+ImprovementEvidenceClaimLifecycleAppended
 CapabilityRegressionRecorded
 CapabilityRegressionAdjudicated
 AgentStateArchiveCreated
@@ -1431,7 +1638,7 @@ Runtime projections must expose:
 
 ```json
 {
-  "run_id": "run_123",
+  "run_id": "run://123",
   "source": "agentgres",
   "projection_id": "runtime_run_view",
   "watermark": "domain_seq:99182",
@@ -1476,7 +1683,7 @@ expected-head merge/admission with the required policy, authority, and receipts.
 {
   "object_class": "AgentExecutionTrace",
   "trace_id": "trace://run_123",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "session_ref": "session://...",
   "goal_ref": "goal://...",
   "origin_branch_ref": "execution_branch://main",
@@ -1497,7 +1704,7 @@ expected-head merge/admission with the required policy, authority, and receipts.
 {
   "object_class": "AgentExecutionBranch",
   "execution_branch_ref": "execution_branch://run_123/branch-a",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "parent_branch_ref": "execution_branch://run_123/main",
   "git_ref": "patch_branch://repo/branch-a | optional",
   "workspace_snapshot_ref": "snapshot://...",
@@ -1624,7 +1831,7 @@ authority context required for decryption, and the restore/import receipt chain.
 {
   "object_class": "AgentStateArchive",
   "archive_id": "archive_123",
-  "run_id": "run_123",
+  "run_id": "run://123",
   "agent_id": "agent_abc",
   "base_state_root": "sha256:...",
   "object_heads": {
@@ -1864,3 +2071,10 @@ Agentgres mirrors L1 contract state but does not replace it.
 20. Participant exit releases/reassigns live claims and preserves a portable,
     policy-bound state bundle that does not depend on continued hosted-room
     database access.
+21. Campaign status, candidate archives, remaining budgets/exposure, and claim
+    support are rebuildable projections; mutating a projection cannot change
+    the admitted Campaign, Epoch, ledger, receipt, or proposal truth.
+22. A Campaign operation, score, or evidence claim cannot promote its target;
+    target-owner `UpgradeProposal` and `UpgradeDecision` remain mandatory.
+23. Live sealed evaluation material is not Campaign learning evidence merely
+    because Agentgres recorded its commitment or access receipt.

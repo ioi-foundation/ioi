@@ -34,19 +34,35 @@ const DEFAULT_TTL_SECS: u64 = 900;
 
 /// Bounded first resource classes (canon cloud.md "Resource Classes" — start bounded).
 const RESOURCE_CLASSES: &[&str] = &[
-    "compute.vm", "compute.microvm", "compute.container", "compute.gpu_runtime",
-    "storage.object", "storage.block", "storage.archive", "storage.cas",
-    "network.ip_lease", "network.ingress",
-    "runtime.model_server", "runtime.browser", "runtime.workbench",
-    "security.tee", "security.ctee",
+    "compute.vm",
+    "compute.microvm",
+    "compute.container",
+    "compute.gpu_runtime",
+    "storage.object",
+    "storage.block",
+    "storage.archive",
+    "storage.cas",
+    "network.ip_lease",
+    "network.ingress",
+    "runtime.model_server",
+    "runtime.browser",
+    "runtime.workbench",
+    "security.tee",
+    "security.ctee",
 ];
 const CUSTODY_POSTURES: &[&str] = &["Standard", "Private"];
 
 fn nanos() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
 }
 fn epoch_secs() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 fn text<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
@@ -65,14 +81,17 @@ pub(crate) fn ensure_default_intent(data_dir: &str) -> Value {
     if let Some(existing) = load_intent(data_dir, "cri_default") {
         return existing;
     }
-    let record = intent_record("cri_default", &json!({
-        "requester_ref": "principal://local-operator",
-        "user_placement_choice": "let_hypervisor_choose",
-        "runtime_class": "runtime.workbench",
-        "resource_classes": ["runtime.workbench"],
-        "custody_posture": "Standard",
-        "note": "standing default intent for the Let-Hypervisor-choose advisory lane",
-    }));
+    let record = intent_record(
+        "cri_default",
+        &json!({
+            "requester_ref": "principal://local-operator",
+            "user_placement_choice": "let_hypervisor_choose",
+            "runtime_class": "runtime.workbench",
+            "resource_classes": ["runtime.workbench"],
+            "custody_posture": "Standard",
+            "note": "standing default intent for the Let-Hypervisor-choose advisory lane",
+        }),
+    );
     let _ = persist_record(data_dir, INTENT_KIND, "cri_default", &record);
     record
 }
@@ -110,7 +129,10 @@ fn intent_record(id: &str, body: &Value) -> Value {
 /// Per-account reliability evidence from the REAL provider receipt history (local fact).
 fn receipt_history(data_dir: &str, account_ref: &str) -> Value {
     let receipts = read_record_dir(data_dir, "provider-receipts");
-    let mine: Vec<&Value> = receipts.iter().filter(|r| text(r, "account_ref") == account_ref).collect();
+    let mine: Vec<&Value> = receipts
+        .iter()
+        .filter(|r| text(r, "account_ref") == account_ref)
+        .collect();
     let ok = mine.iter().filter(|r| text(r, "outcome") == "ok").count();
     let failed = mine.len() - ok;
     let last_at = mine.iter().map(|r| text(r, "at")).max().unwrap_or("");
@@ -125,8 +147,16 @@ fn receipt_history(data_dir: &str, account_ref: &str) -> Value {
 /// timestamp, expiry, coverage state, and evidence refs is not placement-eligible.
 #[allow(clippy::too_many_arguments)]
 fn candidate_evidence(
-    id: &str, source: &str, adapter_ref: &str, observed_at: &str, expires_at: &str,
-    coverage: &str, claims: Vec<Value>, risk: &[&str], eligibility: &[&str], refs: Vec<Value>,
+    id: &str,
+    source: &str,
+    adapter_ref: &str,
+    observed_at: &str,
+    expires_at: &str,
+    coverage: &str,
+    claims: Vec<Value>,
+    risk: &[&str],
+    eligibility: &[&str],
+    refs: Vec<Value>,
 ) -> Value {
     json!({
         "schema_version": "ioi.hypervisor.candidate-evidence.v1",
@@ -166,21 +196,47 @@ fn derive_candidates(
     let wants_gpu = intent.get("gpu").map(|g| !g.is_null()).unwrap_or(false);
     let wants_private = text(intent, "custody_posture") == "Private";
     let intent_ref = text(intent, "intent_ref").to_string();
-    let class_enabled = |id: &str| classes.iter().any(|c| c.get("id").and_then(Value::as_str) == Some(id) && c.get("enabled").and_then(Value::as_bool) == Some(true));
+    let class_enabled = |id: &str| {
+        classes.iter().any(|c| {
+            c.get("id").and_then(Value::as_str) == Some(id)
+                && c.get("enabled").and_then(Value::as_bool) == Some(true)
+        })
+    };
 
     let mut candidates: Vec<Value> = Vec::new();
     let mut rejected: Vec<Value> = Vec::new();
-    let mut push_candidate = |idx: usize, source: &str, adapter_ref: &str, provider_kind: &str,
-                              account: Option<&Value>, resource_classes: Vec<&str>, runtime_class: &str,
-                              custody_supported: Vec<&str>, coverage: &str, placement_eligible: bool,
-                              eligibility: Vec<&str>, risk: Vec<&str>, claims: Vec<Value>,
-                              extra_refs: Vec<Value>, spend_state: &str, spend_detail: &str,
-                              custody_detail: &str, failover_detail: &str, reliability: Value| {
+    let mut push_candidate = |idx: usize,
+                              source: &str,
+                              adapter_ref: &str,
+                              provider_kind: &str,
+                              account: Option<&Value>,
+                              resource_classes: Vec<&str>,
+                              runtime_class: &str,
+                              custody_supported: Vec<&str>,
+                              coverage: &str,
+                              placement_eligible: bool,
+                              eligibility: Vec<&str>,
+                              risk: Vec<&str>,
+                              claims: Vec<Value>,
+                              extra_refs: Vec<Value>,
+                              spend_state: &str,
+                              spend_detail: &str,
+                              custody_detail: &str,
+                              failover_detail: &str,
+                              reliability: Value| {
         let id = format!("crc_{:x}_{idx}", nanos());
         let account_ref = account.map(|a| text(a, "account_ref").to_string());
         let evidence = candidate_evidence(
-            &id, source, adapter_ref, &observed_at, &expires_at, coverage,
-            claims, &risk, &eligibility, extra_refs,
+            &id,
+            source,
+            adapter_ref,
+            &observed_at,
+            &expires_at,
+            coverage,
+            claims,
+            &risk,
+            &eligibility,
+            extra_refs,
         );
         candidates.push(json!({
             "schema_version": "ioi.hypervisor.cloud-resource-candidate.v1",
@@ -240,7 +296,9 @@ fn derive_candidates(
             "evidence_refs": ["environment-class://local-workspace-v0"] }));
     } else {
         let mut rc = vec!["runtime.workbench"];
-        if class_enabled("microvm") { rc.push("compute.microvm"); }
+        if class_enabled("microvm") {
+            rc.push("compute.microvm");
+        }
         push_candidate(0, "customer_inventory", "adapter:local-workspace", "local", None,
             rc, "runtime.workbench",
             vec!["Standard", "Private"], "operational",
@@ -274,8 +332,15 @@ fn derive_candidates(
             }
             let reliability = receipt_history(data_dir, account_ref);
             let failed = reliability["ops_failed"].as_u64().unwrap_or(0);
-            let risk: Vec<&str> = if failed > 0 { vec!["prior_failed_operations"] } else { vec![] };
-            let preflight_at = account.pointer("/preflight/at").and_then(Value::as_str).unwrap_or("");
+            let risk: Vec<&str> = if failed > 0 {
+                vec!["prior_failed_operations"]
+            } else {
+                vec![]
+            };
+            let preflight_at = account
+                .pointer("/preflight/at")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             push_candidate(i + 1, "customer_inventory", "adapter:baremetal-ssh", "baremetal_ssh", Some(account),
                 vec!["compute.vm", "runtime.workbench"], "runtime.workbench",
                 vec!["Standard", "Private"], "operational",
@@ -294,26 +359,26 @@ fn derive_candidates(
                 && vast_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
                 && vast_outcome["account_ref"] == account["account_ref"])
                 || (kind == "runpod"
-                && runpod_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && runpod_outcome["account_ref"] == account["account_ref"])
+                    && runpod_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                    && runpod_outcome["account_ref"] == account["account_ref"])
                 || (kind == "lambda_cloud"
-                && lambda_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && lambda_outcome["account_ref"] == account["account_ref"])
+                    && lambda_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                    && lambda_outcome["account_ref"] == account["account_ref"])
                 || (kind == "akash"
-                && akash_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && akash_outcome["account_ref"] == account["account_ref"])
+                    && akash_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                    && akash_outcome["account_ref"] == account["account_ref"])
                 || (kind == "aws"
-                && aws_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && aws_outcome["account_ref"] == account["account_ref"])
+                    && aws_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                    && aws_outcome["account_ref"] == account["account_ref"])
                 || (kind == "gcp"
-                && gcp_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && gcp_outcome["account_ref"] == account["account_ref"])
+                    && gcp_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                    && gcp_outcome["account_ref"] == account["account_ref"])
                 || (kind == "azure"
-                && azure_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && azure_outcome["account_ref"] == account["account_ref"])
+                    && azure_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                    && azure_outcome["account_ref"] == account["account_ref"])
                 || (kind == "k8s"
-                && k8s_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
-                && k8s_outcome["account_ref"] == account["account_ref"]);
+                    && k8s_outcome.get("engaged").and_then(Value::as_bool) == Some(true)
+                    && k8s_outcome["account_ref"] == account["account_ref"]);
             if quote_engaged {
                 if wants_private {
                     rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:vast-quote",
@@ -333,9 +398,17 @@ fn derive_candidates(
             }
             let verified = text(account, "status") == "verified";
             let eligibility: Vec<&str> = if verified {
-                vec!["provider_capable", "credential_preflight_only", "lifecycle_adapter_absent"]
+                vec![
+                    "provider_capable",
+                    "credential_preflight_only",
+                    "lifecycle_adapter_absent",
+                ]
             } else {
-                vec!["provider_capable", "credential_unverified", "lifecycle_adapter_absent"]
+                vec![
+                    "provider_capable",
+                    "credential_unverified",
+                    "lifecycle_adapter_absent",
+                ]
             };
             push_candidate(i + 1, "direct_provider", &format!("adapter:{kind}(absent)"), kind, Some(account),
                 vec!["compute.vm"], "runtime.workbench",
@@ -352,11 +425,20 @@ fn derive_candidates(
     // ── storage backends: ARCHIVE/CAS byte-custody candidates from LOCAL FACTS (verified
     // StorageBackendAccounts). Byte availability only — never authority, never restore truth;
     // shown alongside compute options when the intent asks for storage.archive / storage.cas. ──
-    let wants_storage = intent.get("resource_classes").and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(Value::as_str).any(|c| matches!(c, "storage.archive" | "storage.cas" | "storage.object")))
+    let wants_storage = intent
+        .get("resource_classes")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .any(|c| matches!(c, "storage.archive" | "storage.cas" | "storage.object"))
+        })
         .unwrap_or(false);
     if wants_storage {
-        for (i, fact) in super::storage_backend_routes::backend_facts(data_dir).iter().enumerate() {
+        for (i, fact) in super::storage_backend_routes::backend_facts(data_dir)
+            .iter()
+            .enumerate()
+        {
             let account = fact["account"].clone();
             let kind = text(&account, "kind").to_string();
             let account_ref = text(&account, "account_ref").to_string();
@@ -367,20 +449,42 @@ fn derive_candidates(
                     "evidence_refs": [account_ref] }));
                 continue;
             }
-            let mode = account.pointer("/preflight/evidence/mode").and_then(Value::as_str).unwrap_or("real_local").to_string();
+            let mode = account
+                .pointer("/preflight/evidence/mode")
+                .and_then(Value::as_str)
+                .unwrap_or("real_local")
+                .to_string();
             let fixture = mode == "fixture_evidence";
             let network_kind = matches!(kind.as_str(), "ipfs" | "filecoin");
             let objects = fact["objects"].as_u64().unwrap_or(0);
             let open_incidents = fact["open_incidents"].as_u64().unwrap_or(0);
-            let source = if network_kind { "storage_network" } else { "customer_inventory" };
-            let mut risk: Vec<&str> = vec![];
-            if network_kind { risk.push("public_network_availability_sealed_bytes_only"); }
-            if fixture { risk.push("fixture_evidence_not_network_availability"); }
-            if open_incidents > 0 { risk.push("open_availability_incidents"); }
-            let eligibility: Vec<&str> = if fixture {
-                vec!["advisory_only", "fixture_local_cas", "archive_export_available"]
+            let source = if network_kind {
+                "storage_network"
             } else {
-                vec!["placement_eligible", "archive_export_available", "custody_probe_verified"]
+                "customer_inventory"
+            };
+            let mut risk: Vec<&str> = vec![];
+            if network_kind {
+                risk.push("public_network_availability_sealed_bytes_only");
+            }
+            if fixture {
+                risk.push("fixture_evidence_not_network_availability");
+            }
+            if open_incidents > 0 {
+                risk.push("open_availability_incidents");
+            }
+            let eligibility: Vec<&str> = if fixture {
+                vec![
+                    "advisory_only",
+                    "fixture_local_cas",
+                    "archive_export_available",
+                ]
+            } else {
+                vec![
+                    "placement_eligible",
+                    "archive_export_available",
+                    "custody_probe_verified",
+                ]
             };
             let custody_detail = format!(
                 "{} — sealed_wallet_secret encryption before every write; provider-native addresses (CID/path/deal) are availability evidence only",
@@ -407,14 +511,21 @@ fn derive_candidates(
     // are clusters; unauthorized namespaces are rejected by name, never silently skipped. ──
     if k8s_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
         if text(k8s_outcome, "state") == "degraded_unreachable" {
-            rejected.push(json!({ "source": "k8s", "adapter_ref": "adapter:k8s-cluster-facts",
+            rejected.push(
+                json!({ "source": "k8s", "adapter_ref": "adapter:k8s-cluster-facts",
                 "provider_account_ref": k8s_outcome["account_ref"],
                 "reason_code": "candidate_source_degraded",
                 "detail": "cluster facts probe failed — no fake cluster facts on failure",
-                "evidence_refs": [k8s_outcome["evidence"].clone()] }));
+                "evidence_refs": [k8s_outcome["evidence"].clone()] }),
+            );
         } else {
             let (k8s_candidates, k8s_rejected) = super::k8s_candidate_source::normalize_offers(
-                k8s_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+                k8s_outcome,
+                &intent_ref,
+                batch,
+                &observed_at,
+                &expires_at,
+                expires_epoch,
             );
             candidates.extend(k8s_candidates);
             rejected.extend(k8s_rejected);
@@ -423,98 +534,147 @@ fn derive_candidates(
     // ── direct_provider: real Azure VM offers (ENTERPRISE customer-cloud lane). ──
     if azure_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
         if text(azure_outcome, "state") == "degraded_unreachable" {
-            rejected.push(json!({ "source": "direct_provider", "adapter_ref": "adapter:azure-vm-quote",
+            rejected.push(
+                json!({ "source": "direct_provider", "adapter_ref": "adapter:azure-vm-quote",
                 "provider_account_ref": azure_outcome["account_ref"],
                 "reason_code": "candidate_source_degraded",
                 "detail": "azure VM-size-offer fetch failed — no fake offers on failure",
-                "evidence_refs": [azure_outcome["evidence"].clone()] }));
+                "evidence_refs": [azure_outcome["evidence"].clone()] }),
+            );
         } else {
             candidates.extend(super::azure_candidate_source::normalize_offers(
-                azure_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+                azure_outcome,
+                &intent_ref,
+                batch,
+                &observed_at,
+                &expires_at,
+                expires_epoch,
             ));
         }
     }
     // ── direct_provider: real GCP Compute Engine offers (ENTERPRISE customer-cloud lane). ──
     if gcp_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
         if text(gcp_outcome, "state") == "degraded_unreachable" {
-            rejected.push(json!({ "source": "direct_provider", "adapter_ref": "adapter:gcp-compute-quote",
+            rejected.push(
+                json!({ "source": "direct_provider", "adapter_ref": "adapter:gcp-compute-quote",
                 "provider_account_ref": gcp_outcome["account_ref"],
                 "reason_code": "candidate_source_degraded",
                 "detail": "gcp machine-offer fetch failed — no fake offers on failure",
-                "evidence_refs": [gcp_outcome["evidence"].clone()] }));
+                "evidence_refs": [gcp_outcome["evidence"].clone()] }),
+            );
         } else {
             candidates.extend(super::gcp_candidate_source::normalize_offers(
-                gcp_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+                gcp_outcome,
+                &intent_ref,
+                batch,
+                &observed_at,
+                &expires_at,
+                expires_epoch,
             ));
         }
     }
     // ── direct_provider: real AWS EC2 on-demand offers (ENTERPRISE customer-cloud lane). ──
     if aws_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
         if text(aws_outcome, "state") == "degraded_unreachable" {
-            rejected.push(json!({ "source": "direct_provider", "adapter_ref": "adapter:aws-ec2-quote",
+            rejected.push(
+                json!({ "source": "direct_provider", "adapter_ref": "adapter:aws-ec2-quote",
                 "provider_account_ref": aws_outcome["account_ref"],
                 "reason_code": "candidate_source_degraded",
                 "detail": "aws instance-offer fetch failed — no fake offers on failure",
-                "evidence_refs": [aws_outcome["evidence"].clone()] }));
+                "evidence_refs": [aws_outcome["evidence"].clone()] }),
+            );
         } else {
             candidates.extend(super::aws_candidate_source::normalize_offers(
-                aws_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+                aws_outcome,
+                &intent_ref,
+                batch,
+                &observed_at,
+                &expires_at,
+                expires_epoch,
             ));
         }
     }
     // ── depin_market: real Akash BID advisories (deployment/lease semantics preserved). ──
     if akash_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
         if text(akash_outcome, "state") == "degraded_unreachable" {
-            rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:akash-bid",
+            rejected.push(
+                json!({ "source": "depin_market", "adapter_ref": "adapter:akash-bid",
                 "provider_account_ref": akash_outcome["account_ref"],
                 "reason_code": "candidate_source_degraded",
                 "detail": "akash bid fetch failed — no fake bids on failure",
-                "evidence_refs": [akash_outcome["evidence"].clone()] }));
+                "evidence_refs": [akash_outcome["evidence"].clone()] }),
+            );
         } else {
             candidates.extend(super::akash_candidate_source::normalize_offers(
-                akash_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+                akash_outcome,
+                &intent_ref,
+                batch,
+                &observed_at,
+                &expires_at,
+                expires_epoch,
             ));
         }
     }
     // ── direct_provider: real Lambda GPU VM quotes (instance-type rate cards; VM semantics). ──
     if lambda_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
         if text(lambda_outcome, "state") == "degraded_unreachable" {
-            rejected.push(json!({ "source": "direct_provider", "adapter_ref": "adapter:lambda-quote",
+            rejected.push(
+                json!({ "source": "direct_provider", "adapter_ref": "adapter:lambda-quote",
                 "provider_account_ref": lambda_outcome["account_ref"],
                 "reason_code": "candidate_source_degraded",
                 "detail": "lambda instance-type fetch failed — no fake quotes on failure",
-                "evidence_refs": [lambda_outcome["evidence"].clone()] }));
+                "evidence_refs": [lambda_outcome["evidence"].clone()] }),
+            );
         } else {
             candidates.extend(super::lambda_candidate_source::normalize_offers(
-                lambda_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+                lambda_outcome,
+                &intent_ref,
+                batch,
+                &observed_at,
+                &expires_at,
+                expires_epoch,
             ));
         }
     }
     // ── direct_provider: real RunPod GPU-type quotes (rate cards; secure/community pricing). ──
     if runpod_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
         if text(runpod_outcome, "state") == "degraded_unreachable" {
-            rejected.push(json!({ "source": "direct_provider", "adapter_ref": "adapter:runpod-quote",
+            rejected.push(
+                json!({ "source": "direct_provider", "adapter_ref": "adapter:runpod-quote",
                 "provider_account_ref": runpod_outcome["account_ref"],
                 "reason_code": "candidate_source_degraded",
                 "detail": "runpod GPU-type fetch failed — no fake quotes on failure",
-                "evidence_refs": [runpod_outcome["evidence"].clone()] }));
+                "evidence_refs": [runpod_outcome["evidence"].clone()] }),
+            );
         } else {
             candidates.extend(super::runpod_candidate_source::normalize_offers(
-                runpod_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+                runpod_outcome,
+                &intent_ref,
+                batch,
+                &observed_at,
+                &expires_at,
+                expires_epoch,
             ));
         }
     }
     // ── depin_market: real Vast offers (quote-only, advisory supply — never recommendable). ──
     if vast_outcome.get("engaged").and_then(Value::as_bool) == Some(true) && !wants_private {
         if text(vast_outcome, "state") == "degraded_unreachable" {
-            rejected.push(json!({ "source": "depin_market", "adapter_ref": "adapter:vast-quote",
+            rejected.push(
+                json!({ "source": "depin_market", "adapter_ref": "adapter:vast-quote",
                 "provider_account_ref": vast_outcome["account_ref"],
                 "reason_code": "candidate_source_degraded",
                 "detail": "vast offer fetch failed — no fake quotes on failure",
-                "evidence_refs": [vast_outcome["evidence"].clone()] }));
+                "evidence_refs": [vast_outcome["evidence"].clone()] }),
+            );
         } else {
             candidates.extend(super::vast_candidate_source::normalize_offers(
-                vast_outcome, &intent_ref, batch, &observed_at, &expires_at, expires_epoch,
+                vast_outcome,
+                &intent_ref,
+                batch,
+                &observed_at,
+                &expires_at,
+                expires_epoch,
             ));
         }
     }
@@ -542,11 +702,19 @@ fn chrono_like(epoch: u64) -> String {
 
 /// Read-time candidate status: active | expired (+ superseded batches marked by refresh).
 pub(crate) fn with_read_status(mut c: Value) -> Value {
-    let expired = c.get("expires_epoch").and_then(Value::as_u64).map(|e| epoch_secs() > e).unwrap_or(true);
+    let expired = c
+        .get("expires_epoch")
+        .and_then(Value::as_u64)
+        .map(|e| epoch_secs() > e)
+        .unwrap_or(true);
     if expired {
         c["status"] = json!("expired");
         c["placement_eligible"] = json!(false);
-        let mut labels: Vec<Value> = c.get("eligibility_labels").and_then(Value::as_array).cloned().unwrap_or_default();
+        let mut labels: Vec<Value> = c
+            .get("eligibility_labels")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         labels.retain(|l| l.as_str() != Some("placement_eligible"));
         labels.push(json!("expired_requires_requote"));
         c["eligibility_labels"] = json!(labels);
@@ -569,13 +737,19 @@ async fn live_classes(base: &str) -> Vec<Value> {
 }
 
 /// Derive + persist a fresh batch for an intent; supersede the prior batch (kept as evidence).
-async fn refresh_candidates(st: &Arc<DaemonState>, intent: &Value, ttl_secs: u64) -> (Vec<Value>, Vec<Value>) {
+async fn refresh_candidates(
+    st: &Arc<DaemonState>,
+    intent: &Value,
+    ttl_secs: u64,
+) -> (Vec<Value>, Vec<Value>) {
     let classes = live_classes(&st.base_url).await;
     let batch = format!("batch_{:x}", nanos());
     let intent_ref = text(intent, "intent_ref");
     // Supersede prior batch records (they remain on disk as evidence, no longer eligible).
     for mut old in read_record_dir(&st.data_dir, CANDIDATE_KIND) {
-        if text(&old, "intent_ref") == intent_ref && old.get("status").and_then(Value::as_str) != Some("superseded") {
+        if text(&old, "intent_ref") == intent_ref
+            && old.get("status").and_then(Value::as_str) != Some("superseded")
+        {
             let id = text(&old, "candidate_id").to_string();
             old["status"] = json!("superseded");
             old["placement_eligible"] = json!(false);
@@ -590,7 +764,21 @@ async fn refresh_candidates(st: &Arc<DaemonState>, intent: &Value, ttl_secs: u64
     let gcp_outcome = super::gcp_candidate_source::fetch_offers(st).await;
     let azure_outcome = super::azure_candidate_source::fetch_offers(st).await;
     let k8s_outcome = super::k8s_candidate_source::fetch_offers(st).await;
-    let (candidates, rejected) = derive_candidates(&st.data_dir, intent, &classes, ttl_secs, &batch, &vast_outcome, &runpod_outcome, &lambda_outcome, &akash_outcome, &aws_outcome, &gcp_outcome, &azure_outcome, &k8s_outcome);
+    let (candidates, rejected) = derive_candidates(
+        &st.data_dir,
+        intent,
+        &classes,
+        ttl_secs,
+        &batch,
+        &vast_outcome,
+        &runpod_outcome,
+        &lambda_outcome,
+        &akash_outcome,
+        &aws_outcome,
+        &gcp_outcome,
+        &azure_outcome,
+        &k8s_outcome,
+    );
     for c in &candidates {
         let _ = persist_record(&st.data_dir, CANDIDATE_KIND, text(c, "candidate_id"), c);
     }
@@ -608,26 +796,39 @@ pub(crate) async fn handle_intent_create(
     if let Some(classes) = body.get("resource_classes").and_then(Value::as_array) {
         for c in classes {
             if !RESOURCE_CLASSES.contains(&c.as_str().unwrap_or("")) {
-                return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": {
+                return (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(json!({ "ok": false, "error": {
                     "code": "resource_class_unknown",
-                    "message": format!("'{}' is not a bounded first resource class — allowed: {RESOURCE_CLASSES:?}", c.as_str().unwrap_or("?")) } })));
+                    "message": format!("'{}' is not a bounded first resource class — allowed: {RESOURCE_CLASSES:?}", c.as_str().unwrap_or("?")) } })),
+                );
             }
         }
     }
     if let Some(p) = body.get("custody_posture").and_then(Value::as_str) {
         if !CUSTODY_POSTURES.contains(&p) {
-            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": {
-                "code": "custody_posture_invalid", "message": "custody_posture must be Standard | Private" } })));
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({ "ok": false, "error": {
+                "code": "custody_posture_invalid", "message": "custody_posture must be Standard | Private" } })),
+            );
         }
     }
     let id = format!("cri_{:x}", nanos());
     let record = intent_record(&id, &body);
     let _ = persist_record(&st.data_dir, INTENT_KIND, &id, &record);
-    let ttl = body.get("ttl_seconds").and_then(Value::as_u64).unwrap_or(DEFAULT_TTL_SECS).clamp(5, 3600);
+    let ttl = body
+        .get("ttl_seconds")
+        .and_then(Value::as_u64)
+        .unwrap_or(DEFAULT_TTL_SECS)
+        .clamp(5, 3600);
     let (candidates, rejected) = refresh_candidates(&st, &record, ttl).await;
-    (StatusCode::CREATED, Json(json!({ "ok": true, "intent": record,
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "intent": record,
         "candidates": candidates, "rejected": rejected,
-        "candidate_rule": "candidates are proposals with evidence and expiry — never authority" })))
+        "candidate_rule": "candidates are proposals with evidence and expiry — never authority" })),
+    )
 }
 
 /// GET /v1/hypervisor/cloud-candidates/intents/:id
@@ -636,8 +837,14 @@ pub(crate) async fn handle_intent_get(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     match load_intent(&st.data_dir, &id) {
-        Some(intent) => (StatusCode::OK, Json(json!({ "ok": true, "intent": intent }))),
-        None => (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } }))),
+        Some(intent) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "intent": intent })),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } })),
+        ),
     }
 }
 
@@ -647,19 +854,28 @@ pub(crate) async fn handle_candidates_list(
     Query(q): Query<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     let Some(intent_ref) = q.get("intent_ref") else {
-        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "intent_ref_required" } })));
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "ok": false, "error": { "code": "intent_ref_required" } })),
+        );
     };
     let Some(intent) = load_intent(&st.data_dir, intent_ref) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } })));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } })),
+        );
     };
     let candidates = candidates_for(&st.data_dir, text(&intent, "intent_ref"));
-    (StatusCode::OK, Json(json!({
-        "schema_version": "ioi.hypervisor.cloud-resource-candidates.v1",
-        "intent_ref": intent["intent_ref"],
-        "candidates": candidates,
-        "candidate_rule": "candidates are proposals with evidence and expiry — never authority; expired/superseded candidates are not placement-eligible",
-        "at": iso_now(),
-    })))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.hypervisor.cloud-resource-candidates.v1",
+            "intent_ref": intent["intent_ref"],
+            "candidates": candidates,
+            "candidate_rule": "candidates are proposals with evidence and expiry — never authority; expired/superseded candidates are not placement-eligible",
+            "at": iso_now(),
+        })),
+    )
 }
 
 /// POST /v1/hypervisor/cloud-candidates/candidates/refresh — { intent_ref, ttl_seconds? }.
@@ -670,12 +886,22 @@ pub(crate) async fn handle_candidates_refresh(
 ) -> (StatusCode, Json<Value>) {
     let intent_ref = text(&body, "intent_ref");
     let Some(intent) = load_intent(&st.data_dir, intent_ref) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } })));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } })),
+        );
     };
-    let ttl = body.get("ttl_seconds").and_then(Value::as_u64).unwrap_or(DEFAULT_TTL_SECS).clamp(5, 3600);
+    let ttl = body
+        .get("ttl_seconds")
+        .and_then(Value::as_u64)
+        .unwrap_or(DEFAULT_TTL_SECS)
+        .clamp(5, 3600);
     let (candidates, rejected) = refresh_candidates(&st, &intent, ttl).await;
-    (StatusCode::OK, Json(json!({ "ok": true, "intent_ref": intent["intent_ref"],
-        "candidates": candidates, "rejected": rejected, "ttl_seconds": ttl, "at": iso_now() })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "intent_ref": intent["intent_ref"],
+        "candidates": candidates, "rejected": rejected, "ttl_seconds": ttl, "at": iso_now() })),
+    )
 }
 
 /// GET /v1/hypervisor/cloud-candidates/candidate-sources — the source registry with HONEST
@@ -683,8 +909,14 @@ pub(crate) async fn handle_candidates_refresh(
 /// WITH EVIDENCE (no adapter), never fake prices.
 pub(crate) async fn handle_candidate_sources(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let accounts = read_record_dir(&st.data_dir, "provider-accounts");
-    let ssh_verified = accounts.iter().filter(|a| a["kind"] == "baremetal_ssh" && a["status"] == "verified").count();
-    let cloud_connected = accounts.iter().filter(|a| a["kind"] != "baremetal_ssh").count();
+    let ssh_verified = accounts
+        .iter()
+        .filter(|a| a["kind"] == "baremetal_ssh" && a["status"] == "verified")
+        .count();
+    let cloud_connected = accounts
+        .iter()
+        .filter(|a| a["kind"] != "baremetal_ssh")
+        .count();
     Json(json!({
         "schema_version": "ioi.hypervisor.cloud-candidate-sources.v1",
         "sources": [
@@ -725,30 +957,58 @@ pub(crate) async fn advisory_for(st: &Arc<DaemonState>, intent: &Value, persist:
     // Stale coverage cannot advise silently (canon): requote when nothing is active OR when the
     // provider-account facts changed after the batch was observed (accounts added/verified/
     // revoked must reflect immediately in the advisory).
-    let latest_observed = candidates.iter()
+    let latest_observed = candidates
+        .iter()
         .filter(|c| c["status"] == "active")
         .map(|c| text(c, "observed_at").to_string())
         .max()
         .unwrap_or_default();
     let facts_changed = read_record_dir(&st.data_dir, "provider-accounts")
         .iter()
-        .any(|a| text(a, "updated_at") > latest_observed.as_str() || text(a, "created_at") > latest_observed.as_str());
+        .any(|a| {
+            text(a, "updated_at") > latest_observed.as_str()
+                || text(a, "created_at") > latest_observed.as_str()
+        });
     if !active_exists || facts_changed {
         let (fresh, _) = refresh_candidates(st, intent, DEFAULT_TTL_SECS).await;
         candidates = fresh.into_iter().map(with_read_status).collect();
     }
-    let eligible: Vec<&Value> = candidates.iter()
+    let eligible: Vec<&Value> = candidates
+        .iter()
         .filter(|c| c["placement_eligible"] == true && c["status"] == "active")
         .collect();
     let score = |c: &Value| -> i64 {
         let mut s = 0;
-        if c.get("eligibility_labels").and_then(Value::as_array).map(|l| l.iter().any(|x| x == "full_lifecycle")).unwrap_or(false) { s += 20; }
-        if c.get("eligibility_labels").and_then(Value::as_array).map(|l| l.iter().any(|x| x == "conformance_reference")).unwrap_or(false) { s += 10; }
-        if c.get("reliability").and_then(|r| r.get("ops_failed")).and_then(Value::as_u64).unwrap_or(0) > 0 { s -= 5; }
+        if c.get("eligibility_labels")
+            .and_then(Value::as_array)
+            .map(|l| l.iter().any(|x| x == "full_lifecycle"))
+            .unwrap_or(false)
+        {
+            s += 20;
+        }
+        if c.get("eligibility_labels")
+            .and_then(Value::as_array)
+            .map(|l| l.iter().any(|x| x == "conformance_reference"))
+            .unwrap_or(false)
+        {
+            s += 10;
+        }
+        if c.get("reliability")
+            .and_then(|r| r.get("ops_failed"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+            > 0
+        {
+            s -= 5;
+        }
         s
     };
     let mut ranked: Vec<&&Value> = eligible.iter().collect();
-    ranked.sort_by(|a, b| score(b).cmp(&score(a)).then(text(a, "candidate_ref").cmp(text(b, "candidate_ref"))));
+    ranked.sort_by(|a, b| {
+        score(b)
+            .cmp(&score(a))
+            .then(text(a, "candidate_ref").cmp(text(b, "candidate_ref")))
+    });
     let venue_of = |c: &Value| match text(c, "provider_kind") {
         "local" => "run_local",
         "baremetal_ssh" => "use_my_infrastructure",
@@ -758,15 +1018,24 @@ pub(crate) async fn advisory_for(st: &Arc<DaemonState>, intent: &Value, persist:
     let recommendation = ranked.first().map(|c| {
         // Reason codes derive from the winning candidate's LABELS, not the score value — a
         // reliability penalty must not relabel a full-lifecycle node as the local reference.
-        let has = |label: &str| c.get("eligibility_labels").and_then(Value::as_array)
-            .map(|l| l.iter().any(|x| x == label)).unwrap_or(false);
+        let has = |label: &str| {
+            c.get("eligibility_labels")
+                .and_then(Value::as_array)
+                .map(|l| l.iter().any(|x| x == label))
+                .unwrap_or(false)
+        };
         let mut reasons: Vec<&str> = Vec::new();
         if has("full_lifecycle") {
             reasons.push("full_lifecycle_over_verified_byo_node");
         } else {
             reasons.push("local_conformance_reference");
         }
-        if c.get("reliability").and_then(|r| r.get("ops_failed")).and_then(Value::as_u64).unwrap_or(0) > 0 {
+        if c.get("reliability")
+            .and_then(|r| r.get("ops_failed"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+            > 0
+        {
             reasons.push("prior_failed_operations_noted");
         }
         if ranked.len() > 1 {
@@ -816,7 +1085,14 @@ pub(crate) async fn handle_placement_advisory(
     let intent = match q.get("intent_ref") {
         Some(r) => match load_intent(&st.data_dir, r) {
             Some(i) => i,
-            None => return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } }))),
+            None => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(
+                        json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } }),
+                    ),
+                )
+            }
         },
         None => ensure_default_intent(&st.data_dir),
     };

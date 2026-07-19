@@ -9,10 +9,10 @@ Supersedes: plan prose that scatters certification, compliance, insurance,
 abuse response, billing assurance, or customer audit exports across runtime,
 wallet, marketplace, and product docs without a shared boundary.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-15.
 Doctrine status: canonical
-Implementation status: speculative (assurance/certification layer design)
-Last implementation audit: 2026-07-05
+Implementation status: mixed (assurance/certification/liability layer remains speculative; deterministic deployment-policy obligation projection is a built reference mechanism and deliberately returns no legal-conformity decision)
+Last implementation audit: 2026-07-16
 
 ## Canonical Definition
 
@@ -161,6 +161,7 @@ EcosystemAssuranceProfile:
     executable_eval_suite |
     storage_backend |
     marketplace_listing |
+    standard_das |
     custom
   version: semver
   issuer_ref: org:... | domain:... | governance_ref:...
@@ -168,7 +169,8 @@ EcosystemAssuranceProfile:
     worker_package | managed_worker_instance | runtime_node |
     authority_client | mcp_gateway_profile | service_order |
     service_package | foundry_job | embodied_domain |
-    executable_eval_suite | eval_world | storage_backend | domain_kernel
+    executable_eval_suite | eval_world | storage_backend | domain_kernel |
+    autonomous_system
   required_evidence:
     - receipt_type: string
       requirement: string
@@ -197,7 +199,7 @@ ConformanceProfile:
     worker_endpoint | harness_adapter | runtime_node |
     wallet_authority_client | mcp_gateway | ctee_private_workspace |
     hypervisoros_node | embodied_runtime | service_endpoint |
-    executable_eval_world | storage_backend | agentgres_domain
+    executable_eval_world | storage_backend | agentgres_domain | standard_das
   version: semver
   required_interfaces:
     - interface_ref: api://...
@@ -237,7 +239,7 @@ CertificationClaim:
   expires_at: timestamp | null
   status:
     draft | active | restricted | suspended | revoked | expired
-  public_anchor_ref: l1://... | null
+  public_anchor_ref: commitment://... | settlement://... | tx://... | null
   revocation_receipt_ref: receipt://... | null
 ```
 
@@ -253,6 +255,14 @@ shape.
 ```yaml
 JurisdictionPolicyPack:
   pack_id: jurisdiction_policy_pack://...
+  version: semver
+  issued_at: timestamp
+  effective_at: timestamp
+  supersedes_ref: jurisdiction_policy_pack://... | null
+  issuer:
+    issuer_ref: org://... | domain://... | governance://...
+    responsible_ref: principal://... | role://...
+    accountable_ref: principal://... | role://...
   jurisdiction:
     country: string | null
     region: string | null
@@ -289,6 +299,24 @@ JurisdictionPolicyPack:
   audit_requirements:
     evidence_profile_refs:
       - assurance_profile://...
+  incident_reporting:
+    rules_version: semver
+    deadlines:
+      - incident_class: string
+        clock_start:
+          detected_at | confirmed_at | materiality_determined_at |
+          authority_request_received_at
+        initial_notice_within_ms: integer | null
+        full_report_within_ms: integer | null
+        recipient_ref: authority://... | regulator://... | counterparty://...
+        evidence_projection_profile_ref: assurance_profile://...
+        responsible_ref: principal://... | role://...
+        accountable_ref: principal://... | role://...
+  erasure_requirements:
+    crypto_shredding_eligible: boolean
+    crypto_shredding_policy_ref: policy://... | null
+    erasure_verification_profile_ref: assurance_profile://... | null
+    exception_policy_ref: policy://... | null
 ```
 
 Policy packs compile into existing owners:
@@ -298,14 +326,24 @@ Policy packs compile into existing owners:
 - Agentgres retention, receipt, state-root, and export validity;
 - marketplace listing restrictions;
 - sas.xyz SLA, refund, bond, and provider obligations;
-- IOI L1 public anchors when required.
+- optional IOI L1 public anchors when explicit enrollment and the selected
+  settlement profile require them.
 
 The pack is not legal advice and not a substitute for domain-specific review.
+Deadline arithmetic must retain the exact pack version and triggering timestamp.
+Changing a deadline, clock-start rule, recipient, responsible party, or
+accountable issuer requires a new pack version; it must not rewrite an
+already-recorded reporting decision.
 
 ### `AssuranceEvidenceBundle`
 
 `AssuranceEvidenceBundle` packages evidence refs without becoming payload
-storage or operational truth.
+storage or operational truth. Its optional `deployment_assurance` member is the
+canonical `EmbodiedDeploymentAssuranceCase` shape; the owning
+`assurance_evidence://...` bundle remains its stable identity so no second
+embodied-assurance registry is created. Its single field-level schema is owned
+by
+[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md#embodieddeploymentassurancecase).
 
 ```yaml
 AssuranceEvidenceBundle:
@@ -321,20 +359,69 @@ AssuranceEvidenceBundle:
     - artifact://...
   scorecard_refs:
     - scorecard://...
+  deployment_assurance: EmbodiedDeploymentAssuranceCase | null
+  attestation_assurance:
+    policy_ref: policy://...
+    workload_identity: workload://...
+    daemon_build_hash: sha256:...
+    policy_build_hash: sha256:...
+    accepted_evidence_refs:
+      - attestation://...
+    rejected_evidence_refs:
+      - attestation://...
+    appraisal_result_refs:
+      - appraisal://...
+    evaluation_receipt_ref: receipt://...
+    effective_posture:
+      unverified | trusted_operator | software_only | measured_boot |
+      secure_element | cpu_tee | gpu_confidential_compute |
+      cpu_tee_and_gpu_confidential_compute
+    hardware_or_measured_attested: boolean
+    evaluated_at: timestamp
+    reattest_by: timestamp | null
   policy_refs:
     - policy://...
   wallet_authority_refs:
     - authority://...
-  l1_anchor_refs:
-    - l1://...
+  settlement_mode:
+    local_domain | bilateral | invoice | external_escrow | external_chain | ioi_l1
+  settlement_profile_ref: policy://...
+  network_enrollment_ref: network-enrollment://... | null
+  public_commitment_policy_ref: policy://... | null
+  public_commitment_refs:
+    - commitment://... | settlement://... | tx://...
   redaction_profile_ref: policy://...
   export_policy_ref: policy://...
+  incident_reporting_evidence:
+    jurisdiction_policy_pack_ref: jurisdiction_policy_pack://... | null
+    rules_version: semver | null
+    trigger_timestamp: timestamp | null
+    responsible_ref: principal://... | role://... | null
+    accountable_ref: principal://... | role://... | null
+    notice_receipt_refs:
+      - receipt://...
+    report_receipt_refs:
+      - receipt://...
+  erasure_evidence:
+    erasure_request_ref: request://... | null
+    crypto_shredding_receipt_refs:
+      - receipt://...
+    deletion_receipt_refs:
+      - receipt://...
+    verification_receipt_refs:
+      - receipt://...
+    exception_refs:
+      - policy://... | decision://...
   validity:
     valid | incomplete | stale | disputed | revoked
 ```
 
 Bundles should contain refs, hashes, roots, scorecards, and redacted summaries.
 Raw private payloads remain under storage and wallet authority.
+Crypto-shredding evidence proves only destruction of the bound key material.
+An erasure claim also accounts for replicas, derived artifacts, retention locks,
+legal holds, backups, and declared exceptions under the named verification
+profile; an empty receipt list is not proof of erasure.
 
 ### `AssurancePostureProjection`
 
@@ -358,12 +445,34 @@ AssurancePostureProjection:
   commercial_status:
     active | payment_required | invoice_pending | sla_at_risk |
     sla_breached | refund_pending | tax_export_required
+  attestation_assurance:
+    effective_posture:
+      unverified | trusted_operator | software_only | measured_boot |
+      secure_element | cpu_tee | gpu_confidential_compute |
+      cpu_tee_and_gpu_confidential_compute
+    hardware_or_measured_attested: boolean
+    appraisal_status: current | stale | rejected | unavailable
+    reattest_by: timestamp | null
+  evidence_projection_state:
+    complete | incomplete | stale | disputed | revoked | unavailable
+  incident_reporting_state:
+    not_triggered | clock_running | notice_due | notice_submitted |
+    report_due | report_submitted | overdue | disputed | not_applicable |
+    unknown
+  erasure_evidence_state:
+    not_requested | pending | crypto_shredded | verified_erased |
+    partially_erased | excepted | disputed | unknown
+  legal_conformity_claim: not_determined
   evidence_watermark: string
   last_checked_at: timestamp
 ```
 
 Projections are rebuildable from Agentgres operations, receipts, policy packs,
 wallet refs, marketplace state, service-order state, and public anchors.
+They report evidence and workflow state only. Generated projections must always
+emit `legal_conformity_claim: not_determined`; no score, current deadline,
+attestation posture, submitted report, crypto-shredding receipt, certification,
+or policy-pack match is a legal determination.
 
 ### `ComplianceAuditExportBundle`
 
@@ -438,10 +547,13 @@ ComplianceAuditExportBundle:
       - tax://...
     purchase_order_refs:
       - procurement://...
-  l1_anchor_policy:
-    local_only | optional_anchor | dispute_only | required_public_root
-  l1_anchor_refs:
-    - l1://...
+  settlement_mode:
+    local_domain | bilateral | invoice | external_escrow | external_chain | ioi_l1
+  settlement_profile_ref: policy://...
+  network_enrollment_ref: network-enrollment://... | null
+  public_commitment_policy_ref: policy://... | null
+  public_commitment_refs:
+    - commitment://... | settlement://... | tx://...
   generated_by_ref: agentgres://operation/... | runtime://...
   generated_at: timestamp
   validity:
@@ -462,6 +574,56 @@ authority policy. A replay or proof view must not bypass the export manifest.
 
 ## Default Profile Families
 
+### Standard DAS
+
+`standard_das` is the IOI Network conformance/assurance family for a bounded
+distributed autonomous system. A versioned profile should require:
+
+- an active `AutonomousSystemConstitutionEnvelope` with enforceable purpose,
+  prohibitions, authority/effect ceilings, external revocation, protected
+  amendment, emergency, and shutdown boundaries;
+- a manifest plus explicit deployment, observed membership, failover, and
+  ordering/admission/finality profiles;
+- separation of policy/authority, daemon execution/enforcement, Agentgres
+  operational truth, payload storage, and optional public settlement;
+- role-scoped node membership, failure-domain evidence, catch-up/root
+  verification, fencing epochs, degraded/partition posture, RPO/RTO, and honest
+  desired-versus-observed topology;
+- typed receipts, evidence, verification, acceptance/adjudication separation,
+  replay, export, and dispute support;
+- external facts governed by a versioned oracle/evidence profile with source,
+  freshness, independence, contradiction, uncertainty, challenge, and
+  adjudication semantics;
+- proposal-mediated improvement that cannot self-amend protected constitutional
+  boundaries or self-grant authority;
+- migration, succession/adoption, authority rotation, dissolution,
+  decommission, data/state/evidence export, residual-asset, obligation, and
+  network-exit semantics;
+- negative conformance tests for authority widening, dual writers, stale or
+  manipulated evidence, self-propagation, and false assurance claims.
+
+Standard DAS is a profile family, not one fixed consensus algorithm or topology.
+A single-authority/PoA-1 system may conform when its declared fault and trust
+model is honest. A passing result proves conformance only to the named version
+and evidence window. It does not prove benevolence, output correctness, legal
+compliance in every jurisdiction, uninterrupted availability, or freedom from
+all compromise.
+
+### IOI Network Enrollment And Assurance Mapping
+
+Enrollment is orthogonal to the assurance ladder:
+
+| Enrollment | Assurance posture |
+| --- | --- |
+| `ioi_compatible` | May prove local protocol conformance but claims no IOI Network connection, certification, or shared security. |
+| `ioi_connected` | May claim only the exact connected services and current conformance results bound in its enrollment. Connection alone is not Standard DAS certification. |
+| `ioi_secured` | Requires a current Standard DAS profile plus named security/assurance services, providers, terms, fault model, evidence, duration, and bonds/claims where applicable. |
+
+`ioi_secured` never collapses `attested`, `evidenced`, `verified`, `accepted`,
+`adjudicated`, and `settled`, and it is never a blanket "safe" badge. The
+enrollment owner records selected network services; this assurance owner defines
+what the profile must prove.
+
 ### IOI-Compatible Worker
 
 An `ioi_compatible_worker` profile should require:
@@ -480,6 +642,9 @@ An `ioi_compatible_worker` profile should require:
 
 aiagent.xyz uses this posture for listing, ranking, install, routing, and
 managed-instance eligibility. The profile does not make aiagent.xyz the runtime.
+`ioi_compatible_worker` is a worker-package assurance profile. It is unrelated
+to the system-level `ioi_compatible` network-enrollment profile except that a
+system may consume both.
 
 ### Hypervisor Runtime Profile
 
@@ -544,17 +709,32 @@ An `embodied_runtime` profile should require:
 
 - robot/fleet identity and controller binding;
 - sensor and actuator registries;
+- the exact admitted `EmbodiedRuntimeGraphManifest`, native runtime profile,
+  component releases, transport bindings, and transactional activation receipt;
+- model-neutral policy and embodiment-adapter revisions, with every physical
+  action chunk retained as a non-authoritative proposal;
 - current world model, map, zone, calibration, and environment state;
-- local control bridge and heartbeat/failsafe behavior;
+- deterministic motion scheduling, exact exclusive-resource ownership, and
+  missed-deadline behavior;
+- an independently enforceable `LocalControlSupervisor` or separately assured
+  safety controller, including independent inputs, safe-set monitor, command
+  switch, recovery controller, response-time bounds, and heartbeat/failsafe;
 - physical command queue semantics;
 - emergency-stop and operator handoff;
 - sim-to-real promotion gates;
+- one current `EmbodiedDeploymentAssuranceCase` carried by the owning
+  `AssuranceEvidenceBundle` and bound to the exact deployment baseline;
+- spacetime reservations, partition envelopes, fencing, and effect
+  reconciliation when work spans units or shared physical resources;
 - telemetry and physical replay;
 - incident, liability, and claims routing hooks;
 - physical-action safety receipts.
 
 This profile consumes Embodied Runtime and Physical Action Safety semantics. It
-does not certify hardware, firmware, venue safety, or mechanical design.
+does not certify hardware, firmware, venue safety, or mechanical design. A
+conformance result applies only to the named hardware, firmware, binaries,
+runtime graph, operating domain, fault assumptions, and evidence revision. It
+does not make arbitrary graphs or models safe merely because they run on IOI.
 
 ### Service Outcome Profile
 
@@ -634,7 +814,8 @@ incident or service failure
   -> AssuranceEvidenceBundle
   -> LiabilityClaimRoute
   -> insurer, counterparty, operator, marketplace, or dispute process
-  -> IOI L1 anchor only when public trust, escrow, bond, or dispute requires it
+  -> optional IOI L1 anchor only when explicit enrollment and the selected
+     settlement profile require shared public trust, escrow, bond, or dispute
 ```
 
 ```yaml
@@ -654,7 +835,7 @@ LiabilityClaimRoute:
   counterparty_refs:
     - account://...
   external_claim_ref: claim://... | null
-  settlement_or_dispute_ref: l1://... | dispute://... | null
+  settlement_or_dispute_ref: settlement://... | tx://... | dispute://... | null
   status:
     draft | submitted | accepted | rejected | disputed | settled | closed
 ```
@@ -731,7 +912,7 @@ QuarantineAdvisory:
   appeal_policy_ref: policy://... | null
   release_conditions:
     - string
-  public_anchor_ref: l1://... | null
+  public_anchor_ref: commitment://... | settlement://... | tx://... | null
   status:
     draft | active | released | superseded | revoked
 ```
@@ -744,7 +925,8 @@ Action remains with the owner:
 - sas.xyz pauses service orders or dispute settlement;
 - Agentgres records incident and posture truth;
 - IOI L1 anchors public advisories, bonds, disputes, or governance commitments
-  only when needed.
+  only when explicitly selected by the relevant enrollment and settlement
+  profile.
 
 ## Commercial Assurance
 
@@ -816,6 +998,14 @@ assurance.audit_export.delivered
 assurance.audit_export.revoked
 assurance.evidence_bundle.created
 assurance.posture.updated
+assurance.attestation.posture_narrowed
+assurance.incident_reporting.clock_started
+assurance.incident_reporting.notice_submitted
+assurance.incident_reporting.report_submitted
+assurance.incident_reporting.overdue
+assurance.erasure.crypto_shredded
+assurance.erasure.verified
+assurance.erasure.excepted
 assurance.abuse_signal.opened
 assurance.quarantine.activated
 assurance.quarantine.released
@@ -833,6 +1023,12 @@ Receipt families should include:
 - `JurisdictionPolicyDecisionReceipt`
 - `AssuranceEvidenceBundleReceipt`
 - `ComplianceAuditExportBundleReceipt`
+- `AttestationAssuranceEvaluationReceipt`
+- `IncidentReportingClockReceipt`
+- `IncidentNoticeReceipt`
+- `IncidentReportReceipt`
+- `CryptoShreddingReceipt`
+- `ErasureVerificationReceipt`
 - `QuarantineAdvisoryReceipt`
 - `AbuseSignalReceipt`
 - `LiabilityClaimRouteReceipt`
@@ -844,8 +1040,9 @@ receipts, audience, commercial refs, and public-anchor policy when relevant.
 
 ## Public Anchor Policy
 
-Most assurance evidence should remain local or customer-private. IOI L1 receives
-only selected commitments:
+Most assurance evidence should remain local or customer-private. For systems
+that explicitly enroll in it, IOI L1 receives only commitments selected by the
+settlement profile:
 
 - public certification roots;
 - marketplace listing eligibility roots;
@@ -871,6 +1068,8 @@ Do not model Ecosystem Assurance as:
 - a storage backend for audit payloads;
 - a shortcut around daemon execution or wallet approval;
 - a claim that certified model cognition is safe;
+- a claim that an IOI runtime, graph compiler, simulator, model score, or
+  generic `embodied_runtime` badge certifies an unnamed physical deployment;
 - a one-time badge that never refreshes;
 - a reason to put private customer audit data on IOI L1.
 - audit export as screenshots, raw logs, or replay bypassing retention.

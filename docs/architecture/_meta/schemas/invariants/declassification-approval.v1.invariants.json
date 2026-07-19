@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/foundations/declassification-approval/exact-bindings/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/declassification-approval/v1",
+  "rules": [
+    {
+      "rule_id": "declassification_approval.exact_effect_hash.required",
+      "description": "The approval binds exact canonical effect bytes.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.exact_effect_hash"
+      }
+    },
+    {
+      "rule_id": "declassification_approval.reviewed_representation_hash.required",
+      "description": "The approval binds the exact representation the authority reviewed.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.reviewed_representation_hash"
+      }
+    }
+  ]
+}

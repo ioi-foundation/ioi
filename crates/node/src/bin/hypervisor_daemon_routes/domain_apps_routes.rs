@@ -63,7 +63,10 @@ fn split_ref(r: &str) -> Option<(&str, &str)> {
         .filter(|(s, rest)| !s.is_empty() && !rest.is_empty())
 }
 fn str_field<'a>(body: &'a Value, key: &str) -> &'a str {
-    body.get(key).and_then(|v| v.as_str()).map(str::trim).unwrap_or("")
+    body.get(key)
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .unwrap_or("")
 }
 fn str_refs(body: &Value, key: &str) -> Vec<String> {
     body.get(key)
@@ -80,7 +83,12 @@ fn str_refs(body: &Value, key: &str) -> Vec<String> {
 fn arr_strs(v: &Value, key: &str) -> Vec<String> {
     v.get(key)
         .and_then(|x| x.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_str()).map(str::to_string).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str())
+                .map(str::to_string)
+                .collect()
+        })
         .unwrap_or_default()
 }
 fn push_unique(v: &mut Vec<String>, s: &str) {
@@ -106,7 +114,9 @@ fn resolve_domain_app_descriptor(data_dir: &str, sd_ref: &str) -> Result<Value, 
             }
             None => Err((
                 "domain_app_descriptor_unresolved".into(),
-                format!("surface_descriptor_ref '{sd_ref}' does not resolve to a surface descriptor"),
+                format!(
+                    "surface_descriptor_ref '{sd_ref}' does not resolve to a surface descriptor"
+                ),
             )),
         },
         _ => Err((
@@ -258,7 +268,11 @@ pub(crate) async fn handle_domain_apps_list(
     Query(q): Query<HashMap<String, String>>,
 ) -> Json<Value> {
     let mut items = read_record_dir(&st.data_dir, KIND_DAPP);
-    if let Some(vis) = q.get("visibility").map(|s| s.trim()).filter(|s| !s.is_empty()) {
+    if let Some(vis) = q
+        .get("visibility")
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
         items.retain(|a| a.get("visibility").and_then(|v| v.as_str()) == Some(vis));
     }
     if let Some(sd) = q
@@ -305,7 +319,10 @@ pub(crate) async fn handle_domain_apps_create(
         }
     };
     let visibility = {
-        let v = body.get("visibility").and_then(|v| v.as_str()).unwrap_or("private");
+        let v = body
+            .get("visibility")
+            .and_then(|v| v.as_str())
+            .unwrap_or("private");
         if !VISIBILITIES.contains(&v) {
             return bad(
                 "domain_app_visibility_invalid",
@@ -378,7 +395,9 @@ pub(crate) async fn handle_domain_apps_patch(
     };
     if let Some(v) = body.get("visibility").and_then(|v| v.as_str()) {
         if !VISIBILITIES.contains(&v) {
-            return Json(json!({ "ok": false, "error": { "code": "domain_app_visibility_invalid", "message": format!("visibility must be one of {VISIBILITIES:?}") } }));
+            return Json(
+                json!({ "ok": false, "error": { "code": "domain_app_visibility_invalid", "message": format!("visibility must be one of {VISIBILITIES:?}") } }),
+            );
         }
     }
     // Resolve the effective descriptor + manifest refs (post-patch) and re-validate if either moves.
@@ -390,30 +409,45 @@ pub(crate) async fn handle_domain_apps_patch(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(str::to_string)
-        .or_else(|| a.get("surface_descriptor_ref").and_then(|v| v.as_str()).map(str::to_string))
+        .or_else(|| {
+            a.get("surface_descriptor_ref")
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+        })
         .unwrap_or_default();
     // odk_manifest_ref: an explicit empty string clears it; absent keeps the current value.
     let man_ref = if body.get("odk_manifest_ref").is_some() {
         str_field(&body, "odk_manifest_ref").to_string()
     } else {
-        a.get("odk_manifest_ref").and_then(|v| v.as_str()).unwrap_or("").to_string()
+        a.get("odk_manifest_ref")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string()
     };
     if touches_refs {
         let descriptor = match resolve_domain_app_descriptor(&st.data_dir, &sd_ref) {
             Ok(d) => d,
-            Err((c, m)) => return Json(json!({ "ok": false, "error": { "code": c, "message": m } })),
+            Err((c, m)) => {
+                return Json(json!({ "ok": false, "error": { "code": c, "message": m } }))
+            }
         };
         let manifest = if man_ref.is_empty() {
             None
         } else {
             match resolve_manifest_including(&st.data_dir, &man_ref, &sd_ref) {
                 Ok(m) => Some(m),
-                Err((c, m)) => return Json(json!({ "ok": false, "error": { "code": c, "message": m } })),
+                Err((c, m)) => {
+                    return Json(json!({ "ok": false, "error": { "code": c, "message": m } }))
+                }
             }
         };
         let derived = derive_snapshot(&descriptor, manifest.as_ref(), &body);
         a["surface_descriptor_ref"] = json!(sd_ref);
-        a["odk_manifest_ref"] = if man_ref.is_empty() { Value::Null } else { json!(man_ref) };
+        a["odk_manifest_ref"] = if man_ref.is_empty() {
+            Value::Null
+        } else {
+            json!(man_ref)
+        };
         a["ontology_refs"] = json!(derived.ontology_refs);
         a["data_recipe_refs"] = json!(derived.data_recipe_refs);
         a["mcp_contract_refs"] = json!(derived.mcp_contract_refs);
@@ -464,20 +498,32 @@ const KIND_RELEASE: &str = "governance-release-controls";
 /// The ApprovalRequest must be `approved` AND target this domain app (subject_ref == domain_app_ref).
 fn approval_admits(approval: &Value, domain_app_ref: &str) -> Result<(), (String, String)> {
     if approval.get("status").and_then(|v| v.as_str()) != Some("approved") {
-        return Err(("mount_approval_not_approved".into(), "approval_request_ref must reference an ApprovalRequest with status 'approved'".into()));
+        return Err((
+            "mount_approval_not_approved".into(),
+            "approval_request_ref must reference an ApprovalRequest with status 'approved'".into(),
+        ));
     }
     if approval.get("subject_ref").and_then(|v| v.as_str()) != Some(domain_app_ref) {
-        return Err(("mount_control_wrong_subject".into(), "approval_request.subject_ref must target this domain app".into()));
+        return Err((
+            "mount_control_wrong_subject".into(),
+            "approval_request.subject_ref must target this domain app".into(),
+        ));
     }
     Ok(())
 }
 /// The ReleaseControl must be `open` AND target this domain app (release_target_ref == domain_app_ref).
 fn release_admits(release: &Value, domain_app_ref: &str) -> Result<(), (String, String)> {
     if release.get("state").and_then(|v| v.as_str()) != Some("open") {
-        return Err(("mount_release_not_open".into(), "release_control_ref must reference a ReleaseControl with state 'open'".into()));
+        return Err((
+            "mount_release_not_open".into(),
+            "release_control_ref must reference a ReleaseControl with state 'open'".into(),
+        ));
     }
     if release.get("release_target_ref").and_then(|v| v.as_str()) != Some(domain_app_ref) {
-        return Err(("mount_control_wrong_subject".into(), "release_control.release_target_ref must target this domain app".into()));
+        return Err((
+            "mount_control_wrong_subject".into(),
+            "release_control.release_target_ref must target this domain app".into(),
+        ));
     }
     Ok(())
 }
@@ -491,12 +537,23 @@ fn load_scheme(data_dir: &str, r: &str, scheme: &str, kind: &str) -> Option<Valu
 fn current_runtime(data_dir: &str, domain_app_ref: &str) -> Option<Value> {
     read_record_dir(data_dir, KIND_RUNTIME)
         .into_iter()
-        .find(|rt| rt.get("domain_app_ref").and_then(|v| v.as_str()) == Some(domain_app_ref) && rt.get("mounted").and_then(|v| v.as_bool()) == Some(true))
+        .find(|rt| {
+            rt.get("domain_app_ref").and_then(|v| v.as_str()) == Some(domain_app_ref)
+                && rt.get("mounted").and_then(|v| v.as_bool()) == Some(true)
+        })
 }
-fn write_mount_receipt(data_dir: &str, kind_action: &str, domain_app_ref: &str, approval_ref: &str, release_ref: &str) -> (String, Value) {
+fn write_mount_receipt(
+    data_dir: &str,
+    kind_action: &str,
+    domain_app_ref: &str,
+    approval_ref: &str,
+    release_ref: &str,
+) -> (String, Value) {
     let id = format!("mrcpt_{:x}", nanos());
     let now = iso_now();
-    let state_root = sha256_hex_str(&format!("{kind_action}|{domain_app_ref}|{approval_ref}|{release_ref}|{now}"));
+    let state_root = sha256_hex_str(&format!(
+        "{kind_action}|{domain_app_ref}|{approval_ref}|{release_ref}|{now}"
+    ));
     let receipt = json!({
         "schema_version": "ioi.hypervisor.domain-app-mount-receipt.v1",
         "object": "ioi.hypervisor.domain_app_mount_receipt",
@@ -521,17 +578,41 @@ pub(crate) async fn handle_domain_app_mount(
     let Some(dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
-    let domain_app_ref = dapp.get("domain_app_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    if dapp.get("runtime_posture").and_then(|p| p.get("mounted")).and_then(|v| v.as_bool()) == Some(true) {
-        return bad("domain_app_already_mounted", "this domain app already has a mounted runtime; unmount first");
+    let domain_app_ref = dapp
+        .get("domain_app_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    if dapp
+        .get("runtime_posture")
+        .and_then(|p| p.get("mounted"))
+        .and_then(|v| v.as_bool())
+        == Some(true)
+    {
+        return bad(
+            "domain_app_already_mounted",
+            "this domain app already has a mounted runtime; unmount first",
+        );
     }
     let approval_ref = str_field(&body, "approval_request_ref");
     let release_ref = str_field(&body, "release_control_ref");
-    let Some(approval) = load_scheme(&st.data_dir, approval_ref, "approval-request", KIND_APPROVAL) else {
-        return bad("mount_approval_unresolved", "approval_request_ref must be an 'approval-request://' ref that resolves");
+    let Some(approval) = load_scheme(
+        &st.data_dir,
+        approval_ref,
+        "approval-request",
+        KIND_APPROVAL,
+    ) else {
+        return bad(
+            "mount_approval_unresolved",
+            "approval_request_ref must be an 'approval-request://' ref that resolves",
+        );
     };
-    let Some(release) = load_scheme(&st.data_dir, release_ref, "release-control", KIND_RELEASE) else {
-        return bad("mount_release_unresolved", "release_control_ref must be a 'release-control://' ref that resolves");
+    let Some(release) = load_scheme(&st.data_dir, release_ref, "release-control", KIND_RELEASE)
+    else {
+        return bad(
+            "mount_release_unresolved",
+            "release_control_ref must be a 'release-control://' ref that resolves",
+        );
     };
     if let Err((c, m)) = approval_admits(&approval, &domain_app_ref) {
         return bad(&c, &m);
@@ -540,8 +621,17 @@ pub(crate) async fn handle_domain_app_mount(
         return bad(&c, &m);
     }
     // Admission granted by the control plane. Emit a receipt + durable runtime record (mounted:true).
-    let (receipt_ref, receipt) = write_mount_receipt(&st.data_dir, "domain_app.mount", &domain_app_ref, approval_ref, release_ref);
-    let authority_refs = approval.get("required_authority_refs").cloned().unwrap_or_else(|| json!([]));
+    let (receipt_ref, receipt) = write_mount_receipt(
+        &st.data_dir,
+        "domain_app.mount",
+        &domain_app_ref,
+        approval_ref,
+        release_ref,
+    );
+    let authority_refs = approval
+        .get("required_authority_refs")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
     let rid = format!("dartm_{:x}", nanos());
     let now = iso_now();
     let runtime = json!({
@@ -574,7 +664,10 @@ pub(crate) async fn handle_domain_app_mount(
     });
     dapp["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "runtime": runtime, "receipt": receipt })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "runtime": runtime, "receipt": receipt })),
+    )
 }
 
 /// POST /v1/hypervisor/domain-apps/:id/unmount — governed, receipted unmount state transition.
@@ -586,15 +679,44 @@ pub(crate) async fn handle_domain_app_unmount(
     let Some(mut dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
-    let domain_app_ref = dapp.get("domain_app_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let domain_app_ref = dapp
+        .get("domain_app_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let Some(mut rt) = current_runtime(&st.data_dir, &domain_app_ref) else {
-        return bad("domain_app_not_mounted", "no mounted runtime for this domain app");
+        return bad(
+            "domain_app_not_mounted",
+            "no mounted runtime for this domain app",
+        );
     };
-    let rid = rt.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let approval_ref = rt.get("approval_request_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let release_ref = rt.get("release_control_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let (receipt_ref, receipt) = write_mount_receipt(&st.data_dir, "domain_app.unmount", &domain_app_ref, &approval_ref, &release_ref);
-    let mut refs: Vec<Value> = rt.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let rid = rt
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let approval_ref = rt
+        .get("approval_request_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let release_ref = rt
+        .get("release_control_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let (receipt_ref, receipt) = write_mount_receipt(
+        &st.data_dir,
+        "domain_app.unmount",
+        &domain_app_ref,
+        &approval_ref,
+        &release_ref,
+    );
+    let mut refs: Vec<Value> = rt
+        .get("receipt_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     refs.push(json!(receipt_ref));
     rt["mounted"] = json!(false);
     rt["state"] = json!("unmounted");
@@ -606,7 +728,10 @@ pub(crate) async fn handle_domain_app_unmount(
     dapp["runtime_posture"] = json!({ "mounted": false, "route": Value::Null, "serving": false, "note": "unmounted (governed)" });
     dapp["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })),
+    )
 }
 
 /// GET /v1/hypervisor/domain-app-runtimes[?domain_app_ref=…] — the mounted-runtime resource list.
@@ -615,10 +740,19 @@ pub(crate) async fn handle_domain_app_runtime_list(
     Query(q): Query<HashMap<String, String>>,
 ) -> Json<Value> {
     let mut items = read_record_dir(&st.data_dir, KIND_RUNTIME);
-    if let Some(dref) = q.get("domain_app_ref").map(|s| s.trim()).filter(|s| !s.is_empty()) {
+    if let Some(dref) = q
+        .get("domain_app_ref")
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
         items.retain(|r| r.get("domain_app_ref").and_then(|v| v.as_str()) == Some(dref));
     }
-    items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
+    items.sort_by(|a, b| {
+        b.get("updated_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
     Json(json!({ "ok": true, "runtimes": items }))
 }
 pub(crate) async fn handle_domain_app_runtime_get(
@@ -639,10 +773,16 @@ pub(crate) async fn handle_domain_app_runtime_get(
 /// Precheck the runtime for a serve transition (pure): must be mounted and not already serving.
 fn serve_precheck(runtime: &Value) -> Result<(), (String, String)> {
     if runtime.get("mounted").and_then(|v| v.as_bool()) != Some(true) {
-        return Err(("domain_app_not_mounted".into(), "runtime must be mounted before it can serve".into()));
+        return Err((
+            "domain_app_not_mounted".into(),
+            "runtime must be mounted before it can serve".into(),
+        ));
     }
     if runtime.get("serving").and_then(|v| v.as_bool()) == Some(true) {
-        return Err(("domain_app_already_serving".into(), "runtime is already serving".into()));
+        return Err((
+            "domain_app_already_serving".into(),
+            "runtime is already serving".into(),
+        ));
     }
     Ok(())
 }
@@ -656,21 +796,48 @@ pub(crate) async fn handle_domain_app_serve(
     let Some(mut dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
-    let domain_app_ref = dapp.get("domain_app_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let domain_app_ref = dapp
+        .get("domain_app_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let Some(mut rt) = current_runtime(&st.data_dir, &domain_app_ref) else {
-        return bad("domain_app_not_mounted", "no mounted runtime for this domain app");
+        return bad(
+            "domain_app_not_mounted",
+            "no mounted runtime for this domain app",
+        );
     };
     if let Err((c, m)) = serve_precheck(&rt) {
         return bad(&c, &m);
     }
     // Re-validate the mount's governance is STILL valid (approval approved, release open, right subject).
-    let approval_ref = rt.get("approval_request_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let release_ref = rt.get("release_control_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let Some(approval) = load_scheme(&st.data_dir, &approval_ref, "approval-request", KIND_APPROVAL) else {
-        return bad("serve_approval_missing", "the mount's ApprovalRequest no longer resolves");
+    let approval_ref = rt
+        .get("approval_request_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let release_ref = rt
+        .get("release_control_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let Some(approval) = load_scheme(
+        &st.data_dir,
+        &approval_ref,
+        "approval-request",
+        KIND_APPROVAL,
+    ) else {
+        return bad(
+            "serve_approval_missing",
+            "the mount's ApprovalRequest no longer resolves",
+        );
     };
-    let Some(release) = load_scheme(&st.data_dir, &release_ref, "release-control", KIND_RELEASE) else {
-        return bad("serve_release_missing", "the mount's ReleaseControl no longer resolves");
+    let Some(release) = load_scheme(&st.data_dir, &release_ref, "release-control", KIND_RELEASE)
+    else {
+        return bad(
+            "serve_release_missing",
+            "the mount's ReleaseControl no longer resolves",
+        );
     };
     if let Err((c, m)) = approval_admits(&approval, &domain_app_ref) {
         return bad(&c, &m);
@@ -678,10 +845,24 @@ pub(crate) async fn handle_domain_app_serve(
     if let Err((c, m)) = release_admits(&release, &domain_app_ref) {
         return bad(&c, &m);
     }
-    let rid = rt.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let (receipt_ref, receipt) = write_mount_receipt(&st.data_dir, "domain_app.serve_start", &domain_app_ref, &approval_ref, &release_ref);
+    let rid = rt
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let (receipt_ref, receipt) = write_mount_receipt(
+        &st.data_dir,
+        "domain_app.serve_start",
+        &domain_app_ref,
+        &approval_ref,
+        &release_ref,
+    );
     let route = format!("/__ioi/domain-app-runtime/{rid}");
-    let mut refs: Vec<Value> = rt.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut refs: Vec<Value> = rt
+        .get("receipt_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     refs.push(json!(receipt_ref));
     rt["serving"] = json!(true);
     rt["state"] = json!("serving");
@@ -691,14 +872,21 @@ pub(crate) async fn handle_domain_app_serve(
     rt["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_RUNTIME, &rid, &rt);
     // Backlink: DomainApp runtime_posture now serving on the INTERNAL route (still no external ingress).
-    let mut posture = dapp.get("runtime_posture").cloned().unwrap_or_else(|| json!({}));
+    let mut posture = dapp
+        .get("runtime_posture")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     posture["serving"] = json!(true);
     posture["route"] = json!(route);
-    posture["note"] = json!("internally served (descriptor-driven, read-only); no external ingress");
+    posture["note"] =
+        json!("internally served (descriptor-driven, read-only); no external ingress");
     dapp["runtime_posture"] = posture;
     dapp["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })),
+    )
 }
 
 /// POST /v1/hypervisor/domain-apps/:id/stop-serving — stop serving; return to mounted, receipted.
@@ -710,18 +898,47 @@ pub(crate) async fn handle_domain_app_stop_serving(
     let Some(mut dapp) = load(&st.data_dir, KIND_DAPP, &id) else {
         return bad("domain_app_not_found", "domain app not found");
     };
-    let domain_app_ref = dapp.get("domain_app_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let domain_app_ref = dapp
+        .get("domain_app_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let Some(mut rt) = current_runtime(&st.data_dir, &domain_app_ref) else {
-        return bad("domain_app_not_mounted", "no mounted runtime for this domain app");
+        return bad(
+            "domain_app_not_mounted",
+            "no mounted runtime for this domain app",
+        );
     };
     if rt.get("serving").and_then(|v| v.as_bool()) != Some(true) {
         return bad("domain_app_not_serving", "runtime is not serving");
     }
-    let rid = rt.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let approval_ref = rt.get("approval_request_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let release_ref = rt.get("release_control_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let (receipt_ref, receipt) = write_mount_receipt(&st.data_dir, "domain_app.serve_stop", &domain_app_ref, &approval_ref, &release_ref);
-    let mut refs: Vec<Value> = rt.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let rid = rt
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let approval_ref = rt
+        .get("approval_request_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let release_ref = rt
+        .get("release_control_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let (receipt_ref, receipt) = write_mount_receipt(
+        &st.data_dir,
+        "domain_app.serve_stop",
+        &domain_app_ref,
+        &approval_ref,
+        &release_ref,
+    );
+    let mut refs: Vec<Value> = rt
+        .get("receipt_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     refs.push(json!(receipt_ref));
     rt["serving"] = json!(false);
     rt["state"] = json!("mounted");
@@ -730,14 +947,20 @@ pub(crate) async fn handle_domain_app_stop_serving(
     rt["receipt_refs"] = json!(refs);
     rt["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_RUNTIME, &rid, &rt);
-    let mut posture = dapp.get("runtime_posture").cloned().unwrap_or_else(|| json!({}));
+    let mut posture = dapp
+        .get("runtime_posture")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     posture["serving"] = json!(false);
     posture["route"] = Value::Null;
     posture["note"] = json!("mounted (governed); serving stopped");
     dapp["runtime_posture"] = posture;
     dapp["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_DAPP, &id, &dapp);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "runtime": rt, "receipt": receipt })),
+    )
 }
 
 // ---- KillSwitch enforcement helpers (shared with governance_routes) ----------------------------
@@ -758,7 +981,9 @@ pub(crate) fn runtimes_for_kill_target(data_dir: &str, subject_ref: &str) -> Vec
             .collect(),
         Some(("domain-app", _)) => read_record_dir(data_dir, KIND_RUNTIME)
             .into_iter()
-            .filter(|rt| rt.get("domain_app_ref").and_then(|v| v.as_str()) == Some(subject_ref) && active(rt))
+            .filter(|rt| {
+                rt.get("domain_app_ref").and_then(|v| v.as_str()) == Some(subject_ref) && active(rt)
+            })
             .collect(),
         _ => Vec::new(),
     }
@@ -770,15 +995,41 @@ pub(crate) fn runtimes_for_kill_target(data_dir: &str, subject_ref: &str) -> Vec
 /// receipt refs emitted. Effectful — used only from the governance enforce path.
 pub(crate) fn kill_enforce_runtime(data_dir: &str, runtime: &Value) -> Vec<String> {
     let mut rt = runtime.clone();
-    let rid = rt.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let dref = rt.get("domain_app_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let approval = rt.get("approval_request_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let release = rt.get("release_control_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let rid = rt
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let dref = rt
+        .get("domain_app_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let approval = rt
+        .get("approval_request_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let release = rt
+        .get("release_control_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let now = iso_now();
-    let mut refs: Vec<Value> = rt.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut refs: Vec<Value> = rt
+        .get("receipt_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     let mut emitted: Vec<String> = Vec::new();
     if rt.get("serving").and_then(|v| v.as_bool()) == Some(true) {
-        let (r, _) = write_mount_receipt(data_dir, "domain_app.kill_stop_serving", &dref, &approval, &release);
+        let (r, _) = write_mount_receipt(
+            data_dir,
+            "domain_app.kill_stop_serving",
+            &dref,
+            &approval,
+            &release,
+        );
         refs.push(json!(r.clone()));
         emitted.push(r);
         rt["serving"] = json!(false);
@@ -786,7 +1037,13 @@ pub(crate) fn kill_enforce_runtime(data_dir: &str, runtime: &Value) -> Vec<Strin
         rt["serve_stopped_at"] = json!(now);
     }
     if rt.get("mounted").and_then(|v| v.as_bool()) == Some(true) {
-        let (r, _) = write_mount_receipt(data_dir, "domain_app.kill_unmount", &dref, &approval, &release);
+        let (r, _) = write_mount_receipt(
+            data_dir,
+            "domain_app.kill_unmount",
+            &dref,
+            &approval,
+            &release,
+        );
         refs.push(json!(r.clone()));
         emitted.push(r);
         rt["mounted"] = json!(false);
@@ -817,29 +1074,77 @@ mod domain_apps_tests {
     fn mount_gating_requires_approved_and_open_and_right_subject() {
         let dref = "domain-app://dapp_1";
         // approved + targets subject -> ok
-        assert!(approval_admits(&json!({ "status": "approved", "subject_ref": dref }), dref).is_ok());
+        assert!(
+            approval_admits(&json!({ "status": "approved", "subject_ref": dref }), dref).is_ok()
+        );
         // not approved -> err
-        assert_eq!(approval_admits(&json!({ "status": "pending", "subject_ref": dref }), dref).unwrap_err().0, "mount_approval_not_approved");
+        assert_eq!(
+            approval_admits(&json!({ "status": "pending", "subject_ref": dref }), dref)
+                .unwrap_err()
+                .0,
+            "mount_approval_not_approved"
+        );
         // approved but wrong subject -> err
-        assert_eq!(approval_admits(&json!({ "status": "approved", "subject_ref": "domain-app://other" }), dref).unwrap_err().0, "mount_control_wrong_subject");
+        assert_eq!(
+            approval_admits(
+                &json!({ "status": "approved", "subject_ref": "domain-app://other" }),
+                dref
+            )
+            .unwrap_err()
+            .0,
+            "mount_control_wrong_subject"
+        );
         // release open + targets subject -> ok
-        assert!(release_admits(&json!({ "state": "open", "release_target_ref": dref }), dref).is_ok());
+        assert!(release_admits(
+            &json!({ "state": "open", "release_target_ref": dref }),
+            dref
+        )
+        .is_ok());
         // release closed -> err
-        assert_eq!(release_admits(&json!({ "state": "closed", "release_target_ref": dref }), dref).unwrap_err().0, "mount_release_not_open");
+        assert_eq!(
+            release_admits(
+                &json!({ "state": "closed", "release_target_ref": dref }),
+                dref
+            )
+            .unwrap_err()
+            .0,
+            "mount_release_not_open"
+        );
         // release open but wrong target -> err
-        assert_eq!(release_admits(&json!({ "state": "open", "release_target_ref": "domain-app://other" }), dref).unwrap_err().0, "mount_control_wrong_subject");
+        assert_eq!(
+            release_admits(
+                &json!({ "state": "open", "release_target_ref": "domain-app://other" }),
+                dref
+            )
+            .unwrap_err()
+            .0,
+            "mount_control_wrong_subject"
+        );
     }
 
     #[test]
     fn serve_precheck_requires_mounted_not_already_serving() {
         assert!(serve_precheck(&json!({ "mounted": true, "serving": false })).is_ok());
-        assert_eq!(serve_precheck(&json!({ "mounted": false, "serving": false })).unwrap_err().0, "domain_app_not_mounted");
-        assert_eq!(serve_precheck(&json!({ "mounted": true, "serving": true })).unwrap_err().0, "domain_app_already_serving");
+        assert_eq!(
+            serve_precheck(&json!({ "mounted": false, "serving": false }))
+                .unwrap_err()
+                .0,
+            "domain_app_not_mounted"
+        );
+        assert_eq!(
+            serve_precheck(&json!({ "mounted": true, "serving": true }))
+                .unwrap_err()
+                .0,
+            "domain_app_already_serving"
+        );
     }
 
     #[test]
     fn split_ref_and_prefixes() {
-        assert_eq!(split_ref("surface-descriptor://sd_1"), Some(("surface-descriptor", "sd_1")));
+        assert_eq!(
+            split_ref("surface-descriptor://sd_1"),
+            Some(("surface-descriptor", "sd_1"))
+        );
         assert_eq!(split_ref("odk://odk_1"), Some(("odk", "odk_1")));
         assert_eq!(split_ref("dapp_1"), None);
     }
@@ -847,9 +1152,18 @@ mod domain_apps_tests {
     #[test]
     fn manifest_include_check() {
         let m = json!({ "surface_descriptor_refs": ["surface-descriptor://sd_1", "surface-descriptor://sd_2"] });
-        assert!(manifest_includes_descriptor(&m, "surface-descriptor://sd_1"));
-        assert!(!manifest_includes_descriptor(&m, "surface-descriptor://sd_9"));
-        assert!(!manifest_includes_descriptor(&json!({}), "surface-descriptor://sd_1"));
+        assert!(manifest_includes_descriptor(
+            &m,
+            "surface-descriptor://sd_1"
+        ));
+        assert!(!manifest_includes_descriptor(
+            &m,
+            "surface-descriptor://sd_9"
+        ));
+        assert!(!manifest_includes_descriptor(
+            &json!({}),
+            "surface-descriptor://sd_1"
+        ));
     }
 
     #[test]
@@ -873,11 +1187,23 @@ mod domain_apps_tests {
         let body = json!({ "mcp_contract_refs": ["mcp://c2", "mcp://c1"] });
         let d = derive_snapshot(&descriptor, Some(&manifest), &body);
         // ontology: ont_1 (descriptor) + ont_2 (manifest), deduped
-        assert_eq!(d.ontology_refs, vec!["ontology://ont_1".to_string(), "ontology://ont_2".to_string()]);
+        assert_eq!(
+            d.ontology_refs,
+            vec![
+                "ontology://ont_1".to_string(),
+                "ontology://ont_2".to_string()
+            ]
+        );
         // recipes: rec_1 + rec_3, deduped
-        assert_eq!(d.data_recipe_refs, vec!["recipe://rec_1".to_string(), "recipe://rec_3".to_string()]);
+        assert_eq!(
+            d.data_recipe_refs,
+            vec!["recipe://rec_1".to_string(), "recipe://rec_3".to_string()]
+        );
         // mcp: manifest c1 + body c2 (c1 not duplicated)
-        assert_eq!(d.mcp_contract_refs, vec!["mcp://c1".to_string(), "mcp://c2".to_string()]);
+        assert_eq!(
+            d.mcp_contract_refs,
+            vec!["mcp://c1".to_string(), "mcp://c2".to_string()]
+        );
     }
 
     #[test]

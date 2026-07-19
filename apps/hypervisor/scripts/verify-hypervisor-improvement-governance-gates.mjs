@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // Improvement governance gates done-bar.
 //
-// Proves high-impact learned improvements CANNOT apply without a FRESH simulation, an
-// APPROVED ApprovalRequest, and an OPEN ReleaseControl targeting the proposal or its
-// simulation report — enforced LIVE at apply time with deterministic reason codes
+// Proves learned improvements fail closed without simulation outside local development,
+// unless an exact, approved, receipted, per-kind simulation waiver binds the current proposal
+// fingerprint. High-impact simulated improvements additionally CANNOT apply without an
+// APPROVED ApprovalRequest and an OPEN ReleaseControl targeting the proposal or its simulation
+// report — enforced LIVE at apply time with deterministic reason codes
 // (simulation_required, simulation_stale, approval_required, approval_not_approved,
-// release_control_required, release_control_not_open) — while low-impact proposals keep
-// their existing behavior, receipts + Work Ledger cite the full governance chain, and the
-// Agent Studio panel walks the whole gate (posture chip, disabled Apply, one-click
+// release_control_required, release_control_not_open). The local-development bypass remains
+// explicit; receipts + Work Ledger cite the full governance chain; and the Agent Studio panel
+// walks the whole gate (posture chip, disabled Apply, one-click
 // request/approve/release). Runs two REAL direct launches to seed replay subjects (≈30s).
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-improvement-governance-gates.mjs
 
@@ -21,18 +23,19 @@ const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const SHELL = (process.env.IOI_HYPERVISOR_APP_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+const EXPOSED = { "x-forwarded-host": "hv.example.com" };
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 // node:http, not fetch: synchronous ioi-agent launches legitimately run longer than undici's
 // fixed 300s headers timeout under host load (the 600s driver budget) — goalrun convention.
-function jd(method, url, body) {
+function jd(method, url, body, headers) {
   const target = new URL(url.startsWith("http") ? url : `${DAEMON}${url}`);
   const payload = body ? JSON.stringify(body) : null;
   return new Promise((resolve, reject) => {
     const req = http.request(
       { hostname: target.hostname, port: target.port, path: target.pathname + target.search, method,
-        headers: { "content-type": "application/json", ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
+        headers: { "content-type": "application/json", ...(headers || {}), ...(payload ? { "content-length": Buffer.byteLength(payload) } : {}) } },
       (res) => {
         let raw = "";
         res.on("data", (c) => { raw += c; });
@@ -53,8 +56,8 @@ const launch = async (goal) => {
   const grant = mintApprovalGrant({ policyHash: a.j.approval.policy_hash, requestHash: a.j.approval.request_hash });
   return jd("POST", "/v1/hypervisor/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
 };
-const apply = (id) => jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${id}/apply`);
-const getProp = async (id) => (await jd("GET", `/v1/hypervisor/intelligence/improvement-proposals/${id}`)).j?.proposal || {};
+const apply = (id, headers) => jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${id}/apply`, undefined, headers);
+const getProp = async (id, headers) => (await jd("GET", `/v1/hypervisor/intelligence/improvement-proposals/${id}`, undefined, headers)).j?.proposal || {};
 
 // The require_compare + full-exclusion patch: deterministically high impact (blockers introduced).
 const HIGH_IMPACT_SUGGESTED = {
@@ -66,6 +69,18 @@ const HIGH_IMPACT_SUGGESTED = {
 
 async function run() {
   const tag = Date.now().toString(16);
+  const verifierPrincipalId = `usr_vfygov${tag}`;
+  const verifierEmail = `vfygov-${tag}@local`;
+  const verifierPassword = `pw-vfygov-${tag}`;
+  const principalCreated = await jd("POST", "/v1/hypervisor/principals", {
+    principal_id: verifierPrincipalId, email: verifierEmail, password: verifierPassword,
+  });
+  const sessionToken = (await jd("POST", "/v1/hypervisor/auth/login", {
+    email: verifierEmail, password: verifierPassword,
+  })).j?.session_token || "";
+  const MANAGED = { ...EXPOSED, authorization: `Bearer ${sessionToken}` };
+  ok("managed-posture verifier principal authenticated", principalCreated.status === 200 && !!sessionToken);
+
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/enable");
   const l1 = await launch(`vfygov${tag} exercise the governance gate once`);
   const l2 = await launch(`vfygov${tag} exercise the governance gate again`);
@@ -137,7 +152,7 @@ async function run() {
     !!entry && entry.simulation_ref === simRef && entry.approval_request_ref === apprA.ref
     && entry.release_control_ref === relA.ref && entry.report_hash === sim.report_hash);
 
-  // ── Low-impact + no-simulation paths keep existing behavior ──
+  // ── Low impact still needs a simulation outside local development; local bypass is explicit ──
   const propLow = (await mkProp({
     proposal_kind: "automation_readiness", signal: "repeated_successful_goal_pattern",
     evidence_refs: [`ioi-agent-launch://vfygov-${tag}`], suggested: { title: `Affinity vfygov-${tag}`, goal_pattern: `zzz-nomatch-${tag}` },
@@ -145,16 +160,62 @@ async function run() {
   const lowSim = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propLow.improvement_id}/simulate`, { save: true })).j?.report || {};
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propLow.improvement_id}/approve`);
   const appliedLow = (await apply(propLow.improvement_id)).j?.proposal || {};
+  const projectedLow = await getProp(propLow.improvement_id);
   ok("low-impact simulated proposal applies WITHOUT governance controls",
-    lowSim.governance?.high_impact === false && appliedLow.state === "applied");
+    lowSim.governance?.high_impact === false && projectedLow.gate?.report_impact?.unknown === false
+    && appliedLow.state === "applied");
   const propSkill = (await mkProp({
     proposal_kind: "skill_improvement", signal: "repeated_successful_goal_pattern",
-    evidence_refs: [`ioi-agent-launch://vfygov-${tag}`], suggested: { title: `Skill vfygov-${tag}`, description: "ungated low-impact lane" },
+    evidence_refs: [`ioi-agent-launch://vfygov-${tag}`], suggested: { title: `Skill vfygov-${tag}`, description: "explicit local-development bypass lane" },
   })).j?.proposal || {};
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propSkill.improvement_id}/approve`);
+  const localSkillProjection = await getProp(propSkill.improvement_id);
   const appliedSkill = (await apply(propSkill.improvement_id)).j?.proposal || {};
-  ok("unsimulated non-policy proposal keeps existing behavior (no_simulation, applies)",
-    appliedSkill.state === "applied" && String(appliedSkill.applied_ref || "").startsWith("skill-entry://"));
+  ok("unsimulated skill applies only through the explicit local-development bypass",
+    localSkillProjection.gate?.posture === "local_development_no_simulation"
+    && localSkillProjection.gate?.deployment_posture === "local_development"
+    && appliedSkill.state === "applied" && String(appliedSkill.applied_ref || "").startsWith("skill-entry://"));
+
+  // ── Managed posture fails closed, then accepts only an exact approved + receipted waiver ──
+  const propManaged = (await mkProp({
+    proposal_kind: "skill_improvement", signal: "repeated_successful_goal_pattern",
+    evidence_refs: [`ioi-agent-launch://vfygov-${tag}`],
+    suggested: { title: `Managed skill vfygov-${tag}`, description: "exact simulation-waiver lane" },
+  })).j?.proposal || {};
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propManaged.improvement_id}/approve`);
+  const managedProjection = await getProp(propManaged.improvement_id, MANAGED);
+  const managedBlocked = await apply(propManaged.improvement_id, MANAGED);
+  ok("unsimulated skill is refused under authenticated-managed exposure",
+    managedProjection.gate?.deployment_posture === "authenticated_managed"
+    && managedProjection.gate?.posture === "simulation_required"
+    && String(managedProjection.gate?.proposal_fingerprint || "").startsWith("sha256:")
+    && managedBlocked.status === 409 && managedBlocked.j?.error?.code === "simulation_required");
+
+  const waiver = (await jd("POST", "/v1/hypervisor/governance/approval-requests", {
+    subject_ref: propManaged.proposal_ref,
+    request_kind: "improvement_simulation_waiver",
+    reason: `vfygov-${tag}-exact-simulation-waiver`,
+    enforcement_preview: {
+      requirement: "saved_simulation",
+      proposal_kind: propManaged.proposal_kind,
+      proposal_fingerprint: managedProjection.gate?.proposal_fingerprint,
+    },
+  }, MANAGED)).j?.approval_request || {};
+  const approvedWaiver = (await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${waiver.id}`, {
+    transition: "approve", reviewer_ref: `principal://${verifierPrincipalId}`,
+  }, MANAGED)).j?.approval_request || {};
+  const waiverBind = await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${propManaged.improvement_id}`, {
+    simulation_waiver_ref: waiver.ref,
+  }, MANAGED);
+  const boundManaged = waiverBind.j?.proposal || {};
+  ok("exact waiver is approved, transition-receipted, and bound under managed posture",
+    approvedWaiver.status === "approved" && (approvedWaiver.receipt_refs || []).length > 0
+    && waiverBind.status === 200 && boundManaged.gate?.posture === "simulation_waived"
+    && boundManaged.gate?.deployment_posture === "authenticated_managed");
+  const appliedManaged = (await apply(propManaged.improvement_id, MANAGED)).j?.proposal || {};
+  ok("exact managed simulation waiver permits apply",
+    appliedManaged.state === "applied" && appliedManaged.simulation_waiver_ref === waiver.ref
+    && String(appliedManaged.applied_ref || "").startsWith("skill-entry://"));
 
   // ── UI: full gate walk on a second high-impact proposal ──
   const propB = (await mkProp({
@@ -212,10 +273,12 @@ async function run() {
     if (pid) await jd("DELETE", `/v1/hypervisor/ioi-agent/launch-policies/${pid}`);
   }
   await jd("PATCH", `/v1/hypervisor/skill-entries/${String(appliedSkill.applied_ref || "").replace("skill-entry://", "")}`, { status: "archived" });
+  await jd("PATCH", `/v1/hypervisor/skill-entries/${String(appliedManaged.applied_ref || "").replace("skill-entry://", "")}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${String(appliedLow.applied_ref || "").replace("automation-affinity://", "")}`, { status: "archived" });
   const controls = [
     ["approval-requests", apprA.id],
     ["approval-requests", foreign?.id],
+    ["approval-requests", waiver.id],
     ["approval-requests", String(bApplied.approval_request_ref || "").replace("approval-request://", "")],
     ["release-controls", relA.id],
     ["release-controls", String(bApplied.release_control_ref || "").replace("release-control://", "")],
@@ -223,6 +286,8 @@ async function run() {
   for (const [family, id] of controls) {
     if (id) await jd("DELETE", `/v1/hypervisor/governance/${family}/${id}`);
   }
+  await jd("POST", "/v1/hypervisor/auth/logout", undefined, MANAGED);
+  await jd("DELETE", `/v1/hypervisor/principals/${verifierPrincipalId}`);
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/disable");
   const fin = await jd("GET", "/v1/hypervisor/harness-profiles");
   ok("fixtures cleaned + drivers restored",

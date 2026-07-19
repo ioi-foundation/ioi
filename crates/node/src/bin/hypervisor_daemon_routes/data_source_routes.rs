@@ -58,7 +58,14 @@ const CREDENTIAL_POSTURES: &[&str] = &[
 ];
 /// Query keys in an endpoint URL that would smuggle a credential into declared truth.
 const SENSITIVE_ENDPOINT_QUERY_KEYS: &[&str] = &[
-    "api_key", "apikey", "token", "secret", "password", "key", "access_token", "credential",
+    "api_key",
+    "apikey",
+    "token",
+    "secret",
+    "password",
+    "key",
+    "access_token",
+    "credential",
 ];
 
 /// Bounded lengths for accepted text fields (#69 hardening — every accepted field is bounded).
@@ -89,7 +96,14 @@ fn endpoint_carries_credentials(endpoint: &str) -> bool {
 }
 
 /// Body keys that would be a plaintext secret — rejected outright (no secret ever enters the plane).
-const PLAINTEXT_SECRET_KEYS: &[&str] = &["secret", "password", "api_key", "apikey", "token", "credential"];
+const PLAINTEXT_SECRET_KEYS: &[&str] = &[
+    "secret",
+    "password",
+    "api_key",
+    "apikey",
+    "token",
+    "credential",
+];
 
 fn nanos() -> u128 {
     SystemTime::now()
@@ -104,7 +118,11 @@ fn s(v: &Value, k: &str, d: &str) -> String {
 /// Typed, bounded optional-string reader (#63 discipline): omitted/null → None; a present
 /// non-string is REJECTED (`data_source_field_type_invalid`), an oversized value is REJECTED
 /// (`data_source_field_too_long`) — never silently defaulted or truncated into a different value.
-fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>, (String, String)> {
+fn str_opt_bounded(
+    body: &Value,
+    key: &str,
+    max: usize,
+) -> Result<Option<String>, (String, String)> {
     match body.get(key) {
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(raw)) => {
@@ -122,7 +140,9 @@ fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>
         }
         Some(_) => Err((
             "data_source_field_type_invalid".into(),
-            format!("`{key}` must be a string when present — a non-string value is never defaulted"),
+            format!(
+                "`{key}` must be a string when present — a non-string value is never defaulted"
+            ),
         )),
     }
 }
@@ -142,7 +162,12 @@ fn load_source(data_dir: &str, id: &str) -> Option<Value> {
 
 /// Build a data-source receipt (PURE — nothing persists here; #62 proof discipline). The receipt
 /// carries only record-derived fields + the op/outcome — never request material.
-fn build_data_source_receipt(source_ref: &str, op: &str, outcome: &str, now: &str) -> (String, Value) {
+fn build_data_source_receipt(
+    source_ref: &str,
+    op: &str,
+    outcome: &str,
+    now: &str,
+) -> (String, Value) {
     let id = format!("dsr_{:x}", nanos());
     let receipt_ref = format!("agentgres://data-source-receipt/{id}");
     let rec = json!({
@@ -206,7 +231,9 @@ pub(crate) async fn handle_data_sources_list(State(st): State<Arc<DaemonState>>)
 /// `source_kinds` is the DECLARATION VOCABULARY projection (#69): each known kind with whether it
 /// requires an endpoint — a declaring surface derives its kind picker and endpoint requirement
 /// from THIS, never from a hardcoded copy. `known_kinds` is retained for compatibility.
-pub(crate) async fn handle_data_sources_overview(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_data_sources_overview(
+    State(st): State<Arc<DaemonState>>,
+) -> Json<Value> {
     let sources = read_record_dir(&st.data_dir, RECORD_DIR);
     let by_kind = |kind: &str| sources.iter().filter(|r| s(r, "kind", "") == kind).count();
     let kinds: Value = SOURCE_KINDS
@@ -278,7 +305,12 @@ pub(crate) async fn handle_data_source_create(
     // no_credentials_required) and NEVER truncated into a different declared identity.
     let name = match str_opt_bounded(&body, "name", NAME_MAX) {
         Ok(Some(n)) => n,
-        Ok(None) => return err("data_source_name_required", "A data source requires a name."),
+        Ok(None) => {
+            return err(
+                "data_source_name_required",
+                "A data source requires a name.",
+            )
+        }
         Err((code, msg)) => return err(&code, &msg),
     };
     let kind = match str_opt_bounded(&body, "kind", KIND_MAX) {
@@ -359,7 +391,9 @@ pub(crate) async fn handle_data_source_create(
         "updated_at": now,
         "runtimeTruthSource": "daemon-runtime"
     });
-    if let Err((code, msg)) = finalize_data_source_persist(&st.data_dir, &source_id, &record, &receipt_id, &receipt) {
+    if let Err((code, msg)) =
+        finalize_data_source_persist(&st.data_dir, &source_id, &record, &receipt_id, &receipt)
+    {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "error": { "code": code, "message": msg } })),
@@ -381,12 +415,10 @@ mod data_source_tests {
         dir
     }
     fn load(data_dir: &str, record_dir: &str, id: &str) -> Option<Value> {
-        read_record_dir(data_dir, record_dir)
-            .into_iter()
-            .find(|r| {
-                r.get("source_id").and_then(|v| v.as_str()) == Some(id)
-                    || r.get("receipt_id").and_then(|v| v.as_str()) == Some(id)
-            })
+        read_record_dir(data_dir, record_dir).into_iter().find(|r| {
+            r.get("source_id").and_then(|v| v.as_str()) == Some(id)
+                || r.get("receipt_id").and_then(|v| v.as_str()) == Some(id)
+        })
     }
 
     #[test]
@@ -400,9 +432,13 @@ mod data_source_tests {
     fn credentialed_endpoints_are_detected() {
         assert!(endpoint_carries_credentials("https://user:pass@host/rows"));
         assert!(endpoint_carries_credentials("https://host/rows?api_key=x"));
-        assert!(endpoint_carries_credentials("https://host/rows?limit=5&TOKEN=x"));
+        assert!(endpoint_carries_credentials(
+            "https://host/rows?limit=5&TOKEN=x"
+        ));
         assert!(!endpoint_carries_credentials("https://host/rows"));
-        assert!(!endpoint_carries_credentials("https://host/rows?limit=5&cursor=abc"));
+        assert!(!endpoint_carries_credentials(
+            "https://host/rows?limit=5&cursor=abc"
+        ));
         assert!(!endpoint_carries_credentials("postgres://host:5432/db"));
     }
 
@@ -416,28 +452,86 @@ mod data_source_tests {
     fn typed_bounded_fields_refuse_wrong_types_and_oversize() {
         // Omitted / null / blank → consistently absent.
         assert_eq!(str_opt_bounded(&json!({}), "name", NAME_MAX).unwrap(), None);
-        assert_eq!(str_opt_bounded(&json!({ "name": null }), "name", NAME_MAX).unwrap(), None);
-        assert_eq!(str_opt_bounded(&json!({ "name": "  " }), "name", NAME_MAX).unwrap(), None);
+        assert_eq!(
+            str_opt_bounded(&json!({ "name": null }), "name", NAME_MAX).unwrap(),
+            None
+        );
+        assert_eq!(
+            str_opt_bounded(&json!({ "name": "  " }), "name", NAME_MAX).unwrap(),
+            None
+        );
         // Present string → trimmed value.
-        assert_eq!(str_opt_bounded(&json!({ "name": " s " }), "name", NAME_MAX).unwrap(), Some("s".into()));
+        assert_eq!(
+            str_opt_bounded(&json!({ "name": " s " }), "name", NAME_MAX).unwrap(),
+            Some("s".into())
+        );
         // Present-but-non-string → typed refusal, NEVER a silent default.
-        assert_eq!(str_opt_bounded(&json!({ "credential_posture": 7 }), "credential_posture", POSTURE_MAX).unwrap_err().0, "data_source_field_type_invalid");
-        assert_eq!(str_opt_bounded(&json!({ "kind": ["postgres"] }), "kind", KIND_MAX).unwrap_err().0, "data_source_field_type_invalid");
-        assert_eq!(str_opt_bounded(&json!({ "endpoint": { "url": "x" } }), "endpoint", ENDPOINT_MAX).unwrap_err().0, "data_source_field_type_invalid");
+        assert_eq!(
+            str_opt_bounded(
+                &json!({ "credential_posture": 7 }),
+                "credential_posture",
+                POSTURE_MAX
+            )
+            .unwrap_err()
+            .0,
+            "data_source_field_type_invalid"
+        );
+        assert_eq!(
+            str_opt_bounded(&json!({ "kind": ["postgres"] }), "kind", KIND_MAX)
+                .unwrap_err()
+                .0,
+            "data_source_field_type_invalid"
+        );
+        assert_eq!(
+            str_opt_bounded(
+                &json!({ "endpoint": { "url": "x" } }),
+                "endpoint",
+                ENDPOINT_MAX
+            )
+            .unwrap_err()
+            .0,
+            "data_source_field_type_invalid"
+        );
         // Oversized → typed refusal, never truncated into a different declared identity.
-        assert_eq!(str_opt_bounded(&json!({ "name": "x".repeat(NAME_MAX + 1) }), "name", NAME_MAX).unwrap_err().0, "data_source_field_too_long");
-        assert_eq!(str_opt_bounded(&json!({ "project_ref": "p".repeat(REF_MAX + 1) }), "project_ref", REF_MAX).unwrap_err().0, "data_source_field_too_long");
+        assert_eq!(
+            str_opt_bounded(
+                &json!({ "name": "x".repeat(NAME_MAX + 1) }),
+                "name",
+                NAME_MAX
+            )
+            .unwrap_err()
+            .0,
+            "data_source_field_too_long"
+        );
+        assert_eq!(
+            str_opt_bounded(
+                &json!({ "project_ref": "p".repeat(REF_MAX + 1) }),
+                "project_ref",
+                REF_MAX
+            )
+            .unwrap_err()
+            .0,
+            "data_source_field_too_long"
+        );
     }
 
     #[test]
     fn receipt_builder_is_pure_and_record_shaped() {
         let dir = temp_dir("pure");
         let data_dir = dir.to_str().unwrap();
-        let (rid, receipt) = build_data_source_receipt("data-source:ds_x", "registered", "ok", "2026-01-01T00:00:00Z");
+        let (rid, receipt) = build_data_source_receipt(
+            "data-source:ds_x",
+            "registered",
+            "ok",
+            "2026-01-01T00:00:00Z",
+        );
         assert!(rid.starts_with("dsr_"));
         assert_eq!(receipt["schema_version"], json!(RECEIPT_SCHEMA));
         assert_eq!(receipt["source_ref"], json!("data-source:ds_x"));
-        assert_eq!(receipt["receipt_ref"], json!(format!("agentgres://data-source-receipt/{rid}")));
+        assert_eq!(
+            receipt["receipt_ref"],
+            json!(format!("agentgres://data-source-receipt/{rid}"))
+        );
         // PURE: building the receipt persisted NOTHING.
         assert!(read_record_dir(data_dir, RECORD_DIR).is_empty());
         assert!(read_record_dir(data_dir, RECEIPT_DIR).is_empty());
@@ -448,20 +542,35 @@ mod data_source_tests {
     fn finalize_rolls_back_record_on_receipt_failure_no_orphans() {
         let dir = temp_dir("rollback");
         let data_dir = dir.to_str().unwrap();
-        let (rid, receipt) = build_data_source_receipt("data-source:ds_x", "registered", "ok", "2026-01-01T00:00:00Z");
+        let (rid, receipt) = build_data_source_receipt(
+            "data-source:ds_x",
+            "registered",
+            "ok",
+            "2026-01-01T00:00:00Z",
+        );
         let record = json!({ "source_id": "ds_x", "source_ref": "data-source:ds_x", "receipt_refs": [receipt["receipt_ref"]] });
         // FAILURE INJECTION: block the receipts dir with a plain file → receipt persist fails.
         std::fs::write(dir.join(RECEIPT_DIR), b"blocker").unwrap();
-        let (code, msg) = finalize_data_source_persist(data_dir, "ds_x", &record, &rid, &receipt).unwrap_err();
+        let (code, msg) =
+            finalize_data_source_persist(data_dir, "ds_x", &record, &rid, &receipt).unwrap_err();
         assert_eq!(code, "data_source_receipt_persist_failed");
         assert!(msg.contains("rolled back"), "{msg}");
         // NO ORPHAN RECORD: the created record did not survive its missing receipt.
-        assert!(load(data_dir, RECORD_DIR, "ds_x").is_none(), "no unproven declaration survives");
+        assert!(
+            load(data_dir, RECORD_DIR, "ds_x").is_none(),
+            "no unproven declaration survives"
+        );
         // Happy path once unblocked: record + receipt both persist.
         std::fs::remove_file(dir.join(RECEIPT_DIR)).unwrap();
         finalize_data_source_persist(data_dir, "ds_x", &record, &rid, &receipt).unwrap();
-        assert_eq!(load(data_dir, RECORD_DIR, "ds_x").unwrap()["source_ref"], json!("data-source:ds_x"));
-        assert_eq!(load(data_dir, RECEIPT_DIR, &rid).unwrap()["op"], json!("registered"));
+        assert_eq!(
+            load(data_dir, RECORD_DIR, "ds_x").unwrap()["source_ref"],
+            json!("data-source:ds_x")
+        );
+        assert_eq!(
+            load(data_dir, RECEIPT_DIR, &rid).unwrap()["op"],
+            json!("registered")
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -469,15 +578,24 @@ mod data_source_tests {
     fn finalize_record_persist_failure_writes_no_orphan_receipt() {
         let dir = temp_dir("recfail");
         let data_dir = dir.to_str().unwrap();
-        let (rid, receipt) = build_data_source_receipt("data-source:ds_y", "registered", "ok", "2026-01-01T00:00:00Z");
+        let (rid, receipt) = build_data_source_receipt(
+            "data-source:ds_y",
+            "registered",
+            "ok",
+            "2026-01-01T00:00:00Z",
+        );
         let record = json!({ "source_id": "ds_y" });
         // FAILURE INJECTION: block the RECORD dir with a plain file → record persist fails FIRST.
         std::fs::write(dir.join(RECORD_DIR), b"blocker").unwrap();
-        let (code, msg) = finalize_data_source_persist(data_dir, "ds_y", &record, &rid, &receipt).unwrap_err();
+        let (code, msg) =
+            finalize_data_source_persist(data_dir, "ds_y", &record, &rid, &receipt).unwrap_err();
         assert_eq!(code, "data_source_record_persist_failed");
         assert!(msg.contains("nothing changed"), "{msg}");
         // NO ORPHAN RECEIPT: the receipt was never attempted for an unpersisted record.
-        assert!(read_record_dir(data_dir, RECEIPT_DIR).is_empty(), "no receipt without its record");
+        assert!(
+            read_record_dir(data_dir, RECEIPT_DIR).is_empty(),
+            "no receipt without its record"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -487,7 +605,12 @@ mod data_source_tests {
         use std::os::unix::fs::PermissionsExt;
         let dir = temp_dir("rbfail");
         let data_dir = dir.to_str().unwrap();
-        let (rid, receipt) = build_data_source_receipt("data-source:ds_z", "registered", "ok", "2026-01-01T00:00:00Z");
+        let (rid, receipt) = build_data_source_receipt(
+            "data-source:ds_z",
+            "registered",
+            "ok",
+            "2026-01-01T00:00:00Z",
+        );
         let record = json!({ "source_id": "ds_z" });
         // FAILURE INJECTION: receipts dir blocked AND the record file pre-created inside a
         // read-only record dir — overwrite of the existing file succeeds (file perms allow it)
@@ -503,7 +626,10 @@ mod data_source_tests {
         let (code, msg) = out.unwrap_err();
         if code == "data_source_rollback_failed" {
             assert!(msg.contains("manual repair required"), "{msg}");
-            assert!(load(data_dir, RECORD_DIR, "ds_z").is_some(), "the stranded record is reported, not hidden");
+            assert!(
+                load(data_dir, RECORD_DIR, "ds_z").is_some(),
+                "the stranded record is reported, not hidden"
+            );
         } else {
             assert_eq!(code, "data_source_receipt_persist_failed");
             assert!(load(data_dir, RECORD_DIR, "ds_z").is_none());

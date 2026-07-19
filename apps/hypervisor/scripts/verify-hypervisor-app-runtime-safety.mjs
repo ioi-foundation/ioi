@@ -10,9 +10,9 @@
 //   2. STATIC GATE — the no-undef lint (eslint.config.mjs) passes over the serve runtime set
 //      (serve + transitively imported local modules) AND the concatenated augmentation bundle,
 //      and the gate has TEETH (a planted dangling-identifier fixture must fail it).
-//   3. REGISTRY — surface-registry.mjs agrees 1:1 with the parity matrix's certified seeds
-//      (slug, route, certification artifact), its verifier files exist, the app catalog reads
-//      registry presentation, and the pipeline pilot actually serves through the registry mount.
+//   3. REGISTRY — surface-registry.mjs agrees 1:1 with the parity matrix's certified evidence
+//      (slug, route, certification artifact), gives each tool one typed product placement, keeps
+//      that evidence out of peer application membership, and mounts the pipeline pilot.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-runtime-safety.mjs
 // Exit 0 = all assertions pass; exit 1 = one or more failed.
@@ -64,20 +64,26 @@ function eslintRun(files) {
 }
 
 async function run() {
-  // 1. Registry ⇔ matrix agreement (code identity vs certification evidence, joined by slug).
+  // 1. Certified runtime registry ⇔ matrix evidence agreement (joined by slug).
   const matrix = JSON.parse(readFileSync(join(APP, "harvest-app-parity-matrix.json"), "utf8"));
   const certified = (matrix.seeds || []).filter((s) => s.shell_pixel_certified && s.candidate_surface);
   const regBySlug = new Map(SURFACES.map((s) => [s.slug, s]));
-  ok("registry covers every certified seed", certified.every((s) => regBySlug.has(s.slug)), `${SURFACES.length} registry vs ${certified.length} certified`);
-  ok("registry invents no surfaces beyond the matrix", SURFACES.length === certified.length);
-  ok("registry routes match matrix candidate surfaces", certified.every((s) => regBySlug.get(s.slug)?.route === s.candidate_surface.split("?")[0]));
-  ok("registry certification paths match matrix artifacts", certified.every((s) => regBySlug.get(s.slug)?.certification === s.shell_pixel_certification_artifact));
-  ok("registry entries carry owner + title + icon", SURFACES.every((s) => s.owner && s.title && s.icon));
+  ok("runtime registry covers every certified seed", certified.every((s) => regBySlug.has(s.slug)), `${SURFACES.length} registry vs ${certified.length} certified`);
+  ok("runtime registry invents no certified surfaces beyond the matrix", SURFACES.length === certified.length);
+  ok("runtime registry routes match matrix candidate surfaces", certified.every((s) => regBySlug.get(s.slug)?.route === s.candidate_surface.split("?")[0]));
+  ok("runtime registry certification paths match matrix artifacts", certified.every((s) => regBySlug.get(s.slug)?.certification === s.shell_pixel_certification_artifact));
+  ok("runtime registry entries carry explicit contextual placement", SURFACES.every((s) => s.owner && s.title && s.served_title && s.icon && s.surface_class && s.placement_owner_ref && s.placement && s.peer_application !== true));
   ok("every registry verifier exists on disk", SURFACES.every((s) => existsSync(join(APP, s.verifier))), SURFACES.filter((s) => !existsSync(join(APP, s.verifier))).map((s) => s.verifier).join(" ") || "all present");
 
-  // 2. Catalog reads registry presentation; pipeline serves through the registry mount.
+  // 2. Catalog nests registry presentation without granting peer membership; pipeline mounts.
   const cat = JSON.parse((await sGet("/__ioi/api/applications")).text);
-  ok("catalog titles come from the registry", (cat.apps || []).every((a) => regBySlug.get(a.slug)?.title === a.title), `${(cat.apps || []).length} catalog apps`);
+  const contextual = [...(cat.tools || []), ...(cat.workspace_views || [])];
+  ok("v2 catalog membership is typed-registration truth", cat.schema === "ioi.hypervisor.application-catalog.v2" && cat.membership_source === "typed_product_registration" && cat.evidence_membership_independent === true);
+  ok("catalog contextual titles and placements come from the explicit runtime registry", contextual.length === SURFACES.length && contextual.every((entry) => {
+    const reg = regBySlug.get(entry.slug);
+    return reg?.title === entry.title && reg?.placement === entry.placement && reg?.placement_owner_ref === entry.placement_owner_ref;
+  }), `${contextual.length} contextual surfaces`);
+  ok("certified surfaces create no peer applications", contextual.every((entry) => entry.peer_application === false) && !(cat.applications || []).some((application) => contextual.some((entry) => entry.ref === application.ref)));
   const pipe = await sGet("/__ioi/pipeline");
   ok("pipeline serves through the registry mount", pipe.status === 200 && pipe.text.includes("<title>Pipeline Builder</title>") && pipe.text.includes("Pipeline outputs"), `status ${pipe.status}`);
   const boomLive = await sGet("/__ioi/__test/boom");

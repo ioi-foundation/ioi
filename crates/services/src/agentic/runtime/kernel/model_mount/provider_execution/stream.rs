@@ -2,9 +2,9 @@ use super::{
     backend_evidence_refs, deterministic_native_local_output, estimate_tokens,
     hosted_provider_base_url_hash, hosted_provider_stream_transport_output,
     hosted_provider_transport_binding, is_hosted_provider_stream_invocation_backend,
-    provider_auth_evidence_refs, provider_stream_invocation_hash,
-    ModelMountProviderInvocationRequest, ModelMountProviderStreamInvocationResult,
-    ModelMountTokenCount,
+    provider_auth_evidence_refs, provider_output_information_flow_label,
+    provider_stream_invocation_hash, ModelMountProviderInvocationRequest,
+    ModelMountProviderStreamInvocationResult, ModelMountTokenCount,
 };
 use crate::agentic::runtime::kernel::model_mount::{
     ModelMountError, MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION,
@@ -32,6 +32,7 @@ pub(super) fn invoke_provider_stream(
         (output_text, token_count, stream_chunks)
     };
     let hosted_transport = hosted_provider_transport_binding(request, &output_text)?;
+    let information_flow_label = provider_output_information_flow_label(request, &output_text)?;
     let mut result = ModelMountProviderStreamInvocationResult {
         schema_version: MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION.to_string(),
         provider_execution_ref: request.provider_execution_ref.clone(),
@@ -83,6 +84,7 @@ pub(super) fn invoke_provider_stream(
         provider_auth_evidence_refs: provider_auth_evidence_refs(request),
         backend_evidence_refs: backend_evidence_refs(request),
         evidence_refs: provider_stream_invocation_evidence_refs(request),
+        information_flow_label,
         invocation_hash: String::new(),
     };
     result.invocation_hash = provider_stream_invocation_hash(&result)?;
@@ -388,6 +390,7 @@ mod tests {
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
             admitted_provider_execution: Some(admission),
+            information_flow: serde_json::Value::Null,
         }
     }
 
@@ -445,6 +448,7 @@ mod tests {
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
             admitted_provider_execution: Some(admission),
+            information_flow: serde_json::Value::Null,
         }
     }
 
@@ -530,6 +534,10 @@ mod tests {
         );
         let mut request = hosted_provider_stream_invocation_request();
         request.base_url = Some(format!("{base_url}/v1"));
+        request.information_flow = super::super::fixture_provider_information_flow(
+            &format!("{base_url}/v1/responses"),
+            "public",
+        );
         let result =
             invoke_provider_stream(&request).expect("hosted provider stream executes in Rust");
         let raw_hosted_request = hosted_request
@@ -549,6 +557,14 @@ mod tests {
         assert_eq!(result.stream_format, "ioi_jsonl");
         assert_eq!(result.stream_kind, "openai_responses_hosted_provider");
         assert_eq!(result.output_text, "live hosted stream answer");
+        assert_eq!(
+            result
+                .information_flow_label
+                .as_ref()
+                .and_then(|label| label.get("instruction_authority"))
+                .and_then(serde_json::Value::as_str),
+            Some("none")
+        );
         assert!(raw_hosted_request.contains("POST /v1/responses HTTP/1.1"));
         assert!(raw_hosted_request
             .to_ascii_lowercase()

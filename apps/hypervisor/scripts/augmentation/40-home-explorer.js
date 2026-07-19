@@ -97,7 +97,7 @@
       return hbListRow('<span class="font-mono" style="font-size:12.5px">' + esc(s.session_ref || "") + "</span>",
         esc((s.project_ref || "no project") + " · " + (s.created_at || "")),
         hbPill(s.lifecycle_state || "—", "border-border-base text-content-secondary") +
-        (envId ? ' <a href="/workspaces/' + encodeURIComponent(envId) + '" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">workbench</a> <a href="/__ioi/run-timeline/env/' + encodeURIComponent(envId) + '" target="_blank" rel="noopener" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">timeline ↗</a>' : ""));
+        (envId ? ' <a href="/workspaces/' + encodeURIComponent(envId) + '" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">developer workspace</a> <a href="/__ioi/run-timeline/env/' + encodeURIComponent(envId) + '" target="_blank" rel="noopener" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">timeline ↗</a>' : ""));
     });
     return rows.length ? rows.join("") : '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">No sessions yet — start one and resume it from here.</div>';
   }
@@ -125,18 +125,20 @@
       gov = '<div class="flex flex-col gap-2">' + govRows.join("") + "</div>" +
         ([appr, fo, ops, led].some((x) => !x) ? '<div class="mt-2 px-1 text-xs text-content-tertiary">Some projections did not answer — this view may be incomplete.</div>' : "");
     }
-    const apps = IOI_APPS.map((a) =>
-      '<a href="' + a.href + '" class="flex items-center gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3 transition-colors hover:bg-surface-hover" style="text-decoration:none">' +
-      '<span aria-hidden="true" style="font-size:17px">' + a.icon + "</span>" +
-      '<span class="flex min-w-0 flex-col"><span class="truncate text-sm font-medium text-content-primary">' + esc(a.name) + "</span>" +
-      '<span class="truncate text-xs text-content-tertiary">' + esc(a.desc) + "</span></span></a>").join("");
-    // Ported application surfaces (app-catalog projection) render ahead of the family tiles;
-    // data-ioi-app carries the display title for the Open-Application interceptor.
-    const portedApps = catalogApps().map((a) =>
-      '<a href="' + a.route + '" data-ioi-app="' + esc(a.title) + '" class="flex items-center gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3 transition-colors hover:bg-surface-hover" style="text-decoration:none">' +
-      '<span aria-hidden="true" class="shrink-0">' + catalogIcon(a, 20) + "</span>" +
-      '<span class="flex min-w-0 flex-col"><span class="truncate text-sm font-medium text-content-primary">' + esc(a.title) + "</span>" +
-      '<span class="truncate text-xs text-content-tertiary">' + esc(a.family) + "</span></span></a>").join("");
+    const applicationCard = (entry) =>
+      '<a href="' + entry.launch_route + '" data-ioi-app="' + esc(entry.name) + '" class="flex items-center gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3 transition-colors hover:bg-surface-hover" style="text-decoration:none">' +
+      '<span aria-hidden="true" style="font-size:17px">' + entry.icon + "</span>" +
+      '<span class="flex min-w-0 flex-col"><span class="truncate text-sm font-medium text-content-primary">' + esc(entry.name) + "</span>" +
+      '<span class="truncate text-xs text-content-tertiary">' + esc(entry.description) + "</span></span></a>";
+    const apps = catalogOwnerApplications().filter((entry) => entry.launchable).map(applicationCard).join("");
+    const substrateApps = catalogSubstrateApplications().filter((entry) => entry.launchable).map(applicationCard).join("");
+    // Contextual tools and Work views are independently discoverable without becoming peer apps.
+    // data-ioi-app carries the product title for the Open-Application interceptor.
+    const contextual = catalogContextSurfaces().map((entry) =>
+      '<a href="' + entry.launch_route + '" data-ioi-app="' + esc(entry.title) + '" class="flex items-center gap-3 rounded-xl border border-border-base bg-surface-secondary px-4 py-3 transition-colors hover:bg-surface-hover" style="text-decoration:none">' +
+      '<span aria-hidden="true" class="shrink-0">' + catalogIcon(entry, 20) + "</span>" +
+      '<span class="flex min-w-0 flex-col"><span class="truncate text-sm font-medium text-content-primary">' + esc(entry.title) + "</span>" +
+      '<span class="truncate text-xs text-content-tertiary">' + esc(entry.placement) + "</span></span></a>").join("");
     root.innerHTML = '<div style="max-width:66rem;margin:0 auto;padding:40px 28px 64px">' +
       '<h1 class="text-2xl font-semibold text-content-primary" style="letter-spacing:-.2px">Welcome back' + (name ? ", " + esc(name) : "") + "</h1>" +
       '<div class="text-sm text-content-tertiary" style="margin-top:4px">' + (summary || "&nbsp;") + "</div>" +
@@ -149,11 +151,15 @@
       hbSection("Recent", '<span class="flex items-center gap-2">' + tabChip("sessions", "Sessions") + tabChip("projects", "Projects") + tabChip("runs", "Runs") + "</span>") +
       '<div id="ioi-hb-recent">' + hbRecentBody() + "</div>" +
       hbSection("Applications", '<a href="#applications" class="text-xs text-content-secondary hover:text-content-primary" style="text-decoration:none">View all →</a>') +
-      (portedApps
-        ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' + portedApps + "</div>" +
-          '<div class="px-1 text-xs text-content-tertiary" style="margin:14px 0 8px">Suite</div>'
-        : "") +
       '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' + apps + "</div>" +
+      (substrateApps
+        ? '<div class="px-1 text-xs text-content-tertiary" style="margin:14px 0 8px">Substrate</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' + substrateApps + "</div>"
+        : "") +
+      (contextual
+        ? '<div class="px-1 text-xs text-content-tertiary" style="margin:14px 0 8px">Tools and views</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px">' + contextual + "</div>"
+        : "") +
       "</div>";
   }
   function goComposer() {
@@ -217,4 +223,3 @@
     native.style.display = "none";
     hbFetch();
   }
-

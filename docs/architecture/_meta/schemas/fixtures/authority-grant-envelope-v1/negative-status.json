@@ -1,0 +1,16 @@
+{
+  "authority_grant_id": "grant://acme/status/1",
+  "request_id": "authority-request://acme/status/1",
+  "issuer_id": "wallet://acme",
+  "subject_id": "agent://status",
+  "authority_scopes": ["scope:repo.read"],
+  "primitive_capability_constraints": [],
+  "resources": ["file://workspace/src/**"],
+  "constraints": {
+    "max_budget_usd": 1,
+    "expires_at": "2026-08-01T00:00:00Z",
+    "approval_required_for": []
+  },
+  "revocation_epoch": 1,
+  "status": "disabled"
+}

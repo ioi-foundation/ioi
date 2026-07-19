@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for Worker Training lifecycle, training-vs-mutation doctrine, training receipts, training profile semantics, and training lineage semantics.
 Supersedes: product, marketplace, or model docs when they reduce Worker Training to fine-tuning alone or crown one model architecture as the IOI default.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-13.
 Doctrine status: canonical
 Implementation status: partial (Foundry draft object plane exists and is deliberately inert; no real training pipeline)
 Last implementation audit: 2026-07-05
@@ -46,6 +46,16 @@ Raw documents, traces, and connector payloads may seed training, but they do
 not become durable domain truth until DataRecipes map them into
 ontology-bound objects, evaluation datasets, policy-bound data views, and
 receipted projections.
+
+Every governed training, distillation, dataset, evaluation, or package build
+also resolves the effective `InstitutionalLearningBoundaryProfile`, individual
+`LearningEvidenceEligibilityEnvelope` decisions, and source/teacher/model-route
+rights. Training and distillation require the same object's
+`training_compatibility` profile; they do not create a parallel eligibility
+truth. The boundary supplies the owning scope's maximum permitted uses and
+destinations; it is not blanket consent. The effective permission for a
+derivative is the most restrictive intersection of every input and applicable
+route contract.
 
 For high-efficiency specialist workers, the preferred substrate is often
 **distilled ontology-bound data** rather than raw corpora: compact examples,
@@ -126,14 +136,16 @@ artifact conversion refs, registry candidates, route-binding candidates, and
 receipts.
 
 Foundry is a product lens over the shared IOI builder substrate, not a
-separate canvas environment. Training recipes, evaluation recipes, benchmark
-recipes, deployment recipes, data recipes, and outcome workflows should share
-the same graph model, typed node contracts, schemas, daemon execution, and
-Agentgres receipt model. Different lenses may expose different palettes,
+separate canvas environment. Product-facing training, evaluation, benchmark,
+and deployment recipes resolve to owner-qualified `FoundrySpec`,
+`WorkflowTemplate`, benchmark, deployment-profile, and `DataRecipe` objects.
+Those objects should share the same graph model, typed node contracts, schemas,
+daemon execution, and Agentgres receipt model. Different lenses may expose different palettes,
 inspectors, run panels, templates, and validation rules.
 
 The default product should be a guided Foundry experience. Advanced users may
-open the same recipe in the Workflow Compositor for inspection,
+open the referenced WorkflowTemplate or FoundrySpec graph in the Workflow
+Compositor for inspection,
 customization, reuse, or composition.
 
 ## Foundry Versus Runtime Improvement
@@ -146,8 +158,9 @@ The live runtime improvement path is the governed Improvement Proposal Plane:
 
 ```text
 trace / failure / correction / eval / receipt
-  -> SkillCandidate | MemoryCandidate | ToolCallRefinement |
-     WorkflowPatch | HarnessProfilePatch | RoutingPolicyPatch |
+  -> SkillManifestCandidate | MemoryCandidate | ToolCallRefinement |
+     WorkflowTemplatePatch | GoalRunProfilePatch | HarnessProfilePatch |
+     RoutingPolicyPatch |
      VerifierCandidate | ContextTopologyPatch | FoundryJobRequest
   -> simulation / eval / verifier checks
   -> policy and authority decision
@@ -160,6 +173,15 @@ admitted directly through governance. Model training, distillation, dataset
 curation, benchmark publication, or worker-package promotion should route
 through Foundry.
 
+An adaptive or multi-epoch `ImprovementCampaign` may request one or more Foundry
+jobs, but training is one candidate-construction path inside the campaign rather
+than the definition of improvement. The campaign owns agenda binding, candidate
+ancestry, evaluation-epoch and exposure lineage, synchronization cutoffs, and
+promotion handoff. Foundry owns the admitted build/eval/training jobs and their
+artifacts. A `FoundryExperimentOptimizationCycle` is therefore a subordinate
+execution profile linked to the campaign and epoch; it never becomes campaign
+truth or release authority.
+
 Inference rights and training/distillation rights are separate. Paying for a
 model invocation, provider API, aggregator route, enterprise workspace seat, or
 managed endpoint does not by itself authorize IOI to train a competing model,
@@ -170,6 +192,30 @@ training-use policy, customer consent, commercial downstream rights, and
 distillation restriction. Open weights/open data or an expressly licensed
 teacher agreement are the default reusable supply; ambiguous rights fail
 closed.
+
+Provider-use and customer-use rights are evaluated in opposite directions. A
+no-training or zero-retention provider commitment constrains what the provider
+may do with institutional inputs; it does not by itself give the customer a
+right to distill the provider's outputs. Conversely, a customer right to retain
+or train on an output does not permit the provider to reuse prompts,
+corrections, tool traces, eval outcomes, or institutional context. Both sides
+must resolve before the material enters a reusable learning path.
+
+Rights, obligations, and revocation are transitive through transformation and
+derivation lineage. A distilled row, merged adapter, quantized model, worker
+package, route policy, eval, or export does not shed the constraints of its
+governed sources merely because its representation changed. Source expiry or
+revocation triggers a receipted impact decision over every known derivative:
+block future use, quarantine, recall, re-evaluate, rebuild or retrain from an
+eligible corpus, or retain only where a surviving legal/policy basis permits.
+
+These actions are not automatically verified machine unlearning. Deleting a
+source or dataset, disabling a route, recalling a package, or retraining a model
+can establish those observable actions. Claiming that learned influence is no
+longer present requires a declared unlearning property, method, evaluation,
+verifier, and assurance result. A receipt records the action or evidence it
+binds; it cannot observe hidden provider training, internal retention, or model
+state by assertion.
 
 OutcomeRoom attempts, findings, discussion, verifier challenges, and
 contribution records are candidate evidence, not accepted training signal.
@@ -199,6 +245,14 @@ This keeps scalable improvement practical: ordinary services can use one
 workflow, one selected HarnessProfile, one model route, and persistent
 workspace intelligence; specialized improvements escalate into Foundry only
 when training or packaging is actually needed.
+
+Model neutrality includes **worker continuity**, not only route abstraction. A
+worker/package should separate institution-owned ontology, policy, memory,
+tools, evals, workflow, and eligible learned artifacts from provider-native
+threads, vector stores, or other hidden durable state. Foundry may compare an
+incumbent and candidate route against a frozen system snapshot and eval suite,
+but the resulting continuity report is evidence for normal promotion and
+rollback gates, not an authority object or a universal equivalence claim.
 
 ## Hypervisor Foundry Product Doctrine
 
@@ -340,7 +394,9 @@ preserving the same training semantics.
    or cognition architecture metadata. For small or efficient workers, the
    builder should also bind a ModelCapacityProfile describing target model size,
    prompt budget, tool batch limits, row structure, latency, cost, and serving
-   constraints.
+   constraints. It also freezes the effective institutional-learning-boundary
+   revision, intended-use/destination scope, source-rights requirements, and
+   individual eligibility obligations for governed evidence.
 
 3. **Generate**
    A Training Orchestrator creates TrainingBatchPlans and delegates to planner,
@@ -358,6 +414,9 @@ preserving the same training semantics.
    should classify rejection reasons such as schema failure, role/order failure,
    duplicate prompt, unsupported target scope, leakage risk, low-quality pattern,
    weak gold reason, rubric mismatch, or policy violation.
+   Curation computes rather than unions constraints: every accepted row keeps
+   its source-rights, eligibility, retention, export, revocation, and derivative
+   lineage refs.
 
 5. **Distill**
    Data recipes, teacher workers, verifier workers, deterministic gates, and
@@ -383,8 +442,10 @@ preserving the same training semantics.
 
 8. **Bind**
    The worker manifest, policy envelope, training lineage, benchmark results,
-   receipt obligations, contribution policy, package refs, and runtime
-   requirements are bound into a signed WorkerManifest.
+   receipt obligations, contribution policy, institutional-learning-boundary
+   revision, eligibility and source-rights roots, derivative-lineage root,
+   package refs, and runtime requirements are bound into a signed
+   WorkerManifest.
 
 9. **Publish or Deploy**
    The worker can be installed locally in Hypervisor, published to aiagent.xyz,
@@ -394,7 +455,9 @@ preserving the same training semantics.
 10. **Monitor and Improve**
    Production failures, corrections, disputes, user approvals, cost/latency
    changes, routing mistakes, context supersessions, and quality deltas feed
-   future training or promotion cycles under explicit authority.
+   future training or promotion cycles under explicit authority. Rights,
+   consent, retention, route terms, and source eligibility are re-resolved for
+   each new cycle rather than inherited indefinitely.
 
 ## Training Does Not Grant Authority
 
@@ -423,8 +486,13 @@ has a policy envelope and operational identity. Self-mutation remains governed
 by policy invariants and cannot relax policy, expand authority, or widen
 capability without explicit human, guardian, or governance approval.
 
-Both processes emit receipts. Only self-mutation requires recursive continuity
-proofs across generations.
+Both processes emit receipts. Only a self-targeted or recursively claimed
+lineage requires recursive continuity evidence across generations: exact parent
+and candidate roots, diff, frozen constitution/policy/profile/epoch/budget
+roots, target and candidate generation, selection evidence, target-owner
+promotion, and rollback or other effect-recovery lineage. A direct training
+success, self-edit, or benchmark win does not by itself establish recursive
+improvement.
 
 Governed post-training cycles sit between ordinary training and uncontrolled
 self-mutation. A deployed worker may propose context updates, route-policy
@@ -487,8 +555,13 @@ Worker Training connects the IOI stack; it does not replace it:
 - wallet.network grants authority;
 - storage backends store large payloads and sealed archives;
 - Agentgres records operational truth;
-- IOI L1 anchors commitments, settlement, registry roots, and disputes.
+- `InstitutionalLearningBoundaryProfile` plus per-subject eligibility and
+  source/route rights bound which learning uses and destinations are eligible;
+- explicitly selected external services, including IOI L1 for enrolled
+  systems, anchor commitments, settlement, registry roots, and disputes.
 
 ## One-Line Doctrine
 
-> **Worker Training turns work into workers; MoW routes those workers; authority and receipts make the result accountable.**
+> **Worker Training turns eligible, rights-bound work into portable workers;
+> MoW routes those workers; authority and receipts make the result
+> accountable.**

@@ -32,6 +32,7 @@ ioi-plugin-ibc-service = { path = "../plugins/ibc-service", optional = true }
 log = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
+thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }

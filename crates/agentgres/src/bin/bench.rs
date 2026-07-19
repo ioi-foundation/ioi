@@ -12,21 +12,25 @@
 
 use agentgres::mux::{spawn_mux_writer, spawn_mux_writer_cfg, MuxEngine, MuxHandle, WriterConfig};
 use agentgres::replica::ReplicaLink;
-use agentgres::{
-    spawn_writer, AgentgresSubstrate, Operation, SubstrateEngine,
-};
+use agentgres::{spawn_writer, AgentgresSubstrate, Operation, SubstrateEngine};
 use std::path::PathBuf;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 fn env_u64(key: &str, default: u64) -> u64 {
-    std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
 }
 fn env_flag(key: &str, default: bool) -> bool {
     std::env::var(key).map(|v| v != "0").unwrap_or(default)
 }
 
 fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
 }
 
 fn pct(sorted_ns: &[u64], p: f64) -> f64 {
@@ -72,7 +76,8 @@ fn run_domain(
         let obj_hi = ((c + 1) * objects / clients).max(obj_lo + 1);
         joins.push(std::thread::spawn(move || {
             let mut lat = Vec::with_capacity(per_client as usize);
-            let mut heads: std::collections::HashMap<u64, String> = std::collections::HashMap::new();
+            let mut heads: std::collections::HashMap<u64, String> =
+                std::collections::HashMap::new();
             let mut refused = 0u64;
             for i in 0..per_client {
                 let obj = obj_lo + (i % (obj_hi - obj_lo));
@@ -145,7 +150,10 @@ fn run_mux_all(
             .split(',')
             .map(str::trim)
             .filter(|a| !a.is_empty())
-            .map(|a| ReplicaLink::connect(a, independent, epoch, &log_path, len).expect("connect replica"))
+            .map(|a| {
+                ReplicaLink::connect(a, independent, epoch, &log_path, len)
+                    .expect("connect replica")
+            })
             .collect();
         spawn_mux_writer_cfg(
             engine,
@@ -174,7 +182,8 @@ fn run_mux_all(
             let durability_seen = durability_seen.clone();
             joins.push(std::thread::spawn(move || {
                 let mut lat = Vec::with_capacity(per_client as usize);
-                let mut heads: std::collections::HashMap<u64, String> = std::collections::HashMap::new();
+                let mut heads: std::collections::HashMap<u64, String> =
+                    std::collections::HashMap::new();
                 let mut refused = 0u64;
                 for i in 0..per_client {
                     let obj = obj_lo + (i % (obj_hi - obj_lo));
@@ -215,7 +224,11 @@ fn run_mux_all(
     }
     let wall_s = started.elapsed().as_secs_f64();
     handle.shutdown();
-    writer.join.join().expect("mux writer join").expect("mux writer io");
+    writer
+        .join
+        .join()
+        .expect("mux writer join")
+        .expect("mux writer io");
     per_domain
         .into_iter()
         .map(|(domain, (mut lat, refused))| {
@@ -254,7 +267,9 @@ fn main() {
                 .map(|l| l.split(':').nth(1).unwrap_or("").trim().to_string())
         })
         .unwrap_or_else(|| "unknown".into());
-    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(0);
+    let threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(0);
 
     eprintln!(
         "substrate-bench: ops/domain={ops} clients={clients} objects={objects} payload={payload}B domains={domains} max_batch={max_batch} sync={sync}"
@@ -273,8 +288,16 @@ fn main() {
     let bench_started = Instant::now();
     let results: Vec<DomainResult> = if mux {
         run_mux_all(
-            &base, domains, ops, clients, objects, payload, max_batch, sync,
-            replica_addr.as_deref(), durability_seen.clone(),
+            &base,
+            domains,
+            ops,
+            clients,
+            objects,
+            payload,
+            max_batch,
+            sync,
+            replica_addr.as_deref(),
+            durability_seen.clone(),
         )
     } else {
         let mut joins = Vec::new();
@@ -285,7 +308,10 @@ fn main() {
                 move || run_domain(dir, domain, ops, clients, objects, payload, max_batch, sync)
             }));
         }
-        joins.into_iter().map(|j| j.join().expect("domain join")).collect()
+        joins
+            .into_iter()
+            .map(|j| j.join().expect("domain join"))
+            .collect()
     };
     let aggregate_wall = bench_started.elapsed().as_secs_f64();
 
@@ -320,14 +346,22 @@ fn main() {
         let mut e1 = MuxEngine::open(&mdir, sync).expect("mux recovery reopen");
         let recovery_ms = t0.elapsed().as_secs_f64() * 1_000.0;
         let e2 = MuxEngine::open(&mdir, sync).expect("mux second reopen");
-        let roots1: Vec<String> = e1.domains().map(|d| e1.domain_root(d).unwrap().clone()).collect();
-        let roots2: Vec<String> = e2.domains().map(|d| e2.domain_root(d).unwrap().clone()).collect();
+        let roots1: Vec<String> = e1
+            .domains()
+            .map(|d| e1.domain_root(d).unwrap().clone())
+            .collect();
+        let roots2: Vec<String> = e2
+            .domains()
+            .map(|d| e2.domain_root(d).unwrap().clone())
+            .collect();
         recovery_ok = roots1 == roots2 && !roots1.is_empty();
         let mut ck_times = Vec::new();
         let mut heads_n = 0usize;
         for _ in 0..10 {
             let t0 = Instant::now();
-            let ck = e1.checkpoint_domain("d0", now_ms()).expect("mux checkpoint d0");
+            let ck = e1
+                .checkpoint_domain("d0", now_ms())
+                .expect("mux checkpoint d0");
             ck_times.push(t0.elapsed().as_secs_f64() * 1_000.0);
             heads_n = ck.heads.len();
         }
@@ -377,7 +411,8 @@ fn main() {
         let replay_s = t0.elapsed().as_secs_f64();
         ck_v = serde_json::json!({ "iterations": 10, "median_ms": ck_times[ck_times.len()/2], "heads": ck.heads.len() });
         fork_v = serde_json::json!({ "iterations": 5, "median_ms": fork_times[fork_times.len()/2], "o1_claim": "no history bytes copied; head-map seed only" });
-        rec_v = serde_json::json!({ "replay_ms": recovery_ms, "heads_and_root_match": recovery_ok });
+        rec_v =
+            serde_json::json!({ "replay_ms": recovery_ms, "heads_and_root_match": recovery_ok });
         proj_v = serde_json::json!({ "frames_replayed": frames, "replay_s": replay_s,
                                       "replay_frames_per_s": frames as f64 / replay_s.max(1e-9) });
     }
@@ -420,7 +455,8 @@ fn main() {
         "projection": proj_v,
     });
     let report_path = base.join("bench-report.json");
-    std::fs::write(&report_path, serde_json::to_vec_pretty(&report).unwrap()).expect("write report");
+    std::fs::write(&report_path, serde_json::to_vec_pretty(&report).unwrap())
+        .expect("write report");
 
     println!("{}", serde_json::to_string_pretty(&report).unwrap());
     eprintln!("report: {}", report_path.display());

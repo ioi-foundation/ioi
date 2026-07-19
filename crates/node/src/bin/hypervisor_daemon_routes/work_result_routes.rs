@@ -34,6 +34,7 @@
 //!   record first, backlink second, receipt third; every failure lane rolls back all earlier
 //!   writes with CHECKED operations and a distinct typed 5xx; no orphan record, no orphan
 //!   backlink, no orphan receipt.
+use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -57,33 +58,84 @@ const DELTA_RECEIPT_DIR: &str = "outcome-delta-registry-receipts";
 
 /// The canonical envelope vocabularies (common-objects-and-envelopes.md, verbatim).
 const RESULT_PROFILES: &[&str] = &[
-    "software_implementation", "research", "ontology_mutation", "incident_resolution",
-    "service_delivery", "physical_mission", "review", "evaluation", "custom",
+    "software_implementation",
+    "research",
+    "ontology_mutation",
+    "incident_resolution",
+    "service_delivery",
+    "physical_mission",
+    "review",
+    "evaluation",
+    "custom",
 ];
-const OUTCOME_CLASSES: &[&str] =
-    &["positive", "negative", "inconclusive", "invalid", "exploit_found", "superseded"];
-const RESULT_STATUSES: &[&str] =
-    &["completed", "failed", "blocked", "partial", "challenged", "superseded"];
+const OUTCOME_CLASSES: &[&str] = &[
+    "positive",
+    "negative",
+    "inconclusive",
+    "invalid",
+    "exploit_found",
+    "superseded",
+];
+const RESULT_STATUSES: &[&str] = &[
+    "completed",
+    "failed",
+    "blocked",
+    "partial",
+    "challenged",
+    "superseded",
+];
 const NEXT_ACTIONS: &[&str] = &[
-    "none", "repair", "review", "verify", "replicate", "synthesize",
-    "ask_user", "escalate", "update_frontier",
+    "none",
+    "repair",
+    "review",
+    "verify",
+    "replicate",
+    "synthesize",
+    "ask_user",
+    "escalate",
+    "update_frontier",
 ];
-const REPRODUCTION_STATES: &[&str] =
-    &["unreviewed", "reproducible", "not_reproduced", "contradicted", "invalidated"];
+const REPRODUCTION_STATES: &[&str] = &[
+    "unreviewed",
+    "reproducible",
+    "not_reproduced",
+    "contradicted",
+    "invalidated",
+];
 const DELTA_KINDS: &[&str] = &[
-    "create", "update", "supersede", "reject", "merge", "promote",
-    "rollback", "course_correct", "close",
+    "create",
+    "update",
+    "supersede",
+    "reject",
+    "merge",
+    "promote",
+    "rollback",
+    "course_correct",
+    "close",
 ];
 /// OutcomeDelta target schemes (the canonical target_ref vocabulary).
 const DELTA_TARGET_SCHEMES: &[&str] = &[
-    "frontier", "finding", "ontology", "state", "capability", "policy", "routing-prior", "service",
+    "frontier",
+    "finding",
+    "ontology",
+    "state",
+    "capability",
+    "policy",
+    "routing-prior",
+    "service",
 ];
 /// Proposer planes the canon names that are NOT yet admitted (build step 3) — refused typed.
 const UNAVAILABLE_PROPOSER_SCHEMES: &[&str] = &["attempt", "finding", "participant-lease"];
 /// Normalized sensitive-key fragments: an object key ANYWHERE in the body whose normalized form
 /// (lowercased, separators stripped) contains one of these refuses the whole admission.
 const SENSITIVE_KEY_FRAGMENTS: &[&str] = &[
-    "password", "secret", "credential", "authorization", "privatekey", "apikey", "token",
+    "password",
+    "secret",
+    "credential",
+    "authorization",
+    "privatekey",
+    "apikey",
+    "token",
 ];
 
 /// Serializes every delta admission's read→bind→backlink→receipt critical section (#71 round 2):
@@ -124,7 +176,11 @@ fn reject_sensitive_keys(v: &Value, path: &str) -> Result<(), VErr> {
                     .chars()
                     .filter(|c| !matches!(c, '_' | '-' | ' ' | '.'))
                     .collect();
-                if SENSITIVE_KEY_FRAGMENTS.iter().any(|f| normalized.contains(f)) && !child.is_null() {
+                if SENSITIVE_KEY_FRAGMENTS
+                    .iter()
+                    .any(|f| normalized.contains(f))
+                    && !child.is_null()
+                {
                     return Err(verr(
                         "work_result_plaintext_secret_rejected",
                         format!("sensitive key `{path}{k}` is never accepted anywhere in the body — results and deltas carry canonical refs; secrets stay in the daemon credential planes"),
@@ -151,13 +207,23 @@ fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(raw)) => {
             if raw.chars().count() > max {
-                return Err(verr("work_result_field_too_long", format!("`{key}` exceeds the bounded length ({max} chars)")));
+                return Err(verr(
+                    "work_result_field_too_long",
+                    format!("`{key}` exceeds the bounded length ({max} chars)"),
+                ));
             }
             let trimmed = raw.trim();
-            if trimmed.is_empty() { return Ok(None); }
+            if trimmed.is_empty() {
+                return Ok(None);
+            }
             Ok(Some(trimmed.to_string()))
         }
-        Some(_) => Err(verr("work_result_field_type_invalid", format!("`{key}` must be a string when present — a non-string value is never defaulted"))),
+        Some(_) => Err(verr(
+            "work_result_field_type_invalid",
+            format!(
+                "`{key}` must be a string when present — a non-string value is never defaulted"
+            ),
+        )),
     }
 }
 
@@ -170,7 +236,10 @@ fn ref_scheme_ok(v: &str, schemes: &[&str], prefixes: &[&str], exacts: &[&str]) 
     if exacts.contains(&v) {
         return true;
     }
-    if prefixes.iter().any(|p| v.starts_with(p) && v.len() > p.len()) {
+    if prefixes
+        .iter()
+        .any(|p| v.starts_with(p) && v.len() > p.len())
+    {
         return true;
     }
     match v.split_once("://") {
@@ -183,11 +252,23 @@ fn scheme_err(key: &str, schemes: &[&str], prefixes: &[&str], exacts: &[&str]) -
     let mut allowed: Vec<String> = schemes.iter().map(|s| format!("{s}://")).collect();
     allowed.extend(prefixes.iter().map(|p| format!("{p}*")));
     allowed.extend(exacts.iter().map(|e| format!("{e} (exact)")));
-    verr("work_result_ref_scheme_invalid", format!("`{key}` must be a canonical ref [{}] — a raw string is never a ref", allowed.join("|")))
+    verr(
+        "work_result_ref_scheme_invalid",
+        format!(
+            "`{key}` must be a canonical ref [{}] — a raw string is never a ref",
+            allowed.join("|")
+        ),
+    )
 }
 
 /// Field-specific scalar canonical ref: typed, bounded, scheme-validated.
-fn scalar_ref(body: &Value, key: &str, schemes: &[&str], prefixes: &[&str], exacts: &[&str]) -> Result<Option<String>, VErr> {
+fn scalar_ref(
+    body: &Value,
+    key: &str,
+    schemes: &[&str],
+    prefixes: &[&str],
+    exacts: &[&str],
+) -> Result<Option<String>, VErr> {
     match str_opt_bounded(body, key, REF_MAX)? {
         None => Ok(None),
         Some(v) if ref_scheme_ok(&v, schemes, prefixes, exacts) => Ok(Some(v)),
@@ -196,34 +277,73 @@ fn scalar_ref(body: &Value, key: &str, schemes: &[&str], prefixes: &[&str], exac
 }
 
 /// Field-specific ref list: typed, bounded, every member scheme-validated; omitted/null → [].
-fn list_ref(body: &Value, key: &str, schemes: &[&str], prefixes: &[&str], exacts: &[&str]) -> Result<Vec<String>, VErr> {
+fn list_ref(
+    body: &Value,
+    key: &str,
+    schemes: &[&str],
+    prefixes: &[&str],
+    exacts: &[&str],
+) -> Result<Vec<String>, VErr> {
     match body.get(key) {
         None | Some(Value::Null) => Ok(Vec::new()),
         Some(Value::Array(items)) => {
             if items.len() > LIST_MAX {
-                return Err(verr("work_result_field_too_long", format!("`{key}` exceeds the bounded list length ({LIST_MAX})")));
+                return Err(verr(
+                    "work_result_field_too_long",
+                    format!("`{key}` exceeds the bounded list length ({LIST_MAX})"),
+                ));
             }
             let mut out = Vec::with_capacity(items.len());
             for it in items {
                 match it {
                     Value::String(raw) => {
                         let t = raw.trim();
-                        if t.is_empty() { continue; }
+                        if t.is_empty() {
+                            continue;
+                        }
                         if t.chars().count() > REF_MAX {
-                            return Err(verr("work_result_field_too_long", format!("a `{key}` member exceeds the bounded length ({REF_MAX} chars)")));
+                            return Err(verr(
+                                "work_result_field_too_long",
+                                format!(
+                                    "a `{key}` member exceeds the bounded length ({REF_MAX} chars)"
+                                ),
+                            ));
                         }
                         if !ref_scheme_ok(t, schemes, prefixes, exacts) {
                             return Err(scheme_err(key, schemes, prefixes, exacts));
                         }
                         out.push(t.to_string());
                     }
-                    _ => return Err(verr("work_result_field_type_invalid", format!("`{key}` members must be strings"))),
+                    _ => {
+                        return Err(verr(
+                            "work_result_field_type_invalid",
+                            format!("`{key}` members must be strings"),
+                        ))
+                    }
                 }
             }
             Ok(out)
         }
-        Some(_) => Err(verr("work_result_field_type_invalid", format!("`{key}` must be an array of refs when present"))),
+        Some(_) => Err(verr(
+            "work_result_field_type_invalid",
+            format!("`{key}` must be an array of refs when present"),
+        )),
     }
+}
+
+fn information_flow_label_refs(value: &Value) -> Result<Vec<String>, VErr> {
+    let refs = list_ref(
+        value,
+        "information_flow_label_refs",
+        &["ifc-label"],
+        &[],
+        &[],
+    )?;
+    Ok(refs
+        .into_iter()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect())
 }
 
 /// A FUTURE-PLANE field (build steps 2-3): typed/bounded like any field, but any non-empty value
@@ -231,7 +351,10 @@ fn list_ref(body: &Value, key: &str, schemes: &[&str], prefixes: &[&str], exacts
 /// be caller-authored before the owning plane exists.
 fn future_plane_scalar(body: &Value, key: &str, code: &str, why: &str) -> Result<(), VErr> {
     if str_opt_bounded(body, key, REF_MAX)?.is_some() {
-        return Err(verr(code, format!("`{key}` names a plane that is not admitted yet — {why}")));
+        return Err(verr(
+            code,
+            format!("`{key}` names a plane that is not admitted yet — {why}"),
+        ));
     }
     Ok(())
 }
@@ -239,14 +362,22 @@ fn future_plane_list(body: &Value, key: &str, code: &str, why: &str) -> Result<(
     match body.get(key) {
         None | Some(Value::Null) => Ok(()),
         Some(Value::Array(items)) => {
-            let has_member = items.iter().any(|it| !matches!(it, Value::String(s) if s.trim().is_empty()));
+            let has_member = items
+                .iter()
+                .any(|it| !matches!(it, Value::String(s) if s.trim().is_empty()));
             if has_member {
-                Err(verr(code, format!("`{key}` names a plane that is not admitted yet — {why}")))
+                Err(verr(
+                    code,
+                    format!("`{key}` names a plane that is not admitted yet — {why}"),
+                ))
             } else {
                 Ok(())
             }
         }
-        Some(_) => Err(verr("work_result_field_type_invalid", format!("`{key}` must be an array when present"))),
+        Some(_) => Err(verr(
+            "work_result_field_type_invalid",
+            format!("`{key}` must be an array when present"),
+        )),
     }
 }
 
@@ -254,8 +385,20 @@ fn future_plane_list(body: &Value, key: &str, code: &str, why: &str) -> Result<(
 fn vocab_required(body: &Value, key: &str, vocab: &[&str], code: &str) -> Result<String, VErr> {
     match str_opt_bounded(body, key, 80)? {
         Some(v) if vocab.contains(&v.as_str()) => Ok(v),
-        Some(v) => Err(verr(code, format!("`{key}` value '{v}' is not a member of the canonical vocabulary [{}]", vocab.join("|")))),
-        None => Err(verr(code, format!("`{key}` is required and must be a member of [{}]", vocab.join("|")))),
+        Some(v) => Err(verr(
+            code,
+            format!(
+                "`{key}` value '{v}' is not a member of the canonical vocabulary [{}]",
+                vocab.join("|")
+            ),
+        )),
+        None => Err(verr(
+            code,
+            format!(
+                "`{key}` is required and must be a member of [{}]",
+                vocab.join("|")
+            ),
+        )),
     }
 }
 
@@ -266,13 +409,16 @@ fn vocab_required(body: &Value, key: &str, vocab: &[&str], code: &str) -> Result
 fn record_output_hash(record: &Value, excludes: &[&str]) -> String {
     let mut clone = record.clone();
     if let Some(obj) = clone.as_object_mut() {
-        for k in excludes { obj.remove(*k); }
+        for k in excludes {
+            obj.remove(*k);
+        }
     }
     let bytes = serde_json::to_vec(&clone).unwrap_or_default();
     format!("sha256:{:x}", Sha256::digest(&bytes))
 }
 
-const RESULT_HASH_EXCLUDES: &[&str] = &["admission_receipt_ref", "outcome_delta_refs", "updated_at"];
+const RESULT_HASH_EXCLUDES: &[&str] =
+    &["admission_receipt_ref", "outcome_delta_refs", "updated_at"];
 const DELTA_HASH_EXCLUDES: &[&str] = &["admission_receipt_ref", "status", "updated_at"];
 
 /// PURE receipt profile: `WorkResultReceipt` on the canonical ReceiptEnvelope base — binds the
@@ -297,6 +443,7 @@ fn build_work_result_receipt(record: &Value, now: &str) -> (String, Value) {
             "result_profile": record["result_profile"],
             "outcome_class": record["outcome_class"],
             "status_at_admission": record["status"],
+            "information_flow_label_refs": record.get("information_flow_label_refs").cloned().unwrap_or_else(|| json!([])),
         },
         "output_hash": record_output_hash(record, RESULT_HASH_EXCLUDES),
         "hash_scope_excludes": RESULT_HASH_EXCLUDES,
@@ -350,6 +497,7 @@ fn build_outcome_delta_receipt(record: &Value, now: &str) -> (String, Value) {
             "precondition_and_invariant_refs": record["precondition_and_invariant_refs"],
             "expected_effect_ref": record["expected_effect_ref"],
             "verifier_and_acceptance_refs": record["verifier_and_acceptance_refs"],
+            "information_flow_label_refs": record.get("information_flow_label_refs").cloned().unwrap_or_else(|| json!([])),
             "record_status_at_admission": "proposed",
             "effect_admitted": false,
         },
@@ -395,7 +543,10 @@ fn persist_result_atomic(data_dir: &str, record_id: &str, record: &Value) -> std
     }
     let dir = std::path::Path::new(data_dir).join(RESULT_DIR);
     std::fs::create_dir_all(&dir)?;
-    let safe: String = record_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    let safe: String = record_id.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    );
     let tmp = dir.join(format!(".{safe}.tmp-{:x}", nanos()));
     // Both failure paths CLEAN UP the temporary sibling (#71 round 3): a leaked .tmp-* is
     // deliberately invisible to read_record_dir, so it would evade every orphan check.
@@ -420,7 +571,10 @@ fn finalize_result_persist(
     receipt: &Value,
 ) -> Result<(), VErr> {
     if let Err(e) = persist_record(data_dir, RESULT_DIR, record_id, record) {
-        return Err(verr("work_result_record_persist_failed", format!("record persist failed ({e}) — nothing changed")));
+        return Err(verr(
+            "work_result_record_persist_failed",
+            format!("record persist failed ({e}) — nothing changed"),
+        ));
     }
     match persist_record(data_dir, RESULT_RECEIPT_DIR, receipt_id, receipt) {
         Ok(()) => Ok(()),
@@ -453,7 +607,10 @@ fn finalize_delta_persist(
     receipt: &Value,
 ) -> Result<(), VErr> {
     if let Err(e) = persist_record(data_dir, DELTA_DIR, delta_id, delta) {
-        return Err(verr("outcome_delta_record_persist_failed", format!("delta record persist failed ({e}) — nothing changed")));
+        return Err(verr(
+            "outcome_delta_record_persist_failed",
+            format!("delta record persist failed ({e}) — nothing changed"),
+        ));
     }
     if let Err(e) = persist_result_atomic(data_dir, result_id, updated_result) {
         return if remove_record(data_dir, DELTA_DIR, delta_id) {
@@ -487,49 +644,136 @@ fn validate_work_result(
     // goal_ref is a canonical goal:// identity (never a raw string).
     let goal_ref = match str_opt_bounded(body, "goal_ref", REF_MAX)? {
         Some(g) if ref_scheme_ok(&g, &["goal"], &[], &[]) => g,
-        Some(_) => return Err(verr("work_result_goal_ref_invalid", "`goal_ref` must be a canonical goal:// identity")),
-        None => return Err(verr("work_result_goal_ref_required", "A WorkResult requires `goal_ref` — every result is goal-shaped work.")),
+        Some(_) => {
+            return Err(verr(
+                "work_result_goal_ref_invalid",
+                "`goal_ref` must be a canonical goal:// identity",
+            ))
+        }
+        None => {
+            return Err(verr(
+                "work_result_goal_ref_required",
+                "A WorkResult requires `goal_ref` — every result is goal-shaped work.",
+            ))
+        }
     };
     // Room binding (build step 2, LIVE): a declared room must RESOLVE to an OPEN hosted room.
     let outcome_room = match scalar_ref(body, "outcome_room_ref", &["outcome-room"], &[], &[])? {
         None => Value::Null,
-        Some(r) => match resolve_room(&r) {
-            None => return Err(verr("work_result_room_unbound", format!("`outcome_room_ref` does not resolve to an admitted OutcomeRoom ('{r}')"))),
-            // ADMISSION BOUNDARY IS INTENT-AWARE (#72 round 10 review, finding 1): a room whose
-            // transition/attach intent is durably sealed may already be ORDERED closed — its
-            // visible prior status must not admit new results while convergence is pending.
-            Some(room) if super::outcome_room_routes::pending_intent(&room).is_some() => {
-                return Err(verr("work_result_room_intent_pending", format!("room '{r}' has a durable mutation intent pending convergence — results refuse until the sealed transition applies (a restart converges it)")));
+        Some(r) => {
+            match resolve_room(&r) {
+                None => {
+                    return Err(verr(
+                        "work_result_room_unbound",
+                        format!(
+                        "`outcome_room_ref` does not resolve to an admitted OutcomeRoom ('{r}')"
+                    ),
+                    ))
+                }
+                // ADMISSION BOUNDARY IS INTENT-AWARE (#72 round 10 review, finding 1): a room whose
+                // transition/attach intent is durably sealed may already be ORDERED closed — its
+                // visible prior status must not admit new results while convergence is pending.
+                Some(room) if super::outcome_room_routes::pending_intent(&room).is_some() => {
+                    return Err(verr("work_result_room_intent_pending", format!("room '{r}' has a durable mutation intent pending convergence — results refuse until the sealed transition applies (a restart converges it)")));
+                }
+                Some(room) if room.get("status").and_then(|v| v.as_str()) != Some("open") => {
+                    return Err(verr(
+                        "work_result_room_not_open",
+                        format!(
+                            "room '{r}' is '{}' — results admit only into an open room",
+                            room.get("status")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown")
+                        ),
+                    ));
+                }
+                Some(_) => Value::String(r),
             }
-            Some(room) if room.get("status").and_then(|v| v.as_str()) != Some("open") => {
-                return Err(verr("work_result_room_not_open", format!("room '{r}' is '{}' — results admit only into an open room", room.get("status").and_then(|v| v.as_str()).unwrap_or("unknown"))));
-            }
-            Some(_) => Value::String(r),
-        },
+        }
     };
     // FUTURE-PLANE fields (build step 3): non-empty values are per-field named gaps.
-    future_plane_scalar(body, "work_claim_ref", "work_result_work_claim_unavailable", "WorkClaimLease is build step 3")?;
-    future_plane_scalar(body, "attempt_ref", "work_result_attempt_unavailable", "the Attempt plane is build step 3")?;
-    future_plane_scalar(body, "acceptance_ref", "work_result_acceptance_unavailable", "acceptance authority is build step 3; admission never implies acceptance")?;
+    future_plane_scalar(
+        body,
+        "work_claim_ref",
+        "work_result_work_claim_unavailable",
+        "WorkClaimLease is build step 3",
+    )?;
+    future_plane_scalar(
+        body,
+        "attempt_ref",
+        "work_result_attempt_unavailable",
+        "the Attempt plane is build step 3",
+    )?;
+    future_plane_scalar(
+        body,
+        "acceptance_ref",
+        "work_result_acceptance_unavailable",
+        "acceptance authority is build step 3; admission never implies acceptance",
+    )?;
     future_plane_scalar(body, "superseded_by_ref", "work_result_superseded_by_unavailable", "supersession-by arrives with the later result/delta that supersedes this one — it is never self-declared at admission")?;
-    future_plane_list(body, "finding_refs", "work_result_finding_refs_unavailable", "the Finding plane is build step 3")?;
-    future_plane_list(body, "challenge_refs", "work_result_challenge_refs_unavailable", "the VerifierChallenge plane is build step 3")?;
+    future_plane_list(
+        body,
+        "finding_refs",
+        "work_result_finding_refs_unavailable",
+        "the Finding plane is build step 3",
+    )?;
+    future_plane_list(
+        body,
+        "challenge_refs",
+        "work_result_challenge_refs_unavailable",
+        "the VerifierChallenge plane is build step 3",
+    )?;
     // outcome_delta_refs is PLANE-OWNED: the delta admission registers the backlink atomically.
-    if body.get("outcome_delta_refs").map(|v| !v.is_null()).unwrap_or(false) {
+    if body
+        .get("outcome_delta_refs")
+        .map(|v| !v.is_null())
+        .unwrap_or(false)
+    {
         return Err(verr("work_result_outcome_delta_refs_plane_owned", "`outcome_delta_refs` is plane-owned — the OutcomeDelta admission registers the backlink atomically; callers never supply it"));
     }
-    let result_profile = vocab_required(body, "result_profile", RESULT_PROFILES, "work_result_profile_invalid")?;
-    let outcome_class = vocab_required(body, "outcome_class", OUTCOME_CLASSES, "work_result_outcome_class_invalid")?;
-    let status = vocab_required(body, "status", RESULT_STATUSES, "work_result_status_invalid")?;
+    let result_profile = vocab_required(
+        body,
+        "result_profile",
+        RESULT_PROFILES,
+        "work_result_profile_invalid",
+    )?;
+    let outcome_class = vocab_required(
+        body,
+        "outcome_class",
+        OUTCOME_CLASSES,
+        "work_result_outcome_class_invalid",
+    )?;
+    let status = vocab_required(
+        body,
+        "status",
+        RESULT_STATUSES,
+        "work_result_status_invalid",
+    )?;
     let next_action = match str_opt_bounded(body, "next_action", 80)? {
         None => "none".to_string(), // canonical default: a result with no follow-up declares none
         Some(v) if NEXT_ACTIONS.contains(&v.as_str()) => v,
-        Some(v) => return Err(verr("work_result_next_action_invalid", format!("`next_action` value '{v}' is not a member of [{}]", NEXT_ACTIONS.join("|")))),
+        Some(v) => {
+            return Err(verr(
+                "work_result_next_action_invalid",
+                format!(
+                    "`next_action` value '{v}' is not a member of [{}]",
+                    NEXT_ACTIONS.join("|")
+                ),
+            ))
+        }
     };
     let reproduction_state = match str_opt_bounded(body, "reproduction_state", 80)? {
         None => Value::Null, // canon allows null — an unclaimed reproduction posture stays null
         Some(v) if REPRODUCTION_STATES.contains(&v.as_str()) => Value::String(v),
-        Some(v) => return Err(verr("work_result_reproduction_state_invalid", format!("`reproduction_state` value '{v}' is not a member of [{}]", REPRODUCTION_STATES.join("|")))),
+        Some(v) => {
+            return Err(verr(
+                "work_result_reproduction_state_invalid",
+                format!(
+                    "`reproduction_state` value '{v}' is not a member of [{}]",
+                    REPRODUCTION_STATES.join("|")
+                ),
+            ))
+        }
     };
     // `uncertainty` is number | string | object | null per canon — bounded by serialized size
     // (its subtree already passed the recursive sensitive-key rejection above).
@@ -537,15 +781,31 @@ fn validate_work_result(
         None | Some(Value::Null) => Value::Null,
         Some(v @ (Value::Number(_) | Value::String(_) | Value::Object(_))) => {
             if v.to_string().chars().count() > UNCERTAINTY_MAX {
-                return Err(verr("work_result_field_too_long", format!("`uncertainty` exceeds the bounded serialized length ({UNCERTAINTY_MAX})")));
+                return Err(verr(
+                    "work_result_field_too_long",
+                    format!(
+                        "`uncertainty` exceeds the bounded serialized length ({UNCERTAINTY_MAX})"
+                    ),
+                ));
             }
             v.clone()
         }
-        Some(_) => return Err(verr("work_result_field_type_invalid", "`uncertainty` must be a number, string, or object when present")),
+        Some(_) => {
+            return Err(verr(
+                "work_result_field_type_invalid",
+                "`uncertainty` must be a number, string, or object when present",
+            ))
+        }
     };
     // supersedes_work_result_ref: only a resolvable SAME-GOAL, SAME-ROOM work-result (#71 item 6;
     // #72 review finding 2 — supersession preserves singular room identity exactly like deltas).
-    let supersedes = match scalar_ref(body, "supersedes_work_result_ref", &["work-result"], &[], &[])? {
+    let supersedes = match scalar_ref(
+        body,
+        "supersedes_work_result_ref",
+        &["work-result"],
+        &[],
+        &[],
+    )? {
         None => Value::Null,
         Some(r) => {
             let tail = r.strip_prefix("work-result://").unwrap_or("");
@@ -579,6 +839,7 @@ fn validate_work_result(
         "result_payload_ref": scalar_ref(body, "result_payload_ref", &["artifact", "cid"], &[], &["encrypted_ref"])?,
         "worker_harness_model_runtime_version_refs": list_ref(body, "worker_harness_model_runtime_version_refs", &["worker", "model", "model_route", "runtime", "registry_version"], &["harness_profile:", "agent_harness_adapter:"], &[])?,
         "declared_method_and_lineage_refs": list_ref(body, "declared_method_and_lineage_refs", &["method", "attempt", "finding", "work-result", "artifact", "trace"], &[], &[])?,
+        "information_flow_label_refs": information_flow_label_refs(body)?,
         "outcome_class": outcome_class,
         "status": status,
         "outcome_delta_refs": [],
@@ -625,32 +886,68 @@ fn validate_outcome_delta(
     if body.get("status").map(|v| !v.is_null()).unwrap_or(false) {
         return Err(verr("outcome_delta_status_plane_owned", "`status` is plane-owned: a delta admits as `proposed`; evaluation/admission transitions are a named gap (build steps 2-3 authority)."));
     }
-    if body.get("admission_receipt_ref").map(|v| !v.is_null()).unwrap_or(false) {
+    if body
+        .get("admission_receipt_ref")
+        .map(|v| !v.is_null())
+        .unwrap_or(false)
+    {
         return Err(verr("outcome_delta_receipt_plane_owned", "`admission_receipt_ref` is minted by this plane — it is never accepted from the caller."));
     }
     let goal_ref = match str_opt_bounded(body, "goal_ref", REF_MAX)? {
         Some(g) if ref_scheme_ok(&g, &["goal"], &[], &[]) => g,
-        Some(_) => return Err(verr("outcome_delta_goal_ref_invalid", "`goal_ref` must be a canonical goal:// identity")),
-        None => return Err(verr("outcome_delta_goal_ref_required", "An OutcomeDelta requires `goal_ref`.")),
+        Some(_) => {
+            return Err(verr(
+                "outcome_delta_goal_ref_invalid",
+                "`goal_ref` must be a canonical goal:// identity",
+            ))
+        }
+        None => {
+            return Err(verr(
+                "outcome_delta_goal_ref_required",
+                "An OutcomeDelta requires `goal_ref`.",
+            ))
+        }
     };
     // Room binding (build step 2, LIVE): a declared room must resolve to an OPEN hosted room,
     // and must EXACTLY equal the bound result's room (checked after the result resolves below).
     let delta_room = match scalar_ref(body, "outcome_room_ref", &["outcome-room"], &[], &[])? {
         None => Value::Null,
-        Some(r) => match resolve_room(&r) {
-            None => return Err(verr("outcome_delta_room_unbound", format!("`outcome_room_ref` does not resolve to an admitted OutcomeRoom ('{r}')"))),
-            // Intent-aware admission boundary (#72 round 10 review, finding 1) — same rule as
-            // results: a durably ordered transition outranks the visible prior status.
-            Some(room) if super::outcome_room_routes::pending_intent(&room).is_some() => {
-                return Err(verr("outcome_delta_room_intent_pending", format!("room '{r}' has a durable mutation intent pending convergence — deltas refuse until the sealed transition applies (a restart converges it)")));
+        Some(r) => {
+            match resolve_room(&r) {
+                None => {
+                    return Err(verr(
+                        "outcome_delta_room_unbound",
+                        format!(
+                        "`outcome_room_ref` does not resolve to an admitted OutcomeRoom ('{r}')"
+                    ),
+                    ))
+                }
+                // Intent-aware admission boundary (#72 round 10 review, finding 1) — same rule as
+                // results: a durably ordered transition outranks the visible prior status.
+                Some(room) if super::outcome_room_routes::pending_intent(&room).is_some() => {
+                    return Err(verr("outcome_delta_room_intent_pending", format!("room '{r}' has a durable mutation intent pending convergence — deltas refuse until the sealed transition applies (a restart converges it)")));
+                }
+                Some(room) if room.get("status").and_then(|v| v.as_str()) != Some("open") => {
+                    return Err(verr(
+                        "outcome_delta_room_not_open",
+                        format!(
+                            "room '{r}' is '{}' — deltas admit only into an open room",
+                            room.get("status")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown")
+                        ),
+                    ));
+                }
+                Some(_) => Value::String(r),
             }
-            Some(room) if room.get("status").and_then(|v| v.as_str()) != Some("open") => {
-                return Err(verr("outcome_delta_room_not_open", format!("room '{r}' is '{}' — deltas admit only into an open room", room.get("status").and_then(|v| v.as_str()).unwrap_or("unknown"))));
-            }
-            Some(_) => Value::String(r),
-        },
+        }
     };
-    let delta_kind = vocab_required(body, "delta_kind", DELTA_KINDS, "outcome_delta_kind_invalid")?;
+    let delta_kind = vocab_required(
+        body,
+        "delta_kind",
+        DELTA_KINDS,
+        "outcome_delta_kind_invalid",
+    )?;
     // THE INVARIANT: the delta binds an EXISTING admitted WorkResult UNDER THE SAME GOAL.
     let proposed_by = match str_opt_bounded(body, "proposed_by_ref", REF_MAX)? {
         Some(p) => p,
@@ -672,18 +969,50 @@ fn validate_outcome_delta(
     if bound_goal != goal_ref {
         return Err(verr("outcome_delta_cross_goal", format!("the bound WorkResult belongs to '{bound_goal}', not this delta's '{goal_ref}' — a delta never binds a result from another goal (zero mutation)")));
     }
+    // A derived proposal cannot erase provenance carried by its admitted result. The plane owns
+    // the union: callers may add exact label refs, while every inherited ref is retained in the
+    // delta and its admission receipt.
+    let mut information_flow_refs = information_flow_label_refs(&bound_result)?
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    information_flow_refs.extend(information_flow_label_refs(body)?);
+    if information_flow_refs.len() > LIST_MAX {
+        return Err(verr(
+            "outcome_delta_information_flow_closure_too_large",
+            format!(
+                "the inherited plus declared information-flow label closure exceeds {LIST_MAX} refs"
+            ),
+        ));
+    }
     // EXACT room equality with the bound result (#71 round-1 directive, live since step 2):
     // both null, or the same outcome-room:// ref — anything else is a cross-room binding.
-    let result_room = bound_result.get("outcome_room_ref").cloned().unwrap_or(Value::Null);
+    let result_room = bound_result
+        .get("outcome_room_ref")
+        .cloned()
+        .unwrap_or(Value::Null);
     if delta_room != result_room {
         return Err(verr("outcome_delta_cross_room", format!("the delta's room ({}) must exactly equal the bound result's room ({}) — a delta never crosses room scope (zero mutation)", if delta_room.is_null() { "null".into() } else { delta_room.to_string() }, if result_room.is_null() { "null".into() } else { result_room.to_string() })));
     }
     let target_ref = match str_opt_bounded(body, "target_ref", REF_MAX)? {
         Some(t) => t,
-        None => return Err(verr("outcome_delta_target_required", format!("`target_ref` is required and must use a canonical scheme [{}]", DELTA_TARGET_SCHEMES.join("|")))),
+        None => {
+            return Err(verr(
+                "outcome_delta_target_required",
+                format!(
+                    "`target_ref` is required and must use a canonical scheme [{}]",
+                    DELTA_TARGET_SCHEMES.join("|")
+                ),
+            ))
+        }
     };
     if !ref_scheme_ok(&target_ref, DELTA_TARGET_SCHEMES, &[], &[]) {
-        return Err(verr("outcome_delta_target_scheme_invalid", format!("`target_ref` scheme must be one of [{}]", DELTA_TARGET_SCHEMES.join("|"))));
+        return Err(verr(
+            "outcome_delta_target_scheme_invalid",
+            format!(
+                "`target_ref` scheme must be one of [{}]",
+                DELTA_TARGET_SCHEMES.join("|")
+            ),
+        ));
     }
     let record = json!({
         "schema_version": DELTA_SCHEMA,
@@ -696,6 +1025,7 @@ fn validate_outcome_delta(
         "precondition_and_invariant_refs": list_ref(body, "precondition_and_invariant_refs", &["policy", "gate", "state"], &[], &[])?,
         "expected_effect_ref": scalar_ref(body, "expected_effect_ref", &["effect"], &[], &[])?,
         "verifier_and_acceptance_refs": list_ref(body, "verifier_and_acceptance_refs", &["verifier_path", "rubric", "gate"], &[], &[])?,
+        "information_flow_label_refs": information_flow_refs.into_iter().collect::<Vec<_>>(),
         "status": "proposed",
         "runtimeTruthSource": "daemon-runtime"
     });
@@ -711,22 +1041,34 @@ fn sorted_newest(data_dir: &str, dir: &str) -> Vec<Value> {
 // ================================ HANDLERS =======================================================
 
 pub(crate) async fn handle_work_results_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "schema_version": RESULT_SCHEMA, "work_results": sorted_newest(&st.data_dir, RESULT_DIR), "runtimeTruthSource": "daemon-runtime" }))
+    Json(
+        json!({ "schema_version": RESULT_SCHEMA, "work_results": sorted_newest(&st.data_dir, RESULT_DIR), "runtimeTruthSource": "daemon-runtime" }),
+    )
 }
 
 pub(crate) async fn handle_work_result_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    match load_by(&st.data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{id}")) {
+    match load_by(
+        &st.data_dir,
+        RESULT_DIR,
+        "work_result_id",
+        &format!("work-result://{id}"),
+    ) {
         Some(r) => (StatusCode::OK, Json(json!({ "work_result": r }))),
-        None => (StatusCode::NOT_FOUND, Json(json!({ "error": { "code": "not_found", "work_result": id } }))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "not_found", "work_result": id } })),
+        ),
     }
 }
 
 /// GET /v1/hypervisor/work-results/overview — the DECLARATION VOCABULARY projection (a consuming
 /// surface derives its pickers from THIS, never a hardcoded copy) + honest governance gaps.
-pub(crate) async fn handle_work_results_overview(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_work_results_overview(
+    State(st): State<Arc<DaemonState>>,
+) -> Json<Value> {
     let results = read_record_dir(&st.data_dir, RESULT_DIR);
     let deltas = read_record_dir(&st.data_dir, DELTA_DIR);
     Json(json!({
@@ -755,14 +1097,29 @@ pub(crate) async fn handle_work_result_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let err400 = |(code, msg): VErr| (StatusCode::BAD_REQUEST, Json(json!({ "error": { "code": code, "message": msg } })));
+    let err400 = |(code, msg): VErr| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": { "code": code, "message": msg } })),
+        )
+    };
     let data_dir = st.data_dir.clone();
     // ROOM-SCOPE critical section (#72 review finding 3): room resolution through finalization
     // holds ROOM_MUTATION_LOCK, so a room cannot close between the check and the persist.
     // Lock ordering: ROOM_MUTATION_LOCK before DELTA_ADMISSION_LOCK, always.
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    let resolve_result = |tail: &str| load_by(&data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{tail}"));
-    let resolve_room = |room_ref: &str| super::outcome_room_routes::resolve_open_room(&data_dir, room_ref);
+    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let resolve_result = |tail: &str| {
+        load_by(
+            &data_dir,
+            RESULT_DIR,
+            "work_result_id",
+            &format!("work-result://{tail}"),
+        )
+    };
+    let resolve_room =
+        |room_ref: &str| super::outcome_room_routes::resolve_open_room(&data_dir, room_ref);
     let mut record = match validate_work_result(&body, &resolve_result, &resolve_room) {
         Ok(r) => r,
         Err(e) => return err400(e),
@@ -778,24 +1135,45 @@ pub(crate) async fn handle_work_result_create(
     }
     // Receipt binds the admission-time record (hash computed BEFORE the receipt ref lands on it).
     let (receipt_id, receipt) = build_work_result_receipt(&record, &now);
-    record.as_object_mut().expect("object").insert("admission_receipt_ref".into(), receipt["receipt_ref"].clone());
-    if let Err((code, msg)) = finalize_result_persist(&st.data_dir, &id_tail, &record, &receipt_id, &receipt) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": { "code": code, "message": msg } })));
+    record.as_object_mut().expect("object").insert(
+        "admission_receipt_ref".into(),
+        receipt["receipt_ref"].clone(),
+    );
+    if let Err((code, msg)) =
+        finalize_result_persist(&st.data_dir, &id_tail, &record, &receipt_id, &receipt)
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": { "code": code, "message": msg } })),
+        );
     }
-    (StatusCode::CREATED, Json(json!({ "work_result": record, "work_result_receipt": receipt })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "work_result": record, "work_result_receipt": receipt })),
+    )
 }
 
 pub(crate) async fn handle_outcome_deltas_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "schema_version": DELTA_SCHEMA, "outcome_deltas": sorted_newest(&st.data_dir, DELTA_DIR), "runtimeTruthSource": "daemon-runtime" }))
+    Json(
+        json!({ "schema_version": DELTA_SCHEMA, "outcome_deltas": sorted_newest(&st.data_dir, DELTA_DIR), "runtimeTruthSource": "daemon-runtime" }),
+    )
 }
 
 pub(crate) async fn handle_outcome_delta_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    match load_by(&st.data_dir, DELTA_DIR, "outcome_delta_id", &format!("outcome-delta://{id}")) {
+    match load_by(
+        &st.data_dir,
+        DELTA_DIR,
+        "outcome_delta_id",
+        &format!("outcome-delta://{id}"),
+    ) {
         Some(r) => (StatusCode::OK, Json(json!({ "outcome_delta": r }))),
-        None => (StatusCode::NOT_FOUND, Json(json!({ "error": { "code": "not_found", "outcome_delta": id } }))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": { "code": "not_found", "outcome_delta": id } })),
+        ),
     }
 }
 
@@ -805,16 +1183,33 @@ pub(crate) async fn handle_outcome_delta_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let err400 = |(code, msg): VErr| (StatusCode::BAD_REQUEST, Json(json!({ "error": { "code": code, "message": msg } })));
+    let err400 = |(code, msg): VErr| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": { "code": code, "message": msg } })),
+        )
+    };
     let data_dir = st.data_dir.clone();
     // ROOM-SCOPE + ADMISSION critical section (#71 round 2; #72 finding 3): the documented lock
     // ordering is ROOM_MUTATION_LOCK first, DELTA_ADMISSION_LOCK second — room resolution through
     // finalization is serialized against room transitions, and concurrent delta admissions
     // against one WorkResult each see the previous backlink state. No .await under either lock.
-    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    let _admission = DELTA_ADMISSION_LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    let resolve = |rid: &str| load_by(&data_dir, RESULT_DIR, "work_result_id", &format!("work-result://{rid}"));
-    let resolve_room = |room_ref: &str| super::outcome_room_routes::resolve_open_room(&data_dir, room_ref);
+    let _room_scope = super::outcome_room_routes::ROOM_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _admission = DELTA_ADMISSION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let resolve = |rid: &str| {
+        load_by(
+            &data_dir,
+            RESULT_DIR,
+            "work_result_id",
+            &format!("work-result://{rid}"),
+        )
+    };
+    let resolve_room =
+        |room_ref: &str| super::outcome_room_routes::resolve_open_room(&data_dir, room_ref);
     let (mut record, prior_result) = match validate_outcome_delta(&body, &resolve, &resolve_room) {
         Ok(r) => r,
         Err(e) => return err400(e),
@@ -829,21 +1224,45 @@ pub(crate) async fn handle_outcome_delta_create(
         obj.insert("updated_at".into(), json!(now));
     }
     let (receipt_id, receipt) = build_outcome_delta_receipt(&record, &now);
-    record.as_object_mut().expect("object").insert("admission_receipt_ref".into(), receipt["receipt_ref"].clone());
+    record.as_object_mut().expect("object").insert(
+        "admission_receipt_ref".into(),
+        receipt["receipt_ref"].clone(),
+    );
     // The plane-owned backlink: prior result + the new delta id, updated in the same atomic seam.
     let result_id_tail = s(&prior_result, "work_result_id", "").replace("work-result://", "");
     let mut updated_result = prior_result.clone();
     {
         let obj = updated_result.as_object_mut().expect("result is an object");
-        let mut refs: Vec<Value> = obj.get("outcome_delta_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        let mut refs: Vec<Value> = obj
+            .get("outcome_delta_refs")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
         refs.push(json!(outcome_delta_id));
         obj.insert("outcome_delta_refs".into(), Value::Array(refs));
         obj.insert("updated_at".into(), json!(now));
     }
-    if let Err((code, msg)) = finalize_delta_persist(&st.data_dir, &id_tail, &record, &result_id_tail, &prior_result, &updated_result, &receipt_id, &receipt) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": { "code": code, "message": msg } })));
+    if let Err((code, msg)) = finalize_delta_persist(
+        &st.data_dir,
+        &id_tail,
+        &record,
+        &result_id_tail,
+        &prior_result,
+        &updated_result,
+        &receipt_id,
+        &receipt,
+    ) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": { "code": code, "message": msg } })),
+        );
     }
-    (StatusCode::CREATED, Json(json!({ "outcome_delta": record, "outcome_delta_receipt": receipt, "work_result_backlink": { "work_result_id": s(&prior_result, "work_result_id", ""), "outcome_delta_refs_appended": outcome_delta_id } })))
+    (
+        StatusCode::CREATED,
+        Json(
+            json!({ "outcome_delta": record, "outcome_delta_receipt": receipt, "work_result_backlink": { "work_result_id": s(&prior_result, "work_result_id", ""), "outcome_delta_refs_appended": outcome_delta_id } }),
+        ),
+    )
 }
 
 #[cfg(test)]
@@ -855,11 +1274,19 @@ mod work_result_tests {
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
-    fn no_resolve(_: &str) -> Option<Value> { None }
-    fn no_room(_: &str) -> Option<Value> { None }
+    fn no_resolve(_: &str) -> Option<Value> {
+        None
+    }
+    fn no_room(_: &str) -> Option<Value> {
+        None
+    }
     fn open_room(r: &str) -> Option<Value> {
-        (r == "outcome-room://or_open").then(|| json!({ "outcome_room_id": r, "status": "open" }))
-            .or_else(|| (r == "outcome-room://or_closed").then(|| json!({ "outcome_room_id": r, "status": "closed" })))
+        (r == "outcome-room://or_open")
+            .then(|| json!({ "outcome_room_id": r, "status": "open" }))
+            .or_else(|| {
+                (r == "outcome-room://or_closed")
+                    .then(|| json!({ "outcome_room_id": r, "status": "closed" }))
+            })
     }
     fn valid_result_body() -> Value {
         json!({
@@ -901,72 +1328,183 @@ mod work_result_tests {
         ];
         for extra in cases {
             let mut b = valid_result_body();
-            for (k, v) in extra.as_object().unwrap() { b[k] = v.clone(); }
-            assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_plaintext_secret_rejected", "case: {extra}");
+            for (k, v) in extra.as_object().unwrap() {
+                b[k] = v.clone();
+            }
+            assert_eq!(
+                validate_work_result(&b, &no_resolve, &no_room)
+                    .unwrap_err()
+                    .0,
+                "work_result_plaintext_secret_rejected",
+                "case: {extra}"
+            );
         }
     }
 
     #[test]
     fn refs_are_canonical_per_field_and_raw_strings_never_pass() {
         // goal_ref must be a goal:// identity.
-        let mut b = valid_result_body(); b["goal_ref"] = json!("not-a-ref");
-        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_goal_ref_invalid");
+        let mut b = valid_result_body();
+        b["goal_ref"] = json!("not-a-ref");
+        assert_eq!(
+            validate_work_result(&b, &no_resolve, &no_room)
+                .unwrap_err()
+                .0,
+            "work_result_goal_ref_invalid"
+        );
         // Scalar refs: raw strings and wrong schemes refuse per field.
-        let mut b = valid_result_body(); b["result_payload_ref"] = json!("fixture-secret-raw-value");
-        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_ref_scheme_invalid");
-        let mut b = valid_result_body(); b["summary_ref"] = json!("goal://not-a-summary-scheme");
-        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_ref_scheme_invalid");
+        let mut b = valid_result_body();
+        b["result_payload_ref"] = json!("fixture-secret-raw-value");
+        assert_eq!(
+            validate_work_result(&b, &no_resolve, &no_room)
+                .unwrap_err()
+                .0,
+            "work_result_ref_scheme_invalid"
+        );
+        let mut b = valid_result_body();
+        b["summary_ref"] = json!("goal://not-a-summary-scheme");
+        assert_eq!(
+            validate_work_result(&b, &no_resolve, &no_room)
+                .unwrap_err()
+                .0,
+            "work_result_ref_scheme_invalid"
+        );
         // List refs: every member scheme-checked.
-        let mut b = valid_result_body(); b["supporting_evidence_refs"] = json!(["artifact://ok", "raw-string"]);
-        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_ref_scheme_invalid");
+        let mut b = valid_result_body();
+        b["supporting_evidence_refs"] = json!(["artifact://ok", "raw-string"]);
+        assert_eq!(
+            validate_work_result(&b, &no_resolve, &no_room)
+                .unwrap_err()
+                .0,
+            "work_result_ref_scheme_invalid"
+        );
         // Special non-URI forms admit where the envelope declares them.
         let mut b = valid_result_body();
         b["authority_and_policy_refs"] = json!(["scope:gmail.send", "grant://g1"]);
-        b["worker_harness_model_runtime_version_refs"] = json!(["harness_profile:codex-local", "agent_harness_adapter:claude-code", "model://m1"]);
+        b["worker_harness_model_runtime_version_refs"] = json!([
+            "harness_profile:codex-local",
+            "agent_harness_adapter:claude-code",
+            "model://m1"
+        ]);
         b["result_payload_ref"] = json!("encrypted_ref");
         let rec = validate_work_result(&b, &no_resolve, &no_room).unwrap();
-        assert_eq!(rec["authority_and_policy_refs"][0], json!("scope:gmail.send"));
+        assert_eq!(
+            rec["authority_and_policy_refs"][0],
+            json!("scope:gmail.send")
+        );
         assert_eq!(rec["result_payload_ref"], json!("encrypted_ref"));
         // encrypted_ref matches EXACTLY — any suffix is a raw-value smuggling form (#71 round 2).
-        for smuggle in ["encrypted_refSENTINEL_RAW_MATERIAL", "encrypted_ref:vault-42", "encrypted_ref-x", "xencrypted_ref"] {
-            let mut b = valid_result_body(); b["result_payload_ref"] = json!(smuggle);
-            assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_ref_scheme_invalid", "smuggle form: {smuggle:?}");
+        for smuggle in [
+            "encrypted_refSENTINEL_RAW_MATERIAL",
+            "encrypted_ref:vault-42",
+            "encrypted_ref-x",
+            "xencrypted_ref",
+        ] {
+            let mut b = valid_result_body();
+            b["result_payload_ref"] = json!(smuggle);
+            assert_eq!(
+                validate_work_result(&b, &no_resolve, &no_room)
+                    .unwrap_err()
+                    .0,
+                "work_result_ref_scheme_invalid",
+                "smuggle form: {smuggle:?}"
+            );
         }
         // Whitespace-padded input TRIMS to the exact literal (normalization, not smuggling).
-        let mut b = valid_result_body(); b["result_payload_ref"] = json!("encrypted_ref ");
-        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap()["result_payload_ref"], json!("encrypted_ref"));
+        let mut b = valid_result_body();
+        b["result_payload_ref"] = json!("encrypted_ref ");
+        assert_eq!(
+            validate_work_result(&b, &no_resolve, &no_room).unwrap()["result_payload_ref"],
+            json!("encrypted_ref")
+        );
         // But a bare special prefix with no tail refuses.
-        let mut b = valid_result_body(); b["authority_and_policy_refs"] = json!(["scope:"]);
-        assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, "work_result_ref_scheme_invalid");
+        let mut b = valid_result_body();
+        b["authority_and_policy_refs"] = json!(["scope:"]);
+        assert_eq!(
+            validate_work_result(&b, &no_resolve, &no_room)
+                .unwrap_err()
+                .0,
+            "work_result_ref_scheme_invalid"
+        );
     }
 
     #[test]
     fn future_plane_fields_refuse_with_named_codes() {
         let cases = vec![
-            ("work_claim_ref", json!("work-claim://c1"), "work_result_work_claim_unavailable"),
-            ("attempt_ref", json!("attempt://a1"), "work_result_attempt_unavailable"),
-            ("acceptance_ref", json!("acceptance://ghost"), "work_result_acceptance_unavailable"),
-            ("superseded_by_ref", json!("work-result://future"), "work_result_superseded_by_unavailable"),
-            ("finding_refs", json!(["finding://ghost"]), "work_result_finding_refs_unavailable"),
-            ("challenge_refs", json!(["verifier-challenge://ghost"]), "work_result_challenge_refs_unavailable"),
-            ("outcome_delta_refs", json!(["outcome-delta://ghost"]), "work_result_outcome_delta_refs_plane_owned"),
+            (
+                "work_claim_ref",
+                json!("work-claim://c1"),
+                "work_result_work_claim_unavailable",
+            ),
+            (
+                "attempt_ref",
+                json!("attempt://a1"),
+                "work_result_attempt_unavailable",
+            ),
+            (
+                "acceptance_ref",
+                json!("acceptance://ghost"),
+                "work_result_acceptance_unavailable",
+            ),
+            (
+                "superseded_by_ref",
+                json!("work-result://future"),
+                "work_result_superseded_by_unavailable",
+            ),
+            (
+                "finding_refs",
+                json!(["finding://ghost"]),
+                "work_result_finding_refs_unavailable",
+            ),
+            (
+                "challenge_refs",
+                json!(["verifier-challenge://ghost"]),
+                "work_result_challenge_refs_unavailable",
+            ),
+            (
+                "outcome_delta_refs",
+                json!(["outcome-delta://ghost"]),
+                "work_result_outcome_delta_refs_plane_owned",
+            ),
         ];
         for (key, val, code) in cases {
             let mut b = valid_result_body();
             b[key] = val;
-            assert_eq!(validate_work_result(&b, &no_resolve, &no_room).unwrap_err().0, code, "field: {key}");
+            assert_eq!(
+                validate_work_result(&b, &no_resolve, &no_room)
+                    .unwrap_err()
+                    .0,
+                code,
+                "field: {key}"
+            );
         }
     }
 
     #[test]
     fn room_binding_resolves_open_rooms_and_deltas_never_cross_rooms() {
         // Result side: unresolvable and non-open rooms refuse; an open room binds.
-        let mut b = valid_result_body(); b["outcome_room_ref"] = json!("outcome-room://or_ghost");
-        assert_eq!(validate_work_result(&b, &no_resolve, &open_room).unwrap_err().0, "work_result_room_unbound");
-        let mut b = valid_result_body(); b["outcome_room_ref"] = json!("outcome-room://or_closed");
-        assert_eq!(validate_work_result(&b, &no_resolve, &open_room).unwrap_err().0, "work_result_room_not_open");
-        let mut b = valid_result_body(); b["outcome_room_ref"] = json!("outcome-room://or_open");
-        assert_eq!(validate_work_result(&b, &no_resolve, &open_room).unwrap()["outcome_room_ref"], json!("outcome-room://or_open"));
+        let mut b = valid_result_body();
+        b["outcome_room_ref"] = json!("outcome-room://or_ghost");
+        assert_eq!(
+            validate_work_result(&b, &no_resolve, &open_room)
+                .unwrap_err()
+                .0,
+            "work_result_room_unbound"
+        );
+        let mut b = valid_result_body();
+        b["outcome_room_ref"] = json!("outcome-room://or_closed");
+        assert_eq!(
+            validate_work_result(&b, &no_resolve, &open_room)
+                .unwrap_err()
+                .0,
+            "work_result_room_not_open"
+        );
+        let mut b = valid_result_body();
+        b["outcome_room_ref"] = json!("outcome-room://or_open");
+        assert_eq!(
+            validate_work_result(&b, &no_resolve, &open_room).unwrap()["outcome_room_ref"],
+            json!("outcome-room://or_open")
+        );
         // Delta side: room EQUALITY with the bound result — same room admits; both-null admits.
         let roomed = json!({ "work_result_id": "work-result://wr_r", "goal_ref": "goal://alpha", "outcome_room_ref": "outcome-room://or_open", "outcome_delta_refs": [] });
         let resolver = |rid: &str| (rid == "wr_r").then(|| roomed.clone());
@@ -974,62 +1512,193 @@ mod work_result_tests {
         let (rec, _) = validate_outcome_delta(&base, &resolver, &open_room).unwrap();
         assert_eq!(rec["outcome_room_ref"], json!("outcome-room://or_open"));
         // A room-less delta against a roomed result is cross-room too.
-        let mut b = base.clone(); b.as_object_mut().unwrap().remove("outcome_room_ref");
-        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_cross_room");
+        let mut b = base.clone();
+        b.as_object_mut().unwrap().remove("outcome_room_ref");
+        assert_eq!(
+            validate_outcome_delta(&b, &resolver, &open_room)
+                .unwrap_err()
+                .0,
+            "outcome_delta_cross_room"
+        );
+    }
+
+    #[test]
+    fn result_labels_are_canonical_and_delta_admission_cannot_drop_inherited_labels() {
+        let mut result_body = valid_result_body();
+        result_body["information_flow_label_refs"] = json!([
+            "ifc-label://result/private-parent",
+            "ifc-label://result/private-parent"
+        ]);
+        let result = validate_work_result(&result_body, &no_resolve, &no_room).unwrap();
+        assert_eq!(
+            result["information_flow_label_refs"],
+            json!(["ifc-label://result/private-parent"])
+        );
+
+        let mut invalid = valid_result_body();
+        invalid["information_flow_label_refs"] = json!(["artifact://not-an-ifc-label"]);
+        assert_eq!(
+            validate_work_result(&invalid, &no_resolve, &no_room)
+                .unwrap_err()
+                .0,
+            "work_result_ref_scheme_invalid"
+        );
+
+        let bound = json!({
+            "work_result_id": "work-result://wr_ifc",
+            "goal_ref": "goal://alpha",
+            "outcome_delta_refs": [],
+            "information_flow_label_refs": ["ifc-label://result/private-parent"]
+        });
+        let resolver = |rid: &str| (rid == "wr_ifc").then(|| bound.clone());
+        let delta = json!({
+            "goal_ref": "goal://alpha",
+            "delta_kind": "update",
+            "target_ref": "frontier://f-ifc",
+            "proposed_by_ref": "work-result://wr_ifc",
+            "information_flow_label_refs": ["ifc-label://delta/additional-parent"]
+        });
+        let (record, _) = validate_outcome_delta(&delta, &resolver, &no_room).unwrap();
+        assert_eq!(
+            record["information_flow_label_refs"],
+            json!([
+                "ifc-label://delta/additional-parent",
+                "ifc-label://result/private-parent"
+            ])
+        );
+        let (_, receipt) = build_outcome_delta_receipt(&record, "2026-07-16T00:00:00Z");
+        assert_eq!(
+            receipt["bound_facts"]["information_flow_label_refs"],
+            record["information_flow_label_refs"]
+        );
     }
 
     #[test]
     fn supersedes_requires_resolvable_same_goal_same_room_result() {
         let resolver = |tail: &str| match tail {
-            "wr_same" => Some(json!({ "work_result_id": "work-result://wr_same", "goal_ref": "goal://g-research-1" })),
-            "wr_other" => Some(json!({ "work_result_id": "work-result://wr_other", "goal_ref": "goal://g-other" })),
-            "wr_roomed" => Some(json!({ "work_result_id": "work-result://wr_roomed", "goal_ref": "goal://g-research-1", "outcome_room_ref": "outcome-room://or_open" })),
+            "wr_same" => Some(
+                json!({ "work_result_id": "work-result://wr_same", "goal_ref": "goal://g-research-1" }),
+            ),
+            "wr_other" => Some(
+                json!({ "work_result_id": "work-result://wr_other", "goal_ref": "goal://g-other" }),
+            ),
+            "wr_roomed" => Some(
+                json!({ "work_result_id": "work-result://wr_roomed", "goal_ref": "goal://g-research-1", "outcome_room_ref": "outcome-room://or_open" }),
+            ),
             _ => None,
         };
-        let mut b = valid_result_body(); b["supersedes_work_result_ref"] = json!("work-result://wr_ghost");
-        assert_eq!(validate_work_result(&b, &resolver, &no_room).unwrap_err().0, "work_result_supersedes_unbound");
-        let mut b = valid_result_body(); b["supersedes_work_result_ref"] = json!("work-result://wr_other");
-        assert_eq!(validate_work_result(&b, &resolver, &no_room).unwrap_err().0, "work_result_supersedes_cross_goal");
-        let mut b = valid_result_body(); b["supersedes_work_result_ref"] = json!("work-result://wr_same");
-        assert_eq!(validate_work_result(&b, &resolver, &no_room).unwrap()["supersedes_work_result_ref"], json!("work-result://wr_same"));
+        let mut b = valid_result_body();
+        b["supersedes_work_result_ref"] = json!("work-result://wr_ghost");
+        assert_eq!(
+            validate_work_result(&b, &resolver, &no_room).unwrap_err().0,
+            "work_result_supersedes_unbound"
+        );
+        let mut b = valid_result_body();
+        b["supersedes_work_result_ref"] = json!("work-result://wr_other");
+        assert_eq!(
+            validate_work_result(&b, &resolver, &no_room).unwrap_err().0,
+            "work_result_supersedes_cross_goal"
+        );
+        let mut b = valid_result_body();
+        b["supersedes_work_result_ref"] = json!("work-result://wr_same");
+        assert_eq!(
+            validate_work_result(&b, &resolver, &no_room).unwrap()["supersedes_work_result_ref"],
+            json!("work-result://wr_same")
+        );
         // #72 finding 2: supersession preserves room identity EXACTLY, like deltas.
         // Roomless result superseding a roomed result → cross-room.
-        let mut b = valid_result_body(); b["supersedes_work_result_ref"] = json!("work-result://wr_roomed");
-        assert_eq!(validate_work_result(&b, &resolver, &open_room).unwrap_err().0, "work_result_supersedes_cross_room");
+        let mut b = valid_result_body();
+        b["supersedes_work_result_ref"] = json!("work-result://wr_roomed");
+        assert_eq!(
+            validate_work_result(&b, &resolver, &open_room)
+                .unwrap_err()
+                .0,
+            "work_result_supersedes_cross_room"
+        );
         // Same-room supersession admits.
         let mut b = valid_result_body();
         b["supersedes_work_result_ref"] = json!("work-result://wr_roomed");
         b["outcome_room_ref"] = json!("outcome-room://or_open");
-        assert_eq!(validate_work_result(&b, &resolver, &open_room).unwrap()["supersedes_work_result_ref"], json!("work-result://wr_roomed"));
+        assert_eq!(
+            validate_work_result(&b, &resolver, &open_room).unwrap()["supersedes_work_result_ref"],
+            json!("work-result://wr_roomed")
+        );
         // Roomed result superseding a room-less result → cross-room too.
         let mut b = valid_result_body();
         b["supersedes_work_result_ref"] = json!("work-result://wr_same");
         b["outcome_room_ref"] = json!("outcome-room://or_open");
-        assert_eq!(validate_work_result(&b, &resolver, &open_room).unwrap_err().0, "work_result_supersedes_cross_room");
+        assert_eq!(
+            validate_work_result(&b, &resolver, &open_room)
+                .unwrap_err()
+                .0,
+            "work_result_supersedes_cross_room"
+        );
     }
 
     #[test]
     fn delta_binds_same_goal_result_and_receipts_bind_facts() {
         let bound = json!({ "work_result_id": "work-result://wr_real", "goal_ref": "goal://alpha", "outcome_delta_refs": [] });
-        let resolver = |rid: &str| if rid == "wr_real" { Some(bound.clone()) } else { None };
+        let resolver = |rid: &str| {
+            if rid == "wr_real" {
+                Some(bound.clone())
+            } else {
+                None
+            }
+        };
         let base = json!({ "goal_ref": "goal://alpha", "delta_kind": "update", "target_ref": "frontier://f1", "proposed_by_ref": "work-result://wr_real" });
         // Cross-goal binding refuses typed (finding 2).
-        let mut b = base.clone(); b["goal_ref"] = json!("goal://beta");
-        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_cross_goal");
+        let mut b = base.clone();
+        b["goal_ref"] = json!("goal://beta");
+        assert_eq!(
+            validate_outcome_delta(&b, &resolver, &open_room)
+                .unwrap_err()
+                .0,
+            "outcome_delta_cross_goal"
+        );
         // Rooms are LIVE (step 2): unresolvable / closed / cross-room bindings refuse typed.
-        let mut b = base.clone(); b["outcome_room_ref"] = json!("outcome-room://or_ghost");
-        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_room_unbound");
-        let mut b = base.clone(); b["outcome_room_ref"] = json!("outcome-room://or_closed");
-        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_room_not_open");
+        let mut b = base.clone();
+        b["outcome_room_ref"] = json!("outcome-room://or_ghost");
+        assert_eq!(
+            validate_outcome_delta(&b, &resolver, &open_room)
+                .unwrap_err()
+                .0,
+            "outcome_delta_room_unbound"
+        );
+        let mut b = base.clone();
+        b["outcome_room_ref"] = json!("outcome-room://or_closed");
+        assert_eq!(
+            validate_outcome_delta(&b, &resolver, &open_room)
+                .unwrap_err()
+                .0,
+            "outcome_delta_room_not_open"
+        );
         // The bound result has NO room — a roomed delta is a cross-room binding.
-        let mut b = base.clone(); b["outcome_room_ref"] = json!("outcome-room://or_open");
-        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_cross_room");
+        let mut b = base.clone();
+        b["outcome_room_ref"] = json!("outcome-room://or_open");
+        assert_eq!(
+            validate_outcome_delta(&b, &resolver, &open_room)
+                .unwrap_err()
+                .0,
+            "outcome_delta_cross_room"
+        );
         // Ghost / foreign / future proposers refuse.
-        let mut b = base.clone(); b["proposed_by_ref"] = json!("work-result://wr_ghost");
-        assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_unbound_result");
+        let mut b = base.clone();
+        b["proposed_by_ref"] = json!("work-result://wr_ghost");
+        assert_eq!(
+            validate_outcome_delta(&b, &resolver, &open_room)
+                .unwrap_err()
+                .0,
+            "outcome_delta_unbound_result"
+        );
         for scheme in UNAVAILABLE_PROPOSER_SCHEMES {
-            let mut b = base.clone(); b["proposed_by_ref"] = json!(format!("{scheme}://x1"));
-            assert_eq!(validate_outcome_delta(&b, &resolver, &open_room).unwrap_err().0, "outcome_delta_proposer_kind_unavailable");
+            let mut b = base.clone();
+            b["proposed_by_ref"] = json!(format!("{scheme}://x1"));
+            assert_eq!(
+                validate_outcome_delta(&b, &resolver, &open_room)
+                    .unwrap_err()
+                    .0,
+                "outcome_delta_proposer_kind_unavailable"
+            );
         }
         // Happy: same-goal binding returns the BOUND RECORD for the atomic backlink.
         let (rec, prior) = validate_outcome_delta(&base, &resolver, &open_room).unwrap();
@@ -1042,20 +1711,41 @@ mod work_result_tests {
         full["updated_at"] = json!("2026-01-01T00:00:00Z");
         let (_, receipt) = build_outcome_delta_receipt(&full, "2026-01-01T00:00:00Z");
         assert!(s(&receipt, "receipt_id", "").starts_with("receipt://odr_"));
-        assert_eq!(receipt["receipt_type"], json!("OutcomeDeltaAdmissionReceipt"));
-        assert_eq!(receipt["bound_facts"]["proposed_by_ref"], json!("work-result://wr_real"));
+        assert_eq!(
+            receipt["receipt_type"],
+            json!("OutcomeDeltaAdmissionReceipt")
+        );
+        assert_eq!(
+            receipt["bound_facts"]["proposed_by_ref"],
+            json!("work-result://wr_real")
+        );
         assert_eq!(receipt["bound_facts"]["delta_kind"], json!("update"));
         assert_eq!(receipt["bound_facts"]["effect_admitted"], json!(false));
         assert_eq!(receipt["effect_admitted"], json!(false));
         assert!(s(&receipt, "output_hash", "").starts_with("sha256:"));
         // The hash matches a recompute over the record minus the declared excludes.
-        assert_eq!(s(&receipt, "output_hash", ""), record_output_hash(&full, DELTA_HASH_EXCLUDES));
-        let (_, wr_receipt) = build_work_result_receipt(&json!({ "work_result_id": "work-result://wr_real", "goal_ref": "goal://alpha", "result_profile": "research", "outcome_class": "negative", "status": "completed" }), "2026-01-01T00:00:00Z");
+        assert_eq!(
+            s(&receipt, "output_hash", ""),
+            record_output_hash(&full, DELTA_HASH_EXCLUDES)
+        );
+        let (_, wr_receipt) = build_work_result_receipt(
+            &json!({ "work_result_id": "work-result://wr_real", "goal_ref": "goal://alpha", "result_profile": "research", "outcome_class": "negative", "status": "completed" }),
+            "2026-01-01T00:00:00Z",
+        );
         assert!(s(&wr_receipt, "receipt_id", "").starts_with("receipt://wrr_"));
         assert_eq!(wr_receipt["receipt_type"], json!("WorkResultReceipt"));
-        assert_eq!(wr_receipt["bound_facts"]["result_profile"], json!("research"));
-        assert_eq!(wr_receipt["bound_facts"]["outcome_class"], json!("negative"));
-        assert_eq!(wr_receipt["assurance_posture"], json!("admitted_not_verified"));
+        assert_eq!(
+            wr_receipt["bound_facts"]["result_profile"],
+            json!("research")
+        );
+        assert_eq!(
+            wr_receipt["bound_facts"]["outcome_class"],
+            json!("negative")
+        );
+        assert_eq!(
+            wr_receipt["assurance_posture"],
+            json!("admitted_not_verified")
+        );
     }
 
     #[test]
@@ -1071,19 +1761,36 @@ mod work_result_tests {
         let (rid, receipt) = build_outcome_delta_receipt(&delta, now);
         // Receipt dir blocked → delta removed AND the WorkResult restored BYTE-FOR-BYTE.
         std::fs::write(dir.join(DELTA_RECEIPT_DIR), b"blocker").unwrap();
-        let (code, msg) = finalize_delta_persist(data_dir, "od_1", &delta, "wr_1", &prior, &updated, &rid, &receipt).unwrap_err();
+        let (code, msg) = finalize_delta_persist(
+            data_dir, "od_1", &delta, "wr_1", &prior, &updated, &rid, &receipt,
+        )
+        .unwrap_err();
         assert_eq!(code, "outcome_delta_receipt_persist_failed");
         assert!(msg.contains("rolled back"), "{msg}");
-        assert!(read_record_dir(data_dir, DELTA_DIR).is_empty(), "no unproven delta survives");
+        assert!(
+            read_record_dir(data_dir, DELTA_DIR).is_empty(),
+            "no unproven delta survives"
+        );
         let restored = read_record_dir(data_dir, RESULT_DIR).pop().unwrap();
-        assert_eq!(serde_json::to_vec(&restored).unwrap(), serde_json::to_vec(&prior).unwrap(), "the WorkResult is byte-for-byte the prior record (refs AND updated_at)");
+        assert_eq!(
+            serde_json::to_vec(&restored).unwrap(),
+            serde_json::to_vec(&prior).unwrap(),
+            "the WorkResult is byte-for-byte the prior record (refs AND updated_at)"
+        );
         std::fs::remove_file(dir.join(DELTA_RECEIPT_DIR)).unwrap();
         // Happy path: delta + backlink + receipt all persist.
-        finalize_delta_persist(data_dir, "od_1", &delta, "wr_1", &prior, &updated, &rid, &receipt).unwrap();
+        finalize_delta_persist(
+            data_dir, "od_1", &delta, "wr_1", &prior, &updated, &rid, &receipt,
+        )
+        .unwrap();
         assert_eq!(read_record_dir(data_dir, DELTA_DIR).len(), 1);
         assert_eq!(read_record_dir(data_dir, DELTA_RECEIPT_DIR).len(), 1);
         let linked = read_record_dir(data_dir, RESULT_DIR).pop().unwrap();
-        assert_eq!(linked["outcome_delta_refs"], json!(["outcome-delta://od_1"]), "the backlink landed atomically");
+        assert_eq!(
+            linked["outcome_delta_refs"],
+            json!(["outcome-delta://od_1"]),
+            "the backlink landed atomically"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1104,10 +1811,17 @@ mod work_result_tests {
         updated["updated_at"] = json!(now_b);
         let (rid, receipt) = build_outcome_delta_receipt(&delta_b, now_b);
         std::fs::write(dir.join(DELTA_RECEIPT_DIR), b"blocker").unwrap();
-        let (code, _) = finalize_delta_persist(data_dir, "od_B", &delta_b, "wr_1", &with_a, &updated, &rid, &receipt).unwrap_err();
+        let (code, _) = finalize_delta_persist(
+            data_dir, "od_B", &delta_b, "wr_1", &with_a, &updated, &rid, &receipt,
+        )
+        .unwrap_err();
         assert_eq!(code, "outcome_delta_receipt_persist_failed");
         let after = read_record_dir(data_dir, RESULT_DIR).pop().unwrap();
-        assert_eq!(serde_json::to_vec(&after).unwrap(), serde_json::to_vec(&with_a).unwrap(), "byte-for-byte prior: [A] survives and updated_at is untouched");
+        assert_eq!(
+            serde_json::to_vec(&after).unwrap(),
+            serde_json::to_vec(&with_a).unwrap(),
+            "byte-for-byte prior: [A] survives and updated_at is untouched"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1122,29 +1836,50 @@ mod work_result_tests {
         // Force RENAME failure: the destination path is a NON-EMPTY DIRECTORY.
         let dest = record_dir.join("wr_block.json");
         std::fs::create_dir_all(dest.join("occupied")).unwrap();
-        let err = persist_result_atomic(data_dir, "wr_block", &json!({ "work_result_id": "work-result://wr_block" }));
+        let err = persist_result_atomic(
+            data_dir,
+            "wr_block",
+            &json!({ "work_result_id": "work-result://wr_block" }),
+        );
         assert!(err.is_err(), "rename onto a non-empty directory must fail");
-        let tmp_leaks: Vec<String> = std::fs::read_dir(&record_dir).unwrap()
+        let tmp_leaks: Vec<String> = std::fs::read_dir(&record_dir)
+            .unwrap()
             .filter_map(|e| e.ok())
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .filter(|n| n.contains(".tmp-"))
             .collect();
-        assert!(tmp_leaks.is_empty(), "no temporary artifact survives a failed replacement: {tmp_leaks:?}");
+        assert!(
+            tmp_leaks.is_empty(),
+            "no temporary artifact survives a failed replacement: {tmp_leaks:?}"
+        );
         // And through the FULL finalize path: the backlink rename fails → delta rolled back,
         // no tmp, no delta record, no receipt.
         let delta = json!({ "outcome_delta_id": "outcome-delta://od_t", "goal_ref": "goal://a", "proposed_by_ref": "work-result://wr_block", "status": "proposed" });
         let prior = json!({ "work_result_id": "work-result://wr_block", "outcome_delta_refs": [] });
         let (rid, receipt) = build_outcome_delta_receipt(&delta, "2026-01-01T00:00:00Z");
-        let (code, _) = finalize_delta_persist(data_dir, "od_t", &delta, "wr_block", &prior, &prior, &rid, &receipt).unwrap_err();
+        let (code, _) = finalize_delta_persist(
+            data_dir, "od_t", &delta, "wr_block", &prior, &prior, &rid, &receipt,
+        )
+        .unwrap_err();
         assert_eq!(code, "outcome_delta_backlink_persist_failed");
-        let tmp_leaks2: Vec<String> = std::fs::read_dir(&record_dir).unwrap()
+        let tmp_leaks2: Vec<String> = std::fs::read_dir(&record_dir)
+            .unwrap()
             .filter_map(|e| e.ok())
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .filter(|n| n.contains(".tmp-"))
             .collect();
-        assert!(tmp_leaks2.is_empty(), "no temporary artifact survives the finalize backlink failure: {tmp_leaks2:?}");
-        assert!(read_record_dir(data_dir, DELTA_DIR).is_empty(), "delta rolled back");
-        assert!(read_record_dir(data_dir, DELTA_RECEIPT_DIR).is_empty(), "no receipt");
+        assert!(
+            tmp_leaks2.is_empty(),
+            "no temporary artifact survives the finalize backlink failure: {tmp_leaks2:?}"
+        );
+        assert!(
+            read_record_dir(data_dir, DELTA_DIR).is_empty(),
+            "delta rolled back"
+        );
+        assert!(
+            read_record_dir(data_dir, DELTA_RECEIPT_DIR).is_empty(),
+            "no receipt"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1153,23 +1888,62 @@ mod work_result_tests {
         // Pin the COMPLETE ReceiptEnvelope base (#71 round 2): every canonical base field is
         // explicitly present (null/[] when unbound) and no key drifts in or out silently.
         let expected_base = [
-            "schema_version", "receipt_id", "receipt_ref", "receipt_type", "receipt_profile_ref",
-            "actor_id", "subject_ref", "op", "attested_boundary_fact_refs", "bound_facts",
-            "output_hash", "hash_scope_excludes", "assurance_posture", "assurance_note",
-            "verification_ref", "acceptance_ref", "claim_scope_ref", "run_id", "task_id",
-            "input_hash", "policy_hash", "authority_grant_id", "primitive_capabilities",
-            "authority_scopes", "artifact_refs", "evidence_bundle_refs", "adjudication_ref",
-            "settlement_ref", "signature", "l1_commitment", "timestamp", "outcome", "at",
+            "schema_version",
+            "receipt_id",
+            "receipt_ref",
+            "receipt_type",
+            "receipt_profile_ref",
+            "actor_id",
+            "subject_ref",
+            "op",
+            "attested_boundary_fact_refs",
+            "bound_facts",
+            "output_hash",
+            "hash_scope_excludes",
+            "assurance_posture",
+            "assurance_note",
+            "verification_ref",
+            "acceptance_ref",
+            "claim_scope_ref",
+            "run_id",
+            "task_id",
+            "input_hash",
+            "policy_hash",
+            "authority_grant_id",
+            "primitive_capabilities",
+            "authority_scopes",
+            "artifact_refs",
+            "evidence_bundle_refs",
+            "adjudication_ref",
+            "settlement_ref",
+            "signature",
+            "l1_commitment",
+            "timestamp",
+            "outcome",
+            "at",
         ];
-        let (_, wr) = build_work_result_receipt(&json!({ "work_result_id": "work-result://wr_k", "goal_ref": "goal://g", "result_profile": "research", "outcome_class": "positive", "status": "completed" }), "2026-01-01T00:00:00Z");
-        let (_, od) = build_outcome_delta_receipt(&json!({ "outcome_delta_id": "outcome-delta://od_k", "goal_ref": "goal://g", "proposed_by_ref": "work-result://wr_k", "target_ref": "frontier://f", "delta_kind": "update" }), "2026-01-01T00:00:00Z");
-        for (name, rcpt, extra) in [("WorkResultReceipt", &wr, vec![]), ("OutcomeDeltaAdmissionReceipt", &od, vec!["effect_admitted"])] {
+        let (_, wr) = build_work_result_receipt(
+            &json!({ "work_result_id": "work-result://wr_k", "goal_ref": "goal://g", "result_profile": "research", "outcome_class": "positive", "status": "completed" }),
+            "2026-01-01T00:00:00Z",
+        );
+        let (_, od) = build_outcome_delta_receipt(
+            &json!({ "outcome_delta_id": "outcome-delta://od_k", "goal_ref": "goal://g", "proposed_by_ref": "work-result://wr_k", "target_ref": "frontier://f", "delta_kind": "update" }),
+            "2026-01-01T00:00:00Z",
+        );
+        for (name, rcpt, extra) in [
+            ("WorkResultReceipt", &wr, vec![]),
+            ("OutcomeDeltaAdmissionReceipt", &od, vec!["effect_admitted"]),
+        ] {
             let mut expected: Vec<&str> = expected_base.to_vec();
             expected.extend(extra);
             expected.sort_unstable();
             let mut actual: Vec<String> = rcpt.as_object().unwrap().keys().cloned().collect();
             actual.sort_unstable();
-            assert_eq!(actual, expected.iter().map(|k| k.to_string()).collect::<Vec<_>>(), "{name} key set drifted");
+            assert_eq!(
+                actual,
+                expected.iter().map(|k| k.to_string()).collect::<Vec<_>>(),
+                "{name} key set drifted"
+            );
             assert_eq!(rcpt["claim_scope_ref"], Value::Null);
             assert_eq!(rcpt["primitive_capabilities"], json!([]));
             assert_eq!(rcpt["authority_scopes"], json!([]));
@@ -1188,16 +1962,24 @@ mod work_result_tests {
         let record = json!({ "work_result_id": "work-result://wr_x", "goal_ref": "goal://g", "result_profile": "research", "outcome_class": "positive", "status": "completed" });
         let (rid, receipt) = build_work_result_receipt(&record, now);
         std::fs::write(dir.join(RESULT_RECEIPT_DIR), b"blocker").unwrap();
-        let (code, msg) = finalize_result_persist(data_dir, "wr_x", &record, &rid, &receipt).unwrap_err();
+        let (code, msg) =
+            finalize_result_persist(data_dir, "wr_x", &record, &rid, &receipt).unwrap_err();
         assert_eq!(code, "work_result_receipt_persist_failed");
         assert!(msg.contains("rolled back"), "{msg}");
-        assert!(read_record_dir(data_dir, RESULT_DIR).is_empty(), "no unproven admission survives");
+        assert!(
+            read_record_dir(data_dir, RESULT_DIR).is_empty(),
+            "no unproven admission survives"
+        );
         std::fs::remove_file(dir.join(RESULT_RECEIPT_DIR)).unwrap();
         std::fs::remove_dir_all(dir.join(RESULT_DIR)).unwrap();
         std::fs::write(dir.join(RESULT_DIR), b"blocker").unwrap();
-        let (code2, _) = finalize_result_persist(data_dir, "wr_x", &record, &rid, &receipt).unwrap_err();
+        let (code2, _) =
+            finalize_result_persist(data_dir, "wr_x", &record, &rid, &receipt).unwrap_err();
         assert_eq!(code2, "work_result_record_persist_failed");
-        assert!(read_record_dir(data_dir, RESULT_RECEIPT_DIR).is_empty(), "no receipt without its record");
+        assert!(
+            read_record_dir(data_dir, RESULT_RECEIPT_DIR).is_empty(),
+            "no receipt without its record"
+        );
         std::fs::remove_file(dir.join(RESULT_DIR)).unwrap();
         finalize_result_persist(data_dir, "wr_x", &record, &rid, &receipt).unwrap();
         assert_eq!(read_record_dir(data_dir, RESULT_DIR).len(), 1);

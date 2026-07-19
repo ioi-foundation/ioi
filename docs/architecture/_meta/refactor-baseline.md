@@ -2,7 +2,7 @@
 
 Status: temporary refactor evidence snapshot.
 Doctrine status: reference
-Implementation status: n/a
+Implementation status: mixed (point-in-time documentation snapshot spanning heterogeneous implementation states; no runtime contract)
 Taken: 2026-07-05, before the status-aware canon refactor.
 Purpose: before/after evidence for the docs/architecture refactor; safe to delete after the refactor is accepted.
 

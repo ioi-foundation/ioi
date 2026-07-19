@@ -361,7 +361,7 @@
       lines.push('<span class="nsp-k">Harness</span> none — the session records no binding; execution uses the daemon\'s Lane A default at execute time');
       lines.push('<span class="nsp-k">Receipts</span> <code>receipt://hypervisor/session-provision/*</code>');
     }
-    lines.push('<span class="nsp-k">Restore</span> the session persists in the daemon estate; reopen it from Workbench — nothing here is UI-only state');
+    lines.push('<span class="nsp-k">Restore</span> the session persists in the daemon estate; reopen it from Developer Workspace — nothing here is UI-only state');
     box.innerHTML = lines.join("<br>");
   }
   function nsAgentLaunch(result, btn) {
@@ -405,7 +405,7 @@
           '<div class="ioi-ns-ok"><b>' + esc(j.headline || "IOI Agent coordinated this work") + "</b>" +
           (j.partial_result ? ' <span class="nsp-warn">(explicit partial — see blockers in proof)</span>' : "") +
           "<br>Changed files: " + files +
-          '<br><a href="' + esc((j.links || {}).workbench_url || "/__ioi/workbench") + '" target="_top">Open Workbench →</a> · ' +
+          '<br><a href="' + esc((j.links || {}).workbench_url || "/__ioi/workbench") + '" target="_top">Open Developer Workspace →</a> · ' +
           '<a href="' + esc((j.links || {}).run_timeline_url || "#") + '" target="_blank" rel="noopener">Run Timeline ↗</a> · ' +
           '<a href="' + esc((j.links || {}).work_ledger_url || "/__ioi/work-ledger") + '" target="_top">Provenance →</a>' +
           '<details style="margin-top:8px"><summary style="cursor:pointer">Advanced / proof details</summary>' +
@@ -476,9 +476,8 @@
           (hb ? '<span class="nsp-k">Harness</span> <code>' + esc(hb.profile_ref || "") + "</code> admitted <code>" + esc(hb.admission_id || "") + "</code><br>" : '<span class="nsp-k">Harness</span> no binding (execute-time default)<br>') +
           (kb ? '<span class="nsp-k">Knobs</span> reasoning <b>' + esc(kb.reasoning) + "</b> · speed <b>" + esc(kb.speed) + "</b> · <code>" + esc(kb.evidence_ref || "") + "</code><br>" : "") +
           (kbFail ? '<span class="nsp-k nsp-warn">Knobs</span> <span class="nsp-warn">rejected fail-closed: ' + esc(j.knob_binding.reason || "capability violation") + "</span><br>" : "") +
-          '<div style="margin-top:8px"><a href="/__ioi/workbench">Open Workbench →</a> · <a href="/__ioi/work-ledger">Provenance →</a></div>';
+          '<div style="margin-top:8px"><a href="/__ioi/workbench">Open Developer Workspace →</a> · <a href="/__ioi/work-ledger">Provenance →</a></div>';
       })
       .catch(() => { result.style.display = "block"; result.innerHTML = '<div class="ioi-ns-err">The launch request did not reach the daemon.</div>'; })
       .finally(() => { if (btn) { btn.disabled = false; btn.textContent = "Launch session"; } });
   }
-

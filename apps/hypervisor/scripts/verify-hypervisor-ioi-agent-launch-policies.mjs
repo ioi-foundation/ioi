@@ -169,7 +169,7 @@ async function run() {
   ok("Work Ledger goal_run entry carries policy_ref",
     (ledger.j?.entries || []).some((e) => e.kind === "goal_run" && e.goal_run_ref === `goal://${grid}` && e.policy_ref === "ioi-agent-policy://pol_compare_before_write"));
   const wb = await fetch(`${SHELL}/__ioi/workbench`).then((r) => r.text());
-  ok("Workbench projects the policy-driven run", wb.includes(grid));
+  ok("Developer Workspace projects the policy-driven run", /<h1>Developer Workspace/.test(wb) && wb.includes(grid));
 
   // ── Hygiene ──
   let sourceNeutral = false;

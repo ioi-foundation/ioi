@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// PIXEL-CERTIFIED PARITY verifier — Studio · Machinery done-bar (#50, machinery seed only).
+// PIXEL-CERTIFIED PARITY verifier — Machinery evidence plus Automations / Process Graphs placement.
 //
 // The NINTH faithful port and the SECOND from the origin-alignment queue. The #44 sweep proved the
 // machinery reference data-bearing on the capture-origin lane (localhost:9225/workspace/machinery-app/)
@@ -47,7 +47,7 @@ async function run() {
   const matrix = JSON.parse(readFileSync(path.join(appRoot, "harvest-app-parity-matrix.json"), "utf8"));
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   const row = bySlug.machinery;
-  ok("matrix: machinery is daemon_wired at /__ioi/studio/machinery (Studio) with Machinery-IA landmarks", row && row.parity_class === "daemon_wired" && row.candidate_surface === "/__ioi/studio/machinery" && row.surface_name === "Studio" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
+  ok("historical matrix evidence keeps machinery daemon_wired at its /__ioi/studio/machinery compatibility route", row && row.parity_class === "daemon_wired" && row.candidate_surface === "/__ioi/studio/machinery" && row.surface_name === "Studio" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("matrix: the reference is ORIGIN-ALIGNED (reference_url_override → localhost:9225/workspace/machinery-app/)", row && row.reference_url_override === "http://localhost:9225/workspace/machinery-app/");
   ok("matrix keeps workshop + module reference_capture (NOT over-claimed in this cut)", bySlug.workshop?.parity_class === "reference_capture" && bySlug.module?.parity_class === "reference_capture");
   ok("the estate census accepts machinery among the certified daemon_wired surfaces (>= 9 since #50); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 9 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
@@ -142,7 +142,7 @@ async function run() {
 
   // 6. THE HARD BOUNDARY — definitions only, no execution semantics anywhere on the surface.
   ok("the surface is READ-ONLY with NO execution affordance (no run/step/execute form, no current-state value, definitions-not-processes named)", !/action="[^"]*\/(run|step|execute)"/.test(t) && /definitions, not running processes/.test(t) && !/current_state/.test(t));
-  ok("named gaps: run/step/execute · scheduling · Automations/Missions/ODK binding · simulation · versioning · graph authoring", /run\/step\/execute/.test(t) && /scheduling/.test(t) && /Automations\/Missions\/ODK binding/.test(t) && /simulation/.test(t) && /versioning/.test(t) && /Graph authoring is a reference-only lane/.test(t));
+  ok("named gaps: run/step/execute · scheduling · typed automation/work/ontology/data binding · simulation · versioning · graph authoring", /run\/step\/execute/.test(t) && /scheduling/.test(t) && /AutomationSpec\/AutomationRun, Work, Ontology, and Data binding/.test(t) && /simulation/.test(t) && /versioning/.test(t) && /Graph authoring is a reference-only lane/.test(t));
   ok("unsupported controls are DISABLED IN PLACE with named-gap titles (store dropdown · New graph · Help · Favorites · example-card overlays)", (t.match(/aria-disabled="true"/g) || []).length >= 6 && /Recent installations — marketplace install lanes/.test(t) && /Graph authoring is a reference-only lane/.test(t) && /Favorites are not recorded on the state-machine plane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
   ok("the examples band is declared verbatim capture chrome (vendor examples, never estate process truth)", /verbatim capture chrome/.test(t) && /not estate process truth/.test(t));
 
@@ -153,9 +153,12 @@ async function run() {
   ok("honest incomplete: an initial-only machine shows incomplete + no transitions (no fabrication)", /health incomplete/.test(it) && /No transitions declared yet/.test(it));
 
   // 8. Discoverability + brand.
-  ok("sibling Studio seeds named reference-only (workshop + module builders) + Designer linked first-class", t.includes("/__apps/workshop") && t.includes("/__apps/module") && t.includes("/__ioi/studio/designer"));
+  ok("Automations owns Process Graphs; Studio remains contextual composition and its reference-only seeds stay linked", t.includes('href="/__ioi/automations">Automations / Process Graphs') && t.includes('href="/__ioi/agent-studio">Studio') && t.includes("/__apps/workshop") && t.includes("/__apps/module") && t.includes("/__ioi/studio/designer"));
   const asPage = await page(`${SERVE}/__ioi/agent-studio`);
-  ok("owner discoverability: Agent Studio links /__ioi/studio/machinery, and Machinery links back to the owner", asPage.status === 200 && asPage.text.includes("/__ioi/studio/machinery") && t.includes("/__ioi/agent-studio"));
+  ok("legacy Studio compatibility links remain intact while the route migrates", asPage.status === 200 && asPage.text.includes("/__ioi/studio/machinery") && t.includes("/__ioi/agent-studio"));
+  const catalogPage = await page(`${SERVE}/__ioi/api/applications`);
+  let catalog = null; try { catalog = JSON.parse(catalogPage.text); } catch { /* non-json */ }
+  ok("typed placement rebases Machinery to Automations / Process Graphs", (catalog?.tools || []).some((entry) => entry.slug === "machinery" && entry.title === "Process Graphs" && entry.placement_owner_ref === "application:automations" && entry.placement === "Automations / Process Graphs"));
   ok("the origin-aligned reference + the insufficient proxy lane are BOTH linked and explained on the surface", t.includes("http://localhost:9225/workspace/machinery-app/") && t.includes("/__apps/machinery") && /Marketplace-examples fetch fails/.test(t));
   ok("IOI surface brand-clean (no Palantir)", !/\bPalantir\b/.test(t));
 

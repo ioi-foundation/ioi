@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for IOI's alignment-security thesis, verifiable bounded agency, and execution-boundary alignment doctrine.
 Supersedes: `docs/specs/verifiable_bounded_agency.md` and product prose that claims IOI solves alignment by model cognition, prompt compliance, or one required proof backend.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-12.
 Doctrine status: canonical
 Implementation status: mixed (execution-boundary gating built in the daemon; proof/zk continuity speculative)
 Last implementation audit: 2026-07-05
@@ -33,6 +33,13 @@ constrains what autonomous actors can do by separating:
 
 The model, worker, or agent may generate candidate actions. It is not the final
 authority boundary for real-world effects.
+
+Bounded does not mean benevolent. A constitution can make a harmful purpose
+explicitly bounded, and a well-intentioned purpose can still be implemented
+unsafely. IOI's claim is that declared power, change, persistence, and effects
+can be constrained and audited; purpose legitimacy remains the responsibility
+of accountable principals, affected-party governance, law, and domain-specific
+assurance.
 
 ## Claim Boundary
 
@@ -112,15 +119,17 @@ operational truth
 payload/evidence availability
   storage backend payloads, packages, evidence bundles, checkpoints, archives
 
-public trust and settlement
-  IOI L1 registries, rights, escrows, disputes, roots, governance
+optional shared public trust and settlement
+  selected services such as IOI L1 registries, rights, escrows, disputes,
+  roots, and governance
 ```
 
 The same doctrine can be stated in the repo's core sentence:
 
 > **Hypervisor Daemon executes. Authority is granted by local/domain governance
 > or wallet.network according to risk boundary. Agentgres remembers. MoW routes.
-> IOI L1 settles. Clients compose. Evidence proves.**
+> Selected settlement services settle; IOI L1 is optional. Clients compose.
+> Evidence proves.**
 
 ## What Bounded Power Looks Like
 
@@ -230,13 +239,29 @@ Within bounded autonomy, improvement remains possible:
 - reusable service candidates;
 - trained or configured workers.
 
-But the actor can improve inside the lane without silently widening the lane.
+But the actor can improve inside the lane without silently widening or moving
+the lane.
 
 Canonical self-upgrade invariant:
 
 > **A worker may propose changes to logic, package, policy requirements,
 > training profile, model route, tool use, or workflow topology, but it may not
 > grant itself broader authority.**
+
+The protected boundary is broader than authority alone. Ordinary improvement
+may not commit changes to constitutional purpose or prohibitions, amendment
+rules, authority/effect ceilings, ordering/finality, oracle/evidence policy,
+verifier independence, emergency stop, lifecycle continuity, succession,
+dissolution, decommission, or revocation. Those changes use the distinct
+decision path named by the active constitution (`INV-21`). The same actor or
+coalition must not control proposal, verification, constitutional amendment,
+and final admission when the profile claims independent assurance.
+
+Self-preservation is not a privileged objective. Replication, node admission,
+code propagation, resource acquisition, successor activation, and recovery are
+governed effects bounded by membership, budget, purpose, external revocation,
+and terminal shutdown (`INV-28`). The system may recover from a failed machine;
+it may not spread to an unadmitted machine to avoid being stopped.
 
 Policy widening requires an external authority path: user approval,
 wallet.network grant, organization policy, domain governance, IOI L1 governance,
@@ -264,11 +289,36 @@ observe limitation
 -> emit receipts and optional IOI L1 roots
 ```
 
+That direct proposal path remains the ordinary low-complexity default. When an
+improvement process adaptively generates or compares many candidates, rotates
+evaluators, consumes sealed holdouts, spans multiple evaluation epochs, or
+targets the method that produced earlier improvements, it must bind the
+optional `ImprovementCampaign` protocol rather than hide the research history
+inside one proposal. A GoalRun coordinates that campaign; an immutable
+`EvaluationEpoch` fixes what counts as evidence; statistical eligibility may
+produce an upgrade proposal but never authority; and the target owner alone
+activates a successor for a declared future scope.
+
+Recursive order is an evidence coordinate, not an authority multiplier. Every
+admitted campaign has a finite target path, target-order ceiling, active-depth
+ceiling, budget, deadline, learning boundary, evaluator posture, and recovery
+contract. Creating a child campaign or relabeling a target cannot reset
+inherited resource, statistical-risk, holdout-exposure, authority, or
+learning-rights ceilings. See
+[`bounded-recursive-improvement.md`](./bounded-recursive-improvement.md).
+
 Canonical upgrade invariant:
 
 > **Agents do not self-modify directly. Autonomous systems propose upgrades to
 > governed modules, and only policy-bound, receipted governance makes those
 > upgrades canonical.**
+
+Canonical evaluation invariant:
+
+> **A candidate cannot define or alter the evidence, meter, evaluator,
+> promotion authority, or recovery path that makes the same candidate
+> canonical. Evaluator successors begin only in a later frozen epoch, and old
+> verdicts remain bound to the evaluator versions that issued them.**
 
 Mutable upgrade targets should be concrete governable units:
 
@@ -282,6 +332,12 @@ Mutable upgrade targets should be concrete governable units:
 - settlement rules;
 - dispute rules;
 - authority envelopes.
+
+Constitution, deployment/membership, ordering/finality, oracle/evidence,
+lifecycle, and IOI Network enrollment are governable targets but not ordinary
+mutable upgrade targets. A proposal may address them only through their
+constitutionally declared high-assurance path. A system cannot remove its own
+kill switch or dissolution path merely because an eval score improved.
 
 The agent may be intelligent upstream of the boundary. Commitment remains
 deterministic at the boundary.
@@ -311,7 +367,8 @@ worker proposes action
 → approval is collected when required
 → daemon or guarded connector executes under scoped authority
 → Agentgres records operation, receipts, and refs
-→ IOI L1 receives sparse commitment when public trust or settlement requires it
+→ IOI L1 receives a sparse commitment only when an explicit enrollment and
+  settlement profile selects it
 ```
 
 ### Deterministic Harnesses and Controlled Environments

@@ -13,8 +13,8 @@
 //      semantics); a legitimate draft fixture through the REAL daemon route
 //      moves the listing count but NOT the published product count; honest
 //      when empty; no fake marketplace products.
-//   4. OWNER + GAPS: /__ioi/marketplace links the browse port first-class and
-//      stays intact; publish/install/hire/settle/runtime lanes are named gaps.
+//   4. PLACEMENT + GAPS: /__ioi/marketplace remains the compatibility route for
+//      Packages / Marketplace; publish/install/hire/settle/runtime lanes are named gaps.
 //   5. SHELL-PIXEL CERTIFICATION: committed non-pinned 2-viewport evidence;
 //      the store rows are the masked live data (no body pixel claim).
 //   6. THE POOL IS CLOSED: the sweep's ranked list is empty — every remaining
@@ -87,9 +87,12 @@ async function run() {
   }
   ok("no fake marketplace products: the captured store/vendor rows never render (rebind template names absent)", !/Palantir|Foundry DevOps|What's new in Marketplace/.test(port0.text));
 
-  // 4. OWNER + GAPS
+  // 4. PRODUCT PLACEMENT + GAPS
   const mk = await page(`${SERVE}/__ioi/marketplace`);
-  ok("owner discoverability: /__ioi/marketplace (the substrate: drafts/publish/admission) links the certified browse port first-class", mk.status === 200 && mk.text.includes("/__ioi/marketplace/listings"));
+  ok("Packages compatibility surface links the certified Marketplace tool first-class", mk.status === 200 && mk.text.includes("/__ioi/marketplace/listings"));
+  const catalogPage = await page(`${SERVE}/__ioi/api/applications`);
+  let catalog = null; try { catalog = JSON.parse(catalogPage.text); } catch { /* non-json */ }
+  ok("typed placement is Packages / Marketplace and Marketplace is not a peer application", (catalog?.tools || []).some((entry) => entry.slug === "listings" && entry.placement_owner_ref === "application:packages" && entry.placement === "Packages / Marketplace") && (catalog?.applications || []).some((entry) => entry.name === "Packages") && !(catalog?.applications || []).some((entry) => entry.name === "Marketplace"));
   ok("publish/install/hire/settle/runtime lanes are NAMED GAPS or honestly routed to the substrate — the wizard is reference chrome with the governed path spelled out", /named gap/.test(port0.text) && /reference-only/.test(port0.text) && /draft/.test(port0.text) && (port0.text.match(/disabled|aria-disabled/g) || []).length >= 4);
 
   // 5. SHELL-PIXEL CERTIFICATION

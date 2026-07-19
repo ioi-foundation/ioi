@@ -25,9 +25,9 @@
 //!     Launches are durable records ("ioi-agent-launches"), never transient state.
 
 use axum::extract::{Path as AxumPath, Query, State};
+use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::Json;
-use axum::http::HeaderMap;
 use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -87,12 +87,19 @@ async fn self_call(url: &str, method: &str, body: Option<&Value>) -> (u16, Value
     // goal-run start wraps up to two 660s-reaped invocations plus a bounded full-run retry and
     // verify/reconcile, so the wrapper must sit at the suite ceiling — 600s here deterministically
     // broke compare launches (self_call_failed) whenever one implementer ran to its shim budget.
-    match builder.timeout(Duration::from_millis(1_800_000)).send().await {
+    match builder
+        .timeout(Duration::from_millis(1_800_000))
+        .send()
+        .await
+    {
         Ok(resp) => {
             let status = resp.status().as_u16();
             (status, resp.json::<Value>().await.unwrap_or(Value::Null))
         }
-        Err(err) => (0, json!({ "error": { "code": "self_call_failed", "message": err.to_string() } })),
+        Err(err) => (
+            0,
+            json!({ "error": { "code": "self_call_failed", "message": err.to_string() } }),
+        ),
     }
 }
 
@@ -109,8 +116,12 @@ fn route_is_local(endpoint: &str) -> bool {
 // ---------------------------------------------------------------------------
 
 const POLICY_STRATEGIES: &[&str] = &["auto", "direct", "compare", "private_local"];
-const POLICY_FAILURE: &[&str] =
-    &["stop_on_first_failure", "partial_ok", "require_all", "retry_once"];
+const POLICY_FAILURE: &[&str] = &[
+    "stop_on_first_failure",
+    "partial_ok",
+    "require_all",
+    "retry_once",
+];
 const POLICY_SCOPES: &[&str] = &["personal", "project", "org"];
 
 fn load_policy(st: &DaemonState, id: &str) -> Option<Value> {
@@ -197,7 +208,10 @@ fn ensure_policy_seed(st: &DaemonState) {
 }
 
 /// Validate + normalize a policy payload (create/patch). receipt_required is MANDATORY true.
-fn policy_payload(body: &Value, existing: Option<&Value>) -> Result<Value, (StatusCode, Json<Value>)> {
+fn policy_payload(
+    body: &Value,
+    existing: Option<&Value>,
+) -> Result<Value, (StatusCode, Json<Value>)> {
     let mut record = existing.cloned().unwrap_or(json!({}));
     if body.get("receipt_required").and_then(Value::as_bool) == Some(false) {
         return Err(bad(
@@ -227,7 +241,13 @@ fn policy_payload(body: &Value, existing: Option<&Value>) -> Result<Value, (Stat
             record[key] = json!(value.trim());
         }
     }
-    for key in ["harness_preferences", "model_route_preferences", "assurance", "privacy", "memory_posture"] {
+    for key in [
+        "harness_preferences",
+        "model_route_preferences",
+        "assurance",
+        "privacy",
+        "memory_posture",
+    ] {
         if let Some(value) = body.get(key) {
             if !value.is_object() {
                 return Err(bad(
@@ -284,7 +304,10 @@ pub(crate) async fn handle_policies_list(
         policies.retain(|policy| text(policy, "status") == status);
     }
     policies.sort_by(|a, b| text(a, "display_name").cmp(text(b, "display_name")));
-    (StatusCode::OK, Json(json!({ "ok": true, "policies": policies })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "policies": policies })),
+    )
 }
 
 pub(crate) async fn handle_policies_create(
@@ -293,7 +316,11 @@ pub(crate) async fn handle_policies_create(
 ) -> (StatusCode, Json<Value>) {
     ensure_policy_seed(&st);
     if text(&body, "display_name").trim().is_empty() {
-        return bad(StatusCode::UNPROCESSABLE_ENTITY, "ioi_agent_policy_name_required", "A policy needs a display_name.");
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "ioi_agent_policy_name_required",
+            "A policy needs a display_name.",
+        );
     }
     let id = format!("pol_{:x}", nanos());
     let base = json!({
@@ -317,7 +344,10 @@ pub(crate) async fn handle_policies_create(
     match policy_payload(&body, Some(&base)) {
         Ok(record) => {
             let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &record);
-            (StatusCode::CREATED, Json(json!({ "ok": true, "policy": record })))
+            (
+                StatusCode::CREATED,
+                Json(json!({ "ok": true, "policy": record })),
+            )
         }
         Err(rejection) => rejection,
     }
@@ -329,8 +359,15 @@ pub(crate) async fn handle_policies_get(
 ) -> (StatusCode, Json<Value>) {
     ensure_policy_seed(&st);
     match load_policy(&st, &id) {
-        Some(policy) => (StatusCode::OK, Json(json!({ "ok": true, "policy": policy }))),
-        None => bad(StatusCode::NOT_FOUND, "ioi_agent_policy_not_found", "Unknown launch policy."),
+        Some(policy) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "policy": policy })),
+        ),
+        None => bad(
+            StatusCode::NOT_FOUND,
+            "ioi_agent_policy_not_found",
+            "Unknown launch policy.",
+        ),
     }
 }
 
@@ -340,10 +377,17 @@ pub(crate) async fn handle_policies_patch(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(existing) = load_policy(&st, &id) else {
-        return bad(StatusCode::NOT_FOUND, "ioi_agent_policy_not_found", "Unknown launch policy.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "ioi_agent_policy_not_found",
+            "Unknown launch policy.",
+        );
     };
     let protected = existing.get("protected").and_then(Value::as_bool) == Some(true);
-    let only_status = body.as_object().map(|o| o.keys().all(|k| k == "status")).unwrap_or(false);
+    let only_status = body
+        .as_object()
+        .map(|o| o.keys().all(|k| k == "status"))
+        .unwrap_or(false);
     if protected && !only_status {
         return bad(
             StatusCode::CONFLICT,
@@ -357,13 +401,20 @@ pub(crate) async fn handle_policies_patch(
     };
     if let Some(status) = body.get("status").and_then(Value::as_str) {
         if !["active", "disabled"].contains(&status) {
-            return bad(StatusCode::BAD_REQUEST, "ioi_agent_policy_field_invalid", "status must be active|disabled");
+            return bad(
+                StatusCode::BAD_REQUEST,
+                "ioi_agent_policy_field_invalid",
+                "status must be active|disabled",
+            );
         }
         record["status"] = json!(status);
     }
     let pid = text(&record, "policy_id").to_string();
     let _ = persist_record(&st.data_dir, POLICY_KIND, &pid, &record);
-    (StatusCode::OK, Json(json!({ "ok": true, "policy": record })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "policy": record })),
+    )
 }
 
 pub(crate) async fn handle_policies_delete(
@@ -371,7 +422,11 @@ pub(crate) async fn handle_policies_delete(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     let Some(existing) = load_policy(&st, &id) else {
-        return bad(StatusCode::NOT_FOUND, "ioi_agent_policy_not_found", "Unknown launch policy.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "ioi_agent_policy_not_found",
+            "Unknown launch policy.",
+        );
     };
     if existing.get("protected").and_then(Value::as_bool) == Some(true) {
         return bad(
@@ -391,19 +446,30 @@ pub(crate) async fn handle_policies_clone(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(source) = load_policy(&st, &id) else {
-        return bad(StatusCode::NOT_FOUND, "ioi_agent_policy_not_found", "Unknown launch policy.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "ioi_agent_policy_not_found",
+            "Unknown launch policy.",
+        );
     };
     let new_id = format!("pol_{:x}", nanos());
     let mut clone = source.clone();
     if let Some(obj) = clone.as_object_mut() {
         obj.insert("policy_id".into(), json!(new_id));
-        obj.insert("policy_ref".into(), json!(format!("ioi-agent-policy://{new_id}")));
+        obj.insert(
+            "policy_ref".into(),
+            json!(format!("ioi-agent-policy://{new_id}")),
+        );
         obj.insert("origin".into(), json!("cloned"));
         obj.insert("protected".into(), json!(false));
         obj.insert("scope".into(), json!("personal"));
         obj.insert("status".into(), json!("active"));
-        obj.insert("cloned_from".into(), json!(text(&source, "policy_ref"))) ;
-        let name = body.get("display_name").and_then(Value::as_str).map(str::trim).filter(|n| !n.is_empty())
+        obj.insert("cloned_from".into(), json!(text(&source, "policy_ref")));
+        let name = body
+            .get("display_name")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|n| !n.is_empty())
             .map(str::to_string)
             .unwrap_or_else(|| format!("{} (copy)", text(&source, "display_name")));
         obj.insert("display_name".into(), json!(name));
@@ -411,7 +477,10 @@ pub(crate) async fn handle_policies_clone(
         obj.insert("updated_at".into(), json!(iso_now()));
     }
     let _ = persist_record(&st.data_dir, POLICY_KIND, &new_id, &clone);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "policy": clone })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "policy": clone })),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -466,16 +535,29 @@ fn derive_rollout_context(st: &DaemonState, headers: &HeaderMap, body: &Value) -
         }
     }
     // A project counts as DERIVED context only when it resolves to a daemon project record.
-    if let Some(requested) = body.get("project_ref").and_then(Value::as_str).map(str::trim).filter(|r| !r.is_empty()) {
+    if let Some(requested) = body
+        .get("project_ref")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|r| !r.is_empty())
+    {
         let candidate = requested.strip_prefix("project://").unwrap_or(requested);
         if let Some(project) = read_record_dir(&st.data_dir, "projects")
             .into_iter()
             .find(|record| text(record, "project_id") == candidate)
         {
-            refs.push((format!("project://{}", text(&project, "project_id")), "project"));
+            refs.push((
+                format!("project://{}", text(&project, "project_id")),
+                "project",
+            ));
         }
     }
-    if let Some(explicit) = body.get("rollout_context_ref").and_then(Value::as_str).map(str::trim).filter(|r| !r.is_empty()) {
+    if let Some(explicit) = body
+        .get("rollout_context_ref")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|r| !r.is_empty())
+    {
         refs.push((explicit.to_string(), "explicit_override"));
     }
     let posture = deployment_auth_posture(&st.data_dir, headers);
@@ -492,7 +574,13 @@ fn derive_rollout_context(st: &DaemonState, headers: &HeaderMap, body: &Value) -
         refs.push(("principal://local-operator".to_string(), "anonymous"));
     }
     let (seed, source) = (refs[0].0.clone(), refs[0].1);
-    RolloutContext { refs, source, seed, posture_note, posture }
+    RolloutContext {
+        refs,
+        source,
+        seed,
+        posture_note,
+        posture,
+    }
 }
 
 fn rollout_context_fact(ctx: &RolloutContext) -> Value {
@@ -508,7 +596,11 @@ fn rollout_context_fact(ctx: &RolloutContext) -> Value {
 
 /// Resolve the rollout variant (if any) that should replace `base` for THIS derived context.
 /// Returns (Some((variant, explanation)) when applied, per-variant skip explanations otherwise).
-fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) -> (Option<(Value, Value)>, Vec<Value>) {
+fn resolve_policy_rollout(
+    st: &DaemonState,
+    base: &Value,
+    ctx: &RolloutContext,
+) -> (Option<(Value, Value)>, Vec<Value>) {
     let mut skipped: Vec<Value> = Vec::new();
     if base.is_null() {
         return (None, skipped);
@@ -519,9 +611,16 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
         .into_iter()
         .filter(|record| {
             text(record, "status") == "active"
-                && record.pointer("/rollout/base_policy_ref").and_then(Value::as_str) == Some(base_ref.as_str())
-                && ["active", "promoted"]
-                    .contains(&record.pointer("/rollout/state").and_then(Value::as_str).unwrap_or(""))
+                && record
+                    .pointer("/rollout/base_policy_ref")
+                    .and_then(Value::as_str)
+                    == Some(base_ref.as_str())
+                && ["active", "promoted"].contains(
+                    &record
+                        .pointer("/rollout/state")
+                        .and_then(Value::as_str)
+                        .unwrap_or(""),
+                )
         })
         .collect();
     variants.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
@@ -539,7 +638,9 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string();
-        let control_id = control_ref.trim_start_matches("release-control://").to_string();
+        let control_id = control_ref
+            .trim_start_matches("release-control://")
+            .to_string();
         let Some(control) = read_record_dir(&st.data_dir, GOV_RELEASE_KIND)
             .into_iter()
             .find(|r| text(r, "id") == control_id)
@@ -557,10 +658,15 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
             skip("rollout_window_inactive".to_string());
             continue;
         }
-        let promoted = variant.pointer("/rollout/state").and_then(Value::as_str) == Some("promoted");
+        let promoted =
+            variant.pointer("/rollout/state").and_then(Value::as_str) == Some("promoted");
         let mode = {
             let m = text(&control, "rollout_mode");
-            if m.is_empty() { "full".to_string() } else { m.to_string() }
+            if m.is_empty() {
+                "full".to_string()
+            } else {
+                m.to_string()
+            }
         };
         // (eligible?, reason, matched ref/source, matched cohort object)
         let mut matched: Option<(String, &'static str, Option<Value>, String)> = None;
@@ -572,30 +678,48 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
             continue;
         }
         if promoted {
-            matched = Some((ctx.seed.clone(), ctx.source, None, "rollout_promoted_full".to_string()));
+            matched = Some((
+                ctx.seed.clone(),
+                ctx.source,
+                None,
+                "rollout_promoted_full".to_string(),
+            ));
         } else if mode == "full" {
-            matched = Some((ctx.seed.clone(), ctx.source, None, "rollout_full".to_string()));
+            matched = Some((
+                ctx.seed.clone(),
+                ctx.source,
+                None,
+                "rollout_full".to_string(),
+            ));
         } else if mode == "cohort" {
             let high_trust = ctx.posture != "local_development";
             let entries: Vec<String> = control
                 .get("cohort_refs")
                 .and_then(Value::as_array)
-                .map(|a| a.iter().filter_map(Value::as_str).map(str::to_string).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect()
+                })
                 .unwrap_or_default();
             let mut any_active_cohort = false;
             let mut any_disabled_cohort = false;
             let mut untrusted_hit: Option<&'static str> = None;
             for entry in &entries {
-                let members_match = |members: &[String]| -> (Option<(String, &'static str)>, Option<&'static str>) {
-                    // Trusted sources only outside local_development; remember what an
-                    // UNTRUSTED ref would have matched so the block is named, not silent.
-                    let trusted = ctx.refs.iter().find(|(r, src)| members.contains(r) && (!high_trust || trusted_source(src)));
-                    if let Some((r, src)) = trusted {
-                        return (Some((r.clone(), src)), None);
-                    }
-                    let untrusted = ctx.refs.iter().find(|(r, _)| members.contains(r));
-                    (None, untrusted.map(|(_, src)| untrusted_block_reason(src)))
-                };
+                let members_match =
+                    |members: &[String]| -> (Option<(String, &'static str)>, Option<&'static str>) {
+                        // Trusted sources only outside local_development; remember what an
+                        // UNTRUSTED ref would have matched so the block is named, not silent.
+                        let trusted = ctx.refs.iter().find(|(r, src)| {
+                            members.contains(r) && (!high_trust || trusted_source(src))
+                        });
+                        if let Some((r, src)) = trusted {
+                            return (Some((r.clone(), src)), None);
+                        }
+                        let untrusted = ctx.refs.iter().find(|(r, _)| members.contains(r));
+                        (None, untrusted.map(|(_, src)| untrusted_block_reason(src)))
+                    };
                 if let Some(cohort_id) = entry.strip_prefix("cohort://") {
                     let Some(cohort) = read_record_dir(&st.data_dir, "governance-cohorts")
                         .into_iter()
@@ -611,14 +735,24 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
                     let members: Vec<String> = cohort
                         .get("member_refs")
                         .and_then(Value::as_array)
-                        .map(|a| a.iter().filter_map(Value::as_str).map(str::to_string).collect())
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(Value::as_str)
+                                .map(str::to_string)
+                                .collect()
+                        })
                         .unwrap_or_default();
                     let (hit, blocked) = members_match(&members);
                     if let Some(reason) = blocked {
                         untrusted_hit = Some(reason);
                     }
                     if let Some((context_ref, source)) = hit {
-                        matched = Some((context_ref, source, Some(cohort.clone()), format!("rollout_cohort_match:{entry}")));
+                        matched = Some((
+                            context_ref,
+                            source,
+                            Some(cohort.clone()),
+                            format!("rollout_cohort_match:{entry}"),
+                        ));
                         break;
                     }
                 } else {
@@ -628,7 +762,12 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
                         untrusted_hit = Some(reason);
                     }
                     if let Some((context_ref, source)) = hit {
-                        matched = Some((context_ref, source, None, format!("rollout_cohort_match_deprecated_raw:{entry}")));
+                        matched = Some((
+                            context_ref,
+                            source,
+                            None,
+                            format!("rollout_cohort_match_deprecated_raw:{entry}"),
+                        ));
                         break;
                     }
                 }
@@ -644,10 +783,19 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
             }
         } else {
             // canary: bucket the DERIVED stable seed, never arbitrary request text.
-            let percent = control.get("canary_percent").and_then(Value::as_u64).unwrap_or(0).min(100);
+            let percent = control
+                .get("canary_percent")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+                .min(100);
             let bucket = canary_bucket(&ctx.seed, &control_id);
             if bucket < percent {
-                matched = Some((ctx.seed.clone(), ctx.source, None, format!("rollout_canary_bucket:{bucket}/{percent}")));
+                matched = Some((
+                    ctx.seed.clone(),
+                    ctx.source,
+                    None,
+                    format!("rollout_canary_bucket:{bucket}/{percent}"),
+                ));
             } else {
                 miss_reason = format!("rollout_canary_bucket_miss:{bucket}/{percent}");
             }
@@ -678,7 +826,11 @@ fn resolve_policy_rollout(st: &DaemonState, base: &Value, ctx: &RolloutContext) 
 
 /// Bind rollout provenance onto a (just-cloned) learned policy variant. Called by the
 /// improvement apply lane — the variant carries WHY it exists and what gates it.
-pub(crate) fn bind_policy_rollout(st: &DaemonState, policy_id: &str, rollout: Value) -> Option<Value> {
+pub(crate) fn bind_policy_rollout(
+    st: &DaemonState,
+    policy_id: &str,
+    rollout: Value,
+) -> Option<Value> {
     let mut policy = load_policy(st, policy_id)?;
     policy["rollout"] = rollout;
     policy["updated_at"] = json!(iso_now());
@@ -694,7 +846,11 @@ fn rollout_receipt(st: &DaemonState, action: &str, policy: &Value) -> String {
         .get("release_control_ref")
         .and_then(Value::as_str)
         .map(|r| r.trim_start_matches("release-control://").to_string())
-        .and_then(|id| read_record_dir(&st.data_dir, GOV_RELEASE_KIND).into_iter().find(|r| text(r, "id") == id));
+        .and_then(|id| {
+            read_record_dir(&st.data_dir, GOV_RELEASE_KIND)
+                .into_iter()
+                .find(|r| text(r, "id") == id)
+        });
     let receipt = json!({
         "id": receipt_ref,
         "kind": "hypervisor.policy-rollout",
@@ -715,7 +871,9 @@ fn rollout_receipt(st: &DaemonState, action: &str, policy: &Value) -> String {
 }
 
 fn patch_release_control(st: &DaemonState, control_ref: &str, fields: Value) {
-    let id = control_ref.trim_start_matches("release-control://").to_string();
+    let id = control_ref
+        .trim_start_matches("release-control://")
+        .to_string();
     if let Some(mut control) = read_record_dir(&st.data_dir, GOV_RELEASE_KIND)
         .into_iter()
         .find(|r| text(r, "id") == id)
@@ -737,19 +895,38 @@ pub(crate) async fn handle_policy_rollout_promote(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut policy) = load_policy(&st, &id) else {
-        return bad(StatusCode::NOT_FOUND, "ioi_agent_policy_unresolved", "Unknown policy.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "ioi_agent_policy_unresolved",
+            "Unknown policy.",
+        );
     };
     if policy.pointer("/rollout/state").and_then(Value::as_str) != Some("active") {
-        return bad(StatusCode::CONFLICT, "policy_rollout_state_invalid", "Promote requires an ACTIVE rollout-bound learned policy.");
+        return bad(
+            StatusCode::CONFLICT,
+            "policy_rollout_state_invalid",
+            "Promote requires an ACTIVE rollout-bound learned policy.",
+        );
     }
     policy["rollout"]["state"] = json!("promoted");
     policy["rollout"]["promoted_at"] = json!(iso_now());
     policy["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &policy);
-    let control_ref = policy.pointer("/rollout/release_control_ref").and_then(Value::as_str).unwrap_or("").to_string();
-    patch_release_control(&st, &control_ref, json!({ "rollout_mode": "full", "promoted_at": iso_now() }));
+    let control_ref = policy
+        .pointer("/rollout/release_control_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    patch_release_control(
+        &st,
+        &control_ref,
+        json!({ "rollout_mode": "full", "promoted_at": iso_now() }),
+    );
     let receipt_ref = rollout_receipt(&st, "promote", &policy);
-    (StatusCode::OK, Json(json!({ "ok": true, "policy": policy, "receipt_refs": [receipt_ref] })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "policy": policy, "receipt_refs": [receipt_ref] })),
+    )
 }
 
 /// Rollback: the overlay stops selecting the variant ANYWHERE; base behavior resumes. The
@@ -759,28 +936,60 @@ pub(crate) async fn handle_policy_rollout_rollback(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut policy) = load_policy(&st, &id) else {
-        return bad(StatusCode::NOT_FOUND, "ioi_agent_policy_unresolved", "Unknown policy.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "ioi_agent_policy_unresolved",
+            "Unknown policy.",
+        );
     };
-    if !["active", "promoted"].contains(&policy.pointer("/rollout/state").and_then(Value::as_str).unwrap_or("")) {
-        return bad(StatusCode::CONFLICT, "policy_rollout_state_invalid", "Rollback requires an ACTIVE or PROMOTED rollout-bound learned policy.");
+    if !["active", "promoted"].contains(
+        &policy
+            .pointer("/rollout/state")
+            .and_then(Value::as_str)
+            .unwrap_or(""),
+    ) {
+        return bad(
+            StatusCode::CONFLICT,
+            "policy_rollout_state_invalid",
+            "Rollback requires an ACTIVE or PROMOTED rollout-bound learned policy.",
+        );
     }
     policy["rollout"]["state"] = json!("rolled_back");
     policy["rollout"]["rolled_back_at"] = json!(iso_now());
     policy["status"] = json!("disabled"); // fail-closed: explicit selection of a rolled-back variant refuses
     policy["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, POLICY_KIND, &id, &policy);
-    let control_ref = policy.pointer("/rollout/release_control_ref").and_then(Value::as_str).unwrap_or("").to_string();
-    patch_release_control(&st, &control_ref, json!({ "rollback_state": "rolled_back", "rollback_requested": true, "rolled_back_at": iso_now() }));
+    let control_ref = policy
+        .pointer("/rollout/release_control_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    patch_release_control(
+        &st,
+        &control_ref,
+        json!({ "rollback_state": "rolled_back", "rollback_requested": true, "rolled_back_at": iso_now() }),
+    );
     let receipt_ref = rollout_receipt(&st, "rollback", &policy);
-    (StatusCode::OK, Json(json!({ "ok": true, "policy": policy, "receipt_refs": [receipt_ref] })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "policy": policy, "receipt_refs": [receipt_ref] })),
+    )
 }
 
 /// Gather LIVE facts and run the pure strategy planner. Shared by preview + launch.
-async fn plan(st: &DaemonState, headers: &HeaderMap, body: &Value) -> Result<(Value, Value), (StatusCode, Json<Value>)> {
+async fn plan(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    body: &Value,
+) -> Result<(Value, Value), (StatusCode, Json<Value>)> {
     let goal = text(body, "goal").trim().to_string();
     // Durable policy resolution (fail-closed): an unknown or disabled policy never launches.
     ensure_policy_seed(st);
-    let policy = match body.get("policy_ref").and_then(Value::as_str).filter(|r| !r.is_empty()) {
+    let policy = match body
+        .get("policy_ref")
+        .and_then(Value::as_str)
+        .filter(|r| !r.is_empty())
+    {
         Some(reference) => {
             let Some(record) = load_policy(st, reference) else {
                 return Err(bad(
@@ -819,7 +1028,11 @@ async fn plan(st: &DaemonState, headers: &HeaderMap, body: &Value) -> Result<(Va
             "auto".to_string()
         }
     };
-    let strategy = if strategy.is_empty() { "auto".to_string() } else { strategy };
+    let strategy = if strategy.is_empty() {
+        "auto".to_string()
+    } else {
+        strategy
+    };
     let profiles = live_profiles(st).await;
     let (route_ref, route_state, _model, endpoint) =
         route_fact(st, body.get("model_route_ref").and_then(Value::as_str));
@@ -938,7 +1151,10 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
     )
     .await;
     let intelligence = super::ioi_intelligence_routes::plan_projection(
-        &i_entries, &i_skills, &i_affinities, &projection_ctx,
+        &i_entries,
+        &i_skills,
+        &i_affinities,
+        &projection_ctx,
     );
     let space = super::ioi_intelligence_routes::ensure_default_space(&st);
     // The chosen placement venue (durable policy) travels on every preview so New Session states
@@ -951,7 +1167,14 @@ pub(crate) async fn handle_ioi_agent_launch_preview(
         // decide route has minted one; otherwise hypervisor_choose stays advisory.
         let decision_mode = {
             let mut decisions = super::read_record_dir(&st.data_dir, "placement-decisions");
-            decisions.sort_by_key(|d| std::cmp::Reverse(d.get("decided_at").and_then(|v| v.as_str()).unwrap_or("").to_string()));
+            decisions.sort_by_key(|d| {
+                std::cmp::Reverse(
+                    d.get("decided_at")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                )
+            });
             match decisions.first() {
                 Some(d) => json!({
                     "mode": "decision_available",
@@ -1060,13 +1283,20 @@ pub(crate) async fn handle_ioi_agent_launch(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let grant = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
+    let grant = body
+        .get("wallet_approval_grant")
+        .cloned()
+        .unwrap_or(Value::Null);
     let launch_id_in = text(&body, "launch_id").to_string();
 
     // ── Phase B: an existing prepared launch + a grant → run it.
     if !launch_id_in.is_empty() && !grant.is_null() {
         let Some(mut launch) = load_launch(&st, &launch_id_in) else {
-            return bad(StatusCode::NOT_FOUND, "ioi_agent_launch_not_found", "Unknown launch_id.");
+            return bad(
+                StatusCode::NOT_FOUND,
+                "ioi_agent_launch_not_found",
+                "Unknown launch_id.",
+            );
         };
         if text(&launch, "state") == "executed" {
             return bad(
@@ -1082,7 +1312,11 @@ pub(crate) async fn handle_ioi_agent_launch(
         // composed intent that executes). Direct reads the stored delivered intent here.
         let delivered_intent = {
             let stored = text(&launch, "delivered_intent");
-            if stored.is_empty() { goal.clone() } else { stored.to_string() }
+            if stored.is_empty() {
+                goal.clone()
+            } else {
+                stored.to_string()
+            }
         };
         let outcome: Value;
         if kind == "goal_run" {
@@ -1109,7 +1343,11 @@ pub(crate) async fn handle_ioi_agent_launch(
             let completed_count = started
                 .get("invocations")
                 .and_then(Value::as_array)
-                .map(|list| list.iter().filter(|i| text(i, "status") == "completed").count() as u64)
+                .map(|list| {
+                    list.iter()
+                        .filter(|i| text(i, "status") == "completed")
+                        .count() as u64
+                })
                 .unwrap_or(0);
             if min_required > 0 && completed_count < min_required {
                 let outcome = json!({
@@ -1161,7 +1399,10 @@ pub(crate) async fn handle_ioi_agent_launch(
                 Some(&json!({})),
             )
             .await;
-            let reconciliation = reconciled.get("reconciliation").cloned().unwrap_or(Value::Null);
+            let reconciliation = reconciled
+                .get("reconciliation")
+                .cloned()
+                .unwrap_or(Value::Null);
             outcome = json!({
                 "goal_run": reconciled.get("goal_run").cloned().unwrap_or(started.get("goal_run").cloned().unwrap_or(Value::Null)),
                 "invocations": started.get("invocations").cloned().unwrap_or(json!([])),
@@ -1205,7 +1446,10 @@ pub(crate) async fn handle_ioi_agent_launch(
 
         let grid = text(&launch, "goal_run_id");
         let final_files = if kind == "goal_run" {
-            outcome.pointer("/reconciliation/final_changed_files").cloned().unwrap_or(json!([]))
+            outcome
+                .pointer("/reconciliation/final_changed_files")
+                .cloned()
+                .unwrap_or(json!([]))
         } else {
             outcome.get("files_written").cloned().unwrap_or(json!([]))
         };
@@ -1278,7 +1522,12 @@ pub(crate) async fn handle_ioi_agent_launch(
 
     // Target session. Direct: created WITH the admitted harness binding (fail-closed there).
     let mut session_body = json!({ "session_ref": session_ref });
-    for key in ["project_ref", "context_url", "environment_id", "editor_target_ref"] {
+    for key in [
+        "project_ref",
+        "context_url",
+        "environment_id",
+        "editor_target_ref",
+    ] {
         if let Some(value) = body.get(key) {
             session_body[key] = value.clone();
         }
@@ -1369,7 +1618,8 @@ pub(crate) async fn handle_ioi_agent_launch(
                 let mut body = projection_base.clone();
                 body["goal_run_ref"] = json!(format!("goal://{goal_run_id}"));
                 body["harness_profile_ref"] = json!(text(cell, "harness_ref"));
-                let projection = super::ioi_intelligence_routes::create_projection(&st, &body).await;
+                let projection =
+                    super::ioi_intelligence_routes::create_projection(&st, &body).await;
                 projection_refs.push(text(&projection, "projection_ref").to_string());
             }
         }
@@ -1390,7 +1640,10 @@ pub(crate) async fn handle_ioi_agent_launch(
 
     // Relay the underlying lane's authority challenge (grant-less probe; nothing executes).
     let challenge_url = if kind == "goal_run" {
-        format!("{}/v1/hypervisor/goal-runs/{goal_run_id}/start", st.base_url)
+        format!(
+            "{}/v1/hypervisor/goal-runs/{goal_run_id}/start",
+            st.base_url
+        )
     } else {
         format!(
             "{}/v1/hypervisor/sessions/{}/execute",
@@ -1403,7 +1656,8 @@ pub(crate) async fn handle_ioi_agent_launch(
     } else {
         json!({ "intent": delivered_intent })
     };
-    let (challenge_status, mut challenge) = self_call(&challenge_url, "POST", Some(&challenge_body)).await;
+    let (challenge_status, mut challenge) =
+        self_call(&challenge_url, "POST", Some(&challenge_body)).await;
     if challenge_status != 403 {
         return bad(
             StatusCode::BAD_GATEWAY,
@@ -1461,7 +1715,8 @@ pub(crate) async fn handle_ioi_agent_launch(
                 .filter(|x| {
                     matches!(
                         x.get("reason_code").and_then(Value::as_str).unwrap_or(""),
-                        "rollout_explicit_override_disallowed" | "rollout_requires_authenticated_context"
+                        "rollout_explicit_override_disallowed"
+                            | "rollout_requires_authenticated_context"
                     )
                 })
                 .cloned()
@@ -1492,7 +1747,11 @@ pub(crate) async fn handle_ioi_agent_launch(
         object.insert("session_ref".into(), json!(session_ref));
         object.insert(
             "goal_run_ref".into(),
-            if goal_run_id.is_empty() { Value::Null } else { json!(format!("goal://{goal_run_id}")) },
+            if goal_run_id.is_empty() {
+                Value::Null
+            } else {
+                json!(format!("goal://{goal_run_id}"))
+            },
         );
     }
     (StatusCode::FORBIDDEN, Json(challenge))
@@ -1507,7 +1766,10 @@ pub(crate) async fn handle_ioi_agent_launches_list(
         launches.retain(|launch| text(launch, "session_ref") == session);
     }
     launches.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
-    (StatusCode::OK, Json(json!({ "ok": true, "launches": launches })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "launches": launches })),
+    )
 }
 
 pub(crate) async fn handle_ioi_agent_launch_get(
@@ -1515,8 +1777,15 @@ pub(crate) async fn handle_ioi_agent_launch_get(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     match load_launch(&st, &id) {
-        Some(launch) => (StatusCode::OK, Json(json!({ "ok": true, "launch": launch }))),
-        None => bad(StatusCode::NOT_FOUND, "ioi_agent_launch_not_found", "Unknown launch."),
+        Some(launch) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "launch": launch })),
+        ),
+        None => bad(
+            StatusCode::NOT_FOUND,
+            "ioi_agent_launch_not_found",
+            "Unknown launch.",
+        ),
     }
 }
 

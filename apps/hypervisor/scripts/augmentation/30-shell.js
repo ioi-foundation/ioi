@@ -1,24 +1,3 @@
-  // The autonomous-systems suite (canon: core-clients-surfaces.md "The Autonomous-Systems
-  // Application Suite"; detail: internal-docs/prompts/autonomous-systems-suite/suite-guide.md),
-  // then the substrate lane (type 1+2 face). Every href opens a REAL surface today; where a
-  // suite identity is wider than its current surface, the copy names what is live.
-  const IOI_APPS = [
-    { icon: "🎨", name: "Studio", desc: "Compose systems & agents — agent lens live (inventory, model routes, adapters); system canvas adopting.", href: "/__ioi/agent-studio", status: "live", lane: "suite" },
-    { icon: "⚡", name: "Automations", desc: "Durable triggers, schedules, monitors, services — condition → governed effect.", href: "/__ioi/automations", status: "live", lane: "suite" },
-    { icon: "🧬", name: "Ontology", desc: "The semantic world-model — Ontology Manager over the typed COM; Explorer + ODK substrate linked within.", href: "/__ioi/ontology/manager", status: "live", lane: "suite" },
-    { icon: "🌐", name: "Data", desc: "Supply the world-model — sources, syncs, recipes, datasets, media sets, consent.", href: "/__ioi/odk#data-planes", status: "live", lane: "suite" },
-    { icon: "🛡", name: "Governance", desc: "Authority — approvals, leases, release gates, kill switches, budgets, gaps.", href: "/__ioi/governance", status: "live", lane: "suite" },
-    { icon: "🚀", name: "Missions", desc: "Fleet of running systems — sessions root live; dedicated fleet console adopting.", href: "/__ioi/sessions", status: "live", lane: "suite" },
-    { icon: "📒", name: "Provenance", desc: "Proof plane — receipts stream, state roots, timelines live; lineage canvas adopting.", href: "/__ioi/work-ledger", status: "live", lane: "suite" },
-    { icon: "🧪", name: "Evaluations", desc: "Feedback with consent + eval handoffs live; suites & scorecards adopting.", href: "/__ioi/feedback", status: "live", lane: "suite" },
-    { icon: "📈", name: "Improvement", desc: "Proposals, what-if simulation, apply-under-gates — proposal lane live; change inbox adopting.", href: "/__ioi/agent-studio#improvement-proposals", status: "live", lane: "suite" },
-    { icon: "🏗", name: "Foundry", desc: "Model substrate — catalog, routes, draft specs, run plans, promotion previews.", href: "/__ioi/foundry", status: "live", lane: "suite" },
-    { icon: "🛒", name: "Marketplace", desc: "Distribution — listings, publish candidates, admission reviews (admission-only).", href: "/__ioi/marketplace", status: "live", lane: "suite" },
-    { icon: "🧰", name: "Workbench", desc: "Enter an environment's live console — files, terminal, ports, tasks.", href: "/__ioi/workbench", status: "live", lane: "suite" },
-    { icon: "🔌", name: "Developer Console", desc: "Extend the environment — connectors, MCP, credentials, SDK on-ramps.", href: "/__ioi/connections", status: "live", lane: "suite" },
-    { icon: "🖥", name: "Environments", desc: "Substrate — lifecycle, readiness, services/ports/tasks, kernel boundary.", href: "/__ioi/environments", status: "live", lane: "substrate" },
-    { icon: "⚙", name: "Operations", desc: "Substrate — scheduler health, providers, placement/failover, custody, spend.", href: "/__ioi/operations", status: "live", lane: "substrate" },
-  ];
   function railRight() {
     const s = document.querySelector('[data-testid="sidebar"]');
     if (s) { const r = s.getBoundingClientRect(); if (r.width > 0 && r.left < 40) return Math.round(r.right); }
@@ -29,9 +8,10 @@
     if (el && el.style.display !== "none") el.style.left = railRight() + "px";
   }
   function appIconFor(name) {
-    const c = catalogAppByTitle(name); // ported app → its family's emoji for the rail row
-    const a = IOI_APPS.find((x) => x.name === (c ? c.family : name));
-    return a ? a.icon : "◳";
+    const contextual = catalogContextSurfaceByTitle(name);
+    const owner = contextual ? catalogEntryByRef(contextual.placement_owner_ref) : null;
+    const direct = catalogApplications().concat(catalogCoreWorkspaces()).find((entry) => entry.name === name || name.indexOf(entry.name + " /") === 0);
+    return (owner && owner.icon) || (direct && direct.icon) || "◳";
   }
   function findAppsNavItem() {
     return Array.prototype.find.call(
@@ -98,18 +78,23 @@
     updateOpenAppRail();
   }
   function appsModalRows() {
-    // Ported apps (catalog projection, arrives async) first, then the suite family surfaces.
-    const ported = catalogApps().map((a) =>
-      '<div class="ioi-mrow" data-href="' + a.route + '" data-name="' + esc(a.title) + '"><span>' + catalogIcon(a, 20) +
-      '</span><span><div class="ioi-mname">' + esc(a.title) + '</div><div class="ioi-mdesc">' + esc(a.family) + " · " + esc(a.route) +
-      '</div></span><span class="ioi-mpill">open</span></div>').join("");
-    const families = IOI_APPS.map((a) => {
-      const pill = a.status === "live" ? "open" : a.status === "contextual" ? "in a session" : "planned";
-      const live = a.status === "live";
-      return '<div class="ioi-mrow' + (live ? "" : " disabled") + '"' + (live ? ' data-href="' + a.href + '" data-name="' + esc(a.name) + '"' : "") +
-        '><span>' + a.icon + '</span><span><div class="ioi-mname">' + esc(a.name) + '</div><div class="ioi-mdesc">' + esc(a.desc) + '</div></span><span class="ioi-mpill">' + pill + "</span></div>";
+    const applicationRows = (entries) => entries.map((entry) => {
+      const live = entry.launchable === true;
+      const pill = live ? (entry.route_posture === "canonical" ? entry.implementation_state : "compatibility") : "planned";
+      return '<div class="ioi-mrow' + (live ? "" : " disabled") + '" data-registration-ref="' + esc(entry.ref) + '"' + (live ? ' data-href="' + entry.launch_route + '" data-name="' + esc(entry.name) + '"' : "") +
+        '><span>' + entry.icon + '</span><span><div class="ioi-mname">' + esc(entry.name) + '</div><div class="ioi-mdesc">' + esc(entry.description) + '</div></span><span class="ioi-mpill">' + pill + "</span></div>";
     }).join("");
-    return (ported ? '<div class="ioi-mgrp">Apps</div>' + ported + '<div class="ioi-mgrp">Suite</div>' : "") + families;
+    const owners = applicationRows(catalogOwnerApplications());
+    const substrate = applicationRows(catalogSubstrateApplications());
+    const specialists = applicationRows(catalogSpecialistApplications());
+    const contextual = catalogContextSurfaces().map((entry) =>
+      '<div class="ioi-mrow" data-surface-key="' + esc(entry.surface_key) + '" data-href="' + entry.launch_route + '" data-name="' + esc(entry.title) + '"><span>' + catalogIcon(entry, 20) +
+      '</span><span><div class="ioi-mname">' + esc(entry.title) + '</div><div class="ioi-mdesc">' + esc(entry.placement) +
+      '</div></span><span class="ioi-mpill">' + esc(entry.implementation_state) + "</span></div>").join("");
+    return '<div class="ioi-mgrp">Applications</div>' + owners +
+      (substrate ? '<div class="ioi-mgrp">Substrate</div>' + substrate : "") +
+      (specialists ? '<div class="ioi-mgrp">Specialist applications</div>' + specialists : "") +
+      (contextual ? '<div class="ioi-mgrp">Tools and views</div>' + contextual : "");
   }
   function appsModal() {
     let el = document.getElementById("ioi-apps-modal");
@@ -123,8 +108,8 @@
         if (row) { el.classList.remove("open"); openApplication(row.getAttribute("data-href"), row.getAttribute("data-name")); }
       });
     }
-    // Rebuild when the catalog projection lands (data-catalog stamps the rendered app count).
-    const stamp = String(catalogApps().length);
+    // Rebuild when the typed catalog projection lands.
+    const stamp = catalogStamp();
     if (el.getAttribute("data-catalog") !== stamp) {
       el.setAttribute("data-catalog", stamp);
       el.innerHTML = '<div class="ioi-modal"><div class="ioi-mh"><span>Applications</span><button title="Close">✕</button></div>' + appsModalRows() + "</div>";

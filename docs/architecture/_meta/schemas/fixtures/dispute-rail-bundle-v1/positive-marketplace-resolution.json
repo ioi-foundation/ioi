@@ -1,0 +1,160 @@
+{
+  "schema_version": "ioi.foundations.dispute-rail-bundle.v1",
+  "bundle_ref": "dispute-bundle://marketplace/order-1/resolution-1",
+  "profile": {
+    "dispute_rail_profile_ref": "policy://dispute/marketplace-v1",
+    "profile_version": 1,
+    "profile_body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "rail_kind": "marketplace_escrow",
+    "value_unit": {
+      "asset_ref": "asset://usdc/base",
+      "unit_ref": "denomination://usdc/base/micro",
+      "unit_version": 1,
+      "unit_body_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "atomic_unit_code": "micro_usdc",
+      "decimals": 6
+    },
+    "ordinary_verification_funding_ref": "budget://verification/order-1",
+    "challenger_bond_units": 101,
+    "respondent_bond_units": 100,
+    "evidence_window_ms": 100,
+    "response_window_ms": 100,
+    "appeal_window_ms": 100,
+    "evidence_unavailable_default": "escalated",
+    "respondent_timeout_default": "challenger_upheld",
+    "allowed_remedies": [
+      "refund",
+      "none",
+      "escalate"
+    ],
+    "outcome_rules": [
+      {
+        "outcome": "challenger_upheld",
+        "remedy": "refund",
+        "maximum_remedy_bps_of_disputed_value": 10000,
+        "bond_distribution": {
+          "challenger_return_bps": 5000,
+          "respondent_return_bps": 0,
+          "challenger_award_bps": 3000,
+          "respondent_award_bps": 0,
+          "verifier_funding_bps": 1000,
+          "treasury_bps": 0,
+          "burn_bps": 1000,
+          "rounding_recipient": "verifier_funding"
+        }
+      },
+      {
+        "outcome": "respondent_upheld",
+        "remedy": "none",
+        "maximum_remedy_bps_of_disputed_value": 0,
+        "bond_distribution": {
+          "challenger_return_bps": 0,
+          "respondent_return_bps": 5000,
+          "challenger_award_bps": 0,
+          "respondent_award_bps": 3000,
+          "verifier_funding_bps": 1000,
+          "treasury_bps": 0,
+          "burn_bps": 1000,
+          "rounding_recipient": "verifier_funding"
+        }
+      },
+      {
+        "outcome": "escalated",
+        "remedy": "escalate",
+        "maximum_remedy_bps_of_disputed_value": 0,
+        "bond_distribution": {
+          "challenger_return_bps": 5000,
+          "respondent_return_bps": 4000,
+          "challenger_award_bps": 0,
+          "respondent_award_bps": 0,
+          "verifier_funding_bps": 1000,
+          "treasury_bps": 0,
+          "burn_bps": 0,
+          "rounding_recipient": "verifier_funding"
+        }
+      }
+    ]
+  },
+  "dispute": {
+    "dispute_ref": "dispute://marketplace/order-1",
+    "dispute_rail_profile_ref": "policy://dispute/marketplace-v1",
+    "dispute_rail_profile_version": 1,
+    "dispute_rail_profile_body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "value_unit": {
+      "asset_ref": "asset://usdc/base",
+      "unit_ref": "denomination://usdc/base/micro",
+      "unit_version": 1,
+      "unit_body_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "atomic_unit_code": "micro_usdc",
+      "decimals": 6
+    },
+    "challenged_ref": "delivery://marketplace/order-1",
+    "challenger_ref": "org://buyer",
+    "respondent_ref": "org://seller",
+    "opened_at_ms": 1000,
+    "evidence_retained_until_ms": 1300,
+    "disputed_value_units": 1000,
+    "challenger_bond_hold_ref": "hold://marketplace/order-1/challenger",
+    "challenger_bond_held_units": 101,
+    "respondent_bond_hold_ref": "hold://marketplace/order-1/respondent",
+    "respondent_bond_held_units": 100,
+    "escrow_ref": "escrow://marketplace/order-1",
+    "collaboration_terms_ref": null,
+    "collaboration_terms_root": null,
+    "settlement_profile_ref": null,
+    "network_enrollment_ref": null,
+    "case_head_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "resolution": {
+    "dispute_resolution_ref": "dispute-resolution://marketplace/order-1/1",
+    "dispute_ref": "dispute://marketplace/order-1",
+    "dispute_rail_profile_ref": "policy://dispute/marketplace-v1",
+    "dispute_rail_profile_version": 1,
+    "dispute_rail_profile_body_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "rail_kind": "marketplace_escrow",
+    "value_unit": {
+      "asset_ref": "asset://usdc/base",
+      "unit_ref": "denomination://usdc/base/micro",
+      "unit_version": 1,
+      "unit_body_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "atomic_unit_code": "micro_usdc",
+      "decimals": 6
+    },
+    "case_head_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "request_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "idempotency_key": "resolve:marketplace-order-1:v1",
+    "adjudicator_ref": "verifier://independent/1",
+    "decided_at_ms": 1150,
+    "evidence_refs": [
+      "evidence://buyer/order-1"
+    ],
+    "response_refs": [
+      "evidence://seller/order-1"
+    ],
+    "appeal_of_resolution_ref": null,
+    "outcome": "challenger_upheld",
+    "remedy": "refund",
+    "remedy_units": 1000,
+    "bond_pool_units": 201,
+    "bond_allocation": {
+      "challenger_return_units": 100,
+      "respondent_return_units": 0,
+      "challenger_award_units": 60,
+      "respondent_award_units": 0,
+      "verifier_funding_units": 21,
+      "treasury_units": 0,
+      "burn_units": 20
+    },
+    "used_evidence_unavailable_default": false,
+    "used_respondent_timeout_default": false,
+    "appeal_deadline_ms": 1250,
+    "required_receipt_kinds": [
+      "dispute_resolution",
+      "bond_distribution",
+      "dispute_remedy_execution"
+    ],
+    "resolution_state": "admitted"
+  },
+  "exported_at_ms": 1200,
+  "assurance_status": "deterministic_admission_only"
+}

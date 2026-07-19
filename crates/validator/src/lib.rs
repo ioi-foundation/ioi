@@ -24,5 +24,9 @@ pub mod config;
 pub mod firewall;
 /// Metrics collection and reporting.
 pub mod metrics;
+/// Portable, domain-separated AuthorityGrantEnvelope v2 signing and verification.
+pub mod portable_authority;
+/// Portable receipt hash-chain checkpoints and offline proof verification.
+pub mod portable_receipt_proof;
 /// Standard validator implementations (Orchestration, Workload, Provider).
 pub mod standard;

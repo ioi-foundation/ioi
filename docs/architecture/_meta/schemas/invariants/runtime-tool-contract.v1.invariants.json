@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/components/connectors-tools/runtime-tool-contract/ifc-egress/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
+  "rules": [
+    {
+      "rule_id": "runtime_tool_contract.data_class_allowlist.required",
+      "description": "A tool declares the information classes it may receive.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.data_class_allowlist"
+      }
+    },
+    {
+      "rule_id": "runtime_tool_contract.destination_allowlist.required",
+      "description": "A tool declares at least one destination pattern; ambient network is forbidden.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.egress_policy.allowed_destination_patterns"
+      }
+    }
+  ]
+}

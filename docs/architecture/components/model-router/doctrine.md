@@ -6,13 +6,16 @@ route-rights, BYOK/BYOA, privacy/fallback, and run-to-idle doctrine; low-level
 model-router API lives in [`model-router-api-byok-and-mounting.md`](./api-byok-mounting.md).
 Supersedes: overlapping model/provider prose when routing or BYOK boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-13.
 Doctrine status: canonical
 Implementation status: partial (model-route registry and local Ollama mounting
-built; sealed BYOK and multi-transport session execution are unimplemented, and
-only active/available Ollama routes are currently bindable for execution;
-custody and commercial-rights policy remain partial)
-Last implementation audit: 2026-07-05
+built; hosted-provider blocking/streaming transport now enforces parent-aware
+information-flow admission and returns untrusted content-only model-output
+labels; sealed BYOK and multi-transport session execution are unimplemented,
+and only active/available Ollama routes are currently bindable for execution;
+custody, commercial-rights policy, and full router/ContextCell propagation
+remain partial)
+Last implementation audit: 2026-07-16 (hosted-provider IFC boundary)
 
 ## Canonical Definition
 
@@ -86,6 +89,16 @@ user-scoped BYOA for that user's interactive Goal Space, but it is not IOI
 worker-market inventory. Managed unattended work uses API, dedicated endpoint,
 expressly negotiated inference, self-hosted, or explicitly authorized OEM/
 reseller capacity.
+
+Hosted provider transport is also an information-flow boundary. The invocation
+owner requires the complete actual input-label set, an independently admitted
+effect label, and the exact provider `RuntimeToolContract`; it recomputes the
+restrictive join against the canonical outbound request and exact destination
+immediately before blocking or streaming network contact. A caller-supplied
+public effect label cannot weaken private or untrusted inputs. Raw model output
+returns as `origin=model_output`, `integrity=untrusted`, and
+`instruction_authority=none` until a separate verifier or admission path
+promotes its integrity. Model inference itself never mints authority.
 
 The model router may record model architecture and training-profile metadata,
 but that metadata is descriptive. It does not make a model the protocol actor.
@@ -329,21 +342,73 @@ ModelRouteRightsContract:
   endpoint_ref: endpoint://...
   model_version_ref: model://...
   provider_allowlist: [provider://...]
-  data_collection: allow | deny
   zdr_required: boolean
-  retention_policy_ref: policy://... | null
+  provider_use_of_customer_material:
+    request_or_prompt_logging:
+      prohibited | contract_limited | explicitly_permitted | not_applicable
+    human_review:
+      prohibited | security_incident_only | contract_limited |
+      explicitly_permitted | not_applicable
+    abuse_and_security_processing:
+      prohibited | transient_only | contract_limited |
+      explicitly_permitted | not_applicable
+    service_improvement:
+      prohibited | contract_limited | explicitly_permitted | not_applicable
+    provider_model_training:
+      prohibited | contract_limited | explicitly_permitted | not_applicable
+    cross_customer_aggregation:
+      prohibited | contract_limited | explicitly_permitted | not_applicable
+    retention:
+      posture:
+        zero_retention | transient_processing | contract_bounded |
+        provider_default | not_applicable
+      retention_policy_ref: policy://... | null
+  customer_use_of_outputs:
+    retain:
+      prohibited | terms_limited | expressly_licensed | open_license
+    replay:
+      prohibited | terms_limited | expressly_licensed | open_license
+    evaluation:
+      prohibited | terms_limited | expressly_licensed | open_license
+    rag_or_memory:
+      prohibited | terms_limited | expressly_licensed | open_license
+    same_provider_tuning:
+      prohibited | terms_limited | expressly_licensed | open_license
+    distillation:
+      prohibited | terms_limited | expressly_licensed | open_license
+    competing_model_training:
+      prohibited | terms_limited | expressly_licensed | open_license
+    internal_package_reuse:
+      prohibited | terms_limited | expressly_licensed | open_license
+    publication:
+      prohibited | terms_limited | expressly_licensed | open_license
+    resale:
+      prohibited | terms_limited | expressly_licensed | open_license
+  rights_basis_refs:
+    - terms://... | license://... | contract://... | policy://...
   region_ref: region://... | null
   fallback_classes: [string]
   max_price_ref: price-schedule://... | null
   required_parameters: [string]
-  output_training_right:
-    prohibited | noncompeting_only | expressly_licensed | open_license
   status: active | quarantined | expired | superseded | revoked
 ```
 
+The two directions are independent. Provider permission to process customer
+material for service delivery does not imply permission to log it, expose it to
+human review, improve the service, train provider models, aggregate it across
+customers, or retain it beyond the declared period. Customer permission to
+receive an output does not imply permission to retain, replay, evaluate, place
+it in RAG or durable memory, tune, distill, train a competing model, reuse it in
+an internal package, publish it, or resell it. Every non-prohibited value must
+resolve to the exact terms, license, contract, and policy basis that constrains
+it. A coarse `data_collection`, `no_training`, or `output_training_right` flag
+is not the canonical route-rights source of truth.
+
 Inference permission does not imply training or distillation permission.
 Foundry must use open licenses or expressly licensed teacher/output rights for
-reusable training and distillation.
+reusable training and distillation. Missing or ambiguous matrix members fail
+closed for the requested purpose; an account-level provider default cannot fill
+them silently.
 
 ## Model Profiles
 
@@ -384,9 +449,11 @@ The router should consider:
 - quality history;
 - fallback policy;
 - route-rights and applicable-terms versions;
+- the active `InstitutionalLearningBoundaryProfile` revision/hash and intended
+  internal or downstream learning uses;
 - access/automation/downstream/customer-facing rights;
-- data collection, retention/ZDR, region, provider allowlist, and required
-  parameter support;
+- every applicable provider-use and customer-output-use matrix member,
+  retention/ZDR, region, provider allowlist, and required parameter support;
 - user/org preferences.
 
 ## Auto, Pinned, And Compare Policies
@@ -407,6 +474,16 @@ Compare / N-of-N
   named verifier/comparison/synthesis rule
 ```
 
+`Compare` and any multi-provider synthesis evaluate every recipient route
+independently against the active institutional learning boundary. Effective
+customer output permissions are the intersection across every output or trace
+that contributes to the result: a prohibition dominates, and synthesis does
+not launder a restricted output into a reusable dataset. Provider-side exposure
+is recorded per recipient and the combined run reports the least protective
+posture. A separable result may retain broader rights only when provenance
+proves that the restricted contribution was excluded. Missing rights on any
+contributing attempt fail closed for the composite use.
+
 `1-of-N` is a routing policy, not a subscription SKU. A fallback that changes
 the underlying model, provider, privacy posture, commercial rights, or material
 capability is a semantic substitution. It must remain inside the route
@@ -414,9 +491,9 @@ contract, emit model-route/model-invocation receipt evidence, and re-run the
 applicable acceptance or verifier path. MoW `RoutingDecisionReceipt` remains
 the accountable Worker-routing object, not the model/provider fallback object.
 Aggregator defaults must not silently widen provider choice,
-data collection, or fallback eligibility; governed sensitive routes pin or
-allowlist providers, deny data collection, require declared parameters, cap
-price, and fail closed.
+provider use of customer material, or fallback eligibility; governed sensitive
+routes pin or allowlist providers, bind a complete provider-use matrix, require
+declared parameters, cap price, and fail closed.
 
 ## Run-to-Idle Lifecycle
 
@@ -519,6 +596,14 @@ are cost telemetry, not the universal product unit; Work Credits may normalize
 heterogeneous model, accelerator, tool, storage, verifier, and runtime cost
 while receipts retain the accountable breakdown.
 
+When protected institutional learning material is proposed for an external
+provider, processor, organization, support operator, or public export, the
+runtime also emits the registered
+[`LearningEgressReceipt`](../daemon-runtime/events-receipts-delivery-bundles.md#learning-egress-receipt).
+That receipt binds the active boundary profile, recipient, purpose,
+representation, selected route-rights contract, and transfer posture. It does
+not replace the model-invocation receipt or prove provider-internal behavior.
+
 ## Invariants
 
 1. No hardcoded model provider in product-critical runtime paths.
@@ -549,6 +634,15 @@ while receipts retain the accountable breakdown.
     availability detail.
 16. Inference permission and output training/distillation permission are
     separate rights.
+17. Provider use of customer material and customer use of model output are
+    independent, purpose-specific rights matrices; neither direction may be
+    inferred from the other.
+18. Multi-provider output reuse is bounded by the intersection of all
+    contributing output rights, while each provider's exposure is evaluated and
+    receipted independently.
+19. The active institutional learning boundary, route contract, source rights,
+    consent, privacy/custody posture, and requested use intersect
+    most-restrictively. Missing or ambiguous rights fail closed.
 
 ## One-Line Doctrine
 

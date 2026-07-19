@@ -1,34 +1,88 @@
 # AIIP: Inter-Autonomous-System Protocol
 
 Status: canonical architecture authority.
-Canonical owner: this file for AIIP, bounded-execution-domain interop, work and collaborative-pursuit packets, semantic-profile negotiation, AIIP profiles, and cross-system handoff/admission semantics.
+Canonical owner: this file for AIIP, the boundary from pre-AIIP local-agent pairing into participation, bounded-execution-domain interop, work, collaborative-pursuit, and dispute packets, semantic-profile negotiation, AIIP profiles, and cross-system handoff/admission semantics.
 Supersedes: product prose that treats Hypervisor, aiagent.xyz, sas.xyz, or third-party autonomous systems as separate bespoke interop protocols.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-16.
 Doctrine status: canonical
-Implementation status: planned (protocol design only; no AIIP transport, channel, semantic-negotiation, collaborative-pursuit, or two-sovereign-node implementation)
-Last implementation audit: 2026-07-05
+Implementation status: planned for AIIP transport (the shared registered dispute contract and deterministic admission/allocation kernel are partial built substrate; no local-agent pairing ingress, AIIP transport/binding, channel, collaboration-terms or semantic negotiation, collaborative-pursuit, cross-domain dispute exchange, or two-sovereign-system implementation)
+Last implementation audit: 2026-07-16
 
 ## Canonical Definition
 
 **AIIP is IOI's RPC-shaped, receipt-native interoperability protocol for
-bounded autonomous work.**
+selective, positive-surplus bounded autonomous work.**
 
 AIIP moves delegated work, collaborative-pursuit updates, negotiated semantic
 profiles, authority leases, receipt commitments, settlement intents, reputation
-queries, dispute notices, and handoff finality across bounded execution domains.
-Each domain keeps its own runtime, private context, and operational truth. IOI
-mainnet settles only the selected consequential record when public trust,
-economic finality, portable reputation or rights, dispute resolution, or
-cross-system interoperability requires it.
+queries, dispute notices, and handoff finality across independently governed
+bounded execution domains.
+Each domain keeps its own runtime, private context, operational truth,
+governance, and ordering/finality. AIIP assumes neither consensus nor IOI L1.
+Explicitly enrolled systems may use IOI L1 for selected accepted or adjudicated
+commitments when public trust, economic finality, portable reputation or
+rights, dispute resolution, or shared security creates value.
 
 Short form:
 
-> **AIIP moves autonomous work across systems. IOI settles what happened.**
+> **AIIP moves bounded work across systems. Each system admits its own truth.
+> Explicitly enrolled systems may use IOI L1 for selected shared-trust
+> commitments.**
 
 The broader IOI thesis is:
 
-> **Autonomous systems can execute anywhere. IOI settles what matters.**
+> **IOI turns intelligence into bounded autonomous institutions. L0 creates
+> and operates them through native same-system distribution; AIIP makes
+> selective, positive-surplus interoperation between separately sovereign
+> institutions contractible; IOI L1 optionally supplies shared trust and
+> economic finality.**
+
+## Conditional Cooperation Thesis
+
+AIIP creates an option to interoperate, not a reason or duty to do so. A
+sovereign system remains complete without federation, marketplace
+participation, external contribution, or IOI Network enrollment. It uses AIIP
+only when another independently governed domain controls a complement whose
+expected value exceeds the best permitted local or bilateral alternative after
+coordination and risk costs.
+
+Relevant complements include specialized intelligence, protected data-derived
+evidence, local authority or jurisdiction, physical access, compute or capital,
+demand, independent verification, insurance, dispute resolution, and neutral
+settlement. Relevant costs include execution, latency, semantic translation,
+verification, disclosure and IP exposure, opportunity cost, counterparty risk,
+dispute, settlement, switching, and dependency risk.
+
+Participant-level admission is therefore conditional:
+
+```text
+expected cooperation surplus_i
+  = expected utility under accepted collaboration terms_i
+  - expected utility of best permitted outside option_i
+  - incremental cooperation costs_i
+
+incremental cooperation costs_i include execution, opportunity, search,
+  semantic-mapping, coordination, verification, privacy, IP, counterparty,
+  dispute, settlement, switching, and dependency costs and risks
+
+participate only when expected cooperation surplus_i > 0
+  and the constitution, policy, authority, privacy, and terms gates admit it
+```
+
+The valuation may remain private. The protocol proves only that each required
+party accepted one exact `CollaborationTermsEnvelope` root through its governed
+decision path. Discovery, compatibility, room visibility, task offers, and
+terms proposals create no obligation, access, award, contribution eligibility,
+or payout. `TaskOffer` solicits; `TaskAcceptance` accepts, rejects, or
+counteroffers; `RoutingDecision` selects; `WorkClaimLease` awards bounded work;
+`Contribution`, verification, `AcceptanceDecision`, adjudication, and
+`SettlementIntent` remain later distinct stages.
+
+Short form:
+
+> **Sovereignty protects the downside; complementary value supplies the motive;
+> accepted terms make cooperation contractible.**
 
 ## Layer Boundary
 
@@ -37,9 +91,11 @@ data, tools, models, users, or physical environment.
 
 ```text
 Autonomous systems execute anywhere.
-AIIP routes delegated work across systems.
+Native L0 contracts coordinate continuity and useful work inside one system.
+AIIP exchanges delegated work across systems.
 Receipts attest declared boundary facts.
-IOI mainnet settles the consequential record.
+Each system admits its own truth.
+Selected enrolled commitments may use IOI L1.
 ```
 
 The chain does not execute most model inference, browser activity, API calls,
@@ -50,9 +106,10 @@ rules; it does not turn a signed statement into a correct outcome.
 Canonical distinction:
 
 ```text
-Execution = local runtimes, microharnesses, workers, APIs, robots, VMs, enterprise systems
+Execution = local runtimes, HarnessInvocations, workers, APIs, robots, VMs, enterprise systems
 Interop   = AIIP packets, profiles, channels, authority, receipts, settlement intents
-Settlement = IOI mainnet roots, rights, escrows, disputes, reputation, handoff finality
+Settlement = local-domain by default; a declared external profile only when
+             selected; IOI L1 only under explicit enrollment
 ```
 
 AIIP preserves this assurance ladder across domains:
@@ -84,7 +141,8 @@ schemas, runtime boundaries, and settlement behavior.
 
 Examples:
 
-- local coding, browser, terminal, design, finance, or research microharnesses;
+- local agent runtimes executing coding, browser, terminal, design, finance,
+  or research steps through admitted HarnessProfiles or AgentHarnessAdapters;
 - installed workers from aiagent.xyz;
 - marketplace workers;
 - outcome providers from sas.xyz;
@@ -94,8 +152,14 @@ Examples:
 - third-party autonomous systems;
 - independent autonomous-system L1s or sovereign domains.
 
-AIIP lets bounded execution domains talk. IOI mainnet lets their consequential
-records settle.
+AIIP lets independently governed bounded execution domains interoperate. Their
+settlement system is a declared profile, not an AIIP assumption. A bounded
+execution domain may itself span many runtime nodes, people, robots, drones,
+sensors, controllers, or facilities. Their internal replication, failover,
+mission allocation, runtime assignment, work leases, shared state/evidence,
+fleet policy, and local safety are native L0 and Embodied Runtime coordination,
+not AIIP. AIIP begins only when one such domain crosses into another domain's
+separate governance, authority, truth, risk, and exit boundary.
 
 Robot fleets, robot controllers, drones, vehicles, facility systems, and other
 embodied domains are valid AIIP participants, but actuator-affecting work is
@@ -106,23 +170,184 @@ obligations, and `ActuatorCommandReceipt` obligations before execution. The
 canonical owner for those objects is
 [`physical-action-safety.md`](./physical-action-safety.md).
 
-## Same Semantic Protocol, Different Modes
+An inbound AIIP packet remains candidate intent or work at the receiving
+sovereignty boundary. The receiver must re-admit it into local work-subject,
+mission, allocation, resource-fence, authority, and safety state before any
+physical effect. It may eventually produce a proposal-only
+`EmbodiedActionChunk`, but the packet cannot install or activate an
+`EmbodiedRuntimeGraphManifest`, arm a controller, acquire a
+`SpacetimeReservationLease`, bypass the `LocalControlSupervisor`, or command an
+actuator. Cross-system agreement and local physical admission are separate
+decisions with separate receipts.
 
-Hypervisor internal routing and external autonomous-system handoffs should use
-the same exposed AIIP semantics. The difference is transport, trust boundary,
-privacy posture, and settlement depth.
+## First-Mile Local Agent Pairing Is Pre-AIIP
 
-Internal local routing may use in-process calls, daemon IPC, Unix sockets,
-local HTTP, gRPC, JSON-RPC, NATS, or a daemon bus. It may emit local receipts
-only and require no public settlement unless the action is consequential.
+ioi.ai and aiagent.xyz may accept an already-running, user-owned local agent or
+harness without claiming to verify its hidden cognition or taking over its
+runtime. The first-mile boundary is the shared
+[`LocalAgentPairingSessionEnvelope`](./common-objects-and-envelopes.md#localagentpairingsessionenvelope).
+It is a short-lived authentication and bootstrap contract, not an AIIP channel,
+an authority grant, a participant lease, a Worker installation, or proof of
+model, harness, tool, environment, or operator claims.
 
-External routing should use signed envelopes, authority leases, receipt
-obligations, payment or escrow terms, reputation updates, dispute windows, and
-mainnet commitments when consequential.
+The product targets are exact:
+
+```text
+ioi.ai / Goal Space / Add local contributor
+  -> target_kind: room_guest
+  -> propose one room-scoped WorkerComposition
+  -> submit one RoomParticipationRequest
+
+aiagent.xyz / My workers / Connect local worker
+  -> target_kind: private_worker
+  -> propose one user-private reusable WorkerComposition
+
+aiagent.xyz / Organization workers / Connect local worker
+  -> target_kind: organization_worker
+  -> propose one organization-scoped WorkerComposition for separate org admission
+```
+
+Hypervisor or another conforming local adapter may provide the loopback helper,
+device-code client, or copyable bootstrap command. An ioi.ai or aiagent.xyz
+modal may render those choices. The surface and transport are projections over
+the same pairing object; neither becomes protocol authority. Any authentication
+material carried by the copy-command path must be one-time and short-lived,
+never a durable account token, broad organization credential, private room
+context, connector secret, or authority lease.
+
+The product-to-protocol flow is:
+
+```text
+authenticated product user creates LocalAgentPairingSessionEnvelope
+  -> product issues one short-lived, single-use challenge
+  -> already-running local client proves the challenge
+  -> session binds the client public key and declared origin
+  -> bootstrap_bound permits only:
+       read_discovery
+       submit_worker_composition
+       submit_room_participation_request
+  -> submitted WorkerComposition remains a tainted proposal
+  -> for room_guest, the bound client submits RoomParticipationRequestEnvelope
+  -> the first room_participation AIIP packet begins AIIP
+  -> room host or federation policy evaluates the request
+  -> admission may create RoomParticipantLeaseEnvelope and restricted views
+  -> only then may the participant claim work or publish typed proposals
+```
+
+The pairing state vocabulary is exact and reflects observed lifecycle rather
+than optimistic UI copy:
+
+| Status | Meaning |
+| --- | --- |
+| `created` | A product-side session exists; no challenge has been issued. |
+| `challenge_issued` | A short-lived, single-use challenge is outstanding. |
+| `agent_proof_received` | Candidate proof arrived but is not yet a usable bootstrap binding. |
+| `bootstrap_bound` | Challenge, client key, origin, target, and closed bootstrap scope matched. No participation or authority exists. |
+| `composition_submitted` | A typed WorkerComposition proposal was recorded for admission evaluation, not admitted, installed, or invoked. |
+| `participation_submitted` | A typed RoomParticipationRequest was sent in the first AIIP participation packet, not admitted. |
+| `completed` | The target-specific bootstrap submissions exist. This does not mean Worker, room, authority, budget, or outcome acceptance. |
+| `expired` | The pairing window elapsed before completion. |
+| `rejected` | Pairing/bootstrap policy rejected the session before completion; downstream Worker or room rejection remains on its own object. |
+| `cancelled` | The initiating user or product cancelled the session. |
+| `revoked` | Future bootstrap use was terminated after a binding existed. |
+| `failed_closed` | Replay, invalid proof, key/origin drift, scope escalation, malformed input, or another invariant violation prevented partial use. |
+
+Changing target, key, origin, discovery scope, or requested bootstrap actions
+requires a new pairing session. The one-time authentication factor is consumed
+atomically on successful binding and cannot become a reusable bearer token.
+The bootstrap action list is closed: it grants no room database access, private
+context, connector or secret access, budget, spend, authority, effect execution,
+membership, claim lease, marketplace publication, or organization
+representation.
+
+A `prompt_only` agent is confined to the proposal lane. Pairing can attribute
+its submissions to the bound client key and origin, but its unverified claims
+have an `attested` assurance ceiling. Independent evidence, reproduction, a
+named verifier, and an acceptor may advance a specific WorkResult or
+OutcomeDelta later. They do not retroactively verify the hidden agent identity,
+model, reasoning, runtime, tools, independence, or originality.
+
+Pairing introduces no new receipt type. Existing Worker-composition,
+participation, runtime-event, evidence, verification, acceptance, dispute, and
+settlement owners remain authoritative for their own facts and lifecycle.
+
+## Shared Conventions, Different Sovereignty Boundaries
+
+Hypervisor should reuse compatible work, authority, idempotency, evidence, and
+receipt conventions across internal and external routes so implementations do
+not require needless adapters. Reuse does not make an internal handoff AIIP.
+
+Same-system routing uses native L0 membership, `RoleTopology`,
+`RuntimeAssignment`, GoalRun/work leases, domain state and evidence, and—where
+physical—Embodied Runtime, controller, fleet-policy, and local-safety contracts.
+It may use in-process calls, daemon IPC, Unix sockets, local HTTP, gRPC,
+JSON-RPC, NATS, or a daemon bus and may emit local receipts only.
+Consequentiality may require stronger local authority and evidence, but it does
+not create a cross-system protocol or public-settlement requirement.
+
+AIIP routing begins only at an independently governed system boundary. It uses
+signed AIIP envelopes, exact collaboration terms, separately admitted
+participant/work/resource/authority leases, receipt obligations, recovery and
+dispute semantics, and only the public commitments selected by the parties'
+enrollment and settlement profiles.
 
 Canonical rule:
 
-> **Same semantic protocol, different transport and settlement mode.**
+> **Share semantic conventions where useful; reserve AIIP for independently
+> governed system boundaries.**
+
+## Standards Bindings, Not Replacements
+
+AIIP should compose with the emerging agent ecosystem instead of competing for
+generic discovery, tool invocation, remote-task transport, or EVM escrow. A
+versioned `AIIPExternalProtocolBindingEnvelope` maps an external protocol's
+identities, messages, lifecycle states, artifacts, errors, and receipts into
+AIIP semantics without weakening IOI authority or assurance.
+
+### A2A Binding
+
+[A2A](https://a2a-protocol.org/latest/specification/) is an optional remote-
+agent task and artifact transport. Its Agent Card, Task, context, Message,
+status, and Artifact identities map into AIIP capability, correlation, task,
+payload, delivery, and result refs. An A2A task reaching `completed` proves only
+that the remote participant reported completion under A2A. It does not imply
+IOI evidence verification, acceptance, authority, adjudication, or settlement.
+AIIP-specific fields should use the standard's extension mechanism rather than
+forking its transport.
+
+### MCP Binding
+
+[MCP](https://modelcontextprotocol.io/specification/latest) remains the
+model/application-to-context, tools, prompts, and resources boundary. An MCP
+`tools/call` entering consequential IOI work compiles through
+`RuntimeToolContract`, `ActionRequest`, daemon admission, policy/authority, and
+receipts. MCP does not establish peer-system trust, grant wallet authority, or
+replace AIIP task/evidence/dispute semantics. MCP and AIIP therefore compose at
+different layers.
+
+### Directory And Schema Bindings
+
+AGNTCY/OASF-compatible identity, directory, and capability-schema records may
+populate discovery adapters. They remain identity and capability evidence—not
+wallet authority, a canonical IOI Domain Ontology, competence, independence,
+quality, or operational truth. Likewise, `ai://` is an optional IOI-connected
+resolver/registry binding. A compatible system may use DNS, A2A Agent Cards,
+OASF, another registry, or direct configuration and still speak AIIP.
+
+### EVM Registry And Escrow Bindings
+
+Draft ERC-8004 may bind EVM agent identity and reputation registry records, and
+draft ERC-8183 may bind a job-escrow/evaluator lifecycle. Both are optional
+adapters. Registration cannot prove advertised capability or non-maliciousness;
+an escrow evaluator decision cannot collapse IOI's evidence, verification,
+acceptance, adjudication, appeal, and settlement ladder. Draft status and exact
+versions remain explicit on the binding object.
+
+Canonical rule:
+
+> **Reuse standards for the boundary they own; preserve IOI's differentiated
+> constitution, machine-authority, semantic-action, operational-evidence,
+> lifecycle, and assurance contracts above them.**
 
 ## Core Call Shape
 
@@ -153,7 +378,9 @@ not expose a shared raw context bus.
 
 Canonical analogy:
 
-> **RPC is the call shape. IBC is the trust model. IOI is the settlement layer.**
+> **RPC is the call shape. IBC is a useful sovereign-interop analogy. AIIP binds
+> work, authority, evidence, and recovery without prescribing one transport,
+> consensus system, registry, or settlement layer.**
 
 Category role:
 
@@ -175,6 +402,14 @@ TaskOfferPacket
 
 TaskAcceptancePacket
   Yes, under this price, policy, SLA, receipt obligation, and authority requirement.
+
+CollaborationTermsProposalPacket
+  Propose or amend the exact objective, roles, obligations, rights, disclosure,
+  contribution, consideration, risk, exit, and settlement terms root.
+
+CollaborationTermsResponsePacket
+  Accept the exact terms root, counteroffer with a new terms ref/root, or decline.
+  Response alone creates no membership, authority, work award, or payout.
 
 HandoffPacket
   Transfer this task or subtask to another bounded execution domain.
@@ -249,6 +484,48 @@ ReputationQueryPacket
   Return reputation under this context, rubric, worker class, or dispute history.
 ```
 
+The collaboration-terms packet payloads are typed profiles of the signed
+`AIIPEnvelope`; they are not additional durable envelope families:
+
+```yaml
+CollaborationTermsProposalPacketPayload:
+  schema_version: ioi.aiip.collaboration-terms-proposal.v1
+  collaboration_terms_ref: terms://...
+  collaboration_terms_root: hash
+  predecessor_terms_ref: terms://... | null
+  scope_ref:
+    collaboration://... | outcome-room://... | task://... |
+    frontier://... | order://... | service://... | aiip://channel/...
+  proposed_by_ref: system://... | domain://... | org://... | service://...
+  proposer_decision_ref: decision://... | null
+  proposer_signature: required
+
+CollaborationTermsResponsePacketPayload:
+  schema_version: ioi.aiip.collaboration-terms-response.v1
+  proposal_packet_ref: packet://...
+  responding_party_ref:
+    system://... | domain://... | org://... | wallet://... |
+    service://... | provider://...
+  collaboration_terms_ref: terms://...
+  collaboration_terms_root: hash
+  response: accept | counteroffer | decline
+  counterterms_ref: terms://... | null
+  counterterms_root: hash | null
+  participation_decision_ref: decision://... | null
+  terms_acceptance_receipt_ref: receipt://... | null
+  response_hash: hash
+  signature: required
+```
+
+For `accept`, counterterms fields are null and the responding domain may issue
+`terms_acceptance_receipt_ref` only after its governed decision admits the
+response. For `counteroffer`, both counterterms fields are required, the
+original root remains the root being declined, and the counterterms become a
+new proposal requiring acceptance. For `decline`, counterterms and acceptance-
+receipt fields are null. `response_hash` binds every response field except the
+signature; the signed `AIIPEnvelope.payload_hash` binds the complete payload.
+No response grants membership, authority, work, reputation, or payout.
+
 ## AIIP Envelope
 
 AIIP owns packet semantics, processing rules, profiles, conformance, and
@@ -295,7 +572,7 @@ patterns.
 
 ```text
 Local Profile
-  Same-node microharness routing, local receipts, optional settlement.
+  Same-node HarnessInvocation and Worker routing, local receipts, optional settlement.
 
 Installed Worker Profile
   User-installed worker/module, signed package identity, scoped authority leases,
@@ -342,7 +619,7 @@ Do not conflate:
 ```text
 multi-model = distinct cognition routes
 multi-worker = distinct versioned worker compositions or roles
-multi-node = distinct execution or failure domains
+multi-node = distinct execution or failure domains, possibly inside one system
 multi-party = distinct accountable principals and governed domains
 ```
 
@@ -436,7 +713,8 @@ admission concerns rather than optional UI moderation.
 ## Hypervisor As Coordination Substrate
 
 Hypervisor is the reference coordination substrate, router, governance surface,
-local control plane, and receipt aggregator for AIIP-powered autonomous work.
+local control plane, and receipt aggregator for autonomous work, including
+native same-system distribution and AIIP federation.
 It is not a global meta-harness above every agent runtime. Hypervisor Core,
 the Workflow Compositor, selected HarnessProfiles, agent harness adapters, and
 daemon gates let heterogeneous harnesses interoperate without becoming runtime
@@ -447,16 +725,48 @@ Canonical formulation:
 ```text
 Hypervisor routes.
 Selected harnesses, workers, services, and modules execute under daemon gates.
-AIIP hands off.
+Native L0 assignments and leases coordinate members inside one system.
+AIIP hands off across independently governed systems.
 Receipts attest boundary facts.
 Verifiers and acceptors evaluate outcomes.
-IOI settles selected accepted or adjudicated commitments.
+The declared settlement profile handles selected accepted or adjudicated commitments.
 ```
 
-Hypervisor should use AIIP internally for local microharness routing and
-externally for worker, service, and peer autonomous-system handoffs. Hypervisor
+Hypervisor should use native L0 assignment, lease, domain-state/evidence, and
+Embodied Runtime contracts for local HarnessInvocation and same-system member
+routing. It should use AIIP for external worker, service, and peer-system
+handoffs only when the counterparty is independently governed. Hypervisor
 clients and application surfaces remain operator views over Hypervisor Core;
 they are not the protocol and not IOI L1.
+
+## AIIP Dispute Rail
+
+AIIP transports dispute proposals, case-head updates, evidence refs, responses,
+resolution decisions, and permitted receipts between independently governed
+domains. It does not become either domain's adjudicator, escrow, balance ledger,
+or settlement authority.
+
+An `aiip_dispute` case uses the shared `DisputeRailProfileEnvelope`,
+`DisputeEnvelope`, and `DisputeResolutionEnvelope`. It must bind the exact
+accepted `CollaborationTermsEnvelope` ref and body root, the current case head,
+the selected profile ref/version/body hash, and ordinary verification funding
+that is separate from ordinary Work Credits. The counterparties may select a
+local, bilateral, external escrow/chain, or explicitly enrolled IOI settlement
+path; AIIP compatibility alone selects none of them.
+
+V1 carries one exact `DisputeValueUnitBinding` for disputed value, remedy,
+party bonds, and bond allocation. It allows no cross-domain asset, deployment,
+denomination, decimal, Work Credit, or display-code substitution and performs
+no conversion. If counterparties need different bond and remedy assets, their
+terms must select a future explicit conversion-capable rail rather than
+mislabeling v1 units.
+
+An admitted resolution is a deterministic, challengeable decision and
+allocation plan. The receiving domain still verifies provenance and authority,
+records its local truth, executes any remedy through its selected settlement
+owner, emits receipts, and applies appeal/finality rules. Packet delivery or
+matching receipt hashes do not prove evidence truth, value movement, bilateral
+acceptance, or public finality.
 
 ## Routing Decisions And Receipts
 
@@ -493,8 +803,9 @@ Routing receipts answer:
 
 ## IOI Mainnet Relationship
 
-IOI mainnet is the generic settlement layer for autonomous systems. AIIP
-handoffs may anchor to IOI mainnet when the handoff needs:
+IOI mainnet is an optional neutral trust and economic-finality service for
+`ioi_connected` and `ioi_secured` systems. AIIP works without it. An enrolled
+handoff may anchor to IOI mainnet when the participants explicitly select:
 
 - autonomous-system identity roots;
 - worker or provider identity roots;
@@ -519,7 +830,7 @@ settlement. They are not the whole protocol.
 
 ```text
 IOI mainnet
-  generic settlement layer for autonomous systems
+  optional shared-trust and economic-finality services for enrolled systems
 
 AIIP
   generic interop protocol for bounded autonomous work
@@ -535,8 +846,7 @@ Hypervisor
   compositor, harness-profile mediation, router, and governance substrate
 
 Third-party systems
-  any custom autonomous system that wants to settle receipts, authority, payments,
-  reputation, disputes, or handoffs through IOI
+  any compatible custom autonomous system; connection or secured enrollment is optional
 ```
 
 Canonical line:
@@ -548,21 +858,25 @@ Canonical line:
 
 Independent autonomous-system L1s, appchains, sovereign domains, enterprise
 runtimes, marketplaces, DAOs, and robot fleets are allowed and encouraged when
-they specialize locally and settle globally.
+they specialize locally and choose their own trust and settlement profile.
 
 Doctrine:
 
-> **Sovereignty at the edge. Settlement at the center.**
+> **Sovereignty at the edge. Interoperability by AIIP. Shared trust by explicit
+> enrollment.**
 
 These systems may own local state, governance, matching logic, service
-categories, worker modules, UX state, and private receipts. They should rely on
-IOI mainnet for shared trust primitives such as identity, authority, receipt
-formats, reputation commitments, dispute finality, AIIP channel registration,
-settlement accounts, and routing receipt schemas.
+categories, worker modules, UX state, and private receipts. They may use local,
+external-chain, bilateral, or IOI Network trust. `ioi_compatible` requires no
+registration or fee; `ioi_connected` selects specific registry, rights,
+reputation, escrow, dispute, or settlement services; `ioi_secured` additionally
+selects Standard DAS assurance and named shared-security services, terms, and
+bonds. Receipt formats and AIIP conformance do not require IOI settlement.
 
 The intended builder promise is not "deploy everything on IOI." It is "build an
-autonomous system where it belongs, speak AIIP at the boundary, and settle the
-consequential record through IOI when shared trust is required."
+autonomous system where it belongs, speak AIIP at the boundary, settle locally
+by default, and select IOI Network services only where neutral shared trust adds
+enough value to justify enrollment."
 
 ## Lessons From IBC
 
@@ -603,26 +917,34 @@ a public-disclosure default for private execution data
 a shared mutable room database or universal conductor
 an implicit federated-consensus layer with no declared ordering/admission owner
 an untyped semantic mapping or actuator-command bypass
+an assumption that local-agent pairing is an AIIP channel or authority grant
+a same-system node, worker, robot, drone, or controller route mislabeled as AIIP
+a presumption that compatibility, discovery, a shared goal, or message volume creates cooperation demand
+a terms proposal, contribution receipt, or routing decision treated as obligation, award, allocation, or payout
+a durable bearer token, broad organization credential, or room context in a bootstrap command
 ```
 
 Correct model:
 
 ```text
-same semantic protocol across local and external handoffs
-different transport and settlement mode by profile
+common work, authority, evidence, idempotency, and receipt conventions where useful
+native L0 and Embodied Runtime coordination inside one system_id
+AIIP only across independently governed system_ids
+exact-root terms acceptance precedes participant admission and work award
+each required party may decline when its governed participation case is not positive
 authority leases travel with work
 receipts attest declared boundary facts
 semantic profiles and mappings stay explicit
 verifiers, acceptors, and adjudicators remain distinct
-settlement intents promote only what needs public trust
+settlement intents promote only commitments explicitly selected for shared trust
 ```
 
 ## Related Canon
 
 - [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md):
   shared AIIP envelope and ID vocabulary.
-- [`ioi-l1-mainnet.md`](./ioi-l1-mainnet.md): public settlement layer for
-  consequential records.
+- [`ioi-l1-mainnet.md`](./ioi-l1-mainnet.md): optional IOI Network shared-trust
+  and economic-finality service for explicitly enrolled commitments.
 - [`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md):
   authority leases and approval scopes.
 - [`../components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md):
@@ -654,28 +976,45 @@ settlement intents promote only what needs public trust
 11. Do not promote participant packets into memory, ontology, routing,
     production, or settlement merely because they are signed or popular.
 12. Do not transport a physical actuator command as ordinary AIIP work. The
-    physical-action safety envelope and certified local-control path remain
-    mandatory.
+    physical-action safety envelope and native `LocalControlSupervisor` or
+    separately assured local-control path remain mandatory.
 13. Do not equate environment or channel recovery with outcome recovery, and do
     not retry an ambiguous external effect without its declared recovery and
     reconciliation policy.
+14. Do not let a local-agent pairing factor, bound client key, prompt, persona,
+    claimed harness, or completed bootstrap session imply Worker admission,
+    room membership, authority, budget, runtime provenance, or verified work.
+15. Do not infer cooperation demand or network value from compatibility,
+    discovery, shared goals, system count, packets, receipts, or room activity.
+    External work requires exact-root terms acceptance and separately admitted
+    participation, claim, resource, budget, and authority leases (`INV-30`).
+16. Do not call replication, failover, RuntimeAssignment, mission allocation,
+    fleet coordination, or work leases among members of one `system_id` AIIP.
+    Shared envelope conventions are allowed; AIIP starts only at an
+    independently governed system boundary (`INV-32`).
 
 ## Open Protocol Workstreams
 
 The canonical doctrine is settled, but protocol specs still need to define:
 
 - mandatory receipt schemas by AIIP profile;
-- minimum roots required for global interoperability;
+- minimum roots required by each conformance and enrollment profile;
 - context-aware reputation models;
 - dispute models and evidence disclosure rules;
 - wallet.network authority lease types;
-- settlement assets and account abstraction;
+- settlement-adapter profiles and, where selected, assets/account abstraction;
 - relay/router fee, bond, SLA, and penalty mechanics;
 - AIIP version, schema, and profile governance;
 - conformance tests for third-party autonomous systems and AS-L1s;
-- privacy limits for receipt bodies, artifacts, and execution traces.
+- privacy limits for receipt bodies, artifacts, and execution traces;
+- local-agent pairing conformance for single-use challenge consumption,
+  key/origin binding, closed bootstrap scopes, target-specific completion,
+  prompt-only assurance ceilings, revocation, replay, and fail-closed behavior;
 - collaboration-profile membership, lease, frontier, attempt, finding,
   challenge, and admission packet schemas;
+- conformance fixtures for `CollaborationTermsEnvelope` proposal/response,
+  exact-root acceptance, counteroffer/decline, private-valuation,
+  non-retroactive amendment, and terms-acceptance receipts;
 - hosted-admission failure/recovery semantics and later federated ordering,
   quorum/adjudication, conflict, and failover profiles;
 - ontology/action-profile compatibility negotiation, mapping receipts, and
@@ -688,7 +1027,8 @@ The canonical doctrine is settled, but protocol specs still need to define:
 
 ## One-Line Doctrine
 
-> **AIIP is the signed, semantic, receipt-native work and collaboration interop
-> fabric for bounded autonomous systems; each domain keeps local truth, and IOI
-> mainnet settles only the selected consequential record that needs shared
-> rights, reputation, dispute, or economic finality.**
+> **AIIP is the signed, semantic, receipt-native interop fabric for voluntarily
+> accepted, terms-bound work between bounded autonomous systems. Each domain
+> keeps local truth and may decline when no positive participation case exists;
+> explicitly enrolled systems may use IOI L1 for selected rights, reputation,
+> assurance, dispute, security, or economic commitments.**

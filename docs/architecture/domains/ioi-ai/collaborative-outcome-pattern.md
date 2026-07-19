@@ -9,11 +9,12 @@ Supersedes: product prose that treats multi-model goal pursuit as a separate
 Hypervisor product, room UI, fixed swarm, public leaderboard, or benchmark-only
 workflow.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-12.
 Doctrine status: canonical
 Implementation status: partial (bounded GoalRun multi-harness orchestration
-built; general OutcomeRoom participation, shared-frontier, cross-domain, and
-attempt-comparison behavior remains planned)
+built; collaboration-terms negotiation, general OutcomeRoom participation,
+shared-frontier, cross-domain, local-agent pairing/admission, and attempt-
+comparison behavior remain planned)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
@@ -33,7 +34,9 @@ automation, one service, or one Hypervisor session.
 
 When a goal benefits from multiple models, harnesses, tools, verifier paths,
 attempt strategies, or independent contributors, ioi.ai may materialize an
-`OutcomeRoom` with a `CollaborativeWorkGraph` over Hypervisor. The room is the
+`OutcomeRoom` bounded-DAS instance from the reusable OutcomeRoom package, with a
+`CollaborativeWorkGraph` over Hypervisor. Genesis binds that durable room's
+stable `system_id`, constitution, active profiles, and cryptographic origin. The room is the
 shared objective, participation, frontier, claim, attempt, finding, challenge,
 admission, and replay profile. It is not a new runtime or a globally mutable
 database. Hypervisor executes bounded work; authority providers and
@@ -41,6 +44,31 @@ local/domain governance authorize as required; wallet.network supplies portable
 delegated/high-risk authority; each Agentgres domain retains admitted
 operational truth; and a declared room admission topology governs shared-room
 state.
+
+Collective pursuit is conditional, not the default. A room should materialize
+only when specialization, parallel exploration, independent verification,
+reusable negative information, shared fixed costs, or access to
+non-centralizable data, authority, locality, or resources creates expected
+value greater than its additional latency, spend, disclosure, semantic-mapping,
+verification, counterparty, dispute, and settlement burden.
+
+A cross-party room forms under one exact `CollaborationTermsEnvelope` root
+covering sponsor, parties, roles, bounded work, rights, obligations, disclosure,
+contribution eligibility, reward basis, acceptance, remedies, exit, and
+settlement. Participants may seek payment, accepted-outcome rights, reciprocal
+capability, licenses or royalties, portable reputation, reusable learning,
+strategic value, or shared-risk reduction. Each required party accepts only
+after its own governed decision finds participation constitutionally
+permissible and better than its permitted outside option. Raw valuations may
+remain private.
+
+Discovery, invitation, a shared objective, or a terms proposal creates no
+membership, context, authority, work, contribution eligibility, or payout.
+Terms acceptance enables admission evaluation; `RoomParticipantLease` admits
+participation; `WorkClaimLease` awards bounded work; contribution,
+verification, acceptance or adjudication, and settlement remain distinct. A
+counteroffer is only a proposal, and amendments never rewrite earlier admitted
+work retroactively (`INV-30`, `INV-31`).
 
 Doctrine sentence:
 
@@ -59,6 +87,18 @@ operator-plane contracts, wallet authority, Agentgres truth, and receipts. It is
 not privileged substrate. A user or organization should be able to build an
 ioi.ai-like coordinator through Hypervisor without receiving host authority or a
 separate runtime bypass.
+
+The reusable OutcomeRoom package is the first flagship/reference bounded-DAS
+profile because it pressure-tests local-agent ingress, typed workgraphs,
+verification, contribution lineage, course correction, and network supply in
+one observable product. Each durable room genesis creates a distinct bounded
+DAS; the hosted ioi.ai service/domain operates many such systems and is not a
+substitute for their logical identity. A direct GoalRun or temporary
+collaboration aggregate that does not justify genesis remains non-room
+application work. OutcomeRoom is not the definition of all autonomous systems
+or L0: the same constitution, deployment, lifecycle, authority, and evidence
+substrate must support systems with no room, chat, leaderboard, or swarm
+behavior.
 
 Conceptually:
 
@@ -131,6 +171,9 @@ ioi.ai owns the user-facing coordination of:
 - materializing an OutcomeRoom only when persistent collective pursuit is
   useful, then projecting its participant leases, work frontier, claims,
   attempts, findings, challenges, spend, authority blockers, and replay;
+- presenting room-scoped **Connect local agent** intake, pairing progress,
+  proposal-only preflight, admission status, revoke controls, and the choice to
+  keep that participant room-only, save it privately, or explicitly promote it;
 - selecting `Auto`, `Pinned`, or `Compare` execution policy for a leg without
   confusing model routes, accountable workers, runtime nodes, or independent
   parties;
@@ -150,7 +193,7 @@ ioi.ai owns the user-facing coordination of:
 ioi.ai does not own:
 
 - Hypervisor Daemon execution semantics;
-- Hypervisor Automations durable workflow/service/mission specs;
+- Hypervisor Automations durable workflow/service specs;
 - Hypervisor Operator Plane semantics or private operator loops;
 - wallet.network authority, credentials, declassification, or spend;
 - connector secrets, direct provider API calls, or connector execution truth;
@@ -161,6 +204,10 @@ ioi.ai does not own:
 - conductor-training consent, raw training data, or model-route promotion truth;
 - aiagent.xyz worker listings, marketplace routing truth, or contribution
   accounting;
+- aiagent.xyz reusable private-worker registration, benchmark admission,
+  publication, or marketplace promotion truth;
+- local Hypervisor pairing, harness-adapter, MCP-gateway, credential, or
+  execution truth merely because ioi.ai presents the pairing flow;
 - Hypervisor Work Credit metering truth, provider invoices, route-rights
   eligibility, or supplier-cost reconciliation;
 - the operational truth of an OutcomeRoom participant's home domain or an
@@ -252,6 +299,158 @@ A model or cloud provider is normally a disclosed dependency/subprocessor, not
 a room party. It becomes a party only when its controlling principal accepts
 room-level rights, obligations, evidence, challenge, or settlement roles.
 
+## Bring An Existing Local Agent
+
+**ioi.ai should let a user connect an existing local agent to one Goal Space
+without requiring that agent to become a public marketplace listing.** The
+product promise is not that IOI can prove the agent's hidden cognition or
+runtime merely because it paired successfully. The promise is narrower and
+useful: an untrusted local agent can receive bounded work, make typed
+proposals, and accumulate attributable evidence without receiving ambient room
+access or direct authority.
+
+The three product elevations are explicit and independently reversible:
+
+| Elevation | User-facing action | Canonical scope |
+| --- | --- | --- |
+| One-room guest | **Connect local agent** | ioi.ai binds a local agent to one Goal Space/OutcomeRoom through a bounded pairing and participation request. The guest is not reusable outside that room and has no aiagent.xyz listing. |
+| Reusable private worker | **Save to My workers** | aiagent.xyz registers the exact Worker composition for the owner or organization as private reusable supply. This does not submit, benchmark, rank, route publicly, or disclose it. |
+| Public marketplace candidate | **Publish on aiagent.xyz** | The owner explicitly creates a promotion/submission, accepts disclosure and license terms, completes applicable benchmark/admission gates, and separately publishes the resulting listing. |
+
+No elevation is automatic. Room participation does not create a reusable
+private worker; saving a private worker does not create a benchmark submission;
+benchmarking does not publish a listing; and a public listing does not widen an
+existing room lease. Promotion copies only the manifest fields, artifacts,
+evidence, and history permitted by the declared privacy, license, export, and
+contribution policies. It never promotes secrets, private memory, raw room
+context, connector payloads, or unrelated attempt history by implication.
+
+The screenshot-like onboarding pattern is useful when compiled into a safe
+manifest-driven flow:
+
+```text
+1. Connect this agent
+   select or pair the user's local Hypervisor/home domain
+
+2. Identify the Worker composition
+   bind principal, agent/harness/runtime entrypoint, model-route posture,
+   tools/connectors, package or source refs, version, and dependencies
+
+3. Declare fit and limits
+   task classes, output contract, capabilities, privacy, evidence posture,
+   cost/availability, authority requirements, and optional descriptive profile
+
+4. Bootstrap the local agent
+   copy a short-lived, origin-bound command or instruction that resolves the
+   bound pairing projection; do not paste a durable broad-access credential
+
+5. Validate and request admission
+   validate the closed bootstrap contract, submit the typed composition and
+   room participation request, and create a bounded participant lease only
+   after the declared admission owner accepts it
+```
+
+The pairing lifecycle is represented by
+[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope).
+The envelope binds the initiating user/organization and surface, exact
+`target_kind` and `target_scope_ref`, claimed local agent and execution posture,
+challenge expiry, client key/origin binding, closed bootstrap actions,
+composition and participation submission refs, contribution lane, assurance
+posture, failure reason, and observed pairing lifecycle. It is a bootstrap and
+audit contract, not a peer runtime, room-database credential, authority grant,
+proof of capability, or proof of model/runtime identity. Pairing carries no new
+receipt type; downstream owners receipt the facts they actually admit.
+
+Persona, character, values, and goals may appear as optional descriptive
+metadata and user-facing setup copy. They are not identity, capability,
+independence, benchmark evidence, verifier standing, or authority. The
+accountable unit remains the exact versioned Worker composition and its
+principal, dependency, policy, evidence, and receipt refs.
+
+The default room flow is:
+
+```text
+user chooses Add local contributor -> Connect local agent
+  -> ioi.ai requests a room-scoped LocalAgentPairingSessionEnvelope
+     with target_kind: room_guest
+  -> local Hypervisor/home domain establishes the agent key and origin binding
+  -> local agent reads restricted discovery, exact terms root, and submits its typed composition
+  -> agent accepts, counteroffers, or declines the collaboration terms
+  -> accepted terms bind the RoomParticipationRequestEnvelope in its first AIIP packet
+  -> hosted admission accepts or rejects under the normal room policy and terms
+  -> accepted request creates a bounded RoomParticipantLeaseEnvelope
+  -> Hypervisor issues the lease-bound prompt_only/proposal_only interface
+  -> proposal-only/read-only preflight emits evidence and readiness status
+  -> participant claims one bounded frontier item
+     through a terms-bound WorkClaimLease award
+  -> Attempt + WorkResult / proposed OutcomeDelta + artifacts/evidence
+  -> verifier path evaluates the declared claims
+  -> room/domain acceptance alone admits the allowed outcome delta
+```
+
+The local agent remains hostile input until each relevant boundary admits its
+data or effects. Pairing proves possession of the paired key and declared
+origin binding; it does not prove what model ran, how the answer was produced,
+whether the result is original, whether similarly named agents are independent,
+or whether a contribution caused economic value. Workgraphs mitigate that
+uncertainty by preserving claim scope, composition/version, attempt method,
+environment, artifacts, positive and negative results, verifier rule/version,
+acceptance, derivation, dispute, and assurance lineage. They verify bounded
+contributions, not minds.
+
+The product must render the exact assurance stage of each claim rather than a
+single "verified agent" badge:
+
+```text
+attested -> evidenced -> verified -> accepted -> adjudicated -> settled
+```
+
+Independent reproduction, deterministic tests, controlled evaluators, or
+named human review can advance the specific supported claim. They do not
+globally bless the participant or retroactively attest its hidden runtime.
+
+This path has the strongest utility where verification is materially cheaper
+than generation: controlled code tests, reproducible benchmark optimization,
+security findings, deterministic data transformations, simulations/backtests,
+formal analysis, source-grounded research, replication, evaluator hardening,
+and valuable negative results. Subjective advice, unverifiable off-platform
+work, consequential finance, and physical action should begin proposal-only or
+require stronger instrumented execution, named acceptance, authority, and
+safety profiles. A signed proposal, `WorkResult`, or `ContributionReceipt`
+alone never establishes correctness, acceptance, causality, payout, or
+settlement.
+
+The first implementation target is deliberately narrow: one private Goal
+Space, hosted admission, one local guest, proposal-only/read-only tools, one
+bounded claim, one IOI-controlled deterministic verifier, and host acceptance
+of any `OutcomeDelta`. Public discovery, arbitrary effectful tools, automatic
+memory/ontology promotion, payouts, and federated admission remain out of the
+initial path.
+
+The planned ioi.ai product actions compile to the canonical Hypervisor pairing
+and OutcomeRoom routes rather than creating an ioi.ai execution or credential
+plane:
+
+```http
+POST /v1/hypervisor/local-agent-pairings
+GET  /v1/hypervisor/local-agent-pairings/{pairing_ref}
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/claim
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/complete
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/cancel
+POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/revoke
+
+GET  /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests
+POST /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
+
+POST /v1/worker-registrations
+```
+
+The worker-registration route is an explicit handoff to aiagent.xyz only when
+the user chooses **Save to My workers**. It must preserve the user's selected
+manifest visibility and cannot silently submit, benchmark, list, or route the
+worker publicly. Pairing completion records the typed submissions; only the
+separate room or private-registry admission owner admits them.
+
 ## Goal-Appropriate Materialization
 
 The collaborative outcome pattern materializes differently by goal. Most
@@ -289,8 +488,10 @@ Finance or trading research
   wallet.network approval before any funds-moving action
 
 Model / worker improvement
-  Foundry job drafts, eval suites, dataset curation, scorecards, promotion
-  proposals
+  direct UpgradeProposal for a bounded one-shot change, or optional
+  ImprovementCampaign for adaptive/multi-epoch work; Foundry candidate jobs,
+  Evaluations epochs, dataset curation, scorecards, and target-owner proposal
+  handoff
 
 Public challenge / benchmark
   OutcomeRoom with shared frontier, claim leases, attempt and finding registry,
@@ -333,15 +534,19 @@ execution belongs to Hypervisor Daemon admission plus Physical Action Safety.
    declassification, or training-data leases when required.
 11. For a discoverable cross-domain or Network/Open room, ioi.ai publishes only
    the policy-bound `OutcomeRoomDiscoveryEnvelope`. An external independently
-   operated Worker discovers the public objective/category and requirements and
-   submits a typed `RoomParticipationRequestEnvelope` over AIIP without room-
-   database or private-context access.
+   operated Worker discovers the public objective/category, requirements, and
+   exact `CollaborationTermsEnvelope` root, then accepts, counteroffers, or
+   declines. Only exact-root acceptance can bind a typed
+   `RoomParticipationRequestEnvelope` over AIIP, still without room-database or
+   private-context access.
 12. The declared hosted or federated admission owner evaluates the same
    identity, affiliation, semantic, capability, eligibility, privacy, budget,
-   quote, verifier, contribution, and settlement evidence. Admission creates a
-   bounded `RoomParticipantLeaseEnvelope`; rejection grants no context or power.
+   quote, verifier, contribution, settlement, and terms-acceptance evidence.
+   Admission creates a bounded `RoomParticipantLeaseEnvelope`; rejection or a
+   counteroffer grants no context or power.
 13. Room participants advertise capability/resources, discover or receive
-   frontier items, and claim bounded work through WorkClaimLeases. Direct
+   frontier items, respond to task offers where applicable, and claim bounded
+   work through exact-terms-root `WorkClaimLease` awards. Direct
    GoalRuns skip this room machinery.
 14. Each claim resolves through one bounded GoalRun, which may invoke agents,
    models, harnesses, workers, tools, services, or connectors through daemon
@@ -535,8 +740,9 @@ projections over admitted objects.
 [`OutcomeRoomDiscoveryEnvelope`](../../foundations/common-objects-and-envelopes.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope).
 The projection exposes only the public objective/category, semantic/action
 profiles, capability and eligibility requirements, visibility/privacy posture,
-budget/quote bounds, verifier/acceptance posture, settlement/dispute terms,
-contribution policy, and the AIIP participation endpoint. It contains no raw
+budget/quote bounds, exact collaboration terms ref/root, verifier/acceptance
+posture, settlement/dispute terms, contribution policy, and the AIIP
+participation endpoint. It contains no raw
 private context and is not a participant lease, authority grant, budget lease,
 or room-database credential.
 
@@ -545,7 +751,8 @@ An external independently operated Worker joins through a signed
 domain, Worker composition and mounted dependencies, capability offer,
 affiliation/independence evidence, compatible semantic/action profiles,
 eligibility evidence, custody/privacy posture, quote, and acceptance of the
-declared verifier, contribution, dispute, settlement, and export policies. The
+exact terms root and declared verifier, contribution, dispute, settlement, and
+export policies. It may instead counteroffer or decline without penalty. The
 named admission owner either rejects it or admits a bounded
 `RoomParticipantLeaseEnvelope` with only the permitted views, context,
 resources, budget, tools, and authority.
@@ -554,10 +761,14 @@ The product flow is the same for both topologies:
 
 ```text
 discover signed room projection
-  -> submit typed participation request over AIIP
+  -> inspect exact terms root
+  -> accept, counteroffer, or decline
+  -> submit terms-bound participation request over AIIP when accepted
   -> evaluate under declared admission policy
   -> admit participant lease or reject without access
-  -> claim and contribute through normal room objects
+  -> negotiate task offer/response where applicable
+  -> receive terms-bound WorkClaimLease award
+  -> contribute through normal room objects
   -> retire / expire / quarantine / revoke
   -> release or reassign claims and terminate future access
   -> export policy-bound ParticipantStateBundle to the home domain
@@ -576,8 +787,10 @@ private room-database state.
 ## Goal Space Projection
 
 A simple question, direct run, ordinary automation, or single-session task
-stays direct. For persistent collective pursuit, ioi.ai and Hypervisor Mission
-detail render the same OutcomeRoom through a graph-first Goal Space:
+stays direct. For persistent collective pursuit, ioi.ai Goal Space and
+Hypervisor Work / Rooms render the same OutcomeRoom through graph-first product
+lenses. A Mission label may be shown as presentation language, but it creates no
+separate identity or state:
 
 1. objective, acceptance criteria, constraints, deadline, budget, visibility,
    and stop policy;
@@ -603,9 +816,10 @@ opaque process count.
 The existing Hypervisor suite supplies focused drilldowns rather than a new
 Swarm app:
 
-- **Missions** owns the room-shaped outcome, topology, frontier, blockers,
-  budget, and deadline view;
-- **Sessions** opens one participant, GoalRun, context cell, claim, or attempt;
+- **Work / Rooms** is the primary room-shaped outcome, topology, frontier,
+  blocker, budget, and deadline projection;
+- **Work / Sessions** opens one participant, GoalRun, context cell, claim, or
+  attempt;
 - **Evaluations** shows scorecards, guardrails, replications, verifier rules,
   and Pareto frontiers;
 - **Provenance** shows claims, evidence, derivation, integrity incidents,
@@ -616,8 +830,13 @@ Swarm app:
   evaluator changes, and rollback;
 - **Studio** composes room/topology templates, workers, policies, and object or
   action schemas; and
-- **Workbench** inspects code, artifacts, branches, and environment-specific
+- **Developer Workspace** inspects code, artifacts, branches, and environment-specific
   execution.
+
+Work owns none of this room truth. Every Work row exposes a typed
+`subject_kind` and `subject_ref`; room lifecycle and shared-state admission stay
+on OutcomeRoom, participant pursuit stays on GoalRun, and bounded execution
+stays on Session/WorkRun.
 
 ## Learned Conductor Boundary
 
@@ -629,28 +848,32 @@ The training and promotion path is:
 ```text
 Hypervisor sessions, WorkRuns, Automations, connector runs, and worker calls
   -> opted-in receipts, redacted traces, artifacts, corrections, and outcomes
-  -> Foundry datasets, eval suites, scorecards, and simulations
-  -> conductor or worker training/distillation job
-  -> offline and shadow-mode eval gates
-  -> model-route or worker promotion proposal
+  -> LearningEvidenceEligibility under the institutional boundary
+  -> direct change path or optional ImprovementAgenda / ImprovementCampaign
+  -> Foundry datasets, candidate assets, training/distillation jobs, and simulations
+  -> Evaluations-owned frozen epoch, exposure accounting, and judgment
+  -> target-owner UpgradeProposal, decision, shadow/canary, and recovery gates
   -> wallet.network, Agentgres, daemon, policy, receipt, and marketplace gates
   -> ioi.ai consumes the promoted advisor as one bounded planning input
 ```
 
-ioi.ai may draft Foundry jobs or conductor-improvement proposals. Foundry owns
-training, evaluation, datasets, scorecards, model-route candidates, and
-promotion proposals. Hypervisor/Foundry/Data governance surfaces propose
-training evidence eligibility; Agentgres records admitted eligibility,
-lineage, refs, and receipts; wallet.network supplies authority refs when
-training-data use requires delegated power such as decryption, connector
-access, provider-trust acceptance, model-provider keys, spend, publication, or
+ioi.ai may draft Foundry jobs, Agenda items, Campaign admission requests, or
+conductor-improvement proposals. Hypervisor Improvement coordinates optional
+Campaign state and proposal handoff; Foundry builds candidates and evaluator
+assets and executes admitted experiments; Evaluations freezes and owns the
+judgment contract; the target owner alone decides activation. Hypervisor,
+Foundry, Data, Evaluations, or domain governance surfaces may propose a
+`LearningEvidenceEligibility` decision; Agentgres records the admitted decision,
+lineage, refs, and receipts. wallet.network supplies authority refs when
+learning use requires delegated power such as decryption, connector access,
+provider-trust acceptance, model-provider keys, spend, publication, or
 cross-domain reuse.
 
 ## Minimal Implementation Objects
 
 ```yaml
-IoiAiGoal:
-  goal_id: goal://...
+IoiAiGoalDraft:
+  draft_intent_ref: intent://...
   user_ref: user://...
   project_ref: project://... | null
   goal_text: string
@@ -664,60 +887,53 @@ IoiAiGoal:
   placement_policy_ref: policy://... | null
   work_credit_budget_ref: budget://... | null
   network_goal_budget_ref: goal-budget://... | order://... | null
-  outcome_room_ref: outcome-room://... | null
-  status:
-    draft | active | waiting_for_user | handed_off |
-    completed | blocked | archived
+  draft_status: editing | ready_for_admission | abandoned
 
-IoiAiOutcomePlan:
-  plan_id: outcome-plan://...
-  goal_ref: goal://...
-  orchestration_policy_ref: orchestration_policy://...
-  constraint_envelope_ref: constraint://...
-  goal_execution_policy:
-    auto | pinned | compare
-  materialization:
-    single_path | multi_model_answer | multi_harness_attempt |
-    software_search | computer_use | automation_handoff |
-    connector_auth_escalation | foundry_job | wallet_action |
-    marketplace_handoff | outcome_room
+IoiAiGoalProjection:
+  goal_run_ref: goal://...
+  admitted_intent_ref: intent://...
+  goal_run_profile_revision_ref: goal-run-profile://.../revision/...
+  goal_run_profile_content_hash: hash
+  owner_ref: user://... | org://... | project://... | system://...
   outcome_room_ref: outcome-room://... | null
-  selected_model_routes:
-    - model_route://...
-  selected_harnesses:
-    - harness_profile:... | agent_harness_adapter:...
-  selected_workers:
-    - worker://... | agent://...
-  selected_verifier_paths:
-    - verifier_path://...
-  selected_route_contract_refs:
-    - model-route-contract://...
-  routing_decision_refs:
-    - routing-decision://...
-  candidate_plan_refs:
-    - orchestration_plan://...
-  orchestration_decision_receipt_refs:
-    - receipt://...
-  brokered_capability_manifest_refs:
-    - ai://... | mcp_gateway://...
-  connector_refs:
-    - connector://...
-  hypervisor_refs:
-    - automation://... | session://... | mission://...
-  foundry_job_refs:
-    - foundry_job://...
-  wallet_request_refs:
-    - capability-request://... | approval-request://...
-  evidence_policy_ref: policy://...
-  final_ownership_policy_ref: policy://...
+  continuation_state_projection:
+    open | waiting_on_user | waiting_on_frontier | sleeping | delegated |
+    verifying | course_correcting | complete | blocked | superseded
+  latest_receipt_refs: []
+  projection_generated_at: timestamp
+  read_model_only: true
+
+IoiAiOutcomePlanProjection:
+  outcome_plan_projection_id: outcome-plan://...
+  goal_run_ref: goal://...
+  orchestration_plan_revision_ref: orchestration_plan://.../revision/...
+  orchestration_plan_content_hash: hash
+  orchestration_decision_receipt_ref: receipt://...
+  routing_decision_receipt_refs: []
+  execution_projection_refs:
+    - automation-run://... | session://... | work_run://... | invocation://... |
+      outcome-room://... | mcp_gateway://...
+  evidence_projection_refs:
+    - artifact://... | receipt://... | verifier_path://...
+  display_summary_ref: message://... | artifact://... | null
+  projection_generated_at: timestamp
+  read_model_only: true
 
 IoiAiAttemptSummary:
   attempt_summary_id: attempt-summary://...
-  plan_ref: outcome-plan://...
+  outcome_plan_projection_ref: outcome-plan://... | null
+  orchestration_plan_revision_ref: orchestration_plan://.../revision/...
+  orchestration_plan_content_hash: hash
   durable_attempt_ref: attempt://... | null
   work_claim_ref: work-claim://... | null
-  source_ref:
-    model_route://... | harness_profile:... | worker://... | service://...
+  accountable_actor_ref:
+    participant-lease://... | system://... | worker://... | agent://... |
+    service://... | org://... | user://... | domain://...
+  resolver_revision_ref:
+    harness-profile://.../revision/... |
+    agent-harness-adapter://.../revision/... | null
+  resolver_content_hash: hash | null
+  model_route_ref: model_route://... | null
   session_ref: session://... | null
   observation_refs:
     - observation://...
@@ -734,18 +950,24 @@ IoiAiAttemptSummary:
     positive | negative | inconclusive | invalid |
     exploit_found | superseded
   summary: string
-  status:
+  status_projection:
     proposed | running | blocked | rejected | selected | archived
+  projection_generated_at: timestamp
+  read_model_only: true
 
 IoiAiCrossSessionOutcomeGraph:
   graph_id: outcome-graph://...
   goal_ref: goal://...
-  plan_ref: outcome-plan://...
+  outcome_plan_projection_ref: outcome-plan://... | null
+  orchestration_plan_revision_ref: orchestration_plan://.../revision/...
+  orchestration_plan_content_hash: hash
   outcome_room_ref: outcome-room://... | null
   room_discovery_refs:
     - room-discovery://...
   participation_request_refs:
     - participation-request://...
+  local_agent_pairing_refs:
+    - local-agent-pairing://...
   participant_lease_refs:
     - participant-lease://...
   participant_state_bundle_refs:
@@ -791,13 +1013,16 @@ IoiAiCrossSessionOutcomeGraph:
     - eligibility://...
   training_posture:
     never_train | synthetic_only | redacted_opt_in | full_private_opt_in | org_policy
-  status:
+  status_projection:
     proposed | active | blocked | completed | archived
+  projection_generated_at: timestamp
+  read_model_only: true
 
 IoiAiConnectorAuthEscalation:
   escalation_id: connector-escalation://...
   goal_ref: goal://...
-  plan_ref: outcome-plan://...
+  orchestration_plan_revision_ref: orchestration_plan://.../revision/...
+  orchestration_plan_content_hash: hash
   required_connector:
     namespace: string
     required_tools:
@@ -818,8 +1043,51 @@ IoiAiConnectorAuthEscalation:
     denied | completed | revoked
 ```
 
+`IoiAiGoalDraft` is pre-admission product state identified only by
+`intent://`; it cannot mint `goal://` identity or claim run lifecycle. On
+admission, the daemon creates a canonical GoalRun and ioi.ai renders
+`IoiAiGoalProjection` from that owner. Likewise,
+`IoiAiOutcomePlanProjection` binds one exact immutable OrchestrationPlan
+revision/hash and its decision receipt. Its execution/evidence lists are
+derived navigation projections, not independently selected routes, workers,
+harnesses, verifiers, materialization, or run truth. ioi.ai may propose a new
+plan revision but cannot mutate or restate the selected plan as product-owned
+state.
+Attempt, WorkClaim, GoalRun, OutcomeRoom, and their receipts remain the
+lifecycle owners behind attempt summaries and cross-session graphs; their
+projection status fields can never mutate those objects.
+
 ## Conformance Checks
 
+- ioi.ai **Connect local agent** is a room-scoped guest-participation flow. It
+  must not require public listing, silently create a reusable private worker,
+  or reuse its room lease as ambient access elsewhere.
+- `LocalAgentPairingSessionEnvelope` bootstraps a key/origin-bound composition
+  and participation submission only. Pairing completion is not room admission,
+  context access, budget, authority, capability proof, benchmark standing, or
+  task success.
+- The local-agent bootstrap may only read discovery and submit the declared
+  Worker composition and room participation request. Broad organization tokens,
+  room-database credentials, raw connector secrets, ambient MCP profiles, and
+  effectful bootstrap tools are forbidden.
+- The default local-agent path uses `execution_posture: prompt_only` and
+  `contribution_lane: proposal_only`, with read-only discovery, hosted
+  admission, and one bounded claim. Participant output remains tainted until
+  the named verifier and room/domain acceptance paths admit the relevant claims
+  or `OutcomeDelta`.
+- Prompt, persona, character, values, goals, model claims, and agent names are
+  descriptive metadata, not identity, independence, capability, evidence,
+  verifier standing, or authority.
+- **Save to My workers** is an explicit handoff to aiagent.xyz reusable private
+  registration. **Publish on aiagent.xyz** is a later explicit promotion,
+  benchmark/admission, and publish path. Neither transition may expose private
+  memory, secrets, room context, connector payloads, or unrelated history by
+  default.
+- Workgraphs and receipts must state the exact bounded facts they establish.
+  They can preserve attribution, attempt/evidence/verifier/acceptance lineage;
+  they do not prove hidden cognition, universal correctness, originality,
+  participant independence, causality, contribution value, payout, or
+  settlement.
 - ioi.ai may coordinate multiple models and strategies, but it must not execute
   consequential actions outside Hypervisor/daemon gates.
 - ioi.ai may offer `Auto`, `Pinned`, or `Compare` execution plus MoW selection
@@ -878,6 +1146,12 @@ IoiAiConnectorAuthEscalation:
 - Participant messages, artifacts, findings, ontology mappings, evaluator
   suggestions, and code remain untrusted inputs until admitted under policy and
   verification. Agreement is evidence, not authority or truth.
+- Room admission preserves exact information-flow label refs and transitive
+  derivation closure. `WorkResult` and `OutcomeDelta` projections may add more
+  restrictive labels but never discard inherited labels; a verifier verdict,
+  summary, leaderboard position, or majority agreement does not declassify the
+  underlying content. A future participant-message plane must apply the same
+  rule before messages can enter context or reach an effect boundary.
 - Open and cross-org rooms require identity/eligibility policy, rate limits,
   queue backpressure, fair resource allocation, Sybil/collusion signals,
   reviewer-independence checks, separation of duty where risk requires it, and
@@ -911,13 +1185,15 @@ IoiAiConnectorAuthEscalation:
   conductor recommendation is not an authority grant.
 - Multi-model or multi-agent patterns such as aggregation, debate, critique, or
   branch-and-merge should be selected only when the expected value justifies the
-  extra latency, cost, privacy exposure, and verification burden.
+  extra latency, cost, privacy exposure, semantic translation, verification,
+  counterparty, dispute, and settlement burden. Cross-party selection also
+  requires a positive governed participation case for every required party.
 - Marketplace workers used by ioi.ai outcomes must preserve explainable routing
   and contribution refs; ioi.ai must not silently clone worker internals into a
   default harness.
 - Robotics simulation/training belongs to Foundry; physical actuator execution
   belongs to Physical Action Safety and daemon admission.
-- The Goal Space/Mission view must render background participants, current
+- The Goal Space/Work Room view must render background participants, current
   claims, leases, spend, blockers, evidence, verification, contribution
   lineage, and replay; an invisible spawn tree or token stream is insufficient.
 
@@ -934,10 +1210,20 @@ ioi.ai = private headless Hypervisor instance
 collaborative outcome = fixed swarm
 collaborative outcome = benchmark only
 collaborative outcome = public leaderboard by default
+collaborative outcome = presumed cooperation from compatibility or shared goals
+room discovery or terms proposal = obligation, membership, award, or payout
+attribution receipt = contribution allocation or participant incentive
 collaborative outcome = hidden background process list
 collaborative outcome = child sessions with host admin power
 OutcomeRoom = peer runtime
 OutcomeRoom = globally mutable Agentgres graph
+Connect local agent = broad organization or room-database access
+pairing completion = room admission, capability proof, or effect authority
+room guest = automatic My workers registration
+Save to My workers = public marketplace listing
+benchmark completion = automatic publication or routing eligibility
+prompt/persona/agent name = identity, capability, independence, or evidence
+signed proposal or ContributionReceipt = correctness, acceptance, or payout
 Goal Space subscription = pooled provider chat seats
 same-owner worker fleet = independent multi-party network
 Auto = hidden multi-route burn
@@ -968,18 +1254,23 @@ OutcomeRoom coordinates shared frontier state above bounded GoalRuns
 GoalRun remains the bounded pursue, verify, and course-correct loop
 WorkResult / OutcomeDelta is generic; software uses an implementation profile
 background participants are graph-visible and lease-governed
+local agents enter as untrusted room-scoped guests through bounded pairing,
+typed participation, proposal-only preflight, and hosted admission
+workgraphs verify declared contributions and evidence, not hidden cognition
+My workers reuse and public marketplace promotion are separate explicit steps
 Network / Open uses a separate visible goal budget and real party identities
 ioi.ai dogfoods Hypervisor through declared application-surface contracts
 Hypervisor Operator Plane operates Hypervisor through declared surface contracts
 Hypervisor executes governed sessions
-Automations owns durable workflow/service/mission specs
+Automations owns durable workflow/service specs
 Foundry builds and evaluates reusable capability
 authority providers and local/domain governance authorize as required
 wallet.network supplies portable delegated authority for connectors,
 credentials, money, declassification, and high-risk external effects
 aiagent.xyz/MoW supplies workers and preserves attribution
 Agentgres records admitted truth
-IOI L1 settles only selected public/economic commitments
+the system settles locally unless its declared profile selects an external
+service such as IOI L1 for selected public/economic commitments
 ```
 
 ## Related Canon
@@ -994,6 +1285,7 @@ IOI L1 settles only selected public/economic commitments
 - [`../../components/wallet-network/doctrine.md`](../../components/wallet-network/doctrine.md)
 - [`../../components/wallet-network/api-authority-scopes.md`](../../components/wallet-network/api-authority-scopes.md)
 - [`../aiagent/worker-marketplace.md`](../aiagent/worker-marketplace.md)
+- [`../aiagent/worker-endpoints.md`](../aiagent/worker-endpoints.md)
 - [`../../foundations/mixture-of-workers.md`](../../foundations/mixture-of-workers.md)
 - [`../../foundations/economic-flywheel-and-pricing-boundaries.md`](../../foundations/economic-flywheel-and-pricing-boundaries.md)
 - [`../../foundations/physical-action-safety.md`](../../foundations/physical-action-safety.md)

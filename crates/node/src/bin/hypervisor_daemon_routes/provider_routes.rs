@@ -422,7 +422,17 @@ const ACCOUNT_KIND: &str = "provider-accounts";
 const EXPOSURE_KIND: &str = "provider-spend-exposures";
 const CREDENTIAL_VAULT: &str = "provider-credentials";
 const MATERIAL_KIND: &str = "provider-materials";
-const ACCOUNT_KINDS: &[&str] = &["baremetal_ssh", "aws", "gcp", "azure", "k8s", "vast", "runpod", "lambda_cloud", "akash"];
+const ACCOUNT_KINDS: &[&str] = &[
+    "baremetal_ssh",
+    "aws",
+    "gcp",
+    "azure",
+    "k8s",
+    "vast",
+    "runpod",
+    "lambda_cloud",
+    "akash",
+];
 
 fn sha256_bytes(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
@@ -452,7 +462,9 @@ fn load_account_credential(data_dir: &str, account_id: &str) -> Option<Value> {
 /// without custody proof.
 fn kind_capabilities(kind: &str) -> Value {
     match kind {
-        "baremetal_ssh" => json!({ "locality": "remote", "isolation": "customer_host", "restore": true, "remote": true, "transport": "ssh", "credentials_required": true, "authority_gated": true, "privacy": "customer_controlled_host", "lifecycle": "full" }),
+        "baremetal_ssh" => {
+            json!({ "locality": "remote", "isolation": "customer_host", "restore": true, "remote": true, "transport": "ssh", "credentials_required": true, "authority_gated": true, "privacy": "customer_controlled_host", "lifecycle": "full" })
+        }
         "aws" => json!({ "locality": "remote", "isolation": "vm_kernel",
             "lane": "ENTERPRISE customer-cloud — your AWS account, your IAM boundary, your audit trail",
             "authority_model": "IAM/SigV4 — the sealed credential's IAM scope bounds every action (iam_scope_dependent)",
@@ -500,9 +512,15 @@ fn kind_capabilities(kind: &str) -> Value {
             "custody": "Standard unless proven otherwise; pod/job/service/PVC/VM names and uids are evidence only",
             "provider_spend": "customer/operator-borne — no direct provider price; a DECLARED metered posture with a sourced price is required to price anything",
             "lifecycle": "guarded (admission-gated) once a control-plane mode is set; credential_preflight_only before that" }),
-        "vast" => json!({ "locality": "remote", "isolation": "container_gpu", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "marketplace_host_NOT_private", "lifecycle": "credential_preflight_only" }),
-        "runpod" => json!({ "locality": "remote", "isolation": "container_gpu_runtime", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_gpu_runtime_NOT_private", "custody": "Standard unless proven otherwise", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
-        "lambda_cloud" => json!({ "locality": "remote", "isolation": "gpu_vm", "vm_class": "ordinary Linux GPU VM + ssh", "persistent_disk": "instance-lifetime local NVMe (persistent while the VM lives)", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_vm_NOT_private", "custody": "Standard unless proven otherwise; provider-native snapshots/disks are evidence only — daemon custody state roots remain restore truth", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
+        "vast" => {
+            json!({ "locality": "remote", "isolation": "container_gpu", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "marketplace_host_NOT_private", "lifecycle": "credential_preflight_only" })
+        }
+        "runpod" => {
+            json!({ "locality": "remote", "isolation": "container_gpu_runtime", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_gpu_runtime_NOT_private", "custody": "Standard unless proven otherwise", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" })
+        }
+        "lambda_cloud" => {
+            json!({ "locality": "remote", "isolation": "gpu_vm", "vm_class": "ordinary Linux GPU VM + ssh", "persistent_disk": "instance-lifetime local NVMe (persistent while the VM lives)", "restore": true, "remote": true, "credentials_required": true, "authority_gated": true, "privacy": "cloud_vm_NOT_private", "custody": "Standard unless proven otherwise; provider-native snapshots/disks are evidence only — daemon custody state roots remain restore truth", "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" })
+        }
         "akash" => json!({ "locality": "remote", "isolation": "deployment_lease",
             "deployment_model": "DePIN compute/GPU: deployment intent → SDL manifest → provider bids → lease → lease-assigned endpoints (semantics preserved; never a generic VM)",
             "restore": true, "remote": true, "credentials_required": true, "authority_gated": true,
@@ -511,7 +529,9 @@ fn kind_capabilities(kind: &str) -> Value {
             "persistent_storage": "deployment-scoped posture per SDL (survives restarts, dies with the lease) — NEVER restore truth",
             "provider_spend": "customer-borne lease spend — bids are priced only when the source itself quotes a USD rate",
             "lifecycle": "guarded (quote-gated) once a control-plane mode is set; credential_preflight_only before that" }),
-        other => json!({ "locality": "unknown", "credentials_required": true, "note": format!("unknown kind '{other}'") }),
+        other => {
+            json!({ "locality": "unknown", "credentials_required": true, "note": format!("unknown kind '{other}'") })
+        }
     }
 }
 
@@ -527,7 +547,11 @@ fn open_reserved_estimate(data_dir: &str) -> f64 {
 fn open_exposure_for(data_dir: &str, account_ref: &str, env_ref: &str) -> Option<Value> {
     read_record_dir(data_dir, EXPOSURE_KIND)
         .into_iter()
-        .find(|e| text(e, "account_ref") == account_ref && text(e, "environment_ref") == env_ref && text(e, "status") == "open")
+        .find(|e| {
+            text(e, "account_ref") == account_ref
+                && text(e, "environment_ref") == env_ref
+                && text(e, "status") == "open"
+        })
 }
 
 /// external_spend budget posture MUST be discovered BEFORE any provider mutation
@@ -545,7 +569,12 @@ fn discover_budget(data_dir: &str, kind: &str, op: &str, account: &Value) -> Res
     }
     // Customer/operator-owned clusters have NO direct provider price — budget discovery is
     // metered only when the account DECLARES a metered posture (endpoint.metered).
-    if kind == "k8s" && account.pointer("/endpoint/metered").map(Value::is_null).unwrap_or(true) {
+    if kind == "k8s"
+        && account
+            .pointer("/endpoint/metered")
+            .map(Value::is_null)
+            .unwrap_or(true)
+    {
         return Ok(json!({
             "scope": "cluster_customer_operated",
             "admitted": true,
@@ -555,7 +584,10 @@ fn discover_budget(data_dir: &str, kind: &str, op: &str, account: &Value) -> Res
         }));
     }
     let budgets = read_record_dir(data_dir, "resource-budgets");
-    let Some(budget) = budgets.iter().find(|b| b["scope"].as_str() == Some("external_spend")) else {
+    let Some(budget) = budgets
+        .iter()
+        .find(|b| b["scope"].as_str() == Some("external_spend"))
+    else {
         return Err(format!("budget_undiscovered_before_mutation — '{op}' on a metered provider requires an external_spend resource budget to exist first (POST /v1/hypervisor/resource/budgets)"));
     };
     let limit = budget["limit"].as_f64().unwrap_or(0.0);
@@ -584,7 +616,10 @@ impl Drop for KeyGuard {
         let _ = std::fs::remove_file(&self.0);
     }
 }
-fn materialize_ssh_key(data_dir: &str, account_id: &str) -> Result<(PathBuf, KeyGuard, Option<String>), String> {
+fn materialize_ssh_key(
+    data_dir: &str,
+    account_id: &str,
+) -> Result<(PathBuf, KeyGuard, Option<String>), String> {
     let cred = load_account_credential(data_dir, account_id)
         .ok_or("provider_credential_unbound — bind an ssh_key credential to this account first")?;
     let key = cred["sealed_token"]
@@ -615,10 +650,17 @@ impl SshProvider {
         text(&self.account, "account_id")
     }
     fn endpoint(&self) -> (String, String, String) {
-        let ep = self.account.get("endpoint").cloned().unwrap_or_else(|| json!({}));
+        let ep = self
+            .account
+            .get("endpoint")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
         (
             text(&ep, "host").to_string(),
-            ep.get("port").and_then(Value::as_u64).unwrap_or(22).to_string(),
+            ep.get("port")
+                .and_then(Value::as_u64)
+                .unwrap_or(22)
+                .to_string(),
             text(&ep, "user").to_string(),
         )
     }
@@ -631,22 +673,34 @@ impl SshProvider {
     fn base_args(&self, data_dir: &str) -> Vec<String> {
         let (host, port, user) = self.endpoint();
         vec![
-            "-p".into(), port,
-            "-i".into(), self.key_path.to_string_lossy().to_string(),
-            "-o".into(), "BatchMode=yes".into(),
-            "-o".into(), "StrictHostKeyChecking=accept-new".into(),
-            "-o".into(), format!("UserKnownHostsFile={}", self.known_hosts(data_dir)),
-            "-o".into(), "ConnectTimeout=8".into(),
+            "-p".into(),
+            port,
+            "-i".into(),
+            self.key_path.to_string_lossy().to_string(),
+            "-o".into(),
+            "BatchMode=yes".into(),
+            "-o".into(),
+            "StrictHostKeyChecking=accept-new".into(),
+            "-o".into(),
+            format!("UserKnownHostsFile={}", self.known_hosts(data_dir)),
+            "-o".into(),
+            "ConnectTimeout=8".into(),
             format!("{user}@{host}"),
         ]
     }
     fn node_root(env_ref: &str) -> String {
         format!("\"$HOME\"/.ioi-hypervisor-nodes/{}", safe(env_ref))
     }
-    fn run_script(&self, data_dir: &str, script: &str, stdin_bytes: Option<&[u8]>) -> Result<(i32, Vec<u8>, String), String> {
+    fn run_script(
+        &self,
+        data_dir: &str,
+        script: &str,
+        stdin_bytes: Option<&[u8]>,
+    ) -> Result<(i32, Vec<u8>, String), String> {
         let mut cmd = std::process::Command::new("ssh");
         cmd.args(self.base_args(data_dir)).arg(script);
-        cmd.stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
+        cmd.stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
         if stdin_bytes.is_some() {
             cmd.stdin(std::process::Stdio::piped());
         } else {
@@ -656,7 +710,9 @@ impl SshProvider {
         if let Some(bytes) = stdin_bytes {
             use std::io::Write;
             if let Some(mut stdin) = child.stdin.take() {
-                stdin.write_all(bytes).map_err(|e| format!("ssh stdin failed: {e}"))?;
+                stdin
+                    .write_all(bytes)
+                    .map_err(|e| format!("ssh stdin failed: {e}"))?;
             }
         }
         let out = child.wait_with_output().map_err(|e| e.to_string())?;
@@ -667,7 +723,11 @@ impl SshProvider {
         ))
     }
     fn op_ref(&self, op: &str, env_ref: &str) -> String {
-        format!("provider-account://{}/op/{op}/{}", self.account_id(), safe(env_ref))
+        format!(
+            "provider-account://{}/op/{op}/{}",
+            self.account_id(),
+            safe(env_ref)
+        )
     }
 }
 impl EnvironmentProvider for SshProvider {
@@ -681,9 +741,21 @@ impl EnvironmentProvider for SshProvider {
     }
     fn status(&self) -> (&'static str, String) {
         match text(&self.account, "status") {
-            "verified" => ("available", format!("verified bare-metal SSH node ({})", text(&self.account, "display_name"))),
-            "revoked" => ("revoked", "credential revoked — rebind to use this account".into()),
-            _ => ("unverified", "credential bound but preflight has not admitted this node yet".into()),
+            "verified" => (
+                "available",
+                format!(
+                    "verified bare-metal SSH node ({})",
+                    text(&self.account, "display_name")
+                ),
+            ),
+            "revoked" => (
+                "revoked",
+                "credential revoked — rebind to use this account".into(),
+            ),
+            _ => (
+                "unverified",
+                "credential bound but preflight has not admitted this node yet".into(),
+            ),
         }
     }
     fn preflight(&self, _plan: &Value) -> Value {
@@ -698,7 +770,9 @@ impl EnvironmentProvider for SshProvider {
         if code != 0 {
             return Err(format!("ssh create failed (exit {code}): {stderr}"));
         }
-        Ok(json!({ "provider_operation_ref": self.op_ref("create", env_ref), "node_root": String::from_utf8_lossy(&stdout).trim(), "phase": "created" }))
+        Ok(
+            json!({ "provider_operation_ref": self.op_ref("create", env_ref), "node_root": String::from_utf8_lossy(&stdout).trim(), "phase": "created" }),
+        )
     }
     fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let root = Self::node_root(env_ref);
@@ -749,7 +823,11 @@ impl EnvironmentProvider for SshProvider {
         let file = dir.join(format!("{stamp}.tar.gz"));
         std::fs::write(&file, &tar_bytes).map_err(|e| e.to_string())?;
         let material_id = format!("pmat_{stamp}");
-        let material_ref = format!("provider-material://{}/{}/{stamp}", safe(self.account_id()), safe(env_ref));
+        let material_ref = format!(
+            "provider-material://{}/{}/{stamp}",
+            safe(self.account_id()),
+            safe(env_ref)
+        );
         let record = json!({
             "schema_version": "ioi.hypervisor.provider-material.v1",
             "material_id": material_id,
@@ -763,7 +841,9 @@ impl EnvironmentProvider for SshProvider {
             "at": iso_now(),
         });
         let _ = persist_record(data_dir, MATERIAL_KIND, &material_id, &record);
-        Ok(json!({ "restore_material_ref": material_ref, "state_root": state_root, "custody": "daemon", "bytes": tar_bytes.len(), "admitted": true }))
+        Ok(
+            json!({ "restore_material_ref": material_ref, "state_root": state_root, "custody": "daemon", "bytes": tar_bytes.len(), "admitted": true }),
+        )
     }
     /// Restore truth = daemon-admitted sha256, never blob existence: re-hash the custody bytes
     /// against the ADMITTED state_root and refuse on mismatch before touching the node.
@@ -771,7 +851,9 @@ impl EnvironmentProvider for SshProvider {
         let material = read_record_dir(data_dir, MATERIAL_KIND)
             .into_iter()
             .find(|m| text(m, "material_ref") == material_ref)
-            .ok_or(format!("restore material '{material_ref}' is not daemon-admitted"))?;
+            .ok_or(format!(
+                "restore material '{material_ref}' is not daemon-admitted"
+            ))?;
         let bytes = std::fs::read(text(&material, "path"))
             .map_err(|e| format!("custody material unreadable: {e}"))?;
         let admitted = text(&material, "state_root");
@@ -785,35 +867,51 @@ impl EnvironmentProvider for SshProvider {
         if code != 0 {
             return Err(format!("ssh restore failed (exit {code}): {stderr}"));
         }
-        Ok(json!({ "provider_operation_ref": self.op_ref("restore", env_ref), "phase": "ready", "restored_from": material_ref, "state_root_verified": admitted }))
+        Ok(
+            json!({ "provider_operation_ref": self.op_ref("restore", env_ref), "phase": "ready", "restored_from": material_ref, "state_root_verified": admitted }),
+        )
     }
     fn inject_outage(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let root = Self::node_root(env_ref);
         let script = format!("set -e; IOI_ROOT={root}; rm -rf \"$IOI_ROOT/workspace\"; printf outage > \"$IOI_ROOT/phase\"");
         let (code, _, stderr) = self.run_script(data_dir, &script, None)?;
         if code != 0 {
-            return Err(format!("ssh outage injection failed (exit {code}): {stderr}"));
+            return Err(format!(
+                "ssh outage injection failed (exit {code}): {stderr}"
+            ));
         }
-        Ok(json!({ "provider_operation_ref": self.op_ref("inject_outage", env_ref), "phase": "outage", "workspace_lost": true }))
+        Ok(
+            json!({ "provider_operation_ref": self.op_ref("inject_outage", env_ref), "phase": "outage", "workspace_lost": true }),
+        )
     }
     fn recover(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let mut materials: Vec<Value> = read_record_dir(data_dir, MATERIAL_KIND)
             .into_iter()
-            .filter(|m| text(m, "environment_ref") == env_ref && text(m, "account_ref") == text(&self.account, "account_ref"))
+            .filter(|m| {
+                text(m, "environment_ref") == env_ref
+                    && text(m, "account_ref") == text(&self.account, "account_ref")
+            })
             .collect();
         materials.sort_by(|a, b| text(a, "material_id").cmp(text(b, "material_id")));
-        let latest = materials.pop().ok_or("no daemon-admitted restore material to recover from")?;
+        let latest = materials
+            .pop()
+            .ok_or("no daemon-admitted restore material to recover from")?;
         let restored = self.restore(data_dir, env_ref, text(&latest, "material_ref"))?;
-        Ok(json!({ "provider_operation_ref": self.op_ref("recover", env_ref), "phase": "ready", "recovered_from": text(&latest, "material_ref"), "state_root_verified": restored.get("state_root_verified").cloned().unwrap_or(Value::Null) }))
+        Ok(
+            json!({ "provider_operation_ref": self.op_ref("recover", env_ref), "phase": "ready", "recovered_from": text(&latest, "material_ref"), "state_root_verified": restored.get("state_root_verified").cloned().unwrap_or(Value::Null) }),
+        )
     }
     fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let root = Self::node_root(env_ref);
-        let script = format!("IOI_ROOT={root}; rm -rf \"$IOI_ROOT\"; test ! -d \"$IOI_ROOT\" && echo gone");
+        let script =
+            format!("IOI_ROOT={root}; rm -rf \"$IOI_ROOT\"; test ! -d \"$IOI_ROOT\" && echo gone");
         let (code, stdout, stderr) = self.run_script(data_dir, &script, None)?;
         if code != 0 {
             return Err(format!("ssh delete failed (exit {code}): {stderr}"));
         }
-        Ok(json!({ "provider_operation_ref": self.op_ref("delete", env_ref), "cleanup_verified": String::from_utf8_lossy(&stdout).trim() == "gone" }))
+        Ok(
+            json!({ "provider_operation_ref": self.op_ref("delete", env_ref), "cleanup_verified": String::from_utf8_lossy(&stdout).trim() == "gone" }),
+        )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
         let root = Self::node_root(env_ref);
@@ -826,7 +924,9 @@ impl EnvironmentProvider for SshProvider {
                 let files = lines.next().unwrap_or("0").trim().to_string();
                 json!({ "provider": self.id(), "account_ref": text(&self.account, "account_ref"), "environment_ref": env_ref, "phase": phase, "workspace_files": files })
             }
-            Err(e) => json!({ "provider": self.id(), "environment_ref": env_ref, "phase": "unreachable", "error": e }),
+            Err(e) => {
+                json!({ "provider": self.id(), "environment_ref": env_ref, "phase": "unreachable", "error": e })
+            }
         }
     }
 }
@@ -856,9 +956,18 @@ impl EnvironmentProvider for CloudKindProvider {
     }
     fn status(&self) -> (&'static str, String) {
         match text(&self.account, "status") {
-            "verified" => ("credential_verified", format!("'{}' credential verified — preflight only until its adapter cut", self.kind())),
+            "verified" => (
+                "credential_verified",
+                format!(
+                    "'{}' credential verified — preflight only until its adapter cut",
+                    self.kind()
+                ),
+            ),
             "revoked" => ("revoked", "credential revoked".into()),
-            _ => ("unverified", "bind + preflight the credential to verify this account".into()),
+            _ => (
+                "unverified",
+                "bind + preflight the credential to verify this account".into(),
+            ),
         }
     }
     fn preflight(&self, _plan: &Value) -> Value {
@@ -903,7 +1012,11 @@ impl EnvironmentProvider for CloudKindProvider {
 const VAST_INSTANCE_KIND: &str = "vast-instances";
 
 fn vast_mode(account: &Value) -> String {
-    account.pointer("/endpoint/mode").and_then(Value::as_str).unwrap_or("").to_string()
+    account
+        .pointer("/endpoint/mode")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
 }
 fn load_vast_instance(data_dir: &str, account_id: &str, env_ref: &str) -> Option<Value> {
     read_record_dir(data_dir, VAST_INSTANCE_KIND)
@@ -931,7 +1044,8 @@ impl VastProvider {
     /// The BYO SSH lane over THIS instance's endpoint — the same workspace mutation + daemon
     /// custody contract as baremetal_ssh (materials attribute to the REAL vast account).
     fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
-        let inst = self.instance(data_dir, env_ref)
+        let inst = self
+            .instance(data_dir, env_ref)
             .ok_or("vast_instance_absent — provision with the quote-gated create op first")?;
         if text(&inst, "status") == "torn_down" {
             return Err("vast_instance_torn_down — this instance was already torn down".into());
@@ -943,16 +1057,22 @@ impl VastProvider {
             return Err("vast_ssh_bootstrap_unknown — the instance has no usable ssh endpoint/key (live instances gain one only after boot polling proves readiness)".into());
         }
         let key = if !key_file.is_empty() {
-            std::fs::read_to_string(key_file).map_err(|e| format!("vast_ssh_key_unreadable: {e}"))?
+            std::fs::read_to_string(key_file)
+                .map_err(|e| format!("vast_ssh_key_unreadable: {e}"))?
         } else {
             // Live instances: the ephemeral private key lives SEALED on the instance record
             // (same dcrypt discipline as every credential) — opened in-daemon, materialized
             // 0600 for one op, removed by the KeyGuard.
-            open_scm_token(sealed).ok_or("vast_ssh_key_unsealable — sealed instance key did not decrypt")?
+            open_scm_token(sealed)
+                .ok_or("vast_ssh_key_unsealable — sealed instance key did not decrypt")?
         };
         let dir = Path::new(data_dir).join("provider-ssh");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(format!("vast-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        let path = dir.join(format!(
+            "vast-{}-{}.key",
+            safe(self.account_id()),
+            safe(env_ref)
+        ));
         std::fs::write(&path, key).map_err(|e| e.to_string())?;
         #[cfg(unix)]
         {
@@ -966,7 +1086,13 @@ impl VastProvider {
             "kind": "vast", "status": "verified",
             "endpoint": { "host": ssh["host"], "port": ssh["port"], "user": ssh["user"] },
         });
-        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+        Ok((
+            SshProvider {
+                account: synthetic,
+                key_path: path.clone(),
+            },
+            KeyGuard(path),
+        ))
     }
 }
 impl EnvironmentProvider for VastProvider {
@@ -976,13 +1102,18 @@ impl EnvironmentProvider for VastProvider {
     fn capabilities(&self) -> Value {
         let mut caps = kind_capabilities("vast");
         caps["provider_spend_borne_by"] = json!("customer");
-        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, teardown required");
+        caps["lifecycle"] = json!(
+            "guarded_lifecycle — quote-gated create, wallet-gated mutations, teardown required"
+        );
         caps["execution_mode"] = json!(self.mode());
         caps
     }
     fn status(&self) -> (&'static str, String) {
         match text(&self.account, "status") {
-            "verified" => ("available", format!("guarded vast lifecycle ({} control plane)", self.mode())),
+            "verified" => (
+                "available",
+                format!("guarded vast lifecycle ({} control plane)", self.mode()),
+            ),
             "revoked" => ("revoked", "credential revoked".into()),
             _ => ("unverified", "bind + preflight the credential".into()),
         }
@@ -1003,7 +1134,11 @@ impl EnvironmentProvider for VastProvider {
         let mode = self.mode();
         let record_id = format!("vinst_{:x}", nanos());
         if mode == "simulator" {
-            let ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+            let ssh = self
+                .account
+                .pointer("/endpoint/ssh")
+                .cloned()
+                .unwrap_or(Value::Null);
             if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
                 return Err("vast_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
             }
@@ -1038,14 +1173,24 @@ impl EnvironmentProvider for VastProvider {
         if mode == "live" {
             // Real marketplace lease. Any deviation fails NAMED — no partial claims; if the ask
             // succeeded but later steps fail, the instance record still exists so teardown runs.
-            let offer_id = plan.get("offer_id").and_then(Value::as_u64)
+            let offer_id = plan
+                .get("offer_id")
+                .and_then(Value::as_u64)
                 .ok_or("vast_live_offer_id_missing — the validated quote carries no offer id")?;
             let bearer = load_account_credential(data_dir, self.account_id())
                 .and_then(|c| c["sealed_token"].as_str().and_then(open_scm_token))
                 .ok_or("provider_credential_unresolved")?;
-            let base = self.account.pointer("/endpoint/endpoint").and_then(Value::as_str)
-                .unwrap_or("https://console.vast.ai/api/v0").trim_end_matches('/').to_string();
-            let price = plan.get("max_hourly_usd").and_then(Value::as_f64).unwrap_or(0.0);
+            let base = self
+                .account
+                .pointer("/endpoint/endpoint")
+                .and_then(Value::as_str)
+                .unwrap_or("https://console.vast.ai/api/v0")
+                .trim_end_matches('/')
+                .to_string();
+            let price = plan
+                .get("max_hourly_usd")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
             let created: Result<Value, String> = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async {
                     let client = reqwest::Client::new();
@@ -1068,34 +1213,58 @@ impl EnvironmentProvider for VastProvider {
             // plaintext), public key attached to the Vast account for this lease.
             let keydir = Path::new(data_dir).join("provider-ssh");
             std::fs::create_dir_all(&keydir).map_err(|e| e.to_string())?;
-            let tmp = keydir.join(format!("vast-live-{}-{}.tmp", safe(self.account_id()), safe(env_ref)));
+            let tmp = keydir.join(format!(
+                "vast-live-{}-{}.tmp",
+                safe(self.account_id()),
+                safe(env_ref)
+            ));
             let _ = std::fs::remove_file(&tmp);
             let _ = std::fs::remove_file(keydir.join(format!("{}.pub", tmp.to_string_lossy())));
             let keygen = std::process::Command::new("ssh-keygen")
-                .args(["-t", "ed25519", "-N", "", "-q", "-f"]).arg(&tmp)
-                .output().map_err(|e| format!("vast_ssh_keygen_failed: {e} (instance {native_id} recorded for teardown)"))?;
+                .args(["-t", "ed25519", "-N", "", "-q", "-f"])
+                .arg(&tmp)
+                .output()
+                .map_err(|e| {
+                    format!(
+                        "vast_ssh_keygen_failed: {e} (instance {native_id} recorded for teardown)"
+                    )
+                })?;
             if !keygen.status.success() {
-                return Err(format!("vast_ssh_keygen_failed: {} (instance {native_id} recorded for teardown)", String::from_utf8_lossy(&keygen.stderr)));
+                return Err(format!(
+                    "vast_ssh_keygen_failed: {} (instance {native_id} recorded for teardown)",
+                    String::from_utf8_lossy(&keygen.stderr)
+                ));
             }
             let private_key = std::fs::read_to_string(&tmp).map_err(|e| e.to_string())?;
-            let public_key = std::fs::read_to_string(format!("{}.pub", tmp.to_string_lossy())).map_err(|e| e.to_string())?;
+            let public_key = std::fs::read_to_string(format!("{}.pub", tmp.to_string_lossy()))
+                .map_err(|e| e.to_string())?;
             let _ = std::fs::remove_file(&tmp);
             let _ = std::fs::remove_file(format!("{}.pub", tmp.to_string_lossy()));
             let sealed_key = seal_scm_token(private_key.trim())
                 .ok_or("vast_ssh_key_seal_failed — could not seal the ephemeral instance key")?;
             let attach: Result<u16, String> = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async {
-                    reqwest::Client::new().post(format!("{base}/ssh/"))
+                    reqwest::Client::new()
+                        .post(format!("{base}/ssh/"))
                         .bearer_auth(&bearer)
                         .json(&json!({ "ssh_key": public_key.trim() }))
                         .timeout(std::time::Duration::from_secs(20))
-                        .send().await.map(|r| r.status().as_u16()).map_err(|e| e.to_string())
+                        .send()
+                        .await
+                        .map(|r| r.status().as_u16())
+                        .map_err(|e| e.to_string())
                 })
             });
             let key_attach = match attach {
-                Ok(status) if (200..300).contains(&status) => json!({ "attached": true, "http_status": status }),
-                Ok(status) => json!({ "attached": false, "http_status": status, "warning": "pubkey attach rejected — boot polling will fail closed until resolved" }),
-                Err(e) => json!({ "attached": false, "error": e, "warning": "pubkey attach failed — boot polling will fail closed until resolved" }),
+                Ok(status) if (200..300).contains(&status) => {
+                    json!({ "attached": true, "http_status": status })
+                }
+                Ok(status) => {
+                    json!({ "attached": false, "http_status": status, "warning": "pubkey attach rejected — boot polling will fail closed until resolved" })
+                }
+                Err(e) => {
+                    json!({ "attached": false, "error": e, "warning": "pubkey attach failed — boot polling will fail closed until resolved" })
+                }
             };
             let instance = json!({
                 "schema_version": "ioi.hypervisor.vast-instance.v1",
@@ -1126,22 +1295,36 @@ impl EnvironmentProvider for VastProvider {
         Err("vast_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into())
     }
     fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("vast_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("vast_instance_absent")?;
         if text(&inst, "status") == "torn_down" {
             return Err("vast_instance_torn_down".into());
         }
         let mut boot_evidence = Value::Null;
         // Live instances: boot-poll the provider until ssh host/port are KNOWN; the runtime ssh
         // block persists only with readiness evidence attached.
-        if text(&inst, "execution_mode") == "live" && inst.get("ssh").map(Value::is_null).unwrap_or(true) {
-            let native = inst.pointer("/provider_native/instance_id").cloned().unwrap_or(Value::Null);
-            let nid = native.as_u64().or_else(|| native.as_str().and_then(|s| s.parse().ok()))
+        if text(&inst, "execution_mode") == "live"
+            && inst.get("ssh").map(Value::is_null).unwrap_or(true)
+        {
+            let native = inst
+                .pointer("/provider_native/instance_id")
+                .cloned()
+                .unwrap_or(Value::Null);
+            let nid = native
+                .as_u64()
+                .or_else(|| native.as_str().and_then(|s| s.parse().ok()))
                 .ok_or("vast_boot_poll_failed — no provider-native id on the instance record")?;
             let bearer = load_account_credential(data_dir, self.account_id())
                 .and_then(|c| c["sealed_token"].as_str().and_then(open_scm_token))
                 .ok_or("provider_credential_unresolved")?;
-            let base = self.account.pointer("/endpoint/endpoint").and_then(Value::as_str)
-                .unwrap_or("https://console.vast.ai/api/v0").trim_end_matches('/').to_string();
+            let base = self
+                .account
+                .pointer("/endpoint/endpoint")
+                .and_then(Value::as_str)
+                .unwrap_or("https://console.vast.ai/api/v0")
+                .trim_end_matches('/')
+                .to_string();
             let deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
             let mut attempts = 0u32;
             let mut last_status = String::from("unknown");
@@ -1149,17 +1332,32 @@ impl EnvironmentProvider for VastProvider {
                 attempts += 1;
                 let fetched: Result<Value, String> = tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current().block_on(async {
-                        let r = reqwest::Client::new().get(format!("{base}/instances/{nid}/"))
+                        let r = reqwest::Client::new()
+                            .get(format!("{base}/instances/{nid}/"))
                             .bearer_auth(&bearer)
                             .timeout(std::time::Duration::from_secs(15))
-                            .send().await.map_err(|e| e.to_string())?;
+                            .send()
+                            .await
+                            .map_err(|e| e.to_string())?;
                         r.json::<Value>().await.map_err(|e| e.to_string())
                     })
                 });
                 if let Ok(doc) = fetched {
-                    let node = doc.get("instances").filter(|v| !v.is_array()).cloned().unwrap_or(doc);
-                    last_status = node.get("actual_status").and_then(Value::as_str).unwrap_or("unknown").to_string();
-                    let host = node.get("ssh_host").and_then(Value::as_str).unwrap_or("").to_string();
+                    let node = doc
+                        .get("instances")
+                        .filter(|v| !v.is_array())
+                        .cloned()
+                        .unwrap_or(doc);
+                    last_status = node
+                        .get("actual_status")
+                        .and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                        .to_string();
+                    let host = node
+                        .get("ssh_host")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string();
                     let port = node.get("ssh_port").and_then(Value::as_u64).unwrap_or(0);
                     if last_status == "running" && !host.is_empty() && port > 0 {
                         break Some((host, port));
@@ -1191,22 +1389,28 @@ impl EnvironmentProvider for VastProvider {
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("running");
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
-                   "boot_evidence": boot_evidence }))
+                   "boot_evidence": boot_evidence }),
+        )
     }
     fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         lane.workrun(data_dir, env_ref, command)
     }
     fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("vast_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("vast_instance_absent")?;
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let stopped = lane.stop(data_dir, env_ref)?;
         inst["status"] = json!("stopped");
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
-                   "instance_id": inst["instance_id"], "status": "stopped", "lane": stopped }))
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "stopped", "lane": stopped }),
+        )
     }
     fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -1225,36 +1429,67 @@ impl EnvironmentProvider for VastProvider {
     /// Teardown ALWAYS proceeds: remote cleanup is best-effort (the node may already be gone);
     /// the instance record flips to torn_down either way, and the evidence says which happened.
     fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("vast_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("vast_instance_absent")?;
         let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
-            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Ok((lane, _guard)) => lane
+                .delete(data_dir, env_ref)
+                .map(|e| e["cleanup_verified"].clone())
+                .unwrap_or(json!("unreachable")),
             Err(e) => json!(format!("skipped: {e}")),
         };
         let native_teardown = if text(&inst, "execution_mode") == "live" {
             // Live: destroy the marketplace instance (billing stops here).
-            let native = inst.pointer("/provider_native/instance_id").cloned().unwrap_or(Value::Null);
+            let native = inst
+                .pointer("/provider_native/instance_id")
+                .cloned()
+                .unwrap_or(Value::Null);
             let bearer = load_account_credential(data_dir, self.account_id())
                 .and_then(|c| c["sealed_token"].as_str().and_then(open_scm_token));
-            match (native.as_u64().or_else(|| native.as_str().and_then(|s| s.parse().ok())), bearer) {
+            match (
+                native
+                    .as_u64()
+                    .or_else(|| native.as_str().and_then(|s| s.parse().ok())),
+                bearer,
+            ) {
                 (Some(nid), Some(bearer)) => {
-                    let base = self.account.pointer("/endpoint/endpoint").and_then(Value::as_str)
-                        .unwrap_or("https://console.vast.ai/api/v0").trim_end_matches('/').to_string();
+                    let base = self
+                        .account
+                        .pointer("/endpoint/endpoint")
+                        .and_then(Value::as_str)
+                        .unwrap_or("https://console.vast.ai/api/v0")
+                        .trim_end_matches('/')
+                        .to_string();
                     let result: Result<u16, String> = tokio::task::block_in_place(|| {
                         tokio::runtime::Handle::current().block_on(async {
-                            reqwest::Client::new().delete(format!("{base}/instances/{nid}/"))
+                            reqwest::Client::new()
+                                .delete(format!("{base}/instances/{nid}/"))
                                 .bearer_auth(&bearer)
                                 .timeout(std::time::Duration::from_secs(30))
-                                .send().await.map(|r| r.status().as_u16()).map_err(|e| e.to_string())
+                                .send()
+                                .await
+                                .map(|r| r.status().as_u16())
+                                .map_err(|e| e.to_string())
                         })
                     });
                     match result {
-                        Ok(status) => json!({ "destroyed": (200..300).contains(&status), "http_status": status }),
-                        Err(e) => json!({ "destroyed": false, "error": e, "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Vast console" }),
+                        Ok(status) => {
+                            json!({ "destroyed": (200..300).contains(&status), "http_status": status })
+                        }
+                        Err(e) => {
+                            json!({ "destroyed": false, "error": e, "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Vast console" })
+                        }
                     }
                 }
                 _ => json!({ "destroyed": false, "error": "native id or credential unavailable" }),
             }
-        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+        } else if self
+            .account
+            .pointer("/endpoint/simulate_teardown_failure")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
             json!({ "destroyed": false, "error": "SIMULATED teardown failure (endpoint.simulate_teardown_failure) — validates the incomplete-teardown warning path", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Vast console" })
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — no real instance existed" })
@@ -1262,24 +1497,31 @@ impl EnvironmentProvider for VastProvider {
         inst["status"] = json!("torn_down");
         inst["torn_down_at"] = json!(iso_now());
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": "torn_down",
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }))
+                   "cleanup_verified": true }),
+        )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
         match self.instance(data_dir, env_ref) {
-            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            None => {
+                json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" })
+            }
             Some(inst) => {
-                let boot_pending = text(&inst, "execution_mode") == "live" && inst.get("ssh").map(Value::is_null).unwrap_or(true);
-                let lane_view = if text(&inst, "status") == "torn_down" { Value::Null }
-                    else if boot_pending { json!({ "boot": "pending — run start to poll the provider until ssh readiness is proven" }) }
-                    else {
-                        match self.ssh_lane(data_dir, env_ref) {
-                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
-                            Err(e) => json!({ "error": e }),
-                        }
-                    };
+                let boot_pending = text(&inst, "execution_mode") == "live"
+                    && inst.get("ssh").map(Value::is_null).unwrap_or(true);
+                let lane_view = if text(&inst, "status") == "torn_down" {
+                    Value::Null
+                } else if boot_pending {
+                    json!({ "boot": "pending — run start to poll the provider until ssh readiness is proven" })
+                } else {
+                    match self.ssh_lane(data_dir, env_ref) {
+                        Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                        Err(e) => json!({ "error": e }),
+                    }
+                };
                 json!({ "provider": self.id(), "environment_ref": env_ref,
                         "instance_id": inst["instance_id"], "status": inst["status"],
                         "execution_mode": inst["execution_mode"],
@@ -1314,8 +1556,16 @@ impl RunPodProvider {
         vast_mode(&self.account) // reads endpoint.mode generically
     }
     fn base(&self) -> String {
-        let configured = self.account.pointer("/endpoint/endpoint").and_then(Value::as_str).unwrap_or("");
-        if configured.is_empty() { "https://rest.runpod.io/v1".into() } else { configured.trim_end_matches('/').to_string() }
+        let configured = self
+            .account
+            .pointer("/endpoint/endpoint")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if configured.is_empty() {
+            "https://rest.runpod.io/v1".into()
+        } else {
+            configured.trim_end_matches('/').to_string()
+        }
     }
     fn bearer(&self, data_dir: &str) -> Result<String, String> {
         load_account_credential(data_dir, self.account_id())
@@ -1331,7 +1581,8 @@ impl RunPodProvider {
     }
     /// The BYO SSH lane over this pod's endpoint — identical custody contract to Vast/BYO.
     fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
-        let inst = self.instance(data_dir, env_ref)
+        let inst = self
+            .instance(data_dir, env_ref)
             .ok_or("runpod_instance_absent — provision with the quote-gated create op first")?;
         if text(&inst, "status") == "torn_down" {
             return Err("runpod_instance_torn_down — this pod was already torn down".into());
@@ -1343,13 +1594,19 @@ impl RunPodProvider {
             return Err("runpod_ssh_bootstrap_unknown — the pod has no usable ssh endpoint/key (live pods gain one only after boot polling proves readiness)".into());
         }
         let key = if !key_file.is_empty() {
-            std::fs::read_to_string(key_file).map_err(|e| format!("runpod_ssh_key_unreadable: {e}"))?
+            std::fs::read_to_string(key_file)
+                .map_err(|e| format!("runpod_ssh_key_unreadable: {e}"))?
         } else {
-            open_scm_token(sealed).ok_or("runpod_ssh_key_unsealable — sealed pod key did not decrypt")?
+            open_scm_token(sealed)
+                .ok_or("runpod_ssh_key_unsealable — sealed pod key did not decrypt")?
         };
         let dir = Path::new(data_dir).join("provider-ssh");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(format!("runpod-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        let path = dir.join(format!(
+            "runpod-{}-{}.key",
+            safe(self.account_id()),
+            safe(env_ref)
+        ));
         std::fs::write(&path, key).map_err(|e| e.to_string())?;
         #[cfg(unix)]
         {
@@ -1363,7 +1620,13 @@ impl RunPodProvider {
             "kind": "runpod", "status": "verified",
             "endpoint": { "host": ssh["host"], "port": ssh["port"], "user": ssh["user"] },
         });
-        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+        Ok((
+            SshProvider {
+                account: synthetic,
+                key_path: path.clone(),
+            },
+            KeyGuard(path),
+        ))
     }
 }
 impl EnvironmentProvider for RunPodProvider {
@@ -1373,13 +1636,18 @@ impl EnvironmentProvider for RunPodProvider {
     fn capabilities(&self) -> Value {
         let mut caps = kind_capabilities("runpod");
         caps["provider_spend_borne_by"] = json!("customer");
-        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, teardown required");
+        caps["lifecycle"] = json!(
+            "guarded_lifecycle — quote-gated create, wallet-gated mutations, teardown required"
+        );
         caps["execution_mode"] = json!(self.mode());
         caps
     }
     fn status(&self) -> (&'static str, String) {
         match text(&self.account, "status") {
-            "verified" => ("available", format!("guarded runpod lifecycle ({} control plane)", self.mode())),
+            "verified" => (
+                "available",
+                format!("guarded runpod lifecycle ({} control plane)", self.mode()),
+            ),
             "revoked" => ("revoked", "credential revoked".into()),
             _ => ("unverified", "bind + preflight the credential".into()),
         }
@@ -1398,7 +1666,11 @@ impl EnvironmentProvider for RunPodProvider {
         let mode = self.mode();
         let record_id = format!("rpinst_{:x}", nanos());
         if mode == "simulator" {
-            let ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+            let ssh = self
+                .account
+                .pointer("/endpoint/ssh")
+                .cloned()
+                .unwrap_or(Value::Null);
             if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
                 return Err("runpod_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
             }
@@ -1430,35 +1702,57 @@ impl EnvironmentProvider for RunPodProvider {
             }));
         }
         if mode == "live" {
-            let gpu_type = plan.get("offer_id").and_then(Value::as_str)
+            let gpu_type = plan
+                .get("offer_id")
+                .and_then(Value::as_str)
                 .map(str::to_string)
-                .or_else(|| plan.get("offer_id").and_then(Value::as_u64).map(|n| n.to_string()))
-                .ok_or("runpod_live_gpu_type_missing — the validated quote carries no GPU type id")?;
+                .or_else(|| {
+                    plan.get("offer_id")
+                        .and_then(Value::as_u64)
+                        .map(|n| n.to_string())
+                })
+                .ok_or(
+                    "runpod_live_gpu_type_missing — the validated quote carries no GPU type id",
+                )?;
             let bearer = self.bearer(data_dir)?;
             let base = self.base();
             // Ephemeral per-pod ssh keypair: sealed onto the record; pubkey attached account-side.
             let keydir = Path::new(data_dir).join("provider-ssh");
             std::fs::create_dir_all(&keydir).map_err(|e| e.to_string())?;
-            let tmp = keydir.join(format!("runpod-live-{}-{}.tmp", safe(self.account_id()), safe(env_ref)));
+            let tmp = keydir.join(format!(
+                "runpod-live-{}-{}.tmp",
+                safe(self.account_id()),
+                safe(env_ref)
+            ));
             let _ = std::fs::remove_file(&tmp);
             let _ = std::fs::remove_file(format!("{}.pub", tmp.to_string_lossy()));
             let keygen = std::process::Command::new("ssh-keygen")
-                .args(["-t", "ed25519", "-N", "", "-q", "-f"]).arg(&tmp)
-                .output().map_err(|e| format!("runpod_ssh_keygen_failed: {e}"))?;
+                .args(["-t", "ed25519", "-N", "", "-q", "-f"])
+                .arg(&tmp)
+                .output()
+                .map_err(|e| format!("runpod_ssh_keygen_failed: {e}"))?;
             if !keygen.status.success() {
-                return Err(format!("runpod_ssh_keygen_failed: {}", String::from_utf8_lossy(&keygen.stderr)));
+                return Err(format!(
+                    "runpod_ssh_keygen_failed: {}",
+                    String::from_utf8_lossy(&keygen.stderr)
+                ));
             }
             let private_key = std::fs::read_to_string(&tmp).map_err(|e| e.to_string())?;
-            let public_key = std::fs::read_to_string(format!("{}.pub", tmp.to_string_lossy())).map_err(|e| e.to_string())?;
+            let public_key = std::fs::read_to_string(format!("{}.pub", tmp.to_string_lossy()))
+                .map_err(|e| e.to_string())?;
             let _ = std::fs::remove_file(&tmp);
             let _ = std::fs::remove_file(format!("{}.pub", tmp.to_string_lossy()));
             let sealed_key = seal_scm_token(private_key.trim())
                 .ok_or("runpod_ssh_key_seal_failed — could not seal the ephemeral pod key")?;
-            let price = plan.get("max_hourly_usd").and_then(Value::as_f64).unwrap_or(0.0);
+            let price = plan
+                .get("max_hourly_usd")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
             let created: Result<Value, String> = tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(async {
                     let client = reqwest::Client::new();
-                    let resp = client.post(format!("{base}/pods"))
+                    let resp = client
+                        .post(format!("{base}/pods"))
                         .bearer_auth(&bearer)
                         .json(&json!({
                             "gpuTypeIds": [gpu_type],
@@ -1470,11 +1764,17 @@ impl EnvironmentProvider for RunPodProvider {
                             "bidPerGpu": price,
                         }))
                         .timeout(std::time::Duration::from_secs(30))
-                        .send().await.map_err(|e| format!("runpod_live_provision_failed: {e}"))?;
+                        .send()
+                        .await
+                        .map_err(|e| format!("runpod_live_provision_failed: {e}"))?;
                     let status = resp.status().as_u16();
-                    let body: Value = resp.json().await.map_err(|e| format!("runpod_live_provision_failed: non-JSON response: {e}"))?;
+                    let body: Value = resp.json().await.map_err(|e| {
+                        format!("runpod_live_provision_failed: non-JSON response: {e}")
+                    })?;
                     if !(200..300).contains(&status) {
-                        return Err(format!("runpod_live_provision_failed: http {status} {body}"));
+                        return Err(format!(
+                            "runpod_live_provision_failed: http {status} {body}"
+                        ));
                     }
                     Ok(body)
                 })
@@ -1506,16 +1806,25 @@ impl EnvironmentProvider for RunPodProvider {
                 "teardown_required": true,
             }));
         }
-        Err("runpod_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into())
+        Err(
+            "runpod_lifecycle_mode_unset — set the account endpoint mode to simulator or live"
+                .into(),
+        )
     }
     fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("runpod_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("runpod_instance_absent")?;
         if text(&inst, "status") == "torn_down" {
             return Err("runpod_instance_torn_down".into());
         }
         let mut boot_evidence = Value::Null;
-        if text(&inst, "execution_mode") == "live" && inst.get("ssh").map(Value::is_null).unwrap_or(true) {
-            let pod_id = inst.pointer("/provider_native/pod_id").and_then(Value::as_str)
+        if text(&inst, "execution_mode") == "live"
+            && inst.get("ssh").map(Value::is_null).unwrap_or(true)
+        {
+            let pod_id = inst
+                .pointer("/provider_native/pod_id")
+                .and_then(Value::as_str)
                 .map(str::to_string)
                 .ok_or("runpod_boot_poll_failed — no provider-native pod id on the record")?;
             let bearer = self.bearer(data_dir)?;
@@ -1527,25 +1836,43 @@ impl EnvironmentProvider for RunPodProvider {
                 attempts += 1;
                 let fetched: Result<Value, String> = tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current().block_on(async {
-                        let r = reqwest::Client::new().get(format!("{base}/pods/{pod_id}"))
+                        let r = reqwest::Client::new()
+                            .get(format!("{base}/pods/{pod_id}"))
                             .bearer_auth(&bearer)
                             .timeout(std::time::Duration::from_secs(15))
-                            .send().await.map_err(|e| e.to_string())?;
+                            .send()
+                            .await
+                            .map_err(|e| e.to_string())?;
                         r.json::<Value>().await.map_err(|e| e.to_string())
                     })
                 });
                 if let Ok(node) = fetched {
-                    last_status = node.get("desiredStatus").and_then(Value::as_str)
+                    last_status = node
+                        .get("desiredStatus")
+                        .and_then(Value::as_str)
                         .or_else(|| node.get("status").and_then(Value::as_str))
-                        .unwrap_or("unknown").to_string();
-                    let public_ip = node.pointer("/runtime/publicIp").and_then(Value::as_str)
+                        .unwrap_or("unknown")
+                        .to_string();
+                    let public_ip = node
+                        .pointer("/runtime/publicIp")
+                        .and_then(Value::as_str)
                         .or_else(|| node.get("publicIp").and_then(Value::as_str))
-                        .unwrap_or("").to_string();
-                    let ssh_port = node.pointer("/runtime/ports").and_then(Value::as_array)
-                        .and_then(|ports| ports.iter().find(|p| p.get("privatePort").and_then(Value::as_u64) == Some(22)))
+                        .unwrap_or("")
+                        .to_string();
+                    let ssh_port = node
+                        .pointer("/runtime/ports")
+                        .and_then(Value::as_array)
+                        .and_then(|ports| {
+                            ports
+                                .iter()
+                                .find(|p| p.get("privatePort").and_then(Value::as_u64) == Some(22))
+                        })
                         .and_then(|p| p.get("publicPort").and_then(Value::as_u64))
                         .unwrap_or(0);
-                    if last_status.eq_ignore_ascii_case("running") && !public_ip.is_empty() && ssh_port > 0 {
+                    if last_status.eq_ignore_ascii_case("running")
+                        && !public_ip.is_empty()
+                        && ssh_port > 0
+                    {
                         break Some((public_ip, ssh_port));
                     }
                 }
@@ -1573,22 +1900,28 @@ impl EnvironmentProvider for RunPodProvider {
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("running");
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
-                   "boot_evidence": boot_evidence }))
+                   "boot_evidence": boot_evidence }),
+        )
     }
     fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         lane.workrun(data_dir, env_ref, command)
     }
     fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("runpod_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("runpod_instance_absent")?;
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let stopped = lane.stop(data_dir, env_ref)?;
         inst["status"] = json!("stopped");
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
-                   "instance_id": inst["instance_id"], "status": "stopped", "lane": stopped }))
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+                   "instance_id": inst["instance_id"], "status": "stopped", "lane": stopped }),
+        )
     }
     fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -1605,32 +1938,53 @@ impl EnvironmentProvider for RunPodProvider {
         Err("runpod_recover_not_supported — recovery is restore-from-daemon-custody after re-provisioning; run create + restore explicitly".into())
     }
     fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("runpod_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("runpod_instance_absent")?;
         let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
-            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Ok((lane, _guard)) => lane
+                .delete(data_dir, env_ref)
+                .map(|e| e["cleanup_verified"].clone())
+                .unwrap_or(json!("unreachable")),
             Err(e) => json!(format!("skipped: {e}")),
         };
         let native_teardown = if text(&inst, "execution_mode") == "live" {
-            let pod_id = inst.pointer("/provider_native/pod_id").and_then(Value::as_str).map(str::to_string);
+            let pod_id = inst
+                .pointer("/provider_native/pod_id")
+                .and_then(Value::as_str)
+                .map(str::to_string);
             match (pod_id, self.bearer(data_dir)) {
                 (Some(pid), Ok(bearer)) => {
                     let base = self.base();
                     let result: Result<u16, String> = tokio::task::block_in_place(|| {
                         tokio::runtime::Handle::current().block_on(async {
-                            reqwest::Client::new().delete(format!("{base}/pods/{pid}"))
+                            reqwest::Client::new()
+                                .delete(format!("{base}/pods/{pid}"))
                                 .bearer_auth(&bearer)
                                 .timeout(std::time::Duration::from_secs(30))
-                                .send().await.map(|r| r.status().as_u16()).map_err(|e| e.to_string())
+                                .send()
+                                .await
+                                .map(|r| r.status().as_u16())
+                                .map_err(|e| e.to_string())
                         })
                     });
                     match result {
-                        Ok(status) => json!({ "destroyed": (200..300).contains(&status), "http_status": status }),
-                        Err(e) => json!({ "destroyed": false, "error": e, "warning": "TEARDOWN MAY BE INCOMPLETE — verify the RunPod console" }),
+                        Ok(status) => {
+                            json!({ "destroyed": (200..300).contains(&status), "http_status": status })
+                        }
+                        Err(e) => {
+                            json!({ "destroyed": false, "error": e, "warning": "TEARDOWN MAY BE INCOMPLETE — verify the RunPod console" })
+                        }
                     }
                 }
                 _ => json!({ "destroyed": false, "error": "pod id or credential unavailable" }),
             }
-        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+        } else if self
+            .account
+            .pointer("/endpoint/simulate_teardown_failure")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
             json!({ "destroyed": false, "error": "SIMULATED teardown failure (endpoint.simulate_teardown_failure) — validates the incomplete-teardown warning path", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the RunPod console" })
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — no real pod existed" })
@@ -1638,24 +1992,31 @@ impl EnvironmentProvider for RunPodProvider {
         inst["status"] = json!("torn_down");
         inst["torn_down_at"] = json!(iso_now());
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": "torn_down",
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }))
+                   "cleanup_verified": true }),
+        )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
         match self.instance(data_dir, env_ref) {
-            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            None => {
+                json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" })
+            }
             Some(inst) => {
-                let boot_pending = text(&inst, "execution_mode") == "live" && inst.get("ssh").map(Value::is_null).unwrap_or(true);
-                let lane_view = if text(&inst, "status") == "torn_down" { Value::Null }
-                    else if boot_pending { json!({ "boot": "pending — run start to poll the provider until ssh readiness is proven" }) }
-                    else {
-                        match self.ssh_lane(data_dir, env_ref) {
-                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
-                            Err(e) => json!({ "error": e }),
-                        }
-                    };
+                let boot_pending = text(&inst, "execution_mode") == "live"
+                    && inst.get("ssh").map(Value::is_null).unwrap_or(true);
+                let lane_view = if text(&inst, "status") == "torn_down" {
+                    Value::Null
+                } else if boot_pending {
+                    json!({ "boot": "pending — run start to poll the provider until ssh readiness is proven" })
+                } else {
+                    match self.ssh_lane(data_dir, env_ref) {
+                        Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                        Err(e) => json!({ "error": e }),
+                    }
+                };
                 json!({ "provider": self.id(), "environment_ref": env_ref,
                         "instance_id": inst["instance_id"], "status": inst["status"],
                         "execution_mode": inst["execution_mode"],
@@ -1690,8 +2051,16 @@ impl LambdaProvider {
         vast_mode(&self.account)
     }
     fn base(&self) -> String {
-        let configured = self.account.pointer("/endpoint/endpoint").and_then(Value::as_str).unwrap_or("");
-        if configured.is_empty() { "https://cloud.lambda.ai/api/v1".into() } else { configured.trim_end_matches('/').to_string() }
+        let configured = self
+            .account
+            .pointer("/endpoint/endpoint")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if configured.is_empty() {
+            "https://cloud.lambda.ai/api/v1".into()
+        } else {
+            configured.trim_end_matches('/').to_string()
+        }
     }
     fn bearer(&self, data_dir: &str) -> Result<String, String> {
         load_account_credential(data_dir, self.account_id())
@@ -1706,7 +2075,8 @@ impl LambdaProvider {
         let _ = persist_record(data_dir, LAMBDA_INSTANCE_KIND, &id, instance);
     }
     fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
-        let inst = self.instance(data_dir, env_ref)
+        let inst = self
+            .instance(data_dir, env_ref)
             .ok_or("lambda_instance_absent — provision with the quote-gated create op first")?;
         if text(&inst, "status") == "torn_down" {
             return Err("lambda_instance_torn_down — this VM was already torn down".into());
@@ -1718,13 +2088,19 @@ impl LambdaProvider {
             return Err("lambda_ssh_bootstrap_unknown — the VM has no usable ssh endpoint/key (it gains one only after boot polling proves readiness)".into());
         }
         let key = if !key_file.is_empty() {
-            std::fs::read_to_string(key_file).map_err(|e| format!("lambda_ssh_key_unreadable: {e}"))?
+            std::fs::read_to_string(key_file)
+                .map_err(|e| format!("lambda_ssh_key_unreadable: {e}"))?
         } else {
-            open_scm_token(sealed).ok_or("lambda_ssh_key_unsealable — sealed VM key did not decrypt")?
+            open_scm_token(sealed)
+                .ok_or("lambda_ssh_key_unsealable — sealed VM key did not decrypt")?
         };
         let dir = Path::new(data_dir).join("provider-ssh");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(format!("lambda-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        let path = dir.join(format!(
+            "lambda-{}-{}.key",
+            safe(self.account_id()),
+            safe(env_ref)
+        ));
         std::fs::write(&path, key).map_err(|e| e.to_string())?;
         #[cfg(unix)]
         {
@@ -1732,7 +2108,11 @@ impl LambdaProvider {
             let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
         }
         // Live Lambda VMs use ssh user `ubuntu`; simulator inherits the fixture's endpoint.ssh.
-        let user = if text(&ssh, "user").is_empty() { "ubuntu" } else { text(&ssh, "user") };
+        let user = if text(&ssh, "user").is_empty() {
+            "ubuntu"
+        } else {
+            text(&ssh, "user")
+        };
         let synthetic = json!({
             "account_id": self.account_id(),
             "account_ref": self.account["account_ref"],
@@ -1740,12 +2120,21 @@ impl LambdaProvider {
             "kind": "lambda_cloud", "status": "verified",
             "endpoint": { "host": ssh["host"], "port": ssh.get("port").cloned().unwrap_or(json!(22)), "user": user },
         });
-        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+        Ok((
+            SshProvider {
+                account: synthetic,
+                key_path: path.clone(),
+            },
+            KeyGuard(path),
+        ))
     }
     /// Simulator: does this account defer ssh readiness to boot polling (endpoint.simulate_
     /// boot_delay:true)? Proves the ssh-unknown-until-boot contract in CI without a live VM.
     fn sim_boot_delay(&self) -> bool {
-        self.account.pointer("/endpoint/simulate_boot_delay").and_then(Value::as_bool) == Some(true)
+        self.account
+            .pointer("/endpoint/simulate_boot_delay")
+            .and_then(Value::as_bool)
+            == Some(true)
     }
 }
 impl EnvironmentProvider for LambdaProvider {
@@ -1755,13 +2144,21 @@ impl EnvironmentProvider for LambdaProvider {
     fn capabilities(&self) -> Value {
         let mut caps = kind_capabilities("lambda_cloud");
         caps["provider_spend_borne_by"] = json!("customer");
-        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, teardown required");
+        caps["lifecycle"] = json!(
+            "guarded_lifecycle — quote-gated create, wallet-gated mutations, teardown required"
+        );
         caps["execution_mode"] = json!(self.mode());
         caps
     }
     fn status(&self) -> (&'static str, String) {
         match text(&self.account, "status") {
-            "verified" => ("available", format!("guarded lambda GPU VM lifecycle ({} control plane)", self.mode())),
+            "verified" => (
+                "available",
+                format!(
+                    "guarded lambda GPU VM lifecycle ({} control plane)",
+                    self.mode()
+                ),
+            ),
             "revoked" => ("revoked", "credential revoked".into()),
             _ => ("unverified", "bind + preflight the credential".into()),
         }
@@ -1780,7 +2177,11 @@ impl EnvironmentProvider for LambdaProvider {
         let mode = self.mode();
         let record_id = format!("lminst_{:x}", nanos());
         if mode == "simulator" {
-            let ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+            let ssh = self
+                .account
+                .pointer("/endpoint/ssh")
+                .cloned()
+                .unwrap_or(Value::Null);
             if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
                 return Err("lambda_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
             }
@@ -1822,25 +2223,36 @@ impl EnvironmentProvider for LambdaProvider {
             }));
         }
         if mode == "live" {
-            let instance_type = plan.get("instance_type").and_then(Value::as_str)
-                .ok_or("lambda_live_instance_type_missing — the validated quote carries no instance type")?;
+            let instance_type = plan.get("instance_type").and_then(Value::as_str).ok_or(
+                "lambda_live_instance_type_missing — the validated quote carries no instance type",
+            )?;
             let region = plan.get("region").and_then(Value::as_str)
                 .ok_or("lambda_live_region_missing — provide a region with capacity (the wallet challenge binds it)")?;
             let bearer = self.bearer(data_dir)?;
             let base = self.base();
             let keydir = Path::new(data_dir).join("provider-ssh");
             std::fs::create_dir_all(&keydir).map_err(|e| e.to_string())?;
-            let tmp = keydir.join(format!("lambda-live-{}-{}.tmp", safe(self.account_id()), safe(env_ref)));
+            let tmp = keydir.join(format!(
+                "lambda-live-{}-{}.tmp",
+                safe(self.account_id()),
+                safe(env_ref)
+            ));
             let _ = std::fs::remove_file(&tmp);
             let _ = std::fs::remove_file(format!("{}.pub", tmp.to_string_lossy()));
             let keygen = std::process::Command::new("ssh-keygen")
-                .args(["-t", "ed25519", "-N", "", "-q", "-f"]).arg(&tmp)
-                .output().map_err(|e| format!("lambda_ssh_keygen_failed: {e}"))?;
+                .args(["-t", "ed25519", "-N", "", "-q", "-f"])
+                .arg(&tmp)
+                .output()
+                .map_err(|e| format!("lambda_ssh_keygen_failed: {e}"))?;
             if !keygen.status.success() {
-                return Err(format!("lambda_ssh_keygen_failed: {}", String::from_utf8_lossy(&keygen.stderr)));
+                return Err(format!(
+                    "lambda_ssh_keygen_failed: {}",
+                    String::from_utf8_lossy(&keygen.stderr)
+                ));
             }
             let private_key = std::fs::read_to_string(&tmp).map_err(|e| e.to_string())?;
-            let public_key = std::fs::read_to_string(format!("{}.pub", tmp.to_string_lossy())).map_err(|e| e.to_string())?;
+            let public_key = std::fs::read_to_string(format!("{}.pub", tmp.to_string_lossy()))
+                .map_err(|e| e.to_string())?;
             let _ = std::fs::remove_file(&tmp);
             let _ = std::fs::remove_file(format!("{}.pub", tmp.to_string_lossy()));
             let sealed_key = seal_scm_token(private_key.trim())
@@ -1850,29 +2262,47 @@ impl EnvironmentProvider for LambdaProvider {
                 tokio::runtime::Handle::current().block_on(async {
                     let client = reqwest::Client::new();
                     // Register the ephemeral pubkey, then launch the VM bound to it.
-                    let _ = client.post(format!("{base}/ssh-keys"))
+                    let _ = client
+                        .post(format!("{base}/ssh-keys"))
                         .bearer_auth(&bearer)
                         .json(&json!({ "name": key_name, "public_key": public_key.trim() }))
                         .timeout(std::time::Duration::from_secs(20))
-                        .send().await;
-                    let resp = client.post(format!("{base}/instance-operations/launch"))
+                        .send()
+                        .await;
+                    let resp = client
+                        .post(format!("{base}/instance-operations/launch"))
                         .bearer_auth(&bearer)
-                        .json(&json!({ "region_name": region, "instance_type_name": instance_type,
+                        .json(
+                            &json!({ "region_name": region, "instance_type_name": instance_type,
                                        "ssh_key_names": [key_name], "quantity": 1,
-                                       "name": format!("ioi-hypervisor-{}", safe(env_ref)) }))
+                                       "name": format!("ioi-hypervisor-{}", safe(env_ref)) }),
+                        )
                         .timeout(std::time::Duration::from_secs(30))
-                        .send().await.map_err(|e| format!("lambda_live_provision_failed: {e}"))?;
+                        .send()
+                        .await
+                        .map_err(|e| format!("lambda_live_provision_failed: {e}"))?;
                     let status = resp.status().as_u16();
-                    let body: Value = resp.json().await.map_err(|e| format!("lambda_live_provision_failed: non-JSON response: {e}"))?;
+                    let body: Value = resp.json().await.map_err(|e| {
+                        format!("lambda_live_provision_failed: non-JSON response: {e}")
+                    })?;
                     if !(200..300).contains(&status) {
-                        return Err(format!("lambda_live_provision_failed: http {status} {body}"));
+                        return Err(format!(
+                            "lambda_live_provision_failed: http {status} {body}"
+                        ));
                     }
                     Ok(body)
                 })
             });
             let body = created?;
-            let native_id = body.pointer("/data/instance_ids").and_then(Value::as_array).and_then(|a| a.first().cloned())
-                .or_else(|| body.pointer("/instance_ids").and_then(Value::as_array).and_then(|a| a.first().cloned()))
+            let native_id = body
+                .pointer("/data/instance_ids")
+                .and_then(Value::as_array)
+                .and_then(|a| a.first().cloned())
+                .or_else(|| {
+                    body.pointer("/instance_ids")
+                        .and_then(Value::as_array)
+                        .and_then(|a| a.first().cloned())
+                })
                 .unwrap_or(Value::Null);
             let instance = json!({
                 "schema_version": "ioi.hypervisor.lambda-instance.v1",
@@ -1899,10 +2329,15 @@ impl EnvironmentProvider for LambdaProvider {
                 "teardown_required": true,
             }));
         }
-        Err("lambda_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into())
+        Err(
+            "lambda_lifecycle_mode_unset — set the account endpoint mode to simulator or live"
+                .into(),
+        )
     }
     fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("lambda_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("lambda_instance_absent")?;
         if text(&inst, "status") == "torn_down" {
             return Err("lambda_instance_torn_down".into());
         }
@@ -1911,8 +2346,13 @@ impl EnvironmentProvider for LambdaProvider {
         // recorded sim_ssh once (proving the readiness-gated persist without a live VM).
         if inst.get("ssh").map(Value::is_null).unwrap_or(true) {
             if text(&inst, "execution_mode") == "live" {
-                let native = inst.pointer("/provider_native/instance_id").cloned().unwrap_or(Value::Null);
-                let nid = native.as_str().map(str::to_string)
+                let native = inst
+                    .pointer("/provider_native/instance_id")
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                let nid = native
+                    .as_str()
+                    .map(str::to_string)
                     .ok_or("lambda_boot_poll_failed — no provider-native id on the VM record")?;
                 let bearer = self.bearer(data_dir)?;
                 let base = self.base();
@@ -1923,22 +2363,35 @@ impl EnvironmentProvider for LambdaProvider {
                     attempts += 1;
                     let fetched: Result<Value, String> = tokio::task::block_in_place(|| {
                         tokio::runtime::Handle::current().block_on(async {
-                            let r = reqwest::Client::new().get(format!("{base}/instances/{nid}"))
+                            let r = reqwest::Client::new()
+                                .get(format!("{base}/instances/{nid}"))
                                 .bearer_auth(&bearer)
                                 .timeout(std::time::Duration::from_secs(15))
-                                .send().await.map_err(|e| e.to_string())?;
+                                .send()
+                                .await
+                                .map_err(|e| e.to_string())?;
                             r.json::<Value>().await.map_err(|e| e.to_string())
                         })
                     });
                     if let Ok(doc) = fetched {
                         let node = doc.get("data").cloned().unwrap_or(doc);
-                        last_status = node.get("status").and_then(Value::as_str).unwrap_or("unknown").to_string();
-                        let ip = node.get("ip").and_then(Value::as_str).unwrap_or("").to_string();
+                        last_status = node
+                            .get("status")
+                            .and_then(Value::as_str)
+                            .unwrap_or("unknown")
+                            .to_string();
+                        let ip = node
+                            .get("ip")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_string();
                         if last_status.eq_ignore_ascii_case("active") && !ip.is_empty() {
                             break Some(ip);
                         }
                     }
-                    if std::time::Instant::now() >= deadline { break None; }
+                    if std::time::Instant::now() >= deadline {
+                        break None;
+                    }
                     std::thread::sleep(std::time::Duration::from_secs(15));
                 };
                 let Some(ip) = polled else {
@@ -1950,7 +2403,10 @@ impl EnvironmentProvider for LambdaProvider {
                 // simulator boot delay: readiness "proven" from the recorded sim endpoint.
                 let sim_ssh = inst.get("sim_ssh").cloned().unwrap_or(Value::Null);
                 if text(&sim_ssh, "host").is_empty() {
-                    return Err("lambda_boot_poll_failed — simulator instance has no recorded ssh endpoint".into());
+                    return Err(
+                        "lambda_boot_poll_failed — simulator instance has no recorded ssh endpoint"
+                            .into(),
+                    );
                 }
                 boot_evidence = json!({ "polled_attempts": 1, "status": "active", "ssh_host": sim_ssh["host"], "ssh_port": sim_ssh.get("port").cloned().unwrap_or(json!(22)), "proven_at": iso_now(), "note": "simulated boot delay resolved" });
                 inst["ssh"] = sim_ssh;
@@ -1969,9 +2425,11 @@ impl EnvironmentProvider for LambdaProvider {
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("running");
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
-                   "boot_evidence": boot_evidence }))
+                   "boot_evidence": boot_evidence }),
+        )
     }
     fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -1980,15 +2438,19 @@ impl EnvironmentProvider for LambdaProvider {
     fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         // Lambda-class VMs have NO native stop — the VM runs (and bills) until terminate.
         // Only the workspace lane halts; saying "stopped" here would fake the spend posture.
-        let mut inst = self.instance(data_dir, env_ref).ok_or("lambda_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("lambda_instance_absent")?;
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let stopped = lane.stop(data_dir, env_ref)?;
         inst["status"] = json!("workspace_stopped_vm_running");
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "workspace_stopped_vm_running",
                    "spend_note": "lambda-class VMs have no native stop — the VM keeps running and accruing customer-borne spend until teardown; only the workspace lane halted",
-                   "lane": stopped }))
+                   "lane": stopped }),
+        )
     }
     fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -2005,33 +2467,56 @@ impl EnvironmentProvider for LambdaProvider {
         Err("lambda_recover_not_supported — recovery is restore-from-daemon-custody after re-launching; run create + restore explicitly".into())
     }
     fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("lambda_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("lambda_instance_absent")?;
         let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
-            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Ok((lane, _guard)) => lane
+                .delete(data_dir, env_ref)
+                .map(|e| e["cleanup_verified"].clone())
+                .unwrap_or(json!("unreachable")),
             Err(e) => json!(format!("skipped: {e}")),
         };
         let native_teardown = if text(&inst, "execution_mode") == "live" {
-            let native = inst.pointer("/provider_native/instance_id").and_then(Value::as_str).map(str::to_string);
+            let native = inst
+                .pointer("/provider_native/instance_id")
+                .and_then(Value::as_str)
+                .map(str::to_string);
             match (native, self.bearer(data_dir)) {
                 (Some(nid), Ok(bearer)) => {
                     let base = self.base();
                     let result: Result<u16, String> = tokio::task::block_in_place(|| {
                         tokio::runtime::Handle::current().block_on(async {
-                            reqwest::Client::new().post(format!("{base}/instance-operations/terminate"))
+                            reqwest::Client::new()
+                                .post(format!("{base}/instance-operations/terminate"))
                                 .bearer_auth(&bearer)
                                 .json(&json!({ "instance_ids": [nid] }))
                                 .timeout(std::time::Duration::from_secs(30))
-                                .send().await.map(|r| r.status().as_u16()).map_err(|e| e.to_string())
+                                .send()
+                                .await
+                                .map(|r| r.status().as_u16())
+                                .map_err(|e| e.to_string())
                         })
                     });
                     match result {
-                        Ok(status) => json!({ "destroyed": (200..300).contains(&status), "http_status": status }),
-                        Err(e) => json!({ "destroyed": false, "error": e, "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Lambda console" }),
+                        Ok(status) => {
+                            json!({ "destroyed": (200..300).contains(&status), "http_status": status })
+                        }
+                        Err(e) => {
+                            json!({ "destroyed": false, "error": e, "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Lambda console" })
+                        }
                     }
                 }
-                _ => json!({ "destroyed": false, "error": "instance id or credential unavailable" }),
+                _ => {
+                    json!({ "destroyed": false, "error": "instance id or credential unavailable" })
+                }
             }
-        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+        } else if self
+            .account
+            .pointer("/endpoint/simulate_teardown_failure")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
             json!({ "destroyed": false, "error": "SIMULATED teardown failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Lambda console" })
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — no real VM existed" })
@@ -2039,24 +2524,31 @@ impl EnvironmentProvider for LambdaProvider {
         inst["status"] = json!("torn_down");
         inst["torn_down_at"] = json!(iso_now());
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": "torn_down",
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }))
+                   "cleanup_verified": true }),
+        )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
         match self.instance(data_dir, env_ref) {
-            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            None => {
+                json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" })
+            }
             Some(inst) => {
-                let boot_pending = inst.get("ssh").map(Value::is_null).unwrap_or(true) && text(&inst, "status") != "torn_down";
-                let lane_view = if text(&inst, "status") == "torn_down" { Value::Null }
-                    else if boot_pending { json!({ "boot": "pending — run start to poll until ssh readiness is proven" }) }
-                    else {
-                        match self.ssh_lane(data_dir, env_ref) {
-                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
-                            Err(e) => json!({ "error": e }),
-                        }
-                    };
+                let boot_pending = inst.get("ssh").map(Value::is_null).unwrap_or(true)
+                    && text(&inst, "status") != "torn_down";
+                let lane_view = if text(&inst, "status") == "torn_down" {
+                    Value::Null
+                } else if boot_pending {
+                    json!({ "boot": "pending — run start to poll until ssh readiness is proven" })
+                } else {
+                    match self.ssh_lane(data_dir, env_ref) {
+                        Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                        Err(e) => json!({ "error": e }),
+                    }
+                };
                 json!({ "provider": self.id(), "environment_ref": env_ref,
                         "instance_id": inst["instance_id"], "status": inst["status"],
                         "execution_mode": inst["execution_mode"], "region": inst["region"], "instance_type": inst["instance_type"],
@@ -2067,9 +2559,6 @@ impl EnvironmentProvider for LambdaProvider {
         }
     }
 }
-
-
-
 
 // --- gcp GUARDED LIFECYCLE: the second ENTERPRISE hyperscaler lane — GCP semantics, never   ---
 // --- EC2 names: service-account authority, project/zone scoping, VPC network/subnetwork/    ---
@@ -2104,13 +2593,18 @@ impl GcpProvider {
         let _ = persist_record(data_dir, GCP_INSTANCE_KIND, &id, inst);
     }
     fn push_event(inst: &mut Value, kind: &str, detail: String) {
-        let mut events = inst.get("events").and_then(Value::as_array).cloned().unwrap_or_default();
+        let mut events = inst
+            .get("events")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         events.push(json!({ "at": iso_now(), "kind": kind, "detail": detail,
                             "execution_mode": inst["execution_mode"] }));
         inst["events"] = json!(events);
     }
     fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
-        let inst = self.instance(data_dir, env_ref)
+        let inst = self
+            .instance(data_dir, env_ref)
             .ok_or("gcp_instance_absent — provision with the quote-gated create op first")?;
         if text(&inst, "status") == "torn_down" {
             return Err("gcp_instance_deleted — this instance was already deleted".into());
@@ -2119,10 +2613,15 @@ impl GcpProvider {
         if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
             return Err("gcp_ssh_bootstrap_unknown — the instance has no proven ssh endpoint (it gains one only after boot polling proves readiness through a reachable network/firewall posture; instance state alone is never readiness)".into());
         }
-        let key = std::fs::read_to_string(text(&ssh, "key_file")).map_err(|e| format!("gcp_ssh_key_unreadable: {e}"))?;
+        let key = std::fs::read_to_string(text(&ssh, "key_file"))
+            .map_err(|e| format!("gcp_ssh_key_unreadable: {e}"))?;
         let dir = Path::new(data_dir).join("provider-ssh");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(format!("gcp-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        let path = dir.join(format!(
+            "gcp-{}-{}.key",
+            safe(self.account_id()),
+            safe(env_ref)
+        ));
         std::fs::write(&path, key).map_err(|e| e.to_string())?;
         #[cfg(unix)]
         {
@@ -2136,11 +2635,23 @@ impl GcpProvider {
             "kind": "gcp", "status": "verified",
             "endpoint": { "host": ssh["host"], "port": ssh.get("port").cloned().unwrap_or(json!(22)), "user": ssh["user"] },
         });
-        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+        Ok((
+            SshProvider {
+                account: synthetic,
+                key_path: path.clone(),
+            },
+            KeyGuard(path),
+        ))
     }
     fn network_reachable(inst: &Value) -> Result<(), String> {
-        let external_ip = inst.pointer("/network_posture/public_ip").and_then(Value::as_bool).unwrap_or(true);
-        let ingress = inst.pointer("/network_posture/ssh_ingress").and_then(Value::as_bool).unwrap_or(true);
+        let external_ip = inst
+            .pointer("/network_posture/public_ip")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        let ingress = inst
+            .pointer("/network_posture/ssh_ingress")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
         if !external_ip {
             return Err("gcp_ssh_ingress_unreachable — private-only network posture (no external IP): SSH readiness cannot be proven; workspace ops fail closed, never fake-ready. Attach an external IP / reachable path (IAP/bastion) or use a BYO node inside the VPC".into());
         }
@@ -2157,15 +2668,26 @@ impl EnvironmentProvider for GcpProvider {
     fn capabilities(&self) -> Value {
         let mut caps = kind_capabilities("gcp");
         caps["provider_spend_borne_by"] = json!("customer");
-        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, delete required");
+        caps["lifecycle"] = json!(
+            "guarded_lifecycle — quote-gated create, wallet-gated mutations, delete required"
+        );
         caps["execution_mode"] = json!(self.mode());
         caps
     }
     fn status(&self) -> (&'static str, String) {
         match text(&self.account, "status") {
-            "verified" => ("available", format!("guarded gcp Compute Engine enterprise lifecycle ({} control plane)", self.mode())),
+            "verified" => (
+                "available",
+                format!(
+                    "guarded gcp Compute Engine enterprise lifecycle ({} control plane)",
+                    self.mode()
+                ),
+            ),
             "revoked" => ("revoked", "credential revoked".into()),
-            _ => ("unverified", "bind + preflight the service-account credential".into()),
+            _ => (
+                "unverified",
+                "bind + preflight the service-account credential".into(),
+            ),
         }
     }
     fn preflight(&self, _plan: &Value) -> Value {
@@ -2187,9 +2709,16 @@ impl EnvironmentProvider for GcpProvider {
             return Err("gcp_live_api_flow_not_implemented — the Compute Engine instances.insert/get flow lands with the live harness cut; a fake instance is never minted".into());
         }
         if mode != "simulator" {
-            return Err("gcp_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into());
+            return Err(
+                "gcp_lifecycle_mode_unset — set the account endpoint mode to simulator or live"
+                    .into(),
+            );
         }
-        let sim_ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+        let sim_ssh = self
+            .account
+            .pointer("/endpoint/ssh")
+            .cloned()
+            .unwrap_or(Value::Null);
         if text(&sim_ssh, "host").is_empty() || text(&sim_ssh, "key_file").is_empty() {
             return Err("gcp_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
         }
@@ -2199,7 +2728,11 @@ impl EnvironmentProvider for GcpProvider {
         let disk_name = format!("sim-disk-{stamp:x}");
         let project = {
             let p = plan.get("project").and_then(Value::as_str).unwrap_or("");
-            if p.is_empty() { "sim-project" } else { p }
+            if p.is_empty() {
+                "sim-project"
+            } else {
+                p
+            }
         };
         let zone = text(plan, "zone").to_string();
         let network = plan.get("network_posture").cloned()
@@ -2226,7 +2759,11 @@ impl EnvironmentProvider for GcpProvider {
                 "note": "SIMULATED Compute Engine/Persistent Disk ids — evidence only, never restore or billing truth; no real GCP instance exists" },
             "created_at": iso_now(),
         });
-        let posture_label = inst.pointer("/network_posture/posture_label").and_then(Value::as_str).unwrap_or("?").to_string();
+        let posture_label = inst
+            .pointer("/network_posture/posture_label")
+            .and_then(Value::as_str)
+            .unwrap_or("?")
+            .to_string();
         Self::push_event(&mut inst, "instances_insert_accepted", format!("{} in {zone} ({posture_label}) — Cloud Audit Log refs land with the live harness (the audit log is the customer's)", text(plan, "machine_type")));
         self.save_instance(data_dir, &inst);
         Ok(json!({
@@ -2243,14 +2780,19 @@ impl EnvironmentProvider for GcpProvider {
         }))
     }
     fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("gcp_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("gcp_instance_absent")?;
         if text(&inst, "status") == "torn_down" {
             return Err("gcp_instance_deleted".into());
         }
         let mut boot_evidence = Value::Null;
         if inst.get("ssh").map(Value::is_null).unwrap_or(true) {
             if text(&inst, "execution_mode") == "live" {
-                return Err("gcp_live_api_flow_not_implemented — no live instance exists to boot-poll".into());
+                return Err(
+                    "gcp_live_api_flow_not_implemented — no live instance exists to boot-poll"
+                        .into(),
+                );
             }
             Self::network_reachable(&inst)?;
             let sim_ssh = inst.get("sim_ssh").cloned().unwrap_or(Value::Null);
@@ -2260,7 +2802,11 @@ impl EnvironmentProvider for GcpProvider {
                 "note": "simulated boot resolved through the declared reachable network/firewall posture — RUNNING state alone was not treated as readiness" });
             inst["ssh"] = sim_ssh;
             inst["ssh_ready_evidence"] = boot_evidence.clone();
-            Self::push_event(&mut inst, "boot_proven", "ssh readiness proven through the reachable network/firewall posture".into());
+            Self::push_event(
+                &mut inst,
+                "boot_proven",
+                "ssh readiness proven through the reachable network/firewall posture".into(),
+            );
             self.save_instance(data_dir, &inst);
         }
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -2271,13 +2817,21 @@ impl EnvironmentProvider for GcpProvider {
         lane.start(data_dir, env_ref)?;
         let was_stopped = text(&inst, "status") == "TERMINATED";
         inst["status"] = json!("RUNNING");
-        Self::push_event(&mut inst, "instance_started", if was_stopped {
-            "started from TERMINATED — vCPU/RAM billing resumes; an ephemeral external IP changes across stop/start (a reserved static IP pins it); the simulator retains the fixture endpoint".into()
-        } else { "workspace running".into() });
+        Self::push_event(
+            &mut inst,
+            "instance_started",
+            if was_stopped {
+                "started from TERMINATED — vCPU/RAM billing resumes; an ephemeral external IP changes across stop/start (a reserved static IP pins it); the simulator retains the fixture endpoint".into()
+            } else {
+                "workspace running".into()
+            },
+        );
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "instance_name": inst["instance_name"], "status": "RUNNING", "ssh_ready": true,
-                   "boot_evidence": boot_evidence }))
+                   "boot_evidence": boot_evidence }),
+        )
     }
     fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -2286,32 +2840,47 @@ impl EnvironmentProvider for GcpProvider {
     fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         // REAL Compute Engine stop semantics: a stopped instance reads TERMINATED — vCPU/RAM
         // billing halts; Persistent Disk (and any reserved static IP) keeps billing.
-        let mut inst = self.instance(data_dir, env_ref).ok_or("gcp_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("gcp_instance_absent")?;
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let stopped = lane.stop(data_dir, env_ref)?;
         inst["status"] = json!("TERMINATED");
-        Self::push_event(&mut inst, "instance_stopped", "state TERMINATED — vCPU/RAM billing halts; Persistent Disk keeps billing until delete".into());
+        Self::push_event(
+            &mut inst,
+            "instance_stopped",
+            "state TERMINATED — vCPU/RAM billing halts; Persistent Disk keeps billing until delete"
+                .into(),
+        );
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "instance_name": inst["instance_name"], "status": "TERMINATED",
                    "spend_note": "Compute Engine stop reads TERMINATED: vCPU/RAM billing halts; the Persistent Disk boot volume keeps billing until delete — the exposure stays open until teardown",
-                   "lane": stopped }))
+                   "lane": stopped }),
+        )
     }
     fn restart(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         // Compute Engine reset: in-place hard restart, endpoint retained.
-        let mut inst = self.instance(data_dir, env_ref).ok_or("gcp_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("gcp_instance_absent")?;
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let _ = lane.stop(data_dir, env_ref);
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("RUNNING");
         Self::push_event(&mut inst, "instance_reset", "in-place reset — endpoint retained (a stop/start cycle, by contrast, changes an ephemeral external IP)".into());
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
                    "instance_name": inst["instance_name"], "status": "RUNNING",
-                   "note": "Compute Engine reset semantics — endpoint retained; vCPU/RAM billing keeps accruing" }))
+                   "note": "Compute Engine reset semantics — endpoint retained; vCPU/RAM billing keeps accruing" }),
+        )
     }
     fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("gcp_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("gcp_instance_absent")?;
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let mut evidence = lane.snapshot(data_dir, env_ref)?;
         let native = json!({
@@ -2338,29 +2907,47 @@ impl EnvironmentProvider for GcpProvider {
         Err("gcp_recover_not_supported — recovery is re-create + restore from daemon/storage custody; run create + restore explicitly".into())
     }
     fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("gcp_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("gcp_instance_absent")?;
         let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
-            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Ok((lane, _guard)) => lane
+                .delete(data_dir, env_ref)
+                .map(|e| e["cleanup_verified"].clone())
+                .unwrap_or(json!("unreachable")),
             Err(e) => json!(format!("skipped: {e}")),
         };
         let native_teardown = if text(&inst, "execution_mode") == "live" {
             json!({ "destroyed": false, "error": "gcp_live_api_flow_not_implemented", "warning": "TEARDOWN MAY BE INCOMPLETE — no live instances.delete call exists yet" })
-        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+        } else if self
+            .account
+            .pointer("/endpoint/simulate_teardown_failure")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
             json!({ "destroyed": false, "error": "SIMULATED delete failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Compute Engine console (vCPU/RAM and Persistent Disk may still accrue)" })
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — instance deleted, Persistent Disk auto-deleted with the instance; no real GCP instance existed" })
         };
         inst["status"] = json!("torn_down");
         inst["torn_down_at"] = json!(iso_now());
-        Self::push_event(&mut inst, "instance_deleted", "delete always — boot disk auto-deleted with the instance per posture".into());
+        Self::push_event(
+            &mut inst,
+            "instance_deleted",
+            "delete always — boot disk auto-deleted with the instance per posture".into(),
+        );
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_name": inst["instance_name"], "teardown_state": "torn_down",
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }))
+                   "cleanup_verified": true }),
+        )
     }
     fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let inst = self.instance(data_dir, env_ref).ok_or("gcp_instance_absent")?;
+        let inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("gcp_instance_absent")?;
         Ok(json!({
             "instance_name": inst["instance_name"],
             "events": inst.get("events").cloned().unwrap_or(json!([])),
@@ -2370,18 +2957,22 @@ impl EnvironmentProvider for GcpProvider {
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
         match self.instance(data_dir, env_ref) {
-            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            None => {
+                json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" })
+            }
             Some(inst) => {
                 let torn = text(&inst, "status") == "torn_down";
                 let boot_pending = inst.get("ssh").map(Value::is_null).unwrap_or(true) && !torn;
-                let lane_view = if torn { Value::Null }
-                    else if boot_pending { json!({ "boot": "pending — run start to poll until ssh readiness is proven through a reachable posture" }) }
-                    else {
-                        match self.ssh_lane(data_dir, env_ref) {
-                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
-                            Err(e) => json!({ "error": e }),
-                        }
-                    };
+                let lane_view = if torn {
+                    Value::Null
+                } else if boot_pending {
+                    json!({ "boot": "pending — run start to poll until ssh readiness is proven through a reachable posture" })
+                } else {
+                    match self.ssh_lane(data_dir, env_ref) {
+                        Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                        Err(e) => json!({ "error": e }),
+                    }
+                };
                 json!({ "provider": self.id(), "environment_ref": env_ref,
                         "instance_name": inst["instance_name"], "status": inst["status"],
                         "execution_mode": inst["execution_mode"],
@@ -2395,7 +2986,6 @@ impl EnvironmentProvider for GcpProvider {
         }
     }
 }
-
 
 // --- k8s GUARDED LIFECYCLE: the CLUSTER substrate lane — Kubernetes/KubeVirt/customer       ---
 // --- clusters treated as CLUSTERS: namespace-scoped admission (RBAC/quota/PVC/GPU/service), ---
@@ -2424,13 +3014,20 @@ impl K8sProvider {
         vast_mode(&self.account)
     }
     fn facts(&self) -> Result<Value, String> {
-        let path = self.account.pointer("/endpoint/fixture_file").and_then(Value::as_str).unwrap_or("");
+        let path = self
+            .account
+            .pointer("/endpoint/fixture_file")
+            .and_then(Value::as_str)
+            .unwrap_or("");
         if path.is_empty() {
             return Err("k8s_cluster_facts_missing — simulator mode needs endpoint.fixture_file (the cluster facts document)".into());
         }
         std::fs::read_to_string(path)
             .map_err(|e| format!("k8s_cluster_facts_unreadable: {e}"))
-            .and_then(|raw| serde_json::from_str::<Value>(&raw).map_err(|e| format!("k8s_cluster_facts_unparseable: {e}")))
+            .and_then(|raw| {
+                serde_json::from_str::<Value>(&raw)
+                    .map_err(|e| format!("k8s_cluster_facts_unparseable: {e}"))
+            })
     }
     fn workload(&self, data_dir: &str, env_ref: &str) -> Option<Value> {
         load_k8s_workload(data_dir, self.account_id(), env_ref)
@@ -2440,7 +3037,11 @@ impl K8sProvider {
         let _ = persist_record(data_dir, K8S_WORKLOAD_KIND, &id, w);
     }
     fn push_event(w: &mut Value, kind: &str, detail: String) {
-        let mut events = w.get("events").and_then(Value::as_array).cloned().unwrap_or_default();
+        let mut events = w
+            .get("events")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         events.push(json!({ "at": iso_now(), "kind": kind, "detail": detail,
                             "execution_mode": w["execution_mode"] }));
         w["events"] = json!(events);
@@ -2461,7 +3062,9 @@ impl K8sProvider {
         ))
     }
     fn ready_workload(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent — admit one with the gated create op first")?;
+        let w = self
+            .workload(data_dir, env_ref)
+            .ok_or("k8s_workload_absent — admit one with the gated create op first")?;
         if text(&w, "status") == "torn_down" {
             return Err("k8s_workload_deleted — this workload was already deleted".into());
         }
@@ -2478,15 +3081,26 @@ impl EnvironmentProvider for K8sProvider {
     fn capabilities(&self) -> Value {
         let mut caps = kind_capabilities("k8s");
         caps["provider_spend_borne_by"] = json!("customer");
-        caps["lifecycle"] = json!("guarded_lifecycle — admission-gated create, wallet-gated mutations, delete required");
+        caps["lifecycle"] = json!(
+            "guarded_lifecycle — admission-gated create, wallet-gated mutations, delete required"
+        );
         caps["execution_mode"] = json!(self.mode());
         caps
     }
     fn status(&self) -> (&'static str, String) {
         match text(&self.account, "status") {
-            "verified" => ("available", format!("guarded k8s cluster lifecycle ({} control plane)", self.mode())),
+            "verified" => (
+                "available",
+                format!(
+                    "guarded k8s cluster lifecycle ({} control plane)",
+                    self.mode()
+                ),
+            ),
             "revoked" => ("revoked", "credential revoked".into()),
-            _ => ("unverified", "bind + preflight the bearer/kubeconfig credential".into()),
+            _ => (
+                "unverified",
+                "bind + preflight the bearer/kubeconfig credential".into(),
+            ),
         }
     }
     fn preflight(&self, _plan: &Value) -> Value {
@@ -2508,13 +3122,18 @@ impl EnvironmentProvider for K8sProvider {
             return Err("k8s_live_api_flow_not_implemented — the live pod/job/VMI admission flow lands with the live harness cut; a fake workload is never admitted".into());
         }
         if mode != "simulator" {
-            return Err("k8s_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into());
+            return Err(
+                "k8s_lifecycle_mode_unset — set the account endpoint mode to simulator or live"
+                    .into(),
+            );
         }
         // ── ADMISSION: every rung fails closed by NAME against the cluster facts. ──
         let facts = self.facts()?;
         let spec = plan.get("workload_spec").cloned().unwrap_or(json!({}));
         let namespace = text(plan, "namespace").to_string();
-        let ns = facts.get("namespaces").and_then(Value::as_array)
+        let ns = facts
+            .get("namespaces")
+            .and_then(Value::as_array)
             .and_then(|a| a.iter().find(|n| text(n, "name") == namespace).cloned());
         let Some(ns) = ns else {
             return Err(format!("k8s_namespace_missing — namespace '{namespace}' does not exist in the cluster facts"));
@@ -2527,14 +3146,28 @@ impl EnvironmentProvider for K8sProvider {
         let cpu_req = req.get("cpu_milli").and_then(Value::as_u64).unwrap_or(500);
         let mem_req = req.get("memory_gb").and_then(Value::as_u64).unwrap_or(1);
         let gpu_req = req.get("gpu").and_then(Value::as_u64).unwrap_or(0);
-        if cpu_req > quota.get("cpu_milli_available").and_then(Value::as_u64).unwrap_or(0)
-            || mem_req > quota.get("memory_gb_available").and_then(Value::as_u64).unwrap_or(0)
+        if cpu_req
+            > quota
+                .get("cpu_milli_available")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+            || mem_req
+                > quota
+                    .get("memory_gb_available")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0)
         {
             return Err(format!("k8s_quota_insufficient — requested cpu {cpu_req}m / mem {mem_req}GB exceeds the namespace quota ({quota})"));
         }
         if gpu_req > 0 {
-            let plugin = facts.pointer("/gpu/device_plugin").and_then(Value::as_str).unwrap_or("");
-            let ns_gpu = quota.get("gpu_available").and_then(Value::as_u64).unwrap_or(0);
+            let plugin = facts
+                .pointer("/gpu/device_plugin")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let ns_gpu = quota
+                .get("gpu_available")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
             if plugin.is_empty() || gpu_req > ns_gpu {
                 return Err(format!("k8s_gpu_unschedulable — requested {gpu_req} GPU(s) but device-plugin/quota posture admits {ns_gpu} (plugin: '{plugin}'); GPU scheduling is never assumed"));
             }
@@ -2542,8 +3175,15 @@ impl EnvironmentProvider for K8sProvider {
         let pvc = spec.get("pvc").cloned().unwrap_or(Value::Null);
         if !pvc.is_null() {
             let sc = text(&pvc, "storage_class");
-            let supported = facts.get("storage_classes").and_then(Value::as_array)
-                .map(|a| a.iter().any(|c| text(c, "name") == sc && c.get("pvc_supported").and_then(Value::as_bool) == Some(true)))
+            let supported = facts
+                .get("storage_classes")
+                .and_then(Value::as_array)
+                .map(|a| {
+                    a.iter().any(|c| {
+                        text(c, "name") == sc
+                            && c.get("pvc_supported").and_then(Value::as_bool) == Some(true)
+                    })
+                })
                 .unwrap_or(false);
             if !supported {
                 return Err(format!("k8s_pvc_storage_class_unavailable — storage class '{sc}' does not support PVCs on this cluster"));
@@ -2552,27 +3192,51 @@ impl EnvironmentProvider for K8sProvider {
         let service = spec.get("service").cloned().unwrap_or(Value::Null);
         if !service.is_null() {
             let svc_type = text(&service, "type");
-            if svc_type == "LoadBalancer" && facts.pointer("/services/load_balancer").and_then(Value::as_bool) != Some(true) {
+            if svc_type == "LoadBalancer"
+                && facts
+                    .pointer("/services/load_balancer")
+                    .and_then(Value::as_bool)
+                    != Some(true)
+            {
                 return Err("k8s_service_ingress_unsupported — the cluster declares no LoadBalancer support; use ClusterIP/ingress per the cluster posture".into());
             }
         }
-        let kubevirt_req = spec.get("kubevirt").and_then(Value::as_bool).unwrap_or(false);
-        if kubevirt_req && facts.pointer("/kubevirt/installed").and_then(Value::as_bool) != Some(true) {
+        let kubevirt_req = spec
+            .get("kubevirt")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if kubevirt_req
+            && facts
+                .pointer("/kubevirt/installed")
+                .and_then(Value::as_bool)
+                != Some(true)
+        {
             return Err("k8s_kubevirt_crds_absent — a KubeVirt VMI was requested but the KubeVirt CRDs are not installed on this cluster".into());
         }
         // ── Admitted: mint the workload with a REAL local filesystem (the exec/custody lane). ──
         let stamp = nanos();
         let record_id = format!("k8swl_{stamp:x}");
         let workload_class = if kubevirt_req { "kubevirt_vmi" } else { "pod" };
-        let workload_name = if kubevirt_req { format!("vmi-sim-{stamp:x}") } else { format!("pod-sim-{stamp:x}") };
+        let workload_name = if kubevirt_req {
+            format!("vmi-sim-{stamp:x}")
+        } else {
+            format!("pod-sim-{stamp:x}")
+        };
         let uid = format!("uid-sim-{stamp:x}");
-        let workdir = Path::new(data_dir).join("k8s-workloads-fs").join(safe(self.account_id())).join(safe(env_ref));
+        let workdir = Path::new(data_dir)
+            .join("k8s-workloads-fs")
+            .join(safe(self.account_id()))
+            .join(safe(env_ref));
         std::fs::create_dir_all(&workdir).map_err(|e| format!("k8s_workload_fs_failed: {e}"))?;
-        let pvc_native = if pvc.is_null() { Value::Null } else {
+        let pvc_native = if pvc.is_null() {
+            Value::Null
+        } else {
             json!({ "pvc_name": format!("pvc-sim-{stamp:x}"), "storage_class": pvc["storage_class"], "size_gb": pvc["size_gb"],
                     "note": "SIMULATED PVC name — evidence only; PVC persistence is CLUSTER posture, never restore truth" })
         };
-        let service_native = if service.is_null() { Value::Null } else {
+        let service_native = if service.is_null() {
+            Value::Null
+        } else {
             json!({ "service_name": format!("svc-sim-{stamp:x}"), "type": service["type"], "port": service["port"],
                     "note": "SIMULATED service name — exposure evidence, not authority" })
         };
@@ -2607,49 +3271,78 @@ impl EnvironmentProvider for K8sProvider {
         }))
     }
     fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        let mut w = self
+            .workload(data_dir, env_ref)
+            .ok_or("k8s_workload_absent")?;
         if text(&w, "status") == "torn_down" {
             return Err("k8s_workload_deleted".into());
         }
         // Readiness is PROVEN by the real workload fs: a probe file round-trips through the
         // exec lane (pod phase alone is never treated as readiness).
         let workdir = text(&w, "workdir").to_string();
-        let (code, out, err) = Self::exec_in_workload(&workdir, "echo ready > .k8s-readiness-probe && cat .k8s-readiness-probe")?;
+        let (code, out, err) = Self::exec_in_workload(
+            &workdir,
+            "echo ready > .k8s-readiness-probe && cat .k8s-readiness-probe",
+        )?;
         if code != 0 || out != "ready" {
-            return Err(format!("k8s_workload_not_ready — readiness probe failed (exit {code}): {err}"));
+            return Err(format!(
+                "k8s_workload_not_ready — readiness probe failed (exit {code}): {err}"
+            ));
         }
-        let service_evidence = w.pointer("/provider_native/service").cloned().unwrap_or(Value::Null);
+        let service_evidence = w
+            .pointer("/provider_native/service")
+            .cloned()
+            .unwrap_or(Value::Null);
         w["status"] = json!("Running");
         w["ready_evidence"] = json!({ "probe": "exec round-trip through the workload fs", "proven_at": iso_now(),
                                       "note": "readiness proven by the exec lane — pod phase alone was not treated as readiness" });
-        Self::push_event(&mut w, "workload_ready", "readiness probe round-tripped through the exec lane".into());
+        Self::push_event(
+            &mut w,
+            "workload_ready",
+            "readiness probe round-tripped through the exec lane".into(),
+        );
         self.save_workload(data_dir, &w);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "workload_name": w["workload_name"], "status": "Running", "ready": true,
                    "ready_evidence": w["ready_evidence"],
-                   "service": service_evidence }))
+                   "service": service_evidence }),
+        )
     }
     fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
         let mut w = self.ready_workload(data_dir, env_ref)?;
         let workdir = text(&w, "workdir").to_string();
         let (code, stdout, stderr) = Self::exec_in_workload(&workdir, command)?;
-        Self::push_event(&mut w, "exec", format!("kubernetes exec: `{}` → exit {code}", command.chars().take(60).collect::<String>()));
+        Self::push_event(
+            &mut w,
+            "exec",
+            format!(
+                "kubernetes exec: `{}` → exit {code}",
+                command.chars().take(60).collect::<String>()
+            ),
+        );
         self.save_workload(data_dir, &w);
         if code != 0 {
             return Err(format!("k8s exec failed (exit {code}): {stderr}"));
         }
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/workrun/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/workrun/{}", self.account_id(), safe(env_ref)),
                    "exec_lane": "kubernetes_exec — a process in the workload (simulated API transport; process execution REAL); never an ssh hop",
-                   "exit_code": code, "stdout": stdout, "stderr": stderr }))
+                   "exit_code": code, "stdout": stdout, "stderr": stderr }),
+        )
     }
     fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        let mut w = self
+            .workload(data_dir, env_ref)
+            .ok_or("k8s_workload_absent")?;
         w["status"] = json!("Stopped");
         Self::push_event(&mut w, "workload_stopped", "workload stopped — customer/operator cluster: no metered spend lane by default; PVC persists per its storage class (cluster posture, not restore truth)".into());
         self.save_workload(data_dir, &w);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "workload_name": w["workload_name"], "status": "Stopped",
-                   "spend_note": "customer/operator-owned cluster — no direct provider price; a DECLARED metered posture would keep any exposure open until delete" }))
+                   "spend_note": "customer/operator-owned cluster — no direct provider price; a DECLARED metered posture would keep any exposure open until delete" }),
+        )
     }
     fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let w = self.ready_workload(data_dir, env_ref)?;
@@ -2659,17 +3352,27 @@ impl EnvironmentProvider for K8sProvider {
             .output()
             .map_err(|e| format!("k8s_snapshot_failed: {e}"))?;
         if !out.status.success() || out.stdout.is_empty() {
-            return Err(format!("k8s_snapshot_failed: {}", String::from_utf8_lossy(&out.stderr)));
+            return Err(format!(
+                "k8s_snapshot_failed: {}",
+                String::from_utf8_lossy(&out.stderr)
+            ));
         }
         let tar_bytes = out.stdout;
         let state_root = sha256_bytes(&tar_bytes);
         let stamp = format!("{:x}", nanos());
-        let dir = Path::new(data_dir).join(MATERIAL_KIND).join(safe(self.account_id())).join(safe(env_ref));
+        let dir = Path::new(data_dir)
+            .join(MATERIAL_KIND)
+            .join(safe(self.account_id()))
+            .join(safe(env_ref));
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         let file = dir.join(format!("{stamp}.tar.gz"));
         std::fs::write(&file, &tar_bytes).map_err(|e| e.to_string())?;
         let material_id = format!("pmat_{stamp}");
-        let material_ref = format!("provider-material://{}/{}/{stamp}", safe(self.account_id()), safe(env_ref));
+        let material_ref = format!(
+            "provider-material://{}/{}/{stamp}",
+            safe(self.account_id()),
+            safe(env_ref)
+        );
         let record = json!({
             "schema_version": "ioi.hypervisor.provider-material.v1",
             "material_id": material_id, "material_ref": material_ref,
@@ -2683,20 +3386,26 @@ impl EnvironmentProvider for K8sProvider {
         let mut w2 = w.clone();
         Self::push_event(&mut w2, "snapshot_taken", "workload fs streamed to daemon custody; VolumeSnapshot-style native name recorded as evidence".into());
         self.save_workload(data_dir, &w2);
-        Ok(json!({ "restore_material_ref": material_ref, "state_root": state_root, "custody": "daemon",
+        Ok(
+            json!({ "restore_material_ref": material_ref, "state_root": state_root, "custody": "daemon",
                    "bytes": tar_bytes.len(), "admitted": true,
                    "provider_native_snapshot": { "volume_snapshot_name": format!("volumesnapshot-sim-{stamp}"),
-                       "note": "SIMULATED VolumeSnapshot name — evidence only, NEVER restore truth; restores admit by the daemon state_root" } }))
+                       "note": "SIMULATED VolumeSnapshot name — evidence only, NEVER restore truth; restores admit by the daemon state_root" } }),
+        )
     }
     fn restore(&self, data_dir: &str, env_ref: &str, material_ref: &str) -> Result<Value, String> {
-        let w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        let w = self
+            .workload(data_dir, env_ref)
+            .ok_or("k8s_workload_absent")?;
         if text(&w, "status") == "torn_down" {
             return Err("k8s_workload_deleted".into());
         }
         let material = read_record_dir(data_dir, MATERIAL_KIND)
             .into_iter()
             .find(|m| text(m, "material_ref") == material_ref)
-            .ok_or(format!("restore material '{material_ref}' is not daemon-admitted"))?;
+            .ok_or(format!(
+                "restore material '{material_ref}' is not daemon-admitted"
+            ))?;
         let bytes = std::fs::read(text(&material, "path"))
             .map_err(|e| format!("custody material unreadable: {e}"))?;
         let admitted = text(&material, "state_root");
@@ -2714,20 +3423,33 @@ impl EnvironmentProvider for K8sProvider {
             .map_err(|e| format!("k8s_restore_failed: {e}"))?;
         {
             use std::io::Write;
-            child.stdin.as_mut().ok_or("k8s_restore_failed: no stdin")?.write_all(&bytes).map_err(|e| e.to_string())?;
+            child
+                .stdin
+                .as_mut()
+                .ok_or("k8s_restore_failed: no stdin")?
+                .write_all(&bytes)
+                .map_err(|e| e.to_string())?;
         }
         let status = child.wait().map_err(|e| e.to_string())?;
         if !status.success() {
             return Err("k8s_restore_failed: tar extraction failed".into());
         }
         let mut w2 = w.clone();
-        Self::push_event(&mut w2, "restored", format!("workload fs restored from daemon custody ({material_ref})"));
+        Self::push_event(
+            &mut w2,
+            "restored",
+            format!("workload fs restored from daemon custody ({material_ref})"),
+        );
         self.save_workload(data_dir, &w2);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/restore/{}", self.account_id(), safe(env_ref)),
-                   "restored_from": material_ref, "state_root_verified": admitted }))
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/restore/{}", self.account_id(), safe(env_ref)),
+                   "restored_from": material_ref, "state_root_verified": admitted }),
+        )
     }
     fn logs(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        let w = self
+            .workload(data_dir, env_ref)
+            .ok_or("k8s_workload_absent")?;
         Ok(json!({
             "workload_name": w["workload_name"],
             "control_plane_log": w.get("events").cloned().unwrap_or(json!([])),
@@ -2737,7 +3459,9 @@ impl EnvironmentProvider for K8sProvider {
         }))
     }
     fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        let w = self
+            .workload(data_dir, env_ref)
+            .ok_or("k8s_workload_absent")?;
         Ok(json!({
             "workload_name": w["workload_name"],
             "events": w.get("events").cloned().unwrap_or(json!([])),
@@ -2752,26 +3476,45 @@ impl EnvironmentProvider for K8sProvider {
         Err("k8s_recover_not_supported — recovery is re-admit + restore from daemon/storage custody; run create + restore explicitly".into())
     }
     fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut w = self.workload(data_dir, env_ref).ok_or("k8s_workload_absent")?;
+        let mut w = self
+            .workload(data_dir, env_ref)
+            .ok_or("k8s_workload_absent")?;
         let workdir = text(&w, "workdir").to_string();
-        let fs_cleanup = if !workdir.is_empty() && std::fs::remove_dir_all(&workdir).is_ok() { json!(true) } else { json!("already_absent_or_skipped") };
-        let native_teardown = if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+        let fs_cleanup = if !workdir.is_empty() && std::fs::remove_dir_all(&workdir).is_ok() {
+            json!(true)
+        } else {
+            json!("already_absent_or_skipped")
+        };
+        let native_teardown = if self
+            .account
+            .pointer("/endpoint/simulate_teardown_failure")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
             json!({ "destroyed": false, "error": "SIMULATED delete failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the namespace (workload/PVC may persist)" })
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — workload/PVC/service deleted in the namespace; no real cluster workload existed" })
         };
         w["status"] = json!("torn_down");
         w["torn_down_at"] = json!(iso_now());
-        Self::push_event(&mut w, "workload_deleted", "delete always — workload, PVC, and service removed per teardown policy".into());
+        Self::push_event(
+            &mut w,
+            "workload_deleted",
+            "delete always — workload, PVC, and service removed per teardown policy".into(),
+        );
         self.save_workload(data_dir, &w);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "workload_name": w["workload_name"], "teardown_state": "torn_down",
                    "workload_fs_cleanup": fs_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }))
+                   "cleanup_verified": true }),
+        )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
         match self.workload(data_dir, env_ref) {
-            None => json!({ "provider": self.id(), "environment_ref": env_ref, "workload": Value::Null, "status": "absent" }),
+            None => {
+                json!({ "provider": self.id(), "environment_ref": env_ref, "workload": Value::Null, "status": "absent" })
+            }
             Some(w) => {
                 json!({ "provider": self.id(), "environment_ref": env_ref,
                         "workload_name": w["workload_name"], "workload_class": w["workload_class"],
@@ -2819,13 +3562,18 @@ impl AzureProvider {
         let _ = persist_record(data_dir, AZURE_INSTANCE_KIND, &id, inst);
     }
     fn push_event(inst: &mut Value, kind: &str, detail: String) {
-        let mut events = inst.get("events").and_then(Value::as_array).cloned().unwrap_or_default();
+        let mut events = inst
+            .get("events")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         events.push(json!({ "at": iso_now(), "kind": kind, "detail": detail,
                             "execution_mode": inst["execution_mode"] }));
         inst["events"] = json!(events);
     }
     fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
-        let inst = self.instance(data_dir, env_ref)
+        let inst = self
+            .instance(data_dir, env_ref)
             .ok_or("azure_vm_absent — provision with the quote-gated create op first")?;
         if text(&inst, "status") == "torn_down" {
             return Err("azure_vm_deleted — this instance was already deleted".into());
@@ -2834,10 +3582,15 @@ impl AzureProvider {
         if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
             return Err("azure_ssh_bootstrap_unknown — the VM has no proven ssh endpoint (it gains one only after boot polling proves readiness through a reachable VNet/NSG posture; VM provisioning state alone is never readiness)".into());
         }
-        let key = std::fs::read_to_string(text(&ssh, "key_file")).map_err(|e| format!("azure_ssh_key_unreadable: {e}"))?;
+        let key = std::fs::read_to_string(text(&ssh, "key_file"))
+            .map_err(|e| format!("azure_ssh_key_unreadable: {e}"))?;
         let dir = Path::new(data_dir).join("provider-ssh");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(format!("azure-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        let path = dir.join(format!(
+            "azure-{}-{}.key",
+            safe(self.account_id()),
+            safe(env_ref)
+        ));
         std::fs::write(&path, key).map_err(|e| e.to_string())?;
         #[cfg(unix)]
         {
@@ -2851,11 +3604,23 @@ impl AzureProvider {
             "kind": "azure", "status": "verified",
             "endpoint": { "host": ssh["host"], "port": ssh.get("port").cloned().unwrap_or(json!(22)), "user": ssh["user"] },
         });
-        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+        Ok((
+            SshProvider {
+                account: synthetic,
+                key_path: path.clone(),
+            },
+            KeyGuard(path),
+        ))
     }
     fn network_reachable(inst: &Value) -> Result<(), String> {
-        let external_ip = inst.pointer("/network_posture/public_ip").and_then(Value::as_bool).unwrap_or(true);
-        let ingress = inst.pointer("/network_posture/ssh_ingress").and_then(Value::as_bool).unwrap_or(true);
+        let external_ip = inst
+            .pointer("/network_posture/public_ip")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        let ingress = inst
+            .pointer("/network_posture/ssh_ingress")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
         if !external_ip {
             return Err("azure_ssh_ingress_unreachable — private-only network posture (no public IP): SSH readiness cannot be proven; workspace ops fail closed, never fake-ready. Attach a public IP / reachable path (Bastion) or use a BYO node inside the VNet".into());
         }
@@ -2872,15 +3637,26 @@ impl EnvironmentProvider for AzureProvider {
     fn capabilities(&self) -> Value {
         let mut caps = kind_capabilities("azure");
         caps["provider_spend_borne_by"] = json!("customer");
-        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, delete required");
+        caps["lifecycle"] = json!(
+            "guarded_lifecycle — quote-gated create, wallet-gated mutations, delete required"
+        );
         caps["execution_mode"] = json!(self.mode());
         caps
     }
     fn status(&self) -> (&'static str, String) {
         match text(&self.account, "status") {
-            "verified" => ("available", format!("guarded azure VM enterprise lifecycle ({} control plane)", self.mode())),
+            "verified" => (
+                "available",
+                format!(
+                    "guarded azure VM enterprise lifecycle ({} control plane)",
+                    self.mode()
+                ),
+            ),
             "revoked" => ("revoked", "credential revoked".into()),
-            _ => ("unverified", "bind + preflight the service-principal credential".into()),
+            _ => (
+                "unverified",
+                "bind + preflight the service-principal credential".into(),
+            ),
         }
     }
     fn preflight(&self, _plan: &Value) -> Value {
@@ -2902,9 +3678,16 @@ impl EnvironmentProvider for AzureProvider {
             return Err("azure_live_api_flow_not_implemented — the ARM virtualMachines create/get flow lands with the live harness cut; a fake VM is never minted".into());
         }
         if mode != "simulator" {
-            return Err("azure_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into());
+            return Err(
+                "azure_lifecycle_mode_unset — set the account endpoint mode to simulator or live"
+                    .into(),
+            );
         }
-        let sim_ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+        let sim_ssh = self
+            .account
+            .pointer("/endpoint/ssh")
+            .cloned()
+            .unwrap_or(Value::Null);
         if text(&sim_ssh, "host").is_empty() || text(&sim_ssh, "key_file").is_empty() {
             return Err("azure_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
         }
@@ -2913,12 +3696,26 @@ impl EnvironmentProvider for AzureProvider {
         let vm_name = format!("sim-vm-{stamp:x}");
         let disk_name = format!("sim-osdisk-{stamp:x}");
         let subscription = {
-            let p = plan.get("subscription_id").and_then(Value::as_str).unwrap_or("");
-            if p.is_empty() { "sim-subscription" } else { p }
+            let p = plan
+                .get("subscription_id")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            if p.is_empty() {
+                "sim-subscription"
+            } else {
+                p
+            }
         };
         let resource_group = {
-            let p = plan.get("resource_group").and_then(Value::as_str).unwrap_or("");
-            if p.is_empty() { "sim-rg" } else { p }
+            let p = plan
+                .get("resource_group")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            if p.is_empty() {
+                "sim-rg"
+            } else {
+                p
+            }
         };
         let location = text(plan, "location").to_string();
         let network = plan.get("network_posture").cloned()
@@ -2945,7 +3742,11 @@ impl EnvironmentProvider for AzureProvider {
                 "note": "SIMULATED ARM resource/managed-disk ids — evidence only, never restore or billing truth; no real Azure VM exists" },
             "created_at": iso_now(),
         });
-        let posture_label = inst.pointer("/network_posture/posture_label").and_then(Value::as_str).unwrap_or("?").to_string();
+        let posture_label = inst
+            .pointer("/network_posture/posture_label")
+            .and_then(Value::as_str)
+            .unwrap_or("?")
+            .to_string();
         Self::push_event(&mut inst, "vm_create_accepted", format!("{} in {location} ({posture_label}) — Activity Log refs land with the live harness (the Activity Log is the customer's)", text(plan, "vm_size")));
         self.save_instance(data_dir, &inst);
         Ok(json!({
@@ -2969,7 +3770,9 @@ impl EnvironmentProvider for AzureProvider {
         let mut boot_evidence = Value::Null;
         if inst.get("ssh").map(Value::is_null).unwrap_or(true) {
             if text(&inst, "execution_mode") == "live" {
-                return Err("azure_live_api_flow_not_implemented — no live VM exists to boot-poll".into());
+                return Err(
+                    "azure_live_api_flow_not_implemented — no live VM exists to boot-poll".into(),
+                );
             }
             Self::network_reachable(&inst)?;
             let sim_ssh = inst.get("sim_ssh").cloned().unwrap_or(Value::Null);
@@ -2979,7 +3782,11 @@ impl EnvironmentProvider for AzureProvider {
                 "note": "simulated boot resolved through the declared reachable VNet/NSG posture — 'VM running' state alone was not treated as readiness" });
             inst["ssh"] = sim_ssh;
             inst["ssh_ready_evidence"] = boot_evidence.clone();
-            Self::push_event(&mut inst, "boot_proven", "ssh readiness proven through the reachable VNet/NSG posture".into());
+            Self::push_event(
+                &mut inst,
+                "boot_proven",
+                "ssh readiness proven through the reachable VNet/NSG posture".into(),
+            );
             self.save_instance(data_dir, &inst);
         }
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -2990,13 +3797,21 @@ impl EnvironmentProvider for AzureProvider {
         lane.start(data_dir, env_ref)?;
         let was_stopped = matches!(text(&inst, "status"), "VM deallocated" | "VM stopped");
         inst["status"] = json!("VM running");
-        Self::push_event(&mut inst, "vm_started", if was_stopped {
-            "started from deallocated — compute billing resumes; a dynamic public IP changes across deallocate/start (a static IP pins it); the simulator retains the fixture endpoint".into()
-        } else { "workspace running".into() });
+        Self::push_event(
+            &mut inst,
+            "vm_started",
+            if was_stopped {
+                "started from deallocated — compute billing resumes; a dynamic public IP changes across deallocate/start (a static IP pins it); the simulator retains the fixture endpoint".into()
+            } else {
+                "workspace running".into()
+            },
+        );
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "vm_name": inst["vm_name"], "status": "VM running", "ssh_ready": true,
-                   "boot_evidence": boot_evidence }))
+                   "boot_evidence": boot_evidence }),
+        )
     }
     fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -3013,11 +3828,13 @@ impl EnvironmentProvider for AzureProvider {
         inst["status"] = json!("VM deallocated");
         Self::push_event(&mut inst, "vm_deallocated", "DEALLOCATED (not merely stopped) — compute billing halts; a merely-stopped VM would keep billing compute; managed disks keep billing until delete".into());
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "vm_name": inst["vm_name"], "status": "VM deallocated",
                    "deallocated": true,
                    "spend_note": "Azure stop-vs-deallocate honesty: this op DEALLOCATES — compute billing halts only because the VM is deallocated (a merely-stopped VM keeps billing compute); managed disks keep billing until delete — the exposure stays open until teardown",
-                   "lane": stopped }))
+                   "lane": stopped }),
+        )
     }
     fn restart(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         // Azure VM restart: in-place restart, endpoint retained (no deallocation).
@@ -3028,9 +3845,11 @@ impl EnvironmentProvider for AzureProvider {
         inst["status"] = json!("VM running");
         Self::push_event(&mut inst, "vm_restarted", "in-place restart — endpoint retained, no deallocation (a deallocate/start cycle, by contrast, changes a dynamic public IP)".into());
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
                    "vm_name": inst["vm_name"], "status": "VM running",
-                   "note": "Azure restart semantics — endpoint retained; compute billing keeps accruing (no deallocation)" }))
+                   "note": "Azure restart semantics — endpoint retained; compute billing keeps accruing (no deallocation)" }),
+        )
     }
     fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let mut inst = self.instance(data_dir, env_ref).ok_or("azure_vm_absent")?;
@@ -3045,7 +3864,12 @@ impl EnvironmentProvider for AzureProvider {
             o.insert("provider_native_snapshot".into(), native.clone());
         }
         inst["last_native_snapshot"] = native;
-        Self::push_event(&mut inst, "snapshot_taken", "daemon-custody snapshot admitted; managed-disk-style native name recorded as evidence".into());
+        Self::push_event(
+            &mut inst,
+            "snapshot_taken",
+            "daemon-custody snapshot admitted; managed-disk-style native name recorded as evidence"
+                .into(),
+        );
         self.save_instance(data_dir, &inst);
         Ok(evidence)
     }
@@ -3062,24 +3886,38 @@ impl EnvironmentProvider for AzureProvider {
     fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let mut inst = self.instance(data_dir, env_ref).ok_or("azure_vm_absent")?;
         let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
-            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Ok((lane, _guard)) => lane
+                .delete(data_dir, env_ref)
+                .map(|e| e["cleanup_verified"].clone())
+                .unwrap_or(json!("unreachable")),
             Err(e) => json!(format!("skipped: {e}")),
         };
         let native_teardown = if text(&inst, "execution_mode") == "live" {
             json!({ "destroyed": false, "error": "azure_live_api_flow_not_implemented", "warning": "TEARDOWN MAY BE INCOMPLETE — no live virtualMachines delete call exists yet" })
-        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+        } else if self
+            .account
+            .pointer("/endpoint/simulate_teardown_failure")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
             json!({ "destroyed": false, "error": "SIMULATED delete failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the Azure portal (compute and managed disks may still accrue)" })
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — VM deleted, managed OS disk deleted with the VM per delete option; no real Azure VM existed" })
         };
         inst["status"] = json!("torn_down");
         inst["torn_down_at"] = json!(iso_now());
-        Self::push_event(&mut inst, "vm_deleted", "delete always — managed OS disk deleted with the VM per delete option".into());
+        Self::push_event(
+            &mut inst,
+            "vm_deleted",
+            "delete always — managed OS disk deleted with the VM per delete option".into(),
+        );
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "vm_name": inst["vm_name"], "teardown_state": "torn_down",
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }))
+                   "cleanup_verified": true }),
+        )
     }
     fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let inst = self.instance(data_dir, env_ref).ok_or("azure_vm_absent")?;
@@ -3092,18 +3930,22 @@ impl EnvironmentProvider for AzureProvider {
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
         match self.instance(data_dir, env_ref) {
-            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            None => {
+                json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" })
+            }
             Some(inst) => {
                 let torn = text(&inst, "status") == "torn_down";
                 let boot_pending = inst.get("ssh").map(Value::is_null).unwrap_or(true) && !torn;
-                let lane_view = if torn { Value::Null }
-                    else if boot_pending { json!({ "boot": "pending — run start to poll until ssh readiness is proven through a reachable posture" }) }
-                    else {
-                        match self.ssh_lane(data_dir, env_ref) {
-                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
-                            Err(e) => json!({ "error": e }),
-                        }
-                    };
+                let lane_view = if torn {
+                    Value::Null
+                } else if boot_pending {
+                    json!({ "boot": "pending — run start to poll until ssh readiness is proven through a reachable posture" })
+                } else {
+                    match self.ssh_lane(data_dir, env_ref) {
+                        Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                        Err(e) => json!({ "error": e }),
+                    }
+                };
                 json!({ "provider": self.id(), "environment_ref": env_ref,
                         "vm_name": inst["vm_name"], "status": inst["status"],
                         "execution_mode": inst["execution_mode"],
@@ -3151,13 +3993,18 @@ impl AwsProvider {
         let _ = persist_record(data_dir, AWS_INSTANCE_KIND, &id, inst);
     }
     fn push_event(inst: &mut Value, kind: &str, detail: String) {
-        let mut events = inst.get("events").and_then(Value::as_array).cloned().unwrap_or_default();
+        let mut events = inst
+            .get("events")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         events.push(json!({ "at": iso_now(), "kind": kind, "detail": detail,
                             "execution_mode": inst["execution_mode"] }));
         inst["events"] = json!(events);
     }
     fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
-        let inst = self.instance(data_dir, env_ref)
+        let inst = self
+            .instance(data_dir, env_ref)
             .ok_or("aws_instance_absent — provision with the quote-gated create op first")?;
         if text(&inst, "status") == "torn_down" {
             return Err("aws_instance_terminated — this instance was already terminated".into());
@@ -3166,10 +4013,15 @@ impl AwsProvider {
         if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
             return Err("aws_ssh_bootstrap_unknown — the instance has no proven ssh endpoint (it gains one only after boot polling proves readiness through a reachable network posture)".into());
         }
-        let key = std::fs::read_to_string(text(&ssh, "key_file")).map_err(|e| format!("aws_ssh_key_unreadable: {e}"))?;
+        let key = std::fs::read_to_string(text(&ssh, "key_file"))
+            .map_err(|e| format!("aws_ssh_key_unreadable: {e}"))?;
         let dir = Path::new(data_dir).join("provider-ssh");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(format!("aws-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        let path = dir.join(format!(
+            "aws-{}-{}.key",
+            safe(self.account_id()),
+            safe(env_ref)
+        ));
         std::fs::write(&path, key).map_err(|e| e.to_string())?;
         #[cfg(unix)]
         {
@@ -3183,11 +4035,23 @@ impl AwsProvider {
             "kind": "aws", "status": "verified",
             "endpoint": { "host": ssh["host"], "port": ssh.get("port").cloned().unwrap_or(json!(22)), "user": ssh["user"] },
         });
-        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+        Ok((
+            SshProvider {
+                account: synthetic,
+                key_path: path.clone(),
+            },
+            KeyGuard(path),
+        ))
     }
     fn network_reachable(inst: &Value) -> Result<(), String> {
-        let public_ip = inst.pointer("/network_posture/public_ip").and_then(Value::as_bool).unwrap_or(true);
-        let ingress = inst.pointer("/network_posture/ssh_ingress").and_then(Value::as_bool).unwrap_or(true);
+        let public_ip = inst
+            .pointer("/network_posture/public_ip")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
+        let ingress = inst
+            .pointer("/network_posture/ssh_ingress")
+            .and_then(Value::as_bool)
+            .unwrap_or(true);
         if !public_ip {
             return Err("aws_ssh_ingress_unreachable — private-only network posture (no public IP): SSH readiness cannot be proven; workspace ops fail closed, never fake-ready. Configure a public IP / reachable path or use a BYO node inside the VPC".into());
         }
@@ -3204,13 +4068,21 @@ impl EnvironmentProvider for AwsProvider {
     fn capabilities(&self) -> Value {
         let mut caps = kind_capabilities("aws");
         caps["provider_spend_borne_by"] = json!("customer");
-        caps["lifecycle"] = json!("guarded_lifecycle — quote-gated create, wallet-gated mutations, terminate required");
+        caps["lifecycle"] = json!(
+            "guarded_lifecycle — quote-gated create, wallet-gated mutations, terminate required"
+        );
         caps["execution_mode"] = json!(self.mode());
         caps
     }
     fn status(&self) -> (&'static str, String) {
         match text(&self.account, "status") {
-            "verified" => ("available", format!("guarded aws EC2 enterprise lifecycle ({} control plane)", self.mode())),
+            "verified" => (
+                "available",
+                format!(
+                    "guarded aws EC2 enterprise lifecycle ({} control plane)",
+                    self.mode()
+                ),
+            ),
             "revoked" => ("revoked", "credential revoked".into()),
             _ => ("unverified", "bind + preflight the SigV4 credential".into()),
         }
@@ -3234,9 +4106,16 @@ impl EnvironmentProvider for AwsProvider {
             return Err("aws_live_api_flow_not_implemented — the SigV4 EC2 RunInstances/DescribeInstances flow lands with the live harness cut; a fake instance is never minted".into());
         }
         if mode != "simulator" {
-            return Err("aws_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into());
+            return Err(
+                "aws_lifecycle_mode_unset — set the account endpoint mode to simulator or live"
+                    .into(),
+            );
         }
-        let sim_ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+        let sim_ssh = self
+            .account
+            .pointer("/endpoint/ssh")
+            .cloned()
+            .unwrap_or(Value::Null);
         if text(&sim_ssh, "host").is_empty() || text(&sim_ssh, "key_file").is_empty() {
             return Err("aws_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
         }
@@ -3267,7 +4146,11 @@ impl EnvironmentProvider for AwsProvider {
                 "note": "SIMULATED EC2/EBS ids — evidence only, never restore or billing truth; no real AWS instance exists" },
             "created_at": iso_now(),
         });
-        let posture_label = inst.pointer("/network_posture/posture_label").and_then(Value::as_str).unwrap_or("?").to_string();
+        let posture_label = inst
+            .pointer("/network_posture/posture_label")
+            .and_then(Value::as_str)
+            .unwrap_or("?")
+            .to_string();
         Self::push_event(&mut inst, "run_instances_accepted", format!("{} in {} ({posture_label}) — audit refs land with the live harness (CloudTrail is the customer's trail)", text(plan, "instance_type"), text(plan, "region")));
         self.save_instance(data_dir, &inst);
         Ok(json!({
@@ -3283,14 +4166,19 @@ impl EnvironmentProvider for AwsProvider {
         }))
     }
     fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("aws_instance_absent")?;
         if text(&inst, "status") == "torn_down" {
             return Err("aws_instance_terminated".into());
         }
         let mut boot_evidence = Value::Null;
         if inst.get("ssh").map(Value::is_null).unwrap_or(true) {
             if text(&inst, "execution_mode") == "live" {
-                return Err("aws_live_api_flow_not_implemented — no live instance exists to boot-poll".into());
+                return Err(
+                    "aws_live_api_flow_not_implemented — no live instance exists to boot-poll"
+                        .into(),
+                );
             }
             // Enterprise network honesty: readiness is provable ONLY through a reachable
             // posture — private-only / no-ingress fails CLOSED, never fake-ready.
@@ -3302,7 +4190,11 @@ impl EnvironmentProvider for AwsProvider {
                 "note": "simulated boot resolved through the declared reachable posture" });
             inst["ssh"] = sim_ssh;
             inst["ssh_ready_evidence"] = boot_evidence.clone();
-            Self::push_event(&mut inst, "boot_proven", "ssh readiness proven through the reachable network posture".into());
+            Self::push_event(
+                &mut inst,
+                "boot_proven",
+                "ssh readiness proven through the reachable network posture".into(),
+            );
             self.save_instance(data_dir, &inst);
         }
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -3313,13 +4205,21 @@ impl EnvironmentProvider for AwsProvider {
         lane.start(data_dir, env_ref)?;
         let was_stopped = text(&inst, "status") == "stopped";
         inst["status"] = json!("running");
-        Self::push_event(&mut inst, "instance_started", if was_stopped {
-            "started from stopped — instance-hours resume; a stop/start cycle can change the public IP (an EIP pins it); the simulator retains the fixture endpoint".into()
-        } else { "workspace running".into() });
+        Self::push_event(
+            &mut inst,
+            "instance_started",
+            if was_stopped {
+                "started from stopped — instance-hours resume; a stop/start cycle can change the public IP (an EIP pins it); the simulator retains the fixture endpoint".into()
+            } else {
+                "workspace running".into()
+            },
+        );
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "running", "ssh_ready": true,
-                   "boot_evidence": boot_evidence }))
+                   "boot_evidence": boot_evidence }),
+        )
     }
     fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -3327,32 +4227,47 @@ impl EnvironmentProvider for AwsProvider {
     }
     fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         // REAL EC2 stop semantics: instance-hours stop accruing; EBS storage does not.
-        let mut inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("aws_instance_absent")?;
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let stopped = lane.stop(data_dir, env_ref)?;
         inst["status"] = json!("stopped");
-        Self::push_event(&mut inst, "instance_stopped", "instance-hours stop accruing; EBS root volume storage keeps billing until terminate".into());
+        Self::push_event(
+            &mut inst,
+            "instance_stopped",
+            "instance-hours stop accruing; EBS root volume storage keeps billing until terminate"
+                .into(),
+        );
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "stopped",
                    "spend_note": "EC2 stop halts instance-hour billing; the EBS root volume keeps billing until terminate — the exposure stays open until teardown",
-                   "lane": stopped }))
+                   "lane": stopped }),
+        )
     }
     fn restart(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         // EC2 reboot: in-place restart, endpoint retained (unlike a stop/start cycle).
-        let mut inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("aws_instance_absent")?;
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let _ = lane.stop(data_dir, env_ref);
         lane.start(data_dir, env_ref)?;
         inst["status"] = json!("running");
         Self::push_event(&mut inst, "instance_rebooted", "in-place reboot — endpoint retained (a stop/start cycle, by contrast, can change the public IP)".into());
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/restart/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "status": "running",
-                   "note": "EC2 reboot semantics — endpoint retained; instance-hours keep accruing" }))
+                   "note": "EC2 reboot semantics — endpoint retained; instance-hours keep accruing" }),
+        )
     }
     fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("aws_instance_absent")?;
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let mut evidence = lane.snapshot(data_dir, env_ref)?;
         // An EBS-style native snapshot id rides along as EVIDENCE ONLY — the daemon-admitted
@@ -3366,7 +4281,11 @@ impl EnvironmentProvider for AwsProvider {
             o.insert("provider_native_snapshot".into(), native.clone());
         }
         inst["last_native_snapshot"] = native;
-        Self::push_event(&mut inst, "snapshot_taken", "daemon-custody snapshot admitted; EBS-style native id recorded as evidence".into());
+        Self::push_event(
+            &mut inst,
+            "snapshot_taken",
+            "daemon-custody snapshot admitted; EBS-style native id recorded as evidence".into(),
+        );
         self.save_instance(data_dir, &inst);
         Ok(evidence)
     }
@@ -3381,29 +4300,47 @@ impl EnvironmentProvider for AwsProvider {
         Err("aws_recover_not_supported — recovery is re-launch + restore from daemon/storage custody; run create + restore explicitly".into())
     }
     fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        let mut inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("aws_instance_absent")?;
         let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
-            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Ok((lane, _guard)) => lane
+                .delete(data_dir, env_ref)
+                .map(|e| e["cleanup_verified"].clone())
+                .unwrap_or(json!("unreachable")),
             Err(e) => json!(format!("skipped: {e}")),
         };
         let native_teardown = if text(&inst, "execution_mode") == "live" {
             json!({ "destroyed": false, "error": "aws_live_api_flow_not_implemented", "warning": "TEARDOWN MAY BE INCOMPLETE — no live TerminateInstances call exists yet" })
-        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+        } else if self
+            .account
+            .pointer("/endpoint/simulate_teardown_failure")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
             json!({ "destroyed": false, "error": "SIMULATED terminate failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the EC2 console (instance-hours and EBS may still accrue)" })
         } else {
             json!({ "destroyed": true, "note": "simulated control plane — instance terminated, EBS root volume deleted on termination; no real AWS instance existed" })
         };
         inst["status"] = json!("torn_down");
         inst["torn_down_at"] = json!(iso_now());
-        Self::push_event(&mut inst, "instance_terminated", "terminate always — root volume deleted on termination per posture".into());
+        Self::push_event(
+            &mut inst,
+            "instance_terminated",
+            "terminate always — root volume deleted on termination per posture".into(),
+        );
         self.save_instance(data_dir, &inst);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "instance_id": inst["instance_id"], "teardown_state": "torn_down",
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }))
+                   "cleanup_verified": true }),
+        )
     }
     fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let inst = self.instance(data_dir, env_ref).ok_or("aws_instance_absent")?;
+        let inst = self
+            .instance(data_dir, env_ref)
+            .ok_or("aws_instance_absent")?;
         Ok(json!({
             "instance_id": inst["instance_id"],
             "events": inst.get("events").cloned().unwrap_or(json!([])),
@@ -3413,18 +4350,22 @@ impl EnvironmentProvider for AwsProvider {
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
         match self.instance(data_dir, env_ref) {
-            None => json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" }),
+            None => {
+                json!({ "provider": self.id(), "environment_ref": env_ref, "instance": Value::Null, "status": "absent" })
+            }
             Some(inst) => {
                 let torn = text(&inst, "status") == "torn_down";
                 let boot_pending = inst.get("ssh").map(Value::is_null).unwrap_or(true) && !torn;
-                let lane_view = if torn { Value::Null }
-                    else if boot_pending { json!({ "boot": "pending — run start to poll until ssh readiness is proven through a reachable posture" }) }
-                    else {
-                        match self.ssh_lane(data_dir, env_ref) {
-                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
-                            Err(e) => json!({ "error": e }),
-                        }
-                    };
+                let lane_view = if torn {
+                    Value::Null
+                } else if boot_pending {
+                    json!({ "boot": "pending — run start to poll until ssh readiness is proven through a reachable posture" })
+                } else {
+                    match self.ssh_lane(data_dir, env_ref) {
+                        Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                        Err(e) => json!({ "error": e }),
+                    }
+                };
                 json!({ "provider": self.id(), "environment_ref": env_ref,
                         "instance_id": inst["instance_id"], "status": inst["status"],
                         "execution_mode": inst["execution_mode"],
@@ -3453,9 +4394,15 @@ const AKASH_REDEPLOY_KIND: &str = "akash-redeploy-plans";
 /// an ssh service — exec/custody ride it (canon: SSH only when the deployment explicitly
 /// provides it; provider-native lease-shell exec lands with the live harness).
 fn akash_build_sdl(candidate: &Value, body: &Value) -> Value {
-    let image = body.get("image").and_then(Value::as_str).unwrap_or("ubuntu:24.04");
+    let image = body
+        .get("image")
+        .and_then(Value::as_str)
+        .unwrap_or("ubuntu:24.04");
     let resources = candidate.get("resources").cloned().unwrap_or(json!({}));
-    let persistent = candidate.pointer("/storage/persistent_storage").and_then(Value::as_bool).unwrap_or(false);
+    let persistent = candidate
+        .pointer("/storage/persistent_storage")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     json!({
         "version": "2.0",
         "services": {
@@ -3501,7 +4448,11 @@ impl AkashProvider {
         let _ = persist_record(data_dir, AKASH_DEPLOYMENT_KIND, &id, dep);
     }
     fn push_event(dep: &mut Value, kind: &str, detail: String) {
-        let mut events = dep.get("events").and_then(Value::as_array).cloned().unwrap_or_default();
+        let mut events = dep
+            .get("events")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         events.push(json!({ "at": iso_now(), "kind": kind, "detail": detail,
                             "execution_mode": dep["execution_mode"] }));
         dep["events"] = json!(events);
@@ -3518,13 +4469,19 @@ impl AkashProvider {
     /// Exec/custody lane: available ONLY because the deployment's SDL declares an ssh service
     /// and ONLY after endpoint readiness is proven. Never assumed.
     fn ssh_lane(&self, data_dir: &str, env_ref: &str) -> Result<(SshProvider, KeyGuard), String> {
-        let dep = self.deployment(data_dir, env_ref)
+        let dep = self
+            .deployment(data_dir, env_ref)
             .ok_or("akash_deployment_absent — provision with the quote-gated create op first")?;
         if text(&dep, "status") == "torn_down" {
             return Err("akash_deployment_torn_down — this deployment was already closed".into());
         }
-        let ssh_declared = dep.pointer("/sdl/services/workspace/expose").and_then(Value::as_array)
-            .map(|e| e.iter().any(|x| x.get("service").and_then(Value::as_str) == Some("ssh")))
+        let ssh_declared = dep
+            .pointer("/sdl/services/workspace/expose")
+            .and_then(Value::as_array)
+            .map(|e| {
+                e.iter()
+                    .any(|x| x.get("service").and_then(Value::as_str) == Some("ssh"))
+            })
             .unwrap_or(false);
         if !ssh_declared {
             return Err("akash_exec_lane_unavailable — this deployment's SDL does not expose an ssh service; provider-native lease-shell exec lands with the live harness".into());
@@ -3533,10 +4490,15 @@ impl AkashProvider {
         if text(&ssh, "host").is_empty() || text(&ssh, "key_file").is_empty() {
             return Err("akash_endpoint_unready — the lease has no ready endpoint yet; run start to wait for endpoint readiness (endpoints are evidence, never assumed)".into());
         }
-        let key = std::fs::read_to_string(text(&ssh, "key_file")).map_err(|e| format!("akash_ssh_key_unreadable: {e}"))?;
+        let key = std::fs::read_to_string(text(&ssh, "key_file"))
+            .map_err(|e| format!("akash_ssh_key_unreadable: {e}"))?;
         let dir = Path::new(data_dir).join("provider-ssh");
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-        let path = dir.join(format!("akash-{}-{}.key", safe(self.account_id()), safe(env_ref)));
+        let path = dir.join(format!(
+            "akash-{}-{}.key",
+            safe(self.account_id()),
+            safe(env_ref)
+        ));
         std::fs::write(&path, key).map_err(|e| e.to_string())?;
         #[cfg(unix)]
         {
@@ -3550,10 +4512,22 @@ impl AkashProvider {
             "kind": "akash", "status": "verified",
             "endpoint": { "host": ssh["host"], "port": ssh.get("port").cloned().unwrap_or(json!(22)), "user": ssh["user"] },
         });
-        Ok((SshProvider { account: synthetic, key_path: path.clone() }, KeyGuard(path)))
+        Ok((
+            SshProvider {
+                account: synthetic,
+                key_path: path.clone(),
+            },
+            KeyGuard(path),
+        ))
     }
     /// Shared provisioning body for create AND redeploy (redeploy passes lineage).
-    fn provision(&self, data_dir: &str, env_ref: &str, plan: &Value, redeployed_from: Option<&Value>) -> Result<Value, String> {
+    fn provision(
+        &self,
+        data_dir: &str,
+        env_ref: &str,
+        plan: &Value,
+        redeployed_from: Option<&Value>,
+    ) -> Result<Value, String> {
         let mode = self.mode();
         if mode == "live" {
             let has_credential = load_account_credential(data_dir, self.account_id()).is_some();
@@ -3563,9 +4537,16 @@ impl AkashProvider {
             return Err("akash_live_deployment_tx_not_implemented — the on-chain deployment/bid/lease transaction flow lands with the live harness cut; a fake deployment is never minted".into());
         }
         if mode != "simulator" {
-            return Err("akash_lifecycle_mode_unset — set the account endpoint mode to simulator or live".into());
+            return Err(
+                "akash_lifecycle_mode_unset — set the account endpoint mode to simulator or live"
+                    .into(),
+            );
         }
-        let sim_ssh = self.account.pointer("/endpoint/ssh").cloned().unwrap_or(Value::Null);
+        let sim_ssh = self
+            .account
+            .pointer("/endpoint/ssh")
+            .cloned()
+            .unwrap_or(Value::Null);
         if text(&sim_ssh, "host").is_empty() || text(&sim_ssh, "key_file").is_empty() {
             return Err("akash_simulator_ssh_missing — simulator mode needs endpoint.ssh {host, port, user, key_file}".into());
         }
@@ -3622,11 +4603,27 @@ impl AkashProvider {
             "provider_native": { "dseq": dseq, "note": "SIMULATED deployment/bid/lease ids — evidence only, never restore or billing truth; no real Akash deployment exists" },
             "created_at": iso_now(),
         });
-        Self::push_event(&mut dep, "deployment_created", format!("SDL accepted (hash {})", text(plan, "sdl_hash")));
-        Self::push_event(&mut dep, "bid_selected", format!("bid from provider {provider_address} selected"));
-        Self::push_event(&mut dep, "lease_opened", format!("lease open at ${}/hr (customer-borne until closed)", usd));
+        Self::push_event(
+            &mut dep,
+            "deployment_created",
+            format!("SDL accepted (hash {})", text(plan, "sdl_hash")),
+        );
+        Self::push_event(
+            &mut dep,
+            "bid_selected",
+            format!("bid from provider {provider_address} selected"),
+        );
+        Self::push_event(
+            &mut dep,
+            "lease_opened",
+            format!("lease open at ${}/hr (customer-borne until closed)", usd),
+        );
         if let Some(old) = redeployed_from {
-            Self::push_event(&mut dep, "redeployed_from", format!("fresh deployment replacing {}", old.as_str().unwrap_or("?")));
+            Self::push_event(
+                &mut dep,
+                "redeployed_from",
+                format!("fresh deployment replacing {}", old.as_str().unwrap_or("?")),
+            );
         }
         self.save_deployment(data_dir, &dep);
         Ok(json!({
@@ -3654,7 +4651,13 @@ impl EnvironmentProvider for AkashProvider {
     }
     fn status(&self) -> (&'static str, String) {
         match text(&self.account, "status") {
-            "verified" => ("available", format!("guarded akash DePIN deployment lifecycle ({} control plane)", self.mode())),
+            "verified" => (
+                "available",
+                format!(
+                    "guarded akash DePIN deployment lifecycle ({} control plane)",
+                    self.mode()
+                ),
+            ),
             "revoked" => ("revoked", "credential revoked".into()),
             _ => ("unverified", "bind + preflight the credential".into()),
         }
@@ -3703,14 +4706,19 @@ impl EnvironmentProvider for AkashProvider {
         Ok(evidence)
     }
     fn start(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        let mut dep = self
+            .deployment(data_dir, env_ref)
+            .ok_or("akash_deployment_absent")?;
         if text(&dep, "status") == "torn_down" {
             return Err("akash_deployment_torn_down".into());
         }
         let mut endpoint_evidence = Value::Null;
         if dep.get("endpoint_ready").and_then(Value::as_bool) != Some(true) {
             if text(&dep, "execution_mode") == "live" {
-                return Err("akash_live_deployment_tx_not_implemented — no live deployment exists to await".into());
+                return Err(
+                    "akash_live_deployment_tx_not_implemented — no live deployment exists to await"
+                        .into(),
+                );
             }
             // Simulator endpoint readiness: resolved from the recorded sim endpoint; the
             // lease-assigned ip/ports are recorded as EVIDENCE, never authority.
@@ -3733,7 +4741,11 @@ impl EnvironmentProvider for AkashProvider {
             dep["ssh"] = sim_ssh;
             dep["endpoint_ready"] = json!(true);
             dep["endpoint_ref"] = endpoint["endpoint_ref"].clone();
-            Self::push_event(&mut dep, "endpoint_ready", format!("lease endpoint proven ({})", text(&endpoint, "ip")));
+            Self::push_event(
+                &mut dep,
+                "endpoint_ready",
+                format!("lease endpoint proven ({})", text(&endpoint, "ip")),
+            );
             self.save_deployment(data_dir, &dep);
         }
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -3743,11 +4755,17 @@ impl EnvironmentProvider for AkashProvider {
         }
         lane.start(data_dir, env_ref)?;
         dep["status"] = json!("running");
-        Self::push_event(&mut dep, "workspace_started", "workspace lane running over the SDL-declared ssh service".into());
+        Self::push_event(
+            &mut dep,
+            "workspace_started",
+            "workspace lane running over the SDL-declared ssh service".into(),
+        );
         self.save_deployment(data_dir, &dep);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/start/{}", self.account_id(), safe(env_ref)),
                    "deployment_ref": dep["deployment_ref"], "status": "running",
-                   "endpoint_ready": true, "endpoint": endpoint_evidence }))
+                   "endpoint_ready": true, "endpoint": endpoint_evidence }),
+        )
     }
     fn workrun(&self, data_dir: &str, env_ref: &str, command: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -3755,16 +4773,24 @@ impl EnvironmentProvider for AkashProvider {
     }
     fn stop(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         // An Akash lease bills until CLOSED — stopping the workspace never stops the spend.
-        let mut dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        let mut dep = self
+            .deployment(data_dir, env_ref)
+            .ok_or("akash_deployment_absent")?;
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
         let stopped = lane.stop(data_dir, env_ref)?;
         dep["status"] = json!("workspace_stopped_lease_open");
-        Self::push_event(&mut dep, "workspace_stopped", "workspace halted; the lease stays open and accruing".into());
+        Self::push_event(
+            &mut dep,
+            "workspace_stopped",
+            "workspace halted; the lease stays open and accruing".into(),
+        );
         self.save_deployment(data_dir, &dep);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/stop/{}", self.account_id(), safe(env_ref)),
                    "deployment_ref": dep["deployment_ref"], "status": "workspace_stopped_lease_open",
                    "spend_note": "akash leases bill until closed — the lease stays open and accruing customer-borne spend; only the workspace lane halted",
-                   "lane": stopped }))
+                   "lane": stopped }),
+        )
     }
     fn snapshot(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         let (lane, _guard) = self.ssh_lane(data_dir, env_ref)?;
@@ -3775,7 +4801,9 @@ impl EnvironmentProvider for AkashProvider {
         lane.restore(data_dir, env_ref, material_ref)
     }
     fn logs(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        let dep = self
+            .deployment(data_dir, env_ref)
+            .ok_or("akash_deployment_absent")?;
         Ok(json!({
             "deployment_ref": dep["deployment_ref"], "lease_ref": dep["lease_ref"],
             "control_plane_log": dep.get("events").cloned().unwrap_or(json!([])),
@@ -3785,7 +4813,9 @@ impl EnvironmentProvider for AkashProvider {
         }))
     }
     fn events(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        let dep = self
+            .deployment(data_dir, env_ref)
+            .ok_or("akash_deployment_absent")?;
         Ok(json!({
             "deployment_ref": dep["deployment_ref"], "lease_ref": dep["lease_ref"],
             "events": dep.get("events").cloned().unwrap_or(json!([])),
@@ -3796,7 +4826,9 @@ impl EnvironmentProvider for AkashProvider {
     fn inject_outage(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
         // THE DePIN risk, made testable: simulated provider-side lease revocation. Live leases
         // are never destroyed as an "outage" — this lane exists only on the simulator.
-        let mut dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        let mut dep = self
+            .deployment(data_dir, env_ref)
+            .ok_or("akash_deployment_absent")?;
         if text(&dep, "execution_mode") != "simulated_control_plane" {
             return Err("akash_outage_injection_not_supported_live — revoking a paid lease is not a safely representable outage; use the simulator".into());
         }
@@ -3805,33 +4837,48 @@ impl EnvironmentProvider for AkashProvider {
         if let Some(mut lease) = self.lease_for(data_dir, text(&dep, "deployment_ref")) {
             lease["state"] = json!("closed_by_provider");
             lease["closed_at"] = json!(iso_now());
-            lease["closure_note"] = json!("SIMULATED provider-side revocation — the bid_lease_revocation risk, exercised");
+            lease["closure_note"] = json!(
+                "SIMULATED provider-side revocation — the bid_lease_revocation risk, exercised"
+            );
             self.save_lease(data_dir, &lease);
         }
         dep["status"] = json!("lease_lost");
         Self::push_event(&mut dep, "lease_revoked_by_provider", "SIMULATED lease revocation — workspace lost; deployment persistent storage is gone with the lease (it was never restore truth)".into());
         self.save_deployment(data_dir, &dep);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/inject_outage/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/inject_outage/{}", self.account_id(), safe(env_ref)),
                    "deployment_ref": dep["deployment_ref"], "lease_state": "closed_by_provider",
                    "workspace_lost": true, "simulated": true,
                    "recovery_path": "close (teardown accounting) → redeploy to a fresh bid → restore from daemon/storage-archive custody after state_root validation",
-                   "lane": lost }))
+                   "lane": lost }),
+        )
     }
     fn recover(&self, _d: &str, _e: &str) -> Result<Value, String> {
         Err("akash_recover_not_supported — recovery is REDEPLOY + restore from daemon/storage custody (close the lease, redeploy to a fresh bid, restore explicitly)".into())
     }
     fn delete(&self, data_dir: &str, env_ref: &str) -> Result<Value, String> {
-        let mut dep = self.deployment(data_dir, env_ref).ok_or("akash_deployment_absent")?;
+        let mut dep = self
+            .deployment(data_dir, env_ref)
+            .ok_or("akash_deployment_absent")?;
         let remote_cleanup = match self.ssh_lane(data_dir, env_ref) {
-            Ok((lane, _guard)) => lane.delete(data_dir, env_ref).map(|e| e["cleanup_verified"].clone()).unwrap_or(json!("unreachable")),
+            Ok((lane, _guard)) => lane
+                .delete(data_dir, env_ref)
+                .map(|e| e["cleanup_verified"].clone())
+                .unwrap_or(json!("unreachable")),
             Err(e) => json!(format!("skipped: {e}")),
         };
-        let already_revoked = self.lease_for(data_dir, text(&dep, "deployment_ref"))
+        let already_revoked = self
+            .lease_for(data_dir, text(&dep, "deployment_ref"))
             .map(|l| text(&l, "state") == "closed_by_provider")
             .unwrap_or(false);
         let native_teardown = if text(&dep, "execution_mode") == "live" {
             json!({ "destroyed": false, "error": "akash_live_deployment_tx_not_implemented", "warning": "TEARDOWN MAY BE INCOMPLETE — no live close transaction exists yet" })
-        } else if self.account.pointer("/endpoint/simulate_teardown_failure").and_then(Value::as_bool) == Some(true) {
+        } else if self
+            .account
+            .pointer("/endpoint/simulate_teardown_failure")
+            .and_then(Value::as_bool)
+            == Some(true)
+        {
             json!({ "destroyed": false, "error": "SIMULATED lease-close failure (endpoint.simulate_teardown_failure)", "warning": "TEARDOWN MAY BE INCOMPLETE — verify the lease on-chain/console (spend may still accrue)" })
         } else if already_revoked {
             json!({ "destroyed": true, "note": "lease was already closed by the provider (simulated revocation) — close confirmed idempotently" })
@@ -3847,27 +4894,36 @@ impl EnvironmentProvider for AkashProvider {
         }
         dep["status"] = json!("torn_down");
         dep["torn_down_at"] = json!(iso_now());
-        Self::push_event(&mut dep, "closed", "deployment closed; lease billing ends with closure".into());
+        Self::push_event(
+            &mut dep,
+            "closed",
+            "deployment closed; lease billing ends with closure".into(),
+        );
         self.save_deployment(data_dir, &dep);
-        Ok(json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
+        Ok(
+            json!({ "provider_operation_ref": format!("provider-account://{}/op/delete/{}", self.account_id(), safe(env_ref)),
                    "deployment_ref": dep["deployment_ref"], "teardown_state": "torn_down",
                    "remote_workspace_cleanup": remote_cleanup, "native_teardown": native_teardown,
-                   "cleanup_verified": true }))
+                   "cleanup_verified": true }),
+        )
     }
     fn observe(&self, data_dir: &str, env_ref: &str) -> Value {
         match self.deployment(data_dir, env_ref) {
-            None => json!({ "provider": self.id(), "environment_ref": env_ref, "deployment": Value::Null, "status": "absent" }),
+            None => {
+                json!({ "provider": self.id(), "environment_ref": env_ref, "deployment": Value::Null, "status": "absent" })
+            }
             Some(dep) => {
                 let torn = text(&dep, "status") == "torn_down";
-                let lane_view = if torn { Value::Null }
-                    else if dep.get("endpoint_ready").and_then(Value::as_bool) != Some(true) {
-                        json!({ "endpoint": "pending — run start to wait for lease endpoint readiness" })
-                    } else {
-                        match self.ssh_lane(data_dir, env_ref) {
-                            Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
-                            Err(e) => json!({ "error": e }),
-                        }
-                    };
+                let lane_view = if torn {
+                    Value::Null
+                } else if dep.get("endpoint_ready").and_then(Value::as_bool) != Some(true) {
+                    json!({ "endpoint": "pending — run start to wait for lease endpoint readiness" })
+                } else {
+                    match self.ssh_lane(data_dir, env_ref) {
+                        Ok((lane, _guard)) => lane.observe(data_dir, env_ref),
+                        Err(e) => json!({ "error": e }),
+                    }
+                };
                 let lease = self.lease_for(data_dir, text(&dep, "deployment_ref"));
                 json!({ "provider": self.id(), "environment_ref": env_ref,
                         "deployment_ref": dep["deployment_ref"], "dseq": dep["dseq"], "status": dep["status"],
@@ -3927,49 +4983,81 @@ fn resolve_account_adapter(
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
     {
-        return Some(Ok((account.clone(), Box::new(VastProvider { account }), None)));
+        return Some(Ok((
+            account.clone(),
+            Box::new(VastProvider { account }),
+            None,
+        )));
     }
     if text(&account, "kind") == "runpod"
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
     {
-        return Some(Ok((account.clone(), Box::new(RunPodProvider { account }), None)));
+        return Some(Ok((
+            account.clone(),
+            Box::new(RunPodProvider { account }),
+            None,
+        )));
     }
     if text(&account, "kind") == "lambda_cloud"
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
     {
-        return Some(Ok((account.clone(), Box::new(LambdaProvider { account }), None)));
+        return Some(Ok((
+            account.clone(),
+            Box::new(LambdaProvider { account }),
+            None,
+        )));
     }
     if text(&account, "kind") == "aws"
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
     {
-        return Some(Ok((account.clone(), Box::new(AwsProvider { account }), None)));
+        return Some(Ok((
+            account.clone(),
+            Box::new(AwsProvider { account }),
+            None,
+        )));
     }
     if text(&account, "kind") == "k8s"
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
     {
-        return Some(Ok((account.clone(), Box::new(K8sProvider { account }), None)));
+        return Some(Ok((
+            account.clone(),
+            Box::new(K8sProvider { account }),
+            None,
+        )));
     }
     if text(&account, "kind") == "azure"
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
     {
-        return Some(Ok((account.clone(), Box::new(AzureProvider { account }), None)));
+        return Some(Ok((
+            account.clone(),
+            Box::new(AzureProvider { account }),
+            None,
+        )));
     }
     if text(&account, "kind") == "gcp"
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
     {
-        return Some(Ok((account.clone(), Box::new(GcpProvider { account }), None)));
+        return Some(Ok((
+            account.clone(),
+            Box::new(GcpProvider { account }),
+            None,
+        )));
     }
     if text(&account, "kind") == "akash"
         && matches!(vast_mode(&account).as_str(), "simulator" | "live")
         && text(&account, "status") == "verified"
     {
-        return Some(Ok((account.clone(), Box::new(AkashProvider { account }), None)));
+        return Some(Ok((
+            account.clone(),
+            Box::new(AkashProvider { account }),
+            None,
+        )));
     }
     if text(&account, "kind") == "baremetal_ssh" {
         match materialize_ssh_key(data_dir, text(&account, "account_id")) {
@@ -3981,16 +5069,24 @@ fn resolve_account_adapter(
             Err(e) => Some(Err(e)),
         }
     } else {
-        Some(Ok((account.clone(), Box::new(CloudKindProvider { account }), None)))
+        Some(Ok((
+            account.clone(),
+            Box::new(CloudKindProvider { account }),
+            None,
+        )))
     }
 }
 
 // ---- ProviderAccount CRUD --------------------------------------------------------------------
 
-pub(crate) async fn handle_provider_accounts_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_provider_accounts_list(
+    State(st): State<Arc<DaemonState>>,
+) -> Json<Value> {
     let mut accounts = read_record_dir(&st.data_dir, ACCOUNT_KIND);
     accounts.sort_by(|a, b| text(a, "created_at").cmp(text(b, "created_at")));
-    Json(json!({ "schema_version": "ioi.hypervisor.provider-accounts.v1", "accounts": accounts, "spend_rule": "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost", "at": iso_now() }))
+    Json(
+        json!({ "schema_version": "ioi.hypervisor.provider-accounts.v1", "accounts": accounts, "spend_rule": "BYO provider spend is customer-borne; the hypervisor records, governs, estimates, and reconciles — it does not hide markup inside provider cost", "at": iso_now() }),
+    )
 }
 
 pub(crate) async fn handle_provider_account_create(
@@ -3999,16 +5095,31 @@ pub(crate) async fn handle_provider_account_create(
 ) -> (StatusCode, Json<Value>) {
     let kind = text(&body, "kind");
     if !ACCOUNT_KINDS.contains(&kind) {
-        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "provider_kind_invalid", "message": format!("kind must be one of {ACCOUNT_KINDS:?}") } })));
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(
+                json!({ "ok": false, "error": { "code": "provider_kind_invalid", "message": format!("kind must be one of {ACCOUNT_KINDS:?}") } }),
+            ),
+        );
     }
     let display_name = text(&body, "display_name");
     if display_name.is_empty() {
-        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "provider_display_name_required", "message": "a provider account needs a display_name" } })));
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(
+                json!({ "ok": false, "error": { "code": "provider_display_name_required", "message": "a provider account needs a display_name" } }),
+            ),
+        );
     }
     if kind == "baremetal_ssh" {
         let ep = body.get("endpoint").cloned().unwrap_or_else(|| json!({}));
         if text(&ep, "host").is_empty() || text(&ep, "user").is_empty() {
-            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "provider_endpoint_required", "message": "baremetal_ssh needs endpoint {host, user, port?}" } })));
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(
+                    json!({ "ok": false, "error": { "code": "provider_endpoint_required", "message": "baremetal_ssh needs endpoint {host, user, port?}" } }),
+                ),
+            );
         }
     }
     let id = format!("pacc_{:x}", nanos());
@@ -4029,7 +5140,10 @@ pub(crate) async fn handle_provider_account_create(
         "runtimeTruthSource": "daemon-runtime",
     });
     let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "account": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "account": record })),
+    )
 }
 
 pub(crate) async fn handle_provider_account_get(
@@ -4037,8 +5151,14 @@ pub(crate) async fn handle_provider_account_get(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     match load_account(&st.data_dir, &id) {
-        Some(account) => (StatusCode::OK, Json(json!({ "ok": true, "account": account }))),
-        None => (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } }))),
+        Some(account) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "account": account })),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })),
+        ),
     }
 }
 
@@ -4048,7 +5168,10 @@ pub(crate) async fn handle_provider_account_patch(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut account) = load_account(&st.data_dir, &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })),
+        );
     };
     for key in ["display_name", "endpoint", "budget_policy_ref"] {
         if let Some(v) = body.get(key) {
@@ -4063,7 +5186,10 @@ pub(crate) async fn handle_provider_account_patch(
     account["updated_at"] = json!(iso_now());
     let aid = text(&account, "account_id").to_string();
     let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
-    (StatusCode::OK, Json(json!({ "ok": true, "account": account })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "account": account })),
+    )
 }
 
 pub(crate) async fn handle_provider_account_delete(
@@ -4090,7 +5216,10 @@ pub(crate) async fn handle_provider_account_credential(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut account) = load_account(&st.data_dir, &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })),
+        );
     };
     let aid = text(&account, "account_id").to_string();
     let kind = text(&account, "kind").to_string();
@@ -4102,16 +5231,28 @@ pub(crate) async fn handle_provider_account_credential(
         "azure" => ("azure-service-principal", text(&body, "client_secret")),
         "k8s" => {
             let kubeconfig = text(&body, "kubeconfig");
-            if !kubeconfig.is_empty() { ("kubeconfig", kubeconfig) } else { ("bearer", text(&body, "token")) }
+            if !kubeconfig.is_empty() {
+                ("kubeconfig", kubeconfig)
+            } else {
+                ("bearer", text(&body, "token"))
+            }
         }
         "vast" | "runpod" | "lambda_cloud" | "akash" => ("bearer", text(&body, "api_key")),
         _ => ("bearer", text(&body, "token")),
     };
     if secret.trim().is_empty() {
-        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "provider_credential_material_required", "message": format!("'{kind}' accounts bind their secret material at this route (never returned, sealed at rest)") } })));
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(
+                json!({ "ok": false, "error": { "code": "provider_credential_material_required", "message": format!("'{kind}' accounts bind their secret material at this route (never returned, sealed at rest)") } }),
+            ),
+        );
     }
     let Some(sealed) = seal_scm_token(secret) else {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "provider_credential_seal_failed" } })));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": { "code": "provider_credential_seal_failed" } })),
+        );
     };
     let fingerprint = sha256_bytes(secret.as_bytes());
     let cred_id = format!("pcred_{aid}");
@@ -4129,14 +5270,32 @@ pub(crate) async fn handle_provider_account_credential(
     });
     // The sealed material lands under the field name resolve_sealed_credential reads for this
     // kind, so provider credentials ride the SAME gateway resolver as the connector estate.
-    let sealed_field = if cred_kind == "aws-sigv4" { "sealed_secret_access_key" } else { "sealed_token" };
+    let sealed_field = if cred_kind == "aws-sigv4" {
+        "sealed_secret_access_key"
+    } else {
+        "sealed_token"
+    };
     record[sealed_field] = json!(sealed);
     // Non-secret resolver hints (token_url, client_id, audience, …) are read from the record
     // ROOT by the canonical oidc-workload/oauth-refresh branches — splice them up from aux.
     if let Some(aux) = body.get("aux").and_then(Value::as_object) {
-        for hint in ["token_url", "client_id", "audience", "scopes", "subject_token_type", "subject_token_file", "access_key_id", "region",
-                     "tenant_id", "subscription_id", "resource_group", "location",
-                     "namespace", "cluster", "ca_mode"] {
+        for hint in [
+            "token_url",
+            "client_id",
+            "audience",
+            "scopes",
+            "subject_token_type",
+            "subject_token_file",
+            "access_key_id",
+            "region",
+            "tenant_id",
+            "subscription_id",
+            "resource_group",
+            "location",
+            "namespace",
+            "cluster",
+            "ca_mode",
+        ] {
             if let Some(v) = aux.get(hint).filter(|v| v.is_string()) {
                 record[hint] = v.clone();
             }
@@ -4147,8 +5306,20 @@ pub(crate) async fn handle_provider_account_credential(
     account["status"] = json!("unverified");
     account["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
-    let receipt = provider_receipt_ext(&st.data_dir, &kind, "-", "credential_bind", "ok", &json!({ "account_ref": text(&account, "account_ref"), "credential_kind": cred_kind, "fingerprint": fingerprint }));
-    (StatusCode::CREATED, Json(json!({ "ok": true, "account": account, "credential": { "credential_id": cred_id, "kind": cred_kind, "fingerprint": fingerprint, "sealed": true }, "receipt_ref": receipt })))
+    let receipt = provider_receipt_ext(
+        &st.data_dir,
+        &kind,
+        "-",
+        "credential_bind",
+        "ok",
+        &json!({ "account_ref": text(&account, "account_ref"), "credential_kind": cred_kind, "fingerprint": fingerprint }),
+    );
+    (
+        StatusCode::CREATED,
+        Json(
+            json!({ "ok": true, "account": account, "credential": { "credential_id": cred_id, "kind": cred_kind, "fingerprint": fingerprint, "sealed": true }, "receipt_ref": receipt }),
+        ),
+    )
 }
 
 pub(crate) async fn handle_provider_account_credential_revoke(
@@ -4166,7 +5337,14 @@ pub(crate) async fn handle_provider_account_credential_revoke(
     account["status"] = json!("revoked");
     account["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
-    let receipt = provider_receipt_ext(&st.data_dir, text(&account, "kind"), "-", "credential_revoke", "ok", &json!({ "account_ref": text(&account, "account_ref") }));
+    let receipt = provider_receipt_ext(
+        &st.data_dir,
+        text(&account, "kind"),
+        "-",
+        "credential_revoke",
+        "ok",
+        &json!({ "account_ref": text(&account, "account_ref") }),
+    );
     Json(json!({ "ok": true, "revoked": removed, "account": account, "receipt_ref": receipt }))
 }
 
@@ -4177,7 +5355,10 @@ pub(crate) async fn handle_provider_account_preflight(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut account) = load_account(&st.data_dir, &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": { "code": "provider_account_not_found" } })),
+        );
     };
     let aid = text(&account, "account_id").to_string();
     let kind = text(&account, "kind").to_string();
@@ -4185,7 +5366,10 @@ pub(crate) async fn handle_provider_account_preflight(
         match materialize_ssh_key(&st.data_dir, &aid) {
             Err(e) => (false, json!({ "reason": e })),
             Ok((key_path, _guard, key_source)) => {
-                let ssh = SshProvider { account: account.clone(), key_path };
+                let ssh = SshProvider {
+                    account: account.clone(),
+                    key_path,
+                };
                 match ssh.run_script(&st.data_dir, "echo IOI-PREFLIGHT-OK; uname -sm; command -v tar >/dev/null && echo tar-ok || echo tar-missing", None) {
                     Err(e) => (false, json!({ "reason": e })),
                     Ok((code, stdout, stderr)) => {
@@ -4200,9 +5384,14 @@ pub(crate) async fn handle_provider_account_preflight(
         match load_account_credential(&st.data_dir, &aid) {
             None => (false, json!({ "reason": "provider_credential_unbound" })),
             Some(cred) => {
-                let sealed = cred["sealed_token"].as_str().or(cred["sealed_secret_access_key"].as_str());
+                let sealed = cred["sealed_token"]
+                    .as_str()
+                    .or(cred["sealed_secret_access_key"].as_str());
                 let resolvable = sealed.and_then(open_scm_token).is_some();
-                (resolvable, json!({ "credential_kind": text(&cred, "kind"), "credential_resolvable": resolvable, "fingerprint": text(&cred, "fingerprint"), "probe": "credential seal round-trip only — no cloud API call in this cut (lifecycle lands with the adapter)", "lifecycle": "credential_preflight_only" }))
+                (
+                    resolvable,
+                    json!({ "credential_kind": text(&cred, "kind"), "credential_resolvable": resolvable, "fingerprint": text(&cred, "fingerprint"), "probe": "credential seal round-trip only — no cloud API call in this cut (lifecycle lands with the adapter)", "lifecycle": "credential_preflight_only" }),
+                )
             }
         }
     };
@@ -4210,15 +5399,27 @@ pub(crate) async fn handle_provider_account_preflight(
     account["status"] = json!(if admit { "verified" } else { "unverified" });
     account["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, ACCOUNT_KIND, &aid, &account);
-    let receipt = provider_receipt_ext(&st.data_dir, &kind, "-", "preflight", if admit { "ok" } else { "preflight_failed" }, &json!({ "account_ref": text(&account, "account_ref"), "evidence": account["preflight"]["evidence"] }));
-    (StatusCode::OK, Json(json!({ "ok": admit, "account": account, "receipt_ref": receipt })))
+    let receipt = provider_receipt_ext(
+        &st.data_dir,
+        &kind,
+        "-",
+        "preflight",
+        if admit { "ok" } else { "preflight_failed" },
+        &json!({ "account_ref": text(&account, "account_ref"), "evidence": account["preflight"]["evidence"] }),
+    );
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": admit, "account": account, "receipt_ref": receipt })),
+    )
 }
 
 /// GET /provider-materials — daemon-custody snapshot material (admitted state roots).
 pub(crate) async fn handle_provider_materials(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let mut materials = read_record_dir(&st.data_dir, MATERIAL_KIND);
     materials.sort_by(|a, b| text(b, "material_id").cmp(text(a, "material_id")));
-    Json(json!({ "schema_version": "ioi.hypervisor.provider-materials.v1", "custody_rule": "blob existence is not restore truth — restores admit by daemon-recorded sha256 state_root", "materials": materials, "at": iso_now() }))
+    Json(
+        json!({ "schema_version": "ioi.hypervisor.provider-materials.v1", "custody_rule": "blob existence is not restore truth — restores admit by daemon-recorded sha256 state_root", "materials": materials, "at": iso_now() }),
+    )
 }
 
 /// GET /v1/hypervisor/providers — static adapters × durable BYO accounts, honest per-entry
@@ -4234,13 +5435,25 @@ pub(crate) async fn handle_providers_list(State(st): State<Arc<DaemonState>>) ->
         let kind = text(&account, "kind").to_string();
         let (status, reason) = if kind == "baremetal_ssh" {
             match text(&account, "status") {
-                "verified" => ("available", format!("verified bare-metal SSH node ({})", text(&account, "display_name"))),
+                "verified" => (
+                    "available",
+                    format!(
+                        "verified bare-metal SSH node ({})",
+                        text(&account, "display_name")
+                    ),
+                ),
                 "revoked" => ("revoked", "credential revoked".to_string()),
-                _ => ("unverified", "bind + preflight to admit this node".to_string()),
+                _ => (
+                    "unverified",
+                    "bind + preflight to admit this node".to_string(),
+                ),
             }
         } else {
             match text(&account, "status") {
-                "verified" => ("credential_verified", format!("'{kind}' credential verified — lifecycle lands with its adapter cut")),
+                "verified" => (
+                    "credential_verified",
+                    format!("'{kind}' credential verified — lifecycle lands with its adapter cut"),
+                ),
                 "revoked" => ("revoked", "credential revoked".to_string()),
                 _ => ("unverified", "bind + preflight the credential".to_string()),
             }
@@ -4297,8 +5510,20 @@ pub(crate) async fn handle_provider_op(
         let (account, provider, _key_guard) = match resolved {
             Ok(triple) => triple,
             Err(reason) => {
-                let receipt = provider_receipt_ext(data_dir, provider_id, &env_ref, op, "credential_unresolved", &json!({ "error": reason }));
-                return (StatusCode::PRECONDITION_REQUIRED, Json(json!({ "ok": false, "op": op, "provider": provider_id, "reason": reason, "receipt_ref": receipt })));
+                let receipt = provider_receipt_ext(
+                    data_dir,
+                    provider_id,
+                    &env_ref,
+                    op,
+                    "credential_unresolved",
+                    &json!({ "error": reason }),
+                );
+                return (
+                    StatusCode::PRECONDITION_REQUIRED,
+                    Json(
+                        json!({ "ok": false, "op": op, "provider": provider_id, "reason": reason, "receipt_ref": receipt }),
+                    ),
+                );
             }
         };
         let account_id = text(&account, "account_id").to_string();
@@ -4314,8 +5539,20 @@ pub(crate) async fn handle_provider_op(
             match discover_budget(data_dir, &kind, op, &account) {
                 Ok(note) => budget_note = note,
                 Err(reason) => {
-                    let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "budget_blocked", &json!({ "account_ref": account_ref, "error": reason }));
-                    return (StatusCode::CONFLICT, Json(json!({ "ok": false, "op": op, "provider": provider_id, "account_ref": account_ref, "reason": reason, "receipt_ref": receipt })));
+                    let receipt = provider_receipt_ext(
+                        data_dir,
+                        &kind,
+                        &env_ref,
+                        op,
+                        "budget_blocked",
+                        &json!({ "account_ref": account_ref, "error": reason }),
+                    );
+                    return (
+                        StatusCode::CONFLICT,
+                        Json(
+                            json!({ "ok": false, "op": op, "provider": provider_id, "account_ref": account_ref, "reason": reason, "receipt_ref": receipt }),
+                        ),
+                    );
                 }
             }
             // 1b) vast GUARDED LIFECYCLE: create is QUOTE-GATED. The quote must be fresh (not
@@ -4327,62 +5564,130 @@ pub(crate) async fn handle_provider_op(
             // simulator/live) — exactly what the capabilities text promises. Mode-less accounts
             // stay credential_preflight_only: create crosses the wallet and fails closed with
             // the named PROVIDER_KIND_LIFECYCLE_NOT_IMPLEMENTED lane (never a fake).
-            if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure" | "k8s")
-                && matches!(op, "create" | "redeploy")
+            if matches!(
+                kind.as_str(),
+                "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure" | "k8s"
+            ) && matches!(op, "create" | "redeploy")
                 && !vast_mode(&account).is_empty()
             {
-                let candidate_ref = body.get("candidate_ref").and_then(Value::as_str).unwrap_or("");
+                let candidate_ref = body
+                    .get("candidate_ref")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 if candidate_ref.is_empty() {
                     let code = format!("{kind}_candidate_ref_required");
-                    let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "quote_gate_refused", &json!({ "account_ref": account_ref, "error": code }));
-                    return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — provisioning is quote-gated; pass the candidate_ref of a fresh, live, priced CloudResourceCandidate"), "receipt_ref": receipt })));
+                    let receipt = provider_receipt_ext(
+                        data_dir,
+                        &kind,
+                        &env_ref,
+                        op,
+                        "quote_gate_refused",
+                        &json!({ "account_ref": account_ref, "error": code }),
+                    );
+                    return (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        Json(
+                            json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — provisioning is quote-gated; pass the candidate_ref of a fresh, live, priced CloudResourceCandidate"), "receipt_ref": receipt }),
+                        ),
+                    );
                 }
                 let candidate = read_record_dir(data_dir, "cloud-resource-candidates")
                     .into_iter()
                     .find(|c| text(c, "candidate_ref") == candidate_ref);
                 let refuse = |code: &str, detail: String| {
-                    let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "quote_gate_refused", &json!({ "account_ref": account_ref, "candidate_ref": candidate_ref, "error": code }));
-                    (StatusCode::CONFLICT, Json(json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — {detail}"), "receipt_ref": receipt })))
+                    let receipt = provider_receipt_ext(
+                        data_dir,
+                        &kind,
+                        &env_ref,
+                        op,
+                        "quote_gate_refused",
+                        &json!({ "account_ref": account_ref, "candidate_ref": candidate_ref, "error": code }),
+                    );
+                    (
+                        StatusCode::CONFLICT,
+                        Json(
+                            json!({ "ok": false, "op": op, "provider": provider_id, "reason": format!("{code} — {detail}"), "receipt_ref": receipt }),
+                        ),
+                    )
                 };
                 let Some(candidate) = candidate else {
-                    return refuse(&format!("{kind}_candidate_unknown"), "no such CloudResourceCandidate — refresh candidates and retry".into());
+                    return refuse(
+                        &format!("{kind}_candidate_unknown"),
+                        "no such CloudResourceCandidate — refresh candidates and retry".into(),
+                    );
                 };
                 if text(&candidate, "provider_account_ref") != account_ref {
-                    return refuse(&format!("{kind}_candidate_account_mismatch"), "the candidate belongs to a different provider account".into());
+                    return refuse(
+                        &format!("{kind}_candidate_account_mismatch"),
+                        "the candidate belongs to a different provider account".into(),
+                    );
                 }
-                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-                let expired = candidate.get("expires_epoch").and_then(Value::as_u64).map(|e| now > e).unwrap_or(true);
-                if expired || candidate.get("status").and_then(Value::as_str) == Some("superseded") {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                let expired = candidate
+                    .get("expires_epoch")
+                    .and_then(Value::as_u64)
+                    .map(|e| now > e)
+                    .unwrap_or(true);
+                if expired || candidate.get("status").and_then(Value::as_str) == Some("superseded")
+                {
                     return refuse(&format!("{kind}_quote_expired_requires_requote"), "expired or superseded quotes can never mutate — refresh candidates for a fresh quote".into());
                 }
                 let evidence_mode = text(&candidate, "evidence_mode").to_string();
                 let account_mode = vast_mode(&account);
                 if evidence_mode == "fixture_evidence" {
-                    return refuse(&format!("{kind}_quote_not_live"), "fixture quotes are advisory forever and can never provision".into());
+                    return refuse(
+                        &format!("{kind}_quote_not_live"),
+                        "fixture quotes are advisory forever and can never provision".into(),
+                    );
                 }
                 let mode_ok = (account_mode == "live" && evidence_mode == "live_evidence")
                     || (account_mode == "simulator" && evidence_mode == "simulator_evidence");
                 if !mode_ok {
                     return refuse(&format!("{kind}_quote_mode_mismatch"), format!("account control plane is '{account_mode}' but the quote evidence is '{evidence_mode}' — live provisioning demands live quotes; the simulator demands simulator quotes"));
                 }
-                let k8s_unmetered = kind == "k8s" && account.pointer("/endpoint/metered").map(Value::is_null).unwrap_or(true);
+                let k8s_unmetered = kind == "k8s"
+                    && account
+                        .pointer("/endpoint/metered")
+                        .map(Value::is_null)
+                        .unwrap_or(true);
                 let (price_v, max_hourly_v): (Value, Value) = if k8s_unmetered {
                     // Customer/operator cluster: NO price exists and none is invented — the
                     // exposure plane opens nothing without a sourced price.
                     (Value::Null, Value::Null)
                 } else {
-                    let Some(price) = candidate.pointer("/quote/usd_per_hour").and_then(Value::as_f64) else {
-                        let code = if kind == "k8s" { "k8s_metered_posture_unpriced".to_string() } else { format!("{kind}_quote_unpriced") };
+                    let Some(price) = candidate
+                        .pointer("/quote/usd_per_hour")
+                        .and_then(Value::as_f64)
+                    else {
+                        let code = if kind == "k8s" {
+                            "k8s_metered_posture_unpriced".to_string()
+                        } else {
+                            format!("{kind}_quote_unpriced")
+                        };
                         return refuse(&code, "a candidate without a real sourced price can never provision on a metered posture".into());
                     };
-                    let max_hourly = body.get("max_hourly_usd").and_then(Value::as_f64).unwrap_or(price);
+                    let max_hourly = body
+                        .get("max_hourly_usd")
+                        .and_then(Value::as_f64)
+                        .unwrap_or(price);
                     if price > max_hourly {
-                        return refuse(&format!("{kind}_price_above_max"), format!("offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"));
+                        return refuse(
+                            &format!("{kind}_price_above_max"),
+                            format!(
+                                "offer price ${price}/hr exceeds the declared max ${max_hourly}/hr"
+                            ),
+                        );
                     }
                     // Reservation adequacy: headroom after OPEN exposures must cover this create's
                     // first-hour reservation at the declared max rate. Checked here (not at budget
                     // discovery) because the price is only known once the quote is validated.
-                    let headroom = budget_note.get("remaining_headroom_after_reservations").and_then(Value::as_f64).unwrap_or(0.0);
+                    let headroom = budget_note
+                        .get("remaining_headroom_after_reservations")
+                        .and_then(Value::as_f64)
+                        .unwrap_or(0.0);
                     if headroom - max_hourly < 0.0 {
                         return refuse(&format!("{kind}_budget_reservation_exceeded"), format!("open exposures already reserve the external_spend headroom (remaining ${headroom:.3} < first-hour reservation ${max_hourly:.3}/hr) — tear an instance down or raise the budget"));
                     }
@@ -4392,9 +5697,16 @@ pub(crate) async fn handle_provider_op(
                 // posture — a canonical spec is built from the request and its hash rides the
                 // facets (admission is namespace-scoped; nothing generic).
                 let k8s_workload: Value = if kind == "k8s" {
-                    let namespace = body.get("namespace").and_then(Value::as_str)
-                        .or_else(|| account.pointer("/endpoint/namespace").and_then(Value::as_str))
-                        .unwrap_or("default").to_string();
+                    let namespace = body
+                        .get("namespace")
+                        .and_then(Value::as_str)
+                        .or_else(|| {
+                            account
+                                .pointer("/endpoint/namespace")
+                                .and_then(Value::as_str)
+                        })
+                        .unwrap_or("default")
+                        .to_string();
                     let spec = json!({
                         "image": body.get("image").cloned().unwrap_or(json!("ubuntu:24.04")),
                         "resources": body.get("resources").cloned().unwrap_or(json!({ "cpu_milli": 500, "memory_gb": 1, "gpu": 0 })),
@@ -4405,19 +5717,25 @@ pub(crate) async fn handle_provider_op(
                     let spec_hash = sha256_bytes(spec.to_string().as_bytes());
                     json!({ "namespace": namespace, "workload_spec": spec, "workload_spec_hash": spec_hash,
                             "exec_posture": "kubernetes_exec" })
-                } else { Value::Null };
+                } else {
+                    Value::Null
+                };
                 // akash: the wallet challenge binds the DEPLOYMENT SPEC — a canonical SDL is
                 // built from the validated bid candidate; its hash rides the facets.
                 let akash_sdl: Value = if kind == "akash" {
                     let sdl = akash_build_sdl(&candidate, &body);
                     let sdl_hash = sha256_bytes(sdl.to_string().as_bytes());
                     json!({ "sdl": sdl, "sdl_hash": sdl_hash })
-                } else { Value::Null };
+                } else {
+                    Value::Null
+                };
                 // aws|gcp: the wallet challenge binds the ENTERPRISE NETWORK POSTURE — explicit
                 // VPC/subnet(/security-group|firewall) config or the labelled default simulator
                 // posture, with reachability flags (public/external IP + SSH ingress).
                 let aws_network: Value = if matches!(kind.as_str(), "aws" | "gcp" | "azure") {
-                    let configured = body.get("network").cloned()
+                    let configured = body
+                        .get("network")
+                        .cloned()
                         .or_else(|| account.pointer("/endpoint/network").cloned())
                         .filter(|n| !n.is_null());
                     let (explicit_label, default_label) = if kind == "gcp" {
@@ -4429,20 +5747,37 @@ pub(crate) async fn handle_provider_op(
                     };
                     match configured {
                         Some(n) => {
-                            let explicit = n.get("vpc_id").is_some() || n.get("subnet_id").is_some() || n.get("security_group_id").is_some()
-                                || n.get("network").is_some() || n.get("subnetwork").is_some() || n.get("firewall").is_some()
-                                || n.get("vnet").is_some() || n.get("subnet").is_some() || n.get("nsg").is_some();
+                            let explicit = n.get("vpc_id").is_some()
+                                || n.get("subnet_id").is_some()
+                                || n.get("security_group_id").is_some()
+                                || n.get("network").is_some()
+                                || n.get("subnetwork").is_some()
+                                || n.get("firewall").is_some()
+                                || n.get("vnet").is_some()
+                                || n.get("subnet").is_some()
+                                || n.get("nsg").is_some();
                             let mut posture = n.clone();
                             if let Some(o) = posture.as_object_mut() {
                                 o.entry("public_ip").or_insert(json!(true));
                                 o.entry("ssh_ingress").or_insert(json!(true));
-                                o.insert("posture_label".into(), json!(if explicit { explicit_label } else { default_label }));
+                                o.insert(
+                                    "posture_label".into(),
+                                    json!(if explicit {
+                                        explicit_label
+                                    } else {
+                                        default_label
+                                    }),
+                                );
                             }
                             posture
                         }
-                        None => json!({ "posture_label": default_label, "public_ip": true, "ssh_ingress": true }),
+                        None => {
+                            json!({ "posture_label": default_label, "public_ip": true, "ssh_ingress": true })
+                        }
                     }
-                } else { Value::Null };
+                } else {
+                    Value::Null
+                };
                 vast_gate = json!({
                     "candidate_ref": candidate_ref,
                     "quote_ref": candidate["quote_ref"],
@@ -4498,14 +5833,42 @@ pub(crate) async fn handle_provider_op(
                 request_domain: "hypervisor.provider.op.request.v1".to_string(),
                 request_facets: {
                     let mut facets = json!({ "account_ref": account_ref, "op": op, "environment_ref": env_ref, "kind": kind, "external_spend_posture": budget_note.get("scope").cloned().unwrap_or(Value::Null) });
-                    if let (Some(target), Some(gate)) = (facets.as_object_mut(), vast_gate.as_object()) {
-                        for key in ["candidate_ref", "quote_ref", "max_hourly_usd", "gpu", "region", "az", "instance_type", "disk_gb",
-                                    "project", "zone", "machine_type",
-                                    "subscription_id", "resource_group", "location", "vm_size",
-                                    "namespace", "workload_spec_hash", "exec_posture",
-                                    "network_posture", "deployment_class", "provider_address", "bid_ref", "persistent_storage", "sdl_hash",
-                                    "restore_material_ref", "archive_ref", "teardown_policy", "execution_mode"] {
-                            if let Some(v) = gate.get(key) { target.insert(key.to_string(), v.clone()); }
+                    if let (Some(target), Some(gate)) =
+                        (facets.as_object_mut(), vast_gate.as_object())
+                    {
+                        for key in [
+                            "candidate_ref",
+                            "quote_ref",
+                            "max_hourly_usd",
+                            "gpu",
+                            "region",
+                            "az",
+                            "instance_type",
+                            "disk_gb",
+                            "project",
+                            "zone",
+                            "machine_type",
+                            "subscription_id",
+                            "resource_group",
+                            "location",
+                            "vm_size",
+                            "namespace",
+                            "workload_spec_hash",
+                            "exec_posture",
+                            "network_posture",
+                            "deployment_class",
+                            "provider_address",
+                            "bid_ref",
+                            "persistent_storage",
+                            "sdl_hash",
+                            "restore_material_ref",
+                            "archive_ref",
+                            "teardown_policy",
+                            "execution_mode",
+                        ] {
+                            if let Some(v) = gate.get(key) {
+                                target.insert(key.to_string(), v.clone());
+                            }
                         }
                     }
                     facets
@@ -4517,19 +5880,39 @@ pub(crate) async fn handle_provider_op(
                 receipt_required: true,
                 revocation_ref: format!("provider-accounts/{account_id}/credential"),
                 authority_reason: "provider_operation_authority_required".to_string(),
-                grant_value: body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null),
+                grant_value: body
+                    .get("wallet_approval_grant")
+                    .cloned()
+                    .unwrap_or(Value::Null),
             };
             match authorize_capability_lease(&st, &lease_req).await {
                 Err((status, challenge)) => {
-                    let outcome = if status == StatusCode::PRECONDITION_REQUIRED { "credential_unresolved" } else { "authority_missing" };
-                    let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, outcome, &json!({ "account_ref": account_ref, "budget_discovery": budget_note }));
+                    let outcome = if status == StatusCode::PRECONDITION_REQUIRED {
+                        "credential_unresolved"
+                    } else {
+                        "authority_missing"
+                    };
+                    let receipt = provider_receipt_ext(
+                        data_dir,
+                        &kind,
+                        &env_ref,
+                        op,
+                        outcome,
+                        &json!({ "account_ref": account_ref, "budget_discovery": budget_note }),
+                    );
                     let mut payload = challenge;
                     if let Some(object) = payload.as_object_mut() {
                         object.insert("receipt_ref".into(), json!(receipt));
                         object.insert("account_ref".into(), json!(account_ref));
                         if !vast_gate.is_null() {
                             object.insert("lease_request_facets".into(), vast_gate.clone());
-                            object.insert("spend_estimate".into(), vast_gate.get("spend_estimate").cloned().unwrap_or(Value::Null));
+                            object.insert(
+                                "spend_estimate".into(),
+                                vast_gate
+                                    .get("spend_estimate")
+                                    .cloned()
+                                    .unwrap_or(Value::Null),
+                            );
                         }
                     }
                     return (status, Json(payload));
@@ -4542,10 +5925,18 @@ pub(crate) async fn handle_provider_op(
         }
         let mut plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
         if let (Some(target), Some(gate)) = (plan.as_object_mut(), vast_gate.as_object()) {
-            for (k, v) in gate { target.insert(k.clone(), v.clone()); }
+            for (k, v) in gate {
+                target.insert(k.clone(), v.clone());
+            }
         }
-        let command = body.get("command").and_then(|v| v.as_str()).unwrap_or("true");
-        let material_ref = body.get("material_ref").and_then(|v| v.as_str()).unwrap_or("");
+        let command = body
+            .get("command")
+            .and_then(|v| v.as_str())
+            .unwrap_or("true");
+        let material_ref = body
+            .get("material_ref")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let result = match op {
             "preflight" => Ok(provider.preflight(&plan)),
             "create" => provider.create(data_dir, &env_ref, &plan),
@@ -4564,20 +5955,30 @@ pub(crate) async fn handle_provider_op(
             "redeploy" => provider.redeploy(data_dir, &env_ref, &plan),
             other => Err(format!("unknown op '{other}'")),
         };
-        let cost_estimate = budget_note.get("cost_estimate").cloned().unwrap_or(Value::Null);
+        let cost_estimate = budget_note
+            .get("cost_estimate")
+            .cloned()
+            .unwrap_or(Value::Null);
         return match result {
             Ok(evidence) => {
-                let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, "ok", &json!({
-                    "account_ref": account_ref, "grant_ref": grant_ref, "capability_lease": lease_note,
-                    "cost_estimate": cost_estimate, "budget_discovery": budget_note,
-                    "candidate_ref": vast_gate.get("candidate_ref").cloned().unwrap_or(Value::Null),
-                    "quote_ref": vast_gate.get("quote_ref").cloned().unwrap_or(Value::Null),
-                    "spend_estimate": vast_gate.get("spend_estimate").cloned().unwrap_or(Value::Null),
-                    "execution_mode": vast_gate.get("execution_mode").cloned().unwrap_or(Value::Null),
-                    "provider_native": evidence.get("provider_native").cloned().unwrap_or(Value::Null),
-                    "teardown_state": evidence.get("teardown_state").cloned().unwrap_or(Value::Null),
-                    "state_root": evidence.get("state_root").cloned().unwrap_or(Value::Null),
-                }));
+                let receipt = provider_receipt_ext(
+                    data_dir,
+                    &kind,
+                    &env_ref,
+                    op,
+                    "ok",
+                    &json!({
+                        "account_ref": account_ref, "grant_ref": grant_ref, "capability_lease": lease_note,
+                        "cost_estimate": cost_estimate, "budget_discovery": budget_note,
+                        "candidate_ref": vast_gate.get("candidate_ref").cloned().unwrap_or(Value::Null),
+                        "quote_ref": vast_gate.get("quote_ref").cloned().unwrap_or(Value::Null),
+                        "spend_estimate": vast_gate.get("spend_estimate").cloned().unwrap_or(Value::Null),
+                        "execution_mode": vast_gate.get("execution_mode").cloned().unwrap_or(Value::Null),
+                        "provider_native": evidence.get("provider_native").cloned().unwrap_or(Value::Null),
+                        "teardown_state": evidence.get("teardown_state").cloned().unwrap_or(Value::Null),
+                        "state_root": evidence.get("state_root").cloned().unwrap_or(Value::Null),
+                    }),
+                );
                 let op_id = format!("pop_{:x}", nanos());
                 let record = json!({
                     "schema_version": "ioi.hypervisor.provider-operation.v1",
@@ -4588,7 +5989,10 @@ pub(crate) async fn handle_provider_op(
                 });
                 let _ = persist_record(data_dir, "provider-operations", &op_id, &record);
                 // ── Spend exposure accounting (customer-borne; estimates only, never a bill) ──
-                if matches!(op, "create" | "redeploy") && !vast_gate.is_null() && !vast_gate["usd_per_hour"].is_null() {
+                if matches!(op, "create" | "redeploy")
+                    && !vast_gate.is_null()
+                    && !vast_gate["usd_per_hour"].is_null()
+                {
                     let exp_id = format!("pse_{:x}", nanos());
                     let exposure = json!({
                         "schema_version": "ioi.hypervisor.provider-spend-exposure.v1",
@@ -4613,20 +6017,38 @@ pub(crate) async fn handle_provider_op(
                         "opened_at": iso_now(),
                     });
                     let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
-                } else if matches!(kind.as_str(), "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure" | "k8s") {
-                    if let Some(mut exposure) = open_exposure_for(data_dir, &account_ref, &env_ref) {
+                } else if matches!(
+                    kind.as_str(),
+                    "vast" | "runpod" | "lambda_cloud" | "akash" | "aws" | "gcp" | "azure" | "k8s"
+                ) {
+                    if let Some(mut exposure) = open_exposure_for(data_dir, &account_ref, &env_ref)
+                    {
                         let exp_id = text(&exposure, "exposure_id").to_string();
-                        let mut refs = exposure.get("receipt_refs").and_then(Value::as_array).cloned().unwrap_or_default();
+                        let mut refs = exposure
+                            .get("receipt_refs")
+                            .and_then(Value::as_array)
+                            .cloned()
+                            .unwrap_or_default();
                         refs.push(json!(receipt));
                         exposure["receipt_refs"] = json!(refs);
                         if let Some(root) = evidence.get("state_root").and_then(Value::as_str) {
-                            let mut roots = exposure.get("state_roots").and_then(Value::as_array).cloned().unwrap_or_default();
+                            let mut roots = exposure
+                                .get("state_roots")
+                                .and_then(Value::as_array)
+                                .cloned()
+                                .unwrap_or_default();
                             roots.push(json!(root));
                             exposure["state_roots"] = json!(roots);
                         }
                         if op == "delete" {
-                            let destroyed = evidence.pointer("/native_teardown/destroyed").and_then(Value::as_bool).unwrap_or(false);
-                            exposure["teardown_state"] = evidence.get("teardown_state").cloned().unwrap_or(json!("torn_down"));
+                            let destroyed = evidence
+                                .pointer("/native_teardown/destroyed")
+                                .and_then(Value::as_bool)
+                                .unwrap_or(false);
+                            exposure["teardown_state"] = evidence
+                                .get("teardown_state")
+                                .cloned()
+                                .unwrap_or(json!("torn_down"));
                             exposure["teardown_receipt_ref"] = json!(receipt);
                             exposure["closed_at"] = json!(iso_now());
                             if destroyed {
@@ -4639,17 +6061,40 @@ pub(crate) async fn handle_provider_op(
                         let _ = persist_record(data_dir, EXPOSURE_KIND, &exp_id, &exposure);
                     }
                 }
-                (StatusCode::OK, Json(json!({ "ok": true, "op": op, "provider": provider_id, "account_ref": account_ref, "environment_ref": env_ref, "evidence": evidence, "receipt_ref": receipt, "cost_estimate": cost_estimate })))
+                (
+                    StatusCode::OK,
+                    Json(
+                        json!({ "ok": true, "op": op, "provider": provider_id, "account_ref": account_ref, "environment_ref": env_ref, "evidence": evidence, "receipt_ref": receipt, "cost_estimate": cost_estimate }),
+                    ),
+                )
             }
             Err(reason) => {
-                let outcome = if reason.contains("NOT_IMPLEMENTED") { "not_implemented" } else if reason.contains("hash_mismatch") { "restore_refused" } else { "error" };
-                let receipt = provider_receipt_ext(data_dir, &kind, &env_ref, op, outcome, &json!({
-                    "account_ref": account_ref, "grant_ref": grant_ref, "capability_lease": lease_note, "error": reason,
-                    "candidate_ref": vast_gate.get("candidate_ref").cloned().unwrap_or(Value::Null),
-                    "quote_ref": vast_gate.get("quote_ref").cloned().unwrap_or(Value::Null),
-                    "execution_mode": vast_gate.get("execution_mode").cloned().unwrap_or(Value::Null),
-                }));
-                (StatusCode::OK, Json(json!({ "ok": false, "op": op, "provider": provider_id, "account_ref": account_ref, "environment_ref": env_ref, "reason": reason, "outcome": outcome, "receipt_ref": receipt })))
+                let outcome = if reason.contains("NOT_IMPLEMENTED") {
+                    "not_implemented"
+                } else if reason.contains("hash_mismatch") {
+                    "restore_refused"
+                } else {
+                    "error"
+                };
+                let receipt = provider_receipt_ext(
+                    data_dir,
+                    &kind,
+                    &env_ref,
+                    op,
+                    outcome,
+                    &json!({
+                        "account_ref": account_ref, "grant_ref": grant_ref, "capability_lease": lease_note, "error": reason,
+                        "candidate_ref": vast_gate.get("candidate_ref").cloned().unwrap_or(Value::Null),
+                        "quote_ref": vast_gate.get("quote_ref").cloned().unwrap_or(Value::Null),
+                        "execution_mode": vast_gate.get("execution_mode").cloned().unwrap_or(Value::Null),
+                    }),
+                );
+                (
+                    StatusCode::OK,
+                    Json(
+                        json!({ "ok": false, "op": op, "provider": provider_id, "account_ref": account_ref, "environment_ref": env_ref, "reason": reason, "outcome": outcome, "receipt_ref": receipt }),
+                    ),
+                )
             }
         };
     }
@@ -4657,7 +6102,12 @@ pub(crate) async fn handle_provider_op(
     // ── Legacy static-adapter lane (local-microvm / loopback-runner / cloud-vpc) — unchanged. ──
     let Some(provider) = resolve(provider_id) else {
         let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, "error");
-        return (StatusCode::OK, Json(json!({ "ok": false, "reason": format!("unknown provider '{provider_id}'"), "receipt_ref": receipt })));
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": false, "reason": format!("unknown provider '{provider_id}'"), "receipt_ref": receipt }),
+            ),
+        );
     };
 
     // Remote/external providers require an authority grant for provider-credential materialization.
@@ -4671,9 +6121,12 @@ pub(crate) async fn handle_provider_op(
         && body.get("grant_ref").and_then(|v| v.as_str()).is_none()
     {
         let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, "authority_missing");
-        return (StatusCode::OK, Json(
-            json!({ "ok": false, "op": op, "provider": provider_id, "reason": "provider credentials are authority-gated; present a grant_ref (effect=provider_credential)", "receipt_ref": receipt }),
-        ));
+        return (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": false, "op": op, "provider": provider_id, "reason": "provider credentials are authority-gated; present a grant_ref (effect=provider_credential)", "receipt_ref": receipt }),
+            ),
+        );
     }
 
     let plan = body.get("plan").cloned().unwrap_or_else(|| json!({}));
@@ -4711,9 +6164,12 @@ pub(crate) async fn handle_provider_op(
                 "op": op, "evidence": evidence, "receipt_ref": receipt, "at": iso_now()
             });
             let _ = persist_record(data_dir, "provider-operations", &op_id, &record);
-            (StatusCode::OK, Json(
-                json!({ "ok": true, "op": op, "provider": provider_id, "environment_ref": env_ref, "evidence": evidence, "receipt_ref": receipt }),
-            ))
+            (
+                StatusCode::OK,
+                Json(
+                    json!({ "ok": true, "op": op, "provider": provider_id, "environment_ref": env_ref, "evidence": evidence, "receipt_ref": receipt }),
+                ),
+            )
         }
         Err(reason) => {
             let outcome = if reason.contains("NOT_CONFIGURED") {
@@ -4722,9 +6178,12 @@ pub(crate) async fn handle_provider_op(
                 "error"
             };
             let receipt = provider_receipt(data_dir, provider_id, &env_ref, op, outcome);
-            (StatusCode::OK, Json(
-                json!({ "ok": false, "op": op, "provider": provider_id, "environment_ref": env_ref, "reason": reason, "outcome": outcome, "receipt_ref": receipt }),
-            ))
+            (
+                StatusCode::OK,
+                Json(
+                    json!({ "ok": false, "op": op, "provider": provider_id, "environment_ref": env_ref, "reason": reason, "outcome": outcome, "receipt_ref": receipt }),
+                ),
+            )
         }
     }
 }
@@ -4736,16 +6195,38 @@ pub(crate) async fn handle_provider_op(
 pub(crate) async fn handle_spend_reconciliation(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let exposures = read_record_dir(&st.data_dir, EXPOSURE_KIND);
     let budgets = read_record_dir(&st.data_dir, "resource-budgets");
-    let budget = budgets.iter().find(|b| b["scope"].as_str() == Some("external_spend"));
+    let budget = budgets
+        .iter()
+        .find(|b| b["scope"].as_str() == Some("external_spend"));
     let reserved = open_reserved_estimate(&st.data_dir);
     let (limit, spent) = budget
-        .map(|b| (b["limit"].as_f64().unwrap_or(0.0), b["spent"].as_f64().unwrap_or(0.0)))
+        .map(|b| {
+            (
+                b["limit"].as_f64().unwrap_or(0.0),
+                b["spent"].as_f64().unwrap_or(0.0),
+            )
+        })
         .unwrap_or((0.0, 0.0));
-    let open: Vec<&Value> = exposures.iter().filter(|e| text(e, "status") == "open").collect();
-    let warned: Vec<&Value> = exposures.iter().filter(|e| text(e, "status") == "closed_with_warning").collect();
-    let closed: Vec<&Value> = exposures.iter().filter(|e| text(e, "status") == "closed").collect();
-    let authorized: f64 = exposures.iter().filter_map(|e| e.get("max_hourly_usd").and_then(Value::as_f64)).sum();
-    let open_estimate: f64 = open.iter().filter_map(|e| e.get("usd_per_hour").and_then(Value::as_f64)).sum();
+    let open: Vec<&Value> = exposures
+        .iter()
+        .filter(|e| text(e, "status") == "open")
+        .collect();
+    let warned: Vec<&Value> = exposures
+        .iter()
+        .filter(|e| text(e, "status") == "closed_with_warning")
+        .collect();
+    let closed: Vec<&Value> = exposures
+        .iter()
+        .filter(|e| text(e, "status") == "closed")
+        .collect();
+    let authorized: f64 = exposures
+        .iter()
+        .filter_map(|e| e.get("max_hourly_usd").and_then(Value::as_f64))
+        .sum();
+    let open_estimate: f64 = open
+        .iter()
+        .filter_map(|e| e.get("usd_per_hour").and_then(Value::as_f64))
+        .sum();
     Json(json!({
         "schema_version": "ioi.hypervisor.provider-spend-reconciliation.v1",
         "budget": {

@@ -1,0 +1,32 @@
+{
+  "schema_version": "ioi.components.connectors-tools.runtime-tool-contract.v1",
+  "tool_id": "tool://example.send",
+  "revision_ref": "tool://example.send/revision/1.0.0",
+  "predecessor_revision_ref": null,
+  "content_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "namespace": "example",
+  "display_name": "Send example",
+  "version": "1.0.0",
+  "input_schema": {},
+  "output_schema": {},
+  "risk_class": "external_message",
+  "effect_class": "external_message",
+  "concurrency_class": "resource_scoped",
+  "timeout": {
+    "default_ms": 30000,
+    "max_ms": 120000
+  },
+  "primitive_capabilities_required": ["prim:net.request"],
+  "authority_scopes_required": ["scope:example.send"],
+  "approval_required": true,
+  "evidence_required": ["request_preview", "provider_response"],
+  "redaction_policy": "hash_only",
+  "owner": "connector://example",
+  "data_class_allowlist": ["public", "internal", "confidential"],
+  "egress_policy": {
+    "default": "allow_declared",
+    "allowed_destination_patterns": ["https://api.example.test/v1/*"]
+  },
+  "registry_lifecycle_ref": "agentgres://object/tool/example.send",
+  "registry_status": "released"
+}

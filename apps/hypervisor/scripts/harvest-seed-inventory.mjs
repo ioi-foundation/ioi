@@ -1,11 +1,12 @@
-// Harvested UX parity inventory — the canonical map of Hypervisor application seeds.
+// Harvested UX parity inventory — historical capture-family evidence for Hypervisor seeds.
 //
 // Phase doctrine: capture completeness → bit-for-bit UX seed → classify unbound lanes → later
 // daemon rebind → later IOI-owned surface. This module is the SINGLE SOURCE OF TRUTH the parity
 // verifier iterates; it is also the follow-up map for truth-binding cuts.
 //
 // Each entry:
-//   owner       — the canonical Hypervisor suite surface that owns this UX
+//   owner       — the capture-era family/current compatibility route used by the parity harness;
+//                 it is NOT product membership or target ownership
 //   slug        — the /__apps/<slug> route inside Hypervisor
 //   captureBase — the capture workspace route (…/public/workspace/<dir>/)
 //   grammar     — the intended interaction grammar (editor_canvas | graph | wizard | table_list |
@@ -20,6 +21,10 @@
 // blocked_missing_capture. There is no "live re-harvest" in this phase — a seed the static capture
 // cannot boot past shell is classified honestly (shell_only / blocked_missing_capture), never faked
 // and never described as needing a live tenant.
+//
+// Target product placement lives only in surface-registry.mjs and the typed product catalog.
+// In particular, the historical Missions, Marketplace, Workbench, and Studio/Machinery labels
+// below remain reproducibility evidence; they must never recreate those peer application families.
 
 export const SEED_INVENTORY = [
   // ── Studio — system/process composition ────────────────────────────────────────────────
@@ -87,4 +92,3 @@ export const SEED_INVENTORY = [
   { owner: "Governance", ownerUrl: "/__ioi/governance", slug: "approvals", captureBase: "/workspace/approvals-app/", grammar: "table_list", tier: "high_value", reboundLane: "daemon approval-requests", note: "approvals inbox; per-row drilldown = named gap" },
   { owner: "Improvement", ownerUrl: "/__ioi/agent-studio", slug: "changes", captureBase: "/workspace/upgrade-assistant/", grammar: "table_list", tier: "high_value", reboundLane: "daemon improvement-proposals", note: "change inbox" },
 ];
-

@@ -1,0 +1,114 @@
+{
+  "schema_version": "ioi.physical-action-execution-receipt.v1",
+  "receipt_envelope": {
+    "receipt_id": "receipt://physical-action/execution/carwash-prep-001",
+    "receipt_type": "physical_action_execution",
+    "receipt_profile_ref": "schema://ioi/foundations/physical-action-execution-receipt/v1",
+    "attested_boundary_fact_refs": [
+      "effect://controller/carwash/prep-vehicle-001"
+    ],
+    "claim_scope_ref": "policy://physical/carwash-prep",
+    "run_id": "run://carwash/prep-vehicle-001",
+    "task_id": "task://carwash/prep-vehicle-001",
+    "actor_id": "runtime://carwash/prep-humanoid",
+    "input_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "policy_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "authority_grant_id": "grant://wallet/physical-action/carwash",
+    "primitive_capabilities": [
+      "prim:physical.actuate"
+    ],
+    "authority_scopes": [
+      "scope:physical.actuate"
+    ],
+    "artifact_refs": [
+      "artifact://sensor-video/bay-3/preflight"
+    ],
+    "evidence_bundle_refs": [
+      "artifact://physical-assurance/carwash/bay-3/deployment"
+    ],
+    "verification_ref": null,
+    "acceptance_ref": null,
+    "adjudication_ref": null,
+    "settlement_ref": null,
+    "timestamp": "2026-07-16T12:00:00Z",
+    "signature": null,
+    "public_commitment_ref": null
+  },
+  "body": {
+    "idempotency_key": "physical-command:carwash:prep-vehicle-001",
+    "execution_request_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "admission_id": "physical-action-admission:carwash-prep-vehicle-001",
+    "admission_record_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "work_subject": {
+      "kind": "physical_action_intent",
+      "ref": "intent://physical/carwash/prep-vehicle-001"
+    },
+    "target_system_ref": "robot://bay-3/humanoid-1",
+    "resource_group_bindings": [
+      {
+        "group_revision_ref": "embodied-resource-group-revision://carwash/bay-3/v1",
+        "membership_closure_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "unit_refs": [
+          "robot://bay-3/humanoid-1"
+        ],
+        "controller_binding_refs": [
+          "controller-binding://carwash/bay-3/humanoid-1/v1"
+        ],
+        "sensor_refs": [
+          "sensor://carwash/bay-3/preflight-array"
+        ],
+        "actuator_refs": [
+          "actuator://carwash/bay-3/humanoid-1/manipulator"
+        ],
+        "physical_zone_refs": [
+          "zone://carwash/bay-3"
+        ],
+        "emergency_stop_authority_refs": [
+          "estop://carwash/bay-3"
+        ]
+      }
+    ],
+    "emergency_stop_authority_ref": "estop://carwash/bay-3",
+    "controller_binding_ref": "controller-binding://carwash/bay-3/humanoid-1/v1",
+    "runtime_graph_manifest_ref": "embodied-runtime-graph-manifest://carwash/bay-3/v1",
+    "runtime_graph_manifest_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "safety_envelope_ref": "safety://carwash/bay-3",
+    "safety_envelope_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "assurance_evidence_bundle_ref": "assurance-evidence://carwash/bay-3/deployment",
+    "assurance_evidence_bundle_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "active_writer_lease_ref": "resource-lease://carwash/bay-3/actuator-writer",
+    "active_writer_fencing_epoch": 7,
+    "active_writer_fencing_token_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "graph_timing_chain_ref": "artifact://timing/carwash/bay-3/chain-v1",
+    "graph_timing_chain_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "command_schema_ref": "action-schema://carwash/manipulation/v1",
+    "command_payload_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "segment_commitment_receipt_refs": [],
+    "preflight_receipt_refs": [
+      "receipt://physical/carwash/preflight-001"
+    ],
+    "sensor_evidence_receipt_refs": [
+      "receipt://sensor/bay-3/preflight"
+    ],
+    "controller_operation_ref": "effect://controller/carwash/prep-vehicle-001",
+    "dispatch_posture": "dispatched_observed",
+    "dispatch_evidence_receipt_refs": [
+      "receipt://controller/carwash/prep-vehicle-001/dispatch"
+    ],
+    "controller_receipt_refs": [
+      "receipt://controller/carwash/prep-vehicle-001"
+    ],
+    "outcome_normalization_error_codes": [],
+    "effect_status": "committed",
+    "state_root_before": "state_root:physical:carwash:001",
+    "state_root_after": "state_root:physical:carwash:002",
+    "previous_execution_receipt_hash": null,
+    "executed_at": "2026-07-16T12:00:00Z",
+    "incident_refs": [],
+    "reconciliation_state": "confirmed",
+    "agentgres_operation_refs": [],
+    "assurance_stage": "attested"
+  },
+  "body_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+  "receipt_hash": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+}

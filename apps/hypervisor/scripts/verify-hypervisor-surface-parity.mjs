@@ -115,7 +115,7 @@ async function run() {
 
   // ── Workbench: master-detail working shell over env + sessions + editor matrix ──
   await page.goto(`${SHELL}/__ioi/workbench`, { waitUntil: "domcontentloaded" });
-  ok("Workbench is a master-detail shell (selection pane present)", await page.locator("#wb-drawer").count() === 1);
+  ok("Developer Workspace is a master-detail shell (compatibility route; selection pane present)", await page.locator("h1").filter({ hasText: "Developer Workspace" }).count() === 1 && await page.locator("#wb-drawer").count() === 1);
   if (await page.locator(".wbrow").count()) {
     await page.locator(".wbrow").first().click();
     await page.waitForFunction(() => /Open with/.test(document.getElementById("wb-drawer")?.textContent || ""), null, { timeout: 10000 });

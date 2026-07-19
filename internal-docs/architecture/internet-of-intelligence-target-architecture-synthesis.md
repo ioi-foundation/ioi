@@ -1,11 +1,13 @@
 # Internet of Intelligence Target Architecture
 
 Status: promotion-complete synthesis; non-canonical rationale and pressure-test
-source. Its target state was distributed into canonical owners under
-`docs/architecture/` on 2026-07-11. Canonical owner docs and accepted ADRs win
+source. Its target state, including local-agent ingress and the enterprise
+learning-boundary refinement, was
+distributed into canonical owners under `docs/architecture/` through
+2026-07-13. Canonical owner docs and accepted ADRs win
 if this synthesis later drifts.
 
-Date: 2026-07-11.
+Date: 2026-07-13.
 
 Purpose: pressure-test the relationship between Hypervisor Type 1/2/3, the
 ontology-centered operating environment, the Goal Kernel, open multi-agent
@@ -29,40 +31,257 @@ They are complementary halves of one system:
 - the autonomy hypervisor makes action in that world governable;
 - machine authority connects semantic actions to real power;
 - Agentgres turns execution into admitted, branchable operational truth;
+- the `InstitutionalLearningBoundaryProfile` compiles source rights, custody,
+  model-route rights, evidence eligibility, retention/export, and revocation so
+  institutional learning can compound without becoming provider-owned exhaust;
 - Goal loops turn static capability into purposeful intelligence;
-- AIIP turns sovereign autonomous domains into a network;
-- verification, contribution accounting, and sparse settlement turn networked
-  work into an economy.
+- native L0 and Embodied Runtime contracts distribute useful work across one
+  institution's admitted compute, state, verification, human, and embodied
+  members without pretending they are sovereign counterparties;
+- AIIP makes selective, positive-surplus exchange between sovereign autonomous
+  domains contractible;
+- exact terms, verification, contribution accounting, acceptance, and sparse
+  settlement can turn accepted cross-domain work into an economy.
 
-The clean end-state category is:
+The clean end-state category and strongest formulation is:
 
-> **IOI is an open, edge-sovereign operating fabric for governed autonomous
-> systems. Hypervisor is its reference execution and control environment;
-> federated ontologies are its semantic world plane; machine authority is its
-> security protocol; Agentgres is its operational truth substrate; AIIP is its
-> inter-domain work protocol; and ioi.ai is its first outcome-conductor
-> product.**
+> **IOI is the open operating stack that turns intelligence into bounded
+> autonomous institutions. L0 makes each institution safely distributable
+> across its governed compute, state, verification, human, and embodied members;
+> AIIP makes selective, positive-surplus interoperation between separately
+> sovereign institutions contractible; IOI L1 supplies optional shared trust and
+> economic finality.**
+
+Hypervisor is the reference execution/control environment; locally canonical
+ontologies plus explicit, selectively accepted mappings are the semantic world
+plane; machine authority is the security protocol;
+Agentgres is the operational truth substrate; and ioi.ai's reusable OutcomeRoom
+package plus its durable room-system instances are the first flagship bounded-
+DAS and outcome-conductor product. The hosted service operates many room
+systems; it is not their shared logical identity.
 
 This is neither a decentralized Palantir clone nor a VM manager with agents
 bolted on. It is an ontology-native autonomy fabric whose intelligence can act
 under hypervisor-grade control.
 
-The largest remaining gap is not another application. Canon already names
-collaborative outcomes, cross-session graphs, multi-party contexts, and
-`outcome_room` refs. What is still missing is their generalized and implemented
-**shared work-frontier lifecycle**: dynamic participation, claimable work,
-durable attempts and findings, verifier challenges, resource exchange, and
-cross-domain admission. The current architecture describes a sovereign
-autonomous-system platform more completely than it demonstrates an actual
-Internet of Intelligence.
+For enterprise adoption, its clearest single-system value proposition is:
+
+> **Models are replaceable cognition. The institution retains the ontology,
+> admitted memory, corrections, private evals, policies, workflows, datasets,
+> lineage, and rights-eligible derived capability that compound into its
+> particular intelligence.**
+
+Hypervisor enforces where that learning may travel; Agentgres preserves admitted
+state and lineage; Ontology makes it meaningful; Foundry turns eligible evidence
+into capability; Private Workspace supplies custody-proven containment; and
+model-neutral routing makes supplier substitution testable. This enterprise
+thesis is a flagship deployment profile within the broader bounded-DAS category,
+not a replacement for it.
+
+The largest remaining gap is not another application or a sovereign L1. It is
+the executable **bounded-system and same-system distribution contract** beneath
+persistent autonomy: constitution, deployment and observed membership,
+ordering/finality, `RuntimeAssignment`, useful work and mission allocation,
+state/evidence watermarks, partition/reassignment/reconciliation, failover,
+succession/migration/dissolution, and explicit network enrollment. The shared
+work-frontier lifecycle remains the highest-
+leverage flagship behavior above that foundation: dynamic participation,
+claimable work, durable attempts/findings, verifier challenges, resource
+exchange, and cross-domain admission.
 
 The highest-leverage correction is therefore:
 
-> **Keep the Goal Kernel as the bounded recursive loop for one participant or
-> subgoal, but add a first-class collaborative work graph in which many
-> independent GoalRuns can discover work, claim it, exchange artifacts,
-> publish positive and negative attempts, challenge evaluation, earn credit,
-> and collectively course-correct.**
+> **Constitute one bounded autonomous institution before optimizing its swarm;
+> prove both continuity and useful distributed work across one logical system's
+> admitted nodes and embodied units before claiming a network;
+> then let a first-class collaborative work graph coordinate independent
+> GoalRuns across sovereign systems only where every required party accepts the
+> bargain and expects net benefit.**
+
+## Conditional Cooperation Thesis
+
+Sovereignty is not an incentive to cooperate. It preserves local truth,
+authority, assets, bargaining power, privacy, and exit so cooperation can be
+selective instead of coercive. The motive is complementary value: another
+system may control intelligence, data-derived evidence, authority, locality,
+compute, capital, demand, embodiment, verification, insurance, dispute, or
+neutral settlement that would be more expensive, less credible, legally
+unavailable, or sovereignty-destroying to internalize.
+
+For each required party, expected cooperation surplus is its expected utility
+under the accepted collaboration terms minus the expected utility of its best
+permitted outside option and minus the incremental search, semantic-mapping,
+coordination, verification, disclosure, counterparty, dispute, settlement,
+switching, and dependency costs introduced by cooperation. It participates
+only when that surplus is positive under its governed decision path. Total room
+value is insufficient when one required party has no positive case.
+
+`CollaborationTermsEnvelope` is the minimal missing contract. It binds one
+versioned terms root for parties, roles, work, rights, obligations, disclosure,
+contribution/reward basis, risk, exit, and settlement while allowing private
+valuations to remain private. Discovery, compatibility, shared goals, messages,
+task offers, or terms proposals create no obligation, membership, authority,
+award, reputation, or payout. Terms acceptance, participant admission,
+work-claim award, contribution, verification, acceptance or adjudication, and
+settlement remain distinct. Attribution is not allocation, and amendments are
+non-retroactive.
+
+IOI can earn a network effect when repeated positive-surplus exchanges
+demonstrably reduce search, contracting, semantic-integration, verification,
+counterparty-risk, or settlement costs for later exchanges. Compounding is an
+observed outcome, not an architectural entitlement. System count, room
+activity, AIIP traffic, receipt volume, or an ideological preference for
+federation create no such effect. When no positive-surplus case exists, the
+correct system shape is local.
+
+## Canonical Target End State
+
+The durable category primitive is a **bounded distributed autonomous system**.
+Its ordered state-machine embodiment is an **intelligent blockchain**. Public
+consensus, a native token, and multi-node deployment are optional profiles, not
+the definition. A no-public-consensus or PoA-1 system remains an intelligent
+blockchain when it has:
+
+- one stable logical identity;
+- a protected constitution with purpose, principals/affected parties,
+  prohibitions, resource/effect ceilings, amendment separation, emergency and
+  revocation paths;
+- ontology/action contracts and an executable manifest;
+- deterministic ordering/admission under a declared authority profile;
+- a cryptographically continuous operation/batch chain binding monotonic
+  sequence, expected predecessor, operation commitment, admission proof,
+  resulting state root, and receipt root;
+- receipts, evidence, replay, and honest assurance stages;
+- proposal-mediated improvement that cannot self-authorize or rewrite protected
+  bounds;
+- an oracle/evidence policy for external facts and uncertainty;
+- recovery, successor, migration/fork/adoption, dissolution, and terminal
+  decommission semantics.
+
+A bounded DAS without the cryptographic continuity minimum remains a bounded
+autonomous application/institution; it must not borrow the intelligent-
+blockchain label. Consensus and tokens remain optional.
+
+The deployment profile is independent of the ordering profile. One system may
+span admitted writers, standbys, state/read/artifact replicas, execution
+workers, verifiers, availability witnesses, gateways, authority members, and
+consensus members. Adding a machine improves only what its declared role,
+failure-domain evidence, replication, leases, and conformance prove. It never
+silently grants authority or changes finality.
+
+The correct proof order is:
+
+```text
+constitution-bound single-node flagship DAS
+  -> one logical DAS across two failure domains
+     (join, catch-up, root, epoch, fence, failover, replay, drain)
+  -> two independently governed DASs over AIIP
+  -> open Goal Space/network services
+  -> optional shared security and public economic finality
+```
+
+This is the material advantage over deploying two ordinary application
+instances. A React or other proven domain app will often be the primary UI, but
+the DAS substrate owns membership, ordering, authority, receipts, continuity,
+and recovery beneath those replicas.
+
+### Package, Genesis, Transition, Recovery, And Service Boundaries
+
+The reusable developer artifact and the live institution are different:
+
+- `AutonomousSystemManifestEnvelope` is an immutable `package://` release with
+  composition, authority requirements, constitution/profile templates and
+  constraints, evaluations, and receipt obligations. It has no live identity,
+  membership, enrollment, recovery, succession, or dissolution.
+- `AutonomousSystemGenesisEnvelope` is the one-time `genesis://` binding of one
+  release to a new stable `system_id`, active constitution and initial profiles,
+  governing decision/authority, and sequence-zero operation, transition, state,
+  and receipt roots. Later releases enter through governed upgrade, never a
+  second genesis.
+- `StateTransitionCommitmentEnvelope` is operational finalization: sequence,
+  predecessor/operation/resulting commitments, admission proof, acting
+  membership/profile proof, state root, and receipt root. It is not an economic
+  payment. `SettlementEnvelope` is reserved for obligations, payments, escrow,
+  bonds, refunds, and adjustments.
+- `SingleWriterRestoreReceipt` proves a declared checkpoint/log restore.
+  `OrderingFinalityRecoveryEnvelope` proves profile-native threshold, BFT,
+  membership, or external-finality recovery. Only single-writer replacement or
+  promotion uses writer epochs and fencing.
+- `NetworkServiceInvocationEnvelope` represents selected registry,
+  rights/license, reputation, or finality service operations. Selection is
+  independent from the rail used to pay a service fee.
+- `RoomAdmittedObjectBase` makes proposals useful without making them trusted:
+  every consequential room child binds the exact participant lease or room-
+  system issuer, expected room revision/predecessor, payload/operation
+  commitment, policy/decision, sequence, admission proof, and resulting
+  revision, transition commitment, state root, and receipt root.
+
+The reusable OutcomeRoom package instantiates each durable room through genesis
+as its own bounded DAS. Direct GoalRuns and temporary collaboration remain
+ordinary application work when the persistent constitutional/admission
+machinery is not justified.
+
+## Competitive And Standards Discovery
+
+The research pass supports the direction but narrows the novelty claim.
+
+- Cosmos validates sovereignty, application-specific state machines, and
+  modular consensus, making "Cosmos for bounded DAS" a useful L0 analogy. It
+  also demonstrates that stack adoption and hub/token value capture are
+  separate problems; shared security needs explicit enrollment and economics.
+- Olas already demonstrates multi-agent services, Tendermint-style service
+  replication, threshold safes, registries, and tokenomics. IOI should not claim
+  generic multi-agent-service replication as unique.
+- A2A already owns remote agent discovery/task/message/artifact lifecycle, and
+  MCP owns model/application access to tools, prompts, resources, and context.
+- AGNTCY/OASF targets agent identity, directory, capability schema, discovery,
+  messaging, and evaluation metadata.
+- draft ERC-8004 targets EVM agent identity/reputation registries, while draft
+  ERC-8183 targets job escrow and evaluator-mediated settlement.
+- AO and ICP demonstrate persistent decentralized processes; Eigen-style
+  verifiable compute and shared-security systems demonstrate opt-in assurance
+  and capital-at-risk services.
+
+The highest-alpha posture is therefore composition, not protocol sprawl. AIIP
+binds versioned adapters to these standards and preserves IOI semantics they do
+not own. IOI's differentiated core is the full constitution-to-effect lifecycle:
+ontology/action contracts, machine authority, ordered operational truth,
+receipts/evidence/replay, proposal-mediated improvement, recovery and
+decommission, and the one-system/multi-node-to-sovereign-network continuum.
+
+External completion never upgrades assurance by translation: A2A `completed`
+is not IOI verification or acceptance; MCP `tools/call` is not authority; a
+directory record is not competence; an ERC registry entry is not non-malicious;
+an escrow evaluator decision is not the entire verification/acceptance/
+adjudication ladder. `ai://` is an optional IOI-connected resolver, not a
+mandatory universal discovery system.
+
+## Three Value Layers And Explicit Enrollment
+
+The prior language around "alpha" mixed three businesses:
+
+| Layer | What creates value | What does not follow automatically |
+| --- | --- | --- |
+| L0 product/company | ioi.ai/Hypervisor subscriptions, Work Credits, managed clusters/execution, enterprise/private deployment, support, procurement, compliance | L1 fees or token demand |
+| Network | routing, worker/service/verifier supply, ontologies, marketplaces, certification, assurance, shared evidence, dispute and settlement liquidity | native-asset value unless the service uses scarce L1 trust |
+| L1/native asset | public capacity, neutral registry/rights, bonded verifier/guardian/availability/relayer/arbitrator services, disputes, finality, security, governance | product revenue, AIIP message volume, or market capitalization by architecture alone |
+
+Network enrollment makes the value boundary legible:
+
+- `ioi_compatible`: independently operable open L0, no mandatory L1, fee,
+  token, contribution, or IOI assurance claim;
+- `ioi_connected`: current conformance plus selected registry, rights,
+  reputation, escrow, dispute, or settlement services; pay only for services
+  consumed;
+- `ioi_secured`: Standard DAS conformance plus named shared-security/assurance
+  services, fault model, terms, evidence, fees/contribution, bonds/stake,
+  claims/slashing, renewal, and exit.
+
+The native asset, if ever justified, is risk-bearing network capital: public
+gas/capacity, validator security, service bonds, slashing/claims, and governance.
+It is not Work Credits, generic inference currency, or one token per DAS.
+Prove service-contract demand on a devnet or mature compatible settlement
+environment before choosing a sovereign L1 or token design.
 
 ## One Architecture, Not Two Products
 
@@ -77,11 +296,16 @@ The two directions answer different questions.
 | Truth and evidence plane | What was admitted, what changed, and what evidence supports the claim? | Agentgres operations and projections, receipts, branches, replay, artifact refs | Becomes dashboards, provider logs, or message-board consensus masquerading as truth |
 | Interop and economic plane | How do independent systems exchange work, proof, reputation, rights, and value? | AIIP, Mixture of Workers, ContributionReceipts, Verified Work Graph, marketplaces, sparse IOI L1 settlement | Becomes one large platform rather than an internet |
 
+The **Enterprise Learning Boundary** overlays these planes; it is not an
+additional plane. It compiles the institution's data-use, route-rights, custody,
+learning, portability, and revocation rules into each sovereign system and its
+run/job snapshots. The underlying planes retain their owners.
+
 An operating-system analogy is useful if it is not taken literally:
 
 | Operating-system concept | IOI analogue |
 | --- | --- |
-| Domain type system and world ABI | Federated ontologies, object/action/event contracts, Data Recipes |
+| Domain type system and world ABI | Locally canonical ontologies, object/action/event contracts, Data Recipes, and optional accepted cross-domain mappings |
 | Process or pursuit runtime | Goal Kernel and collaborative-pursuit policies |
 | Virtualization | Hypervisor Type 3 for agents, workers, tools, models, memory, authority, and evidence |
 | Host substrate modes | Type 1 HypervisorOS and Type 2 hosted desktop/workstation modes |
@@ -97,6 +321,63 @@ both a hypervisor and an open operating environment. An autonomy operating
 environment needs both kernel-grade controls and user-space semantic tools. The
 mistake would be to turn those into two unrelated centers of gravity.
 
+## Enterprise Learning Boundary: The Enterprise Wedge
+
+The Reverse Information problem is not solved by privacy copy or a model picker.
+An enterprise can lose its particular intelligence through prompts, tool traces,
+corrections, evals, reviewer decisions, support bundles, provider-native memory,
+and derived training artifacts even when its source database remains encrypted.
+The target architecture therefore needs one compiled cross-cutting contract,
+not another application.
+
+The protocol object is `InstitutionalLearningBoundaryProfile`; the product label
+is **Enterprise Learning Boundary**. It narrows:
+
+```text
+organization default
+  -> project build policy
+    -> admitted sovereign-system revision
+      -> session / GoalRun / model invocation / transformation / Foundry-job snapshot
+```
+
+A changed organization default proposes a live-system upgrade; it does not
+silently mutate the system. A child scope may narrow the inherited boundary and
+may widen it only through explicit authority and a new admitted decision. The
+effective permission is the most restrictive intersection of source rights,
+consent, policy-bound views, the boundary profile, custody, model-route rights,
+training eligibility, retention/export policy, and jurisdiction. Missing or
+ambiguous rights fail closed.
+
+The boundary covers source data; prompts, outputs, context, tool and connector
+traces; corrections, private evals and rubrics; institutional memory; ontology
+and recipes; datasets and embeddings; adapters/checkpoints; and worker,
+workflow, verifier, or route-policy revisions. Coverage never manufactures
+ownership. Employee, contractor, customer, partner, licensed, public,
+provider-output, synthetic, and collaborative-room material retain explicit
+source-rights and consent posture.
+
+`LearningEgressReceipt` records the exact boundary/route decision, material
+classes and commitments, destination/purpose, representation, retention and
+secondary-use posture, and whether transfer was admitted or blocked before
+egress. It carries no protected plaintext and does not prove hidden provider
+behavior. Provider secondary learning, seller access to buyer-bound learning,
+and cross-tenant aggregation are default-deny.
+
+`InstitutionalIntelligenceExportBundle` makes exit larger than memory export:
+eligible ontology/recipes, Agentgres archive and roots, memory, evals, policies,
+workers/workflows, datasets, adapters/checkpoints, packages, rights, and lineage
+can move through audit, migration, or selected-capability projections. Import
+re-runs admission. A Model Swap Continuity Test hard-disables the incumbent
+provider and reruns declared evals using only institution-controlled,
+rights-eligible state.
+It proves continuity against named floors, not universal model equivalence.
+
+This profile remains optional for bounded DASs that do not train, retain
+enterprise data, or use models. It is not a new authority plane, truth store,
+runtime, fifth hosted plane, privacy tier, legal instrument, or product card.
+Its value is precisely that the existing components become one enforceable
+enterprise promise without losing their separate responsibilities.
+
 ## The Preferred Product and Category Shape
 
 The public category should not be “decentralized Palantir.” That comparison is
@@ -106,7 +387,8 @@ gravity: centralized data integration and vendor-owned operational truth.
 
 The better category language is:
 
-> **Open operating fabric for governed autonomous systems.**
+> **Open operating stack for bounded distributed autonomous systems: create and
+> operate at L0, connect through AIIP, and opt into shared trust at L1.**
 
 Within that category:
 
@@ -121,6 +403,8 @@ Within that category:
   over shared objects. They should not become independent mini-platforms.
 - **ioi.ai** is the intent and collective-outcome front door. It proves the
   substrate without receiving privileged runtime, authority, or truth paths.
+- **OutcomeRoom** is the flagship reusable package; each durable room instance
+  is a reference DAS, not the definition of L0.
 
 Type 1/2/3 should remain a precise architecture and operator grammar, not the
 whole public category pitch. Type 3 plus the semantic action plane is the
@@ -216,13 +500,13 @@ settlement domain.
 | --- | --- | --- | --- |
 | Multi-model | Foundation-model routes or model families | Cognitive diversity and route choice | Accountable worker identity or independent parties |
 | Multi-worker | Versioned worker compositions with different roles, manifests, policies, tools, and outputs | Division of labor and comparable contributions | Independent authority, truth, or settlement roots |
-| Multi-node | Runtime nodes, compute sessions, providers, or failure domains | Scale, isolation, locality, custody, and resilience | Governance or economic independence |
+| Multi-node | Runtime nodes, compute sessions, providers, or failure domains | Scale, isolation, locality, custody, resilience, and useful same-system distributed work when assignments/leases/evidence are proven | Governance or economic independence |
 | Multi-party | Separate organization/domain/wallet principals controlling authority, revocation, truth, risk, challenge, and settlement | Actual federation and a reason for `MultiPartyCollaborationEnvelope` | Independence when affiliations or dependencies are hidden |
 
 Ten IOI-owned workers on ten nodes using five model vendors are still one party
 if IOI controls their authority, operational truth, verifier, and settlement.
-They can seed multi-worker behavior and network capacity; they cannot by
-themselves demonstrate a multi-party Internet of Intelligence.
+They can prove valuable same-system orchestration and seed network capacity;
+they cannot by themselves demonstrate a multi-party Internet of Intelligence.
 
 A model endpoint is also not the protocol actor. The accountable unit remains
 the Worker composition:
@@ -258,6 +542,80 @@ Do not overload privacy, participation, and placement into one mode selector.
 `My workers` versus `Network / Open` is a participation choice. Multi-node and
 multi-provider diversity are placement/trust details, not new collaboration
 products.
+
+### Local-agent ingress: pairing, not marketplace enrollment
+
+ioi.ai and aiagent.xyz should accept an already-running user-owned agent through
+a screenshot-style **Connect local agent** flow. This is a high-alpha first-mile
+product because it lets the collaboration fabric absorb useful external work
+without requiring IOI to host every model, harness, or runtime. It is not a
+claim that IOI can verify hidden cognition, and it is not an instruction to
+hand an agent a broad account or organization token.
+
+The surface ownership should be explicit:
+
+| Entry point | Pairing target | Product result |
+| --- | --- | --- |
+| ioi.ai Goal Space: Add local contributor | `room_guest` | One unpublished, room-scoped Worker composition proposal plus one typed participation request |
+| aiagent.xyz: My workers | `private_worker` | One reusable user-private Worker composition proposal |
+| aiagent.xyz: Organization workers | `organization_worker` | One reusable organization-scoped composition proposal for separate organization admission |
+
+Public marketplace discovery, monetization, reputation, and `Network / Open`
+eligibility are a fourth decision boundary, not a fourth pairing target. They
+require an explicit later publish-and-qualify action. A one-room guest can
+contribute useful work without becoming a reusable worker; a reusable private
+worker can remain private indefinitely; neither is silently listed or paid.
+
+Hypervisor owns the secure local connection and constrained gateway behind
+those product surfaces. The canonical flow is:
+
+```text
+authenticated user creates LocalAgentPairingSessionEnvelope
+  -> one-time, short-lived challenge is returned once and stored only by hash
+  -> local client proves possession and binds its public key plus origin
+  -> bootstrap permits only discovery, WorkerComposition submission,
+     and, for room_guest, RoomParticipationRequest submission
+  -> pairing completes without membership or authority
+  -> registry or room admission evaluates the typed proposal
+  -> admitted participants receive separate claim, context, tool, resource,
+     budget, and authority leases through scoped gateway contracts
+```
+
+Pairing authenticates possession of a claimed client key at a bound origin. It does not
+grant room-database access, private context, tools, connectors, secrets, budget,
+authority, competence, independence, reputation, payout rights, or marketplace
+exposure. Replay, expiry, target mutation, key/origin drift, scope escalation,
+or malformed submissions must fail closed. A copyable bootstrap command is an
+acceptable transport only when its factor is one-time and short-lived; a
+durable bearer credential or master MCP endpoint is not.
+
+Proposals and workgraphs mitigate unverifiability enough to create real utility
+because they change the proof unit. The system does not need to prove “this
+agent is generally intelligent and honest.” It needs to decide whether one
+bounded contribution is admissible under declared inputs, constraints, and
+checks. A `WorkFrontierItem` bounds the question, `WorkClaimLease` bounds blast
+radius and duplication, `WorkResult` / `OutcomeDelta` preserves artifacts and
+lineage, and the declared verifier/admission path governs any state change.
+
+This works best where checking is cheaper than generation: tests, builds,
+reproducible benchmarks, schemas, simulations, signed source evidence,
+redundant measurements, and independent review. It still has proposal value for
+ideation, triage, research leads, candidate patches, and verifier challenges,
+but subjective or externally unobservable work remains lower assurance. A
+`prompt_only` client can be attributed to its pairing key/origin and no more;
+pairing alone imposes an `attested` ceiling. Evidence and named verification
+may advance a specific result later without retroactively proving the hidden
+model, harness, tools, reasoning, originality, or operator claims.
+
+This makes “agents improving IOI itself” a valid flagship application without
+giving the swarm privileged self-write semantics. IOI maintainers—or a custom
+DAS's governance—open a room over exact repository, package, profile, or
+protocol target refs. Agents return bounded patches/findings/benchmarks; room
+admission establishes contribution facts; an accepted result may then become
+an `UpgradeProposalEnvelope`. The target constitution, protected change class,
+maintainer/governance decision, canary/rollback gates, and activation receipts
+remain authoritative. A leaderboard win or verified patch never grants release
+or network-governance authority.
 
 ### Lane A — Subscription-backed Goal Space
 
@@ -438,13 +796,31 @@ model_version: ref
 provider_allowlist: [ref]
 automation_right: interactive_only | unattended_allowed | negotiated
 downstream_right: internal_only | customer_application | reseller_oem
-data_collection: allow | deny
 zdr_required: true | false
 region: ref
 fallback_classes: [ref]
 max_price: ref
 required_parameters: [ref]
-training_or_distillation_right: ref
+provider_use_of_customer_material:
+  request_or_prompt_logging: ref
+  human_review: ref
+  abuse_and_security_processing: ref
+  service_improvement: ref
+  provider_model_training: ref
+  cross_customer_aggregation: ref
+  retention: { posture: ref, retention_policy_ref: ref }
+customer_use_of_outputs:
+  retain: ref
+  replay: ref
+  evaluation: ref
+  rag_or_memory: ref
+  same_provider_tuning: ref
+  distillation: ref
+  competing_model_training: ref
+  internal_package_reuse: ref
+  publication: ref
+  resale: ref
+rights_basis_refs: [ref]
 ```
 
 An aggregator fallback that changes the underlying provider or model is a
@@ -460,7 +836,9 @@ access_mode: named_human_seat | api | dedicated_endpoint | self_hosted
 automation_right: interactive_only | unattended_allowed | negotiated
 downstream_right: internal_only | customer_application | reseller_oem
 credential_principal: named_human | service_account | customer_owned
-output_training_right: prohibited | noncompeting_only | expressly_licensed | open_license
+provider_material_use_right: prohibited | transient_only | security_incident_only | contract_limited | explicitly_permitted | not_applicable
+provider_retention_posture: zero_retention | transient_processing | contract_bounded | provider_default | not_applicable
+customer_output_use_right: prohibited | terms_limited | expressly_licensed | open_license
 ```
 
 Users may connect a provider-approved named-user harness subscription as BYOA
@@ -468,17 +846,20 @@ inside their own Goal Space. That remains a user-scoped integration, not IOI
 marketplace inventory. BYO API credentials remain customer-owned credential
 bindings; IOI brokers use without transferring or reselling the key.
 
-Inference rights and training/distillation rights must remain separate. Foundry
-should use open weights or expressly licensed teacher agreements rather than
-assuming ordinary inference spend grants permission to train a competing model
-or reusable worker.
+Inference rights, provider secondary-use rights, and each customer output use
+must remain separate. Compare/synthesized outputs inherit the intersection of
+every contributing route's customer rights, while provider exposure remains
+attributed per recipient. Foundry should use open weights or expressly licensed
+teacher agreements rather than assuming ordinary inference spend grants
+permission to train a competing model or reusable worker.
 
 ### Monetization boundary
 
 The gross-margin thesis should not be “buy tokens wholesale and sell them
-opaque.” IOI's durable margin comes from the conductor, verified routing and
+opaque." IOI's durable margin comes from the conductor, verified routing and
 cascade savings, governed runtime, memory and context continuity, private
-deployment, evidence and assurance, worker/service discovery, and successful
+deployment, institutional-learning governance and portability, model-independence
+testing, evidence and assurance, worker/service discovery, and successful
 outcome coordination. Provider inference is a cost of delivered work and may
 carry a disclosed managed-service margin, but it is not the defensible product.
 
@@ -503,7 +884,7 @@ the provider-cost component and retain explicit IOI conductor/runtime charges.
 | --- | --- | --- |
 | ioi.ai | Conductor subscription and network-orchestration usage | Persistent Goal Spaces, account experience, plan selection, cross-worker coordination, verifier routing, evidence synthesis, and settlement handoff |
 | Hypervisor | Work Credits and managed-runtime charges | Managed model, compute, multi-path, connector, storage, replay, automation, private-runtime, and reserved-capacity usage |
-| Hypervisor / enterprise deployment | Enterprise/private plan | Customer-boundary deployment, policy, audit, retention, compliance, support, administration, and stronger custody posture |
+| Hypervisor / enterprise deployment | Enterprise/private plan | Enterprise Learning Boundary governance, customer-boundary deployment, policy, audit, retention, compliance, institutional-intelligence export, model-swap continuity testing, support, administration, and stronger custody posture |
 | aiagent.xyz | Worker invocation, install/subscription, managed-instance, and marketplace take-rate | External worker capability, benchmark/certification trust, managed worker operation, matching, and distribution |
 | sas.xyz | Service order, outcome procurement, escrow, SLA, acceptance, dispute, and service take-rate | Contracted autonomous outcome delivery and its commercial lifecycle |
 
@@ -514,6 +895,12 @@ runtime or Work Credit owners.
 
 This is one product experience with different supply and value boundaries, not
 a separate SKU for every internal primitive.
+
+The open and customer-operated L0 receives the complete learning-boundary
+contract. IOI may charge for managed operation, compliance packs, confidential
+compute, custody proof, provider-exit drills, and support. It should not charge
+for or condition portability on the customer's basic right to retain its own
+eligible institutional state.
 
 ### Commercial readiness is not yet the target state
 
@@ -573,17 +960,21 @@ The architecture already contains most of the ingredients:
 - work-native rather than token-native interop semantics;
 - contribution accounting and sparse public settlement doctrine.
 
-But an internet is not merely a well-designed node. It requires independently
-operated systems to join and create value without sharing one runtime, one
+But an internet is not merely a well-designed node or a set of connected peers.
+It requires repeated participant-rational exchanges in which independently
+operated systems create and allocate value without sharing one runtime, one
 database, one administrator, or one account provider.
 
 The decisive conformance question is:
 
 > Can a worker operated outside IOI infrastructure discover an eligible goal,
-> negotiate semantics, receive only permitted context/resources/authority,
+> accept, counteroffer, or decline an exact terms root; negotiate semantics;
+> receive only permitted context/resources/authority,
 > submit an independently verifiable contribution, preserve derivation and
-> credit, participate in challenge or dispute, and leave with portable state —
-> without trusting one IOI-hosted database as universal truth?
+> credit, participate in challenge or dispute, receive its contracted benefit,
+> and leave with portable state—while the sponsor either measurably improves on
+> its best eligible local alternative or obtains an otherwise unavailable
+> outcome, and neither side trusts one IOI-hosted database as universal truth?
 
 The current answer is architectural intent rather than demonstrated behavior.
 The mismatch is visible in implementation status:
@@ -592,7 +983,7 @@ The mismatch is visible in implementation status:
 - the semantic data plane is mostly planned beyond an initial ODK object plane;
 - MoW routing receipts are planned;
 - AIIP is designed but not implemented;
-- autonomous-system chains and local settlement domains remain speculative;
+- autonomous-system chains and local operational-finality domains remain speculative;
 - public/economic L1 behavior is intentionally later and sparse.
 
 That is a healthy order only if IOI now prioritizes an end-to-end, cross-node
@@ -674,13 +1065,13 @@ This is a hybrid, but not a compromise. Each layer owns a different problem.
 Most ordinary goals still collapse to one direct GoalRun or one harness.
 Collective machinery appears only when expected value justifies its cost.
 
-## The Missing Collective-Pursuit Objects
+## The Canonical Collective-Pursuit Objects
 
-`OutcomeRoom` is a useful working name because the current architecture already
-uses outcome-room language in places without defining a strong canonical
-object. The name can change; the boundary should not. It must be a profile and
-composition of existing owners, not a peer runtime or a duplicate global truth
-store.
+`OutcomeRoom` is now the canonical durable shared-pursuit system profile. The
+reusable package may instantiate many room systems; each persistent room binds
+its own genesis, identity, constitution, active profiles, and cryptographic
+admission chain. It remains a composition of existing owners, not a peer runtime
+or duplicate global truth store.
 
 | Existing owner/object | Role in the proposed composition |
 | --- | --- |
@@ -691,7 +1082,7 @@ store.
 | `GoalRun` | One bounded participant/subgoal pursuit loop |
 | `HypervisorMission` and `HypervisorAutomationSpec` | Durable background execution/materialization, including the existing `outcome_room` kind/ref |
 | `MultiPartyCollaborationEnvelope` | Cross-party policy, allowed refs, restricted views, authority, revocation, proof, and settlement context |
-| `OutcomeRoom` / CollaborativeWorkGraph | Proposed shared-frontier, participation, attempt, finding, evaluation, and course-correction profile over those owners |
+| `OutcomeRoom` / CollaborativeWorkGraph | Canonical bounded-DAS room instance and shared-frontier, participation, attempt, finding, evaluation, and course-correction profile over those owners |
 | Agentgres domains | Each domain's admitted operational state and room projections |
 | AIIP | Signed, sequenced cross-domain room updates and refs; never a shared raw context |
 
@@ -700,6 +1091,7 @@ A minimum durable composition is:
 ### `OutcomeRoom`
 
 - shared objective, constraints, acceptance criteria, and stop conditions;
+- cooperation-surplus policy and exact collaboration terms roots;
 - room mode: private goal, permissioned team mission, cross-org pursuit, or
   open challenge;
 - participation, identity, visibility, privacy, and contribution policies;
@@ -709,12 +1101,15 @@ A minimum durable composition is:
 - artifact license, IP, retention, and export-policy refs;
 - participant, work-frontier, attempt, discussion, admission, replay, and
   contribution refs.
+- package/release, genesis, system identity, constitution, active profile,
+  transition commitment, state-root, and receipt-root refs.
 
 ### `RoomParticipantLease`
 
 - participant actor, operator, and home-domain refs;
 - worker, harness, model, tool, connector, and capability advertisement refs;
-- join request, identity/eligibility evidence, admission decision, and room
+- join request, exact accepted collaboration terms root, terms-acceptance
+  receipt, identity/eligibility evidence, admission decision, and room
   visibility scope;
 - context, runtime, resource, budget, and authority lease refs;
 - current claim, heartbeat, wake condition, quiet-hours/backoff, and last
@@ -726,6 +1121,12 @@ This room-specific lifecycle should reuse existing `ContextLease`, authority
 leases, runtime assignments, resource-allocation decisions, and
 `MultiPartyCollaborationEnvelope.party_refs`; it should not create a second
 identity or authority system.
+
+Every mutable child—lease, budget transition, state export, offer, frontier
+item, claim, attempt, finding, challenge, result, outcome delta, or
+contribution—uses `RoomAdmittedObjectBase`. External actors operate only through
+a current room participant lease; dependency or affiliation refs never replace
+that admission identity.
 
 ### `ResourceOffer` / `CapabilityOffer`
 
@@ -1081,14 +1482,16 @@ with slightly different truth and authority models.
 
 ## The Cryptographic Labor Economy
 
-The edge-in and fractal direction is correct, but “blockchain” should describe
-the trust boundary, not mandate a chain per agent or per loop.
+The edge-in and fractal direction is correct. "Intelligent blockchain" should
+describe the constitution-bound ordered system, not mandate public consensus, a
+chain per agent, or a token per loop.
 
 The useful topology is:
 
 ```text
 attempt / execution branch
-  -> local governed autonomous-system state machine
+  -> constitution-bound local governed autonomous-system state machine
+  -> optional replicated/threshold/consensus deployment profile
   -> organization or project Hypervisor Node / Agentgres domain
   -> AIIP cross-domain work and evidence exchange
   -> sparse public commitment when independent trust or economic finality needs it
@@ -1100,6 +1503,7 @@ These layers need different mechanisms:
 | --- | --- | --- |
 | One attempt or branch | deterministic admission, isolation, signed receipts, artifacts, replay | independent consensus |
 | One governed autonomous system | policy-bound state transitions, authority, upgrade governance, local roots | a public L1 |
+| One logical system across nodes | membership, roles, catch-up/root verification, leases, and declared profile recovery; writer epochs/fencing only for single-writer restore/promotion | implicit authority widening or consensus by node count |
 | One Hypervisor Node or organization | local ordering, reconciliation, contribution and dispute state | global publication of every operation |
 | Cross-domain AIIP handoff | identities, schemas, sequence/idempotency, restricted views, evidence, acceptance/challenge | shared runtime or shared operational database |
 | Public/economic settlement | shared ordering, rights, bonds, reputation roots, dispute finality, payment settlement | raw prompts, tool calls, model thoughts, every receipt |
@@ -1107,12 +1511,15 @@ These layers need different mechanisms:
 The labor economy should therefore be composed of:
 
 - local operational work graphs and execution branches;
-- federated semantic object/action graphs;
+- locally canonical semantic object/action graphs with optional accepted cross-domain mappings;
 - receipt-backed contribution and verification graphs across domains;
+- constitution, deployment/finality, oracle/evidence, and lifecycle graphs for
+  durable autonomous institutions;
 - Work Credits for product budgeting and managed usage;
 - fiat, stablecoin, token, or other approved payout rails as policy permits;
-- IOI L1 commitments only when public registry, rights, dispute, reputation, or
-  economic finality creates real value.
+- IOI L1 commitments only through explicit connected/secured enrollment when
+  public registry, assurance/security, rights, dispute, reputation, or economic
+  finality creates real value.
 
 This is one recursive trust topology, not two competing classes of blockchain.
 “Fractal edge-in” should mean that each boundary can keep sovereign state and
@@ -1156,6 +1563,40 @@ causality, demand, and dispute resolution do that.
 
 ## Pressure Tests
 
+### Posthumous constrained-funds institution
+
+**Fit:** this is a high-value proof of the bounded-institution thesis. The
+system can encode a durable purpose, beneficiaries, permitted uses, spend and
+effect ceilings, qualified executors, receipts, challenges, and dissolution.
+
+**Break:** a smart contract plus model cannot know that a creator died, that a
+beneficiary has legal standing, or that real-world spending satisfied the
+purpose. Creator disappearance can deadlock keys or tempt the system to infer
+authority from silence.
+
+**Correction:** require legal-code co-design, accountable principals,
+provenance-bearing death/incapacity evidence under an oracle profile,
+independent challenge/adjudication, successor/guardian selection, authority
+rotation rather than raw-key inheritance, jurisdiction/off-chain enforcement
+interfaces, residual-asset rules, and terminal dissolution. Succession never
+widens purpose.
+
+### One logical system across two nodes
+
+**Fit:** Agentgres already provides the correct implementation precedent:
+static primary/standby replication, catch-up, writer epochs/fencing, operator
+promotion, and honest durability labels.
+
+**Break:** merely deploying a second daemon can create split brain, stale reads,
+false availability claims, and implicit writer authority. Same-host replicas do
+not prove failure independence; operator promotion is not automatic failover.
+
+**Correction:** separate desired deployment from observed membership; govern
+join and role assignment; verify constitution/package/profile, checkpoint,
+operation-log catch-up, root, lease, and readiness; inject failures; promote
+only with a higher epoch and old-writer fencing; reconcile in-flight work; drain
+and remove cleanly. Prove unchanged authority before cross-system federation.
+
 ### Open engineering or research challenge
 
 **Fit:** strong partial fit. The collaborative-outcome canon already permits a
@@ -1168,10 +1609,10 @@ topologized, and software-result shaped. There is no durable pull-based
 frontier, dynamic participation lifecycle, negative-result graph, shared
 finding layer, resource exchange, or benchmark-rule adjudication.
 
-**Correction:** implement the OutcomeRoom/CollaborativeWorkGraph profile,
-generic attempts, claim leases, verifier challenges, dynamic actor lifecycle,
-multi-objective evaluation, and credit for marginal information rather than
-only the top score.
+**Correction:** instantiate the OutcomeRoom package through genesis and
+implement `RoomAdmittedObjectBase`, generic attempts, claim leases, verifier
+challenges, dynamic actor lifecycle, multi-objective evaluation, and credit for
+marginal information rather than only the top score.
 
 ### Adversarial participant and scarce-resource shock
 
@@ -1221,41 +1662,79 @@ and sparse settlement form the right conceptual boundary.
 signed statements can be confused with verified outcomes; retry, cancellation,
 and ambiguous-effect state need a hard protocol lifecycle.
 
-**Correction:** build a local AIIP profile and conformance harness, then connect
-two independently operated nodes. Bind ontology/action profiles, idempotency,
+**Correction:** build an initial AIIP profile and conformance harness between two
+independently governed systems. Bind ontology/action profiles, idempotency,
 verifier/acceptor roles, assurance levels, and challengeable contribution
 claims before depending on L1.
 
 ### Sensitive or regulated enterprise workflow
 
-**Fit:** policy-bound views, training-evidence eligibility, provider-trust
-separation, cTEE posture, authority distinctions, governed exports, and release
-controls are well-shaped.
+**Fit:** `InstitutionalLearningBoundaryProfile`, source-rights claims,
+policy-bound views, training-evidence eligibility, bidirectional route rights,
+provider-trust separation, cTEE posture, LearningEgressReceipts, governed
+capability export, authority distinctions, and release controls now form one
+coherent enterprise boundary.
 
 **Break:** policy-pack precedence and conflicts can become ambiguous; eligibility
 revocation must propagate into derived datasets, models, caches, workers, and
-releases; raw room context cannot leak across parties.
+releases; raw room context cannot leak across parties; provider-native threads
+or memory cannot be the only durable institutional state; and contracts or
+receipts cannot prove hidden provider behavior.
 
-**Correction:** deterministic policy-composition traces, continuous
-obligations, derived-artifact impact/recall, and restricted projections rather
-than shared raw context.
+**Correction:** compile the most-restrictive boundary into the sovereign system,
+snapshot it into every run/job, prove forbidden egress at the network boundary,
+carry transitive rights and impact through derivatives, preserve restricted
+projections rather than shared raw context, export the eligible institutional
+capability, and hard-disable the incumbent provider during a model-swap
+continuity test.
 
 ### Embodied fleet or warehouse
 
-**Fit:** the architecture correctly separates identity, controller bindings,
-sensors/actuators, mission policy, heartbeat/failsafe, operator handoff,
-incidents, recovery, local safety vetoes, and evidence.
+**Fit:** the architecture correctly treats a fleet or swarm as one possible DAS,
+separates embodied units from system nodes, binds the owning system/deployment/
+membership topology, and separates controller bindings, sensors/actuators,
+immutable versioned resource groups, mission policy, heartbeat/failsafe,
+operator handoff, incidents, recovery, local safety vetoes, and evidence.
 
-**Break:** a full daemon/wallet round trip per high-frequency actuator command
-is not a viable real-time control model, and per-command proof can become
-unbounded.
+**Break:** fleet safety alone does not allocate useful distributed work. A full
+daemon/wallet round trip per high-frequency actuator command is not viable, and
+unfenced allocation, stale shared state, partition/rejoin, or unknown effects can
+duplicate or conflict even when each local command appears safe.
 
-**Correction:** make the two-speed architecture explicit. The slow governance
-plane authorizes a bounded mission/action envelope; a certified local
-control-and-safety plane executes high-frequency control inside it, holds the
-local e-stop, and emits segment commitments plus exception receipts. Goal
+**Correction:** use native Embodied Runtime—not AIIP—for same-system fleet
+coordination. `FleetMissionCoordinationRecord` and
+`FleetMissionAllocationLease` bind epochs, work allocation, state watermarks,
+partition/rejoin/rebalance, fenced reassignment, and effect reconciliation. The
+slow governance plane authorizes a bounded mission/action envelope; a certified
+local control-and-safety plane executes high-frequency control inside it, holds
+the local e-stop, and emits segment commitments plus exception receipts. Goal
 Kernel operates at mission and course-correction timescales, not motor-control
-timescales.
+timescales. AIIP begins only when a separate sovereign fleet/system boundary is
+crossed.
+
+A `RobotFleetRecord` is a `1..N` operational collection: a single robot or
+robotics application is a valid fleet-of-one, and its mission envelope may omit
+`FleetMissionCoordinationRecord`. Current runtime assignment is nullable during
+inventory, commissioning, maintenance, detachment, and offline storage while
+admitted assignment lineage remains durable and the history projection remains
+rebuildable. The planned product surface is **Embodied
+Systems**, not “HypervisorOS for robots”; existing controller stacks integrate
+through a lightweight bridge or gateway, with HypervisorOS retained as one
+optional high-integrity placement.
+
+`EmbodiedResourceGroup` closes the internal-composition layer that should be
+primary for physical DASs: one unit may name a camera array, limb, drivetrain,
+or safety interlock, while a workcell may compose exact resources across units
+and controllers without inventing nodes, fleets, sovereign systems, or AIIP
+peers. A fixed environmental sensor array may bind to an admitted source-node
+path without fabricating a robot or controller identity. Each admitted use pins
+an immutable group revision and membership-closure
+hash, expands to explicit sensor/actuator leaves, and intersects all member and
+group constraints. Group membership grants no authority. Multi-controller
+groups decompose into controller-local commands and cannot claim atomic
+physical execution unless one certified local boundary proves it; fleet
+coordination and allocation leases remain conditional on actually distributed
+multi-unit or multi-membership work, not on grouping alone.
 
 ### Provider failure during external effects
 
@@ -1309,22 +1788,43 @@ configuration. Complexity should appear only at the boundary that needs it.
 
 ### 1. Converge the category story
 
-State one end state: an open, edge-sovereign operating fabric for governed
-autonomous systems. Hypervisor is its reference execution/control environment;
-the ontology layer is its semantic userspace; they are not peer products.
-Productize it as one Goal Space subscription with same-domain multi-worker work
-inside the core experience and an opt-in, separately funded Network/Open
-contributor scope — not competing single-node and network-node SKUs.
+Lead with bounded distributed autonomous systems and the strongest formulation:
+L0 makes each bounded institution safely distributable across its admitted
+members, AIIP makes selective positive-surplus interoperation between separately
+sovereign institutions contractible, and IOI L1 optionally supplies shared
+trust/economic finality. Use intelligent blockchain
+as the technical state-machine classification and Cosmos as a secondary builder
+analogy, not the public category or a token promise.
 
-### 2. Promote collective pursuit to a first-class protocol behavior
+### 2. Make package-to-genesis, constitution, and lifecycle the L0 primitive
 
-Define `OutcomeRoom` and its CollaborativeWorkGraph above GoalRuns. Support
-private, team, cross-org, and open-challenge modes through policy, not separate
-runtimes. Compose existing ioi.ai goal/plan/attempt projections,
-HypervisorMission, GoalRun, `MultiPartyCollaborationEnvelope`, Agentgres, and
-AIIP; require every room to declare its ordering and admission topology.
+Implement reusable package release and live-system genesis before constitution,
+protected amendment, deployment, observed membership, ordering/finality,
+oracle/evidence, failover, succession, migration/fork/adoption, dissolution,
+and decommission. Prevent package publication or ordinary improvement from
+creating or rewriting the live boundary it is meant to obey.
 
-### 3. Generalize the Goal Kernel seam
+### 3. Prove one system's continuity and useful distributed work before federation
+
+Separate logical identity from physical node. Govern join, roles, catch-up,
+roots, leases, epochs, fencing, degraded modes, failover, drain, and removal.
+Then bind GoalRun/role/mission work through `RuntimeAssignment` and, for
+distributed multi-unit or multi-membership embodied missions, mission
+coordination/allocation records to admitted members. Prove
+useful parallel work, state freshness, partition/rejoin/rebalance, fenced
+reassignment, no duplicate effects, no dual writer, and unchanged authority
+before claiming two sovereign systems or an Internet of Intelligence.
+
+### 4. Make OutcomeRoom the flagship, not the definition
+
+Promote collective pursuit to first-class protocol behavior above GoalRuns.
+Support private, team, cross-org, and open-challenge policies. Use the reusable
+OutcomeRoom package and each hosted durable room-system instance as the first
+reference DAS because they exercise agent ingress, workgraphs, verification,
+and network supply; the hosted service operates many. Keep L0 generic enough
+for enterprise, asset/treasury, research, embodied, and public-interest systems.
+
+### 5. Generalize the Goal Kernel seam
 
 Keep the canonical loop. Replace the assumption that every result is an
 implementation patch with a generic `WorkResult`/`OutcomeDelta`; make software
@@ -1332,77 +1832,127 @@ one profile. Allow topology mutation, pull-based claims, dynamic join/retire,
 wake conditions, heartbeat, resource offers/backpressure, quarantine, and
 marginal-value stop rules. Treat participant inputs as untrusted until admitted.
 
-### 4. Finish the semantic action bridge
+### 6. Compose standards instead of recreating them
 
-Add federated ontology versioning/mapping and a first-class action contract that
+Bind A2A for remote tasks/artifacts, MCP for tools/context, OASF/directory
+systems for discovery/schema, and chain/escrow standards for selected
+settlement. Preserve AIIP's authority, semantic-action, evidence, recovery,
+dispute, and assurance semantics and record non-equivalence explicitly.
+
+### 7. Finish the semantic action and oracle bridge
+
+Add local ontology versioning, optional accepted cross-domain mappings, and a
+first-class action contract that
 binds domain meaning to capability, authority, effect, compensation, evidence,
-and verification.
+and verification. Put constitutions above ontology and external facts behind a
+source/freshness/independence/uncertainty/challenge policy.
 
-### 5. Prove the network before broadening the suite
+### 8. Compile the enterprise learning boundary
 
-Implement AIIP first as a local semantic profile and conformance harness, then
-demonstrate one collective pursuit across two independently operated nodes.
-This is more important to the Internet-of-Intelligence claim than another
-surface or speculative settlement feature.
+Make `InstitutionalLearningBoundaryProfile` the system-bound cross-stack
+compiler over source rights, policy-bound views, bidirectional model-route
+rights, custody, training eligibility, retention/export, derivative lineage, and
+revocation. Add `LearningEgressReceipt`, complete capability export, and a
+provider-removal/model-swap continuity test. Default provider secondary use,
+seller access, and cross-tenant learning to deny. Keep the profile out of the
+authority, truth, runtime, application, privacy-tier, and legal-rights roles.
 
-### 6. Refine proof language into assurance levels
+### 9. Make network enrollment and value accrual explicit
+
+Keep open L0 compatibility free of mandatory L1. Distinguish compatible,
+connected, and secured systems. Keep L0 product, network, and L1/token value as
+separate ledgers; charge only for managed product value, selected network
+services, or scarce neutral trust actually supplied.
+
+### 10. Refine proof language into assurance levels
 
 Receipts prove bound boundary facts. Verification, acceptance, adjudication,
 and settlement are separate states. Carry those distinctions through the
 Verified Work Graph, UI, reputation, and contribution economics.
 
-### 7. Keep blockchains sparse and trust-driven
+### 11. Keep public blockchains sparse and trust-driven
 
-Do not chainify every GoalRun, autonomous system, tool call, or receipt. Use
-deterministic local state and signatures inside domains; use consensus only
-where independent ordering, rights, disputes, reputation, or economic finality
-requires it.
+Do not put every GoalRun, system operation, tool call, or receipt on a public
+chain. An intelligent blockchain may be single-authority or replicated without
+public consensus. Use public consensus only where independent ordering,
+security, rights, disputes, reputation, or economic finality creates value.
 
-### 8. Make the operator experience graph-first
+### 12. Make the operator experience graph-first and continuity-aware
 
-Missions/Goal Spaces should render agents as participants in a workstream graph
-with claims, leases, evidence, evaluations, costs, and authority — not as chat
-bubbles or a hidden process list. Existing applications remain drill-down
-lenses.
+Missions/Goal Spaces should render workgraphs; Operations should render desired
+versus observed topology, failure domains, catch-up, roots, epochs/fencing,
+RPO/RTO, active assignments/allocation leases, shared-state watermarks,
+partition/reassignment/reconciliation, and degraded state; Governance should render constitution, amendment,
+succession, dissolution, and enrollment. Existing applications and generated
+React apps remain projections.
 
-### 9. Make embodied execution explicitly two-speed
+### 13. Make embodied execution same-system distributed and explicitly two-speed
 
-Separate mission-level intelligence and authority from certified local
-real-time control. Hypervising the mission must not imply a network round trip
-inside the motor loop.
+Use native L0 and Embodied Runtime records to coordinate fleet missions across
+one system's nodes and units. Use immutable `EmbodiedResourceGroup` revisions
+for nested sensor suites, actuator assemblies, limbs, drivetrains, safety
+interlocks, and workcells; bind exact leaves and never treat a group as
+authority, placement, a node, or a sovereign party. Separate mission-level
+intelligence and authority from certified local real-time control. Hypervising
+the mission must not imply a network round trip inside the motor loop, and
+internal allocation must not be modeled as AIIP.
 
-### 10. Delay precision economics until contribution assurance works
+### 14. Delay sovereign L1 and token economics until service demand works
 
 Do not tokenize ambiguous quality deltas. First make attempts reproducible,
 verification independent, acceptance explicit, disputes resolvable, derivation
-traceable, and negative contributions creditable. Settlement rails can remain
-chain-agnostic until public finality is needed.
+traceable, negative contributions creditable, and shared-security services
+valuable. Prove registries, rights, escrow, bonds, verifiers/guardians,
+disputes, settlement, and exit before selecting a sovereign L1. Any native asset
+is risk-bearing capital, not Work Credits or a token per DAS.
 
 ## Recommended Build Sequence
 
 ### Phase 0 — Contract convergence
 
-- define `OutcomeRoom`, `RoomParticipantLease`, `WorkFrontierItem`,
+- define `AutonomousSystemManifest`, `AutonomousSystemGenesis`,
+  `AutonomousSystemConstitution`, protected change classes,
+  `AutonomousSystemDeploymentProfile`, `AutonomousSystemNodeMembership`,
+  `AutonomousSystemFailoverProfile`, `OrderingAdmissionFinalityProfile`,
+  `OrderingFinalityRecovery`, `OracleEvidenceProfile`,
+  `LifecycleContinuityProfile`, `LifecycleTransition`,
+  `StateTransitionCommitment`, `IOINetworkEnrollment`,
+  `NetworkServiceInvocation`, and economic `SettlementEnvelope`;
+- define membership/catch-up/root/fencing, constitution/lifecycle, enrollment,
+  network-service, and exit receipt families plus distinct authority scopes;
+- define `OutcomeRoom`, `RoomAdmittedObjectBase`, `RoomParticipantLease`, `WorkFrontierItem`,
   `WorkClaimLease`, `ResourceOffer`/`CapabilityOffer`, `Attempt`, `Finding`,
   `VerifierChallenge`, and generic `WorkResult`/`OutcomeDelta`;
 - define room visibility, participation, coordination/admission, ordering,
   artifact license/export, and settlement policies;
 - bind model/provider routes to access mode, unattended-automation,
-  downstream-application, credential-principal, and output-training rights;
+  downstream-application, credential-principal, provider use of customer
+  material, retention, and each customer output-use right;
+- define `LearningSourceRightsClaim`, `InstitutionalLearningBoundaryProfile`,
+  `LearningEgressReceipt`, and `InstitutionalIntelligenceExportBundle`; bind
+  boundary snapshots to runs, views, transformations, Foundry jobs, derivatives,
+  promotions, and exports without creating a second authority or truth plane;
 - replace flat per-receipt model metering with invoice-grade route-attempt,
   price-schedule, supplier-cost, fee-basis, adjustment, and reconciliation
   receipts before attaching a paid Work Credit allowance;
 - add ontology namespace/version/mapping and semantic action contracts;
+- add versioned A2A, MCP, OASF/directory, HTTP/RPC, and settlement-adapter
+  bindings with explicit assurance non-equivalences;
 - add the assurance ladder and verifier/rule versioning;
 - map the objects onto `IoiAiGoal`, `IoiAiOutcomePlan`,
   `IoiAiAttemptSummary`, `IoiAiCrossSessionOutcomeGraph`, GoalRun, Missions,
   `MultiPartyCollaborationEnvelope`, Evaluations, Provenance, Governance,
   Agentgres, and AIIP owners without creating a new runtime.
 
-### Phase 1 — Single-node reference pursuit
+### Phase 1 — Single-node flagship bounded DAS
 
-Build a permissioned collaborative engineering or research room on one
-Hypervisor Node:
+Build ioi.ai's reusable OutcomeRoom package and instantiate one hosted durable
+room as a constitution-bound permissioned collaborative engineering or research
+DAS on one Hypervisor Node:
+
+- admit package release, genesis, system identity, constitution, single-node deployment,
+  `single_authority` ordering/finality, oracle/evidence, lifecycle/terminal,
+  local-compatible enrollment, and sequence-zero transition/state/receipt roots;
 
 - operate a disclosed IOI seed mesh of named planner, builder, verifier,
   critic, and synthesizer Worker compositions;
@@ -1417,7 +1967,8 @@ Hypervisor Node:
 - agents claim frontier items through leases;
 - resource offers, allocation, backpressure, spend, and fairness are visible;
 - attempts run in isolated branches/workspaces;
-- participant inputs remain tainted until policy and verification admit them;
+- participant inputs remain tainted until `RoomAdmittedObjectBase`, policy,
+  decision, and verification admit them through a current participant lease;
 - positive and negative results remain durable;
 - findings and shared playbooks update the frontier;
 - a verifier separated from candidate execution admits results, without yet
@@ -1430,10 +1981,30 @@ Hypervisor Node:
 Use a software or model-optimization task as the first profile because current
 GoalRun machinery can support it, but implement the contracts generically.
 
-### Phase 2 — Two sovereign nodes
+### Phase 2 — One logical DAS across two failure domains
 
-Run the same pursuit across two independently operated Hypervisor/Agentgres
-domains via AIIP:
+Extend Phase 1 under a declared `replicated_single_authority` plus
+`single_writer_promotion` profile without changing logical identity or authority:
+
+- provision/attest a second node and govern its membership/roles;
+- restore checkpoint, catch up the operation log, verify roots and watermarks,
+  establish leases, and mark observed readiness;
+- prove read/execution/durability scaling without mislabeling replication as
+  consensus or independent governance;
+- inject writer/node/link failure, reconcile in-flight work, increment the
+  writer epoch, fence the old writer, promote under operator control, and
+  replay without duplicate effects;
+- surface desired/observed topology, failure domains, RPO/RTO, degraded state,
+  receipts, drain, and removal;
+- keep automatic failover, leader election, and dynamic membership labeled
+  unbuilt until separately proven.
+
+This is the minimum credible L0 continuity proof.
+
+### Phase 3 — Two sovereign DASs over AIIP
+
+Run the same pursuit across two independently governed Hypervisor/Agentgres
+systems via AIIP:
 
 - begin with a customer/data-owner domain and the IOI coordinator/managed-worker
   domain, then add an independently operated worker provider and verifier;
@@ -1450,7 +2021,7 @@ domains via AIIP:
 
 This is the minimum credible Internet-of-Intelligence proof.
 
-### Phase 3 — Team and open challenge service
+### Phase 4 — Team and open challenge service
 
 Expose the same substrate through ioi.ai as Goal Spaces:
 
@@ -1465,26 +2036,47 @@ a separately funded sponsor budget/bounty or service order. Add settlement only
 where useful; do not hide external worker spend inside the ordinary seat
 allowance.
 
-### Phase 4 — Enterprise and embodied verticals
+### Phase 5 — Enterprise and embodied verticals
 
 Apply the proven collaboration fabric to a federated enterprise operations
 domain and an embodied mission. This validates semantic negotiation, restricted
 views, two-speed control, audit, liability, and local authority under conditions
 that an open benchmark does not exercise.
 
-### Phase 5 — Public economic commitments
+The enterprise lane must also pass the learning-boundary proof: admit a
+confidential correction and private eval; block the canary before a forbidden
+provider network call; produce a lineage-complete eligible improvement; hard-
+disable Model A and meet declared eval floors with Model B using only
+institution-controlled, rights-eligible state; deny the package seller and
+another tenant; export/import
+the eligible capability into a clean customer-operated deployment; revoke one
+source; and demonstrate quarantine, reevaluation, recall, or clean rebuild. An
+absent canary hit, ZDR term, or receipt is never presented as proof that a
+provider did not learn.
+
+### Phase 6 — Public economic commitments
 
 Only after repeated verified demand should IOI attach public reputation roots,
 rights, bonds, dispute finality, or token economics to selected contributions.
+First prove compatible/connected/secured enrollment, Standard DAS conformance,
+registry, rights, escrow, verifier/guardian/availability services, claims,
+disputes, settlement, and exit on a devnet or mature settlement environment.
 
 ## The North-Star Conformance Demonstration
 
 IOI should be able to demonstrate this without hand-waving:
 
 ```text
-an organization opens an ontology-bound OutcomeRoom
+precondition: one logical constitution-bound OutcomeRoom DAS already survived
+  two-failure-domain catch-up, root verification, fenced failover, replay,
+  drain/removal, and unchanged authority
+  -> an organization opens an ontology-bound OutcomeRoom across sovereign systems
   -> the room declares its coordination/admission topology and shared-state owner
-  -> one local agent and one independently operated external agent discover it
+  -> the user opens Add local contributor and receives a one-time pairing challenge
+  -> one local agent binds its key/origin and submits a room-scoped composition and participation request
+  -> one independently operated external agent discovers the room through AIIP
+  -> pairing and discovery grant neither agent membership, context, budget, tools, or authority
+  -> room policy admits each participant and creates separate leases
   -> each negotiates a permitted semantic view
   -> each claims bounded work and receives distinct context/resource/authority leases
   -> attempts execute in isolated domains
@@ -1502,6 +2094,25 @@ an organization opens an ontology-bound OutcomeRoom
 If that works through open contracts and independently operated nodes, IOI has
 demonstrated an Internet of Intelligence rather than merely named one.
 
+The companion enterprise proof is equally concrete:
+
+```text
+one sovereign system compiles an InstitutionalLearningBoundaryProfile
+  -> a confidential correction/eval canary is denied on an ineligible provider route
+  -> gateway evidence proves the request was blocked before network egress
+  -> the same correction is individually admitted for system-private eval/improvement
+  -> Foundry produces one rights-eligible, lineage-complete capability improvement
+  -> Model A and all provider-native state are disconnected
+  -> Model B meets declared acceptance floors using only institution-controlled, rights-eligible state
+  -> another tenant and the package seller are denied access
+  -> an InstitutionalIntelligenceExportBundle imports into a clean customer deployment
+  -> source revocation quarantines, reevaluates, recalls, or rebuilds the derivative
+```
+
+If that works without claiming invisible provider behavior or magical
+unlearning, IOI has demonstrated the enterprise reason for the full stack to
+exist as one system.
+
 ## Anti-Goals
 
 Do not build:
@@ -1516,12 +2127,27 @@ Do not build:
 - pooled, shared, browser-automated, or resold enterprise chat/workspace seats
   treated as production worker capacity;
 - raw foundation-model endpoints presented as accountable Worker identities;
+- provider-native threads, vector stores, or harness caches as the only durable
+  copy of institutional memory, corrections, evals, or reusable capability;
+- enterprise operation treated as automatic ownership or training consent over
+  employee, contractor, customer, partner, provider-output, or room material;
+- contracts, ZDR, receipts, or absent canary hits presented as cryptographic
+  proof of hidden provider non-learning or deletion;
 - multiple IOI-owned workers, keys, clouds, or model vendors presented as
   independent parties;
 - a chat room presented as a collaboration protocol;
 - automatic promotion of participant messages, artifacts, findings, mappings,
   or evaluator changes into memory, ontology, routing, authority, or production;
 - an autonomous-system chain per agent by default;
+- a physical node, process, UI, or React deployment treated as the logical
+  autonomous-system identity;
+- node count, replication, or durability mislabeled as consensus, independence,
+  authority, finality, or shared security;
+- autonomous self-propagation, self-preservation, or resource acquisition
+  outside constitution, membership, revocation, and decommission gates;
+- external-world truth inferred from signatures, receipts, votes, or consensus
+  without an oracle/evidence and challenge policy;
+- mandatory IOI L1 enrollment, fees, or tokens for compatible L0 or AIIP use;
 - L1 transactions for local cognition, tool calls, workflow steps, or routine
   receipts;
 - one scalar leaderboard as universal intelligence or contribution truth;
@@ -1530,22 +2156,36 @@ Do not build:
   subscription price;
 - Type 1 infrastructure breadth that delays Type 3 semantic-action proof;
 - precise token rewards before verification, acceptance, derivation, and
-  disputes are credible.
+  disputes are credible;
+- market-capitalization claims inferred from product architecture rather than
+  actual fees, scarce neutral trust, bonded risk, and governance demand.
 
 ## Final Thesis
 
-The architecture is not choosing between an autonomy hypervisor and a
-decentralized ontology operating environment. Its winning form requires both.
+The architecture is not choosing between an autonomy hypervisor, a
+decentralized ontology operating environment, and an intelligent-blockchain
+framework. Its winning form composes all three around one bounded institution.
 
 The ontology plane tells autonomous systems what the world means and which
 actions exist. The hypervisor plane determines where those systems run and
 whether they may act. Machine authority makes power explicit. Agentgres makes
 state and evidence durable. Goal Kernel gives each bounded intelligence a
-repeatable pursue/verify/course-correct loop. The collaborative work graph lets
-many such intelligences create more value together than a single conductor can.
-AIIP makes the collaboration cross sovereign boundaries. Sparse settlement
-makes selected contributions economically portable without turning all work
-into chain traffic.
+repeatable pursue/verify/course-correct loop. The collaborative work graph is
+used only when complementary participants can create and allocate more value
+than their best standalone alternatives after coordination and risk costs.
+AIIP makes that exact-terms collaboration cross sovereign boundaries and
+composes existing task/tool/discovery/settlement standards. Explicit network enrollment makes
+selected trust and economic commitments portable without turning all work into
+chain traffic or L1 tolls.
+
+For enterprises, `InstitutionalLearningBoundaryProfile` makes this composition
+one governable learning loop. Hypervisor controls use and egress; Agentgres
+preserves admitted state and lineage; Ontology/Data give it meaning and source
+rights; Foundry compounds eligible evidence; Private Workspace enforces
+custody-proven routes; model-neutral routing makes cognition replaceable; and
+the export plus model-swap test makes provider exit measurable. The enterprise
+moat remains with the institution rather than in an irreplaceable provider
+thread, while the profile itself grants neither ownership nor authority.
 
 The product expression should be equally unified: one subscribed Goal Space
 experience, same-domain multi-worker orchestration as the useful default, an
@@ -1555,17 +2195,32 @@ subscription monetizes the conductor and ordinary work; Work Credits meter
 managed execution; goal budgets and network fees fund real external labor,
 verification, assurance, and settlement.
 
-The direction is right. The necessary course correction is to make **open,
-adaptive, cross-node collective pursuit** a first-class protocol behavior, not
-merely a public-dashboard variant of a sophisticated single-owner GoalRun.
+The direction is right. The strongest end state is:
+
+> **IOI is the open operating stack that turns intelligence into bounded
+> autonomous institutions. L0 makes each institution safely distributable
+> across its governed compute, state, verification, human, and embodied members;
+> AIIP makes selective, positive-surplus interoperation between separately
+> sovereign institutions contractible; IOI L1 supplies optional shared trust and
+> economic finality.**
+
+The necessary course correction is foundational and ordered: constitute the
+system; prove its continuity and useful native coordination across compute,
+state, verification, human, and embodied members; then make conditional,
+participant-rational cross-system collective pursuit a first-class AIIP option.
+Product alpha,
+network alpha, and L1/token value may compound together only when their actual
+services and economics make the coupling real.
 
 ## Grounding
 
 ### Current canonical architecture
 
+- [Institutional Learning Boundary](../../docs/architecture/foundations/institutional-learning-boundary.md)
 - [Hypervisor Core, clients, and surfaces](../../docs/architecture/components/hypervisor/core-clients-surfaces.md)
 - [Domain Ontologies and Data Recipes](../../docs/architecture/foundations/domain-ontologies-and-data-recipes.md)
 - [Governed Autonomous Systems and Hypervisor Nodes](../../docs/architecture/foundations/governed-autonomous-systems.md)
+- [Fractal Kernel, L0 Substrate, and Domain Kernels](../../docs/architecture/foundations/domain-kernels.md)
 - [Common Objects and Envelopes](../../docs/architecture/foundations/common-objects-and-envelopes.md)
 - [ioi.ai Collaborative Outcome Pattern](../../docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md)
 - [Canonical Web4 and the IOI Stack](../../docs/architecture/foundations/web4-and-ioi-stack.md)
@@ -1578,6 +2233,9 @@ merely a public-dashboard variant of a sophisticated single-owner GoalRun.
 - [Agentgres doctrine](../../docs/architecture/components/agentgres/doctrine.md)
 - [wallet.network doctrine](../../docs/architecture/components/wallet-network/doctrine.md)
 - [Economic Flywheel and Pricing Boundaries](../../docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md)
+- [IOI L1 Mainnet](../../docs/architecture/foundations/ioi-l1-mainnet.md)
+- [Ecosystem Assurance, Certification, and Liability](../../docs/architecture/foundations/ecosystem-assurance-certification-liability.md)
+- [Execution Horizons](../../docs/architecture/_meta/execution-horizons.md)
 - [Physical Action Safety](../../docs/architecture/foundations/physical-action-safety.md)
 - [Embodied Runtime](../../docs/architecture/components/daemon-runtime/embodied-runtime.md)
 - [Architecture implementation matrix](../../docs/architecture/_meta/implementation-matrix.md)
@@ -1601,6 +2259,19 @@ merely a public-dashboard variant of a sophisticated single-owner GoalRun.
 
 ### External primary references
 
+- [Cosmos SDK overview](https://docs.cosmos.network/sdk/latest/learn/intro/overview)
+- [IBC v2 specification](https://docs.cosmos.network/ibc/latest/spec/IBC_V2/README)
+- [Cosmos Interchain Security](https://docs.cosmos.network/hub/latest/interchain-security/README)
+- [Cosmos roadmap and value-capture discussion](https://cosmos.network/blog/cosmoverse-2025-the-future-of-cosmos-the-cosmos-stack-hub-and-atom)
+- [OP Stack standard configuration](https://docs.optimism.io/chain-operators/reference/standard-configuration)
+- [Optimism capital allocation and economics](https://docs.optimism.io/governance/capital-allocation)
+- [Olas autonomous agent-service architecture](https://stack.olas.network/open-autonomy/get_started/what_is_an_agent_service/)
+- [Olas protocol](https://stack.olas.network/protocol/)
+- [A2A protocol specification](https://a2a-protocol.org/latest/specification/)
+- [MCP specification](https://modelcontextprotocol.io/specification/latest)
+- [AGNTCY documentation](https://docs.agntcy.org/)
+- [draft ERC-8004: Trustless Agents](https://eips.ethereum.org/EIPS/eip-8004)
+- [draft ERC-8183: Agentic Commerce](https://eips.ethereum.org/EIPS/eip-8183)
 - [Fast Gemma Challenge](https://huggingface.co/gemma-challenge)
 - [Fast Gemma agent workspace guide](https://huggingface.co/buckets/gemma-challenge/gemma-main-bucket/tree/README.md)
 - [RL-LLM Wiki collaboration workspace](https://huggingface.co/buckets/rl-llm-wiki/rl-main-bucket)

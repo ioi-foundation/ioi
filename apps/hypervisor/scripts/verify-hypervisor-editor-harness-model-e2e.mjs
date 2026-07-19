@@ -142,9 +142,9 @@ async function run() {
   const tr = (transcripts.j?.runs || []).find((r) => r.run_id === hx?.run_ref);
   ok("the run's transcript exists in the daemon transcript plane with a matching state_root", !!tr && (tr.state_root === hx?.state_root || String(tr.state_root_ref || "").length > 0), tr?.state_root);
 
-  // ── STEP 7: Workbench sessions panel shows the completed session with its binding + editor ──
+  // ── STEP 7: Developer Workspace sessions panel shows the completed session with its binding + editor ──
   const wb = await fetch(`${SHELL}/__ioi/workbench`).then((r) => r.text()).catch(() => "");
-  ok("Workbench renders the session with its harness binding", wb.includes("hypervisor_worker") || wb.includes("opencode") || wb.includes(sid.slice(0, 18)), "sessions panel");
+  ok("Developer Workspace renders the session with its harness binding", /<h1>Developer Workspace/.test(wb) && (wb.includes("hypervisor_worker") || wb.includes("opencode") || wb.includes(sid.slice(0, 18))), "sessions panel");
 
   // Restore: disable the driver.
   await jd(DAEMON, "POST", "/v1/hypervisor/harness-profiles/hp_opencode/disable");

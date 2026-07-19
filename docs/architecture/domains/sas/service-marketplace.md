@@ -4,14 +4,16 @@ Status: canonical architecture authority.
 Canonical owner: this file for sas.xyz service marketplace doctrine; low-level service endpoints live in [`sas-xyz-service-endpoints.md`](./service-endpoints.md).
 Supersedes: overlapping service-marketplace plan prose when outcome/service boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-15.
 Doctrine status: canonical
 Implementation status: planned (outcome marketplace design; order/escrow/delivery/dispute loop is specification)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
 
-**sas.xyz is the first-party Web4 marketplace application for autonomous service outcomes, including Worker Training as Service-as-Software, built on AIIP and IOI settlement.**
+**sas.xyz is the first-party Web4 marketplace application for autonomous
+service outcomes, including Worker Training as Service-as-Software, built on
+AIIP, local contracting truth, and explicitly selected settlement services.**
 
 It lets users order outcomes produced by workers, workflows, providers, and
 runtime nodes under escrow, SLA, receipts, and delivery acceptance. Its first
@@ -19,8 +21,9 @@ MoW-native wedge is training a specialized worker for a defined business
 outcome.
 
 sas.xyz is not the protocol. It is a first-party protocol client, demand
-generator, and proof surface for AIIP outcome-service profiles and IOI
-autonomous-system settlement.
+generator, and proof surface for AIIP outcome-service profiles and the shared
+profile-neutral settlement contract. IOI L1 is one optional service for
+explicitly enrolled orders.
 
 ## What sas.xyz Is
 
@@ -28,7 +31,8 @@ sas.xyz is:
 
 - a React/Web service marketplace interface;
 - an Agentgres-backed application domain;
-- an IOI L1 smart-contract user;
+- an optional IOI L1 smart-contract user when the order's active enrollment and
+  settlement profile select that service;
 - an AIIP outcome-service profile user;
 - an outcome-ordering and delivery system;
 - a workflow/worker composition surface;
@@ -67,7 +71,8 @@ sas.xyz owns:
 - service quality ledgers;
 - service reputation;
 - outcome packaging;
-- workflow composition references;
+- `WorkflowTemplate` and `GoalRunProfile` refs for deterministic or adaptive
+  service fulfillment respectively;
 - worker-training template refs.
 
 ## What sas.xyz Does Not Own
@@ -89,14 +94,16 @@ sas.xyz does not own:
 User orders service
 → sas.xyz Agentgres creates ServiceOrder operational state
 → OutcomeWorkspace is initialized for task/run/delivery state
-→ IOI L1 contract locks escrow / records order commitment
+→ declared settlement profile reserves local invoice, bilateral/external
+  escrow, external-chain, or enrolled IOI L1 commitment when required
 → runtime router creates RuntimeAssignment and ComputeSession
 → isolated runtime node boots a Hypervisor Daemon profile
-→ worker/workflow executes through the daemon using task capsules and authority leases
+→ worker, admitted WorkflowTemplate materialization, or GoalRun executes
+  through the daemon using task capsules and authority leases
 → artifacts and receipts are produced
 → delivery bundle recorded in sas.xyz Agentgres
 → user accepts, rejects, or disputes
-→ IOI L1 contract releases payout / refund / slashing
+→ selected settlement rail releases payout, refund, or slashing disposition
 ```
 
 ## Worker Training Contract
@@ -126,7 +133,7 @@ Deliverables may include:
 
 - WorkerManifest;
 - policy envelope;
-- ontology, recipe, mapping, and evaluation dataset refs;
+- DomainOntology, DataRecipe, ConnectorMapping, and EvaluationDataset refs;
 - TransformationReceipt set;
 - TrainingReceipt set;
 - BenchmarkReceipt set;
@@ -140,20 +147,28 @@ and emits the required evaluation receipts. If the worker fails benchmark,
 policy, privacy, or delivery requirements, the order follows the same
 deterministic arbitration path as other service outcomes.
 
-## IOI L1 Contract Interactions
+## Optional IOI Network Services And Settlement Profile
 
-sas.xyz should use IOI L1 contracts for:
+An active connected/secured enrollment may independently select named IOI
+Network services. The adapter gates each invocation by its exact `service_kind`,
+terms, and public-commitment policy:
 
-- service publication;
-- service order commitment;
-- escrow lock;
-- SLA bond;
-- delivery acceptance;
-- payout release;
-- refunds;
-- disputes;
-- provider bond slashing;
-- reputation root commitments.
+- `registry`: service publication and selected order/delivery commitments;
+- `rights`: contractual service or artifact rights;
+- `reputation`: provider and outcome reputation-root commitments;
+- `dispute`: selected challenge/adjudication service;
+- `escrow` or `settlement`: escrow locks, SLA bonds, payouts, refunds, and
+  adjudicated slashing through the selected economic service.
+
+Registry, rights, reputation, and public-finality invocations use
+`NetworkServiceInvocationEnvelope`; they do not become settlement actions.
+`settlement_mode: ioi_l1` is required only when IOI L1 is selected as the
+economic settlement rail. Delivery acceptance remains a separate admitted
+decision consumed by settlement; the adapter never authors it.
+
+Local invoice, bilateral, external-escrow, and external-chain modes implement
+the same lifecycle through their declared adapters. No sas.xyz order is forced
+onto IOI L1 merely because it uses AIIP or Agentgres.
 
 ## Agentgres Domain State
 
@@ -256,7 +271,7 @@ evidence; contribution; settlement; ordering; and admission topology.
 The service order remains the commercial owner for its separately funded
 budget, escrow, SLA, delivery, acceptance, dispute, and payout. It must not
 silently consume a user's ordinary ioi.ai seat allowance for independent
-network labor. The OutcomeRoom is the work-coordination profile and the
+network labor. The OutcomeRoom is the work-coordination object and the
 MultiPartyCollaborationEnvelope is the cross-party policy/proof context; neither
 replaces service orders, delivery bundles, AIIP packets, per-domain Agentgres
 truth, or audience-specific audit exports.
@@ -304,7 +319,8 @@ Correct model:
 sas.xyz contracts and lists verifiable service outcomes
 service packages can run locally, privately, hosted, in VPCs, through TEEs, or
 through Private Workspace cTEE nodes or marketplace orders
-the daemon executes service engines under the Default Harness Profile
+the daemon executes admitted ServiceEngine and ServiceModule invocations directly
+a selected HarnessProfile resolves only a scoped agent step when the service graph requires one
 Agentgres records delivery, evidence, receipts, and settlement state
 L1 settlement appears when contracts, escrow, rights, disputes, or public trust
 require it

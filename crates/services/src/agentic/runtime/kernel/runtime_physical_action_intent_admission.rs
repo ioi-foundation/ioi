@@ -1,9 +1,9 @@
 //! Physical-action-intent admission planner.
 //!
-//! A faithful Rust port of the retired JS `admitPhysicalActionIntent`
-//! (`packages/runtime-daemon/src/runtime-physical-action-intent-admission.mjs`). Pure validation:
-//! actuator-affecting work is admitted only through the daemon-owned safety / supervision /
-//! emergency-stop / receipt envelope, never as a generic tool call.
+//! A Rust-owned physical-action admission boundary. The original request-shape normalization is a
+//! faithful port of the retired JS `admitPhysicalActionIntent`, while the deployment-assurance
+//! checks are intentionally stricter: live, hard-real-time, or E1+ claims fail closed unless the
+//! request binds exact graph/deployment/ODD/timing/input/switch/writer evidence.
 //!
 //! GOTCHA: `optional_positive_integer` mirrors JS `Number(value)` coercion exactly (the
 //! `js_number_coerce` helper): true→1, false→0, "0x10"→16, "0o17"→15, [250]→250 (array →
@@ -15,7 +15,41 @@
 use serde_json::{json, Map, Value};
 
 pub const PHYSICAL_ACTION_INTENT_ADMISSION_SCHEMA_VERSION: &str =
-    "ioi.runtime.physical_action_intent_admission.v1";
+    "ioi.runtime.physical_action_intent_admission.v2";
+
+const ASSURANCE_EVIDENCE_LEVELS: &[&str] = &["E0", "E1", "E2", "E3"];
+const EXECUTION_TIMING_CLASSES: &[&str] =
+    &["best_effort", "bounded_soft_realtime", "hard_realtime"];
+const TIMING_EVIDENCE_MODES: &[&str] = &["bounded_soft_tail", "hard_realtime_analytic"];
+const ODD_STATES: &[&str] = &["inside", "exiting", "outside", "unknown"];
+const ODD_EXIT_RESPONSES: &[&str] = &[
+    "deny_new_commands",
+    "switch_to_recovery",
+    "safe_stop",
+    "emergency_stop",
+    "operator_handoff",
+];
+const SAFETY_INPUT_SOURCE_KINDS: &[&str] =
+    &["learned", "deterministic", "hardware_interlock", "fused"];
+const SAFETY_INPUT_ASSURANCE_POSTURES: &[&str] = &[
+    "unassured_supplemental",
+    "assured_independent",
+    "assured_diverse",
+];
+const RESTART_POSTURES: &[&str] = &[
+    "no_restart_since_admission",
+    "restarted_inactive_unarmed_and_readmitted",
+];
+const STANDBY_WRITER_POSTURES: &[&str] = &["absent", "fenced_inactive", "safe_takeover_tested"];
+const TELEOP_LINK_STATES: &[&str] = &["healthy", "degraded", "lost", "unknown"];
+const TELEOP_DEADMAN_STATES: &[&str] = &["asserted", "released", "stale", "unknown"];
+const TELEOP_AUTH_STATES: &[&str] = &["verified", "expired", "revoked", "unknown"];
+const TELEOP_LOSS_RESPONSES: &[&str] = &[
+    "hold_position",
+    "switch_to_recovery",
+    "safe_stop",
+    "emergency_stop",
+];
 
 const ACTION_KINDS: &[&str] = &[
     "navigation",
@@ -106,6 +140,8 @@ impl RuntimePhysicalActionIntentAdmissionCore {
         let domain_ref = optional_value(request.get("domain_ref"));
         let target_system_ref =
             required_string(request.get("target_system_ref"), "target_system_ref")?;
+        let resource_group_bindings =
+            validate_resource_group_bindings(request.get("resource_group_bindings"))?;
         let action_kind = enum_value(request.get("action_kind"), "action_kind", ACTION_KINDS)?;
         let risk_class = optional_value(request.get("risk_class"))
             .unwrap_or_else(|| "physical_action".to_string());
@@ -145,6 +181,9 @@ impl RuntimePhysicalActionIntentAdmissionCore {
             unique_strings_raw(request.get("sensor_evidence_receipt_refs"));
         let actuator_command_receipt_refs =
             unique_strings_raw(request.get("actuator_command_receipt_refs"));
+        let preflight_receipt_refs = unique_strings_raw(request.get("preflight_receipt_refs"));
+        let segment_commitment_receipt_refs =
+            unique_strings_raw(request.get("segment_commitment_receipt_refs"));
         let incident_policy_ref =
             required_string(request.get("incident_policy_ref"), "incident_policy_ref")?;
         let rollback_or_compensation_policy_ref =
@@ -158,8 +197,28 @@ impl RuntimePhysicalActionIntentAdmissionCore {
         let artifact_refs = unique_strings_raw(request.get("artifact_refs"));
         let state_root = optional_value(request.get("state_root"));
         let execution_channel = optional_value(request.get("execution_channel"));
+        let command_schema_ref = optional_value(request.get("command_schema_ref"));
+        let command_payload_hash = optional_value(request.get("command_payload_hash"));
+        let controller_binding_ref = optional_value(request.get("controller_binding_ref"));
+        let controller_idempotency_key = optional_value(request.get("controller_idempotency_key"));
         let simulation_only = boolean_value(request.get("simulation_only")).unwrap_or(false);
         let generic_tool_call = boolean_value(request.get("generic_tool_call")).unwrap_or(false);
+        let asserted_assurance_evidence_level = enum_value(
+            Some(&default_value(
+                request.get("asserted_assurance_evidence_level"),
+                "E0",
+            )),
+            "asserted_assurance_evidence_level",
+            ASSURANCE_EVIDENCE_LEVELS,
+        )?;
+        let execution_timing_class = enum_value(
+            Some(&default_value(
+                request.get("execution_timing_class"),
+                "bounded_soft_realtime",
+            )),
+            "execution_timing_class",
+            EXECUTION_TIMING_CLASSES,
+        )?;
 
         // assertPhysicalActionAdmission — prefixes (400) then policy assertions (403).
         require_prefix(&intent_id, "intent://", "intent_id")?;
@@ -281,6 +340,72 @@ impl RuntimePhysicalActionIntentAdmissionCore {
         require_refs(&receipt_refs, "receipt_refs")?;
         require_refs(&agentgres_operation_refs, "agentgres_operation_refs")?;
 
+        let live_physical_execution = !simulation_only && execution_phase != "intent_proposed";
+        if live_physical_execution {
+            if resource_group_bindings.is_empty() {
+                return Err(missing_execution_binding("resource_group_bindings"));
+            }
+            if state_root.is_none() {
+                return Err(missing_execution_binding("state_root"));
+            }
+            require_refs(&preflight_receipt_refs, "preflight_receipt_refs")?;
+            for reference in &preflight_receipt_refs {
+                require_prefix(reference, "receipt://", "preflight_receipt_refs")?;
+            }
+            for reference in &segment_commitment_receipt_refs {
+                require_prefix(reference, "receipt://", "segment_commitment_receipt_refs")?;
+            }
+            let command_schema_ref = command_schema_ref
+                .as_deref()
+                .ok_or_else(|| missing_execution_binding("command_schema_ref"))?;
+            require_prefix(command_schema_ref, "action-schema://", "command_schema_ref")?;
+            let command_payload_hash = command_payload_hash
+                .as_deref()
+                .ok_or_else(|| missing_execution_binding("command_payload_hash"))?;
+            require_sha256_hash(command_payload_hash, "command_payload_hash")?;
+            let controller_binding_ref = controller_binding_ref
+                .as_deref()
+                .ok_or_else(|| missing_execution_binding("controller_binding_ref"))?;
+            require_prefix(
+                controller_binding_ref,
+                "controller-binding://",
+                "controller_binding_ref",
+            )?;
+            if controller_idempotency_key.is_none() {
+                return Err(missing_execution_binding("controller_idempotency_key"));
+            }
+            require_resource_group_member(
+                &resource_group_bindings,
+                &["unit_refs", "actuator_refs"],
+                &target_system_ref,
+                "physical_action_resource_group_target_mismatch",
+            )?;
+            require_resource_group_member(
+                &resource_group_bindings,
+                &["controller_binding_refs"],
+                controller_binding_ref,
+                "physical_action_resource_group_controller_binding_mismatch",
+            )?;
+            require_resource_group_member(
+                &resource_group_bindings,
+                &["emergency_stop_authority_refs"],
+                &emergency_stop_authority_ref,
+                "physical_action_resource_group_emergency_stop_mismatch",
+            )?;
+        }
+        let assurance_required = assurance_level_rank(&asserted_assurance_evidence_level) >= 1
+            || execution_timing_class == "hard_realtime"
+            || live_physical_execution;
+        let deployment_assurance = validate_deployment_assurance(
+            request,
+            assurance_required,
+            &asserted_assurance_evidence_level,
+            &execution_timing_class,
+            &target_system_ref,
+            &safety_envelope_ref,
+            controller_binding_ref.as_deref().unwrap_or_default(),
+        )?;
+
         let admission_id = optional_value(request.get("admission_id")).unwrap_or_else(|| {
             format!(
                 "physical-action-admission:{}:{}",
@@ -291,7 +416,11 @@ impl RuntimePhysicalActionIntentAdmissionCore {
         let admitted_at =
             optional_value(request.get("admitted_at")).unwrap_or_else(|| now_iso.to_string());
 
-        Ok(json!({
+        // Keep the response construction in bounded chunks. A single `json!`
+        // object with every admission field exceeds serde_json's default macro
+        // recursion depth and can prevent the entire services crate from
+        // compiling even though the wire shape itself is valid.
+        let mut admission = json!({
             "schema_version": PHYSICAL_ACTION_INTENT_ADMISSION_SCHEMA_VERSION,
             "admission_id": admission_id,
             "intent_id": intent_id,
@@ -299,6 +428,7 @@ impl RuntimePhysicalActionIntentAdmissionCore {
             "task_id": task_id,
             "domain_ref": domain_ref,
             "target_system_ref": target_system_ref,
+            "resource_group_bindings": resource_group_bindings,
             "action_kind": action_kind,
             "risk_class": "physical_action",
             "execution_phase": execution_phase,
@@ -312,8 +442,12 @@ impl RuntimePhysicalActionIntentAdmissionCore {
             "emergency_stop_authority_ref": emergency_stop_authority_ref,
             "emergency_stop_tested": emergency_stop_tested,
             "emergency_stop_max_latency_ms": emergency_stop_max_latency_ms.map(latency_to_json).unwrap_or(Value::Null),
+        });
+        let evidence_and_authority = json!({
             "sensor_evidence_receipt_refs": sensor_evidence_receipt_refs,
             "actuator_command_receipt_refs": actuator_command_receipt_refs,
+            "preflight_receipt_refs": preflight_receipt_refs,
+            "segment_commitment_receipt_refs": segment_commitment_receipt_refs,
             "incident_policy_ref": incident_policy_ref,
             "rollback_or_compensation_policy_ref": rollback_or_compensation_policy_ref,
             "wallet_approval_ref": wallet_approval_ref,
@@ -324,14 +458,841 @@ impl RuntimePhysicalActionIntentAdmissionCore {
             "artifact_refs": artifact_refs,
             "state_root": state_root,
             "execution_channel": execution_channel,
+            "command_schema_ref": command_schema_ref,
+            "command_payload_hash": command_payload_hash,
+            "controller_binding_ref": controller_binding_ref,
+            "controller_idempotency_key": controller_idempotency_key,
             "decision": "admitted",
             "requiresDaemonGate": true,
             "generic_tool_call_blocked": true,
+        });
+        let assurance_and_runtime = json!({
             "simulation_only": simulation_only,
+            "live_physical_execution": live_physical_execution,
+            "asserted_assurance_evidence_level": asserted_assurance_evidence_level,
+            "execution_timing_class": execution_timing_class,
+            "deployment_assurance": deployment_assurance,
             "admitted_at": admitted_at,
             "runtimeTruthSource": "daemon-runtime",
-        }))
+        });
+        let admission_object = admission
+            .as_object_mut()
+            .expect("physical-action admission response is an object");
+        admission_object.extend(
+            evidence_and_authority
+                .as_object()
+                .expect("physical-action evidence response is an object")
+                .clone(),
+        );
+        admission_object.extend(
+            assurance_and_runtime
+                .as_object()
+                .expect("physical-action assurance response is an object")
+                .clone(),
+        );
+        Ok(admission)
     }
+}
+
+fn validate_deployment_assurance(
+    request: &Value,
+    required: bool,
+    asserted_evidence_level: &str,
+    execution_timing_class: &str,
+    target_system_ref: &str,
+    safety_envelope_ref: &str,
+    controller_binding_ref: &str,
+) -> AdmitResult<Value> {
+    if !required {
+        return Ok(json!({
+            "required": false,
+            "reason": "proposal_only_e0_non_hard_realtime",
+        }));
+    }
+
+    let deployment = required_assurance_object(request, "deployment_assurance")?;
+    let supported_evidence_level = required_assurance_enum(
+        deployment,
+        "supported_evidence_level",
+        ASSURANCE_EVIDENCE_LEVELS,
+    )?;
+    if assurance_level_rank(&supported_evidence_level)
+        < assurance_level_rank(asserted_evidence_level)
+    {
+        return Err(authority_error(
+            "physical_action_assurance_evidence_level_overclaim",
+            "The asserted physical assurance evidence level exceeds the level supported by the bound deployment evidence.",
+            json!({
+                "asserted_assurance_evidence_level": asserted_evidence_level,
+                "supported_evidence_level": supported_evidence_level,
+            }),
+        ));
+    }
+
+    let assurance_evidence_bundle_ref = required_assurance_ref(
+        deployment,
+        "assurance_evidence_bundle_ref",
+        &["assurance-evidence://"],
+    )?;
+    required_assurance_hash(deployment, "assurance_evidence_bundle_hash")?;
+    require_assurance_binding(
+        deployment,
+        "target_system_ref",
+        target_system_ref,
+        "physical_action_deployment_target_mismatch",
+    )?;
+    require_assurance_binding(
+        deployment,
+        "safety_envelope_ref",
+        safety_envelope_ref,
+        "physical_action_deployment_safety_envelope_mismatch",
+    )?;
+    required_assurance_hash(deployment, "safety_envelope_hash")?;
+    required_assurance_ref(
+        deployment,
+        "runtime_graph_manifest_ref",
+        &["embodied-runtime-graph-manifest://"],
+    )?;
+    required_assurance_hash(deployment, "runtime_graph_manifest_hash")?;
+    let operational_design_domain_ref = required_assurance_ref(
+        deployment,
+        "operational_design_domain_ref",
+        &["policy://", "artifact://"],
+    )?;
+    let operational_design_domain_hash =
+        required_assurance_hash(deployment, "operational_design_domain_hash")?;
+    required_assurance_ref(deployment, "hardware_configuration_ref", &["artifact://"])?;
+    required_assurance_hash(deployment, "hardware_configuration_hash")?;
+    required_assurance_ref(deployment, "controller_firmware_ref", &["artifact://"])?;
+    required_assurance_hash(deployment, "controller_firmware_hash")?;
+    let deployment_controller_binding_ref = required_assurance_ref(
+        deployment,
+        "controller_binding_ref",
+        &["controller-binding://"],
+    )?;
+    require_assurance_binding(
+        deployment,
+        "controller_binding_ref",
+        controller_binding_ref,
+        "physical_action_controller_binding_mismatch",
+    )?;
+    required_assurance_ref(
+        deployment,
+        "safety_monitor_ref",
+        &["module://", "controller://", "artifact://"],
+    )?;
+    required_assurance_hash(deployment, "safety_monitor_hash")?;
+    required_assurance_ref(
+        deployment,
+        "command_switch_ref",
+        &["module://", "controller://", "artifact://"],
+    )?;
+    required_assurance_hash(deployment, "command_switch_hash")?;
+    required_assurance_ref(
+        deployment,
+        "recovery_controller_ref",
+        &["module://", "controller://", "artifact://"],
+    )?;
+    required_assurance_hash(deployment, "recovery_controller_hash")?;
+    required_assurance_ref(
+        deployment,
+        "recoverable_region_evidence_ref",
+        &["artifact://", "evidence://", "assurance-evidence://"],
+    )?;
+    required_assurance_hash(deployment, "recoverable_region_evidence_hash")?;
+    let minimum_recoverable_margin =
+        required_nonnegative_number(deployment, "minimum_recoverable_margin")?;
+    let current_recoverable_margin =
+        required_nonnegative_number(deployment, "current_recoverable_margin")?;
+    if current_recoverable_margin < minimum_recoverable_margin {
+        return Err(authority_error(
+            "physical_action_recoverable_region_margin_insufficient",
+            "The current deployment state is outside the admitted recoverable-region margin.",
+            json!({
+                "minimum_recoverable_margin": minimum_recoverable_margin,
+                "current_recoverable_margin": current_recoverable_margin,
+            }),
+        ));
+    }
+    required_assurance_string(deployment, "recoverable_margin_unit")?;
+    required_assurance_ref(deployment, "switch_proof_test_receipt_ref", &["receipt://"])?;
+    let switch_proof_test_age_ms =
+        required_nonnegative_integer(deployment, "switch_proof_test_age_ms")?;
+    let switch_proof_test_max_age_ms =
+        required_positive_integer(deployment, "switch_proof_test_max_age_ms")?;
+    if switch_proof_test_age_ms > switch_proof_test_max_age_ms {
+        return Err(authority_error(
+            "physical_action_switch_proof_test_stale",
+            "The command-switch proof test is older than the cadence admitted by the SafetyEnvelope.",
+            json!({
+                "switch_proof_test_age_ms": switch_proof_test_age_ms,
+                "switch_proof_test_max_age_ms": switch_proof_test_max_age_ms,
+            }),
+        ));
+    }
+    required_assurance_ref(deployment, "safe_switch_receipt_ref", &["receipt://"])?;
+    required_assurance_ref(
+        deployment,
+        "recovery_entry_test_receipt_ref",
+        &["receipt://"],
+    )?;
+
+    let timing = required_assurance_object(request, "runtime_assurance_timing")?;
+    let monitor_period_us = required_positive_integer(timing, "monitor_period_us")?;
+    let monitor_jitter_us = required_nonnegative_integer(timing, "monitor_jitter_us")?;
+    let total_bound_us = required_positive_integer(timing, "total_observation_to_switch_bound_us")?;
+    let demonstrated_us =
+        required_positive_integer(timing, "demonstrated_observation_to_switch_bound_us")?;
+    if demonstrated_us > total_bound_us {
+        return Err(authority_error(
+            "physical_action_observation_to_switch_bound_exceeded",
+            "The demonstrated observation-to-safe-switch path is later than the admitted total bound.",
+            json!({
+                "demonstrated_observation_to_switch_bound_us": demonstrated_us,
+                "total_observation_to_switch_bound_us": total_bound_us,
+            }),
+        ));
+    }
+    if monitor_period_us.saturating_add(monitor_jitter_us) > total_bound_us {
+        return Err(authority_error(
+            "physical_action_monitor_release_bound_exceeded",
+            "Monitor period plus release jitter exceeds the admitted observation-to-safe-switch bound.",
+            json!({
+                "monitor_period_us": monitor_period_us,
+                "monitor_jitter_us": monitor_jitter_us,
+                "total_observation_to_switch_bound_us": total_bound_us,
+            }),
+        ));
+    }
+    required_assurance_ref(timing, "graph_timing_chain_ref", &["artifact://"])?;
+    required_assurance_hash(timing, "graph_timing_chain_hash")?;
+    let timing_evidence_mode =
+        required_assurance_enum(timing, "evidence_mode", TIMING_EVIDENCE_MODES)?;
+    if execution_timing_class == "hard_realtime" && timing_evidence_mode != "hard_realtime_analytic"
+    {
+        return Err(authority_error(
+            "physical_action_hard_realtime_analytic_evidence_required",
+            "Hard-real-time physical admission requires graph-scoped analytic schedulability and WCET evidence.",
+            json!({ "evidence_mode": timing_evidence_mode }),
+        ));
+    }
+    match timing_evidence_mode.as_str() {
+        "hard_realtime_analytic" => {
+            required_assurance_ref(
+                timing,
+                "analytic_schedulability_evidence_ref",
+                &["artifact://", "evidence://"],
+            )?;
+            required_assurance_hash(timing, "analytic_schedulability_evidence_hash")?;
+        }
+        "bounded_soft_tail" => {
+            required_assurance_ref(
+                timing,
+                "tail_latency_evidence_ref",
+                &["artifact://", "evidence://"],
+            )?;
+            required_assurance_hash(timing, "tail_latency_evidence_hash")?;
+            required_assurance_string(timing, "tail_percentile")?;
+            required_positive_integer(timing, "tail_sample_count")?;
+        }
+        _ => unreachable!("validated timing evidence mode"),
+    }
+
+    let odd = required_assurance_object(request, "operational_design_domain_assurance")?;
+    require_assurance_binding(
+        odd,
+        "operational_design_domain_ref",
+        &operational_design_domain_ref,
+        "physical_action_operational_design_domain_binding_mismatch",
+    )?;
+    require_assurance_binding(
+        odd,
+        "operational_design_domain_hash",
+        &operational_design_domain_hash,
+        "physical_action_operational_design_domain_binding_mismatch",
+    )?;
+    let odd_state = required_assurance_enum(odd, "state", ODD_STATES)?;
+    let odd_exit_response = required_assurance_enum(odd, "exit_response", ODD_EXIT_RESPONSES)?;
+    required_positive_integer(odd, "exit_response_deadline_ms")?;
+    let operator_takeover_budget_ms =
+        required_positive_integer(odd, "operator_takeover_budget_ms")?;
+    required_assurance_ref(odd, "current_compliance_receipt_ref", &["receipt://"])?;
+    let odd_monitor_refs = required_assurance_string_array(odd, "monitor_refs")?;
+    if odd_monitor_refs.is_empty() {
+        return Err(missing_assurance_field("monitor_refs"));
+    }
+    for monitor_ref in &odd_monitor_refs {
+        require_assurance_ref_value(
+            monitor_ref,
+            "monitor_refs",
+            &["module://", "controller://", "artifact://"],
+        )?;
+    }
+    let attribute_measurements = odd
+        .get("attribute_measurements")
+        .and_then(Value::as_array)
+        .ok_or_else(|| missing_assurance_field("attribute_measurements"))?;
+    if attribute_measurements.is_empty() {
+        return Err(missing_assurance_field("attribute_measurements"));
+    }
+    let mut attribute_outside = false;
+    for (index, measurement) in attribute_measurements.iter().enumerate() {
+        let Some(measurement) = measurement.as_object() else {
+            return Err(invalid_assurance_field(
+                "attribute_measurements",
+                json!({ "index": index }),
+            ));
+        };
+        required_assurance_string(measurement, "attribute")?;
+        required_assurance_string(measurement, "unit")?;
+        required_assurance_ref(measurement, "monitor_ref", &["module://", "controller://"])?;
+        required_assurance_ref(measurement, "measurement_receipt_ref", &["receipt://"])?;
+        let observed = required_finite_number(measurement, "observed_value")?;
+        let permitted_min = required_finite_number(measurement, "permitted_min")?;
+        let permitted_max = required_finite_number(measurement, "permitted_max")?;
+        if permitted_min > permitted_max || observed < permitted_min || observed > permitted_max {
+            attribute_outside = true;
+        }
+    }
+    if odd_state != "inside" || attribute_outside {
+        return Err(authority_error(
+            "physical_action_operational_design_domain_exit",
+            "Live physical admission is denied because the measured operating state is exiting or outside the admitted ODD.",
+            json!({
+                "state": odd_state,
+                "attribute_outside": attribute_outside,
+                "exit_response": odd_exit_response,
+            }),
+        ));
+    }
+
+    let safety_inputs = required_assurance_array(request, "safety_input_bindings")?;
+    if safety_inputs.is_empty() {
+        return Err(missing_assurance_field("safety_input_bindings"));
+    }
+    let mut assured_non_learned_input = false;
+    for (index, input) in safety_inputs.iter().enumerate() {
+        let Some(input) = input.as_object() else {
+            return Err(invalid_assurance_field(
+                "safety_input_bindings",
+                json!({ "index": index }),
+            ));
+        };
+        required_assurance_ref(
+            input,
+            "stream_contract_ref",
+            &["physical-stream-contract://"],
+        )?;
+        required_assurance_hash(input, "stream_contract_hash")?;
+        required_assurance_ref(input, "producer_ref", &["sensor://", "controller://"])?;
+        required_assurance_ref(input, "failure_domain_ref", &["failure-domain://"])?;
+        required_assurance_ref(input, "current_evidence_receipt_ref", &["receipt://"])?;
+        let source_kind = required_assurance_enum(input, "source_kind", SAFETY_INPUT_SOURCE_KINDS)?;
+        let assurance_posture =
+            required_assurance_enum(input, "assurance_posture", SAFETY_INPUT_ASSURANCE_POSTURES)?;
+        if assurance_posture != "unassured_supplemental" {
+            required_assurance_ref(
+                input,
+                "assurance_evidence_ref",
+                &["artifact://", "evidence://", "assurance-evidence://"],
+            )?;
+            required_assurance_hash(input, "assurance_evidence_hash")?;
+        }
+        if source_kind != "learned" && assurance_posture != "unassured_supplemental" {
+            assured_non_learned_input = true;
+        }
+    }
+    if !assured_non_learned_input {
+        return Err(authority_error(
+            "physical_action_assured_safety_input_required",
+            "Unassured learned sensing may be supplemental but cannot be the sole input to the physical safety monitor or switch.",
+            json!({ "safety_input_count": safety_inputs.len() }),
+        ));
+    }
+
+    let writer = required_assurance_object(request, "writer_and_restart_assurance")?;
+    let restart_posture = required_assurance_enum(writer, "restart_posture", RESTART_POSTURES)?;
+    required_assurance_ref(writer, "restart_unarmed_receipt_ref", &["receipt://"])?;
+    let active_writer_state = required_assurance_string(writer, "active_writer_state")?;
+    if active_writer_state != "exclusive_active" {
+        return Err(authority_error(
+            "physical_action_exclusive_writer_required",
+            "Physical admission requires exactly one fenced active actuator writer.",
+            json!({ "active_writer_state": active_writer_state }),
+        ));
+    }
+    required_assurance_ref(writer, "active_writer_lease_ref", &["resource-lease://"])?;
+    required_nonnegative_integer(writer, "active_writer_fencing_epoch")?;
+    required_assurance_hash(writer, "active_writer_fencing_token_hash")?;
+    let standby_writer_posture =
+        required_assurance_enum(writer, "standby_writer_posture", STANDBY_WRITER_POSTURES)?;
+    let standby_writer_refs = required_assurance_string_array(writer, "standby_writer_refs")?;
+    for standby_ref in &standby_writer_refs {
+        require_assurance_ref_value(
+            standby_ref,
+            "standby_writer_refs",
+            &["local_control_supervisor://"],
+        )?;
+    }
+    if standby_writer_posture == "absent" && !standby_writer_refs.is_empty() {
+        return Err(invalid_assurance_field(
+            "standby_writer_posture",
+            json!({ "standby_writer_refs": standby_writer_refs }),
+        ));
+    }
+    if standby_writer_posture != "absent" {
+        if standby_writer_refs.is_empty() {
+            return Err(missing_assurance_field("standby_writer_refs"));
+        }
+        required_assurance_ref(writer, "standby_safe_takeover_receipt_ref", &["receipt://"])?;
+    }
+
+    let teleoperation = match request.get("teleoperation_assurance") {
+        None | Some(Value::Null) => Value::Null,
+        Some(value) => {
+            let Some(teleop) = value.as_object() else {
+                return Err(invalid_assurance_field(
+                    "teleoperation_assurance",
+                    json!({}),
+                ));
+            };
+            let active = required_boolean(teleop, "active")?;
+            if active {
+                required_assurance_ref(
+                    teleop,
+                    "link_contract_ref",
+                    &["physical-stream-contract://"],
+                )?;
+                required_assurance_hash(teleop, "link_contract_hash")?;
+                required_assurance_ref(
+                    teleop,
+                    "operator_authority_ref",
+                    &["grant://", "approval://"],
+                )?;
+                required_assurance_ref(teleop, "authentication_receipt_ref", &["receipt://"])?;
+                required_assurance_ref(
+                    teleop,
+                    "deadman_contract_ref",
+                    &["policy://", "artifact://"],
+                )?;
+                required_assurance_ref(teleop, "deadman_receipt_ref", &["receipt://"])?;
+                required_assurance_ref(teleop, "arbitration_policy_ref", &["policy://"])?;
+                required_assurance_enum(teleop, "on_link_loss", TELEOP_LOSS_RESPONSES)?;
+                let link_state = required_assurance_enum(teleop, "link_state", TELEOP_LINK_STATES)?;
+                let auth_state =
+                    required_assurance_enum(teleop, "authentication_state", TELEOP_AUTH_STATES)?;
+                let deadman_state =
+                    required_assurance_enum(teleop, "deadman_state", TELEOP_DEADMAN_STATES)?;
+                if link_state != "healthy" {
+                    return Err(authority_error(
+                        "physical_action_teleoperation_link_unavailable",
+                        "Teleoperation cannot remain admitted after its bounded control link degrades or is lost.",
+                        json!({ "link_state": link_state }),
+                    ));
+                }
+                if auth_state != "verified" {
+                    return Err(authority_error(
+                        "physical_action_teleoperation_authentication_invalid",
+                        "Teleoperation requires current verified operator authentication and authority.",
+                        json!({ "authentication_state": auth_state }),
+                    ));
+                }
+                if deadman_state != "asserted" {
+                    return Err(authority_error(
+                        "physical_action_teleoperation_deadman_not_asserted",
+                        "Teleoperation requires a current asserted deadman signal.",
+                        json!({ "deadman_state": deadman_state }),
+                    ));
+                }
+                let observed_round_trip_ms =
+                    required_nonnegative_integer(teleop, "observed_round_trip_ms")?;
+                let max_round_trip_ms = required_positive_integer(teleop, "max_round_trip_ms")?;
+                if observed_round_trip_ms > max_round_trip_ms {
+                    return Err(authority_error(
+                        "physical_action_teleoperation_link_latency_exceeded",
+                        "Teleoperation link latency exceeds its admitted control bound.",
+                        json!({
+                            "observed_round_trip_ms": observed_round_trip_ms,
+                            "max_round_trip_ms": max_round_trip_ms,
+                        }),
+                    ));
+                }
+                let teleop_takeover_budget_ms =
+                    required_positive_integer(teleop, "operator_takeover_budget_ms")?;
+                if teleop_takeover_budget_ms > operator_takeover_budget_ms {
+                    return Err(authority_error(
+                        "physical_action_operator_takeover_budget_exceeded",
+                        "The teleoperation takeover budget exceeds the bound admitted by the operating-domain assurance.",
+                        json!({
+                            "teleoperation_operator_takeover_budget_ms": teleop_takeover_budget_ms,
+                            "odd_operator_takeover_budget_ms": operator_takeover_budget_ms,
+                        }),
+                    ));
+                }
+            }
+            value.clone()
+        }
+    };
+
+    Ok(json!({
+        "required": true,
+        "asserted_evidence_level": asserted_evidence_level,
+        "supported_evidence_level": supported_evidence_level,
+        "assurance_evidence_bundle_ref": assurance_evidence_bundle_ref,
+        "controller_binding_ref": deployment_controller_binding_ref,
+        "deployment_binding": Value::Object(deployment.clone()),
+        "runtime_assurance_timing": Value::Object(timing.clone()),
+        "operational_design_domain_assurance": Value::Object(odd.clone()),
+        "safety_input_bindings": safety_inputs,
+        "writer_and_restart_assurance": Value::Object(writer.clone()),
+        "teleoperation_assurance": teleoperation,
+        "restart_posture": restart_posture,
+    }))
+}
+
+fn assurance_level_rank(level: &str) -> u8 {
+    match level {
+        "E0" => 0,
+        "E1" => 1,
+        "E2" => 2,
+        "E3" => 3,
+        _ => 0,
+    }
+}
+
+fn required_assurance_object<'a>(
+    value: &'a Value,
+    field: &str,
+) -> AdmitResult<&'a Map<String, Value>> {
+    value
+        .get(field)
+        .and_then(Value::as_object)
+        .ok_or_else(|| missing_assurance_field(field))
+}
+
+fn required_assurance_array<'a>(value: &'a Value, field: &str) -> AdmitResult<&'a Vec<Value>> {
+    value
+        .get(field)
+        .and_then(Value::as_array)
+        .ok_or_else(|| missing_assurance_field(field))
+}
+
+fn required_assurance_string_array(
+    object: &Map<String, Value>,
+    field: &str,
+) -> AdmitResult<Vec<String>> {
+    let Some(items) = object.get(field).and_then(Value::as_array) else {
+        return Err(missing_assurance_field(field));
+    };
+    let mut out = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        let Some(item) = item.as_str().filter(|item| !item.trim().is_empty()) else {
+            return Err(invalid_assurance_field(field, json!({ "index": index })));
+        };
+        out.push(item.to_string());
+    }
+    Ok(out)
+}
+
+fn required_assurance_string(object: &Map<String, Value>, field: &str) -> AdmitResult<String> {
+    object
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| missing_assurance_field(field))
+}
+
+fn required_assurance_enum(
+    object: &Map<String, Value>,
+    field: &str,
+    allowed: &[&str],
+) -> AdmitResult<String> {
+    let value = required_assurance_string(object, field)?;
+    if allowed.contains(&value.as_str()) {
+        Ok(value)
+    } else {
+        Err(invalid_assurance_field(
+            field,
+            json!({ "value": value, "allowed_values": allowed }),
+        ))
+    }
+}
+
+fn required_assurance_ref(
+    object: &Map<String, Value>,
+    field: &str,
+    allowed_prefixes: &[&str],
+) -> AdmitResult<String> {
+    let value = required_assurance_string(object, field)?;
+    require_assurance_ref_value(&value, field, allowed_prefixes)?;
+    Ok(value)
+}
+
+fn require_assurance_ref_value(
+    value: &str,
+    field: &str,
+    allowed_prefixes: &[&str],
+) -> AdmitResult<()> {
+    if allowed_prefixes
+        .iter()
+        .any(|prefix| value.starts_with(prefix))
+    {
+        Ok(())
+    } else {
+        Err(invalid_assurance_field(
+            field,
+            json!({ "value": value, "allowed_prefixes": allowed_prefixes }),
+        ))
+    }
+}
+
+fn validate_resource_group_bindings(value: Option<&Value>) -> AdmitResult<Vec<Value>> {
+    let Some(bindings) = value.and_then(Value::as_array) else {
+        return Ok(Vec::new());
+    };
+    let mut normalized = Vec::with_capacity(bindings.len());
+    let mut seen = std::collections::BTreeSet::new();
+    for (index, binding) in bindings.iter().enumerate() {
+        let Some(binding) = binding.as_object() else {
+            return Err(invalid_assurance_field(
+                "resource_group_bindings",
+                json!({ "index": index, "required": "object" }),
+            ));
+        };
+        let group_revision_ref = required_assurance_ref(
+            binding,
+            "group_revision_ref",
+            &["embodied-resource-group-revision://"],
+        )?;
+        let membership_closure_hash = required_assurance_hash(binding, "membership_closure_hash")?;
+        let unit_refs = required_resource_group_ref_array(
+            binding,
+            "unit_refs",
+            &[
+                "robot://",
+                "drone://",
+                "device://",
+                "facility://",
+                "facility-system://",
+                "vehicle://",
+            ],
+        )?;
+        let controller_binding_refs = required_resource_group_ref_array(
+            binding,
+            "controller_binding_refs",
+            &["controller-binding://"],
+        )?;
+        let sensor_refs =
+            required_resource_group_ref_array(binding, "sensor_refs", &["sensor://"])?;
+        let actuator_refs =
+            required_resource_group_ref_array(binding, "actuator_refs", &["actuator://"])?;
+        let physical_zone_refs =
+            required_resource_group_ref_array(binding, "physical_zone_refs", &["zone://"])?;
+        let emergency_stop_authority_refs = required_resource_group_ref_array(
+            binding,
+            "emergency_stop_authority_refs",
+            &["estop://"],
+        )?;
+        if !seen.insert(group_revision_ref.clone()) {
+            return Err(invalid_assurance_field(
+                "resource_group_bindings",
+                json!({ "index": index, "duplicate_group_revision_ref": group_revision_ref }),
+            ));
+        }
+        normalized.push(json!({
+            "group_revision_ref": group_revision_ref,
+            "membership_closure_hash": membership_closure_hash,
+            "unit_refs": unit_refs,
+            "controller_binding_refs": controller_binding_refs,
+            "sensor_refs": sensor_refs,
+            "actuator_refs": actuator_refs,
+            "physical_zone_refs": physical_zone_refs,
+            "emergency_stop_authority_refs": emergency_stop_authority_refs,
+        }));
+    }
+    Ok(normalized)
+}
+
+fn required_resource_group_ref_array(
+    binding: &Map<String, Value>,
+    field: &str,
+    allowed_prefixes: &[&str],
+) -> AdmitResult<Vec<String>> {
+    let Some(items) = binding.get(field).and_then(Value::as_array) else {
+        return Err(missing_assurance_field(field));
+    };
+    if items.is_empty() {
+        return Err(missing_assurance_field(field));
+    }
+    let mut refs = std::collections::BTreeSet::new();
+    for (index, item) in items.iter().enumerate() {
+        let Some(reference) = item
+            .as_str()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            return Err(invalid_assurance_field(field, json!({ "index": index })));
+        };
+        require_assurance_ref_value(reference, field, allowed_prefixes)?;
+        if !refs.insert(reference.to_string()) {
+            return Err(invalid_assurance_field(
+                field,
+                json!({ "index": index, "duplicate_ref": reference }),
+            ));
+        }
+    }
+    Ok(refs.into_iter().collect())
+}
+
+fn require_resource_group_member(
+    bindings: &[Value],
+    fields: &[&str],
+    required_ref: &str,
+    code: &str,
+) -> AdmitResult<()> {
+    let contains = bindings.iter().any(|binding| {
+        fields.iter().any(|field| {
+            binding
+                .get(*field)
+                .and_then(Value::as_array)
+                .is_some_and(|refs| {
+                    refs.iter()
+                        .any(|reference| reference.as_str() == Some(required_ref))
+                })
+        })
+    });
+    if contains {
+        Ok(())
+    } else {
+        Err(authority_error(
+            code,
+            "The expanded embodied-resource-group closure does not contain an exact live-action binding.",
+            json!({ "required_ref": required_ref, "searched_fields": fields }),
+        ))
+    }
+}
+
+fn required_assurance_hash(object: &Map<String, Value>, field: &str) -> AdmitResult<String> {
+    let value = required_assurance_string(object, field)?;
+    if is_sha256_hash(&value) {
+        Ok(value)
+    } else {
+        Err(invalid_assurance_field(
+            field,
+            json!({ "required_format": "sha256:<64 hex characters>" }),
+        ))
+    }
+}
+
+fn is_sha256_hash(value: &str) -> bool {
+    let digest = value.strip_prefix("sha256:").unwrap_or_default();
+    digest.len() == 64
+        && digest
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+}
+
+fn require_sha256_hash(value: &str, field: &str) -> AdmitResult<()> {
+    if is_sha256_hash(value) {
+        Ok(())
+    } else {
+        Err(RuntimePhysicalActionIntentAdmissionError::new(
+            400,
+            format!("physical_action_{field}_invalid"),
+            format!("Physical-action {field} must use sha256:<64 hex characters>."),
+            json!({ "field": field, "required_format": "sha256:<64 hex characters>" }),
+        ))
+    }
+}
+
+fn required_positive_integer(object: &Map<String, Value>, field: &str) -> AdmitResult<u64> {
+    object
+        .get(field)
+        .and_then(Value::as_u64)
+        .filter(|value| *value > 0)
+        .ok_or_else(|| invalid_assurance_field(field, json!({ "required": "positive_integer" })))
+}
+
+fn required_nonnegative_integer(object: &Map<String, Value>, field: &str) -> AdmitResult<u64> {
+    object
+        .get(field)
+        .and_then(Value::as_u64)
+        .ok_or_else(|| invalid_assurance_field(field, json!({ "required": "nonnegative_integer" })))
+}
+
+fn required_boolean(object: &Map<String, Value>, field: &str) -> AdmitResult<bool> {
+    object
+        .get(field)
+        .and_then(Value::as_bool)
+        .ok_or_else(|| invalid_assurance_field(field, json!({ "required": "boolean" })))
+}
+
+fn required_finite_number(object: &Map<String, Value>, field: &str) -> AdmitResult<f64> {
+    object
+        .get(field)
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite())
+        .ok_or_else(|| invalid_assurance_field(field, json!({ "required": "finite_number" })))
+}
+
+fn required_nonnegative_number(object: &Map<String, Value>, field: &str) -> AdmitResult<f64> {
+    required_finite_number(object, field).and_then(|value| {
+        if value >= 0.0 {
+            Ok(value)
+        } else {
+            Err(invalid_assurance_field(
+                field,
+                json!({ "required": "nonnegative_number" }),
+            ))
+        }
+    })
+}
+
+fn require_assurance_binding(
+    object: &Map<String, Value>,
+    field: &str,
+    expected: &str,
+    code: &str,
+) -> AdmitResult<()> {
+    let actual = required_assurance_string(object, field)?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(authority_error(
+            code,
+            "Deployment assurance evidence is not bound to the exact physical admission subject.",
+            json!({ "field": field, "expected": expected, "actual": actual }),
+        ))
+    }
+}
+
+fn missing_assurance_field(field: &str) -> RuntimePhysicalActionIntentAdmissionError {
+    authority_error(
+        "physical_action_deployment_assurance_required",
+        "Live, hard-real-time, and E1+ physical admission requires exact deployment-bound assurance evidence.",
+        json!({ "missing_field": field }),
+    )
+}
+
+fn missing_execution_binding(field: &str) -> RuntimePhysicalActionIntentAdmissionError {
+    authority_error(
+        "physical_action_execution_binding_required",
+        "Live physical admission requires an exact command, controller, and idempotency binding before invocation.",
+        json!({ "missing_field": field }),
+    )
+}
+
+fn invalid_assurance_field(
+    field: &str,
+    details: Value,
+) -> RuntimePhysicalActionIntentAdmissionError {
+    authority_error(
+        "physical_action_deployment_assurance_invalid",
+        "Deployment-bound physical assurance evidence is malformed or internally inconsistent.",
+        json!({ "field": field, "details": details }),
+    )
 }
 
 /// Serialize a validated positive-integer-valued f64 as a JSON number (integer when it fits i64,
@@ -756,16 +1717,35 @@ fn safe_id(value: &str) -> String {
 }
 
 #[cfg(test)]
+pub(crate) fn physical_action_test_request() -> Value {
+    tests::base_request()
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
-    fn base_request() -> Value {
-        json!({
+    fn hash(seed: char) -> String {
+        format!("sha256:{}", seed.to_string().repeat(64))
+    }
+
+    pub(super) fn base_request() -> Value {
+        let mut request = json!({
             "intent_id": "intent://physical/carwash/prep-vehicle-001",
-            "actor_id": "worker:carwash-prep-humanoid",
+            "actor_id": "worker://carwash-prep-humanoid",
             "task_id": "task://carwash/prep-vehicle-001",
             "domain_ref": "domain://carwash/vehicle-prep",
             "target_system_ref": "robot://bay-3/humanoid-1",
+            "resource_group_bindings": [{
+                "group_revision_ref": "embodied-resource-group-revision://carwash/bay-3/v1",
+                "membership_closure_hash": hash('a'),
+                "unit_refs": ["robot://bay-3/humanoid-1"],
+                "controller_binding_refs": ["controller-binding://carwash/bay-3/humanoid-1/v1"],
+                "sensor_refs": ["sensor://carwash/bay-3/light-curtain"],
+                "actuator_refs": ["actuator://carwash/bay-3/humanoid-1/arm"],
+                "physical_zone_refs": ["zone://carwash/bay-3"],
+                "emergency_stop_authority_refs": ["estop://carwash/bay-3"],
+            }],
             "action_kind": "manipulation",
             "risk_class": "physical_action",
             "execution_phase": "command_issued",
@@ -781,6 +1761,8 @@ mod tests {
             "emergency_stop_max_latency_ms": 250,
             "sensor_evidence_receipt_refs": ["receipt://sensor/bay-3/preflight"],
             "actuator_command_receipt_refs": ["receipt://actuator/bay-3/prep-command"],
+            "preflight_receipt_refs": ["receipt://physical/carwash/preflight-001"],
+            "segment_commitment_receipt_refs": [],
             "incident_policy_ref": "policy://physical/incidents/carwash",
             "rollback_or_compensation_policy_ref": "policy://physical/compensation/carwash",
             "wallet_approval_ref": "approval://wallet/physical-action/carwash",
@@ -791,7 +1773,102 @@ mod tests {
             "artifact_refs": ["artifact://sensor-video/bay-3/preflight"],
             "state_root": "state_root:physical:carwash:001",
             "execution_channel": "physical_action_adapter",
-        })
+            "command_schema_ref": "action-schema://carwash/manipulation/v1",
+            "command_payload_hash": hash('0'),
+            "controller_binding_ref": "controller-binding://carwash/bay-3/humanoid-1/v1",
+            "controller_idempotency_key": "physical-command:carwash:prep-vehicle-001",
+            "asserted_assurance_evidence_level": "E1",
+            "execution_timing_class": "bounded_soft_realtime",
+        });
+        request["deployment_assurance"] = json!({
+            "supported_evidence_level": "E1",
+            "assurance_evidence_bundle_ref": "assurance-evidence://carwash/bay-3/deployment",
+            "assurance_evidence_bundle_hash": hash('a'),
+            "target_system_ref": "robot://bay-3/humanoid-1",
+            "safety_envelope_ref": "safety://carwash/bay-3",
+            "safety_envelope_hash": hash('b'),
+            "runtime_graph_manifest_ref": "embodied-runtime-graph-manifest://carwash/bay-3/v1",
+            "runtime_graph_manifest_hash": hash('c'),
+            "operational_design_domain_ref": "policy://odd/carwash/bay-3",
+            "operational_design_domain_hash": hash('d'),
+            "hardware_configuration_ref": "artifact://hardware/carwash/bay-3/v1",
+            "hardware_configuration_hash": hash('e'),
+            "controller_firmware_ref": "artifact://firmware/carwash/bay-3/v1",
+            "controller_firmware_hash": hash('f'),
+            "controller_binding_ref": "controller-binding://carwash/bay-3/humanoid-1/v1",
+            "safety_monitor_ref": "module://safety/carwash-monitor/v1",
+            "safety_monitor_hash": hash('1'),
+            "command_switch_ref": "controller://safety/carwash-switch/v1",
+            "command_switch_hash": hash('2'),
+            "recovery_controller_ref": "controller://safety/carwash-recovery/v1",
+            "recovery_controller_hash": hash('3'),
+            "recoverable_region_evidence_ref": "evidence://safety/carwash/recoverable-region/v1",
+            "recoverable_region_evidence_hash": hash('4'),
+            "minimum_recoverable_margin": 0.15,
+            "current_recoverable_margin": 0.42,
+            "recoverable_margin_unit": "normalized_safe_set_distance",
+            "switch_proof_test_receipt_ref": "receipt://safety/carwash/switch-proof-test",
+            "switch_proof_test_age_ms": 3_600_000,
+            "switch_proof_test_max_age_ms": 86_400_000,
+            "safe_switch_receipt_ref": "receipt://safety/carwash/safe-switch",
+            "recovery_entry_test_receipt_ref": "receipt://safety/carwash/recovery-entry",
+        });
+        request["runtime_assurance_timing"] = json!({
+            "monitor_period_us": 5_000,
+            "monitor_jitter_us": 500,
+            "total_observation_to_switch_bound_us": 25_000,
+            "demonstrated_observation_to_switch_bound_us": 18_000,
+            "graph_timing_chain_ref": "artifact://timing/carwash/bay-3/chain-v1",
+            "graph_timing_chain_hash": hash('5'),
+            "evidence_mode": "bounded_soft_tail",
+            "tail_latency_evidence_ref": "evidence://timing/carwash/bay-3/tail-v1",
+            "tail_latency_evidence_hash": hash('6'),
+            "tail_percentile": "p9999",
+            "tail_sample_count": 1_000_000,
+        });
+        request["operational_design_domain_assurance"] = json!({
+            "operational_design_domain_ref": "policy://odd/carwash/bay-3",
+            "operational_design_domain_hash": hash('d'),
+            "state": "inside",
+            "exit_response": "switch_to_recovery",
+            "exit_response_deadline_ms": 100,
+            "operator_takeover_budget_ms": 2_000,
+            "current_compliance_receipt_ref": "receipt://odd/carwash/bay-3/current",
+            "monitor_refs": ["module://odd/carwash-monitor/v1"],
+            "attribute_measurements": [{
+                "attribute": "human_separation_distance",
+                "unit": "m",
+                "monitor_ref": "module://odd/carwash-monitor/v1",
+                "measurement_receipt_ref": "receipt://odd/carwash/bay-3/human-distance",
+                "observed_value": 2.4,
+                "permitted_min": 1.5,
+                "permitted_max": 10.0,
+            }],
+        });
+        request["safety_input_bindings"] = json!([{
+            "stream_contract_ref": "physical-stream-contract://carwash/light-curtain/v1",
+            "stream_contract_hash": hash('7'),
+            "producer_ref": "sensor://carwash/bay-3/light-curtain",
+            "failure_domain_ref": "failure-domain://carwash/safety-plc",
+            "current_evidence_receipt_ref": "receipt://sensor/carwash/light-curtain/current",
+            "source_kind": "hardware_interlock",
+            "assurance_posture": "assured_independent",
+            "assurance_evidence_ref": "evidence://sensor/carwash/light-curtain/assurance",
+            "assurance_evidence_hash": hash('8'),
+        }]);
+        request["writer_and_restart_assurance"] = json!({
+            "restart_posture": "no_restart_since_admission",
+            "restart_unarmed_receipt_ref": "receipt://runtime/carwash/restart-unarmed",
+            "active_writer_state": "exclusive_active",
+            "active_writer_lease_ref": "resource-lease://carwash/bay-3/actuator-writer",
+            "active_writer_fencing_epoch": 7,
+            "active_writer_fencing_token_hash": hash('9'),
+            "standby_writer_posture": "safe_takeover_tested",
+            "standby_writer_refs": ["local_control_supervisor://carwash/bay-3/standby"],
+            "standby_safe_takeover_receipt_ref": "receipt://runtime/carwash/standby-takeover-test",
+        });
+        request["teleoperation_assurance"] = json!({ "active": false });
+        request
     }
 
     #[test]
@@ -863,6 +1940,29 @@ mod tests {
             "physical_action_simulation_not_execution_receipt"
         );
         assert_eq!(error.status, 403);
+    }
+
+    #[test]
+    fn live_execution_requires_exact_command_and_controller_binding() {
+        let mut request = base_request();
+        request
+            .as_object_mut()
+            .unwrap()
+            .remove("command_payload_hash");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("live execution must bind the exact command payload");
+        assert_eq!(error.status, 403);
+        assert_eq!(error.code, "physical_action_execution_binding_required");
+
+        let mut mismatch = base_request();
+        mismatch["deployment_assurance"]["controller_binding_ref"] =
+            json!("controller-binding://carwash/bay-3/different-controller/v1");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&mismatch, "now")
+            .expect_err("controller binding substitution must fail closed");
+        assert_eq!(error.status, 403);
+        assert_eq!(error.code, "physical_action_controller_binding_mismatch");
     }
 
     #[test]
@@ -956,5 +2056,162 @@ mod tests {
             .expect_err("retired");
         assert_eq!(error.status, 400);
         assert_eq!(error.code, "physical_action_request_aliases_retired");
+    }
+
+    #[test]
+    fn rejects_unassured_learned_sensing_as_the_only_safety_input() {
+        let mut request = base_request();
+        request["safety_input_bindings"] = json!([{
+            "stream_contract_ref": "physical-stream-contract://carwash/learned-vision/v1",
+            "stream_contract_hash": hash('a'),
+            "producer_ref": "sensor://carwash/bay-3/learned-vision",
+            "failure_domain_ref": "failure-domain://carwash/autonomy-gpu",
+            "current_evidence_receipt_ref": "receipt://sensor/carwash/learned-vision/current",
+            "source_kind": "learned",
+            "assurance_posture": "unassured_supplemental",
+        }]);
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("unassured learned sensing must not be the sole safety input");
+        assert_eq!(error.status, 403);
+        assert_eq!(error.code, "physical_action_assured_safety_input_required");
+    }
+
+    #[test]
+    fn rejects_late_safe_switch() {
+        let mut request = base_request();
+        request["runtime_assurance_timing"]["demonstrated_observation_to_switch_bound_us"] =
+            json!(30_000);
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("late safe switch must fail closed");
+        assert_eq!(error.status, 403);
+        assert_eq!(
+            error.code,
+            "physical_action_observation_to_switch_bound_exceeded"
+        );
+    }
+
+    #[test]
+    fn rejects_operational_design_domain_exit() {
+        let mut request = base_request();
+        request["operational_design_domain_assurance"]["state"] = json!("outside");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("ODD exit must invoke the declared response, not admit motion");
+        assert_eq!(error.status, 403);
+        assert_eq!(error.code, "physical_action_operational_design_domain_exit");
+    }
+
+    #[test]
+    fn rejects_lost_teleoperation_link() {
+        let mut request = base_request();
+        request["teleoperation_assurance"] = json!({
+            "active": true,
+            "link_contract_ref": "physical-stream-contract://teleop/carwash/bay-3/v1",
+            "link_contract_hash": hash('b'),
+            "operator_authority_ref": "grant://teleop/carwash/operator-1",
+            "authentication_receipt_ref": "receipt://teleop/carwash/auth",
+            "deadman_contract_ref": "policy://teleop/carwash/deadman",
+            "deadman_receipt_ref": "receipt://teleop/carwash/deadman",
+            "arbitration_policy_ref": "policy://teleop/carwash/arbitration",
+            "on_link_loss": "safe_stop",
+            "link_state": "lost",
+            "authentication_state": "verified",
+            "deadman_state": "asserted",
+            "observed_round_trip_ms": 25,
+            "max_round_trip_ms": 100,
+            "operator_takeover_budget_ms": 1_000,
+        });
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("lost teleoperation link must fail closed");
+        assert_eq!(error.status, 403);
+        assert_eq!(error.code, "physical_action_teleoperation_link_unavailable");
+    }
+
+    #[test]
+    fn rejects_assurance_evidence_level_overclaim() {
+        let mut request = base_request();
+        request["asserted_assurance_evidence_level"] = json!("E2");
+        request["deployment_assurance"]["supported_evidence_level"] = json!("E1");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "now")
+            .expect_err("evidence level overclaim must fail closed");
+        assert_eq!(error.status, 403);
+        assert_eq!(
+            error.code,
+            "physical_action_assurance_evidence_level_overclaim"
+        );
+    }
+
+    #[test]
+    fn live_admission_requires_exact_state_root() {
+        let mut request = base_request();
+        request
+            .as_object_mut()
+            .expect("request object")
+            .remove("state_root");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "2026-07-16T12:00:00Z")
+            .expect_err("live action without a state root must fail closed");
+        assert_eq!(error.code, "physical_action_execution_binding_required");
+        assert_eq!(error.details["missing_field"], "state_root");
+    }
+
+    #[test]
+    fn live_admission_requires_expanded_resource_group_leaves() {
+        let mut request = base_request();
+        request["resource_group_bindings"][0]
+            .as_object_mut()
+            .expect("resource-group binding")
+            .remove("sensor_refs");
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "2026-07-16T12:00:00Z")
+            .expect_err("a closure hash cannot replace expanded physical members");
+        assert_eq!(error.code, "physical_action_deployment_assurance_required");
+        assert_eq!(error.details["missing_field"], "sensor_refs");
+    }
+
+    #[test]
+    fn live_admission_rejects_controller_outside_expanded_group_closure() {
+        let mut request = base_request();
+        request["resource_group_bindings"][0]["controller_binding_refs"] =
+            json!(["controller-binding://carwash/bay-3/foreign/v1"]);
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&request, "2026-07-16T12:00:00Z")
+            .expect_err("foreign controller must not be smuggled behind a closure hash");
+        assert_eq!(
+            error.code,
+            "physical_action_resource_group_controller_binding_mismatch"
+        );
+    }
+
+    #[test]
+    fn facility_system_refs_use_hyphenated_canonical_writes_only() {
+        let mut canonical = base_request();
+        canonical["resource_group_bindings"][0]["unit_refs"] = json!([
+            "robot://bay-3/humanoid-1",
+            "facility-system://carwash/bay-3"
+        ]);
+        let admission = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&canonical, "2026-07-16T12:00:00Z")
+            .expect("canonical facility-system refs are admitted");
+        assert!(admission["resource_group_bindings"][0]["unit_refs"]
+            .as_array()
+            .expect("unit refs")
+            .iter()
+            .any(|reference| reference == "facility-system://carwash/bay-3"));
+
+        let mut legacy = base_request();
+        legacy["resource_group_bindings"][0]["unit_refs"] = json!([
+            "robot://bay-3/humanoid-1",
+            "facility_system://carwash/bay-3"
+        ]);
+        let error = RuntimePhysicalActionIntentAdmissionCore
+            .admit(&legacy, "2026-07-16T12:00:00Z")
+            .expect_err("read-only legacy aliases must not enter a new admission");
+        assert_eq!(error.code, "physical_action_deployment_assurance_invalid");
+        assert_eq!(error.details["field"], "unit_refs");
     }
 }

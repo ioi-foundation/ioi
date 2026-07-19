@@ -12,7 +12,7 @@
 //   - launch is the daemon's two-phase wallet contract (403 challenge → grant → execute):
 //     Direct runs one admitted harness; Compare creates + starts + reconciles a GoalRun with
 //     multiple local harness invocations;
-//   - result links open Workbench / Run Timeline / Work Ledger; Workbench projects the work;
+//   - result links open Developer Workspace / Run Timeline / Work Ledger; the workspace projects the work;
 //     the timeline page reads "IOI Agent coordination" with the GoalRun ref demoted to proof
 //     metadata; the ledger indexes the proof with IOI Agent human labels.
 //
@@ -140,7 +140,7 @@ async function run() {
     if (new RegExp(`ui-agent-${tag}\\.txt`).test(resultText)) break;
   }
   ok("Direct launch runs one admitted harness path (UI result)", /IOI Agent coordinated this work/.test(resultText) && new RegExp(`ui-agent-${tag}\\.txt`).test(resultText), `${attempts} attempt(s) · ${resultText.slice(0, 60)}`);
-  ok("result links offer Workbench / Run Timeline / Work Ledger",
+  ok("result links offer Developer Workspace / Run Timeline / Work Ledger",
     (await page.locator('#ioi-ns-result a[href="/__ioi/workbench"]').count()) === 1
     && (await page.locator('#ioi-ns-result a[href^="/__ioi/run-timeline/"]').count()) === 1
     && (await page.locator('#ioi-ns-result a[href="/__ioi/work-ledger"]').count()) === 1);
@@ -164,7 +164,7 @@ async function run() {
 
   // ── Projections ──
   const wb = await fetch(`${SHELL}/__ioi/workbench`).then((r) => r.text());
-  ok("Workbench projects the launched work (IOI Agent runs panel + session)", /IOI Agent runs/.test(wb) && wb.includes(grid));
+  ok("Developer Workspace projects the launched work (IOI Agent runs panel + session)", /<h1>Developer Workspace/.test(wb) && /IOI Agent runs/.test(wb) && wb.includes(grid));
   const tl = await fetch(`${SHELL}/__ioi/run-timeline/goal-run/${grid}`).then((r) => r.text());
   ok("Run Timeline shows IOI Agent coordination with GoalRun ref in proof metadata", /IOI Agent coordination/.test(tl) && /GoalRun ref \(internal\)/.test(tl) && tl.includes(grid));
   await page.goto(`${SHELL}${directTimeline}`, { waitUntil: "domcontentloaded" });

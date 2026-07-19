@@ -232,22 +232,23 @@ for (const text of [
 
 const hypervisorPackage = readJson("apps/hypervisor/package.json");
 if (hypervisorPackage.dependencies["@ioi/wallet-sdk"] !== "*") {
-  throw new Error("@ioi/hypervisor-app must import wallet product semantics through @ioi/wallet-sdk");
+  throw new Error("@ioi/hypervisor-app must package wallet product semantics through @ioi/wallet-sdk");
 }
 
-const hypervisorAuthorityCenter = read("apps/hypervisor/src/surfaces/Policy/authorityCenter.ts");
-assertIncludes(
-  "apps/hypervisor/src/surfaces/Policy/authorityCenter.ts",
-  hypervisorAuthorityCenter,
-  "buildAuthorityReview",
-);
-assertIncludes(
-  "apps/hypervisor/src/surfaces/Policy/authorityCenter.ts",
-  hypervisorAuthorityCenter,
-  "hypervisor-authority-center",
-);
-if (hypervisorAuthorityCenter.includes("hypervisor-authority-center")) {
-  throw new Error("Hypervisor Authority Center must not emit retired Autopilot authority audience names");
+for (const scriptName of ["predev", "prebuild"]) {
+  assertIncludes(
+    "apps/hypervisor/package.json",
+    hypervisorPackage.scripts?.[scriptName] ?? "",
+    "npm run build --workspace=@ioi/wallet-sdk --if-present",
+  );
+}
+
+const hypervisorApiAdapter = assertFile("apps/hypervisor/scripts/ioi-api-adapter.mjs", [
+  "daemon EXECUTES · wallet AUTHORIZES (crossings only) · agentgres",
+  '"authority/posture": "/v1/hypervisor/authority/posture"',
+]);
+if (hypervisorApiAdapter.includes("autopilot-authority-center")) {
+  throw new Error("Hypervisor API adapter must not emit retired Autopilot authority audience names");
 }
 
 console.log("wallet protocol packaging conformance passed");

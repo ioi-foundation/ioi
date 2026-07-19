@@ -315,6 +315,11 @@ fn provider_invocation_request(
             ),
         ),
         admitted_provider_execution: Some(admission),
+        information_flow: request
+            .body
+            .get("information_flow")
+            .cloned()
+            .unwrap_or(Value::Null),
     };
     if stream {
         provider_invocation.validate_stream()?;

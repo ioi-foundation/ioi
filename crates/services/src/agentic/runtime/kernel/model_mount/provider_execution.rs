@@ -10,6 +10,10 @@ use super::{
     require_non_empty, sha256_hex, validate_receipt_refs, ModelMountError,
     MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
 };
+use crate::agentic::runtime::kernel::information_flow::{
+    admit_pre_effect, compile_admitted_effect_label, model_output_label, sha256_value,
+    PreEffectAdmission,
+};
 
 mod admission;
 mod invocation;
@@ -62,6 +66,9 @@ pub struct ModelMountProviderInvocationRequest {
     pub evidence_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub admitted_provider_execution: Option<ModelMountProviderExecutionRecord>,
+    /// IFC input closure and exact hosted-provider egress admission material.
+    #[serde(default)]
+    pub information_flow: Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -125,6 +132,8 @@ pub struct ModelMountProviderInvocationResult {
     pub backend_evidence_refs: Vec<String>,
     pub evidence_refs: Vec<String>,
     pub invocation_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub information_flow_label: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -183,6 +192,109 @@ pub struct ModelMountProviderStreamInvocationResult {
     pub backend_evidence_refs: Vec<String>,
     pub evidence_refs: Vec<String>,
     pub invocation_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub information_flow_label: Option<Value>,
+}
+
+fn provider_information_flow_input_labels(
+    request: &ModelMountProviderInvocationRequest,
+) -> Result<Vec<Value>, ModelMountError> {
+    request
+        .information_flow
+        .get("input_labels")
+        .and_then(Value::as_array)
+        .filter(|labels| !labels.is_empty())
+        .cloned()
+        .ok_or_else(|| ModelMountError::InformationFlowDenied {
+            code: "ifc_provider_input_labels_required".to_string(),
+            message: "hosted provider invocation requires its complete input-label closure"
+                .to_string(),
+        })
+}
+
+fn admit_hosted_provider_information_flow(
+    request: &ModelMountProviderInvocationRequest,
+    destination: &str,
+) -> Result<(), ModelMountError> {
+    let input_labels = provider_information_flow_input_labels(request)?;
+    let effect_label = request
+        .information_flow
+        .get("effect_label")
+        .ok_or_else(|| ModelMountError::InformationFlowDenied {
+            code: "ifc_provider_effect_label_required".to_string(),
+            message: "hosted provider invocation requires an admitted effect label".to_string(),
+        })?;
+    let tool_contract = request
+        .information_flow
+        .get("runtime_tool_contract")
+        .ok_or_else(|| ModelMountError::InformationFlowDenied {
+            code: "ifc_provider_tool_contract_required".to_string(),
+            message: "hosted provider invocation requires an exact RuntimeToolContract".to_string(),
+        })?;
+    let effect_request = hosted_provider_transport_request_body(request);
+    let request_content_hash =
+        sha256_value(&effect_request).map_err(|denial| ModelMountError::InformationFlowDenied {
+            code: denial.code.to_string(),
+            message: denial.message,
+        })?;
+    let effective_label =
+        compile_admitted_effect_label(&input_labels, effect_label, &request_content_hash).map_err(
+            |denial| ModelMountError::InformationFlowDenied {
+                code: denial.code.to_string(),
+                message: denial.message,
+            },
+        )?;
+    admit_pre_effect(&PreEffectAdmission {
+        label: &effective_label,
+        tool_contract,
+        destination,
+        method: "POST",
+        request: &effect_request,
+        reviewed_representation: request
+            .information_flow
+            .get("reviewed_representation")
+            .filter(|value| !value.is_null()),
+        declassification_approval: request
+            .information_flow
+            .get("declassification_approval")
+            .filter(|value| !value.is_null()),
+    })
+    .map(|_| ())
+    .map_err(|denial| ModelMountError::InformationFlowDenied {
+        code: denial.code.to_string(),
+        message: denial.message,
+    })
+}
+
+pub(super) fn provider_output_information_flow_label(
+    request: &ModelMountProviderInvocationRequest,
+    output_text: &str,
+) -> Result<Option<Value>, ModelMountError> {
+    if request.information_flow.is_null() {
+        return Ok(None);
+    }
+    let input_labels = provider_information_flow_input_labels(request)?;
+    let content_hash = sha256_value(&json!({ "output_text": output_text })).map_err(|denial| {
+        ModelMountError::InformationFlowDenied {
+            code: denial.code.to_string(),
+            message: denial.message,
+        }
+    })?;
+    let safe_model_ref = request
+        .model_ref
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
+        .collect::<String>();
+    let label_ref = format!(
+        "ifc-label://model/{safe_model_ref}/{}",
+        content_hash.trim_start_matches("sha256:")
+    );
+    model_output_label(&input_labels, &label_ref, &content_hash)
+        .map(Some)
+        .map_err(|denial| ModelMountError::InformationFlowDenied {
+            code: denial.code.to_string(),
+            message: denial.message,
+        })
 }
 
 impl ModelMountProviderInvocationRequest {
@@ -581,6 +693,7 @@ pub(super) fn hosted_provider_transport_output(
         .ok_or(ModelMountError::HostedProviderInvocationMissingEndpointUrl)?;
     let path = hosted_provider_transport_path(&request.invocation_kind);
     let url = hosted_provider_transport_url(base_url, path);
+    admit_hosted_provider_information_flow(request, &url)?;
     let provider_auth_ref = request
         .provider_auth_materialization_ref
         .as_deref()
@@ -659,6 +772,7 @@ pub(super) fn hosted_provider_stream_transport_output(
         .ok_or(ModelMountError::HostedProviderInvocationMissingEndpointUrl)?;
     let path = hosted_provider_transport_path(&request.invocation_kind);
     let url = hosted_provider_transport_url(base_url, path);
+    admit_hosted_provider_information_flow(request, &url)?;
     let provider_auth_ref = request
         .provider_auth_materialization_ref
         .as_deref()
@@ -1268,6 +1382,80 @@ pub(super) fn provider_stream_invocation_hash(
 }
 
 #[cfg(test)]
+fn fixture_provider_information_flow(destination: &str, confidentiality: &str) -> Value {
+    let protected = matches!(confidentiality, "private" | "restricted");
+    json!({
+        "input_labels": [{
+            "schema_version": "ioi.foundations.information-flow-label.v1",
+            "label_ref": "ifc-label://model/fixture/input",
+            "profile_ref": "policy://ifc/model-provider-v1",
+            "content_hash": format!("sha256:{}", "a".repeat(64)),
+            "origin": "operator",
+            "integrity": "verified",
+            "confidentiality": confidentiality,
+            "instruction_authority": "context_only",
+            "egress_policy": {
+                "mode": if protected { "declassification_required" } else { "allow_declared" },
+                "allowed_destination_patterns": [destination],
+                "allowed_data_classes": [confidentiality]
+            },
+            "purpose": "model-provider-inference",
+            "retention": { "max_seconds": 300, "disposition": "delete" },
+            "derivation_kind": "direct",
+            "derivation_parent_refs": [],
+            "derivation_closure_refs": ["ifc-label://model/fixture/input"]
+        }],
+        "effect_label": {
+            "schema_version": "ioi.foundations.information-flow-label.v1",
+            "label_ref": "ifc-label://model/fixture/effect",
+            "profile_ref": "policy://ifc/model-provider-v1",
+            "content_hash": format!("sha256:{}", "b".repeat(64)),
+            "origin": "admitted_artifact",
+            "integrity": "admitted",
+            "confidentiality": confidentiality,
+            "instruction_authority": "authoritative",
+            "egress_policy": {
+                "mode": if protected { "declassification_required" } else { "allow_declared" },
+                "allowed_destination_patterns": [destination],
+                "allowed_data_classes": [confidentiality]
+            },
+            "purpose": "model-provider-inference",
+            "retention": { "max_seconds": 300, "disposition": "delete" },
+            "derivation_kind": "join",
+            "derivation_parent_refs": ["ifc-label://model/fixture/input"],
+            "derivation_closure_refs": [
+                "ifc-label://model/fixture/effect",
+                "ifc-label://model/fixture/input"
+            ]
+        },
+        "runtime_tool_contract": {
+            "schema_version": "ioi.components.connectors-tools.runtime-tool-contract.v1",
+            "tool_id": "tool://model.provider.invoke",
+            "revision_ref": "tool://model.provider.invoke/revision/1.0.0",
+            "predecessor_revision_ref": null,
+            "content_hash": format!("sha256:{}", "c".repeat(64)),
+            "namespace": "model.provider",
+            "display_name": "Invoke hosted model provider",
+            "version": "1.0.0",
+            "risk_class": "external_message",
+            "effect_class": "model_provider_invocation",
+            "primitive_capabilities_required": ["prim:net.request"],
+            "authority_scopes_required": ["scope:model.invoke"],
+            "approval_required": protected,
+            "evidence_required": ["provider_route_receipt"],
+            "owner": "model-router",
+            "data_class_allowlist": [confidentiality],
+            "egress_policy": {
+                "default": "allow_declared",
+                "allowed_destination_patterns": [destination]
+            }
+        },
+        "reviewed_representation": null,
+        "declassification_approval": null
+    })
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::agentic::runtime::kernel::model_mount::{
@@ -1365,6 +1553,7 @@ mod tests {
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
             admitted_provider_execution: Some(admission),
+            information_flow: Value::Null,
         }
     }
 
@@ -1403,6 +1592,7 @@ mod tests {
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
             admitted_provider_execution: Some(admission),
+            information_flow: Value::Null,
         }
     }
 
@@ -1671,6 +1861,8 @@ mod tests {
         let (base_url, hosted_request) =
             hosted_transport_server(r#"{"output_text":"live hosted provider answer"}"#);
         request.base_url = Some(format!("{base_url}/v1"));
+        request.information_flow =
+            fixture_provider_information_flow(&format!("{base_url}/v1/responses"), "public");
 
         let error = invoke_provider(&request)
             .expect_err("hosted provider auth materialization refs are required");
@@ -1717,6 +1909,14 @@ mod tests {
             Some("rust_model_mount.hosted_provider")
         );
         assert_eq!(result.output_text, "live hosted provider answer");
+        assert_eq!(
+            result
+                .information_flow_label
+                .as_ref()
+                .and_then(|label| label.get("origin"))
+                .and_then(Value::as_str),
+            Some("model_output")
+        );
         assert!(raw_hosted_request.contains("POST /v1/responses HTTP/1.1"));
         assert!(raw_hosted_request
             .to_ascii_lowercase()
@@ -1791,6 +1991,67 @@ mod tests {
             error,
             ModelMountError::HostedProviderInvocationMissingAuthority
         );
+    }
+
+    #[test]
+    fn hosted_provider_recomputes_private_input_join_before_network_call() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("denial probe binds");
+        listener
+            .set_nonblocking(true)
+            .expect("denial probe is nonblocking");
+        let base_url = format!(
+            "http://{}",
+            listener.local_addr().expect("denial probe address")
+        );
+        let destination = format!("{base_url}/v1/responses");
+
+        let mut request = provider_invocation_request();
+        request.execution_backend = "rust_model_mount_hosted_provider".to_string();
+        request.provider_kind = "openai".to_string();
+        request.driver = Some("openai_compatible".to_string());
+        request.api_format = Some("openai".to_string());
+        request.base_url = Some(format!("{base_url}/v1"));
+        request.provider_auth_materialization_ref = Some(
+            "agentgres://model-mounting/model-provider-auth-materializations/test".to_string(),
+        );
+        request.outbound_header_binding_ref =
+            Some("provider_auth_header://test#sha256:provider-auth".to_string());
+        request.auth_header_materialization_status =
+            Some("rust_ctee_outbound_header_bound".to_string());
+        request.ctee_egress_resolver_ref =
+            Some("ctee://model-mount/egress-resolver/test#sha256:egress".to_string());
+        request.ctee_egress_resolver_hash = Some("sha256:ctee-egress".to_string());
+        request.ctee_egress_resolution_status =
+            Some("rust_ctee_outbound_egress_resolved".to_string());
+        request
+            .admitted_provider_execution
+            .as_mut()
+            .expect("provider execution admission")
+            .provider_auth_evidence_refs = vec![
+            "rust_model_mount_hosted_provider_auth_gate".to_string(),
+            "wallet_network_provider_vault_ref_bound".to_string(),
+            "ctee_hosted_provider_secret_not_exposed".to_string(),
+            "rust_provider_auth_materialization_bound".to_string(),
+        ];
+        request.information_flow = fixture_provider_information_flow(&destination, "public");
+        let input = &mut request.information_flow["input_labels"][0];
+        input["origin"] = json!("memory_import");
+        input["integrity"] = json!("untrusted");
+        input["confidentiality"] = json!("private");
+        input["egress_policy"]["mode"] = json!("declassification_required");
+        input["egress_policy"]["allowed_data_classes"] = json!(["private"]);
+
+        let error = invoke_provider(&request)
+            .expect_err("private input cannot be laundered by a public effect label");
+        assert!(matches!(
+            error,
+            ModelMountError::InformationFlowDenied { ref code, .. }
+                if code == "ifc_private_untrusted_egress"
+        ));
+        assert!(matches!(
+            listener.accept(),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
+        ));
     }
 
     #[test]

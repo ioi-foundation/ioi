@@ -6,9 +6,11 @@ entitlement projections, device, restore, publishing, console Environments
 views, and remote-runtime coordination boundaries.
 Supersedes: product prose that implies ioi.ai owns raw secrets, full traces, user workspaces, always-on execution, or marketplace operational truth.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-15.
 Doctrine status: canonical
-Implementation status: mixed (bounded GoalRun, Mission, and Hypervisor substrate partial; ioi.ai Goal Space product, collaboration plane, and thin account/device/restore control plane planned)
+Implementation status: mixed (bounded GoalRun and Hypervisor substrate partial;
+ioi.ai Goal Space product, OutcomeRoom collaboration plane, and thin
+account/device/restore control plane planned)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
@@ -87,9 +89,15 @@ direct and do not need a room-shaped experience. When collective pursuit is
 useful, Goal Space projects an `OutcomeRoom`/`CollaborativeWorkGraph` whose
 bounded claims execute as Hypervisor GoalRuns.
 
-The same OutcomeRoom is rendered as Goal Space in ioi.ai and Mission detail in
+The same OutcomeRoom is rendered as Goal Space in ioi.ai and Work / Rooms in
 Hypervisor. These are projections over one governed object composition, not two
-stores or two products. No permanent Swarm application is canonical.
+stores or two products. An optional Mission label has no independent identity,
+authority, lifecycle, or truth. No permanent Swarm application is canonical.
+
+When product copy offers a reusable adaptive-pursuit **Recipe**, its canonical
+backing object is an immutable `GoalRunProfile` revision. Admission resolves
+that revision into a bounded `GoalRun`; Goal Space does not turn Recipe into a
+generic object family or retain live pursuit state in the profile.
 
 It may:
 
@@ -104,11 +112,12 @@ It may:
 - start an ad hoc Hypervisor run through daemon/Core contracts;
 - inspect and summarize receipts, run state, restore state, and provider
   posture that the user is authorized to view;
-- draft a proposed AutomationSpec, service recipe, Foundry job, or marketplace
-  publish flow for explicit user review;
+- draft a proposed `GoalRunProfile`, `AutomationSpec`, `ServicePackage`,
+  Foundry job, or marketplace publish flow for explicit user review;
 - materialize an ioi.ai collaborative outcome plan over Hypervisor when the
-  goal benefits from multiple models, harnesses, workers, connectors, sessions,
-  verifier paths, or attempt strategies;
+  goal benefits from multiple model routes, `HarnessProfile` or
+  `AgentHarnessAdapter` paths, workers, connectors, Sessions, verifier paths,
+  or attempt strategies;
 - detect missing connectors, insufficient scopes, expired grants, or required
   approvals and create connector/auth escalation handoffs through Hypervisor
   Connectors / Tools / MCP and wallet.network;
@@ -175,12 +184,13 @@ for readiness, scopes, risk, preview, policy, and receipt obligations; it should
 use wallet.network for authority, leases, approvals, and secret brokerage; and
 it should use daemon admission plus Agentgres receipts for execution truth.
 
-Harness, model, and worker choice is a routing decision over the same substrate,
-not a separate connector plane.
+`HarnessProfile` or `AgentHarnessAdapter`, `ModelRoute`, and Worker choice is a
+routing decision over the same substrate, not a separate connector plane.
 
 ```text
 ioi.ai Auto, Pinned, or Compare policy plus MoW worker routing
-  or an eligible user-selected harness, model route, worker, or managed agent
+  or an eligible user-selected HarnessProfile, AgentHarnessAdapter, ModelRoute,
+     Worker, or managed agent
   -> Hypervisor brokered tool/MCP capability manifest
   -> daemon/Core admission
   -> authority provider, local/domain governance, and wallet.network gates
@@ -205,9 +215,9 @@ Compare / N-of-N
 ```
 
 These are execution policies, not subscription tiers. All paths consume
-Hypervisor's brokered connector/tool/MCP registry and must not give the selected
-harness raw provider credentials, ambient connector access, or a private
-ioi.ai execution channel.
+Hypervisor's brokered connector/tool/MCP registry and must not give the
+selected HarnessInvocation or external agent harness raw provider credentials,
+ambient connector access, or a private ioi.ai execution channel.
 
 ## Hypervisor Dogfood Boundary
 
@@ -569,8 +579,11 @@ selected Hypervisor Daemon runtime-node profile.
 - local Hypervisor owns Hypervisor App/Web/CLI client experiences and local
   projections.
 - Hypervisor Foundry owns the Worker Training application surface.
-- Hypervisor Foundry owns conductor-advisor, model/worker/eval/training, and
-  package improvement jobs; ioi.ai may draft or consume refs but not own them.
+- Hypervisor Foundry owns conductor-advisor, model/worker/evaluator-asset,
+  training, and package candidate jobs; Hypervisor Evaluations owns released
+  judgment contracts and epoch validity, and Hypervisor Improvement owns
+  optional Campaign coordination and proposal handoff. ioi.ai may draft or
+  consume refs but not own them.
 - Hypervisor Environments / Providers canon owns general infrastructure-manager
   semantics for autonomous systems, with views in Hypervisor App, Hypervisor
   Web, CLI/headless, and console.ioi.ai.
@@ -588,7 +601,9 @@ selected Hypervisor Daemon runtime-node profile.
   projections.
 - Private Workspace backed by cTEE owns cTEE semantics for persistent rented GPU
   nodes.
-- IOI L1 anchors settlement, rights, registry commitments, bonds, and disputes.
+- each system settles locally by default; explicitly selected external
+  services, including IOI L1 for enrolled systems, anchor settlement, rights,
+  registry commitments, bonds, and disputes.
 
 ## Non-Negotiables
 

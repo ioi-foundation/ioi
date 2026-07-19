@@ -1,4 +1,4 @@
-use super::super::{ToolExecutionResult, ToolExecutor};
+use super::super::{BrowserInformationFlowContext, ToolExecutionResult, ToolExecutor};
 use super::element_click::{
     capture_execution_prompt_browser_tree, find_nearest_semantic_target_by_point,
     find_semantic_target_by_id, find_semantic_target_by_som_id, handle_browser_click_element,
@@ -10,6 +10,10 @@ use super::snapshot::append_browser_snapshot_supplement;
 use super::tree::{
     apply_browser_auto_lens_with_som, detect_human_challenge, render_browser_tree_xml,
 };
+use crate::agentic::runtime::kernel::information_flow::{
+    admit_pre_effect, browser_observation_label, compile_admitted_effect_label, sha256_bytes,
+    sha256_value, IfcDenial, PreEffectAdmission,
+};
 use crate::agentic::runtime::middleware;
 use image::ImageFormat;
 use ioi_drivers::gui::accessibility::AccessibilityNode;
@@ -19,6 +23,7 @@ use ioi_types::app::agentic::{AgentTool, AgentToolCall, BrowserObservationReceip
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::env;
+use std::future::Future;
 use std::io::Cursor;
 use std::path::PathBuf;
 use tokio::time::{sleep, Duration, Instant};
@@ -29,6 +34,207 @@ const DEFAULT_BROWSER_HOVER_TRACK_INTERVAL_MS: u64 = 0;
 const MIN_BROWSER_HOVER_TRACK_INTERVAL_MS: u64 = 0;
 const MAX_BROWSER_HOVER_TRACK_INTERVAL_MS: u64 = 1_000;
 const MAX_BROWSER_HOVER_TRACK_DURATION_MS: u64 = 30_000;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BrowserActionClass {
+    /// Reads local browser state and produces an untrusted observation.
+    Observation,
+    /// Can change browser, page, clipboard, pointer, file-input, or tab state.
+    Consequential,
+}
+
+fn browser_action_class(tool: &AgentTool) -> Option<BrowserActionClass> {
+    use BrowserActionClass::{Consequential, Observation};
+
+    Some(match tool {
+        AgentTool::BrowserSnapshot {}
+        | AgentTool::BrowserCanvasSummary { .. }
+        | AgentTool::BrowserScreenshot { .. }
+        | AgentTool::BrowserDropdownOptions { .. }
+        | AgentTool::BrowserTabList {}
+        | AgentTool::BrowserFindText { scroll: false, .. } => Observation,
+        AgentTool::BrowserNavigate { .. }
+        | AgentTool::BrowserClick { .. }
+        | AgentTool::BrowserHover { .. }
+        | AgentTool::BrowserMoveMouse { .. }
+        | AgentTool::BrowserMouseDown { .. }
+        | AgentTool::BrowserMouseUp { .. }
+        | AgentTool::BrowserSyntheticClick { .. }
+        | AgentTool::BrowserScroll { .. }
+        | AgentTool::BrowserType { .. }
+        | AgentTool::BrowserSelectText { .. }
+        | AgentTool::BrowserKey { .. }
+        | AgentTool::BrowserCopySelection {}
+        | AgentTool::BrowserPasteClipboard { .. }
+        | AgentTool::BrowserFindText { scroll: true, .. }
+        | AgentTool::BrowserWait { .. }
+        | AgentTool::BrowserUploadFile { .. }
+        | AgentTool::BrowserSelectDropdown { .. }
+        | AgentTool::BrowserGoBack { .. }
+        | AgentTool::BrowserTabSwitch { .. }
+        | AgentTool::BrowserTabClose { .. } => Consequential,
+        _ => return None,
+    })
+}
+
+#[derive(Debug)]
+struct PreparedBrowserInformationFlow {
+    typed_action: serde_json::Value,
+    output_parent_labels: Vec<serde_json::Value>,
+}
+
+fn browser_ifc_denial(code: &'static str, message: impl Into<String>) -> IfcDenial {
+    IfcDenial {
+        code,
+        message: message.into(),
+    }
+}
+
+/// Resolve and admit a typed browser action before any browser driver method is
+/// reachable. The destination resolver reads only the driver's cached active
+/// URL and is deliberately not invoked when context is absent or for pure
+/// observations.
+async fn prepare_browser_information_flow<F, Fut>(
+    information_flow: Option<&BrowserInformationFlowContext>,
+    tool: &AgentTool,
+    resolve_known_active_url: F,
+) -> Result<PreparedBrowserInformationFlow, IfcDenial>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = Option<String>>,
+{
+    let information_flow = information_flow.ok_or_else(|| {
+        browser_ifc_denial(
+            "ifc_browser_context_required",
+            "browser execution requires independently admitted parent labels, effect authority, and RuntimeToolContract",
+        )
+    })?;
+    let class = browser_action_class(tool).ok_or_else(|| {
+        browser_ifc_denial(
+            "ifc_browser_action_unclassified",
+            "browser action has no information-flow classification",
+        )
+    })?;
+    let typed_action = serde_json::to_value(tool).map_err(|error| {
+        browser_ifc_denial(
+            "ifc_browser_action_encoding_failed",
+            format!("typed browser action could not be canonically prepared: {error}"),
+        )
+    })?;
+
+    if class == BrowserActionClass::Observation {
+        // Validate the complete parent set before a read driver call. The
+        // returned preflight label is discarded; the real result receives a
+        // fresh label bound to its exact output content below.
+        let preflight_hash = sha256_value(&json!({
+            "phase": "browser_observation_preflight",
+            "typed_action": typed_action,
+        }))?;
+        let preflight_ref = format!(
+            "ifc-label://browser/observation-preflight/{}",
+            preflight_hash.trim_start_matches("sha256:")
+        );
+        browser_observation_label(
+            &information_flow.parent_labels,
+            &preflight_ref,
+            &preflight_hash,
+        )?;
+        return Ok(PreparedBrowserInformationFlow {
+            typed_action,
+            output_parent_labels: information_flow.parent_labels.clone(),
+        });
+    }
+
+    let destination = match tool {
+        AgentTool::BrowserNavigate { url } => url.trim().to_string(),
+        _ => resolve_known_active_url()
+            .await
+            .unwrap_or_default()
+            .trim()
+            .to_string(),
+    };
+    if destination.is_empty() {
+        return Err(browser_ifc_denial(
+            "ifc_browser_destination_required",
+            "consequential browser action requires a known active URL (or the exact navigation URL) before driver invocation",
+        ));
+    }
+
+    let exact_request = json!({
+        "admission_destination": destination,
+        "typed_action": typed_action,
+    });
+    let exact_request_hash = sha256_value(&exact_request)?;
+    let effective_label = compile_admitted_effect_label(
+        &information_flow.parent_labels,
+        &information_flow.authority_label,
+        &exact_request_hash,
+    )?;
+    admit_pre_effect(&PreEffectAdmission {
+        label: &effective_label,
+        tool_contract: &information_flow.runtime_tool_contract,
+        destination: &destination,
+        method: "BROWSER_ACTION",
+        request: &exact_request,
+        reviewed_representation: information_flow.reviewed_representation.as_ref(),
+        declassification_approval: information_flow.declassification_approval.as_ref(),
+    })?;
+
+    let mut output_parent_labels = information_flow.parent_labels.clone();
+    output_parent_labels.push(effective_label);
+    Ok(PreparedBrowserInformationFlow {
+        typed_action,
+        output_parent_labels,
+    })
+}
+
+async fn invoke_prepared_browser_action<F, Fut>(
+    preparation: Result<PreparedBrowserInformationFlow, IfcDenial>,
+    invoker: F,
+) -> Result<(ToolExecutionResult, PreparedBrowserInformationFlow), IfcDenial>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = ToolExecutionResult>,
+{
+    let prepared = preparation?;
+    let result = invoker().await;
+    Ok((result, prepared))
+}
+
+fn label_browser_result(
+    mut result: ToolExecutionResult,
+    prepared: PreparedBrowserInformationFlow,
+) -> Result<ToolExecutionResult, IfcDenial> {
+    let visual_observation_hash = result.visual_observation.as_deref().map(sha256_bytes);
+    let content_hash = sha256_value(&json!({
+        "typed_action": prepared.typed_action,
+        "success": result.success,
+        "history_entry": result.history_entry,
+        "error": result.error,
+        "visual_observation_hash": visual_observation_hash,
+    }))?;
+    let label_ref = format!(
+        "ifc-label://browser/observation/{}",
+        content_hash.trim_start_matches("sha256:")
+    );
+    let label =
+        browser_observation_label(&prepared.output_parent_labels, &label_ref, &content_hash)?;
+
+    // Keep JSON-shaped browser results self-describing while also retaining a
+    // typed side-channel for non-JSON observations such as accessibility XML.
+    if let Some(history_entry) = result.history_entry.as_mut() {
+        if let Ok(mut payload) = serde_json::from_str::<serde_json::Value>(history_entry) {
+            if let Some(object) = payload.as_object_mut() {
+                object.insert("information_flow_label".to_string(), label.clone());
+                if let Ok(encoded) = serde_json::to_string(&payload) {
+                    *history_entry = encoded;
+                }
+            }
+        }
+    }
+    result.information_flow_label = Some(label);
+    Ok(result)
+}
 #[derive(Debug, Clone)]
 struct ResolvedHoverTarget {
     x: f64,
@@ -1189,6 +1395,38 @@ pub async fn handle(
     tool: AgentTool,
     semantic_map: Option<&BTreeMap<u32, String>>,
 ) -> ToolExecutionResult {
+    let preparation =
+        prepare_browser_information_flow(exec.browser_information_flow.as_ref(), &tool, || {
+            exec.browser.known_active_url()
+        })
+        .await;
+    let (result, prepared) = match invoke_prepared_browser_action(preparation, || {
+        handle_admitted(exec, tool, semantic_map)
+    })
+    .await
+    {
+        Ok(executed) => executed,
+        Err(denial) => {
+            return ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=PolicyBlocked {}: {}",
+                denial.code, denial.message
+            ))
+        }
+    };
+    match label_browser_result(result, prepared) {
+        Ok(result) => result,
+        Err(denial) => ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=PolicyBlocked {}: browser result withheld because its information-flow label could not be derived: {}",
+            denial.code, denial.message
+        )),
+    }
+}
+
+async fn handle_admitted(
+    exec: &ToolExecutor,
+    tool: AgentTool,
+    semantic_map: Option<&BTreeMap<u32, String>>,
+) -> ToolExecutionResult {
     match tool {
         AgentTool::BrowserNavigate { url } => match exec.browser.navigate(&url).await {
             Ok(content) => {
@@ -1218,6 +1456,7 @@ pub async fn handle(
                     json!({
                         "browser_observation_receipt": receipt,
                         "summary": format!("Navigated to {}.", url),
+                        "content_hash": sha256_bytes(content.as_bytes()),
                     })
                     .to_string(),
                 )

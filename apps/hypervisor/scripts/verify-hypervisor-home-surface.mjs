@@ -17,7 +17,6 @@
 // Exit 0 = all assertions pass; exit 1 = one or more failed.
 
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -95,19 +94,19 @@ async function run() {
   ok("explorer + view router ship in the augmentation", aug.text.includes("ioi-home-explorer") && aug.text.includes("applyAiViews") && aug.text.includes("renderExplorer"));
   ok("composer band retired", !aug.text.includes("ioi-home-band"), "governed-work strips live on the explorer now");
 
-  // 6c. App catalog — every pixel-certified port in the parity matrix is discoverable from /ai.
-  // Membership is matrix truth (shell_pixel_certified seeds), so this assertion self-extends as
-  // the certification wave lands new ports; the launcher lanes must carry each one.
-  const matrix = JSON.parse(readFileSync(join(HERE, "..", "harvest-app-parity-matrix.json"), "utf8"));
-  const portedSeeds = (matrix.seeds || []).filter((s) => s.shell_pixel_certified && s.candidate_surface);
+  // 6c. Product-surface catalog — typed registrations establish peer membership; certified
+  // runtime surfaces remain contextual tools/views and are discoverable without flattening.
   const catRes = await sGet("/__ioi/api/applications");
   let catalog = null; try { catalog = JSON.parse(catRes.text); } catch { /* non-json */ }
-  ok("app catalog endpoint serves the matrix projection", catRes.status === 200 && catalog && catalog.schema === "ioi.hypervisor.app-catalog.v1", `status ${catRes.status}`);
-  const catRoutes = [...new Set(((catalog && catalog.apps) || []).map((a) => a.route))];
-  ok("catalog lists every certified seed", portedSeeds.length > 0 && portedSeeds.every((s) => catRoutes.includes(s.candidate_surface.split("?")[0])), `${catRoutes.length} catalog apps vs ${portedSeeds.length} certified seeds`);
-  ok("catalog invents no apps beyond the matrix", ((catalog && catalog.apps) || []).length === portedSeeds.length);
-  ok("catalog apps carry title + family", ((catalog && catalog.apps) || []).every((a) => a.title && a.family && a.slug));
-  ok("estate page lists every catalog app", catRoutes.every((r) => apps.text.includes(`href="${r}"`)), "/__ioi/applications renders the same projection");
+  ok("application catalog endpoint serves typed taxonomy v2", catRes.status === 200 && catalog?.schema === "ioi.hypervisor.application-catalog.v2" && catalog?.membership_source === "typed_product_registration" && catalog?.evidence_membership_independent === true, `status ${catRes.status}`);
+  const catalogApplications = (catalog && catalog.applications) || [];
+  const catalogContextual = [...((catalog && catalog.tools) || []), ...((catalog && catalog.workspace_views) || [])];
+  const catRoutes = [...new Set(catalogContextual.map((entry) => entry.launch_route))];
+  ok("catalog carries the complete typed target census", ((catalog && catalog.core_workspaces) || []).length === 5 && catalogApplications.filter((entry) => entry.registration_kind === "owner_application" && entry.owner_cohort === "enduring").length === 12 && catalogApplications.filter((entry) => entry.registration_kind === "substrate_application").length === 2 && catalogApplications.filter((entry) => entry.registration_kind === "owner_application" && entry.owner_cohort === "conditional").length === 1 && Boolean(catalog && catalog.extension_application_contract));
+  ok("contextual surfaces are nested placements, never peer apps", catalogContextual.length === 13 && catalogContextual.every((entry) => entry.peer_application === false && entry.placement && entry.placement_owner_ref && entry.launch_route) && !catalogApplications.some((application) => catalogContextual.some((entry) => entry.ref === application.ref)));
+  ok("stale peer identities are retired", !catalogApplications.some((entry) => ["Missions", "Marketplace", "Workbench"].includes(entry.name)) && catalogApplications.some((entry) => entry.name === "Packages") && catalogApplications.some((entry) => entry.name === "Developer Workspace"));
+  ok("planned specialist entries remain nonlaunchable", catalogApplications.filter((entry) => entry.availability === "planned").every((entry) => entry.launchable === false && entry.launch_route === null));
+  ok("estate page lists every contextual tool/view without a Ported apps taxonomy", catRoutes.every((route) => apps.text.includes(`href="${route}"`)) && !apps.text.includes("Ported apps"), "/__ioi/applications renders typed placements");
   const aiHtml = await sGet("/ai");
   ok("/ai serves the augmented shell", aiHtml.status === 200 && aiHtml.text.includes('src="/ioi-augmentation.js"'), "requires the owned tree (IOI_PRODUCT_UI_PUBLIC) or the injected tag");
   ok("augmentation ships the catalog lane", aug.text.includes("fetchAppCatalog") && aug.text.includes("/__ioi/api/applications"));
@@ -151,28 +150,28 @@ async function run() {
         return cs.borderRadius !== "0px" && cs.backgroundColor !== "rgba(0, 0, 0, 0)";
       });
       ok("explorer styled by the SPA design tokens", tokened, "token classes resolved to real computed styles");
-      // App catalog on the live shell — every ported app is a tile in the explorer grid, a row in
-      // the launcher modal, and opens in the Open Application slot (in-shell, rail intact).
+      // Product catalog on the live shell — every contextual tool/view is a nested tile and modal
+      // row, then opens in the singular embedded Application slot.
       await page.waitForFunction((n) => document.querySelectorAll("#ioi-home-explorer a[data-ioi-app]").length >= n, catRoutes.length, { timeout: 15000 }).catch(() => {});
       const missingTiles = [];
       for (const r of catRoutes) if ((await page.locator(`#ioi-home-explorer a[href="${r}"]`).count()) === 0) missingTiles.push(r);
-      ok("explorer grid lists every ported app", catRoutes.length > 0 && missingTiles.length === 0, missingTiles.length ? `missing: ${missingTiles.join(" ")}` : `${catRoutes.length} ported tiles`);
+      ok("explorer grid lists every contextual tool/view", catRoutes.length > 0 && missingTiles.length === 0, missingTiles.length ? `missing: ${missingTiles.join(" ")}` : `${catRoutes.length} contextual tiles`);
       await page.click('#ioi-home-explorer a[href="#applications"]');
       const launcherOpen = await page.waitForSelector("#ioi-apps-modal.open", { timeout: 10000 }).then(() => true).catch(() => false);
       const missingRows = [];
       if (launcherOpen) for (const r of catRoutes) if ((await page.locator(`#ioi-apps-modal .ioi-mrow[data-href="${r}"]`).count()) === 0) missingRows.push(r);
-      ok("launcher modal lists every ported app", launcherOpen && missingRows.length === 0, missingRows.length ? `missing: ${missingRows.join(" ")}` : "modal carries the catalog");
+      ok("launcher modal lists every contextual tool/view", launcherOpen && missingRows.length === 0, missingRows.length ? `missing: ${missingRows.join(" ")}` : "modal carries the typed catalog");
       await page.click("#ioi-apps-modal .ioi-mh button").catch(() => {});
       if (catRoutes.length) {
         await page.click(`#ioi-home-explorer a[href="${catRoutes[0]}"]`);
         await page.waitForTimeout(400);
-        const portedSlot = await page.evaluate(() => {
+        const contextualSlot = await page.evaluate(() => {
           const el = document.getElementById("ioi-open-app");
           if (!el || el.style.display === "none") return null;
           const f = el.querySelector("iframe");
           return f ? f.getAttribute("src") : null;
         });
-        ok("ported tile opens in the Open Application slot EMBEDDED (native container contract #65)", portedSlot === `${catRoutes[0]}?embed=1`, `slot iframe → ${portedSlot}`);
+        ok("contextual tile opens in the Open Application slot EMBEDDED (native container contract #65)", contextualSlot === `${catRoutes[0]}?embed=1`, `slot iframe → ${contextualSlot}`);
         await page.evaluate(() => { const x = document.querySelector("#ioi-open-app .ioi-oa-close"); if (x) x.click(); });
       }
       // New Session = the composer, at #new-session, reached from the rail button.

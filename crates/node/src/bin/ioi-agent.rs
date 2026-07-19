@@ -141,6 +141,7 @@ async fn main() -> Result<()> {
         security_attestation: RuntimeStartupVerification::NotRequired {
             reason: "ioi-agent binary does not configure a remote attestation verifier".to_string(),
         },
+        attestation_assurance: None,
         policy_config: RuntimeStartupVerification::Verified,
     });
 

@@ -1,16 +1,21 @@
 use super::{
-    browser_follow_up_activates_visible_control, browser_type_error_supports_selector_retry,
-    click_follow_up_requires_post_action_observation, history_entry_json_value,
-    normalize_browser_follow_up, normalize_hover_tracking_window,
+    browser_action_class, browser_follow_up_activates_visible_control, browser_ifc_denial,
+    browser_type_error_supports_selector_retry, click_follow_up_requires_post_action_observation,
+    history_entry_json_value, invoke_prepared_browser_action, normalize_browser_follow_up,
+    normalize_hover_tracking_window, prepare_browser_information_flow,
     resolve_hover_target_from_transformed_trees, resolve_scoped_upload_paths,
-    should_use_browser_side_hover_tracking, DEFAULT_BROWSER_HOVER_TRACK_INTERVAL_MS,
+    should_use_browser_side_hover_tracking, BrowserActionClass, PreparedBrowserInformationFlow,
+    DEFAULT_BROWSER_HOVER_TRACK_INTERVAL_MS,
 };
+use crate::agentic::runtime::execution::{BrowserInformationFlowContext, ToolExecutionResult};
 use ioi_drivers::gui::accessibility::{AccessibilityNode, Rect};
-use ioi_types::app::agentic::AgentToolCall;
+use ioi_types::app::agentic::{AgentTool, AgentToolCall};
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn temp_dir(name: &str) -> PathBuf {
@@ -26,6 +31,192 @@ fn temp_dir(name: &str) -> PathBuf {
     ));
     fs::create_dir_all(&dir).expect("create temp dir");
     dir
+}
+
+fn parse_browser_tool(value: serde_json::Value) -> AgentTool {
+    serde_json::from_value(value).expect("browser tool fixture should decode")
+}
+
+fn browser_parent_label() -> serde_json::Value {
+    json!({
+        "schema_version": "ioi.foundations.information-flow-label.v1",
+        "label_ref": "ifc-label://test/browser-input",
+        "profile_ref": "policy://ifc/default-v1",
+        "content_hash": format!("sha256:{}", "a".repeat(64)),
+        "origin": "operator",
+        "integrity": "verified",
+        "confidentiality": "internal",
+        "instruction_authority": "context_only",
+        "egress_policy": {
+            "mode": "allow_declared",
+            "allowed_destination_patterns": ["https://example.test/*"],
+            "allowed_data_classes": ["public", "internal"]
+        },
+        "purpose": "browser-test",
+        "retention": { "max_seconds": 60, "disposition": "delete" },
+        "derivation_kind": "direct",
+        "derivation_parent_refs": [],
+        "derivation_closure_refs": ["ifc-label://test/browser-input"]
+    })
+}
+
+#[test]
+fn every_routed_browser_variant_has_an_explicit_ifc_class() {
+    use BrowserActionClass::{Consequential, Observation};
+
+    let consequential = [
+        json!({"name":"browser__navigate","arguments":{"url":"https://example.test/"}}),
+        json!({"name":"browser__click","arguments":{"selector":"#submit"}}),
+        json!({"name":"browser__hover","arguments":{"selector":"#menu"}}),
+        json!({"name":"browser__move_pointer","arguments":{"observation_ref":"browser.observation:1","coordinate_space_id":"viewport","semantic_id":"btn_submit","x":1.0,"y":2.0}}),
+        json!({"name":"browser__pointer_down","arguments":{}}),
+        json!({"name":"browser__pointer_up","arguments":{}}),
+        json!({"name":"browser__click_at","arguments":{"id":"btn_submit"}}),
+        json!({"name":"browser__scroll","arguments":{"delta_y":100}}),
+        json!({"name":"browser__type","arguments":{"text":"hello"}}),
+        json!({"name":"browser__select","arguments":{}}),
+        json!({"name":"browser__press_key","arguments":{"key":"Enter"}}),
+        json!({"name":"browser__copy","arguments":{}}),
+        json!({"name":"browser__paste","arguments":{}}),
+        json!({"name":"browser__find_text","arguments":{"query":"needle","scroll":true}}),
+        json!({"name":"browser__wait","arguments":{"ms":1}}),
+        json!({"name":"browser__upload","arguments":{"paths":["/tmp/file.txt"]}}),
+        json!({"name":"browser__select_option","arguments":{"selector":"#country","value":"US"}}),
+        json!({"name":"browser__back","arguments":{"steps":1}}),
+        json!({"name":"browser__switch_tab","arguments":{"tab_id":"tab-2"}}),
+        json!({"name":"browser__close_tab","arguments":{"tab_id":"tab-2"}}),
+    ];
+    for fixture in consequential {
+        let tool = parse_browser_tool(fixture);
+        assert_eq!(browser_action_class(&tool), Some(Consequential), "{tool:?}");
+    }
+
+    let observations = [
+        json!({"name":"browser__inspect","arguments":{}}),
+        json!({"name":"browser__find_text","arguments":{"query":"needle","scroll":false}}),
+        json!({"name":"browser__inspect_canvas","arguments":{"selector":"canvas"}}),
+        json!({"name":"browser__screenshot","arguments":{"full_page":false}}),
+        json!({"name":"browser__list_options","arguments":{"selector":"#country"}}),
+        json!({"name":"browser__list_tabs","arguments":{}}),
+    ];
+    for fixture in observations {
+        let tool = parse_browser_tool(fixture);
+        assert_eq!(browser_action_class(&tool), Some(Observation), "{tool:?}");
+    }
+}
+
+#[tokio::test]
+async fn missing_ifc_context_denies_before_destination_or_browser_driver_invocation() {
+    let tool = AgentTool::BrowserClick {
+        selector: "#submit".to_string(),
+        id: None,
+        ids: Vec::new(),
+        delay_ms_between_ids: None,
+        continue_with: None,
+    };
+    let destination_calls = Arc::new(AtomicUsize::new(0));
+    let destination_counter = destination_calls.clone();
+    let preparation = prepare_browser_information_flow(None, &tool, move || {
+        destination_counter.fetch_add(1, Ordering::SeqCst);
+        async { Some("https://example.test/".to_string()) }
+    })
+    .await;
+    let driver_calls = Arc::new(AtomicUsize::new(0));
+    let driver_counter = driver_calls.clone();
+    let result = invoke_prepared_browser_action(preparation, move || {
+        driver_counter.fetch_add(1, Ordering::SeqCst);
+        async { ToolExecutionResult::success("unexpected") }
+    })
+    .await
+    .expect_err("missing independently supplied context must deny");
+
+    assert_eq!(result.code, "ifc_browser_context_required");
+    assert_eq!(destination_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(driver_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn missing_known_destination_denies_before_browser_driver_invocation() {
+    let tool = AgentTool::BrowserType {
+        text: "sensitive".to_string(),
+        selector: Some("#prompt".to_string()),
+    };
+    let context = BrowserInformationFlowContext {
+        parent_labels: vec![],
+        authority_label: json!({}),
+        runtime_tool_contract: json!({}),
+        reviewed_representation: None,
+        declassification_approval: None,
+    };
+    let preparation =
+        prepare_browser_information_flow(Some(&context), &tool, || async { None }).await;
+    let driver_calls = Arc::new(AtomicUsize::new(0));
+    let driver_counter = driver_calls.clone();
+    let result = invoke_prepared_browser_action(preparation, move || {
+        driver_counter.fetch_add(1, Ordering::SeqCst);
+        async { ToolExecutionResult::success("unexpected") }
+    })
+    .await
+    .expect_err("unknown active URL must deny");
+
+    assert_eq!(result.code, "ifc_browser_destination_required");
+    assert_eq!(driver_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn failed_browser_admission_never_invokes_driver() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let invoked = calls.clone();
+    let result = invoke_prepared_browser_action(
+        Err(browser_ifc_denial(
+            "ifc_private_untrusted_egress",
+            "forged-public browser effect refused",
+        )),
+        move || {
+            invoked.fetch_add(1, Ordering::SeqCst);
+            async { ToolExecutionResult::success("unexpected") }
+        },
+    )
+    .await
+    .expect_err("admission denial must remain before the driver closure");
+
+    assert_eq!(result.code, "ifc_private_untrusted_egress");
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn browser_results_are_untrusted_non_authoritative_and_keep_parent_closure() {
+    let prepared = PreparedBrowserInformationFlow {
+        typed_action: json!({"name":"browser__inspect","arguments":{}}),
+        output_parent_labels: vec![browser_parent_label()],
+    };
+    let result = super::label_browser_result(
+        ToolExecutionResult::success(json!({"tree":"external"}).to_string()),
+        prepared,
+    )
+    .expect("browser result label");
+    let label = result
+        .information_flow_label
+        .clone()
+        .expect("typed browser result must carry label");
+
+    assert_eq!(label["origin"], "external_untrusted");
+    assert_eq!(label["integrity"], "untrusted");
+    assert_eq!(label["instruction_authority"], "none");
+    assert_eq!(label["confidentiality"], "internal");
+    assert!(label["derivation_closure_refs"]
+        .as_array()
+        .expect("closure")
+        .iter()
+        .any(|value| value == "ifc-label://test/browser-input"));
+    let payload: serde_json::Value = serde_json::from_str(
+        result
+            .history_entry
+            .as_deref()
+            .expect("JSON history entry should remain present"),
+    )
+    .expect("JSON history entry");
+    assert_eq!(payload["information_flow_label"], label);
 }
 
 #[test]

@@ -9,8 +9,8 @@
 //   Ontology     : schema (ontology manager) · explorer (object explorer)
 //   Data         : ingest (hyperauto) · sources (data-connection)
 //   Evaluations  : evalsuites (AIP Evals) · analysis (insight)
-//   Missions     : jobs (job-tracker) · incidents (issues)
-//   Marketplace  : listings (marketplace)     [registry/artifacts = gap: React-crash on 404]
+//   Work         : jobs (job-tracker) · incidents (issues)
+//   Packages     : listings (Marketplace mode) [registry/artifacts = gap: React-crash on 404]
 //   Foundry      : models (model-catalog)
 //   Developer Console: [devconsole + widgets = gap: origin baked in a JS chunk → no mount]
 //
@@ -33,9 +33,9 @@ const CLEAN = [
   { slug: "sources", ownerUrl: "/__ioi/odk", owner: "Data", title: /Data Connection/i },
   { slug: "evalsuites", ownerUrl: "/__ioi/feedback", owner: "Evaluations", title: /Eval/i },
   { slug: "analysis", ownerUrl: "/__ioi/feedback", owner: "Evaluations", title: /Insight/i },
-  { slug: "jobs", ownerUrl: "/__ioi/sessions", owner: "Missions", title: /Build/i },
-  { slug: "incidents", ownerUrl: "/__ioi/sessions", owner: "Missions", title: /Issue/i },
-  { slug: "listings", ownerUrl: "/__ioi/marketplace", owner: "Marketplace", title: /Marketplace/i },
+  { slug: "jobs", ownerUrl: "/__ioi/missions", owner: "Work", title: /Build/i },
+  { slug: "incidents", ownerUrl: "/__ioi/missions", owner: "Work", title: /Issue/i },
+  { slug: "listings", ownerUrl: "/__ioi/marketplace", owner: "Packages", title: /Marketplace/i },
   { slug: "models", ownerUrl: "/__ioi/foundry", owner: "Foundry", title: /Model Catalog/i },
 ];
 // Three registered seeds that serve but do not render on the auth-dead capture — NAMED GAPS.

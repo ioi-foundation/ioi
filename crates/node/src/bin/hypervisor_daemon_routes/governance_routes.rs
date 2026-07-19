@@ -26,7 +26,11 @@ use std::path::Path;
 use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
 
 async fn gj(base: &str, path: &str) -> Value {
-    match reqwest::Client::new().get(format!("{base}{path}")).send().await {
+    match reqwest::Client::new()
+        .get(format!("{base}{path}"))
+        .send()
+        .await
+    {
         Ok(r) => match r.text().await {
             Ok(t) => serde_json::from_str(&t).unwrap_or(Value::Null),
             Err(_) => Value::Null,
@@ -71,7 +75,10 @@ fn grant_stats(grants: &[Value], now: i64) -> (usize, usize, usize, usize) {
         if is_revoked {
             revoked += 1;
         }
-        let exp = g.get("expires_at_unix").and_then(|v| v.as_i64()).unwrap_or(0);
+        let exp = g
+            .get("expires_at_unix")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
         let not_expired = exp == 0 || exp > now;
         if dec == "granted" && !is_revoked && not_expired {
             active += 1;
@@ -91,7 +98,10 @@ fn lease_stats(leases: &[Value], now_ms: i64) -> (usize, usize, usize, usize) {
         if is_revoked {
             revoked += 1;
         }
-        if l.get("receipt_required").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if l.get("receipt_required")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             receipt_req += 1;
         }
         let exp = l.get("expires_at").and_then(|v| v.as_i64()).unwrap_or(0);
@@ -108,11 +118,13 @@ fn count_with_refs(records: &[Value], keys: &[&str]) -> usize {
         .iter()
         .filter(|r| {
             keys.iter().any(|k| {
-                r.get(*k).map(|v| {
-                    !v.is_null()
-                        && v.as_str() != Some("")
-                        && v.as_array().map(|a| !a.is_empty()).unwrap_or(true)
-                }).unwrap_or(false)
+                r.get(*k)
+                    .map(|v| {
+                        !v.is_null()
+                            && v.as_str() != Some("")
+                            && v.as_array().map(|a| !a.is_empty()).unwrap_or(true)
+                    })
+                    .unwrap_or(false)
             })
         })
         .count()
@@ -130,7 +142,10 @@ pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>
     let authpol = gj(&base, "/v1/hypervisor/auth/policy").await;
     let whoami = gj(&base, "/v1/hypervisor/auth/whoami").await;
     let connectors = arr(&gj(&base, "/v1/hypervisor/connectors").await, "connectors");
-    let scm = arr(&gj(&base, "/v1/hypervisor/scm-connectors").await, "connectors");
+    let scm = arr(
+        &gj(&base, "/v1/hypervisor/scm-connectors").await,
+        "connectors",
+    );
 
     // Durable object kinds (direct read — carry authority/policy refs governance projects over).
     let automations = read_record_dir(&st.data_dir, "automations");
@@ -152,7 +167,11 @@ pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>
     let spec_by_kind = histogram(&foundry_specs, "kind");
     let connectors_requiring_credential = connectors
         .iter()
-        .filter(|c| c.get("requires_credential").and_then(|v| v.as_bool()).unwrap_or(false))
+        .filter(|c| {
+            c.get("requires_credential")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        })
         .count();
 
     // Policy/authority refs carried by durable objects — what already declares a governance ref
@@ -240,8 +259,14 @@ pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>
 
     // ---- Section 8: governance gaps — named plainly. has_substrate = the underlying capability
     // exists but is not governed/exposed here; else the control object itself is missing.
-    let enforced = authpol.get("effective_enforced").and_then(|v| v.as_bool()).unwrap_or(false);
-    let wallet_live = posture.get("wallet_network_live").and_then(|v| v.as_bool()).unwrap_or(false);
+    let enforced = authpol
+        .get("effective_enforced")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let wallet_live = posture
+        .get("wallet_network_live")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     // ---- Control objects (Option A: durable governance truth; record-only, enforcement deferred).
     let approvals = read_record_dir(&st.data_dir, KIND_APPROVAL);
@@ -259,8 +284,14 @@ pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>
     // are the substrate-inactive ones (auth enforcement, wallet network). summary.governance_gaps
     // counts only the still-open gaps, so downstream blocked_reasons stays honest.
     let present = |n: usize| if n > 0 { "present" } else { "control_empty" };
-    let pending_approvals = approvals.iter().filter(|a| a.get("status").and_then(|v| v.as_str()) == Some("pending")).count();
-    let tripped = killswitches.iter().filter(|k| k.get("state").and_then(|v| v.as_str()) == Some("tripped")).count();
+    let pending_approvals = approvals
+        .iter()
+        .filter(|a| a.get("status").and_then(|v| v.as_str()) == Some("pending"))
+        .count();
+    let tripped = killswitches
+        .iter()
+        .filter(|k| k.get("state").and_then(|v| v.as_str()) == Some("tripped"))
+        .count();
     let governance_gaps = json!([
         { "id": "approval_request_object", "title": "ApprovalRequest control present", "status": present(approvals.len()), "count": approvals.len(), "detail": format!("{} approval request(s) recorded ({} pending). Records only — approval does not execute the action.", approvals.len(), pending_approvals), "has_substrate": true },
         { "id": "release_control_object", "title": "ReleaseControl present", "status": present(releases.len()), "count": releases.len(), "detail": format!("{} release control(s) recorded. Records only — opening a gate does not perform a release.", releases.len()), "has_substrate": true },
@@ -269,7 +300,14 @@ pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>
         { "id": "auth_enforcement_inactive", "title": "Identity enforcement present but not active", "status": "open", "detail": format!("The IdP/enforcement ring exists but effective_enforced={enforced} in this deployment."), "has_substrate": true },
         { "id": "wallet_network_offline", "title": "Wallet authority network not live", "status": "open", "detail": format!("local_operator mode; wallet_network_live={wallet_live} — portable/delegated authority is not live."), "has_substrate": true }
     ]);
-    let open_gaps = governance_gaps.as_array().map(|a| a.iter().filter(|g| g.get("status").and_then(|v| v.as_str()) == Some("open")).count()).unwrap_or(0);
+    let open_gaps = governance_gaps
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter(|g| g.get("status").and_then(|v| v.as_str()) == Some("open"))
+                .count()
+        })
+        .unwrap_or(0);
 
     Json(json!({
         "ok": true,
@@ -316,7 +354,10 @@ const KIND_GATE: &str = "governance-improvement-gates";
 pub(crate) const KIND_COHORT: &str = "governance-cohorts";
 
 fn safe(seg: &str) -> String {
-    seg.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_")
+    seg.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    )
 }
 fn nanos() -> u128 {
     std::time::SystemTime::now()
@@ -326,7 +367,12 @@ fn nanos() -> u128 {
 }
 fn load(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
     serde_json::from_slice(
-        &std::fs::read(Path::new(data_dir).join(kind).join(format!("{}.json", safe(id)))).ok()?,
+        &std::fs::read(
+            Path::new(data_dir)
+                .join(kind)
+                .join(format!("{}.json", safe(id))),
+        )
+        .ok()?,
     )
     .ok()
 }
@@ -337,15 +383,25 @@ fn bad(code: &str, message: &str) -> (StatusCode, Json<Value>) {
     )
 }
 fn split_ref(r: &str) -> Option<(&str, &str)> {
-    r.split_once("://").filter(|(s, rest)| !s.is_empty() && !rest.is_empty())
+    r.split_once("://")
+        .filter(|(s, rest)| !s.is_empty() && !rest.is_empty())
 }
 fn str_field<'a>(body: &'a Value, key: &str) -> &'a str {
-    body.get(key).and_then(|v| v.as_str()).map(str::trim).unwrap_or("")
+    body.get(key)
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .unwrap_or("")
 }
 fn str_refs(body: &Value, key: &str) -> Vec<String> {
     body.get(key)
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str()).filter(|s| !s.is_empty()).map(str::to_string).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
         .unwrap_or_default()
 }
 /// A control target ref is REQUIRED (non-empty). If it LOOKS local (a foundry id or a known local
@@ -353,14 +409,30 @@ fn str_refs(body: &Value, key: &str) -> Vec<String> {
 /// connector id, lease id, model route, external target, …).
 pub(crate) fn resolve_governance_ref(data_dir: &str, r: &str) -> Result<(), (String, String)> {
     if r.is_empty() {
-        return Err(("governance_ref_required".into(), "a target ref is required".into()));
+        return Err((
+            "governance_ref_required".into(),
+            "a target ref is required".into(),
+        ));
     }
-    let unresolved = |scheme: &str| Err(("governance_ref_unresolved".into(), format!("local ref '{r}' does not resolve to a {scheme} record")));
+    let unresolved = |scheme: &str| {
+        Err((
+            "governance_ref_unresolved".into(),
+            format!("local ref '{r}' does not resolve to a {scheme} record"),
+        ))
+    };
     if r.starts_with("fspec_") {
-        return if load(data_dir, "foundry-specs", r).is_some() { Ok(()) } else { unresolved("foundry-spec") };
+        return if load(data_dir, "foundry-specs", r).is_some() {
+            Ok(())
+        } else {
+            unresolved("foundry-spec")
+        };
     }
     if r.starts_with("frun_") {
-        return if load(data_dir, "foundry-run-plans", r).is_some() { Ok(()) } else { unresolved("foundry-run-plan") };
+        return if load(data_dir, "foundry-run-plans", r).is_some() {
+            Ok(())
+        } else {
+            unresolved("foundry-run-plan")
+        };
     }
     if let Some((scheme, id)) = split_ref(r) {
         let kind = match scheme {
@@ -397,14 +469,18 @@ fn next_approval_status(cur: &str, t: &str) -> Result<&'static str, String> {
         ("pending", "approve") => Ok("approved"),
         ("pending", "reject") => Ok("rejected"),
         ("approved", "revoke") => Ok("revoked"),
-        _ => Err(format!("invalid transition '{t}' from '{cur}' (pending->approve|reject, approved->revoke)")),
+        _ => Err(format!(
+            "invalid transition '{t}' from '{cur}' (pending->approve|reject, approved->revoke)"
+        )),
     }
 }
 fn next_kill_state(cur: &str, t: &str) -> Result<&'static str, String> {
     match (cur, t) {
         ("armed", "trip") => Ok("tripped"),
         ("tripped", "rearm") => Ok("armed"),
-        _ => Err(format!("invalid transition '{t}' from '{cur}' (armed->trip, tripped->rearm)")),
+        _ => Err(format!(
+            "invalid transition '{t}' from '{cur}' (armed->trip, tripped->rearm)"
+        )),
     }
 }
 fn next_gate_state(cur: &str, t: &str) -> Result<&'static str, String> {
@@ -412,7 +488,9 @@ fn next_gate_state(cur: &str, t: &str) -> Result<&'static str, String> {
         ("open", "bound") => Ok("bounded"),
         ("bounded", "close") => Ok("closed"),
         ("bounded", "reopen") | ("closed", "reopen") => Ok("open"),
-        _ => Err(format!("invalid transition '{t}' from '{cur}' (open->bound, bounded->close, ->reopen)")),
+        _ => Err(format!(
+            "invalid transition '{t}' from '{cur}' (open->bound, bounded->close, ->reopen)"
+        )),
     }
 }
 /// Release transitions: open/close change state; request_rollback/request_recall set a flag (Ok(None)).
@@ -427,7 +505,12 @@ fn next_release_state(cur: &str, t: &str) -> Result<Option<&'static str>, String
 
 fn g_list(data_dir: &str, kind: &str, key: &str) -> Json<Value> {
     let mut items = read_record_dir(data_dir, kind);
-    items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
+    items.sort_by(|a, b| {
+        b.get("updated_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
     Json(json!({ "ok": true, key: items }))
 }
 fn g_get(data_dir: &str, kind: &str, key: &str, id: &str) -> Json<Value> {
@@ -450,15 +533,26 @@ fn control_common(body: &Value) -> Value {
 }
 
 // ---- ApprovalRequest ---------------------------------------------------------------------------
-pub(crate) async fn handle_approval_list(State(st): State<Arc<DaemonState>>, Query(q): Query<HashMap<String, String>>) -> Json<Value> {
+pub(crate) async fn handle_approval_list(
+    State(st): State<Arc<DaemonState>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Json<Value> {
     let mut items = read_record_dir(&st.data_dir, KIND_APPROVAL);
     if let Some(s) = q.get("status").map(|s| s.trim()).filter(|s| !s.is_empty()) {
         items.retain(|a| a.get("status").and_then(|v| v.as_str()) == Some(s));
     }
-    items.sort_by(|a, b| b.get("updated_at").and_then(|v| v.as_str()).unwrap_or("").cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or("")));
+    items.sort_by(|a, b| {
+        b.get("updated_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .cmp(a.get("updated_at").and_then(|v| v.as_str()).unwrap_or(""))
+    });
     Json(json!({ "ok": true, "approval_requests": items }))
 }
-pub(crate) async fn handle_approval_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_approval_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
     let subject_ref = str_field(&body, "subject_ref");
     if let Err((c, m)) = resolve_governance_ref(&st.data_dir, subject_ref) {
         return bad(&c, &m);
@@ -477,11 +571,20 @@ pub(crate) async fn handle_approval_create(State(st): State<Arc<DaemonState>>, J
         "decided_at": Value::Null,
         "created_at": now, "updated_at": now
     });
-    record.as_object_mut().unwrap().extend(control_common(&body).as_object().unwrap().clone());
+    record
+        .as_object_mut()
+        .unwrap()
+        .extend(control_common(&body).as_object().unwrap().clone());
     let _ = persist_record(&st.data_dir, KIND_APPROVAL, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "approval_request": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "approval_request": record })),
+    )
 }
-pub(crate) async fn handle_approval_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_approval_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     g_get(&st.data_dir, KIND_APPROVAL, "approval_request", &id)
 }
 /// Apply an approval transition to `prev`, producing (updated record, transition receipt).
@@ -496,7 +599,10 @@ fn apply_approval_transition(
     now: &str,
     receipt_id: &str,
 ) -> Result<(Value, Value), (String, String)> {
-    let cur = prev.get("status").and_then(|v| v.as_str()).unwrap_or("pending");
+    let cur = prev
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("pending");
     let next = next_approval_status(cur, transition)
         .map_err(|e| ("governance_transition_invalid".to_string(), e))?;
     let prev_revision = prev.get("revision").and_then(Value::as_u64).unwrap_or(1);
@@ -525,7 +631,11 @@ fn apply_approval_transition(
         a["reviewer_ref"] = rv.clone();
     }
     a["revision"] = json!(revision);
-    let mut hist = a.get("history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut hist = a
+        .get("history")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     hist.push(json!({ "revision": revision, "op": transition, "at": now, "summary": format!("{cur} -> {next}"), "receipt_ref": receipt_ref.clone() }));
     if hist.len() > 50 {
         // Bounded history: keep the newest 50 entries (receipts stay durable on disk regardless).
@@ -533,7 +643,11 @@ fn apply_approval_transition(
         hist.drain(0..cut);
     }
     a["history"] = Value::Array(hist);
-    let mut refs = a.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut refs = a
+        .get("receipt_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     refs.push(json!(receipt_ref));
     a["receipt_refs"] = Value::Array(refs);
     a["updated_at"] = json!(now);
@@ -563,9 +677,15 @@ fn finalize_approval_transition(
     }
 }
 
-pub(crate) async fn handle_approval_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+pub(crate) async fn handle_approval_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
     let Some(mut a) = load(&st.data_dir, KIND_APPROVAL, &id) else {
-        return Json(json!({ "ok": false, "reason": "approval_request not found", "error": { "code": "approval_not_found", "message": "approval_request not found" } }));
+        return Json(
+            json!({ "ok": false, "reason": "approval_request not found", "error": { "code": "approval_not_found", "message": "approval_request not found" } }),
+        );
     };
     // TRANSITION lane (receipted): validate → build record+receipt → finalize atomically-with-
     // restore. A transition request patches NOTHING else in the same call, so the receipt is the
@@ -574,22 +694,47 @@ pub(crate) async fn handle_approval_patch(State(st): State<Arc<DaemonState>>, Ax
         let now = iso_now();
         let receipt_id = format!("atr_{:x}", nanos());
         return match apply_approval_transition(&a, t, body.get("reviewer_ref"), &now, &receipt_id) {
-            Ok((updated, receipt)) => match finalize_approval_transition(&st.data_dir, &id, &a, &updated, &receipt_id, &receipt) {
-                Ok(()) => Json(json!({ "ok": true, "approval_request": updated, "transition_receipt": receipt })),
-                Err(m) => Json(json!({ "ok": false, "error": { "code": "governance_transition_persist_failed", "message": m } })),
+            Ok((updated, receipt)) => match finalize_approval_transition(
+                &st.data_dir,
+                &id,
+                &a,
+                &updated,
+                &receipt_id,
+                &receipt,
+            ) {
+                Ok(()) => Json(
+                    json!({ "ok": true, "approval_request": updated, "transition_receipt": receipt }),
+                ),
+                Err(m) => Json(
+                    json!({ "ok": false, "error": { "code": "governance_transition_persist_failed", "message": m } }),
+                ),
             },
-            Err((code, message)) => Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+            Err((code, message)) => {
+                Json(json!({ "ok": false, "error": { "code": code, "message": message } }))
+            }
         };
     }
     // Non-transition metadata patch (legacy lane, semantics unchanged: no receipt, no revision bump).
-    for key in ["request_kind", "reason", "reviewer_ref", "enforcement_preview", "would_call", "required_authority_refs"] {
-        if let Some(v) = body.get(key) { a[key] = v.clone(); }
+    for key in [
+        "request_kind",
+        "reason",
+        "reviewer_ref",
+        "enforcement_preview",
+        "would_call",
+        "required_authority_refs",
+    ] {
+        if let Some(v) = body.get(key) {
+            a[key] = v.clone();
+        }
     }
     a["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_APPROVAL, &id, &a);
     Json(json!({ "ok": true, "approval_request": a }))
 }
-pub(crate) async fn handle_approval_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_approval_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     g_del(&st.data_dir, KIND_APPROVAL, &id)
 }
 
@@ -597,26 +742,49 @@ pub(crate) async fn handle_approval_delete(State(st): State<Arc<DaemonState>>, A
 pub(crate) async fn handle_release_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     g_list(&st.data_dir, KIND_RELEASE, "release_controls")
 }
-pub(crate) async fn handle_release_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_release_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
     let target = str_field(&body, "release_target_ref");
     if let Err((c, m)) = resolve_governance_ref(&st.data_dir, target) {
         return bad(&c, &m);
     }
-    let rollout_mode = { let m = str_field(&body, "rollout_mode"); if m.is_empty() { "full" } else { m } };
+    let rollout_mode = {
+        let m = str_field(&body, "rollout_mode");
+        if m.is_empty() {
+            "full"
+        } else {
+            m
+        }
+    };
     if !["canary", "cohort", "full"].contains(&rollout_mode) {
-        return bad("governance_rollout_mode_invalid", "rollout_mode must be canary | cohort | full");
+        return bad(
+            "governance_rollout_mode_invalid",
+            "rollout_mode must be canary | cohort | full",
+        );
     }
-    let canary_percent = body.get("canary_percent").and_then(Value::as_u64).map(|v| v.min(100));
+    let canary_percent = body
+        .get("canary_percent")
+        .and_then(Value::as_u64)
+        .map(|v| v.min(100));
     if rollout_mode == "canary" && canary_percent.is_none() {
-        return bad("governance_canary_percent_required", "canary rollout needs canary_percent (0-100)");
+        return bad(
+            "governance_canary_percent_required",
+            "canary rollout needs canary_percent (0-100)",
+        );
     }
     if rollout_mode == "cohort" && str_refs(&body, "cohort_refs").is_empty() {
-        return bad("governance_cohort_refs_required", "cohort rollout needs cohort_refs");
+        return bad(
+            "governance_cohort_refs_required",
+            "cohort rollout needs cohort_refs",
+        );
     }
-    let (cohort_refs, deprecated_raw) = match partition_cohort_refs(&st.data_dir, &str_refs(&body, "cohort_refs")) {
-        Ok(parts) => parts,
-        Err((code, message)) => return bad(&code, &message),
-    };
+    let (cohort_refs, deprecated_raw) =
+        match partition_cohort_refs(&st.data_dir, &str_refs(&body, "cohort_refs")) {
+            Ok(parts) => parts,
+            Err((code, message)) => return bad(&code, &message),
+        };
     let id = format!("rel_{:x}", nanos());
     let now = iso_now();
     let mut record = json!({
@@ -641,14 +809,27 @@ pub(crate) async fn handle_release_create(State(st): State<Arc<DaemonState>>, Js
         "cohort": body.get("cohort").cloned().unwrap_or(Value::Null),
         "created_at": now, "updated_at": now
     });
-    record.as_object_mut().unwrap().extend(control_common(&body).as_object().unwrap().clone());
+    record
+        .as_object_mut()
+        .unwrap()
+        .extend(control_common(&body).as_object().unwrap().clone());
     let _ = persist_record(&st.data_dir, KIND_RELEASE, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "release_control": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "release_control": record })),
+    )
 }
-pub(crate) async fn handle_release_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_release_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     g_get(&st.data_dir, KIND_RELEASE, "release_control", &id)
 }
-pub(crate) async fn handle_release_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+pub(crate) async fn handle_release_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
     let Some(mut r) = load(&st.data_dir, KIND_RELEASE, &id) else {
         return Json(json!({ "ok": false, "reason": "release_control not found" }));
     };
@@ -656,8 +837,18 @@ pub(crate) async fn handle_release_patch(State(st): State<Arc<DaemonState>>, Axu
         let cur = r.get("state").and_then(|v| v.as_str()).unwrap_or("closed");
         match next_release_state(cur, t) {
             Ok(Some(next)) => r["state"] = json!(next),
-            Ok(None) => { if t == "request_rollback" { r["rollback_requested"] = json!(true); } else { r["recall_requested"] = json!(true); } }
-            Err(e) => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } })),
+            Ok(None) => {
+                if t == "request_rollback" {
+                    r["rollback_requested"] = json!(true);
+                } else {
+                    r["recall_requested"] = json!(true);
+                }
+            }
+            Err(e) => {
+                return Json(
+                    json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } }),
+                )
+            }
         }
     }
     if body.get("cohort_refs").is_some() {
@@ -665,19 +856,40 @@ pub(crate) async fn handle_release_patch(State(st): State<Arc<DaemonState>>, Axu
             Ok((cohort_refs, deprecated_raw)) => {
                 r["cohort_refs"] = json!(cohort_refs);
                 r["deprecated_raw_cohort_refs"] = json!(deprecated_raw.clone());
-                r["cohort_refs_deprecation"] = if deprecated_raw.is_empty() { Value::Null } else { json!("raw member refs in cohort_refs are DEPRECATED — create a cohort:// object and reference it") };
+                r["cohort_refs_deprecation"] = if deprecated_raw.is_empty() {
+                    Value::Null
+                } else {
+                    json!("raw member refs in cohort_refs are DEPRECATED — create a cohort:// object and reference it")
+                };
             }
-            Err((code, message)) => return Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+            Err((code, message)) => {
+                return Json(json!({ "ok": false, "error": { "code": code, "message": message } }))
+            }
         }
     }
-    for key in ["canary", "cohort", "rollout_mode", "canary_percent", "starts_at", "ends_at", "enforcement_preview", "would_call", "required_authority_refs"] {
-        if let Some(v) = body.get(key) { r[key] = v.clone(); }
+    for key in [
+        "canary",
+        "cohort",
+        "rollout_mode",
+        "canary_percent",
+        "starts_at",
+        "ends_at",
+        "enforcement_preview",
+        "would_call",
+        "required_authority_refs",
+    ] {
+        if let Some(v) = body.get(key) {
+            r[key] = v.clone();
+        }
     }
     r["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_RELEASE, &id, &r);
     Json(json!({ "ok": true, "release_control": r }))
 }
-pub(crate) async fn handle_release_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_release_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     g_del(&st.data_dir, KIND_RELEASE, &id)
 }
 
@@ -687,16 +899,28 @@ pub(crate) async fn handle_release_delete(State(st): State<Arc<DaemonState>>, Ax
 // resolvable member refs (principal:// project:// org:// environment:// ioi-agent-policy://).
 // Eligibility is evaluated against DAEMON-DERIVED context, never trusted caller text.
 
-const COHORT_MEMBER_SCHEMES: &[&str] = &["principal", "project", "org", "environment", "ioi-agent-policy"];
+const COHORT_MEMBER_SCHEMES: &[&str] = &[
+    "principal",
+    "project",
+    "org",
+    "environment",
+    "ioi-agent-policy",
+];
 
 /// Split ReleaseControl cohort_refs into (all refs kept as given, deprecated raw member refs).
 /// cohort:// entries must resolve; anything else is a DEPRECATED raw member ref (still honored).
-fn partition_cohort_refs(data_dir: &str, entries: &[String]) -> Result<(Vec<String>, Vec<String>), (String, String)> {
+fn partition_cohort_refs(
+    data_dir: &str,
+    entries: &[String],
+) -> Result<(Vec<String>, Vec<String>), (String, String)> {
     let mut deprecated: Vec<String> = Vec::new();
     for entry in entries {
         if let Some(id) = entry.strip_prefix("cohort://") {
             if load(data_dir, KIND_COHORT, id).is_none() {
-                return Err(("governance_cohort_unresolved".into(), format!("'{entry}' does not resolve to a recorded cohort")));
+                return Err((
+                    "governance_cohort_unresolved".into(),
+                    format!("'{entry}' does not resolve to a recorded cohort"),
+                ));
             }
         } else {
             deprecated.push(entry.clone());
@@ -718,14 +942,30 @@ fn validate_cohort_members(entries: &[String]) -> Result<(), (String, String)> {
 pub(crate) async fn handle_cohort_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     g_list(&st.data_dir, KIND_COHORT, "cohorts")
 }
-pub(crate) async fn handle_cohort_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_cohort_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
     let display_name = str_field(&body, "display_name");
     if display_name.is_empty() {
-        return bad("governance_cohort_name_required", "a cohort needs a display_name");
+        return bad(
+            "governance_cohort_name_required",
+            "a cohort needs a display_name",
+        );
     }
-    let scope = { let s = str_field(&body, "scope"); if s.is_empty() { "project" } else { s } };
+    let scope = {
+        let s = str_field(&body, "scope");
+        if s.is_empty() {
+            "project"
+        } else {
+            s
+        }
+    };
     if !["personal", "project", "org"].contains(&scope) {
-        return bad("governance_cohort_scope_invalid", "scope must be personal | project | org");
+        return bad(
+            "governance_cohort_scope_invalid",
+            "scope must be personal | project | org",
+        );
     }
     let members = str_refs(&body, "member_refs");
     if let Err((code, message)) = validate_cohort_members(&members) {
@@ -746,12 +986,22 @@ pub(crate) async fn handle_cohort_create(State(st): State<Arc<DaemonState>>, Jso
         "created_at": now, "updated_at": now
     });
     let _ = persist_record(&st.data_dir, KIND_COHORT, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "cohort": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "cohort": record })),
+    )
 }
-pub(crate) async fn handle_cohort_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_cohort_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     g_get(&st.data_dir, KIND_COHORT, "cohort", &id)
 }
-pub(crate) async fn handle_cohort_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+pub(crate) async fn handle_cohort_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
     let Some(mut c) = load(&st.data_dir, KIND_COHORT, &id) else {
         return Json(json!({ "ok": false, "reason": "cohort not found" }));
     };
@@ -759,12 +1009,18 @@ pub(crate) async fn handle_cohort_patch(State(st): State<Arc<DaemonState>>, Axum
         match t {
             "enable" => c["status"] = json!("active"),
             "disable" => c["status"] = json!("disabled"),
-            other => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": format!("invalid cohort transition '{other}' (enable | disable)") } })),
+            other => {
+                return Json(
+                    json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": format!("invalid cohort transition '{other}' (enable | disable)") } }),
+                )
+            }
         }
     }
     if let Some(status) = body.get("status").and_then(Value::as_str) {
         if !["active", "disabled"].contains(&status) {
-            return Json(json!({ "ok": false, "error": { "code": "governance_cohort_status_invalid", "message": "status must be active | disabled" } }));
+            return Json(
+                json!({ "ok": false, "error": { "code": "governance_cohort_status_invalid", "message": "status must be active | disabled" } }),
+            );
         }
         c["status"] = json!(status);
     }
@@ -776,13 +1032,18 @@ pub(crate) async fn handle_cohort_patch(State(st): State<Arc<DaemonState>>, Axum
         c["member_refs"] = json!(members);
     }
     for key in ["display_name", "description", "evidence_refs"] {
-        if let Some(v) = body.get(key) { c[key] = v.clone(); }
+        if let Some(v) = body.get(key) {
+            c[key] = v.clone();
+        }
     }
     c["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_COHORT, &id, &c);
     Json(json!({ "ok": true, "cohort": c }))
 }
-pub(crate) async fn handle_cohort_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_cohort_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     g_del(&st.data_dir, KIND_COHORT, &id)
 }
 
@@ -790,7 +1051,10 @@ pub(crate) async fn handle_cohort_delete(State(st): State<Arc<DaemonState>>, Axu
 pub(crate) async fn handle_kill_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     g_list(&st.data_dir, KIND_KILL, "kill_switches")
 }
-pub(crate) async fn handle_kill_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_kill_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
     let subject_ref = str_field(&body, "subject_ref");
     if let Err((c, m)) = resolve_governance_ref(&st.data_dir, subject_ref) {
         return bad(&c, &m);
@@ -809,14 +1073,27 @@ pub(crate) async fn handle_kill_create(State(st): State<Arc<DaemonState>>, Json(
         "tripped_at": Value::Null,
         "created_at": now, "updated_at": now
     });
-    record.as_object_mut().unwrap().extend(control_common(&body).as_object().unwrap().clone());
+    record
+        .as_object_mut()
+        .unwrap()
+        .extend(control_common(&body).as_object().unwrap().clone());
     let _ = persist_record(&st.data_dir, KIND_KILL, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "kill_switch": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "kill_switch": record })),
+    )
 }
-pub(crate) async fn handle_kill_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_kill_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     g_get(&st.data_dir, KIND_KILL, "kill_switch", &id)
 }
-pub(crate) async fn handle_kill_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+pub(crate) async fn handle_kill_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
     let Some(mut k) = load(&st.data_dir, KIND_KILL, &id) else {
         return Json(json!({ "ok": false, "reason": "kill_switch not found" }));
     };
@@ -827,23 +1104,41 @@ pub(crate) async fn handle_kill_patch(State(st): State<Arc<DaemonState>>, AxumPa
                 k["state"] = json!(next);
                 if next == "tripped" {
                     k["tripped_at"] = json!(iso_now());
-                    k["trip_reason"] = json!(body.get("trip_reason").and_then(|v| v.as_str()).unwrap_or(""));
+                    k["trip_reason"] = json!(body
+                        .get("trip_reason")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(""));
                 } else {
                     k["tripped_at"] = Value::Null;
                     k["trip_reason"] = Value::Null;
                 }
             }
-            Err(e) => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } })),
+            Err(e) => {
+                return Json(
+                    json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } }),
+                )
+            }
         }
     }
-    for key in ["subject_ref", "revoke_path", "enforcement_preview", "would_call", "required_authority_refs"] {
-        if let Some(v) = body.get(key) { k[key] = v.clone(); }
+    for key in [
+        "subject_ref",
+        "revoke_path",
+        "enforcement_preview",
+        "would_call",
+        "required_authority_refs",
+    ] {
+        if let Some(v) = body.get(key) {
+            k[key] = v.clone();
+        }
     }
     k["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_KILL, &id, &k);
     Json(json!({ "ok": true, "kill_switch": k }))
 }
-pub(crate) async fn handle_kill_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_kill_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     g_del(&st.data_dir, KIND_KILL, &id)
 }
 
@@ -862,10 +1157,18 @@ pub(crate) async fn handle_kill_enforce(
         return bad("kill_switch_not_found", "kill switch not found");
     };
     if k.get("state").and_then(|v| v.as_str()) != Some("tripped") {
-        return bad("kill_switch_not_tripped", "KillSwitch must be tripped before it can be enforced");
+        return bad(
+            "kill_switch_not_tripped",
+            "KillSwitch must be tripped before it can be enforced",
+        );
     }
-    let subject = k.get("subject_ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let supported = subject.starts_with("domain-app-runtime://") || subject.starts_with("domain-app://");
+    let subject = k
+        .get("subject_ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let supported =
+        subject.starts_with("domain-app-runtime://") || subject.starts_with("domain-app://");
     if !supported {
         return bad(
             "kill_target_unsupported",
@@ -880,12 +1183,23 @@ pub(crate) async fn handle_kill_enforce(
         if let Some(r) = rt.get("ref").and_then(|v| v.as_str()) {
             affected.push(r.to_string());
         }
-        receipt_refs.extend(super::domain_apps_routes::kill_enforce_runtime(&st.data_dir, rt));
+        receipt_refs.extend(super::domain_apps_routes::kill_enforce_runtime(
+            &st.data_dir,
+            rt,
+        ));
     }
-    let enforcement_state = if runtimes.is_empty() { "noop" } else { "enforced" };
+    let enforcement_state = if runtimes.is_empty() {
+        "noop"
+    } else {
+        "enforced"
+    };
     // Emit a governance enforcement receipt even for a no-op (proof, never silent).
     let erid = format!("kille_{:x}", nanos());
-    let state_root = sha256_hex_str(&format!("kill_enforce|{}|{subject}|{}|{now}", k.get("ref").and_then(|v| v.as_str()).unwrap_or(""), affected.join(",")));
+    let state_root = sha256_hex_str(&format!(
+        "kill_enforce|{}|{subject}|{}|{now}",
+        k.get("ref").and_then(|v| v.as_str()).unwrap_or(""),
+        affected.join(",")
+    ));
     let ereceipt = json!({
         "schema_version": "ioi.hypervisor.governance.kill-enforcement-receipt.v1",
         "object": "ioi.hypervisor.governance.kill_enforcement_receipt",
@@ -912,14 +1226,20 @@ pub(crate) async fn handle_kill_enforce(
     k["last_enforcement_error"] = Value::Null;
     k["updated_at"] = json!(now);
     let _ = persist_record(&st.data_dir, KIND_KILL, &id, &k);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "kill_switch": k, "enforcement_receipt": ereceipt })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "kill_switch": k, "enforcement_receipt": ereceipt })),
+    )
 }
 
 // ---- ImprovementGate ---------------------------------------------------------------------------
 pub(crate) async fn handle_gate_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     g_list(&st.data_dir, KIND_GATE, "improvement_gates")
 }
-pub(crate) async fn handle_gate_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_gate_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
     let subject_ref = str_field(&body, "subject_ref");
     if let Err((c, m)) = resolve_governance_ref(&st.data_dir, subject_ref) {
         return bad(&c, &m);
@@ -944,14 +1264,27 @@ pub(crate) async fn handle_gate_create(State(st): State<Arc<DaemonState>>, Json(
         "bounds": bounds,
         "created_at": now, "updated_at": now
     });
-    record.as_object_mut().unwrap().extend(control_common(&body).as_object().unwrap().clone());
+    record
+        .as_object_mut()
+        .unwrap()
+        .extend(control_common(&body).as_object().unwrap().clone());
     let _ = persist_record(&st.data_dir, KIND_GATE, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "improvement_gate": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "improvement_gate": record })),
+    )
 }
-pub(crate) async fn handle_gate_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_gate_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     g_get(&st.data_dir, KIND_GATE, "improvement_gate", &id)
 }
-pub(crate) async fn handle_gate_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(body): Json<Value>) -> Json<Value> {
+pub(crate) async fn handle_gate_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
     let Some(mut g) = load(&st.data_dir, KIND_GATE, &id) else {
         return Json(json!({ "ok": false, "reason": "improvement_gate not found" }));
     };
@@ -959,17 +1292,31 @@ pub(crate) async fn handle_gate_patch(State(st): State<Arc<DaemonState>>, AxumPa
         let cur = g.get("state").and_then(|v| v.as_str()).unwrap_or("open");
         match next_gate_state(cur, t) {
             Ok(next) => g["state"] = json!(next),
-            Err(e) => return Json(json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } })),
+            Err(e) => {
+                return Json(
+                    json!({ "ok": false, "error": { "code": "governance_transition_invalid", "message": e } }),
+                )
+            }
         }
     }
-    for key in ["bounds", "enforcement_preview", "would_call", "required_authority_refs"] {
-        if let Some(v) = body.get(key) { g[key] = v.clone(); }
+    for key in [
+        "bounds",
+        "enforcement_preview",
+        "would_call",
+        "required_authority_refs",
+    ] {
+        if let Some(v) = body.get(key) {
+            g[key] = v.clone();
+        }
     }
     g["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_GATE, &id, &g);
     Json(json!({ "ok": true, "improvement_gate": g }))
 }
-pub(crate) async fn handle_gate_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_gate_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     g_del(&st.data_dir, KIND_GATE, &id)
 }
 
@@ -979,9 +1326,18 @@ mod governance_tests {
 
     #[test]
     fn approval_transitions_valid_and_invalid() {
-        assert_eq!(next_approval_status("pending", "approve").unwrap(), "approved");
-        assert_eq!(next_approval_status("pending", "reject").unwrap(), "rejected");
-        assert_eq!(next_approval_status("approved", "revoke").unwrap(), "revoked");
+        assert_eq!(
+            next_approval_status("pending", "approve").unwrap(),
+            "approved"
+        );
+        assert_eq!(
+            next_approval_status("pending", "reject").unwrap(),
+            "rejected"
+        );
+        assert_eq!(
+            next_approval_status("approved", "revoke").unwrap(),
+            "revoked"
+        );
         assert!(next_approval_status("approved", "approve").is_err());
         assert!(next_approval_status("rejected", "revoke").is_err());
         assert!(next_approval_status("pending", "publish").is_err());
@@ -1001,7 +1357,14 @@ mod governance_tests {
     #[test]
     fn approval_transition_accepted_builds_record_and_receipt() {
         let prev = legacy_pending();
-        let (a, r) = apply_approval_transition(&prev, "approve", Some(&json!("agent://rev")), "2026-02-01T00:00:00Z", "atr_test1").unwrap();
+        let (a, r) = apply_approval_transition(
+            &prev,
+            "approve",
+            Some(&json!("agent://rev")),
+            "2026-02-01T00:00:00Z",
+            "atr_test1",
+        )
+        .unwrap();
         // Record: status, decided, reviewer, revision bumped EXACTLY once (legacy 1 -> 2),
         // one history entry, one receipt ref — all pointing at the same receipt.
         assert_eq!(a["status"], json!("approved"));
@@ -1025,15 +1388,37 @@ mod governance_tests {
         // EXACT key set — request headers/cookies/tokens/arbitrary form data can never leak in.
         let mut keys: Vec<&str> = r.as_object().unwrap().keys().map(|k| k.as_str()).collect();
         keys.sort_unstable();
-        assert_eq!(keys, vec!["approval_request_id", "approval_request_ref", "at", "object", "outcome", "previous_status", "receipt_id", "receipt_ref", "required_authority_refs", "resulting_status", "reviewer_ref", "schema_version", "subject_ref", "transition"]);
+        assert_eq!(
+            keys,
+            vec![
+                "approval_request_id",
+                "approval_request_ref",
+                "at",
+                "object",
+                "outcome",
+                "previous_status",
+                "receipt_id",
+                "receipt_ref",
+                "required_authority_refs",
+                "resulting_status",
+                "reviewer_ref",
+                "schema_version",
+                "subject_ref",
+                "transition"
+            ]
+        );
     }
 
     #[test]
     fn approval_transition_refused_touches_nothing_and_duplicates_refuse() {
         let prev = legacy_pending();
-        let (approved, _r1) = apply_approval_transition(&prev, "approve", None, "2026-02-01T00:00:00Z", "atr_a").unwrap();
+        let (approved, _r1) =
+            apply_approval_transition(&prev, "approve", None, "2026-02-01T00:00:00Z", "atr_a")
+                .unwrap();
         // Duplicate approve on the already-approved record: typed refusal, zero mutation.
-        let err = apply_approval_transition(&approved, "approve", None, "2026-02-02T00:00:00Z", "atr_b").unwrap_err();
+        let err =
+            apply_approval_transition(&approved, "approve", None, "2026-02-02T00:00:00Z", "atr_b")
+                .unwrap_err();
         assert_eq!(err.0, "governance_transition_invalid");
         // Pure fn: the input record is untouched by a refusal (revision/history/refs intact).
         assert_eq!(approved["revision"], json!(2));
@@ -1054,7 +1439,11 @@ mod governance_tests {
         let (a, _r) = apply_approval_transition(&rec, "approve", None, "t2", "atr_bound").unwrap();
         let h = a["history"].as_array().unwrap();
         assert_eq!(h.len(), 50, "history is bounded to the newest 50 entries");
-        assert_eq!(h.last().unwrap()["op"], json!("approve"), "the newest entry is the accepted transition");
+        assert_eq!(
+            h.last().unwrap()["op"],
+            json!("approve"),
+            "the newest entry is the accepted transition"
+        );
     }
 
     #[test]
@@ -1066,19 +1455,37 @@ mod governance_tests {
         let data_dir = dir.to_str().unwrap();
         let prev = legacy_pending();
         persist_record(data_dir, KIND_APPROVAL, "appr_t1", &prev).unwrap();
-        let (updated, receipt) = apply_approval_transition(&prev, "approve", None, "t", "atr_fail").unwrap();
+        let (updated, receipt) =
+            apply_approval_transition(&prev, "approve", None, "t", "atr_fail").unwrap();
         // Block the receipts dir: a plain file where the directory must go.
         std::fs::write(dir.join(KIND_APPROVAL_RECEIPT), b"blocker").unwrap();
-        let err = finalize_approval_transition(data_dir, "appr_t1", &prev, &updated, "atr_fail", &receipt).unwrap_err();
+        let err = finalize_approval_transition(
+            data_dir, "appr_t1", &prev, &updated, "atr_fail", &receipt,
+        )
+        .unwrap_err();
         assert!(err.contains("restored"), "failure names the restore: {err}");
         let on_disk = load(data_dir, KIND_APPROVAL, "appr_t1").unwrap();
-        assert_eq!(on_disk["status"], json!("pending"), "the transition did not survive the receipt failure");
-        assert!(on_disk.get("revision").is_none(), "no revision bump survived");
+        assert_eq!(
+            on_disk["status"],
+            json!("pending"),
+            "the transition did not survive the receipt failure"
+        );
+        assert!(
+            on_disk.get("revision").is_none(),
+            "no revision bump survived"
+        );
         // And the happy path works once the blocker is gone: record + receipt both persist.
         std::fs::remove_file(dir.join(KIND_APPROVAL_RECEIPT)).unwrap();
-        finalize_approval_transition(data_dir, "appr_t1", &prev, &updated, "atr_fail", &receipt).unwrap();
-        assert_eq!(load(data_dir, KIND_APPROVAL, "appr_t1").unwrap()["status"], json!("approved"));
-        assert_eq!(load(data_dir, KIND_APPROVAL_RECEIPT, "atr_fail").unwrap()["transition"], json!("approve"));
+        finalize_approval_transition(data_dir, "appr_t1", &prev, &updated, "atr_fail", &receipt)
+            .unwrap();
+        assert_eq!(
+            load(data_dir, KIND_APPROVAL, "appr_t1").unwrap()["status"],
+            json!("approved")
+        );
+        assert_eq!(
+            load(data_dir, KIND_APPROVAL_RECEIPT, "atr_fail").unwrap()["transition"],
+            json!("approve")
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1093,7 +1500,10 @@ mod governance_tests {
         assert!(next_gate_state("open", "close").is_err());
         assert_eq!(next_release_state("closed", "open").unwrap(), Some("open"));
         assert_eq!(next_release_state("open", "close").unwrap(), Some("closed"));
-        assert_eq!(next_release_state("open", "request_rollback").unwrap(), None); // flag, no state change
+        assert_eq!(
+            next_release_state("open", "request_rollback").unwrap(),
+            None
+        ); // flag, no state change
         assert!(next_release_state("closed", "close").is_err());
     }
 
@@ -1104,11 +1514,29 @@ mod governance_tests {
         assert!(resolve_governance_ref("/nonexistent", "connector:conn_123").is_ok());
         assert!(resolve_governance_ref("/nonexistent", "lease_abc").is_ok());
         // required (empty) rejected
-        assert_eq!(resolve_governance_ref("/nonexistent", "").unwrap_err().0, "governance_ref_required");
+        assert_eq!(
+            resolve_governance_ref("/nonexistent", "").unwrap_err().0,
+            "governance_ref_required"
+        );
         // local-looking (foundry id / known scheme) must resolve -> unresolved in an empty dir
-        assert_eq!(resolve_governance_ref("/nonexistent", "frun_x").unwrap_err().0, "governance_ref_unresolved");
-        assert_eq!(resolve_governance_ref("/nonexistent", "domain-app://dapp_x").unwrap_err().0, "governance_ref_unresolved");
-        assert_eq!(resolve_governance_ref("/nonexistent", "marketplace-publish://mpub_x").unwrap_err().0, "governance_ref_unresolved");
+        assert_eq!(
+            resolve_governance_ref("/nonexistent", "frun_x")
+                .unwrap_err()
+                .0,
+            "governance_ref_unresolved"
+        );
+        assert_eq!(
+            resolve_governance_ref("/nonexistent", "domain-app://dapp_x")
+                .unwrap_err()
+                .0,
+            "governance_ref_unresolved"
+        );
+        assert_eq!(
+            resolve_governance_ref("/nonexistent", "marketplace-publish://mpub_x")
+                .unwrap_err()
+                .0,
+            "governance_ref_unresolved"
+        );
     }
 
     #[test]
@@ -1116,10 +1544,10 @@ mod governance_tests {
         let now = 1_000_000i64;
         let grants = vec![
             json!({ "decision": "granted", "revoked": false, "expires_at_unix": now + 1000 }), // active
-            json!({ "decision": "granted", "revoked": true, "expires_at_unix": now + 1000 }),  // revoked
+            json!({ "decision": "granted", "revoked": true, "expires_at_unix": now + 1000 }), // revoked
             json!({ "decision": "granted", "revoked": false, "expires_at_unix": now - 1000 }), // expired
-            json!({ "decision": "granted", "revoked": false, "expires_at_unix": 0 }),          // active (no expiry)
-            json!({ "decision": "denied", "revoked": false }),                                  // not granted
+            json!({ "decision": "granted", "revoked": false, "expires_at_unix": 0 }), // active (no expiry)
+            json!({ "decision": "denied", "revoked": false }),                        // not granted
         ];
         let (total, granted, revoked, active) = grant_stats(&grants, now);
         assert_eq!(total, 5);
@@ -1132,10 +1560,10 @@ mod governance_tests {
     fn lease_stats_counts_active_revoked_receipt() {
         let now_ms = 1_000_000i64;
         let leases = vec![
-            json!({ "expires_at": now_ms + 5000, "receipt_required": true }),                    // active + receipt
-            json!({ "expires_at": now_ms + 5000, "revocation_ref": "rev_1" }),                    // revoked
-            json!({ "expires_at": now_ms - 5000 }),                                               // expired
-            json!({ "expires_at": 0, "receipt_required": false }),                                // active (no expiry)
+            json!({ "expires_at": now_ms + 5000, "receipt_required": true }), // active + receipt
+            json!({ "expires_at": now_ms + 5000, "revocation_ref": "rev_1" }), // revoked
+            json!({ "expires_at": now_ms - 5000 }),                           // expired
+            json!({ "expires_at": 0, "receipt_required": false }),            // active (no expiry)
         ];
         let (total, active, revoked, receipt) = lease_stats(&leases, now_ms);
         assert_eq!(total, 4);

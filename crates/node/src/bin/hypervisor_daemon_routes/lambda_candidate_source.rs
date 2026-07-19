@@ -25,7 +25,10 @@ fn text<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
 }
 fn nanos() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
 }
 
 fn engaged_account(data_dir: &str) -> Option<(Value, Option<String>)> {
@@ -51,7 +54,10 @@ fn load_health(data_dir: &str) -> Option<Value> {
 
 pub(crate) fn source_state(data_dir: &str) -> Value {
     let accounts = read_record_dir(data_dir, "provider-accounts");
-    let lambda_accounts: Vec<&Value> = accounts.iter().filter(|a| a["kind"] == "lambda_cloud").collect();
+    let lambda_accounts: Vec<&Value> = accounts
+        .iter()
+        .filter(|a| a["kind"] == "lambda_cloud")
+        .collect();
     if lambda_accounts.is_empty() {
         return json!({ "source": "lambda_cloud", "state": "candidate_source_unavailable",
             "reason": "lambda_cloud_credential_absent — no lambda_cloud ProviderAccount exists; create one, bind a bearer api_key, and preflight it",
@@ -97,7 +103,10 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
         return json!({ "engaged": false });
     };
     let account_ref = text(&account, "account_ref").to_string();
-    let ep = account.get("endpoint").cloned().unwrap_or_else(|| json!({}));
+    let ep = account
+        .get("endpoint")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     let fetched_at = iso_now();
     if text(&ep, "mode") == "fixture" || text(&ep, "mode") == "simulator" {
         let simulator = text(&ep, "mode") == "simulator";
@@ -107,11 +116,16 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
             ("fixture_evidence", "fixture_quote_source")
         };
         let path = text(&ep, "fixture_file");
-        let outcome = match std::fs::read_to_string(path).map_err(|e| e.to_string())
+        let outcome = match std::fs::read_to_string(path)
+            .map_err(|e| e.to_string())
             .and_then(|raw| serde_json::from_str::<Value>(&raw).map_err(|e| e.to_string()))
         {
             Ok(doc) => {
-                let offers = doc.get("instance_types").and_then(Value::as_array).cloned().unwrap_or_default();
+                let offers = doc
+                    .get("instance_types")
+                    .and_then(Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
                 json!({ "engaged": true, "mode": mode_label, "account_ref": account_ref,
                     "state": state_label, "offers": offers,
                     "evidence": { "mode": mode_label, "fixture_file": path,
@@ -130,7 +144,11 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
     // ── live: the real instance-types catalog (Lambda-style GET /instance-types). ──
     let base = {
         let configured = text(&ep, "endpoint");
-        if configured.is_empty() { DEFAULT_ENDPOINT.to_string() } else { configured.trim_end_matches('/').to_string() }
+        if configured.is_empty() {
+            DEFAULT_ENDPOINT.to_string()
+        } else {
+            configured.trim_end_matches('/').to_string()
+        }
     };
     let resp = reqwest::Client::new()
         .get(format!("{base}/instance-types"))
@@ -144,28 +162,44 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
             match r.json::<Value>().await {
                 Ok(doc) if (200..300).contains(&status) => {
                     // Lambda returns { data: { "<type>": { instance_type, regions_with_capacity_available } } }.
-                    let offers: Vec<Value> = doc.get("data").and_then(Value::as_object)
-                        .map(|m| m.values().map(|entry| {
-                            let it = entry.get("instance_type").cloned().unwrap_or_else(|| entry.clone());
-                            let regions = entry.get("regions_with_capacity_available").cloned().unwrap_or(json!([]));
-                            json!({ "instance_type": it, "regions": regions })
-                        }).collect())
+                    let offers: Vec<Value> = doc
+                        .get("data")
+                        .and_then(Value::as_object)
+                        .map(|m| {
+                            m.values()
+                                .map(|entry| {
+                                    let it = entry
+                                        .get("instance_type")
+                                        .cloned()
+                                        .unwrap_or_else(|| entry.clone());
+                                    let regions = entry
+                                        .get("regions_with_capacity_available")
+                                        .cloned()
+                                        .unwrap_or(json!([]));
+                                    json!({ "instance_type": it, "regions": regions })
+                                })
+                                .collect()
+                        })
                         .unwrap_or_default();
                     json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
                         "state": "live_quote_source", "offers": offers,
                         "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status, "instance_types_seen": offers.len() },
                         "at": fetched_at })
                 }
-                Ok(doc) => json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
+                Ok(doc) => {
+                    json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
                     "state": "degraded_unreachable", "offers": [],
                     "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status,
                                   "error": format!("lambda API rejected the request (body keys: {:?})", doc.as_object().map(|o| o.keys().take(4).cloned().collect::<Vec<_>>()).unwrap_or_default()),
                                   "note": "no fake quotes on failure" },
-                    "at": fetched_at }),
-                Err(e) => json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
+                    "at": fetched_at })
+                }
+                Err(e) => {
+                    json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
                     "state": "degraded_unreachable", "offers": [],
                     "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status, "error": format!("non-JSON response: {e}") },
-                    "at": fetched_at }),
+                    "at": fetched_at })
+                }
             }
         }
         Err(e) => json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
@@ -194,7 +228,11 @@ pub(crate) fn normalize_offers(
     let fixture = mode == "fixture_evidence";
     let simulator = mode == "simulator_evidence";
     let live = mode == "live_evidence";
-    let offers = outcome.get("offers").and_then(Value::as_array).cloned().unwrap_or_default();
+    let offers = outcome
+        .get("offers")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     offers.iter().take(24).enumerate().filter_map(|(i, entry)| {
         // Live entries are { instance_type, regions }; fixture entries are flat.
         let it = entry.get("instance_type").cloned().unwrap_or_else(|| entry.clone());

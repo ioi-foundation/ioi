@@ -13,13 +13,15 @@
 //!    prebuild-hit / warm-claim / cache from real env truth; a warm pool pre-starts envs claimable
 //!    by project+class.
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::body::Bytes;
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 use super::{
@@ -33,8 +35,8 @@ fn safe(seg: &str) -> String {
     )
 }
 fn nanos() -> u128 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0)
 }
@@ -154,10 +156,13 @@ pub(crate) async fn handle_automation_create(
         .unwrap_or("manual")
         .to_string();
     // Validate the schedule (cron expression / timezone) up front with a useful error.
-    if let Err(e) = super::validate_schedule_spec(body.get("schedule_spec").unwrap_or(&Value::Null)) {
+    if let Err(e) = super::validate_schedule_spec(body.get("schedule_spec").unwrap_or(&Value::Null))
+    {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } })),
+            Json(
+                json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }),
+            ),
         );
     }
     let mut record = json!({
@@ -214,6 +219,7 @@ pub(crate) async fn handle_automation_create(
     let mut resp = json!({ "ok": true, "automation": record });
     if let Some(tok) = fresh_token {
         resp["webhook_token"] = json!(tok); // shown once — never persisted in plaintext
+        resp["webhook_signature"] = webhook_signature_metadata();
     }
     (StatusCode::CREATED, Json(resp))
 }
@@ -263,20 +269,43 @@ pub(crate) async fn handle_automation_patch(
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> Json<Value> {
+    let Ok(_guard) = WEBHOOK_ADMISSION_LOCK.lock() else {
+        return Json(json!({ "ok": false, "reason": "webhook_admission_lock_poisoned" }));
+    };
     let Some(mut a) = load(&st.data_dir, "automations", &id) else {
         return Json(json!({ "ok": false, "reason": "automation not found" }));
     };
     if let Some(spec) = body.get("schedule_spec") {
         if let Err(e) = super::validate_schedule_spec(spec) {
-            return Json(json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }));
+            return Json(
+                json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }),
+            );
         }
     }
     for key in [
-        "name", "description", "trigger", "trigger_kind", "enabled", "steps", "workflow_graph_ref",
-        "limits", "executor_identity", "recipe_ref", "agent_ref", "harness_profile_ref", "model",
-        "reasoning", "connector_refs", "memory_profile_ref", "default_runtime_policy_ref",
-        "authority_policy_ref", "schedule_spec", "catch_up_policy", "misfire_policy",
-        "max_concurrency", "failure_policy",
+        "name",
+        "description",
+        "trigger",
+        "trigger_kind",
+        "enabled",
+        "steps",
+        "workflow_graph_ref",
+        "limits",
+        "executor_identity",
+        "recipe_ref",
+        "agent_ref",
+        "harness_profile_ref",
+        "model",
+        "reasoning",
+        "connector_refs",
+        "memory_profile_ref",
+        "default_runtime_policy_ref",
+        "authority_policy_ref",
+        "schedule_spec",
+        "catch_up_policy",
+        "misfire_policy",
+        "max_concurrency",
+        "failure_policy",
     ] {
         if let Some(v) = body.get(key) {
             a[key] = v.clone();
@@ -298,8 +327,14 @@ pub(crate) async fn handle_automation_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
-    let project_id = load(&st.data_dir, "automations", &id)
-        .and_then(|a| a.get("project_id").and_then(|v| v.as_str()).map(str::to_string));
+    let Ok(_guard) = WEBHOOK_ADMISSION_LOCK.lock() else {
+        return Json(json!({ "ok": false, "reason": "webhook_admission_lock_poisoned" }));
+    };
+    let project_id = load(&st.data_dir, "automations", &id).and_then(|a| {
+        a.get("project_id")
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+    });
     let removed = remove_record(&st.data_dir, "automations", &id);
     if let Some(pid) = project_id {
         link_project_automation(&st.data_dir, &pid, &id, false);
@@ -366,7 +401,11 @@ pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Jso
     // Scheduler: automations carrying a schedule_spec (enabled/paused, trigger, next/last, policy).
     let mut scheduled: Vec<Value> = Vec::new();
     for a in &automations {
-        if !a.get("schedule_spec").map(|s| s.is_object()).unwrap_or(false) {
+        if !a
+            .get("schedule_spec")
+            .map(|s| s.is_object())
+            .unwrap_or(false)
+        {
             continue;
         }
         scheduled.push(json!({
@@ -389,15 +428,28 @@ pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Jso
             _ => {}
         }
         let exec_id = e.get("execution_id").and_then(|v| v.as_str()).unwrap_or("");
-        let aid = e.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
+        let aid = e
+            .get("automation_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let t = by_run.get(exec_id);
         let name = t
-            .and_then(|t| t.get("automation_name")).and_then(|v| v.as_str())
-            .or_else(|| amap.get(aid).and_then(|a| a.get("name")).and_then(|v| v.as_str()))
+            .and_then(|t| t.get("automation_name"))
+            .and_then(|v| v.as_str())
+            .or_else(|| {
+                amap.get(aid)
+                    .and_then(|a| a.get("name"))
+                    .and_then(|v| v.as_str())
+            })
             .unwrap_or("automation");
         let project = t
-            .and_then(|t| t.get("project_id")).and_then(|v| v.as_str())
-            .or_else(|| amap.get(aid).and_then(|a| a.get("project_id")).and_then(|v| v.as_str()))
+            .and_then(|t| t.get("project_id"))
+            .and_then(|v| v.as_str())
+            .or_else(|| {
+                amap.get(aid)
+                    .and_then(|a| a.get("project_id"))
+                    .and_then(|v| v.as_str())
+            })
             .unwrap_or("");
         runs.push(json!({
             "execution_id": exec_id, "automation_id": aid, "name": name, "project_id": project,
@@ -406,10 +458,17 @@ pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Jso
         }));
     }
     runs.sort_by(|a, b| {
-        b.get("started_at").and_then(|v| v.as_str()).unwrap_or("")
+        b.get("started_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
             .cmp(a.get("started_at").and_then(|v| v.as_str()).unwrap_or(""))
     });
-    let failures: Vec<Value> = runs.iter().filter(|r| r.get("status").and_then(|v| v.as_str()) == Some("failed")).take(10).cloned().collect();
+    let failures: Vec<Value> = runs
+        .iter()
+        .filter(|r| r.get("status").and_then(|v| v.as_str()) == Some("failed"))
+        .take(10)
+        .cloned()
+        .collect();
     let recent: Vec<Value> = runs.iter().take(10).cloned().collect();
     // Webhook health.
     let mut events = read_record_dir(&st.data_dir, "webhook-trigger-events");
@@ -420,11 +479,20 @@ pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Jso
             accepted += 1;
         } else {
             rejected += 1;
-            *reasons.entry(ev.get("reason").and_then(|v| v.as_str()).unwrap_or("rejected").to_string()).or_insert(0) += 1;
+            *reasons
+                .entry(
+                    ev.get("reason")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("rejected")
+                        .to_string(),
+                )
+                .or_insert(0) += 1;
         }
     }
     events.sort_by(|a, b| {
-        b.get("received_at").and_then(|v| v.as_str()).unwrap_or("")
+        b.get("received_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
             .cmp(a.get("received_at").and_then(|v| v.as_str()).unwrap_or(""))
     });
     let recent_ev: Vec<Value> = events.into_iter().take(10).map(|ev| json!({
@@ -465,20 +533,35 @@ pub(crate) async fn handle_work_ledger(
     let mut entries: Vec<Value> = Vec::new();
     // Runs (the canonical execution records).
     for e in read_record_dir(&st.data_dir, "automation-executions") {
-        let exec_id = e.get("execution_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let aid = e.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
+        let exec_id = e
+            .get("execution_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let aid = e
+            .get("automation_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let t = by_run.get(&exec_id);
         let a = amap.get(aid);
         let name = t
-            .and_then(|t| t.get("automation_name")).and_then(|v| v.as_str())
+            .and_then(|t| t.get("automation_name"))
+            .and_then(|v| v.as_str())
             .or_else(|| a.and_then(|a| a.get("name")).and_then(|v| v.as_str()))
             .unwrap_or("automation");
         let project = t
-            .and_then(|t| t.get("project_id")).and_then(|v| v.as_str())
+            .and_then(|t| t.get("project_id"))
+            .and_then(|v| v.as_str())
             .or_else(|| a.and_then(|a| a.get("project_id")).and_then(|v| v.as_str()))
             .unwrap_or("");
-        let trigger = a.and_then(|a| a.get("trigger_kind")).and_then(|v| v.as_str()).unwrap_or("manual");
-        let state_root = t.and_then(|t| t.get("state_root")).and_then(|v| v.as_str()).unwrap_or("");
+        let trigger = a
+            .and_then(|a| a.get("trigger_kind"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("manual");
+        let state_root = t
+            .and_then(|t| t.get("state_root"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         entries.push(json!({
             "id": exec_id, "kind": "run", "timestamp": g(&e, "started_at"),
             "automation_id": aid, "automation_name": name, "project_id": project,
@@ -569,14 +652,32 @@ pub(crate) async fn handle_work_ledger(
     }
     // Webhook trigger receipts (accepted/rejected proofs).
     for ev in read_record_dir(&st.data_dir, "webhook-trigger-events") {
-        let aid = ev.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
+        let aid = ev
+            .get("automation_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let a = amap.get(aid);
-        let name = a.and_then(|a| a.get("name")).and_then(|v| v.as_str()).unwrap_or("automation");
-        let project = a.and_then(|a| a.get("project_id")).and_then(|v| v.as_str()).unwrap_or("");
+        let name = a
+            .and_then(|a| a.get("name"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("automation");
+        let project = a
+            .and_then(|a| a.get("project_id"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let accepted = ev.get("accepted").and_then(|v| v.as_bool()) == Some(true);
-        let run_ref = ev.get("run_ref").and_then(|v| v.as_str()).filter(|s| !s.is_empty());
-        let run_ref_v = match run_ref { Some(s) => json!(s), None => Value::Null };
-        let timeline_v = match run_ref { Some(r) => json!(format!("/__ioi/run-timeline/{r}")), None => Value::Null };
+        let run_ref = ev
+            .get("run_ref")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty());
+        let run_ref_v = match run_ref {
+            Some(s) => json!(s),
+            None => Value::Null,
+        };
+        let timeline_v = match run_ref {
+            Some(r) => json!(format!("/__ioi/run-timeline/{r}")),
+            None => Value::Null,
+        };
         entries.push(json!({
             "id": g(&ev, "receipt_id"), "kind": "trigger", "timestamp": g(&ev, "received_at"),
             "automation_id": aid, "automation_name": name, "project_id": project,
@@ -799,13 +900,539 @@ pub(crate) async fn handle_work_ledger(
         }));
     }
     entries.sort_by(|a, b| {
-        b.get("timestamp").and_then(|v| v.as_str()).unwrap_or("")
+        b.get("timestamp")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
             .cmp(a.get("timestamp").and_then(|v| v.as_str()).unwrap_or(""))
     });
     if let Some(pid) = q.get("project").map(|s| s.trim()).filter(|s| !s.is_empty()) {
         entries.retain(|e| e.get("project_id").and_then(|v| v.as_str()) == Some(pid));
     }
     Json(json!({ "ok": true, "entries": entries }))
+}
+
+const WEBHOOK_SIGNATURE_VERSION: &str = "v1";
+const WEBHOOK_MAX_AGE_SECONDS: i64 = 300;
+const WEBHOOK_MAX_FUTURE_SKEW_SECONDS: i64 = 30;
+const WEBHOOK_MAX_NONCE_BYTES: usize = 200;
+
+/// Serializes webhook token/policy/delete mutations with replay lookup, policy re-check, dispatch
+/// reservation, and receipt persistence. It is never held across asynchronous execution. This
+/// closes stale-revision and concurrent-nonce races without serializing the automation executor.
+static WEBHOOK_ADMISSION_LOCK: Mutex<()> = Mutex::new(());
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct VerifiedWebhookRequest {
+    signature_version: &'static str,
+    signed_timestamp: String,
+    nonce: String,
+    body_hash: String,
+    canonical_request_hash: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WebhookVerificationError {
+    InvalidToken,
+    InvalidTimestamp,
+    StaleTimestamp,
+    FutureTimestamp,
+    InvalidNonce,
+    InvalidSignatureFormat,
+    UnsupportedSignatureVersion,
+    InvalidSignature,
+}
+
+impl WebhookVerificationError {
+    fn reason(self) -> &'static str {
+        match self {
+            Self::InvalidToken => "invalid_token",
+            Self::InvalidTimestamp => "invalid_timestamp",
+            Self::StaleTimestamp => "stale_timestamp",
+            Self::FutureTimestamp => "future_timestamp",
+            Self::InvalidNonce => "invalid_nonce",
+            Self::InvalidSignatureFormat => "invalid_signature_format",
+            Self::UnsupportedSignatureVersion => "unsupported_signature_version",
+            Self::InvalidSignature => "invalid_signature",
+        }
+    }
+
+    fn status(self) -> StatusCode {
+        match self {
+            Self::InvalidToken | Self::InvalidSignature => StatusCode::UNAUTHORIZED,
+            Self::StaleTimestamp | Self::FutureTimestamp => StatusCode::UNAUTHORIZED,
+            Self::InvalidTimestamp
+            | Self::InvalidNonce
+            | Self::InvalidSignatureFormat
+            | Self::UnsupportedSignatureVersion => StatusCode::BAD_REQUEST,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum WebhookReplayDecision {
+    New,
+    Existing(Value),
+    Conflict { existing_receipt_id: String },
+}
+
+impl WebhookReplayDecision {
+    fn should_dispatch(&self) -> bool {
+        matches!(self, Self::New)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct WebhookVerificationFacts {
+    signature_version: Option<String>,
+    signed_timestamp: Option<String>,
+    nonce: Option<String>,
+    canonical_request_hash: Option<String>,
+    token_verified: bool,
+    timestamp_verified: bool,
+    signature_verified: bool,
+    idempotency_admitted: bool,
+}
+
+fn now_unix_seconds() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+fn sha256_hex_bytes(bytes: &[u8]) -> String {
+    format!("sha256:{:x}", Sha256::digest(bytes))
+}
+
+/// Fixed-length digest comparison with no content-dependent early return.
+fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+    if left.len() != right.len() {
+        return false;
+    }
+    let mut difference = 0_u8;
+    for (&left_byte, &right_byte) in left.iter().zip(right.iter()) {
+        difference |= left_byte ^ right_byte;
+    }
+    difference == 0
+}
+
+fn token_matches_stored_hash(presented: &str, stored_hash: &str) -> bool {
+    let stored_hash = stored_hash.strip_prefix("sha256:").unwrap_or(stored_hash);
+    let Ok(stored_bytes) = hex::decode(stored_hash) else {
+        return false;
+    };
+    let presented_bytes = Sha256::digest(presented.as_bytes());
+    constant_time_eq(&presented_bytes[..], &stored_bytes)
+}
+
+fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+    const BLOCK_BYTES: usize = 64;
+    let mut key_block = [0_u8; BLOCK_BYTES];
+    if key.len() > BLOCK_BYTES {
+        let digest = Sha256::digest(key);
+        key_block[..digest.len()].copy_from_slice(&digest);
+    } else {
+        key_block[..key.len()].copy_from_slice(key);
+    }
+    let mut inner_pad = [0x36_u8; BLOCK_BYTES];
+    let mut outer_pad = [0x5c_u8; BLOCK_BYTES];
+    for index in 0..BLOCK_BYTES {
+        inner_pad[index] ^= key_block[index];
+        outer_pad[index] ^= key_block[index];
+    }
+    let mut inner = Sha256::new();
+    inner.update(inner_pad);
+    inner.update(message);
+    let inner_digest = inner.finalize();
+    let mut outer = Sha256::new();
+    outer.update(outer_pad);
+    outer.update(inner_digest);
+    let digest = outer.finalize();
+    let mut output = [0_u8; 32];
+    output.copy_from_slice(&digest);
+    output
+}
+
+fn push_signature_field(output: &mut Vec<u8>, value: &[u8]) {
+    output.extend_from_slice(&(value.len() as u64).to_be_bytes());
+    output.extend_from_slice(value);
+}
+
+/// Canonical signed bytes. Every variable-width field, including the exact raw request body, is
+/// length-prefixed so no delimiter ambiguity can produce the same signed request.
+fn webhook_signature_payload(
+    version: &str,
+    automation_id: &str,
+    signed_timestamp: &str,
+    nonce: &str,
+    raw_body: &[u8],
+) -> Vec<u8> {
+    let mut output = b"ioi.hypervisor.automation-webhook-signature\0".to_vec();
+    for field in [
+        version.as_bytes(),
+        automation_id.as_bytes(),
+        signed_timestamp.as_bytes(),
+        nonce.as_bytes(),
+        raw_body,
+    ] {
+        push_signature_field(&mut output, field);
+    }
+    output
+}
+
+#[cfg(test)]
+fn webhook_signature(
+    token: &str,
+    automation_id: &str,
+    timestamp: &str,
+    nonce: &str,
+    body: &[u8],
+) -> String {
+    let payload = webhook_signature_payload(
+        WEBHOOK_SIGNATURE_VERSION,
+        automation_id,
+        timestamp,
+        nonce,
+        body,
+    );
+    format!(
+        "{}={}",
+        WEBHOOK_SIGNATURE_VERSION,
+        hex::encode(hmac_sha256(token.as_bytes(), &payload))
+    )
+}
+
+fn validate_webhook_nonce(nonce: &str) -> bool {
+    !nonce.is_empty()
+        && nonce.len() <= WEBHOOK_MAX_NONCE_BYTES
+        && nonce.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b':' | b'~')
+        })
+}
+
+fn verify_webhook_request(
+    stored_token_hash: &str,
+    presented_token: &str,
+    automation_id: &str,
+    signed_timestamp: &str,
+    nonce: &str,
+    presented_signature: &str,
+    raw_body: &[u8],
+    now: i64,
+) -> Result<VerifiedWebhookRequest, WebhookVerificationError> {
+    if !token_matches_stored_hash(presented_token, stored_token_hash) {
+        return Err(WebhookVerificationError::InvalidToken);
+    }
+    let timestamp_unix_seconds = signed_timestamp
+        .parse::<i64>()
+        .ok()
+        .filter(|timestamp| *timestamp >= 0)
+        .ok_or(WebhookVerificationError::InvalidTimestamp)?;
+    if timestamp_unix_seconds < now.saturating_sub(WEBHOOK_MAX_AGE_SECONDS) {
+        return Err(WebhookVerificationError::StaleTimestamp);
+    }
+    if timestamp_unix_seconds > now.saturating_add(WEBHOOK_MAX_FUTURE_SKEW_SECONDS) {
+        return Err(WebhookVerificationError::FutureTimestamp);
+    }
+    if !validate_webhook_nonce(nonce) {
+        return Err(WebhookVerificationError::InvalidNonce);
+    }
+    let (version, signature_hex) = presented_signature
+        .split_once('=')
+        .ok_or(WebhookVerificationError::InvalidSignatureFormat)?;
+    if version != WEBHOOK_SIGNATURE_VERSION {
+        return Err(WebhookVerificationError::UnsupportedSignatureVersion);
+    }
+    let signature_bytes = hex::decode(signature_hex)
+        .ok()
+        .filter(|bytes| bytes.len() == 32)
+        .ok_or(WebhookVerificationError::InvalidSignatureFormat)?;
+    let canonical_payload = webhook_signature_payload(
+        WEBHOOK_SIGNATURE_VERSION,
+        automation_id,
+        signed_timestamp,
+        nonce,
+        raw_body,
+    );
+    let expected = hmac_sha256(presented_token.as_bytes(), &canonical_payload);
+    if !constant_time_eq(&expected, &signature_bytes) {
+        return Err(WebhookVerificationError::InvalidSignature);
+    }
+    Ok(VerifiedWebhookRequest {
+        signature_version: WEBHOOK_SIGNATURE_VERSION,
+        signed_timestamp: signed_timestamp.to_string(),
+        nonce: nonce.to_string(),
+        body_hash: sha256_hex_bytes(raw_body),
+        canonical_request_hash: sha256_hex_bytes(&canonical_payload),
+    })
+}
+
+fn webhook_replay_decision(
+    events: &[Value],
+    automation_id: &str,
+    nonce: &str,
+    canonical_request_hash: &str,
+) -> WebhookReplayDecision {
+    let mut matching: Vec<&Value> = events
+        .iter()
+        .filter(|event| {
+            event.get("idempotency_admitted").and_then(Value::as_bool) == Some(true)
+                && event.get("automation_id").and_then(Value::as_str) == Some(automation_id)
+                && event.get("nonce").and_then(Value::as_str) == Some(nonce)
+        })
+        .collect();
+    if matching.is_empty() {
+        return WebhookReplayDecision::New;
+    }
+    if matching.iter().any(|event| {
+        event.get("canonical_request_hash").and_then(Value::as_str) != Some(canonical_request_hash)
+    }) {
+        let existing_receipt_id = matching
+            .iter()
+            .filter_map(|event| event.get("receipt_id").and_then(Value::as_str))
+            .min()
+            .unwrap_or("unknown")
+            .to_string();
+        return WebhookReplayDecision::Conflict {
+            existing_receipt_id,
+        };
+    }
+    matching.sort_by(|left, right| {
+        left.get("receipt_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .cmp(
+                right
+                    .get("receipt_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
+            )
+    });
+    WebhookReplayDecision::Existing((*matching[0]).clone())
+}
+
+fn pending_webhook_dispatches(events: &[Value], automation_id: &str) -> i64 {
+    events
+        .iter()
+        .filter(|event| {
+            event.get("automation_id").and_then(Value::as_str) == Some(automation_id)
+                && event.get("accepted").and_then(Value::as_bool) == Some(true)
+                && event.get("dispatch_state").and_then(Value::as_str) == Some("pending")
+        })
+        .count() as i64
+}
+
+fn is_sha256_ref(value: Option<&str>) -> bool {
+    value.is_some_and(|value| {
+        let Some(hex) = value.strip_prefix("sha256:") else {
+            return false;
+        };
+        hex.len() == 64
+            && hex
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    })
+}
+
+fn resolve_pending_webhook_launch_event(
+    events: &[Value],
+    automation_id: &str,
+    event_ref: &str,
+    information_flow_label_ref: &str,
+) -> Option<Value> {
+    events
+        .iter()
+        .find(|event| {
+            let label = event.get("information_flow_label").unwrap_or(&Value::Null);
+            event.get("schema_version").and_then(Value::as_str)
+                == Some("ioi.hypervisor.webhook-trigger-receipt.v2")
+                && event.get("event_ref").and_then(Value::as_str) == Some(event_ref)
+                && event_ref.starts_with("receipt://hypervisor/automation-webhook/")
+                && event.get("automation_id").and_then(Value::as_str) == Some(automation_id)
+                && event
+                    .get("information_flow_label_ref")
+                    .and_then(Value::as_str)
+                    == Some(information_flow_label_ref)
+                && information_flow_label_ref
+                    .starts_with("ifc-label://hypervisor/automation-webhook/")
+                && event.get("accepted").and_then(Value::as_bool) == Some(true)
+                && event.get("reason").and_then(Value::as_str) == Some("accepted")
+                && event.get("dispatch_state").and_then(Value::as_str) == Some("pending")
+                && event.get("idempotency_admitted").and_then(Value::as_bool) == Some(true)
+                && event.get("signature_version").and_then(Value::as_str)
+                    == Some(WEBHOOK_SIGNATURE_VERSION)
+                && event
+                    .get("signed_timestamp")
+                    .and_then(Value::as_str)
+                    .and_then(|value| value.parse::<i64>().ok())
+                    .is_some_and(|value| value >= 0)
+                && event
+                    .get("nonce")
+                    .and_then(Value::as_str)
+                    .is_some_and(validate_webhook_nonce)
+                && is_sha256_ref(event.get("canonical_request_hash").and_then(Value::as_str))
+                && is_sha256_ref(event.get("body_hash").and_then(Value::as_str))
+                && event
+                    .pointer("/verification_result/token_possession_verified")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && event
+                    .pointer("/verification_result/timestamp_freshness_verified")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && event
+                    .pointer("/verification_result/signature_verified")
+                    .and_then(Value::as_bool)
+                    == Some(true)
+                && label.get("schema_version").and_then(Value::as_str)
+                    == Some("ioi.foundations.information-flow-label.v1")
+                && label.get("label_ref").and_then(Value::as_str)
+                    == Some(information_flow_label_ref)
+                && label.get("content_hash").and_then(Value::as_str)
+                    == event.get("body_hash").and_then(Value::as_str)
+                && label.get("origin").and_then(Value::as_str) == Some("external_untrusted")
+                && label.get("integrity").and_then(Value::as_str) == Some("untrusted")
+                && label.get("instruction_authority").and_then(Value::as_str) == Some("none")
+                && label.pointer("/egress_policy/mode").and_then(Value::as_str) == Some("deny")
+        })
+        .cloned()
+}
+
+fn webhook_information_flow_label(automation_id: &str, receipt_id: &str, body_hash: &str) -> Value {
+    let label_ref = format!(
+        "ifc-label://hypervisor/automation-webhook/{}/{}",
+        safe(automation_id),
+        safe(receipt_id)
+    );
+    json!({
+        "schema_version": "ioi.foundations.information-flow-label.v1",
+        "label_ref": label_ref,
+        "profile_ref": "policy://hypervisor/automation-webhook/external-untrusted-v1",
+        "content_hash": body_hash,
+        "origin": "external_untrusted",
+        "integrity": "untrusted",
+        "confidentiality": "unknown",
+        "instruction_authority": "none",
+        "egress_policy": {
+            "mode": "deny",
+            "allowed_destination_patterns": [],
+            "allowed_data_classes": []
+        },
+        "purpose": "automation_webhook_event_observation",
+        "retention": { "max_seconds": 86400, "disposition": "delete" },
+        "derivation_kind": "direct",
+        "derivation_parent_refs": [],
+        "derivation_closure_refs": [label_ref]
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn persist_webhook_event(
+    data_dir: &str,
+    automation_id: &str,
+    request_id: &str,
+    received_at: &str,
+    headers_hash: &str,
+    body_hash: &str,
+    payload_bytes: usize,
+    accepted: bool,
+    reason: &str,
+    http_status: StatusCode,
+    run_ref: Value,
+    facts: &WebhookVerificationFacts,
+) -> std::io::Result<Value> {
+    let receipt_id = format!("whk_evt_{}", uuid::Uuid::new_v4().simple());
+    let event_ref = format!("receipt://hypervisor/automation-webhook/{receipt_id}");
+    let label = webhook_information_flow_label(automation_id, &receipt_id, body_hash);
+    let label_ref = label.get("label_ref").cloned().unwrap_or(Value::Null);
+    let event = json!({
+        "schema_version": "ioi.hypervisor.webhook-trigger-receipt.v2",
+        "receipt_id": receipt_id,
+        "event_ref": event_ref,
+        "automation_id": automation_id,
+        "request_id": request_id,
+        "received_at": received_at,
+        "headers_hash": headers_hash,
+        "payload_hash": body_hash,
+        "body_hash": body_hash,
+        "payload_bytes": payload_bytes,
+        "accepted": accepted,
+        "reason": reason,
+        "http_status": http_status.as_u16(),
+        "run_ref": run_ref,
+        "dispatch_state": if accepted { "pending" } else { "not_dispatched" },
+        "signature_version": facts.signature_version,
+        "signed_timestamp": facts.signed_timestamp,
+        "nonce": facts.nonce,
+        "idempotency_scope": format!("automation-webhook:{automation_id}"),
+        "idempotency_admitted": facts.idempotency_admitted,
+        "canonical_request_hash": facts.canonical_request_hash,
+        "verification_result": {
+            "outcome": if accepted { "verified" } else { "rejected" },
+            "token_possession_verified": facts.token_verified,
+            "timestamp_freshness_verified": facts.timestamp_verified,
+            "signature_verified": facts.signature_verified,
+        },
+        "information_flow_label_ref": label_ref,
+        "information_flow_label": label,
+        "inbound_payload_posture": {
+            "raw_content_persisted": false,
+            "materialized_as_instruction": false,
+            "invocation_projection": "event_and_label_refs_only"
+        }
+    });
+    persist_record(
+        data_dir,
+        "webhook-trigger-events",
+        event
+            .get("receipt_id")
+            .and_then(Value::as_str)
+            .unwrap_or("invalid"),
+        &event,
+    )?;
+    Ok(event)
+}
+
+fn webhook_signature_metadata() -> Value {
+    json!({
+        "version": WEBHOOK_SIGNATURE_VERSION,
+        "algorithm": "HMAC-SHA256",
+        "header": "x-ioi-signature",
+        "timestamp_header": "x-ioi-timestamp",
+        "nonce_header": "x-ioi-nonce",
+        "nonce_header_alias": "idempotency-key",
+        "canonicalization": "domain separator followed by u64-be-length-prefixed version, automation id, exact timestamp, nonce, and exact raw body bytes",
+        "max_age_seconds": WEBHOOK_MAX_AGE_SECONDS,
+        "max_future_skew_seconds": WEBHOOK_MAX_FUTURE_SKEW_SECONDS
+    })
+}
+
+fn webhook_event_response(event: &Value, replayed: bool) -> (StatusCode, Json<Value>) {
+    let accepted = event.get("accepted").and_then(Value::as_bool) == Some(true);
+    let status = event
+        .get("http_status")
+        .and_then(Value::as_u64)
+        .and_then(|status| u16::try_from(status).ok())
+        .and_then(|status| StatusCode::from_u16(status).ok())
+        .unwrap_or(if accepted {
+            StatusCode::ACCEPTED
+        } else {
+            StatusCode::UNAUTHORIZED
+        });
+    (
+        status,
+        Json(json!({
+            "ok": accepted,
+            "accepted": accepted,
+            "replayed": replayed,
+            "reason": event.get("reason").cloned().unwrap_or(Value::Null),
+            "request_id": event.get("request_id").cloned().unwrap_or(Value::Null),
+            "receipt_id": event.get("receipt_id").cloned().unwrap_or(Value::Null),
+            "event_ref": event.get("event_ref").cloned().unwrap_or(Value::Null),
+            "information_flow_label_ref": event.get("information_flow_label_ref").cloned().unwrap_or(Value::Null),
+            "run_ref": event.get("run_ref").cloned().unwrap_or(Value::Null),
+        })),
+    )
 }
 
 fn new_webhook_token() -> String {
@@ -822,6 +1449,9 @@ pub(crate) async fn handle_automation_webhook_rotate(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
+    let Ok(_guard) = WEBHOOK_ADMISSION_LOCK.lock() else {
+        return Json(json!({ "ok": false, "reason": "webhook_admission_lock_poisoned" }));
+    };
     let Some(mut a) = load(&st.data_dir, "automations", &id) else {
         return Json(json!({ "ok": false, "reason": "automation not found" }));
     };
@@ -832,8 +1462,15 @@ pub(crate) async fn handle_automation_webhook_rotate(
         a["trigger_kind"] = json!("webhook"); // don't clobber an existing schedule
     }
     a["updated_at"] = json!(iso_now());
-    let _ = persist_record(&st.data_dir, "automations", &id, &a);
-    Json(json!({ "ok": true, "webhook_token": tok, "webhook_url": a["webhook_url"] }))
+    if persist_record(&st.data_dir, "automations", &id, &a).is_err() {
+        return Json(json!({ "ok": false, "reason": "webhook_token_rotation_persist_failed" }));
+    }
+    Json(json!({
+        "ok": true,
+        "webhook_token": tok,
+        "webhook_url": a["webhook_url"],
+        "webhook_signature": webhook_signature_metadata()
+    }))
 }
 
 /// GET /v1/hypervisor/automations/:id/webhook-events — recent inbound trigger events (audit trail)
@@ -857,13 +1494,17 @@ pub(crate) async fn handle_automation_webhook_events(
         .filter(|e| e.get("accepted").and_then(|v| v.as_bool()) == Some(true))
         .count();
     let rejected = events.len() - accepted;
-    Json(json!({ "ok": true, "events": events, "accepted_count": accepted, "rejected_count": rejected }))
+    Json(
+        json!({ "ok": true, "events": events, "accepted_count": accepted, "rejected_count": rejected }),
+    )
 }
 
-/// POST /v1/hypervisor/automations/:id/webhook — authenticated inbound trigger. Verifies the opaque
-/// trigger token, runs policy checks, records a WebhookTriggerReceipt (accepted OR rejected w/ reason),
-/// and on accept fires the SAME manual-run path (async) so the run shares the run history / state_root
-/// / transcript / timeline. Auth is the trigger token (NOT a session) → the auth gate exempts it.
+/// POST /v1/hypervisor/automations/:id/webhook — signed, replay-bounded inbound trigger. Possession
+/// of the one-time-displayed trigger token is necessary but not sufficient: the exact raw body,
+/// automation id, timestamp, nonce, and signature version must carry a fresh HMAC-SHA256 signature.
+/// Accepted and rejected attempts receive payload-hash-bound audit receipts with an external,
+/// untrusted, non-instruction InformationFlowLabel. Only the event and label refs cross into the
+/// automation invocation; raw inbound bytes never become a prompt or an authority object.
 pub(crate) async fn handle_automation_webhook(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -873,10 +1514,16 @@ pub(crate) async fn handle_automation_webhook(
     const MAX_PAYLOAD: usize = 1_048_576; // 1 MiB
     let received_at = iso_now();
     let request_id = format!("whreq_{}", uuid::Uuid::new_v4().simple());
-    // Audit hashes — never store raw headers/payload.
-    let payload_hash = sha256_hex_str(&String::from_utf8_lossy(&body));
+    // Audit hashes are over exact bytes. Secret-bearing headers and raw payload are never stored.
+    let body_hash = sha256_hex_bytes(&body);
     let mut header_pairs: Vec<String> = headers
         .iter()
+        .filter(|(name, _)| {
+            !matches!(
+                name.as_str(),
+                "authorization" | "x-ioi-trigger-token" | "x-ioi-signature"
+            )
+        })
         .map(|(k, v)| format!("{}:{}", k.as_str(), v.to_str().unwrap_or("")))
         .collect();
     header_pairs.sort();
@@ -893,88 +1540,371 @@ pub(crate) async fn handle_automation_webhook(
         .map(|s| s.trim().to_string())
         .unwrap_or_default();
 
-    // Record a trigger receipt (audit). Returns the receipt_id.
-    let record_event = |accepted: bool, reason: &str, run_ref: Value| -> String {
-        let rid = format!("whk_evt_{}", uuid::Uuid::new_v4().simple());
-        let ev = json!({
-            "schema_version": "ioi.hypervisor.webhook-trigger-receipt.v1",
-            "receipt_id": rid, "automation_id": id, "request_id": request_id,
-            "received_at": received_at, "headers_hash": headers_hash, "payload_hash": payload_hash,
-            "payload_bytes": body.len(), "accepted": accepted, "reason": reason, "run_ref": run_ref,
-        });
-        let _ = persist_record(&st.data_dir, "webhook-trigger-events", &rid, &ev);
-        rid
+    let Some(a) = load(&st.data_dir, "automations", &id) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "reason": "automation_not_found", "request_id": request_id }),
+            ),
+        );
     };
-    let reject = |status: StatusCode, reason: &str| {
-        record_event(false, reason, Value::Null);
-        (status, Json(json!({ "ok": false, "reason": reason, "request_id": request_id })))
+    let want = a
+        .get("webhook_token_hash")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let signed_timestamp = headers
+        .get("x-ioi-timestamp")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty() && value.trim() == *value)
+        .map(str::to_string);
+    let nonce = headers
+        .get("x-ioi-nonce")
+        .or_else(|| headers.get("idempotency-key"))
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty() && value.trim() == *value)
+        .map(str::to_string);
+    let signature = headers
+        .get("x-ioi-signature")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty() && value.trim() == *value)
+        .map(str::to_string);
+    let signature_version = signature
+        .as_deref()
+        .and_then(|value| value.split_once('='))
+        .map(|(version, _)| version.to_string());
+    let canonical_request_hash = match (
+        signature_version.as_deref(),
+        signed_timestamp.as_deref(),
+        nonce.as_deref(),
+    ) {
+        (Some(version), Some(timestamp), Some(nonce)) => Some(sha256_hex_bytes(
+            &webhook_signature_payload(version, &id, timestamp, nonce, &body),
+        )),
+        _ => None,
+    };
+    let mut facts = WebhookVerificationFacts {
+        signature_version,
+        signed_timestamp: signed_timestamp.clone(),
+        nonce: nonce.clone(),
+        canonical_request_hash,
+        ..WebhookVerificationFacts::default()
     };
 
-    let Some(a) = load(&st.data_dir, "automations", &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "automation_not_found", "request_id": request_id })));
+    let record_rejection = |status: StatusCode,
+                            reason: &str,
+                            facts: &WebhookVerificationFacts|
+     -> (StatusCode, Json<Value>) {
+        match persist_webhook_event(
+            &st.data_dir,
+            &id,
+            &request_id,
+            &received_at,
+            &headers_hash,
+            &body_hash,
+            body.len(),
+            false,
+            reason,
+            status,
+            Value::Null,
+            facts,
+        ) {
+            Ok(event) => webhook_event_response(&event, false),
+            Err(_) => (
+                status,
+                Json(json!({
+                    "ok": false,
+                    "accepted": false,
+                    "reason": reason,
+                    "request_id": request_id,
+                    "audit_persisted": false
+                })),
+            ),
+        }
     };
-    // Token: compare hashes (reject if no token configured or mismatch).
-    let want = a.get("webhook_token_hash").and_then(|v| v.as_str()).unwrap_or("");
-    if want.is_empty() || token.is_empty() || sha256_hex_str(&token) != want {
-        return reject(StatusCode::UNAUTHORIZED, "invalid_token");
+
+    // Token possession remains a distinct, constant-time gate over the hash stored at rest.
+    if want.is_empty() || token.is_empty() || !token_matches_stored_hash(&token, want) {
+        return record_rejection(StatusCode::UNAUTHORIZED, "invalid_token", &facts);
     }
-    // Policy checks: kill switch, project exists, payload size, concurrency.
-    if a.get("enabled").and_then(|v| v.as_bool()) != Some(true) {
-        return reject(StatusCode::FORBIDDEN, "automation_disabled");
+    facts.token_verified = true;
+    let Some(signed_timestamp) = signed_timestamp.as_deref() else {
+        return record_rejection(StatusCode::BAD_REQUEST, "missing_timestamp", &facts);
+    };
+    let Some(nonce) = nonce.as_deref() else {
+        return record_rejection(StatusCode::BAD_REQUEST, "missing_nonce", &facts);
+    };
+    let Some(signature) = signature.as_deref() else {
+        return record_rejection(StatusCode::BAD_REQUEST, "missing_signature", &facts);
+    };
+
+    let verified = match verify_webhook_request(
+        want,
+        &token,
+        &id,
+        signed_timestamp,
+        nonce,
+        signature,
+        &body,
+        now_unix_seconds(),
+    ) {
+        Ok(verified) => verified,
+        Err(error) => {
+            facts.timestamp_verified = !matches!(
+                error,
+                WebhookVerificationError::InvalidTimestamp
+                    | WebhookVerificationError::StaleTimestamp
+                    | WebhookVerificationError::FutureTimestamp
+            );
+            // A token-authenticated invalid request reserves its nonce only if no prior admitted
+            // request owns it. That prevents a corrected signature from silently turning the same
+            // failed request into work, without letting unauthenticated callers pre-claim nonces.
+            if let Some(canonical_hash) = facts.canonical_request_hash.as_deref() {
+                let Ok(_guard) = WEBHOOK_ADMISSION_LOCK.lock() else {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({ "ok": false, "reason": "webhook_admission_lock_poisoned" })),
+                    );
+                };
+                facts.idempotency_admitted = webhook_replay_decision(
+                    &read_record_dir(&st.data_dir, "webhook-trigger-events"),
+                    &id,
+                    nonce,
+                    canonical_hash,
+                )
+                .should_dispatch();
+                return record_rejection(error.status(), error.reason(), &facts);
+            }
+            return record_rejection(error.status(), error.reason(), &facts);
+        }
+    };
+    facts.signature_version = Some(verified.signature_version.to_string());
+    facts.signed_timestamp = Some(verified.signed_timestamp.clone());
+    facts.nonce = Some(verified.nonce.clone());
+    facts.canonical_request_hash = Some(verified.canonical_request_hash.clone());
+    facts.timestamp_verified = true;
+    facts.signature_verified = true;
+
+    // The lock covers the current-record recheck, replay CAS, policy snapshot, dispatch-slot
+    // reservation, and durable receipt. No await occurs under it; execution starts afterward.
+    let Ok(guard) = WEBHOOK_ADMISSION_LOCK.lock() else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "reason": "webhook_admission_lock_poisoned" })),
+        );
+    };
+    // Token rotation shares this lock. Reload and re-verify here so acceptance linearizes against
+    // the current token and policy record, never a pre-lock snapshot.
+    let Some(a) = load(&st.data_dir, "automations", &id) else {
+        drop(guard);
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "reason": "automation_not_found", "request_id": request_id }),
+            ),
+        );
+    };
+    let current_token_hash = a
+        .get("webhook_token_hash")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let verified = match verify_webhook_request(
+        current_token_hash,
+        &token,
+        &id,
+        signed_timestamp,
+        nonce,
+        signature,
+        &body,
+        now_unix_seconds(),
+    ) {
+        Ok(verified) => verified,
+        Err(error) => {
+            facts.token_verified = error != WebhookVerificationError::InvalidToken;
+            facts.timestamp_verified = !matches!(
+                error,
+                WebhookVerificationError::InvalidToken
+                    | WebhookVerificationError::InvalidTimestamp
+                    | WebhookVerificationError::StaleTimestamp
+                    | WebhookVerificationError::FutureTimestamp
+            );
+            facts.signature_verified = false;
+            facts.idempotency_admitted = false;
+            let response = record_rejection(error.status(), error.reason(), &facts);
+            drop(guard);
+            return response;
+        }
+    };
+    let events = read_record_dir(&st.data_dir, "webhook-trigger-events");
+    match webhook_replay_decision(
+        &events,
+        &id,
+        &verified.nonce,
+        &verified.canonical_request_hash,
+    ) {
+        WebhookReplayDecision::Existing(event) => {
+            drop(guard);
+            return webhook_event_response(&event, true);
+        }
+        WebhookReplayDecision::Conflict {
+            existing_receipt_id,
+        } => {
+            facts.idempotency_admitted = false;
+            let response = match persist_webhook_event(
+                &st.data_dir,
+                &id,
+                &request_id,
+                &received_at,
+                &headers_hash,
+                &body_hash,
+                body.len(),
+                false,
+                "idempotency_conflict",
+                StatusCode::CONFLICT,
+                Value::Null,
+                &facts,
+            ) {
+                Ok(event) => {
+                    let (status, Json(mut response)) = webhook_event_response(&event, false);
+                    response["existing_receipt_id"] = json!(existing_receipt_id);
+                    (status, Json(response))
+                }
+                Err(_) => (
+                    StatusCode::CONFLICT,
+                    Json(json!({
+                        "ok": false,
+                        "accepted": false,
+                        "reason": "idempotency_conflict",
+                        "existing_receipt_id": existing_receipt_id,
+                        "audit_persisted": false
+                    })),
+                ),
+            };
+            drop(guard);
+            return response;
+        }
+        WebhookReplayDecision::New => {}
     }
-    let project_id = a.get("project_id").and_then(|v| v.as_str()).unwrap_or("");
-    if project_id.is_empty() || load(&st.data_dir, "projects", project_id).is_none() {
-        return reject(StatusCode::UNPROCESSABLE_ENTITY, "project_missing");
+
+    facts.idempotency_admitted = true;
+    let policy_rejection = if a.get("enabled").and_then(|v| v.as_bool()) != Some(true) {
+        Some((StatusCode::FORBIDDEN, "automation_disabled"))
+    } else {
+        let project_id = a.get("project_id").and_then(|v| v.as_str()).unwrap_or("");
+        if project_id.is_empty() || load(&st.data_dir, "projects", project_id).is_none() {
+            Some((StatusCode::UNPROCESSABLE_ENTITY, "project_missing"))
+        } else if body.len() > MAX_PAYLOAD {
+            Some((StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large"))
+        } else {
+            let max_concurrency = a
+                .get("max_concurrency")
+                .and_then(|v| v.as_i64())
+                .filter(|value| *value > 0)
+                .unwrap_or(1);
+            let running = read_record_dir(&st.data_dir, "automation-executions")
+                .iter()
+                .filter(|execution| {
+                    execution.get("automation_id").and_then(Value::as_str) == Some(id.as_str())
+                        && execution.get("status").and_then(Value::as_str) == Some("running")
+                })
+                .count() as i64;
+            let reserved = pending_webhook_dispatches(&events, &id);
+            (running.saturating_add(reserved) >= max_concurrency)
+                .then_some((StatusCode::TOO_MANY_REQUESTS, "max_concurrency"))
+        }
+    };
+    if let Some((status, reason)) = policy_rejection {
+        let response = record_rejection(status, reason, &facts);
+        drop(guard);
+        return response;
     }
-    if body.len() > MAX_PAYLOAD {
-        return reject(StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large");
-    }
-    let max_conc = a
-        .get("max_concurrency")
-        .and_then(|v| v.as_i64())
-        .filter(|n| *n > 0)
-        .unwrap_or(1);
-    let running = read_record_dir(&st.data_dir, "automation-executions")
-        .iter()
-        .filter(|e| {
-            e.get("automation_id").and_then(|v| v.as_str()) == Some(id.as_str())
-                && e.get("status").and_then(|v| v.as_str()) == Some("running")
-        })
-        .count() as i64;
-    if running >= max_conc {
-        return reject(StatusCode::TOO_MANY_REQUESTS, "max_concurrency");
-    }
-    // Accept: record the receipt, then fire the manual-run path async; backfill run_ref when it starts.
-    let receipt_id = record_event(true, "accepted", Value::Null);
+
+    let accepted_event = match persist_webhook_event(
+        &st.data_dir,
+        &id,
+        &request_id,
+        &received_at,
+        &headers_hash,
+        &verified.body_hash,
+        body.len(),
+        true,
+        "accepted",
+        StatusCode::ACCEPTED,
+        Value::Null,
+        &facts,
+    ) {
+        Ok(event) => event,
+        Err(_) => {
+            drop(guard);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "ok": false,
+                    "accepted": false,
+                    "reason": "webhook_receipt_persist_failed",
+                    "request_id": request_id
+                })),
+            );
+        }
+    };
+    drop(guard);
+
+    let receipt_id = accepted_event
+        .get("receipt_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let event_ref = accepted_event
+        .get("event_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let label_ref = accepted_event
+        .get("information_flow_label_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     let base = st.base_url.clone();
     let data_dir = st.data_dir.clone();
     let id2 = id.clone();
     let receipt = receipt_id.clone();
     tokio::spawn(async move {
-        if let Ok(r) = call(
+        let dispatch = call(
             &base,
             "POST",
             &format!("/v1/hypervisor/automations/{id2}/runs"),
-            Some(json!({ "trigger": "webhook" })),
+            Some(json!({
+                "trigger": "webhook",
+                "webhook_event_ref": event_ref,
+                "information_flow_label_ref": label_ref
+            })),
         )
-        .await
-        {
-            if let Some(exec_id) = r
-                .get("execution")
-                .and_then(|e| e.get("execution_id"))
-                .and_then(|v| v.as_str())
-            {
-                if let Some(mut rec) = load(&data_dir, "webhook-trigger-events", &receipt) {
-                    rec["run_ref"] = json!(exec_id);
-                    let _ = persist_record(&data_dir, "webhook-trigger-events", &receipt, &rec);
+        .await;
+        if let Ok(_guard) = WEBHOOK_ADMISSION_LOCK.lock() {
+            if let Some(mut record) = load(&data_dir, "webhook-trigger-events", &receipt) {
+                if let Some(exec_id) = dispatch.as_ref().ok().and_then(|response| {
+                    response
+                        .get("execution")
+                        .and_then(|e| e.get("execution_id"))
+                        .and_then(|v| v.as_str())
+                }) {
+                    record["run_ref"] = json!(exec_id);
+                    record["dispatch_state"] = json!("completed");
+                    record["dispatch_result"] = dispatch
+                        .as_ref()
+                        .ok()
+                        .and_then(|response| response.get("execution"))
+                        .and_then(|execution| execution.get("status"))
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                } else {
+                    record["dispatch_state"] = json!("dispatch_failed");
                 }
+                record["dispatch_updated_at"] = json!(iso_now());
+                let _ = persist_record(&data_dir, "webhook-trigger-events", &receipt, &record);
             }
         }
     });
-    (
-        StatusCode::ACCEPTED,
-        Json(json!({ "ok": true, "accepted": true, "request_id": request_id, "receipt_id": receipt_id })),
-    )
+    webhook_event_response(&accepted_event, false)
 }
 
 /// POST /v1/hypervisor/automations/:id/start (and /:id/runs) — run the workflow: fresh env → steps
@@ -982,11 +1912,88 @@ pub(crate) async fn handle_automation_webhook(
 pub(crate) async fn handle_automation_start(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    launch: Option<Json<Value>>,
 ) -> Result<Json<Value>, AppError> {
+    let launch = launch
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({ "trigger": "manual" }));
+    let launch_object = launch.as_object().ok_or_else(|| {
+        AppError(
+            StatusCode::BAD_REQUEST,
+            "automation launch context must be a JSON object".to_string(),
+        )
+    })?;
+    if launch_object.keys().any(|key| {
+        !matches!(
+            key.as_str(),
+            "trigger" | "webhook_event_ref" | "information_flow_label_ref"
+        )
+    }) {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "automation launch accepts trigger and admitted event/label refs only; raw webhook content is forbidden"
+                .to_string(),
+        ));
+    }
+    let trigger = launch
+        .get("trigger")
+        .and_then(Value::as_str)
+        .unwrap_or("manual");
+    if !matches!(trigger, "manual" | "schedule" | "webhook") {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "automation launch trigger must be manual, schedule, or webhook".to_string(),
+        ));
+    }
+    let webhook_event_ref = launch
+        .get("webhook_event_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let information_flow_label_ref = launch
+        .get("information_flow_label_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if trigger != "webhook"
+        && (!webhook_event_ref.is_empty() || !information_flow_label_ref.is_empty())
+    {
+        return Err(AppError(
+            StatusCode::BAD_REQUEST,
+            "event and information-flow label refs are valid only for webhook launches".to_string(),
+        ));
+    }
+
+    let guard = WEBHOOK_ADMISSION_LOCK.lock().map_err(|_| {
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "webhook admission lock poisoned".to_string(),
+        )
+    })?;
     let Some(automation) = load(&st.data_dir, "automations", &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "automation not found" }),
         ));
+    };
+    let mut webhook_event = if trigger == "webhook" {
+        if webhook_event_ref.is_empty() || information_flow_label_ref.is_empty() {
+            return Err(AppError(
+                StatusCode::BAD_REQUEST,
+                "webhook launch requires exact event and information-flow label refs".to_string(),
+            ));
+        }
+        resolve_pending_webhook_launch_event(
+            &read_record_dir(&st.data_dir, "webhook-trigger-events"),
+            &id,
+            webhook_event_ref,
+            information_flow_label_ref,
+        )
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::CONFLICT,
+                "webhook launch refs do not resolve to one accepted pending event".to_string(),
+            )
+        })?
+    } else {
+        Value::Null
     };
     let base = st.base_url.clone();
     let exec_id = format!("aex_{:x}", nanos());
@@ -997,9 +2004,42 @@ pub(crate) async fn handle_automation_start(
         "schema_version": "ioi.hypervisor.automation-execution.v1",
         "execution_id": exec_id, "automation_id": id, "status": "running",
         "executor_identity": automation["executor_identity"], "environment_id": Value::Null,
+        "trigger": trigger,
+        "webhook_event_ref": if webhook_event_ref.is_empty() { Value::Null } else { json!(webhook_event_ref) },
+        "information_flow_label_ref": if information_flow_label_ref.is_empty() { Value::Null } else { json!(information_flow_label_ref) },
         "step_results": [], "counts": counts, "started_at": iso_now(), "finished_at": Value::Null
     });
-    let _ = persist_record(&st.data_dir, "automation-executions", &exec_id, &exec);
+    persist_record(&st.data_dir, "automation-executions", &exec_id, &exec).map_err(|error| {
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("automation execution reservation failed: {error}"),
+        )
+    })?;
+    if trigger == "webhook" {
+        let receipt_id = webhook_event
+            .get("receipt_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        webhook_event["run_ref"] = json!(exec_id);
+        webhook_event["dispatch_state"] = json!("started");
+        webhook_event["dispatch_updated_at"] = json!(iso_now());
+        if persist_record(
+            &st.data_dir,
+            "webhook-trigger-events",
+            &receipt_id,
+            &webhook_event,
+        )
+        .is_err()
+        {
+            let _ = remove_record(&st.data_dir, "automation-executions", &exec_id);
+            return Err(AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "webhook dispatch reservation failed before execution".to_string(),
+            ));
+        }
+    }
+    drop(guard);
 
     // 1) fresh environment (real env create + start over loopback).
     let spec = json!({ "spec": { "environment_class_id": automation["environment_class_id"], "recipe_ref": automation["recipe_ref"], "project_id": automation["project_id"] } });
@@ -1183,6 +2223,9 @@ pub(crate) async fn handle_automation_start(
         "automation_name": automation["name"],
         "project_id": automation["project_id"],
         "environment_id": exec["environment_id"],
+        "trigger": exec["trigger"],
+        "webhook_event_ref": exec["webhook_event_ref"],
+        "information_flow_label_ref": exec["information_flow_label_ref"],
         "status": exec["status"],
         "step_count": results.len(),
         "counts": exec["counts"],
@@ -1365,23 +2408,87 @@ pub(crate) async fn handle_placement_metrics(State(st): State<Arc<DaemonState>>)
 // decentralized.cloud candidate plane exists — venue selection is never hidden behind auto.
 
 const VENUE_POLICY_KIND: &str = "placement-venue-policy";
-const VENUE_IDS: &[&str] = &["run_local", "use_my_infrastructure", "pick_provider", "hypervisor_choose"];
-const CLOUD_KINDS: &[&str] = &["aws", "gcp", "azure", "k8s", "vast", "runpod", "lambda_cloud", "akash"];
+const VENUE_IDS: &[&str] = &[
+    "run_local",
+    "use_my_infrastructure",
+    "pick_provider",
+    "hypervisor_choose",
+];
+const CLOUD_KINDS: &[&str] = &[
+    "aws",
+    "gcp",
+    "azure",
+    "k8s",
+    "vast",
+    "runpod",
+    "lambda_cloud",
+    "akash",
+];
 
 /// Kind-level capability hints (GPU / storage / IP / snapshot) — labeled hints, never probed
 /// claims. Per-provider semantics preserved; nothing flattened into a fake generic cloud.
 fn venue_capability_hints(kind: &str) -> Value {
     let (gpu, storage, ip, snapshot) = match kind {
-        "local" => ("host-dependent", "host disk", "loopback / local", "daemon snapshots + sha256 state roots (real)"),
-        "baremetal_ssh" => ("host-dependent (your node's hardware)", "node disk", "node endpoint (you own it)", "daemon-custody tar + admitted sha256 (real)"),
-        "aws" => ("EC2 instances — enterprise customer-cloud (guarded adapter)", "EBS root volumes (native ids evidence-only)", "VPC/security-group posture; public or Elastic IPs (evidence)", "daemon custody via the ssh lane; EBS snapshots evidence-only"),
-        "gcp" => ("Compute Engine machine types — enterprise customer-cloud (guarded adapter)", "Persistent Disk boot volumes (native ids evidence-only)", "VPC network/firewall posture; external or static IPs (evidence)", "daemon custody via the ssh lane; PD snapshots evidence-only"),
-        "azure" => ("Azure VM sizes — enterprise customer-cloud (guarded adapter)", "managed OS disks (native ids evidence-only)", "VNet/NSG posture; public or static IPs (evidence)", "daemon custody via the ssh lane; managed-disk snapshots evidence-only"),
-        "k8s" => ("GPU device-plugin scheduling per namespace quota (guarded adapter)", "PVCs per storage class — cluster posture, never restore truth", "ClusterIP/LoadBalancer/ingress per cluster posture (evidence)", "daemon custody from the workload fs; VolumeSnapshots evidence-only"),
-        "vast" => ("marketplace GPUs (adapter pending)", "container-scoped storage", "host-dependent, often shared", "daemon custody when the adapter lands"),
-        "runpod" => ("GPU runtime pods — secure (on-demand) + community (interruptible)", "container disk + network volumes", "proxy ssh / public ip when exposed", "daemon custody via the ssh lane"),
-        "lambda_cloud" => ("GPU VMs — ordinary Linux + ssh (Lambda-class)", "instance-lifetime persistent local NVMe", "public ip + ssh (user ubuntu)", "daemon custody via the ssh lane; native snapshots evidence-only"),
-        "akash" => ("DePIN deployment-lease GPUs — SDL → bids → lease (guarded adapter)", "deployment-scoped persistent storage (SDL posture — never restore truth)", "lease-assigned IP/ports (evidence, not authority)", "daemon custody via the SDL-declared ssh service; archive via the storage plane"),
+        "local" => (
+            "host-dependent",
+            "host disk",
+            "loopback / local",
+            "daemon snapshots + sha256 state roots (real)",
+        ),
+        "baremetal_ssh" => (
+            "host-dependent (your node's hardware)",
+            "node disk",
+            "node endpoint (you own it)",
+            "daemon-custody tar + admitted sha256 (real)",
+        ),
+        "aws" => (
+            "EC2 instances — enterprise customer-cloud (guarded adapter)",
+            "EBS root volumes (native ids evidence-only)",
+            "VPC/security-group posture; public or Elastic IPs (evidence)",
+            "daemon custody via the ssh lane; EBS snapshots evidence-only",
+        ),
+        "gcp" => (
+            "Compute Engine machine types — enterprise customer-cloud (guarded adapter)",
+            "Persistent Disk boot volumes (native ids evidence-only)",
+            "VPC network/firewall posture; external or static IPs (evidence)",
+            "daemon custody via the ssh lane; PD snapshots evidence-only",
+        ),
+        "azure" => (
+            "Azure VM sizes — enterprise customer-cloud (guarded adapter)",
+            "managed OS disks (native ids evidence-only)",
+            "VNet/NSG posture; public or static IPs (evidence)",
+            "daemon custody via the ssh lane; managed-disk snapshots evidence-only",
+        ),
+        "k8s" => (
+            "GPU device-plugin scheduling per namespace quota (guarded adapter)",
+            "PVCs per storage class — cluster posture, never restore truth",
+            "ClusterIP/LoadBalancer/ingress per cluster posture (evidence)",
+            "daemon custody from the workload fs; VolumeSnapshots evidence-only",
+        ),
+        "vast" => (
+            "marketplace GPUs (adapter pending)",
+            "container-scoped storage",
+            "host-dependent, often shared",
+            "daemon custody when the adapter lands",
+        ),
+        "runpod" => (
+            "GPU runtime pods — secure (on-demand) + community (interruptible)",
+            "container disk + network volumes",
+            "proxy ssh / public ip when exposed",
+            "daemon custody via the ssh lane",
+        ),
+        "lambda_cloud" => (
+            "GPU VMs — ordinary Linux + ssh (Lambda-class)",
+            "instance-lifetime persistent local NVMe",
+            "public ip + ssh (user ubuntu)",
+            "daemon custody via the ssh lane; native snapshots evidence-only",
+        ),
+        "akash" => (
+            "DePIN deployment-lease GPUs — SDL → bids → lease (guarded adapter)",
+            "deployment-scoped persistent storage (SDL posture — never restore truth)",
+            "lease-assigned IP/ports (evidence, not authority)",
+            "daemon custody via the SDL-declared ssh service; archive via the storage plane",
+        ),
         _ => ("unknown", "unknown", "unknown", "unknown"),
     };
     json!({ "gpu": gpu, "persistent_storage": storage, "ip": ip, "snapshot": snapshot,
@@ -1421,7 +2528,10 @@ fn provider_card(account: &Value, venue: &str, classes: &[Value]) -> Value {
         _ if preflight.is_null() => "unverified — bind a credential and run preflight".to_string(),
         _ => format!(
             "unverified — preflight refused: {}",
-            preflight.pointer("/evidence/reason").and_then(Value::as_str).unwrap_or("see preflight evidence")
+            preflight
+                .pointer("/evidence/reason")
+                .and_then(Value::as_str)
+                .unwrap_or("see preflight evidence")
         ),
     };
     let eligible_classes: Vec<&str> = classes
@@ -1454,16 +2564,29 @@ fn provider_card(account: &Value, venue: &str, classes: &[Value]) -> Value {
 /// Compose the four venue cards from live daemon truth (accounts + environment classes).
 fn compose_venues(data_dir: &str, classes: &[Value]) -> Vec<Value> {
     let accounts = read_record_dir(data_dir, "provider-accounts");
-    let ssh_accounts: Vec<&Value> = accounts.iter().filter(|a| a["kind"].as_str() == Some("baremetal_ssh")).collect();
-    let cloud_accounts: Vec<&Value> = accounts.iter().filter(|a| CLOUD_KINDS.contains(&a["kind"].as_str().unwrap_or(""))).collect();
+    let ssh_accounts: Vec<&Value> = accounts
+        .iter()
+        .filter(|a| a["kind"].as_str() == Some("baremetal_ssh"))
+        .collect();
+    let cloud_accounts: Vec<&Value> = accounts
+        .iter()
+        .filter(|a| CLOUD_KINDS.contains(&a["kind"].as_str().unwrap_or("")))
+        .collect();
     let class_ids_for = |kind: &str| -> Vec<String> {
-        classes.iter()
-            .filter(|c| c.pointer("/provider_eligibility/provider_kinds").and_then(Value::as_array)
-                .map(|ks| ks.iter().any(|k| k.as_str() == Some(kind))).unwrap_or(false))
+        classes
+            .iter()
+            .filter(|c| {
+                c.pointer("/provider_eligibility/provider_kinds")
+                    .and_then(Value::as_array)
+                    .map(|ks| ks.iter().any(|k| k.as_str() == Some(kind)))
+                    .unwrap_or(false)
+            })
             .filter_map(|c| c.get("id").and_then(Value::as_str).map(str::to_string))
             .collect()
     };
-    let verified_ssh = ssh_accounts.iter().any(|a| a["status"].as_str() == Some("verified"));
+    let verified_ssh = ssh_accounts
+        .iter()
+        .any(|a| a["status"].as_str() == Some("verified"));
 
     let local = json!({
         "venue": "run_local", "display_name": "Run local",
@@ -1486,9 +2609,15 @@ fn compose_venues(data_dir: &str, classes: &[Value]) -> Vec<Value> {
     });
     // Pick a cloud: connected accounts as cards + a not-connected stub per remaining kind, so
     // the choice is visible even before any account exists (never hidden).
-    let mut cloud_cards: Vec<Value> = cloud_accounts.iter().map(|a| provider_card(a, "pick_provider", classes)).collect();
+    let mut cloud_cards: Vec<Value> = cloud_accounts
+        .iter()
+        .map(|a| provider_card(a, "pick_provider", classes))
+        .collect();
     for kind in CLOUD_KINDS {
-        if !cloud_accounts.iter().any(|a| a["kind"].as_str() == Some(*kind)) {
+        if !cloud_accounts
+            .iter()
+            .any(|a| a["kind"].as_str() == Some(*kind))
+        {
             cloud_cards.push(json!({
                 "kind": kind, "connected": false, "status": "not_connected",
                 "reason": "no ProviderAccount for this kind yet",
@@ -1524,14 +2653,29 @@ fn compose_venues(data_dir: &str, classes: &[Value]) -> Vec<Value> {
 
 /// Fold the live advisory into the hypervisor_choose venue card (candidates + availability).
 pub(crate) fn attach_choose_advisory(venues: &mut [Value], advisory: &Value) {
-    if let Some(card) = venues.iter_mut().find(|v| v["venue"] == "hypervisor_choose") {
-        let eligible = advisory.get("eligible").and_then(Value::as_u64).unwrap_or(0);
+    if let Some(card) = venues
+        .iter_mut()
+        .find(|v| v["venue"] == "hypervisor_choose")
+    {
+        let eligible = advisory
+            .get("eligible")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
         card["available"] = json!(eligible > 0);
         card["advisory_ref"] = advisory.get("advisory_ref").cloned().unwrap_or(Value::Null);
         card["candidates"] = advisory.get("candidates").cloned().unwrap_or(json!([]));
-        card["recommendation"] = advisory.get("recommendation").cloned().unwrap_or(Value::Null);
-        card["no_eligible_candidate"] = advisory.get("no_eligible_candidate").cloned().unwrap_or(Value::Null);
-        card["routing_fee_basis"] = advisory.get("routing_fee_basis").cloned().unwrap_or(Value::Null);
+        card["recommendation"] = advisory
+            .get("recommendation")
+            .cloned()
+            .unwrap_or(Value::Null);
+        card["no_eligible_candidate"] = advisory
+            .get("no_eligible_candidate")
+            .cloned()
+            .unwrap_or(Value::Null);
+        card["routing_fee_basis"] = advisory
+            .get("routing_fee_basis")
+            .cloned()
+            .unwrap_or(Value::Null);
         card["fee_object_minted"] = json!(false);
     }
 }
@@ -1540,7 +2684,11 @@ pub(crate) async fn live_environment_classes(base: &str) -> Vec<Value> {
     call(base, "GET", "/v1/hypervisor/environment-classes", None)
         .await
         .ok()
-        .and_then(|v| v.get("environmentClasses").and_then(Value::as_array).cloned())
+        .and_then(|v| {
+            v.get("environmentClasses")
+                .and_then(Value::as_array)
+                .cloned()
+        })
         .unwrap_or_default()
 }
 
@@ -1565,11 +2713,13 @@ pub(crate) fn load_venue_policy(data_dir: &str) -> Value {
     read_record_dir(data_dir, VENUE_POLICY_KIND)
         .into_iter()
         .find(|r| r["policy_id"].as_str() == Some("current"))
-        .unwrap_or_else(|| json!({
-            "schema_version": "ioi.hypervisor.placement-venue-policy.v1",
-            "policy_id": "current", "venue": "run_local", "default": true,
-            "note": "no venue chosen yet — local is the conformance default, not a hidden auto",
-        }))
+        .unwrap_or_else(|| {
+            json!({
+                "schema_version": "ioi.hypervisor.placement-venue-policy.v1",
+                "policy_id": "current", "venue": "run_local", "default": true,
+                "note": "no venue chosen yet — local is the conformance default, not a hidden auto",
+            })
+        })
 }
 
 /// GET /v1/hypervisor/placement/venue-policy — the durable chosen venue.
@@ -1588,21 +2738,44 @@ pub(crate) async fn handle_venue_policy_put(
 ) -> (StatusCode, Json<Value>) {
     let venue = body.get("venue").and_then(Value::as_str).unwrap_or("");
     if !VENUE_IDS.contains(&venue) {
-        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "placement_venue_invalid", "message": format!("venue must be one of {VENUE_IDS:?}") } })));
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(
+                json!({ "ok": false, "error": { "code": "placement_venue_invalid", "message": format!("venue must be one of {VENUE_IDS:?}") } }),
+            ),
+        );
     }
-    let account_ref = body.get("provider_account_ref").and_then(Value::as_str).unwrap_or("");
+    let account_ref = body
+        .get("provider_account_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let mut provider_snapshot = Value::Null;
     if venue == "use_my_infrastructure" || venue == "pick_provider" {
         let accounts = read_record_dir(&st.data_dir, "provider-accounts");
         let Some(account) = accounts.iter().find(|a| {
-            a["account_ref"].as_str() == Some(account_ref) || a["account_id"].as_str() == Some(account_ref)
+            a["account_ref"].as_str() == Some(account_ref)
+                || a["account_id"].as_str() == Some(account_ref)
         }) else {
-            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "placement_provider_account_required", "message": "this venue pins a ProviderAccount — pass provider_account_ref for an existing account" } })));
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(
+                    json!({ "ok": false, "error": { "code": "placement_provider_account_required", "message": "this venue pins a ProviderAccount — pass provider_account_ref for an existing account" } }),
+                ),
+            );
         };
         let kind = account["kind"].as_str().unwrap_or("");
-        let family_ok = if venue == "use_my_infrastructure" { kind == "baremetal_ssh" } else { CLOUD_KINDS.contains(&kind) };
+        let family_ok = if venue == "use_my_infrastructure" {
+            kind == "baremetal_ssh"
+        } else {
+            CLOUD_KINDS.contains(&kind)
+        };
         if !family_ok {
-            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "placement_provider_kind_mismatch", "message": format!("'{kind}' accounts do not belong to venue '{venue}'") } })));
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(
+                    json!({ "ok": false, "error": { "code": "placement_provider_kind_mismatch", "message": format!("'{kind}' accounts do not belong to venue '{venue}'") } }),
+                ),
+            );
         }
         // Snapshot posture at choice time — the preview re-reads LIVE state, this is provenance.
         provider_snapshot = json!({
@@ -1617,7 +2790,11 @@ pub(crate) async fn handle_venue_policy_put(
         advisory_block = super::decentralized_cloud_routes::advisory_for(&st, &intent, true).await;
     }
     let prior = load_venue_policy(&st.data_dir);
-    let mut history = prior.get("history").and_then(Value::as_array).cloned().unwrap_or_default();
+    let mut history = prior
+        .get("history")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     if prior.get("default").and_then(Value::as_bool) != Some(true) {
         history.push(json!({ "venue": prior["venue"], "provider_account_ref": prior["provider_account_ref"], "chosen_at": prior["chosen_at"] }));
     }
@@ -1640,7 +2817,12 @@ pub(crate) async fn handle_venue_policy_put(
         "history": history,
     });
     let _ = persist_record(&st.data_dir, VENUE_POLICY_KIND, "current", &record);
-    (StatusCode::OK, Json(json!({ "ok": true, "policy": record, "fee": venue_fee(venue), "advisory": advisory_block })))
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "policy": record, "fee": venue_fee(venue), "advisory": advisory_block }),
+        ),
+    )
 }
 
 /// The receipt kinds a launch/lifecycle at this venue will mint — NAMED BEFORE LAUNCH.
@@ -1660,13 +2842,17 @@ pub(crate) fn venue_receipts_expected(venue: &str, data_dir: &str) -> Value {
         "use_my_infrastructure" => {
             let mut r = base;
             r.extend(provider_set);
-            r.push(json!("budget discovery note (local_free — customer-borne, no metered spend)"));
+            r.push(json!(
+                "budget discovery note (local_free — customer-borne, no metered spend)"
+            ));
             json!(r)
         }
         "pick_provider" => {
             let mut r = base;
             r.extend(provider_set);
-            let has_budget = read_record_dir(data_dir, "resource-budgets").iter().any(|b| b["scope"].as_str() == Some("external_spend"));
+            let has_budget = read_record_dir(data_dir, "resource-budgets")
+                .iter()
+                .any(|b| b["scope"].as_str() == Some("external_spend"));
             r.push(json!("external_spend budget discovery BEFORE any mutation (409 budget_blocked without headroom)"));
             if !has_budget {
                 r.push(json!("⚠ no external_spend budget exists yet — metered mutations will be budget_blocked until one is created"));
@@ -1693,23 +2879,43 @@ pub(crate) async fn handle_placement_preview(
     Query(q): Query<HashMap<String, String>>,
 ) -> Json<Value> {
     let policy = load_venue_policy(&st.data_dir);
-    let venue = q.get("venue").map(String::as_str)
+    let venue = q
+        .get("venue")
+        .map(String::as_str)
         .filter(|v| VENUE_IDS.contains(v))
         .unwrap_or_else(|| policy["venue"].as_str().unwrap_or("run_local"))
         .to_string();
-    let account_ref = q.get("provider_account_ref").cloned()
-        .or_else(|| policy.get("provider_account_ref").and_then(Value::as_str).map(str::to_string))
+    let account_ref = q
+        .get("provider_account_ref")
+        .cloned()
+        .or_else(|| {
+            policy
+                .get("provider_account_ref")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
         .unwrap_or_default();
     let classes = live_environment_classes(&st.base_url).await;
     let venues = compose_venues(&st.data_dir, &classes);
-    let venue_card = venues.iter().find(|v| v["venue"].as_str() == Some(venue.as_str())).cloned().unwrap_or(Value::Null);
-    let provider_card = venue_card.get("providers").and_then(Value::as_array).and_then(|ps| {
-        ps.iter().find(|p| p["account_ref"].as_str() == Some(account_ref.as_str())).cloned()
-    });
+    let venue_card = venues
+        .iter()
+        .find(|v| v["venue"].as_str() == Some(venue.as_str()))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let provider_card = venue_card
+        .get("providers")
+        .and_then(Value::as_array)
+        .and_then(|ps| {
+            ps.iter()
+                .find(|p| p["account_ref"].as_str() == Some(account_ref.as_str()))
+                .cloned()
+        });
     let advisory = if venue == "hypervisor_choose" {
         let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
         super::decentralized_cloud_routes::advisory_for(&st, &intent, false).await
-    } else { Value::Null };
+    } else {
+        Value::Null
+    };
     Json(json!({
         "schema_version": "ioi.hypervisor.placement-preview.v1",
         "policy": policy,
@@ -1819,4 +3025,353 @@ pub(crate) async fn handle_warm_pool_claim(
     Json(
         json!({ "ok": true, "environment_id": claimed_env, "claim_kind": "warm_claim", "remaining": pool["ready"].as_array().map(|a| a.len()).unwrap_or(0) }),
     )
+}
+
+#[cfg(test)]
+mod webhook_tests {
+    use super::*;
+
+    const TOKEN: &str = "whk_test_secret";
+    const AUTOMATION_ID: &str = "auto_test";
+    const NOW: i64 = 1_800_000_000;
+
+    fn stored_token_hash() -> String {
+        hex::encode(Sha256::digest(TOKEN.as_bytes()))
+    }
+
+    fn verify_at(
+        body: &[u8],
+        timestamp: i64,
+        nonce: &str,
+        signature: &str,
+    ) -> Result<VerifiedWebhookRequest, WebhookVerificationError> {
+        verify_webhook_request(
+            &stored_token_hash(),
+            TOKEN,
+            AUTOMATION_ID,
+            &timestamp.to_string(),
+            nonce,
+            signature,
+            body,
+            NOW,
+        )
+    }
+
+    #[test]
+    fn valid_signature_binds_exact_request() {
+        let body = br#"{"event":"deploy","bytes":[0,255]}"#;
+        let timestamp = NOW.to_string();
+        let signature = webhook_signature(TOKEN, AUTOMATION_ID, &timestamp, "nonce-1", body);
+        let verified = verify_at(body, NOW, "nonce-1", &signature).unwrap();
+        assert_eq!(verified.signature_version, WEBHOOK_SIGNATURE_VERSION);
+        assert_eq!(verified.signed_timestamp, timestamp);
+        assert_eq!(verified.nonce, "nonce-1");
+        assert_eq!(verified.body_hash, sha256_hex_bytes(body));
+    }
+
+    #[test]
+    fn signature_for_different_body_is_rejected() {
+        let timestamp = NOW.to_string();
+        let signature = webhook_signature(TOKEN, AUTOMATION_ID, &timestamp, "nonce-2", b"original");
+        assert_eq!(
+            verify_at(b"changed", NOW, "nonce-2", &signature).unwrap_err(),
+            WebhookVerificationError::InvalidSignature
+        );
+    }
+
+    #[test]
+    fn stale_timestamp_is_rejected() {
+        let timestamp = (NOW - WEBHOOK_MAX_AGE_SECONDS - 1).to_string();
+        let signature = webhook_signature(TOKEN, AUTOMATION_ID, &timestamp, "nonce-stale", b"body");
+        assert_eq!(
+            verify_at(
+                b"body",
+                timestamp.parse().unwrap(),
+                "nonce-stale",
+                &signature
+            )
+            .unwrap_err(),
+            WebhookVerificationError::StaleTimestamp
+        );
+    }
+
+    #[test]
+    fn future_clock_skew_is_rejected() {
+        let timestamp = (NOW + WEBHOOK_MAX_FUTURE_SKEW_SECONDS + 1).to_string();
+        let signature =
+            webhook_signature(TOKEN, AUTOMATION_ID, &timestamp, "nonce-future", b"body");
+        assert_eq!(
+            verify_at(
+                b"body",
+                timestamp.parse().unwrap(),
+                "nonce-future",
+                &signature
+            )
+            .unwrap_err(),
+            WebhookVerificationError::FutureTimestamp
+        );
+    }
+
+    #[test]
+    fn wrong_signature_and_wrong_token_are_rejected() {
+        let timestamp = NOW.to_string();
+        let signature = webhook_signature(TOKEN, AUTOMATION_ID, &timestamp, "nonce-auth", b"body");
+        assert_eq!(
+            verify_at(
+                b"body",
+                NOW,
+                "nonce-auth",
+                "v1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            )
+            .unwrap_err(),
+            WebhookVerificationError::InvalidSignature
+        );
+        assert_eq!(
+            verify_webhook_request(
+                &stored_token_hash(),
+                "wrong-token",
+                AUTOMATION_ID,
+                &timestamp,
+                "nonce-auth",
+                &signature,
+                b"body",
+                NOW,
+            )
+            .unwrap_err(),
+            WebhookVerificationError::InvalidToken
+        );
+    }
+
+    #[test]
+    fn in_lock_reverification_rejects_a_rotated_old_token() {
+        let old_token = "whk_old_secret";
+        let new_token_hash = hex::encode(Sha256::digest(b"whk_new_secret"));
+        let timestamp = NOW.to_string();
+        let signature = webhook_signature(
+            old_token,
+            AUTOMATION_ID,
+            &timestamp,
+            "nonce-rotated",
+            b"body",
+        );
+        assert_eq!(
+            verify_webhook_request(
+                &new_token_hash,
+                old_token,
+                AUTOMATION_ID,
+                &timestamp,
+                "nonce-rotated",
+                &signature,
+                b"body",
+                NOW,
+            )
+            .unwrap_err(),
+            WebhookVerificationError::InvalidToken
+        );
+    }
+
+    #[test]
+    fn exact_replay_returns_existing_receipt_without_dispatch() {
+        let events = vec![json!({
+            "receipt_id": "whk_evt_existing",
+            "automation_id": AUTOMATION_ID,
+            "nonce": "nonce-replay",
+            "canonical_request_hash": "sha256:request",
+            "idempotency_admitted": true,
+            "accepted": true
+        })];
+        let decision =
+            webhook_replay_decision(&events, AUTOMATION_ID, "nonce-replay", "sha256:request");
+        assert!(!decision.should_dispatch());
+        assert!(matches!(decision, WebhookReplayDecision::Existing(_)));
+    }
+
+    #[test]
+    fn reused_nonce_with_changed_request_is_conflict() {
+        let events = vec![json!({
+            "receipt_id": "whk_evt_existing",
+            "automation_id": AUTOMATION_ID,
+            "nonce": "nonce-conflict",
+            "canonical_request_hash": "sha256:first",
+            "idempotency_admitted": true
+        })];
+        let decision =
+            webhook_replay_decision(&events, AUTOMATION_ID, "nonce-conflict", "sha256:changed");
+        assert!(!decision.should_dispatch());
+        assert!(matches!(decision, WebhookReplayDecision::Conflict { .. }));
+    }
+
+    #[test]
+    fn pending_dispatch_receipt_consumes_concurrency_slot() {
+        let events = vec![
+            json!({
+                "automation_id": AUTOMATION_ID,
+                "accepted": true,
+                "dispatch_state": "pending"
+            }),
+            json!({
+                "automation_id": AUTOMATION_ID,
+                "accepted": true,
+                "dispatch_state": "completed"
+            }),
+            json!({
+                "automation_id": "auto_other",
+                "accepted": true,
+                "dispatch_state": "pending"
+            }),
+        ];
+        assert_eq!(pending_webhook_dispatches(&events, AUTOMATION_ID), 1);
+        let running = 0_i64;
+        let max_concurrency = 1_i64;
+        assert!(
+            running.saturating_add(pending_webhook_dispatches(&events, AUTOMATION_ID))
+                >= max_concurrency
+        );
+    }
+
+    #[test]
+    fn webhook_start_resolves_only_the_exact_pending_event_and_label_refs() {
+        let event_ref = "receipt://hypervisor/automation-webhook/whk_evt_start";
+        let label_ref = "ifc-label://hypervisor/automation-webhook/auto_test/whk_evt_start";
+        let body_hash = sha256_hex_bytes(b"payload");
+        let label = webhook_information_flow_label(AUTOMATION_ID, "whk_evt_start", &body_hash);
+        let events = vec![json!({
+            "schema_version": "ioi.hypervisor.webhook-trigger-receipt.v2",
+            "receipt_id": "whk_evt_start",
+            "event_ref": event_ref,
+            "automation_id": AUTOMATION_ID,
+            "information_flow_label_ref": label_ref,
+            "information_flow_label": label,
+            "body_hash": body_hash,
+            "canonical_request_hash": sha256_hex_bytes(b"canonical request"),
+            "signature_version": WEBHOOK_SIGNATURE_VERSION,
+            "signed_timestamp": NOW.to_string(),
+            "nonce": "nonce-start",
+            "idempotency_admitted": true,
+            "verification_result": {
+                "token_possession_verified": true,
+                "timestamp_freshness_verified": true,
+                "signature_verified": true
+            },
+            "accepted": true,
+            "reason": "accepted",
+            "dispatch_state": "pending"
+        })];
+        assert!(
+            resolve_pending_webhook_launch_event(&events, AUTOMATION_ID, event_ref, label_ref,)
+                .is_some()
+        );
+        assert!(resolve_pending_webhook_launch_event(
+            &events,
+            AUTOMATION_ID,
+            event_ref,
+            "ifc-label://hypervisor/automation-webhook/auto_test/forged",
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn webhook_start_rejects_legacy_and_forged_pending_events() {
+        let event_ref = "receipt://hypervisor/automation-webhook/whk_evt_forged";
+        let label_ref = "ifc-label://hypervisor/automation-webhook/auto_test/whk_evt_forged";
+        let legacy = json!({
+            "schema_version": "ioi.hypervisor.webhook-trigger-receipt.v1",
+            "event_ref": event_ref,
+            "automation_id": AUTOMATION_ID,
+            "information_flow_label_ref": label_ref,
+            "accepted": true,
+            "dispatch_state": "pending"
+        });
+        assert!(resolve_pending_webhook_launch_event(
+            &[legacy],
+            AUTOMATION_ID,
+            event_ref,
+            label_ref,
+        )
+        .is_none());
+
+        let body_hash = sha256_hex_bytes(b"payload");
+        let forged = json!({
+            "schema_version": "ioi.hypervisor.webhook-trigger-receipt.v2",
+            "event_ref": event_ref,
+            "automation_id": AUTOMATION_ID,
+            "information_flow_label_ref": label_ref,
+            "information_flow_label": webhook_information_flow_label(AUTOMATION_ID, "whk_evt_forged", &body_hash),
+            "body_hash": body_hash,
+            "canonical_request_hash": sha256_hex_bytes(b"canonical request"),
+            "signature_version": WEBHOOK_SIGNATURE_VERSION,
+            "signed_timestamp": NOW.to_string(),
+            "nonce": "nonce-forged",
+            "idempotency_admitted": true,
+            "verification_result": {
+                "token_possession_verified": true,
+                "timestamp_freshness_verified": true,
+                "signature_verified": false
+            },
+            "accepted": true,
+            "reason": "accepted",
+            "dispatch_state": "pending"
+        });
+        assert!(resolve_pending_webhook_launch_event(
+            &[forged],
+            AUTOMATION_ID,
+            event_ref,
+            label_ref,
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn inbound_label_cannot_authorize_an_effect() {
+        use crate::information_flow::{admit_pre_effect, PreEffectAdmission};
+
+        let label = webhook_information_flow_label(
+            AUTOMATION_ID,
+            "whk_evt_label",
+            &sha256_hex_bytes(b"payload"),
+        );
+        assert_eq!(label["origin"], "external_untrusted");
+        assert_eq!(label["integrity"], "untrusted");
+        assert_eq!(label["confidentiality"], "unknown");
+        assert_eq!(label["instruction_authority"], "none");
+        assert_eq!(label["egress_policy"]["mode"], "deny");
+        assert_ne!(label["instruction_authority"], "authoritative");
+        let tool_contract = json!({
+            "schema_version": "ioi.components.connectors-tools.runtime-tool-contract.v1",
+            "tool_id": "tool://example.send",
+            "revision_ref": "tool://example.send/revision/1.0.0",
+            "predecessor_revision_ref": null,
+            "content_hash": format!("sha256:{}", "b".repeat(64)),
+            "namespace": "example",
+            "display_name": "Send example",
+            "version": "1.0.0",
+            "risk_class": "external_message",
+            "effect_class": "external_message",
+            "primitive_capabilities_required": ["prim:net.request"],
+            "authority_scopes_required": ["scope:example.send"],
+            "approval_required": true,
+            "evidence_required": ["request_preview"],
+            "owner": "connector://example",
+            "data_class_allowlist": ["public", "internal", "confidential"],
+            "egress_policy": {
+                "default": "allow_declared",
+                "allowed_destination_patterns": ["https://api.example.test/v1/*"]
+            }
+        });
+        let request = json!({ "message": "must not send" });
+        let denial = admit_pre_effect(&PreEffectAdmission {
+            label: &label,
+            tool_contract: &tool_contract,
+            destination: "https://api.example.test/v1/send",
+            method: "POST",
+            request: &request,
+            reviewed_representation: None,
+            declassification_approval: None,
+        })
+        .unwrap_err();
+        assert!(matches!(
+            denial.code,
+            "ifc_unknown_label" | "ifc_instruction_not_authoritative" | "ifc_label_egress_denied"
+        ));
+    }
 }

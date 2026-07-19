@@ -1,0 +1,50 @@
+{
+  "$id": "invariant://ioi/foundations/authority-grant-envelope/portable-grant/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
+  "rules": [
+    {
+      "rule_id": "authority_grant.capability.required",
+      "description": "A portable grant must convey at least one authority scope or primitive capability constraint.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.authority_scopes",
+          "$.primitive_capability_constraints"
+        ]
+      }
+    },
+    {
+      "rule_id": "authority_grant.signature_key.matches_issuer_key",
+      "description": "The signature key must be the exact issuer key named by the signed grant body.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.signature_key_id", "$.issuer_key_id"]
+      }
+    },
+    {
+      "rule_id": "authority_grant.schema_hash.matches_contract",
+      "description": "The signed schema hash must match the registered immutable v2 schema.",
+      "expression": {
+        "operator": "matches_contract_schema_hash",
+        "path": "$.schema_hash"
+      }
+    },
+    {
+      "rule_id": "authority_grant.issued_at.not_after_not_before",
+      "description": "A grant cannot become valid before it is issued.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": ["$.issued_at", "$.not_before"]
+      }
+    },
+    {
+      "rule_id": "authority_grant.not_before.before_expiry",
+      "description": "A portable grant must have a non-empty validity interval.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": ["$.not_before", "$.expires_at"]
+      }
+    }
+  ]
+}

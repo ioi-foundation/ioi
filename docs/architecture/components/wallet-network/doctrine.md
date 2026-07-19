@@ -4,9 +4,9 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-18.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, and approval gates live in the daemon; guardian surfaces, key shards, and MPC vault planned)
+Implementation status: partial (capability-lease authority, sealed credentials, and approval gates live in the daemon; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
 Last implementation audit: 2026-07-05
@@ -99,6 +99,15 @@ need a delegated lease, secret brokerage, spend approval, decryption,
 declassification, provider-trust acceptance, external connector access,
 publication/export, cross-domain reuse, or portable revocation.
 
+An `InstitutionalLearningBoundaryProfile` does not itself grant any of those
+powers. Hypervisor and domain governance may compile the applicable learning
+rules, and Agentgres may record the admitted profile and decisions, but
+wallet.network remains involved only where an execution needs its owned
+delegated machine power: credentials, decryption, provider-trust acceptance,
+spend, declassification, external export, cross-domain reuse, or portable
+revocation. Ordinary internal eligibility remains with its source/data,
+training, and system-governance owners.
+
 The gateway must be portable, revocable, policy-bound, receipted, and visible
 across local, hosted, enterprise, cTEE/private-workspace, DePIN, cloud, model,
 connector, marketplace, and domain-application routes.
@@ -146,6 +155,155 @@ Revoke access
 Protocol and audit views may disclose the underlying authority provider, grant,
 lease, receipt, revocation epoch, and signature path.
 
+## Canonical Embedded Sign-In-to-Effect Journey
+
+The default first-party managed-product journey compiles familiar account access
+and consequential machine authority into one experience:
+
+```text
+Continue with Apple / Google / Microsoft / GitHub / enterprise SSO / passkey
+  -> create or link one native wallet.network identity without requiring
+     wallet, key, chain, or cryptographic terminology
+  -> establish an ordinary low-risk product session; authentication grants no
+     consequential authority
+  -> a product or agent proposes one consequential action
+  -> wallet.network derives an exact authority review with separate commitments
+     to the immutable authority request, the application-defined representation
+     presented for review, and the exact effect, batch, or standing envelope
+     proposed for authorization
+  -> an enrolled authority-client or guardian presentation surface renders the
+     review under its declared presentation-evidence profile
+  -> a platform passkey or other admitted AuthFactor authenticates a fresh,
+     single-use approval ceremony bound to that review; Face ID, Touch ID,
+     Windows Hello, device PIN, or equivalent may perform local user
+     verification, and no biometric sample or template leaves the device
+  -> wallet.network issues a scoped, expiring, revocable AuthorityGrant or
+     CapabilityLease bound to the exact request, reviewed representation,
+     approval ceremony, authorization subject, and revocation epoch
+  -> Hypervisor Daemon derives and hashes the actual effect at its policy
+     enforcement point, revalidates admission against the authorized subject,
+     and executes or refuses
+  -> WalletReceipt plus Agentgres effect/evidence records make the decision and
+     result inspectable, replayable, challengeable, and revocable where possible
+```
+
+This is an experience contract, not a second identity or authority plane.
+Product adapters may name familiar providers, while the protocol records a
+provider-neutral federated factor and its issuer/subject binding. A platform
+biometric unlocks a local authenticator; Face ID, Touch ID, or Windows Hello is
+never itself an identity, authority grant, signature object, exported biometric
+result, or key shard.
+
+The calling product or deployment identity plane owns the product session.
+wallet.network binds that session ref and origin into the exact authority
+request and review without creating a second session lifecycle. Before this
+journey is claimable as portable end-to-end authority, the target
+`AuthorityGrantEnvelope` v3 successor must sign the exact authority-request
+body hash, reviewed-representation hash, approval-ceremony context hash,
+authorization subject, principal, product-session/origin binding, satisfied
+factor/guardian posture, review receipt, and typed approval-evidence root;
+immutable v1/v2 contracts are not silently extended.
+
+Self-hosted, offline, air-gapped, and sovereign deployments may use
+deployment-local identity and another locally permitted authority provider.
+They retain the same authentication-versus-authority separation and
+effect-boundary admission rule without being forced through a hosted
+wallet.network login.
+
+## Exact-Action Evidence Separation
+
+The exact-action path contains four separate commitments:
+
+```yaml
+authority_request_body_hash: sha256:...
+reviewed_representation_hash: sha256:...
+approval_ceremony_context_hash: sha256:...
+authorization_subject:
+  kind: exact_effect | batch_manifest | standing_envelope
+  subject_ref: effect://... | artifact://... | policy://...
+  subject_hash: sha256:...
+  validation_profile_ref: schema://... | policy://...
+```
+
+`authority_request_body_hash` commits the immutable machine authority request.
+`reviewed_representation_hash` commits the canonical, application-defined
+semantic representation presented for approval, including its required
+disclosures; it is not a hash of incidental pixels or layout.
+`approval_ceremony_context_hash` commits the request and representation hashes,
+principal, acting subject, product session, origin, authorization subject,
+single-use nonce, policy, expiry, and revocation posture used by the approval
+ceremony. `authorization_subject` says what later execution must prove:
+
+- `exact_effect` requires equality with the daemon-derived canonical effect
+  payload hash;
+- `batch_manifest` requires membership in the committed manifest under the
+  named validation profile; and
+- `standing_envelope` requires the concrete effect to satisfy every committed
+  scope, resource, destination, budget, call-count, time, and policy constraint.
+
+These commitments prove different facts and must not be collapsed:
+
+```text
+AuthorityReviewReceipt
+  records the canonical reviewed representation, decision, and presentation
+  evidence accepted under policy
+
+AuthFactor / WebAuthn assertion evidence
+  authenticates the credential ceremony, challenge, RP/origin posture, and
+  observed UP/UV facts required by policy
+
+AuthorityGrantEnvelope v3
+  signs the request, review, ceremony, satisfied posture, authorization subject,
+  and typed approval-evidence root
+
+daemon effect-admission and execution receipts
+  bind the actual canonical effect payload and whether the invoker was called
+```
+
+A WebAuthn assertion can be evidence in an application consent or approval
+ceremony when its fresh server challenge is bound to
+`approval_ceremony_context_hash`. It remains distinct from presentation
+evidence and does not independently prove that an application-defined
+representation was displayed, displayed correctly, or understood. Likewise, a
+surface statement that it rendered a review does not authenticate the user, and
+a daemon execution receipt does not prove that the executed effect was approved
+unless the request, review, ceremony, grant, authorization subject, and actual
+effect are linked and revalidated.
+
+Presentation evidence is declared through
+`presentation_evidence_profile_ref` plus immutable evidence refs. Its assurance
+is not a two-tier label. Policy evaluates the orthogonal facts the selected
+profile records:
+
+```yaml
+presentation_evidence:
+  presentation_evidence_profile_ref: policy://wallet/presentation/...
+  presentation_evidence_refs:
+    - receipt://...
+    - artifact://...
+    - attestation://...
+  dimensions:
+    operator_and_surface: object
+    content_binding: object
+    request_vs_effect_binding: object
+    enrollment_and_attestation: object
+    user_presence_and_verification: object
+    freshness_and_replay: object
+    proposer_independence: object
+```
+
+An ordinary embedded browser surface may provide a policy-accepted semantic
+presentation receipt without claiming a trusted display. A separately enrolled
+or attested authority client may support stronger statements only for the exact
+facts its evidence proves. No `presentation_evidence_profile_ref`, AuthFactor,
+device class, or attestation upgrades comprehension into a cryptographic fact.
+
+`edit-and-approve` always creates a successor authority request, review,
+representation hash, authorization-subject commitment, and approval ceremony.
+The predecessor challenge and assertion cannot authorize the edited successor.
+For noninteractive or after-the-fact execution under a standing envelope,
+receipts must say that the envelope—not the individual effect—was reviewed.
+
 ## Boundary Statement
 
 wallet.network does not execute work, store app-domain operational truth, or
@@ -156,13 +314,14 @@ remain in storage backends.
 
 - Hypervisor Daemon executes work as the autonomous-execution hypervisor/control plane.
 - Hypervisor App, Hypervisor Web, CLI/headless clients, optional TUI views, and
-  Workbench, Automations, Foundry, Applications, Environments views,
+  Developer Workspace, Automations, Foundry, Applications, Environments views,
   and domain surfaces request, approve, and inspect work as operator clients,
   application surfaces, and projections.
 - Agentgres records operational state, runs, receipts, projections, delivery,
   and contribution accounting.
-- IOI L1 settles registry, rights, escrows, bonds, disputes, and public
-  commitments.
+- Selected settlement services handle registry, rights, escrows, bonds,
+  disputes, and public commitments; IOI L1 provides the optional shared IOI
+  Network service set.
 - wallet.network authorizes scopes, protects secrets, controls payments, and
   issues approval/session grants.
 
@@ -318,8 +477,7 @@ User-facing onboarding should hide wallet complexity.
 
 A user may create a wallet.network account through:
 
-- Google;
-- GitHub;
+- Apple, Google, Microsoft, GitHub, or another admitted federated provider;
 - passkey;
 - Web3 wallet linking;
 - email/OIDC provider;
@@ -328,6 +486,8 @@ A user may create a wallet.network account through:
 A frictionless login creates a native wallet.network account with a Level 1 authority profile.
 
 The external login is an authentication factor, not the root identity.
+Provider brands are adapter and product metadata; the stable protocol kind is a
+provider-neutral federated identity factor bound to an exact issuer and subject.
 
 ## Account Security and Authority Factor Taxonomy
 
@@ -349,10 +509,12 @@ LowAssuranceAccessPoint
   decryption keys, or durable authority.
 
 GuardianSurface
-  A high-assurance surface that can render an exact action, bind the request
-  hash, and sign or approve the challenge. Examples: enrolled mobile device,
-  passkey device, hardware key, local CLI signer, enterprise approval surface,
-  or trusted Hypervisor/wallet app.
+  An enrolled authority-client and presentation surface that can produce the
+  presentation evidence required by policy and submit an approval or denial.
+  It composes with one or more AuthFactors; a generic passkey or hardware
+  credential is an AuthFactor, not a GuardianSurface by itself. Examples:
+  enrolled mobile or desktop authority clients, local CLI signer surfaces,
+  enterprise approval surfaces, and trusted Hypervisor/wallet apps.
 
 KeyShard
   Actual MPC, threshold, hardware-backed, or organization quorum key material.
@@ -375,13 +537,16 @@ declassification, production deploys, high-value compute spend, or organization
 administration.
 
 TOTP is a supplemental factor and may raise confidence, but it is phishable and
-must not be treated as a sovereign authority shard. Face ID, Touch ID, or other
-biometrics are stronger when bound to passkey or secure-enclave assertions and
-an enrolled device policy.
+must not be treated as a sovereign authority shard. Face ID, Touch ID, Windows
+Hello, or another local verification mechanism can unlock a passkey or
+secure-enclave credential under an enrolled-device policy; the resulting
+cryptographic assertion, not the biometric, crosses the boundary.
 
 Out-of-band guardian approval should be available for high-risk actions. A QR,
-push, or CLI challenge is only a transport; the security property comes from the
-guardian surface displaying and signing the exact:
+push, or CLI challenge is only a transport. The enrolled authority client
+produces presentation evidence for the exact review, and the separately
+admitted AuthFactor or organization approval mechanism authenticates the bound
+ceremony. Together they bind:
 
 ```text
 subject
@@ -391,18 +556,23 @@ budget or amount
 expiry
 risk class
 policy hash
-request hash
+authority request body hash
+reviewed representation hash
+approval ceremony context hash
+authorization subject ref and hash
 ```
 
-The agent never receives provider tokens, OTP values, biometric results,
-guardian secrets, raw key shards, or root session material. It receives only a
-scoped grant, denial receipt, revocation epoch, or authority receipt.
+The agent never receives provider tokens, OTP values, raw biometric samples or
+templates, guardian secrets, raw key shards, or root session material. A
+WebAuthn assertion may carry the authenticator's signed user-verification flag;
+that flag is not the underlying biometric. The agent receives only a scoped
+grant, denial receipt, revocation epoch, or authority receipt.
 
 ## Frictionless-to-Fortress Security Ladder
 
 ### Level 1: Federated / Frictionless Account
 
-- Google/GitHub/OIDC/Web3/email login;
+- federated OIDC/OAuth/SAML, Web3, email, or passkey login;
 - native wallet.network identity created automatically;
 - low-risk authority scopes;
 - managed recovery;
@@ -411,7 +581,8 @@ scoped grant, denial receipt, revocation epoch, or authority receipt.
 ### Level 2: Trusted Device / Passkey
 
 - passkey;
-- biometric assertion bound to an enrolled device;
+- cryptographic passkey assertion unlocked by required local user verification
+  and bound to an enrolled-device policy;
 - mobile approver;
 - local wallet or Hypervisor app;
 - higher risk limits;
@@ -419,10 +590,12 @@ scoped grant, denial receipt, revocation epoch, or authority receipt.
 
 ### Level 3: Out-of-Band Guardian
 
-- enrolled external device;
-- QR, push, or CLI challenge over exact request hash;
-- hardware key;
-- local CLI signer;
+- enrolled external GuardianSurface authority client;
+- QR, push, or CLI transport for a challenge bound to the approval ceremony
+  context;
+- hardware-key or passkey AuthFactor composed with that surface where policy
+  requires it;
+- local CLI signer surface;
 - enterprise approval surface;
 - persistent agent authority;
 - funds, secrets, deploys, policy widening, and declassification.
@@ -437,6 +610,40 @@ scoped grant, denial receipt, revocation epoch, or authority receipt.
 - policy widening;
 - institutional autonomy.
 
+## Account Recovery and Device Lifecycle
+
+Recovery restores account access. It never reconstructs, widens, or silently
+preserves consequential authority.
+
+- A federated provider login by itself cannot recover Level 3, Level 4, or
+  organization-vault authority.
+- High-assurance recovery uses a predeclared independent authenticator,
+  GuardianSurface, organization quorum, hardware-backed factor, or delayed
+  reviewed recovery path appropriate to the active policy.
+- Losing or compromising a factor or device revokes or quarantines the factor,
+  dependent GuardianSurface, affected account sessions, and dependent grants;
+  applicable revocation epochs rotate before future authority is issued.
+- Linking or unlinking a factor, changing a recovery route, replacing a trusted
+  device, and merging account identities are consequential transitions with
+  exact review and receipts. Equal email strings never merge identities;
+  issuer/subject bindings and an authorized linking flow do.
+- A single-device passkey requires another enrolled authenticator or an
+  approved recovery route. Authenticator BE/BS signals expose single- versus
+  multi-device eligibility and current backed-up posture. They do not identify
+  a synchronization provider or prove device-bound custody; either claim
+  requires additional admitted evidence, and policy must not guess it.
+- Recovery may deliberately restore a lower security level. Standing high-risk
+  grants remain revoked or quarantined until the user or organization
+  re-establishes the required factors and explicitly reauthorizes them.
+
+A passkey is an `AuthFactor`, not a presentation surface. A policy may require an
+enrolled GuardianSurface to produce presentation evidence and a passkey to
+authenticate the separately bound approval ceremony. The resulting review
+receipt records which surface and presentation-evidence profile were accepted;
+the AuthFactor evidence records the WebAuthn ceremony facts. Authentication and
+recovery produce posture evidence; only the resulting `AuthorityGrant` or
+`CapabilityLease` conveys machine power (`INV-3`).
+
 ## wallet.network Authority Surfaces
 
 wallet.network may expose web, mobile, desktop, embedded Hypervisor panels, CLI,
@@ -448,9 +655,12 @@ intent
 -> simulation / evidence
 -> risk and eligibility labels
 -> policy
+-> canonical reviewed representation and presentation evidence
 -> step-up or denial
+-> approval ceremony evidence
 -> scoped grant / lease
 -> execution handoff
+-> daemon-derived effect binding and admission
 -> receipt
 -> revocation path
 ```
@@ -493,6 +703,51 @@ scope:instacart.cart_create
 scope:instacart.order_submit
 scope:wallet.transfer_under_limit
 ```
+
+Autonomous-system control uses distinct high-assurance scopes rather than one
+generic deployment or improvement grant:
+
+```text
+scope:autonomous_system.constitution_amend
+scope:autonomous_system.node_admit
+scope:autonomous_system.node_role_change
+scope:autonomous_system.writer_promote
+scope:autonomous_system.authority_membership_change
+scope:autonomous_system.consensus_membership_change
+scope:autonomous_system.oracle_profile_change
+scope:autonomous_system.migrate
+scope:autonomous_system.succeed
+scope:autonomous_system.dissolve
+scope:autonomous_system.decommission
+scope:autonomous_system.network_enrollment_change
+```
+
+Bounded improvement uses distinct scopes for campaign governance rather than a
+generic self-improvement grant:
+
+```text
+scope:improvement.campaign_admit
+scope:improvement.epoch_freeze
+scope:improvement.cutoff_issue
+scope:improvement.upgrade_submit
+scope:improvement.campaign_stop
+```
+
+These scopes do not include target activation. A selected candidate still uses
+the target owner's ordinary release, amendment, deployment, or protected-change
+authority. Search authority cannot freeze its own evaluator, Judgment authority
+cannot activate the candidate it scored, and Campaign admission cannot mint a
+replacement authority root. Concurrent candidate or descendant work binds
+atomic, disjoint resource reservations; a branch, generation, or target-order
+change cannot re-spend the ancestor's unreserved balance.
+
+These scopes are examples of the canonical `scope:*` family; deployment does
+not imply node admission, ordinary upgrade does not imply constitutional
+amendment, and node admission does not imply writer or authority membership.
+Each request binds the active constitution/profile roots, exact transition,
+system and membership IDs, evidence, budget/effect posture, expiry, revocation
+epoch, and the external governance decision required by that system. A worker
+may propose the request but cannot approve its own protected transition.
 
 ## Risk Classes
 
@@ -658,8 +913,9 @@ wallet.network may interact with IOI L1 for:
 
 wallet.network abstracts gas and payment complexity from the user.
 
-IOI L1 is not the wallet database. IOI L1 stores registry, economic,
-settlement, dispute, and sparse public commitments. wallet.network stores
+IOI L1 is not the wallet database. When explicitly selected, IOI L1 stores
+registry, economic, settlement, dispute, and sparse public commitments.
+wallet.network stores
 authority state locally or in a secure authority deployment profile, and
 Agentgres stores operational receipts and projections.
 
@@ -739,9 +995,11 @@ The correct escalation path is:
 ```text
 SMS or low-assurance channel receives blocker/approval notice
   -> user opens short-lived challenge link
-  -> wallet.network, Hypervisor, enrolled guardian device, passkey,
-     enterprise IdP, local app, or CLI signer authenticates the user
-  -> exact action, risk, data, budget, recipient, and expiry are shown
+  -> wallet.network, Hypervisor, an enrolled guardian authority client,
+     enterprise approval surface, local app, or CLI signer renders the review
+     and authenticates the user through the policy-required AuthFactor
+  -> exact action, risk, data, budget, recipient, expiry, and authorization
+     subject are bound into presentation and ceremony evidence
   -> wallet.network issues a scoped grant or denial receipt
   -> daemon/agent continues using only the grant ref and receipt
 ```
@@ -756,8 +1014,9 @@ Canonical invariant:
 
 > **Low-assurance access points can wake, steer, pause, and notify agents. They
 > cannot decrypt, declassify, or authorize high-risk actions without step-up into
-> wallet.network, Hypervisor, an enrolled guardian device, enterprise IdP, local
-> app, CLI signer, or another high-assurance authority surface.**
+> wallet.network, Hypervisor, an enrolled guardian authority client, enterprise
+> approval surface, local app, CLI signer, or another policy-admitted authority
+> surface composed with the required AuthFactor.**
 
 ## Runtime Privacy Profiles
 
@@ -911,7 +1170,8 @@ local/domain governance owns local policy decisions that do not cross portable,
 external, decryption, spend, declassification, or high-risk boundaries
 daemon executes work
 Agentgres records operational truth
-IOI L1 settles public/economic commitments
+the system settles locally unless its declared enrollment and settlement
+profiles select external services such as IOI L1
 ```
 
 ## Related Canon
@@ -937,13 +1197,26 @@ IOI L1 settles public/economic commitments
 1. Agents never receive raw root secrets.
 2. Apps and runtimes are authority clients, not key custodians.
 3. Policy widening requires step-up.
-4. Sensitive actions bind to exact request hash, policy hash, scope, expiry, and revocation epoch.
+4. Sensitive actions bind the exact authority-request body, reviewed
+   representation, approval-ceremony context, authorization subject, policy,
+   scope, expiry, and revocation epoch.
 5. Panic/revocation must kill active grants.
 6. BYOK keys live in wallet.network, not workflow node configs.
 7. Agent execution accounts are not default for every agent; they are required
    only when the agent needs on-chain execution power.
 8. High-risk on-chain actions require wallet.network step-up and/or
    smart-account module enforcement.
+9. `authority_request_body_hash`, `reviewed_representation_hash`,
+   `approval_ceremony_context_hash`, and the discriminated
+   `authorization_subject` remain separate and are linked by the v3 grant and
+   receipts.
+10. WebAuthn assertion evidence, presentation evidence, and daemon execution
+    evidence must not be substituted for one another.
+11. `exact_effect` approval requires daemon-derived hash equality;
+    `batch_manifest` requires membership proof; `standing_envelope` requires
+    complete constraint validation.
+12. Editing any reviewed consequential field creates a successor request,
+    review, and approval ceremony and invalidates predecessor approval evidence.
 
 ## One-Line Doctrine
 

@@ -1,0 +1,52 @@
+{
+  "schema_version": "ioi.foundations.authority-grant-envelope.v2",
+  "envelope_type": "ioi.authority-grant",
+  "signature_domain": "ioi.authority-grant-envelope.v2",
+  "schema_hash": "sha256:2bb599d9a4fb74dec01ad34e6237277fa01ed0aa98d102be39dfe1ea66ad052c",
+  "authority_grant_id": "grant://acme/repo-auditor/2/child/1",
+  "request_id": "authority-request://acme/repo-auditor/2/child/1",
+  "issuer_id": "system://acme/delegator",
+  "issuer_key_set_ref": "keyset://acme/delegator/1",
+  "issuer_key_set_version": 1,
+  "issuer_key_id": "key://acme/delegator/ed25519-1",
+  "holder_id": "worker://repo-auditor/read-only",
+  "holder_key_id": "key://acme/repo-auditor/worker-1",
+  "audience": "runtime://acme/hypervisor/node-7",
+  "issued_at": 1784203260,
+  "not_before": 1784203260,
+  "expires_at": 1784210400,
+  "parent_grant": {
+    "grant_ref": "grant://acme/repo-auditor/2",
+    "body_hash": "sha256:1cb1754a47d624efd29717b210773b0c3be5d8c9d60b255fc656fddee5e11c96",
+    "proof_ref": "proof://acme/repo-auditor/2/child/1"
+  },
+  "authority_scopes": [
+    "scope:repo.read",
+    "scope:repo.admin"
+  ],
+  "primitive_capability_constraints": [
+    "prim:fs.read"
+  ],
+  "resources": [
+    "agentgres://project/hypervisor/source/src"
+  ],
+  "attenuating_caveats": [
+    "caveat://acme/read-only"
+  ],
+  "risk_restrictions": {
+    "allowed_risk_classes": [
+      "read"
+    ],
+    "max_budget_microusd": 1000000,
+    "max_calls": 10,
+    "approval_required_for": [
+      "secret_export",
+      "external_message"
+    ]
+  },
+  "revocation_epoch": 8,
+  "body_hash": "sha256:2387a1b3f6c906437ffc7d775427a255eab4cd17998195e44e013a4e56181759",
+  "signature_suite": "ed25519",
+  "signature_key_id": "key://acme/delegator/ed25519-1",
+  "signature": "TAwozSq5EyN_vVvrBfUZswAQQ2vg2lvcxRdvp5YOXWMpEnbrUBzRnFKRPJ0WWKHjyycmbmuY0pjyXyf-2ogzAg"
+}

@@ -5,12 +5,15 @@ Canonical owner: this file for model provider, endpoint, route-rights contract,
 invocation, BYOK/BYOA, and run-to-idle API shapes.
 Supersedes: overlapping model-router API examples in plans/specs when route or invocation fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-13.
 Doctrine status: reference
 Implementation status: partial (route registry and local Ollama mount/binding
-live; sealed BYOK and multi-transport session execution unimplemented; only
-active/available Ollama routes currently bind for execution)
-Last implementation audit: 2026-07-05
+live; hosted-provider blocking/streaming invocation has an enforced
+information-flow bundle and untrusted output labeling; sealed BYOK and
+multi-transport session execution unimplemented; only active/available Ollama
+routes currently bind for execution, and full router/ContextCell propagation
+remains planned)
+Last implementation audit: 2026-07-16 (hosted-provider IFC boundary)
 
 ## Purpose
 
@@ -109,7 +112,7 @@ GET  /v1/models/receipts/{receipt_id}
     "privacy_constraints": ["no_external_api_for_private_data"],
     "fallback_allowed": true,
     "provider_allowlist": ["provider://..."],
-    "data_collection": "allow | deny",
+    "provider_use_policy_ref": "policy://model-provider-use/deny-learning",
     "zdr_required": false,
     "max_price_ref": "price-schedule://...",
     "required_parameters": ["tools", "structured_output"]
@@ -141,17 +144,52 @@ Every candidate referenced by a route resolves a contract such as:
   "endpoint_ref": "endpoint://...",
   "model_version_ref": "model://...",
   "provider_allowlist": ["provider://..."],
-  "data_collection": "allow | deny",
   "zdr_required": false,
-  "retention_policy_ref": "policy://...",
+  "provider_use_of_customer_material": {
+    "request_or_prompt_logging": "prohibited | contract_limited | explicitly_permitted | not_applicable",
+    "human_review": "prohibited | security_incident_only | contract_limited | explicitly_permitted | not_applicable",
+    "abuse_and_security_processing": "prohibited | transient_only | contract_limited | explicitly_permitted | not_applicable",
+    "service_improvement": "prohibited | contract_limited | explicitly_permitted | not_applicable",
+    "provider_model_training": "prohibited | contract_limited | explicitly_permitted | not_applicable",
+    "cross_customer_aggregation": "prohibited | contract_limited | explicitly_permitted | not_applicable",
+    "retention": {
+      "posture": "zero_retention | transient_processing | contract_bounded | provider_default | not_applicable",
+      "retention_policy_ref": "policy://... | null"
+    }
+  },
+  "customer_use_of_outputs": {
+    "retain": "prohibited | terms_limited | expressly_licensed | open_license",
+    "replay": "prohibited | terms_limited | expressly_licensed | open_license",
+    "evaluation": "prohibited | terms_limited | expressly_licensed | open_license",
+    "rag_or_memory": "prohibited | terms_limited | expressly_licensed | open_license",
+    "same_provider_tuning": "prohibited | terms_limited | expressly_licensed | open_license",
+    "distillation": "prohibited | terms_limited | expressly_licensed | open_license",
+    "competing_model_training": "prohibited | terms_limited | expressly_licensed | open_license",
+    "internal_package_reuse": "prohibited | terms_limited | expressly_licensed | open_license",
+    "publication": "prohibited | terms_limited | expressly_licensed | open_license",
+    "resale": "prohibited | terms_limited | expressly_licensed | open_license"
+  },
+  "rights_basis_refs": ["terms://...", "license://...", "contract://...", "policy://..."],
   "region_ref": "region://...",
   "fallback_classes": ["same_model_same_posture"],
   "max_price_ref": "price-schedule://...",
   "required_parameters": ["tools"],
-  "output_training_right": "prohibited | noncompeting_only | expressly_licensed | open_license",
   "status": "active | quarantined | expired | superseded | revoked"
 }
 ```
+
+The matrix is bidirectional and purpose-specific. No member is inferred from
+inference access, a generic enterprise plan, an account-wide opt-out, ZDR, or
+another member. `data_collection`, `no_training`, and
+`output_training_right` may be accepted as compatibility inputs only when the
+admission compiler expands them into every required matrix member from exact
+versioned terms; otherwise the requested use fails closed.
+
+For `compare` or another multi-provider invocation, each route must satisfy the
+active boundary independently. Effective customer output rights are the
+intersection of every contributing output; provider-side exposure is retained
+per recipient and the composite posture is the least protective one. A
+restricted contribution may be excluded only with separable provenance.
 
 ## ModelConfiguration
 
@@ -190,13 +228,24 @@ receipt refs.
     "messages": []
   },
   "task_context": {
-    "task_id": "task_123",
+    "task_id": "task://123",
     "privacy_class": "internal",
-    "risk_class": "external_message"
+    "risk_class": "external_message",
+    "institutional_learning_boundary_profile_ref": "learning-boundary://org/default/v1",
+    "effective_learning_policy_hash": "sha256:...",
+    "learning_material_classes": ["prompts_and_completions", "memory_context_procedures_workflows_and_skills"],
+    "intended_output_uses": ["retain", "evaluation", "rag_or_memory"]
   },
   "authority_grant_id": "grant_model_123",
   "primitive_capability": "prim:model.invoke",
   "authority_scope": "scope:model.invoke.external",
+  "information_flow": {
+    "input_labels": ["<resolved InformationFlowLabel objects>"],
+    "effect_label": "<independently admitted InformationFlowLabel object>",
+    "runtime_tool_contract": "<exact RuntimeToolContract revision object>",
+    "reviewed_representation": null,
+    "declassification_approval": null
+  },
   "receipt_mode": "hash_only | full_redacted | full_private",
   "budget": {
     "max_work_credits": 10,
@@ -205,6 +254,14 @@ receipt refs.
   }
 }
 ```
+
+For hosted transports the inline values above are resolved, immutable contract
+objects at the kernel boundary, not model-authored refs. Missing actual inputs,
+effect authority, or the exact tool contract fails before network contact. The
+kernel binds them to the canonical provider request and exact URL, rather than
+trusting the effect label's declared content hash. Returned blocking and stream
+records carry an `information_flow_label`; raw provider output is untrusted and
+content-only even when every input was verified.
 
 Response:
 
@@ -215,10 +272,12 @@ Response:
   "selected_model": "model://gpt-x",
   "selected_route_contract_ref": "model-route-contract://...",
   "selected_or_compared_route_refs": ["model_route://planner_high"],
+  "effective_customer_output_rights_hash": "sha256:...",
   "output": {},
   "comparison_or_synthesis_ref": "verifier_path://... | artifact://... | null",
   "verifier_refs": ["verifier_path://..."],
   "receipt_id": "receipt://model_123",
+  "learning_egress_receipt_refs": ["receipt://learning_egress_123"],
   "attempts": [
     {
       "endpoint_ref": "endpoint://openai",
@@ -275,3 +334,7 @@ authority or a reason to erase upstream provider/model terms.
     the admitted route contract and applicable verification path.
 12. Strict `Private` routes do not treat aggregator ZDR alone as
     no-provider-trust execution.
+13. Provider use of customer material and customer use of outputs are separate,
+    complete matrices. Missing members fail closed for the requested purpose.
+14. Compare and multi-provider synthesis intersect contributing output rights;
+    synthesis does not erase route-specific restrictions or provider exposure.

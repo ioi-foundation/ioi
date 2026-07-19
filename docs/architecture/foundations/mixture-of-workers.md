@@ -134,6 +134,15 @@ roles. The planner scopes work; executor workers perform bounded tasks;
 verifier workers or deterministic gates validate outputs; the merge gate turns
 provisional work into canonical state, delivery, or settlement.
 
+In an `ImprovementCampaign`, Worker compositions may implement Search,
+Judgment, reproduction, challenge, and operational-observation duties, but the
+campaign's trust separation remains explicit. A candidate-producing Worker
+cannot become its own evaluation truth or promotion authority merely because a
+different agent instance, model route, process, or node performs the next step.
+Affiliation, credentials, evaluator roots, resource-meter ownership, and failure
+domains must support the declared assurance class; multiplicity alone is not
+independence. The target owner's Authority duty remains outside MoW routing.
+
 Each routed worker remains independently accountable. It has its own manifest,
 policy envelope, contribution terms, receipt obligations, quality record, and
 dispute surface.

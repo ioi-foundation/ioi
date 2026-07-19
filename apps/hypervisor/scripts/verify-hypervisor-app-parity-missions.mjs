@@ -1,18 +1,17 @@
 #!/usr/bin/env node
-// SUBSTRATE-TRUTH verifier (reclassified substrate_bound by the #31 Reference-UX-Port reset — checks DAEMON TRUTH, NOT reference UX parity) — Missions owner-family done-bar (jobs + incidents seeds).
+// SUBSTRATE-TRUTH verifier — transitional Work projection on the legacy /missions route.
 //
 // The parity phase's first OPERATIONAL owner-family. The reference captures (/__apps/jobs = the
 // job-tracker "Builds" table, /__apps/incidents = the issues-app remediation inbox) are the familiar
 // baselines; the IOI-owned /__ioi/missions renders the SAME table/list grammar — a run/job status
 // queue + a status-lane incident/remediation inbox — but over REAL daemon truth: the operations run
-// queue (recent runs, statuses, scheduled missions) and the mission-level incidents (real run
+// queue (recent runs, statuses, scheduled automations) and typed incidents (real run
 // failures + real GoalRun blockers), each linking back to its own proof/timeline.
 //
-// Naming resolution (the drift this cut fixes): Missions is the OWNER surface for suite/run work;
-// Operations stays substrate/infra. The suite card no longer points Missions at /__ioi/sessions, and
-// the inventory no longer homes jobs/incidents under /__ioi/operations.
+// Taxonomy-v2 resolution: Work is the core workspace; Missions is only a compatibility route/label.
+// Operations stays substrate/infra, and the certified Issues seed is Work / Incidents.
 //
-// Because Missions is a READ-ONLY PROJECTION over existing estate truth (not a built fixture ladder),
+// Because Work is a READ-ONLY PROJECTION over existing estate truth (not a built fixture ladder),
 // the fabrication guard is a CROSS-CHECK: the surface's counts + sample rows must EQUAL what the live
 // daemon reports — exactly. A surface that invented incidents/runs would diverge from the daemon.
 //
@@ -55,10 +54,10 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  ok("matrix binds jobs as substrate_bound → /__ioi/missions (Missions)", bySlug.jobs?.parity_class === "substrate_bound" && bySlug.jobs?.substrate_surface === "/__ioi/missions" && bySlug.jobs?.surface_name === "Missions");
+  ok("historical matrix evidence keeps jobs bound to the /__ioi/missions compatibility route", bySlug.jobs?.parity_class === "substrate_bound" && bySlug.jobs?.substrate_surface === "/__ioi/missions" && bySlug.jobs?.surface_name === "Missions");
   // #45 PROMOTED incidents to daemon_wired (certified port at /__ioi/missions/incidents) — the
   // substrate surface stays bound; the class pin became a set (the frozen-class pin broke on promotion).
-  ok("matrix binds incidents (substrate_bound|daemon_wired) with the intact /__ioi/missions substrate (Missions)", ["substrate_bound", "daemon_wired"].includes(bySlug.incidents?.parity_class) && bySlug.incidents?.substrate_surface === "/__ioi/missions" && bySlug.incidents?.surface_name === "Missions");
+  ok("historical matrix evidence keeps incidents on its intact compatibility routes", ["substrate_bound", "daemon_wired"].includes(bySlug.incidents?.parity_class) && bySlug.incidents?.substrate_surface === "/__ioi/missions" && bySlug.incidents?.surface_name === "Missions");
   ok("no over-claim estate-wide (no 'covered'); prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex"].every((k) => ["substrate_bound", "daemon_wired", "reference_ported", "reference_port_pending"].includes(bySlug[k]?.parity_class)));
 
   // 1. Reference baselines (raw familiar captures; brand-clean enforced on the IOI surface below).
@@ -79,10 +78,10 @@ async function run() {
   // 2. IOI surface = the table/list grammar.
   const m = await page(`${SERVE}/__ioi/missions`);
   const t = m.text;
-  ok("IOI /__ioi/missions renders the Missions grammar (title + run queue + incident inbox)", m.status === 200 && /<h1[^>]*>Missions/.test(t) && /id="missions-queue"/.test(t) && /id="missions-incidents"/.test(t));
+  ok("IOI /__ioi/missions renders the Work compatibility projection (title + run queue + incident inbox)", m.status === 200 && /<h1[^>]*>Work/.test(t) && /legacy \/missions route/.test(t) && /id="missions-queue"/.test(t) && /id="missions-incidents"/.test(t));
 
   // 3. Run queue = REAL (cross-check counts + newest run against the live daemon).
-  ok("run-queue heading reflects the real recent/total run counts (no fabrication)", t.includes(`recent mission runs (${recent.length} of ${runs.total || 0})`));
+  ok("run-queue heading reflects the real recent/total run counts (no fabrication)", t.includes(`recent typed runs (${recent.length} of ${runs.total || 0})`));
   const newest = recent[0];
   ok("the newest real run appears with its status + a timeline proof link", !newest || (t.includes(newest.name || newest.execution_id || "__missing_run__") && (!newest.timeline_ref || t.includes(newest.timeline_ref))), newest ? (newest.name || newest.execution_id) : "no runs (honest-empty ok)");
 
@@ -96,12 +95,13 @@ async function run() {
   const shown = failures.length + Math.min(blocked.length, 50);
   ok("no silent truncation: a capped incident table declares 'showing first N'", shown >= incidentCount ? true : new RegExp(`showing first ${shown}`).test(t), `${shown}/${incidentCount}`);
 
-  // 6. Owner discoverability.
-  ok("Missions links its substrate (Operations) + proof (Provenance) surfaces first-class", t.includes("/__ioi/operations") && t.includes("/__ioi/work-ledger"));
+  // 6. Workspace placement and discoverability.
+  ok("Work links its substrate (Operations) + proof (Provenance) surfaces first-class", t.includes("/__ioi/operations") && t.includes("/__ioi/work-ledger"));
   const opsPage = await page(`${SERVE}/__ioi/operations`);
-  ok("Operations links BACK to Missions (drift resolved: suite/run work homed in Missions)", opsPage.status === 200 && opsPage.text.includes("/__ioi/missions"));
-  const apps = await page(`${SERVE}/__ioi/applications`);
-  ok("the suite Missions card opens /__ioi/missions (drift from /__ioi/sessions resolved)", apps.status === 200 && new RegExp(`href="/__ioi/missions"[^>]*>[\\s\\S]{0,400}?Missions`).test(apps.text));
+  ok("Operations links back to the Work compatibility route", opsPage.status === 200 && opsPage.text.includes("/__ioi/missions") && /Work projection/.test(opsPage.text));
+  const catalogPage = await page(`${SERVE}/__ioi/api/applications`);
+  let catalog = null; try { catalog = JSON.parse(catalogPage.text); } catch { /* non-json */ }
+  ok("typed catalog registers Work and nests Incidents without a Missions peer app", catalogPage.status === 200 && (catalog?.core_workspaces || []).some((entry) => entry.ref === "workspace:work" && entry.launch_route === "/__ioi/missions") && (catalog?.workspace_views || []).some((entry) => entry.slug === "incidents" && entry.placement === "Work / Incidents") && !(catalog?.applications || []).some((entry) => entry.name === "Missions"));
 
   // 7. No false coverage / honest gaps / brand-clean.
   ok("unsupported reference lanes named (create/assign incidents · edit job defs · board views · SLA · comments)", /creating\/assigning incidents/.test(t) && /editing job\/build definitions/.test(t) && /board\/kanban views/.test(t) && /SLA/.test(t));
@@ -113,6 +113,6 @@ run().then(() => {
   let fail = 0;
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
-  console.log(`substrate-truth-missions readiness: ${fail ? "FAIL" : "OK"}`);
+  console.log(`work-compatibility-projection readiness: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

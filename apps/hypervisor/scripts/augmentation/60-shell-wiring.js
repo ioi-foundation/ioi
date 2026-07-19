@@ -32,11 +32,11 @@
           return;
         }
         // Live application links → open IN-SHELL in the Open Application slot (left rail stays).
-        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"], a[href^="/__ioi/workbench"], a[href^="/__ioi/agent-studio"], a[href^="/__ioi/foundry"], a[href^="/__ioi/feedback"], a[href^="/__ioi/sessions"], a[href^="/__ioi/domain-apps"], a[href^="/__ioi/domain-app-runtime"], a[href^="/__ioi/governance"], a[href^="/__ioi/marketplace"], a[href^="/__ioi/ontology"], a[href^="/__ioi/odk"], a[href^="/__ioi/home"]');
+        const appLink = t.closest('a[href^="/__ioi/connections"], a[href^="/__ioi/work-ledger"], a[href^="/__ioi/operations"], a[href^="/__ioi/environments"], a[href^="/__ioi/workbench"], a[href^="/__ioi/agent-studio"], a[href^="/__ioi/automations"], a[href^="/__ioi/foundry"], a[href^="/__ioi/evaluations"], a[href^="/__ioi/feedback"], a[href^="/__ioi/sessions"], a[href^="/__ioi/missions"], a[href^="/__ioi/domain-apps"], a[href^="/__ioi/domain-app-runtime"], a[href^="/__ioi/governance"], a[href^="/__ioi/marketplace"], a[href^="/__ioi/ontology"], a[href^="/__ioi/odk"], a[href^="/__ioi/home"]');
         if (appLink) {
           e.preventDefault(); e.stopPropagation();
           const href = appLink.getAttribute("href");
-          const name = /work-ledger/.test(href) ? "Provenance" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Workbench" : /agent-studio/.test(href) ? "Studio" : /foundry/.test(href) ? "Foundry" : /feedback/.test(href) ? "Evaluations" : /\/__ioi\/sessions/.test(href) ? "Missions" : /domain-app-runtime/.test(href) ? "Domain App" : /domain-apps/.test(href) ? "Generated Apps" : /governance/.test(href) ? "Governance" : /marketplace/.test(href) ? "Marketplace" : /\/__ioi\/ontology\/explorer/.test(href) ? "Object Explorer" : /\/__ioi\/ontology/.test(href) ? "Ontology" : /\/__ioi\/odk.*#data-planes/.test(href) ? "Data" : /\/__ioi\/odk/.test(href) ? "Ontology" : /\/__ioi\/home/.test(href) ? "Governed Work" : "Developer Console";
+          const name = /work-ledger/.test(href) ? "Provenance" : /operations/.test(href) ? "Operations" : /environments/.test(href) ? "Environments" : /workbench/.test(href) ? "Developer Workspace" : /agent-studio/.test(href) ? "Studio" : /automations/.test(href) ? "Automations" : /foundry/.test(href) ? "Foundry" : /evaluations|feedback/.test(href) ? "Evaluations" : /\/__ioi\/sessions/.test(href) ? "Work / Sessions" : /\/__ioi\/missions/.test(href) ? "Work" : /domain-app-runtime/.test(href) ? "Extension Application" : /domain-apps/.test(href) ? "Extension Applications" : /governance/.test(href) ? "Governance" : /marketplace/.test(href) ? "Packages" : /\/__ioi\/ontology\/explorer/.test(href) ? "Object Explorer" : /\/__ioi\/ontology/.test(href) ? "Ontology" : /\/__ioi\/odk.*#data-planes/.test(href) ? "Data" : /\/__ioi\/odk/.test(href) ? "Ontology" : /\/__ioi\/home/.test(href) ? "Governed Work" : "Developer Console";
           openApplication(href, name);
           return;
         }
@@ -54,4 +54,3 @@
       true, // capture — beat the SPA's native (empty) Applications modal + client router
     );
   }
-

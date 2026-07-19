@@ -14,8 +14,15 @@ use std::path::PathBuf;
 fn main() -> std::io::Result<()> {
     let addr = std::env::var("REPLICA_ADDR").unwrap_or_else(|_| "127.0.0.1:9931".into());
     let dir: PathBuf = PathBuf::from(std::env::var("REPLICA_DIR").expect("REPLICA_DIR required"));
-    let flush_ms: u64 = std::env::var("FLUSH_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(200);
+    let flush_ms: u64 = std::env::var("FLUSH_MS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(200);
     let server = ReplicaServer::bind(&addr, &dir, flush_ms)?;
-    eprintln!("substrate-replica: listening on {} -> {}", server.local_addr()?, dir.display());
+    eprintln!(
+        "substrate-replica: listening on {} -> {}",
+        server.local_addr()?,
+        dir.display()
+    );
     server.serve_forever()
 }

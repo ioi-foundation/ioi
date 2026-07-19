@@ -166,7 +166,7 @@ async function run() {
   const doubleReconcile = await jd("POST", `/v1/hypervisor/goal-runs/${grid}/reconcile`, {});
   ok("reconcile is one-shot (second call rejected)", doubleReconcile.status === 409, doubleReconcile.j?.error?.code);
 
-  // ── PROJECTION: Work Ledger (daemon), Workbench panel, Run Timeline proof page.
+  // ── PROJECTION: Work Ledger (daemon), Developer Workspace panel, Run Timeline proof page.
   const ledger = await jd("GET", "/v1/hypervisor/work-ledger");
   const entries = ledger.j?.entries || [];
   const goalRef = `goal://${grid}`;
@@ -175,7 +175,7 @@ async function run() {
     && entries.filter((e) => e.kind === "goal_run_invocation" && e.goal_run_ref === goalRef).length === 2
     && entries.some((e) => e.kind === "goal_run_reconciliation" && e.goal_run_ref === goalRef && String(e.state_root || "").startsWith("fnv:")));
   const wb = await text("/__ioi/workbench");
-  ok("Workbench projects the GoalRun (panel + proof link)", wb.includes('id="goal-runs"') && wb.includes(grid));
+  ok("Developer Workspace projects the GoalRun (panel + proof link)", /<h1>Developer Workspace/.test(wb) && wb.includes('id="goal-runs"') && wb.includes(grid));
   const tl = await text(`/__ioi/run-timeline/goal-run/${grid}`);
   ok("Run Timeline GoalRun page shows Goal/Roles/Invocations/Candidates/Reconciliation/Proof",
     ["Goal</h2>", "Roles</h2>", "Invocations", "Candidate artifacts", "Reconciliation</h2>", "Proof</h2>"].every((m) => tl.includes(m)));

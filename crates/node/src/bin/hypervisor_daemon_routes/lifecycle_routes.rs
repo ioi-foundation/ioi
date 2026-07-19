@@ -3448,6 +3448,32 @@ fn handle_memory_control_route(
     memory_id: Option<&str>,
     body: Value,
 ) -> Result<Json<Value>, AppError> {
+    let information_flow_parent_labels = body
+        .get("information_flow_parent_labels")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let information_flow_label_ref = body
+        .get("information_flow_label_ref")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string);
+    let information_flow_derivation_kind = body
+        .get("information_flow_derivation_kind")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| {
+            let source = body
+                .get("source")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if source.to_ascii_lowercase().contains("summar") {
+                "summarization".to_string()
+            } else {
+                "memory_import".to_string()
+            }
+        });
     let (thread_id, agent_id, workspace_root) = resolve_memory_identity(st, scope, id, &body)?;
     let target_type = if op == "policy" {
         Some(
@@ -3497,7 +3523,7 @@ fn handle_memory_control_route(
         ],
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let mut record = RuntimeKernelService::new()
         .plan_runtime_memory_control(&control_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
 
@@ -3512,8 +3538,33 @@ fn handle_memory_control_route(
     } else {
         "memory-policies"
     };
-    persist_record(st.data_dir.as_str(), dir, &record.state_id, &record.payload)
+    if record.memory_state_kind == "record"
+        && matches!(
+            record.operation_kind.as_str(),
+            "memory.write" | "memory.edit"
+        )
+    {
+        let state_id = record.state_id.clone();
+        let label_ref = information_flow_label_ref
+            .unwrap_or_else(|| format!("ifc-label://runtime-memory/{state_id}"));
+        crate::information_flow::invoke_memory_store_after_ifc(
+            &mut record.payload,
+            &information_flow_parent_labels,
+            &label_ref,
+            &information_flow_derivation_kind,
+            |payload| persist_record(st.data_dir.as_str(), dir, &state_id, payload),
+        )
+        .map_err(|denial| {
+            AppError(
+                StatusCode::FORBIDDEN,
+                format!("{}: {}", denial.code, denial.message),
+            )
+        })?
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    } else {
+        persist_record(st.data_dir.as_str(), dir, &record.state_id, &record.payload)
+            .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    }
 
     // Canonical Agentgres memory commit receipt (admission_hash / content_hash / commit_hash),
     // matching what the retired JS daemon produced via commit_runtime_memory_state — replacing the
@@ -7707,7 +7758,11 @@ pub(crate) fn resolve_adapter_driver(
             ));
         }
     };
-    let adapter_binary = if harness == "opencode" { "opencode" } else { "deepseek" };
+    let adapter_binary = if harness == "opencode" {
+        "opencode"
+    } else {
+        "deepseek"
+    };
     if binary_on_path(adapter_binary).is_none() {
         return Err((
             "adapter_binary_missing",
@@ -7725,7 +7780,10 @@ pub(crate) fn resolve_adapter_driver(
     }
     let shim = std::env::current_dir().unwrap_or_default().join(shim_rel);
     if !shim.is_file() {
-        return Err(("adapter_driver_missing", format!("driver shim absent: {shim_rel}")));
+        return Err((
+            "adapter_driver_missing",
+            format!("driver shim absent: {shim_rel}"),
+        ));
     }
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     // Adapter state dirs must exist before bwrap binds them read-write.
@@ -7734,19 +7792,34 @@ pub(crate) fn resolve_adapter_driver(
     }
     let mut argv: Vec<String> = vec![
         "bwrap".into(),
-        "--ro-bind".into(), "/".into(), "/".into(),
-        "--dev".into(), "/dev".into(),
-        "--proc".into(), "/proc".into(),
-        "--tmpfs".into(), "/tmp".into(),
-        "--bind".into(), workspace_root.into(), workspace_root.into(),
-        "--bind".into(), format!("{home}/.local/share/opencode"), format!("{home}/.local/share/opencode"),
-        "--bind".into(), format!("{home}/.deepseek"), format!("{home}/.deepseek"),
-        "--bind".into(), format!("{home}/.cache"), format!("{home}/.cache"),
+        "--ro-bind".into(),
+        "/".into(),
+        "/".into(),
+        "--dev".into(),
+        "/dev".into(),
+        "--proc".into(),
+        "/proc".into(),
+        "--tmpfs".into(),
+        "/tmp".into(),
+        "--bind".into(),
+        workspace_root.into(),
+        workspace_root.into(),
+        "--bind".into(),
+        format!("{home}/.local/share/opencode"),
+        format!("{home}/.local/share/opencode"),
+        "--bind".into(),
+        format!("{home}/.deepseek"),
+        format!("{home}/.deepseek"),
+        "--bind".into(),
+        format!("{home}/.cache"),
+        format!("{home}/.cache"),
         "--die-with-parent".into(),
         node,
         shim.to_string_lossy().into_owned(),
-        "--model".into(), model.into(),
-        "--cd".into(), workspace_root.into(),
+        "--model".into(),
+        model.into(),
+        "--cd".into(),
+        workspace_root.into(),
     ];
     if let Some(endpoint) = endpoint {
         argv.push("--model-endpoint".into());
@@ -8452,7 +8525,12 @@ pub(crate) async fn handle_session_create(
     let editor_target_id = body
         .get("editor_target_ref")
         .and_then(Value::as_str)
-        .map(|v| v.strip_prefix("editor-target:").unwrap_or(v).trim().to_string())
+        .map(|v| {
+            v.strip_prefix("editor-target:")
+                .unwrap_or(v)
+                .trim()
+                .to_string()
+        })
         .filter(|v| !v.is_empty())
         .unwrap_or_else(|| "workbench-native".to_string());
     if !super::editor_routes::editor_target_openable(&editor_target_id) {
@@ -10108,8 +10186,8 @@ pub(crate) async fn handle_connector_invoke(
     // For HTTP connectors the lease only permits DECLARED tools (off-manifest → refused). MCP servers
     // define their own tools dynamically, so we don't gate on a static manifest — but the wallet
     // grant still scopes to THIS tool name, so authority stays per-tool either way.
-    let (method, path) = if kind == "mcp" {
-        ("POST".to_string(), "/".to_string())
+    let (method, path, runtime_tool_contract) = if kind == "mcp" {
+        ("POST".to_string(), "/".to_string(), Value::Null)
     } else {
         let Some(tool) = connector["allowed_tools"].as_array().and_then(|tools| {
             tools
@@ -10127,9 +10205,25 @@ pub(crate) async fn handle_connector_invoke(
         (
             tool["method"].as_str().unwrap_or("POST").to_uppercase(),
             tool["path"].as_str().unwrap_or("/").to_string(),
+            tool.get("runtime_tool_contract")
+                .cloned()
+                .unwrap_or(Value::Null),
         )
     };
     let request_args = body.get("request").cloned().unwrap_or_else(|| json!({}));
+    let url = if kind == "mcp" {
+        base_url.clone()
+    } else {
+        format!(
+            "{}{}",
+            base_url,
+            if path.starts_with('/') {
+                path.clone()
+            } else {
+                format!("/{path}")
+            }
+        )
+    };
 
     // ORG POLICY gate (Phase C) — enforced before the wallet crossing. risk_posture "locked" blocks
     // all use; an allowed_tools allow-list (when set) restricts which tools members may invoke.
@@ -10180,6 +10274,65 @@ pub(crate) async fn handle_connector_invoke(
         }
     }
 
+    // INFORMATION-FLOW gate — the first enforced vertical is the declared HTTP connector
+    // boundary. MCP/browser/room-wide propagation remains a separately tracked 3B expansion.
+    // This runs before wallet authorization or credential resolution, then the same evaluator is
+    // wrapped immediately around the network invoker below. Missing axes, an unregistered nested
+    // RuntimeToolContract, or an undeclared destination therefore fail closed before any external
+    // implementation can be called.
+    let ifc_binding = if kind == "mcp" {
+        None
+    } else {
+        let label = body.get("information_flow_label").unwrap_or(&Value::Null);
+        let reviewed = body.get("reviewed_representation");
+        let declassification = body.get("declassification_approval");
+        let admission = crate::information_flow::PreEffectAdmission {
+            label,
+            tool_contract: &runtime_tool_contract,
+            destination: &url,
+            method: &method,
+            request: &request_args,
+            reviewed_representation: reviewed,
+            declassification_approval: declassification,
+        };
+        match crate::information_flow::admit_pre_effect(&admission) {
+            Ok(binding) => Some(binding),
+            Err(denial) => {
+                let receipt_id = format!(
+                    "ifc_{}",
+                    short_hash(&format!("{id}:{tool_name}:{}", denial.code))
+                );
+                let receipt = json!({
+                    "schema_version": "ioi.hypervisor.information-flow-decision-receipt.v1",
+                    "receipt_id": receipt_id,
+                    "connector_id": id,
+                    "tool": tool_name,
+                    "destination": url,
+                    "label_ref": label.get("label_ref").cloned().unwrap_or(Value::Null),
+                    "tool_contract_revision_ref": runtime_tool_contract.get("revision_ref").cloned().unwrap_or(Value::Null),
+                    "decision": "denied",
+                    "reason": denial.code,
+                    "evaluated_at": iso_now(),
+                });
+                let _ = persist_record(
+                    &st.data_dir,
+                    "information-flow-decision-receipts",
+                    &receipt_id,
+                    &receipt,
+                );
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "ok": false,
+                        "reason": denial.code,
+                        "message": denial.message,
+                        "receipt": receipt,
+                    })),
+                );
+            }
+        }
+    };
+
     // Authorize the USE crossing through the SAME gateway (connector-credentials vault).
     let lease_req = CapabilityLeaseRequest {
         authority_provider_ref: "wallet.network".to_string(),
@@ -10216,19 +10369,6 @@ pub(crate) async fn handle_connector_invoke(
         } else {
             s.replace(token.as_str(), "***")
         }
-    };
-    let url = if kind == "mcp" {
-        base_url.clone()
-    } else {
-        format!(
-            "{}{}",
-            base_url,
-            if path.starts_with('/') {
-                path.clone()
-            } else {
-                format!("/{path}")
-            }
-        )
     };
     let (status_code, response_value, error) = if kind == "mcp" {
         match mcp_call_tool(&base_url, &token, &tool_name, &request_args).await {
@@ -10329,8 +10469,22 @@ pub(crate) async fn handle_connector_invoke(
                     .body(body_bytes);
             }
         }
-        match rb.send().await {
-            Ok(r) => {
+        let label = body.get("information_flow_label").unwrap_or(&Value::Null);
+        let admission = crate::information_flow::PreEffectAdmission {
+            label,
+            tool_contract: &runtime_tool_contract,
+            destination: &url,
+            method: &method,
+            request: &request_args,
+            reviewed_representation: body.get("reviewed_representation"),
+            declassification_approval: body.get("declassification_approval"),
+        };
+        match crate::information_flow::invoke_after_ifc(&admission, move |_| async move {
+            rb.send().await
+        })
+        .await
+        {
+            Ok(Ok(r)) => {
                 let sc = r.status().as_u16();
                 let red = redact(r.text().await.unwrap_or_default());
                 (
@@ -10340,7 +10494,12 @@ pub(crate) async fn handle_connector_invoke(
                     None,
                 )
             }
-            Err(e) => (0, Value::Null, Some(redact(e.to_string()))),
+            Ok(Err(e)) => (0, Value::Null, Some(redact(e.to_string()))),
+            Err(denial) => (
+                0,
+                Value::Null,
+                Some(format!("{}: {}", denial.code, denial.message)),
+            ),
         }
     };
     let ok = (200..300).contains(&status_code);
@@ -10355,6 +10514,14 @@ pub(crate) async fn handle_connector_invoke(
         "principal_id": caller_id, "principal_scoped": org_policy["principal_scoped"].as_bool().unwrap_or(false),
         "credential_source": lease.credential_source, "grant_ref": lease.grant_ref,
         "capability_lease": lease.descriptor, "org_policy": org_policy, "host_mutation": true, "error": error,
+        "information_flow": ifc_binding.map(|binding| json!({
+            "label_ref": body.pointer("/information_flow_label/label_ref").cloned().unwrap_or(Value::Null),
+            "tool_contract_revision_ref": runtime_tool_contract.get("revision_ref").cloned().unwrap_or(Value::Null),
+            "effect_hash": binding.effect_hash,
+            "request_hash": binding.request_hash,
+            "reviewed_representation_hash": binding.reviewed_representation_hash,
+            "decision": "admitted"
+        })).unwrap_or_else(|| json!({ "decision": "not_yet_propagated", "scope": "mcp_3b" })),
         "invoked_at": iso_now(),
     });
     let _ = persist_record(
@@ -11158,8 +11325,9 @@ pub(crate) async fn auth_gate(
     // in the handler), so it bypasses the session/principal gate — external senders have no session.
     let is_webhook_trigger =
         path.starts_with("/v1/hypervisor/automations/") && path.ends_with("/webhook");
-    let exempt =
-        !path.starts_with("/v1/hypervisor/") || EXEMPT.contains(&path.as_str()) || is_webhook_trigger;
+    let exempt = !path.starts_with("/v1/hypervisor/")
+        || EXEMPT.contains(&path.as_str())
+        || is_webhook_trigger;
     if !exempt && auth_enforced(&st.data_dir, req.headers()) {
         if resolve_principal(&st.data_dir, req.headers()).is_none() {
             let needs_bootstrap = !login_possible(&st.data_dir);
@@ -14647,7 +14815,12 @@ pub(crate) async fn handle_session_execute(
     // Adapter driver lane: a session whose ADMITTED harness binding names a wired adapter
     // (opencode / deepseek_tui) executes through that driver — bwrap-confined, event-streaming.
     // Substrate gaps fail closed BEFORE any spawn; no binding keeps the legacy path byte-identical.
-    let driver = match resolve_adapter_driver(&record, &model, &workspace_root, model_endpoint.as_deref()) {
+    let driver = match resolve_adapter_driver(
+        &record,
+        &model,
+        &workspace_root,
+        model_endpoint.as_deref(),
+    ) {
         Ok(driver) => driver,
         Err((reason, message)) => {
             return (
@@ -15012,9 +15185,7 @@ pub(crate) async fn handle_session_ports_revoke(
 /// GET /v1/hypervisor/sessions — slim list projection of the persisted session records (newest
 /// first): refs, lifecycle, workspace, and the admitted harness binding when one was recorded.
 /// Read-only daemon truth for the Workbench sessions panel / session-details consumers.
-pub(crate) async fn handle_sessions_list(
-    State(st): State<Arc<DaemonState>>,
-) -> Json<Value> {
+pub(crate) async fn handle_sessions_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let mut sessions: Vec<Value> = read_record_dir(&st.data_dir, "sessions")
         .into_iter()
         .map(|r| {

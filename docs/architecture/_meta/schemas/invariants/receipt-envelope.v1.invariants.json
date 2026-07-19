@@ -1,0 +1,15 @@
+{
+  "$id": "invariant://ioi/foundations/receipt-envelope/boundary-fact-required/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
+  "rules": [
+    {
+      "rule_id": "receipt.boundary_fact.required",
+      "description": "A receipt binds at least one declared boundary fact; an empty receipt is not proof.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.attested_boundary_fact_refs"
+      }
+    }
+  ]
+}

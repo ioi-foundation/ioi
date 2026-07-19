@@ -3,6 +3,9 @@
 - Status: Accepted
 - Date: 2026-06-17
 - Owners: Hypervisor / Workbench / provider integrations / daemon runtime / wallet.network / Agentgres
+- Refined by: ADR 0016, which keeps the IDE-of-IDEs and execution boundaries
+  while renaming Workbench to Developer Workspace and broadening the product
+  estate from Sessions to typed Work projections.
 
 ## Context
 

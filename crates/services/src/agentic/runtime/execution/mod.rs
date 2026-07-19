@@ -30,6 +30,7 @@ use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{KernelEvent, WorkloadSpec};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 pub(crate) mod workload {
     use super::ToolExecutor;
@@ -150,6 +151,20 @@ pub struct ToolExecutionResult {
     pub history_entry: Option<String>,
     pub error: Option<String>,
     pub visual_observation: Option<Vec<u8>>,
+    /// Restrictive label for the produced observation/result, when this
+    /// boundary participates in canonical information-flow propagation.
+    pub information_flow_label: Option<Value>,
+}
+
+/// Admission context attached by the governed execution owner, never inferred
+/// from browser content or accepted from a model-generated tool argument.
+#[derive(Debug, Clone)]
+pub struct BrowserInformationFlowContext {
+    pub parent_labels: Vec<Value>,
+    pub authority_label: Value,
+    pub runtime_tool_contract: Value,
+    pub reviewed_representation: Option<Value>,
+    pub declassification_approval: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -167,6 +182,7 @@ impl ToolExecutionResult {
             history_entry: Some(output.into()),
             error: None,
             visual_observation: None,
+            information_flow_label: None,
         }
     }
 
@@ -179,6 +195,7 @@ impl ToolExecutionResult {
             history_entry: Some(output.into()),
             error: None,
             visual_observation: Some(visual_observation),
+            information_flow_label: None,
         }
     }
 
@@ -188,6 +205,17 @@ impl ToolExecutionResult {
             history_entry: None,
             error: Some(error.into()),
             visual_observation: None,
+            information_flow_label: None,
+        }
+    }
+
+    pub fn success_with_information_flow(output: impl Into<String>, label: Value) -> Self {
+        Self {
+            success: true,
+            history_entry: Some(output.into()),
+            error: None,
+            visual_observation: None,
+            information_flow_label: Some(label),
         }
     }
 }
@@ -208,6 +236,7 @@ pub struct ToolExecutor {
     pub(crate) pii_scrubber: Option<PiiScrubber>,
     pub(crate) workload_spec: Option<WorkloadSpec>,
     pub(crate) memory_runtime: Option<Arc<MemoryRuntime>>,
+    pub(crate) browser_information_flow: Option<BrowserInformationFlowContext>,
 
     // Context fields populated via builder pattern
     pub(crate) active_window: Option<WindowInfo>,
@@ -241,6 +270,7 @@ impl ToolExecutor {
             pii_scrubber,
             workload_spec: None,
             memory_runtime: None,
+            browser_information_flow: None,
             active_window: None,
             target_app_hint: None,
             current_tier: None,
@@ -278,6 +308,16 @@ impl ToolExecutor {
 
     pub fn with_memory_runtime(mut self, memory_runtime: Option<Arc<MemoryRuntime>>) -> Self {
         self.memory_runtime = memory_runtime;
+        self
+    }
+
+    /// Attach independently admitted IFC context for browser driver calls.
+    /// Absence is intentionally fail-closed at consequential browser seams.
+    pub fn with_browser_information_flow_context(
+        mut self,
+        context: BrowserInformationFlowContext,
+    ) -> Self {
+        self.browser_information_flow = Some(context);
         self
     }
 

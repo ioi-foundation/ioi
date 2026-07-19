@@ -44,18 +44,38 @@ fn load_receipts(dir: &Path) -> (Vec<ShadowInput>, u64) {
         let receipt_id = v
             .get("receipt_id")
             .and_then(|x| x.as_str())
-            .unwrap_or_else(|| path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown"))
+            .unwrap_or_else(|| {
+                path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("unknown")
+            })
             .to_string();
-        let at = v.get("at").and_then(|x| x.as_str()).unwrap_or("").to_string();
+        let at = v
+            .get("at")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
         let recorded_at_ms = parse_rfc3339_ms(&at);
-        inputs.push(ShadowInput { receipt_id, at, recorded_at_ms, payload: v });
+        inputs.push(ShadowInput {
+            receipt_id,
+            at,
+            recorded_at_ms,
+            payload: v,
+        });
     }
     // Canonical ingest order: (at, receipt_id).
-    inputs.sort_by(|a, b| (a.at.as_str(), a.receipt_id.as_str()).cmp(&(b.at.as_str(), b.receipt_id.as_str())));
+    inputs.sort_by(|a, b| {
+        (a.at.as_str(), a.receipt_id.as_str()).cmp(&(b.at.as_str(), b.receipt_id.as_str()))
+    });
     (inputs, parse_failures)
 }
 
-fn ingest(dir: &Path, inputs: &[ShadowInput], batch: usize, sync: bool) -> std::io::Result<(String, u64, f64)> {
+fn ingest(
+    dir: &Path,
+    inputs: &[ShadowInput],
+    batch: usize,
+    sync: bool,
+) -> std::io::Result<(String, u64, f64)> {
     let mut engine = SubstrateEngine::open(dir, sync)?;
     let started = Instant::now();
     let mut admitted = 0u64;
@@ -92,7 +112,10 @@ fn main() -> std::io::Result<()> {
     let out: PathBuf = std::env::var("DATA_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| std::env::temp_dir().join("agentgres-substrate-shadow"));
-    let batch: usize = std::env::var("BATCH").ok().and_then(|v| v.parse().ok()).unwrap_or(512);
+    let batch: usize = std::env::var("BATCH")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(512);
     let sync = std::env::var("SYNC").map(|v| v != "0").unwrap_or(true);
     let _ = std::fs::remove_dir_all(&out);
     std::fs::create_dir_all(&out)?;

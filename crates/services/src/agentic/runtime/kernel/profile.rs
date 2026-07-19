@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+use super::attestation_assurance::{
+    AttestationAssuranceEvaluator, AttestationAssuranceInput, AttestationAssuranceReport,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RuntimeProfile {
@@ -93,6 +97,8 @@ pub struct RuntimeStartupGateInput {
     pub profile_config: RuntimeProfileConfig,
     pub license: RuntimeStartupVerification,
     pub security_attestation: RuntimeStartupVerification,
+    #[serde(default)]
+    pub attestation_assurance: Option<AttestationAssuranceInput>,
     pub policy_config: RuntimeStartupVerification,
 }
 
@@ -107,6 +113,8 @@ pub struct RuntimeStartupGateReport {
     pub profile: RuntimeProfile,
     pub fail_closed: bool,
     pub allowed: bool,
+    #[serde(default)]
+    pub attestation_assurance: Option<AttestationAssuranceReport>,
     pub failures: Vec<RuntimeStartupGateFailure>,
     pub warnings: Vec<RuntimeStartupGateFailure>,
 }
@@ -191,6 +199,10 @@ impl RuntimeProfileValidator {
         let fail_closed = input.profile_config.profile.fail_closed();
         let mut failures = Vec::new();
         let mut warnings = Vec::new();
+        let attestation_assurance = input
+            .attestation_assurance
+            .as_ref()
+            .map(AttestationAssuranceEvaluator::evaluate);
 
         if let Err(violations) = Self::validate(&input.profile_config) {
             for violation in violations {
@@ -208,13 +220,67 @@ impl RuntimeProfileValidator {
             &mut failures,
             &mut warnings,
         );
-        push_startup_verification(
-            "security_attestation",
-            input.security_attestation,
-            fail_closed,
-            &mut failures,
-            &mut warnings,
-        );
+        if let Some(report) = &attestation_assurance {
+            match input.security_attestation {
+                RuntimeStartupVerification::Failed { reason } => {
+                    failures.push(RuntimeStartupGateFailure {
+                        key: "security_attestation.legacy_verifier".to_string(),
+                        reason: format!(
+                            "explicit legacy attestation failure cannot be superseded: {reason}"
+                        ),
+                    });
+                }
+                RuntimeStartupVerification::Unavailable { reason } => {
+                    warnings.push(RuntimeStartupGateFailure {
+                        key: "security_attestation.legacy_verifier".to_string(),
+                        reason: format!(
+                            "legacy verifier unavailable; independently evaluated structured evidence is authoritative: {reason}"
+                        ),
+                    });
+                }
+                RuntimeStartupVerification::Verified
+                | RuntimeStartupVerification::NotRequired { .. } => {}
+            }
+            for finding in &report.policy_findings {
+                failures.push(RuntimeStartupGateFailure {
+                    key: format!("attestation_assurance.policy.{}", finding.field),
+                    reason: finding.reason.clone(),
+                });
+            }
+            for decision in report
+                .evidence_decisions
+                .iter()
+                .filter(|decision| !decision.eligible)
+            {
+                let codes = decision
+                    .findings
+                    .iter()
+                    .map(|finding| finding.code.as_str())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                warnings.push(RuntimeStartupGateFailure {
+                    key: format!("attestation_assurance.evidence.{}", decision.evidence_ref),
+                    reason: format!("{:?} evidence rejected: {codes}", decision.evidence_kind),
+                });
+            }
+            if report.policy_findings.is_empty() && !report.allowed {
+                failures.push(RuntimeStartupGateFailure {
+                    key: "attestation_assurance.minimum_posture".to_string(),
+                    reason: format!(
+                        "effective posture {:?} does not satisfy required posture {:?}",
+                        report.effective_posture, report.required_posture
+                    ),
+                });
+            }
+        } else {
+            push_startup_verification(
+                "security_attestation",
+                input.security_attestation,
+                fail_closed,
+                &mut failures,
+                &mut warnings,
+            );
+        }
         push_startup_verification(
             "policy_config",
             input.policy_config,
@@ -227,6 +293,7 @@ impl RuntimeProfileValidator {
             profile: input.profile_config.profile,
             fail_closed,
             allowed: failures.is_empty(),
+            attestation_assurance,
             failures,
             warnings,
         }
@@ -273,6 +340,11 @@ fn push_startup_verification(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::runtime::kernel::attestation_assurance::{
+        AttestationAppraisalStatus, AttestationAssurancePolicy, AttestationAssurancePosture,
+        AttestationEvidence, AttestationEvidenceKind, AttestationNonceUseStatus,
+        AttestationRevocationStatus,
+    };
 
     fn gate_input(
         profile: RuntimeProfile,
@@ -284,7 +356,77 @@ mod tests {
             security_attestation: RuntimeStartupVerification::NotRequired {
                 reason: "test profile does not configure remote attestation".to_string(),
             },
+            attestation_assurance: None,
             policy_config: RuntimeStartupVerification::Verified,
+        }
+    }
+
+    fn structured_attestation_input(
+        required_posture: AttestationAssurancePosture,
+        evidence: Vec<AttestationEvidence>,
+    ) -> AttestationAssuranceInput {
+        AttestationAssuranceInput {
+            policy: AttestationAssurancePolicy {
+                policy_id: "policy://startup-attestation/v1".to_string(),
+                required_posture,
+                relying_party_id: "runtime://startup-gate".to_string(),
+                expected_nonce: "nonce-1".to_string(),
+                expected_workload_identity: "workload://agent".to_string(),
+                expected_daemon_build_hash: "sha256:daemon".to_string(),
+                expected_policy_build_hash: "sha256:policy".to_string(),
+                expected_appraisal_policy_ref: "policy://appraisal/v1".to_string(),
+                expected_lease_ref: "lease://agent".to_string(),
+                required_revocation_epoch: 4,
+                now_ms: 1_000,
+                max_appraisal_age_ms: 500,
+                max_reattestation_interval_ms: 1_000,
+                trusted_endorsement_refs: vec!["endorsement://vendor".to_string()],
+                trusted_reference_value_refs: vec!["reference://approved".to_string()],
+            },
+            evidence,
+        }
+    }
+
+    fn structured_evidence(
+        kind: AttestationEvidenceKind,
+        evidence_ref: &str,
+    ) -> AttestationEvidence {
+        AttestationEvidence {
+            evidence_ref: evidence_ref.to_string(),
+            kind,
+            attester_id: "node://attester".to_string(),
+            verifier_id: "service://verifier".to_string(),
+            appraiser_id: "service://verifier".to_string(),
+            relying_party_id: "runtime://startup-gate".to_string(),
+            nonce: "nonce-1".to_string(),
+            nonce_use_status: AttestationNonceUseStatus::ConsumedForThisAppraisal,
+            nonce_consumption_receipt_ref: Some("receipt://nonce/1".to_string()),
+            workload_identity: "workload://agent".to_string(),
+            daemon_build_hash: "sha256:daemon".to_string(),
+            policy_build_hash: "sha256:policy".to_string(),
+            endorsement_refs: if matches!(
+                kind,
+                AttestationEvidenceKind::MeasuredBoot
+                    | AttestationEvidenceKind::SecureElement
+                    | AttestationEvidenceKind::CpuTee
+                    | AttestationEvidenceKind::GpuConfidentialCompute
+            ) {
+                vec!["endorsement://vendor".to_string()]
+            } else {
+                vec![]
+            },
+            reference_value_refs: vec!["reference://approved".to_string()],
+            appraisal_policy_ref: "policy://appraisal/v1".to_string(),
+            appraisal_result_ref: Some("appraisal://1".to_string()),
+            appraisal_status: AttestationAppraisalStatus::Pass,
+            appraised_at_ms: 900,
+            appraisal_expires_at_ms: 1_500,
+            reattest_by_ms: 1_500,
+            lease_ref: Some("lease://agent".to_string()),
+            lease_expires_at_ms: Some(2_000),
+            revocation_epoch: Some(4),
+            revocation_status: AttestationRevocationStatus::Current,
+            revocation_check_receipt_ref: Some("receipt://revocation/4".to_string()),
         }
     }
 
@@ -332,6 +474,7 @@ mod tests {
                 reason: "marketplace binary has no remote attestation hook in this test"
                     .to_string(),
             },
+            attestation_assurance: None,
             policy_config: RuntimeStartupVerification::Verified,
         });
 
@@ -340,5 +483,107 @@ mod tests {
             .failures
             .iter()
             .any(|failure| failure.key == "profile.unverified_mcp_allowed"));
+    }
+
+    #[test]
+    fn startup_gate_attestation_assurance_preserves_valid_fallback() {
+        let mut replayed_hardware =
+            structured_evidence(AttestationEvidenceKind::CpuTee, "attestation://cpu");
+        replayed_hardware.nonce_use_status = AttestationNonceUseStatus::AlreadyConsumed;
+        let software = structured_evidence(
+            AttestationEvidenceKind::SoftwareOnly,
+            "attestation://software",
+        );
+        let mut input = gate_input(
+            RuntimeProfile::Production,
+            RuntimeStartupVerification::Verified,
+        );
+        input.attestation_assurance = Some(structured_attestation_input(
+            AttestationAssurancePosture::SoftwareOnly,
+            vec![replayed_hardware, software],
+        ));
+
+        let report = RuntimeProfileValidator::evaluate_startup_gate(input);
+
+        assert!(report.allowed);
+        let attestation = report.attestation_assurance.expect("structured report");
+        assert_eq!(
+            attestation.effective_posture,
+            AttestationAssurancePosture::SoftwareOnly
+        );
+        assert!(!attestation.hardware_or_measured_attested);
+        assert!(report
+            .warnings
+            .iter()
+            .any(|warning| warning.reason.contains("nonce_replay")));
+    }
+
+    #[test]
+    fn startup_gate_attestation_assurance_blocks_unmet_minimum_posture() {
+        let mut wrong_build =
+            structured_evidence(AttestationEvidenceKind::CpuTee, "attestation://cpu");
+        wrong_build.daemon_build_hash = "sha256:foreign".to_string();
+        let mut input = gate_input(RuntimeProfile::Dev, RuntimeStartupVerification::Verified);
+        input.attestation_assurance = Some(structured_attestation_input(
+            AttestationAssurancePosture::CpuTee,
+            vec![wrong_build],
+        ));
+
+        let report = RuntimeProfileValidator::evaluate_startup_gate(input);
+
+        assert!(!report.allowed);
+        assert!(report
+            .failures
+            .iter()
+            .any(|failure| failure.key == "attestation_assurance.minimum_posture"));
+    }
+
+    #[test]
+    fn startup_gate_attestation_assurance_cannot_hide_explicit_legacy_failure() {
+        let software = structured_evidence(
+            AttestationEvidenceKind::SoftwareOnly,
+            "attestation://software",
+        );
+        let mut input = gate_input(RuntimeProfile::Dev, RuntimeStartupVerification::Verified);
+        input.security_attestation =
+            RuntimeStartupVerification::failed("legacy signature verification rejected");
+        input.attestation_assurance = Some(structured_attestation_input(
+            AttestationAssurancePosture::SoftwareOnly,
+            vec![software],
+        ));
+
+        let report = RuntimeProfileValidator::evaluate_startup_gate(input);
+
+        assert!(!report.allowed);
+        assert!(report
+            .failures
+            .iter()
+            .any(|failure| failure.key == "security_attestation.legacy_verifier"));
+    }
+
+    #[test]
+    fn startup_gate_attestation_assurance_reports_superseded_legacy_unavailability() {
+        let software = structured_evidence(
+            AttestationEvidenceKind::SoftwareOnly,
+            "attestation://software",
+        );
+        let mut input = gate_input(
+            RuntimeProfile::Production,
+            RuntimeStartupVerification::Verified,
+        );
+        input.security_attestation =
+            RuntimeStartupVerification::unavailable("legacy verifier is offline");
+        input.attestation_assurance = Some(structured_attestation_input(
+            AttestationAssurancePosture::SoftwareOnly,
+            vec![software],
+        ));
+
+        let report = RuntimeProfileValidator::evaluate_startup_gate(input);
+
+        assert!(report.allowed);
+        assert!(report
+            .warnings
+            .iter()
+            .any(|warning| warning.key == "security_attestation.legacy_verifier"));
     }
 }

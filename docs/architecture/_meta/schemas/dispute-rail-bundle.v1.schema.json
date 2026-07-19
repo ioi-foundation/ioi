@@ -1,0 +1,577 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/dispute-rail-bundle/v1",
+  "title": "DisputeRailBundle",
+  "description": "Portable projection of one exact dispute-rail profile, owner-produced dispute snapshot, and admitted resolution. V1 uses one immutable asset-unit binding for disputed value, remedies, bonds, and bond allocation; it performs no conversion.",
+  "x-ioi-schema-version": "ioi.foundations.dispute-rail-bundle.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_ref",
+    "profile",
+    "dispute",
+    "resolution",
+    "exported_at_ms",
+    "assurance_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.dispute-rail-bundle.v1"
+    },
+    "bundle_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "profile": {
+      "$ref": "#/$defs/dispute_rail_profile"
+    },
+    "dispute": {
+      "$ref": "#/$defs/dispute"
+    },
+    "resolution": {
+      "$ref": "#/$defs/dispute_resolution"
+    },
+    "exported_at_ms": {
+      "$ref": "#/$defs/safe_integer"
+    },
+    "assurance_status": {
+      "const": "deterministic_admission_only"
+    }
+  },
+  "$defs": {
+    "safe_integer": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "positive_safe_integer": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "bps": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+    },
+    "optional_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "optional_hash": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/hash"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "value_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asset_ref",
+        "unit_ref",
+        "unit_version",
+        "unit_body_hash",
+        "atomic_unit_code",
+        "decimals"
+      ],
+      "properties": {
+        "asset_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "unit_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "unit_version": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "unit_body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "atomic_unit_code": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "decimals": {
+          "$ref": "#/$defs/safe_integer"
+        }
+      }
+    },
+    "bond_distribution_bps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "challenger_return_bps",
+        "respondent_return_bps",
+        "challenger_award_bps",
+        "respondent_award_bps",
+        "verifier_funding_bps",
+        "treasury_bps",
+        "burn_bps",
+        "rounding_recipient"
+      ],
+      "properties": {
+        "challenger_return_bps": {
+          "$ref": "#/$defs/bps"
+        },
+        "respondent_return_bps": {
+          "$ref": "#/$defs/bps"
+        },
+        "challenger_award_bps": {
+          "$ref": "#/$defs/bps"
+        },
+        "respondent_award_bps": {
+          "$ref": "#/$defs/bps"
+        },
+        "verifier_funding_bps": {
+          "$ref": "#/$defs/bps"
+        },
+        "treasury_bps": {
+          "$ref": "#/$defs/bps"
+        },
+        "burn_bps": {
+          "$ref": "#/$defs/bps"
+        },
+        "rounding_recipient": {
+          "enum": [
+            "challenger_return",
+            "respondent_return",
+            "challenger_award",
+            "respondent_award",
+            "verifier_funding",
+            "treasury",
+            "burn"
+          ]
+        }
+      }
+    },
+    "outcome_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "remedy",
+        "maximum_remedy_bps_of_disputed_value",
+        "bond_distribution"
+      ],
+      "properties": {
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        },
+        "remedy": {
+          "$ref": "#/$defs/remedy"
+        },
+        "maximum_remedy_bps_of_disputed_value": {
+          "$ref": "#/$defs/bps"
+        },
+        "bond_distribution": {
+          "$ref": "#/$defs/bond_distribution_bps"
+        }
+      }
+    },
+    "outcome": {
+      "enum": [
+        "challenger_upheld",
+        "respondent_upheld",
+        "partial",
+        "no_fault",
+        "escalated"
+      ]
+    },
+    "remedy": {
+      "enum": [
+        "none",
+        "refund",
+        "partial_refund",
+        "payout",
+        "partial_payout",
+        "slash",
+        "retry",
+        "revise",
+        "escalate"
+      ]
+    },
+    "dispute_rail_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dispute_rail_profile_ref",
+        "profile_version",
+        "profile_body_hash",
+        "rail_kind",
+        "value_unit",
+        "ordinary_verification_funding_ref",
+        "challenger_bond_units",
+        "respondent_bond_units",
+        "evidence_window_ms",
+        "response_window_ms",
+        "appeal_window_ms",
+        "evidence_unavailable_default",
+        "respondent_timeout_default",
+        "allowed_remedies",
+        "outcome_rules"
+      ],
+      "properties": {
+        "dispute_rail_profile_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "profile_version": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "profile_body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "rail_kind": {
+          "enum": [
+            "internal_review",
+            "marketplace_escrow",
+            "aiip_dispute",
+            "public_settlement"
+          ]
+        },
+        "value_unit": {
+          "$ref": "#/$defs/value_unit"
+        },
+        "ordinary_verification_funding_ref": {
+          "$ref": "#/$defs/optional_ref"
+        },
+        "challenger_bond_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "respondent_bond_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "evidence_window_ms": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "response_window_ms": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "appeal_window_ms": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "evidence_unavailable_default": {
+          "$ref": "#/$defs/outcome"
+        },
+        "respondent_timeout_default": {
+          "$ref": "#/$defs/outcome"
+        },
+        "allowed_remedies": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/remedy"
+          }
+        },
+        "outcome_rules": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/outcome_rule"
+          }
+        }
+      }
+    },
+    "dispute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dispute_ref",
+        "dispute_rail_profile_ref",
+        "dispute_rail_profile_version",
+        "dispute_rail_profile_body_hash",
+        "value_unit",
+        "challenged_ref",
+        "challenger_ref",
+        "respondent_ref",
+        "opened_at_ms",
+        "evidence_retained_until_ms",
+        "disputed_value_units",
+        "challenger_bond_hold_ref",
+        "challenger_bond_held_units",
+        "respondent_bond_hold_ref",
+        "respondent_bond_held_units",
+        "escrow_ref",
+        "collaboration_terms_ref",
+        "collaboration_terms_root",
+        "settlement_profile_ref",
+        "network_enrollment_ref",
+        "case_head_hash"
+      ],
+      "properties": {
+        "dispute_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "dispute_rail_profile_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "dispute_rail_profile_version": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "dispute_rail_profile_body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "value_unit": {
+          "$ref": "#/$defs/value_unit"
+        },
+        "challenged_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "challenger_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "respondent_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "opened_at_ms": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "evidence_retained_until_ms": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "disputed_value_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "challenger_bond_hold_ref": {
+          "$ref": "#/$defs/optional_ref"
+        },
+        "challenger_bond_held_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "respondent_bond_hold_ref": {
+          "$ref": "#/$defs/optional_ref"
+        },
+        "respondent_bond_held_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "escrow_ref": {
+          "$ref": "#/$defs/optional_ref"
+        },
+        "collaboration_terms_ref": {
+          "$ref": "#/$defs/optional_ref"
+        },
+        "collaboration_terms_root": {
+          "$ref": "#/$defs/optional_hash"
+        },
+        "settlement_profile_ref": {
+          "$ref": "#/$defs/optional_ref"
+        },
+        "network_enrollment_ref": {
+          "$ref": "#/$defs/optional_ref"
+        },
+        "case_head_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "bond_allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "challenger_return_units",
+        "respondent_return_units",
+        "challenger_award_units",
+        "respondent_award_units",
+        "verifier_funding_units",
+        "treasury_units",
+        "burn_units"
+      ],
+      "properties": {
+        "challenger_return_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "respondent_return_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "challenger_award_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "respondent_award_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "verifier_funding_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "treasury_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "burn_units": {
+          "$ref": "#/$defs/safe_integer"
+        }
+      }
+    },
+    "dispute_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dispute_resolution_ref",
+        "dispute_ref",
+        "dispute_rail_profile_ref",
+        "dispute_rail_profile_version",
+        "dispute_rail_profile_body_hash",
+        "rail_kind",
+        "value_unit",
+        "case_head_hash",
+        "request_hash",
+        "idempotency_key",
+        "adjudicator_ref",
+        "decided_at_ms",
+        "evidence_refs",
+        "response_refs",
+        "appeal_of_resolution_ref",
+        "outcome",
+        "remedy",
+        "remedy_units",
+        "bond_pool_units",
+        "bond_allocation",
+        "used_evidence_unavailable_default",
+        "used_respondent_timeout_default",
+        "appeal_deadline_ms",
+        "required_receipt_kinds",
+        "resolution_state"
+      ],
+      "properties": {
+        "dispute_resolution_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "dispute_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "dispute_rail_profile_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "dispute_rail_profile_version": {
+          "$ref": "#/$defs/positive_safe_integer"
+        },
+        "dispute_rail_profile_body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "rail_kind": {
+          "enum": [
+            "internal_review",
+            "marketplace_escrow",
+            "aiip_dispute",
+            "public_settlement"
+          ]
+        },
+        "value_unit": {
+          "$ref": "#/$defs/value_unit"
+        },
+        "case_head_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "request_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adjudicator_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "decided_at_ms": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "response_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "appeal_of_resolution_ref": {
+          "$ref": "#/$defs/optional_ref"
+        },
+        "outcome": {
+          "$ref": "#/$defs/outcome"
+        },
+        "remedy": {
+          "$ref": "#/$defs/remedy"
+        },
+        "remedy_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "bond_pool_units": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "bond_allocation": {
+          "$ref": "#/$defs/bond_allocation"
+        },
+        "used_evidence_unavailable_default": {
+          "type": "boolean"
+        },
+        "used_respondent_timeout_default": {
+          "type": "boolean"
+        },
+        "appeal_deadline_ms": {
+          "$ref": "#/$defs/safe_integer"
+        },
+        "required_receipt_kinds": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "dispute_resolution",
+              "bond_distribution",
+              "dispute_remedy_execution",
+              "dispute_escalation"
+            ]
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": "dispute_resolution"
+              }
+            },
+            {
+              "contains": {
+                "const": "bond_distribution"
+              }
+            }
+          ]
+        },
+        "resolution_state": {
+          "enum": [
+            "proposed",
+            "admitted",
+            "appealed",
+            "superseded",
+            "execution_pending",
+            "executed",
+            "execution_failed"
+          ]
+        }
+      }
+    }
+  }
+}

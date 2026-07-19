@@ -82,13 +82,19 @@ impl PersistFailure {
 /// `RenamedDurabilityUnconfirmed` (new record visible, durability unknown) so callers can model
 /// the truth instead of pretending nothing happened. A NEWLY CREATED family directory is made
 /// durable by fsyncing its parent before any record lands inside it.
-pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &str, record: &Value) -> Result<(), PersistFailure> {
+pub(crate) fn persist_record_durable(
+    data_dir: &str,
+    family: &str,
+    record_id: &str,
+    record: &Value,
+) -> Result<(), PersistFailure> {
     use std::io::Write;
     use PersistFailure::{NotCommitted, RenamedDurabilityUnconfirmed};
     // Parity with persist_record (#72 round 3): promoted families have exactly one write path;
     // not-yet-promoted families still feed the opt-in dual-write soak.
     if super::substrate_store::is_promoted(family) {
-        return super::substrate_store::persist_promoted(data_dir, family, record_id, record).map_err(NotCommitted);
+        return super::substrate_store::persist_promoted(data_dir, family, record_id, record)
+            .map_err(NotCommitted);
     }
     let dir = std::path::Path::new(data_dir).join(family);
     let family_created = !dir.exists();
@@ -96,9 +102,13 @@ pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &s
     if family_created {
         // A brand-new record family: fsync the data dir so the family directory itself
         // survives a crash (#72 round 7 finding 1).
-        (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })().map_err(NotCommitted)?;
+        (|| -> std::io::Result<()> { std::fs::File::open(data_dir)?.sync_all() })()
+            .map_err(NotCommitted)?;
     }
-    let safe: String = record_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
+    let safe: String = record_id.replace(
+        |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+        "_",
+    );
     let tmp = dir.join(format!(".{safe}.tmp-{:x}", nanos()));
     let write = (|| -> std::io::Result<()> {
         let mut f = std::fs::File::create(&tmp)?;
@@ -119,8 +129,14 @@ pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &s
     // directory-fsync failure cannot be injected by permissions on a read-then-write seam (the
     // dir listing and the fsync open need the same read bit), so the visible-unconfirmed lane
     // is forced here for the fault verifiers — the rename has genuinely happened.
-    if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED").ok().as_deref() == Some(family) {
-        return Err(RenamedDurabilityUnconfirmed(std::io::Error::other("test-forced directory-sync failure")));
+    if std::env::var("IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED")
+        .ok()
+        .as_deref()
+        == Some(family)
+    {
+        return Err(RenamedDurabilityUnconfirmed(std::io::Error::other(
+            "test-forced directory-sync failure",
+        )));
     }
     if let Err(e) = (|| -> std::io::Result<()> { std::fs::File::open(&dir)?.sync_all() })() {
         return Err(RenamedDurabilityUnconfirmed(e));
@@ -130,7 +146,11 @@ pub(crate) fn persist_record_durable(data_dir: &str, family: &str, record_id: &s
 
 /// ATOMIC-DURABLE replacement for the mutable goal-run record — the durable helper over the
 /// goal-run family (reservations, recovery intents, and releases order-depend on durability).
-fn persist_goal_run_atomic(data_dir: &str, goal_run_id: &str, record: &Value) -> Result<(), PersistFailure> {
+fn persist_goal_run_atomic(
+    data_dir: &str,
+    goal_run_id: &str,
+    record: &Value,
+) -> Result<(), PersistFailure> {
     persist_record_durable(data_dir, GOAL_RUN_KIND, goal_run_id, record)
 }
 
@@ -145,8 +165,9 @@ mod nofollow {
     use std::os::unix::io::{AsRawFd, FromRawFd};
 
     fn cstr(name: &std::ffi::OsStr) -> std::io::Result<CString> {
-        CString::new(name.as_bytes())
-            .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "NUL in path component"))
+        CString::new(name.as_bytes()).map_err(|_| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "NUL in path component")
+        })
     }
 
     /// Pin the walk ROOT itself: must be a directory, terminal symlink refused.
@@ -158,10 +179,17 @@ mod nofollow {
             .open(path)
     }
 
-    pub(super) fn open_dir_at(parent: &std::fs::File, name: &std::ffi::OsStr) -> std::io::Result<std::fs::File> {
+    pub(super) fn open_dir_at(
+        parent: &std::fs::File,
+        name: &std::ffi::OsStr,
+    ) -> std::io::Result<std::fs::File> {
         let c = cstr(name)?;
         let fd = unsafe {
-            libc::openat(parent.as_raw_fd(), c.as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            libc::openat(
+                parent.as_raw_fd(),
+                c.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            )
         };
         if fd < 0 {
             return Err(std::io::Error::last_os_error());
@@ -170,7 +198,10 @@ mod nofollow {
     }
 
     /// mkdirat; returns whether the directory was CREATED by this call (EEXIST = false).
-    pub(super) fn mkdir_at(parent: &std::fs::File, name: &std::ffi::OsStr) -> std::io::Result<bool> {
+    pub(super) fn mkdir_at(
+        parent: &std::fs::File,
+        name: &std::ffi::OsStr,
+    ) -> std::io::Result<bool> {
         let c = cstr(name)?;
         let rc = unsafe { libc::mkdirat(parent.as_raw_fd(), c.as_ptr(), 0o755) };
         if rc != 0 {
@@ -185,7 +216,10 @@ mod nofollow {
 
     /// O_NONBLOCK is deliberate (#72 round 7 finding 4): opening a FIFO must never block the
     /// daemon; the regular-file check below then refuses it typed.
-    pub(super) fn open_file_at(parent: &std::fs::File, name: &std::ffi::OsStr) -> std::io::Result<std::fs::File> {
+    pub(super) fn open_file_at(
+        parent: &std::fs::File,
+        name: &std::ffi::OsStr,
+    ) -> std::io::Result<std::fs::File> {
         let c = cstr(name)?;
         let fd = unsafe {
             libc::openat(
@@ -200,7 +234,10 @@ mod nofollow {
         Ok(unsafe { std::fs::File::from_raw_fd(fd) })
     }
 
-    pub(super) fn create_file_at(parent: &std::fs::File, name: &std::ffi::OsStr) -> std::io::Result<std::fs::File> {
+    pub(super) fn create_file_at(
+        parent: &std::fs::File,
+        name: &std::ffi::OsStr,
+    ) -> std::io::Result<std::fs::File> {
         let c = cstr(name)?;
         let fd = unsafe {
             libc::openat(
@@ -216,10 +253,21 @@ mod nofollow {
         Ok(unsafe { std::fs::File::from_raw_fd(fd) })
     }
 
-    pub(super) fn rename_at(parent: &std::fs::File, from: &std::ffi::OsStr, to: &std::ffi::OsStr) -> std::io::Result<()> {
+    pub(super) fn rename_at(
+        parent: &std::fs::File,
+        from: &std::ffi::OsStr,
+        to: &std::ffi::OsStr,
+    ) -> std::io::Result<()> {
         let cf = cstr(from)?;
         let ct = cstr(to)?;
-        let rc = unsafe { libc::renameat(parent.as_raw_fd(), cf.as_ptr(), parent.as_raw_fd(), ct.as_ptr()) };
+        let rc = unsafe {
+            libc::renameat(
+                parent.as_raw_fd(),
+                cf.as_ptr(),
+                parent.as_raw_fd(),
+                ct.as_ptr(),
+            )
+        };
         if rc != 0 {
             return Err(std::io::Error::last_os_error());
         }
@@ -235,7 +283,11 @@ mod nofollow {
     /// Walk (and in `create` mode, mkdirat) each PARENT component of `rel` under `root`,
     /// returning the pinned parent directory fd. A directory CREATED here is made durable by a
     /// checked fsync of the directory that received the new entry (#72 round 7 finding 1).
-    pub(super) fn pin_parent(root: &std::fs::File, rel: &std::path::Path, create: bool) -> std::io::Result<std::fs::File> {
+    pub(super) fn pin_parent(
+        root: &std::fs::File,
+        rel: &std::path::Path,
+        create: bool,
+    ) -> std::io::Result<std::fs::File> {
         let mut cur = root.try_clone()?;
         if let Some(parent) = rel.parent() {
             for comp in parent.components() {
@@ -266,7 +318,11 @@ mod nofollow {
     /// walk → NOFOLLOW|NONBLOCK file open) with fstat-enforced bounds: only REGULAR files, only
     /// up to `max_bytes` — a FIFO can never block the daemon and a huge file can never exhaust
     /// its memory. No path is re-resolved between validation and read.
-    pub(super) fn read_contained(root: &std::fs::File, rel: &std::path::Path, max_bytes: u64) -> Result<Vec<u8>, ReadRefusal> {
+    pub(super) fn read_contained(
+        root: &std::fs::File,
+        rel: &std::path::Path,
+        max_bytes: u64,
+    ) -> Result<Vec<u8>, ReadRefusal> {
         use std::io::Read;
         let classify = |e: std::io::Error| -> ReadRefusal {
             if matches!(e.raw_os_error(), Some(libc::ELOOP) | Some(libc::ENOTDIR)) {
@@ -276,9 +332,12 @@ mod nofollow {
             }
         };
         let parent = pin_parent(root, rel, false).map_err(&classify)?;
-        let name = rel
-            .file_name()
-            .ok_or_else(|| ReadRefusal::Io(std::io::Error::new(std::io::ErrorKind::InvalidInput, "no file name")))?;
+        let name = rel.file_name().ok_or_else(|| {
+            ReadRefusal::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "no file name",
+            ))
+        })?;
         let f = open_file_at(&parent, name).map_err(&classify)?;
         let md = f.metadata().map_err(ReadRefusal::Io)?;
         if !md.file_type().is_file() {
@@ -344,7 +403,9 @@ pub(crate) fn update_goal_run_guarded(
     expect: impl FnOnce(&Value) -> Result<(), SeamErr>,
     mutate: impl FnOnce(&mut serde_json::Map<String, Value>),
 ) -> Result<MutationOutcome, SeamErr> {
-    let _guard = GOAL_RUN_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = GOAL_RUN_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let Some(mut fresh) = read_record_dir(data_dir, GOAL_RUN_KIND)
         .into_iter()
         .find(|r| r.get("goal_run_id").and_then(Value::as_str) == Some(goal_run_id))
@@ -391,7 +452,8 @@ pub(crate) fn release_lifecycle_reservation(
             if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str) != Some(token) {
                 return Err((
                     "goal_run_operation_conflict".to_string(),
-                    "lifecycle reservation token mismatch — another operation owns this run".to_string(),
+                    "lifecycle reservation token mismatch — another operation owns this run"
+                        .to_string(),
                 ));
             }
             Ok(())
@@ -408,8 +470,10 @@ pub(crate) fn release_lifecycle_reservation(
 fn seam_status(code: &str) -> StatusCode {
     match code {
         "goal_run_not_found" => StatusCode::NOT_FOUND,
-        "goal_run_persist_failed" | "goal_run_persist_durability_unconfirmed"
-        | "goal_run_finalize_failed" | "goal_run_rollback_failed"
+        "goal_run_persist_failed"
+        | "goal_run_persist_durability_unconfirmed"
+        | "goal_run_finalize_failed"
+        | "goal_run_rollback_failed"
         | "goal_run_release_failed" => StatusCode::INTERNAL_SERVER_ERROR,
         _ => StatusCode::CONFLICT,
     }
@@ -433,7 +497,9 @@ fn reconcile_abort(
     // durable artifact was admitted at all, so record removal (and its non-durable unlink
     // hazard) has been eliminated from the transaction entirely.
     let mut failures: Vec<String> = Vec::new();
-    if let Err((rcode, rmsg)) = release_lifecycle_reservation(data_dir, goal_run_id, token, "active") {
+    if let Err((rcode, rmsg)) =
+        release_lifecycle_reservation(data_dir, goal_run_id, token, "active")
+    {
         failures.push(format!("reservation release ({rcode}: {rmsg})"));
     }
     if failures.is_empty() {
@@ -446,7 +512,10 @@ fn reconcile_abort(
         bad(
             StatusCode::INTERNAL_SERVER_ERROR,
             "goal_run_rollback_failed",
-            &format!("{detail} AND rollback was incomplete ({}) — manual repair required", failures.join(", ")),
+            &format!(
+                "{detail} AND rollback was incomplete ({}) — manual repair required",
+                failures.join(", ")
+            ),
         )
     }
 }
@@ -475,11 +544,16 @@ fn reconcile_preserve_abort(
             json!({ "code": code, "detail": detail, "at": iso_now() }),
         );
     }
-    if let Err(f) = persist_record_durable(data_dir, RECONCILIATION_KIND, reconciliation_id, &preserved) {
+    if let Err(f) =
+        persist_record_durable(data_dir, RECONCILIATION_KIND, reconciliation_id, &preserved)
+    {
         // A visible-but-unconfirmed update is NOT an incomplete rollback — the recovery state
         // is readable; only its durability is unconfirmed (#72 round 7 finding 1).
         if !f.visible() {
-            failures.push(format!("operation-record update ({RECONCILIATION_KIND}/{reconciliation_id}: {})", f.detail()));
+            failures.push(format!(
+                "operation-record update ({RECONCILIATION_KIND}/{reconciliation_id}: {})",
+                f.detail()
+            ));
         }
     }
     // Release + APPEND-ONLY attempt retention (#72 round 5 finding 2): the failed attempt's ref
@@ -492,7 +566,8 @@ fn reconcile_preserve_abort(
             if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str) != Some(token) {
                 return Err((
                     "goal_run_operation_conflict".to_string(),
-                    "lifecycle reservation token mismatch — another operation owns this run".to_string(),
+                    "lifecycle reservation token mismatch — another operation owns this run"
+                        .to_string(),
                 ));
             }
             Ok(())
@@ -505,7 +580,10 @@ fn reconcile_preserve_abort(
                 .and_then(Value::as_array)
                 .cloned()
                 .unwrap_or_default();
-            if !attempts.iter().any(|a| a.as_str() == Some(attempt_ref.as_str())) {
+            if !attempts
+                .iter()
+                .any(|a| a.as_str() == Some(attempt_ref.as_str()))
+            {
                 attempts.push(json!(attempt_ref));
             }
             obj.insert("reconciliation_attempt_refs".into(), Value::Array(attempts));
@@ -514,7 +592,10 @@ fn reconcile_preserve_abort(
     if let Err((rcode, rmsg)) = released {
         failures.push(format!("reservation release ({rcode}: {rmsg})"));
     }
-    let status = preserved_record.get("status").and_then(Value::as_str).unwrap_or("recovery_required");
+    let status = preserved_record
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or("recovery_required");
     if failures.is_empty() {
         bad(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -558,7 +639,9 @@ fn contained_rel_path(file: &str) -> Result<std::path::PathBuf, String> {
     }
     let p = std::path::Path::new(file);
     if p.is_absolute() {
-        return Err(format!("'{file}' is absolute — outputs are declared relative to their workspace root"));
+        return Err(format!(
+            "'{file}' is absolute — outputs are declared relative to their workspace root"
+        ));
     }
     let mut normalized = std::path::PathBuf::new();
     for component in p.components() {
@@ -596,7 +679,11 @@ fn symlink_contained(canon_root: &std::path::Path, rel: &std::path::Path) -> Res
         .canonicalize()
         .map_err(|e| format!("'{}' does not resolve ({e})", probe.display()))?;
     if !canon_probe.starts_with(canon_root) {
-        return Err(format!("'{}' escapes the workspace through a symlinked ancestor ('{}' resolves outside)", rel.display(), probe.display()));
+        return Err(format!(
+            "'{}' escapes the workspace through a symlinked ancestor ('{}' resolves outside)",
+            rel.display(),
+            probe.display()
+        ));
     }
     Ok(())
 }
@@ -616,10 +703,18 @@ fn symlink_contained(canon_root: &std::path::Path, rel: &std::path::Path) -> Res
 #[derive(Debug)]
 enum CommitFailure {
     NotApplied(String),
-    AppliedDurabilityUnconfirmed { bytes: u64, sha256: String, error: String },
+    AppliedDurabilityUnconfirmed {
+        bytes: u64,
+        sha256: String,
+        error: String,
+    },
 }
 
-fn commit_one(staged: &std::path::Path, target_root: &std::fs::File, rel: &std::path::Path) -> Result<(u64, String), CommitFailure> {
+fn commit_one(
+    staged: &std::path::Path,
+    target_root: &std::fs::File,
+    rel: &std::path::Path,
+) -> Result<(u64, String), CommitFailure> {
     use std::io::Write;
     use CommitFailure::NotApplied;
     let parent = nofollow::pin_parent(target_root, rel, true)
@@ -627,9 +722,14 @@ fn commit_one(staged: &std::path::Path, target_root: &std::fs::File, rel: &std::
     let file_name = rel
         .file_name()
         .ok_or_else(|| NotApplied("destination has no file name".to_string()))?;
-    let bytes = std::fs::read(staged).map_err(|e| NotApplied(format!("staged read failed ({e})")))?;
+    let bytes =
+        std::fs::read(staged).map_err(|e| NotApplied(format!("staged read failed ({e})")))?;
     let sha = sha256_hex(&bytes);
-    let tmp_name = std::ffi::OsString::from(format!(".{}.wal-tmp-{:x}", file_name.to_string_lossy(), nanos()));
+    let tmp_name = std::ffi::OsString::from(format!(
+        ".{}.wal-tmp-{:x}",
+        file_name.to_string_lossy(),
+        nanos()
+    ));
     let write_result = (|| -> std::io::Result<()> {
         let mut f = nofollow::create_file_at(&parent, &tmp_name)?;
         f.write_all(&bytes)?;
@@ -663,10 +763,18 @@ const MAX_ATTEMPT_TOTAL_BYTES: u64 = 256 * 1024 * 1024;
 /// every directory in the freshly created chain up to the data dir. The staged attempt is the
 /// immutable declared input a crash-recovery validates against — it must actually survive the
 /// crash, not merely exist in the page cache.
-fn stage_one(data_dir: &str, staging_root: &std::path::Path, rel: &std::path::Path, bytes: &[u8]) -> std::io::Result<std::path::PathBuf> {
+fn stage_one(
+    data_dir: &str,
+    staging_root: &std::path::Path,
+    rel: &std::path::Path,
+    bytes: &[u8],
+) -> std::io::Result<std::path::PathBuf> {
     use std::io::Write;
     let staged = staging_root.join(rel);
-    let parent = staged.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| staging_root.to_path_buf());
+    let parent = staged
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| staging_root.to_path_buf());
     std::fs::create_dir_all(&parent)?;
     let tmp = parent.join(format!(".stage-tmp-{:x}", nanos()));
     let write = (|| -> std::io::Result<()> {
@@ -798,7 +906,10 @@ pub(crate) fn fact_from_profile(profile: &Value, route_ref: &str, route_state: &
 
 /// The selected model route's (ref, availability state, model_id, endpoint) — the explicit ref
 /// or the registry default. Read from the persisted registry (availability is probe truth).
-pub(crate) fn route_fact(st: &DaemonState, explicit_ref: Option<&str>) -> (String, String, String, String) {
+pub(crate) fn route_fact(
+    st: &DaemonState,
+    explicit_ref: Option<&str>,
+) -> (String, String, String, String) {
     let routes = read_record_dir(&st.data_dir, "model-route-registry");
     let route = routes.iter().find(|route| match explicit_ref {
         Some(wanted) => text(route, "route_ref") == wanted,
@@ -823,15 +934,23 @@ pub(crate) fn route_fact(st: &DaemonState, explicit_ref: Option<&str>) -> (Strin
                 .unwrap_or("")
                 .to_string(),
         ),
-        None => (String::new(), "unresolved".into(), String::new(), String::new()),
+        None => (
+            String::new(),
+            "unresolved".into(),
+            String::new(),
+            String::new(),
+        ),
     }
 }
 
 pub(crate) async fn live_profiles(st: &DaemonState) -> Vec<Value> {
-    self_get(&format!("{}/v1/hypervisor/harness-profiles?live=1", st.base_url))
-        .await
-        .and_then(|body| body.get("profiles").and_then(Value::as_array).cloned())
-        .unwrap_or_default()
+    self_get(&format!(
+        "{}/v1/hypervisor/harness-profiles?live=1",
+        st.base_url
+    ))
+    .await
+    .and_then(|body| body.get("profiles").and_then(Value::as_array).cloned())
+    .unwrap_or_default()
 }
 
 pub(crate) fn profile_by_harness<'a>(profiles: &'a [Value], harness: &str) -> Option<&'a Value> {
@@ -1071,7 +1190,10 @@ pub(crate) async fn handle_goal_runs_create(
         "runtimeTruthSource": "daemon-runtime",
     });
     let _ = persist_record(&st.data_dir, GOAL_RUN_KIND, &goal_run_id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "goal_run": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "goal_run": record })),
+    )
 }
 
 pub(crate) async fn handle_goal_runs_list(
@@ -1083,7 +1205,10 @@ pub(crate) async fn handle_goal_runs_list(
         runs.retain(|run| text(run, "target_session_ref") == session);
     }
     runs.sort_by(|a, b| text(b, "updated_at").cmp(text(a, "updated_at")));
-    (StatusCode::OK, Json(json!({ "ok": true, "goal_runs": runs })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "goal_runs": runs })),
+    )
 }
 
 pub(crate) async fn handle_goal_run_get(
@@ -1092,7 +1217,11 @@ pub(crate) async fn handle_goal_run_get(
 ) -> (StatusCode, Json<Value>) {
     match load(&st, GOAL_RUN_KIND, &id) {
         Some(run) => (StatusCode::OK, Json(json!({ "ok": true, "goal_run": run }))),
-        None => bad(StatusCode::NOT_FOUND, "goal_run_not_found", "Unknown GoalRun."),
+        None => bad(
+            StatusCode::NOT_FOUND,
+            "goal_run_not_found",
+            "Unknown GoalRun.",
+        ),
     }
 }
 
@@ -1133,13 +1262,17 @@ fn start_evidence_abort(
             if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str) != Some(token) {
                 return Err((
                     "goal_run_operation_conflict".to_string(),
-                    "the reservation token changed while marking the start for recovery".to_string(),
+                    "the reservation token changed while marking the start for recovery"
+                        .to_string(),
                 ));
             }
             Ok(())
         },
         |obj| {
-            let mut op = obj.get("lifecycle_op").cloned().unwrap_or_else(|| json!({}));
+            let mut op = obj
+                .get("lifecycle_op")
+                .cloned()
+                .unwrap_or_else(|| json!({}));
             if let Some(o) = op.as_object_mut() {
                 o.insert("phase".into(), json!("recovery_required"));
                 o.insert(
@@ -1241,7 +1374,10 @@ async fn run_invocation(
             "candidate_session_create_failed",
             format!(
                 "candidate session create returned {status}: {}",
-                created.pointer("/error/code").and_then(Value::as_str).unwrap_or("unknown")
+                created
+                    .pointer("/error/code")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown")
             ),
             &candidate_session_ref,
             "",
@@ -1264,24 +1400,27 @@ async fn run_invocation(
         Some((model_id, endpoint, _, _)) => (model_id.clone(), Some(endpoint.clone())),
         None => (
             std::env::var("IOI_HYPERVISOR_MODEL").unwrap_or_else(|_| "qwen2.5:7b".into()),
-            std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM").ok().filter(|v| !v.is_empty()),
+            std::env::var("IOI_HYPERVISOR_MODEL_UPSTREAM")
+                .ok()
+                .filter(|v| !v.is_empty()),
         ),
     };
 
-    let driver = match resolve_adapter_driver(&session_record, &model, &workspace, endpoint.as_deref()) {
-        Ok(Some(driver)) => driver,
-        Ok(None) => {
-            return fail(
-                "adapter_driver_unresolved",
-                "implementer session has no wired adapter driver".into(),
-                &candidate_session_ref,
-                &workspace,
-            )
-        }
-        Err((reason, message)) => {
-            return fail(reason, message, &candidate_session_ref, &workspace)
-        }
-    };
+    let driver =
+        match resolve_adapter_driver(&session_record, &model, &workspace, endpoint.as_deref()) {
+            Ok(Some(driver)) => driver,
+            Ok(None) => {
+                return fail(
+                    "adapter_driver_unresolved",
+                    "implementer session has no wired adapter driver".into(),
+                    &candidate_session_ref,
+                    &workspace,
+                )
+            }
+            Err((reason, message)) => {
+                return fail(reason, message, &candidate_session_ref, &workspace)
+            }
+        };
 
     // REAL adapter execution: the harness drives the model and edits ONLY its candidate
     // workspace (bwrap-confined by the driver lane). The rendered input is adapter-private;
@@ -1295,7 +1434,8 @@ async fn run_invocation(
             plan.objective, plan.projection_summary
         )
     };
-    let outcome = run_host_spawn_lane(&argv, &workspace, &delivered_objective, endpoint.as_deref()).await;
+    let outcome =
+        run_host_spawn_lane(&argv, &workspace, &delivered_objective, endpoint.as_deref()).await;
 
     // Persist normalized adapter events with the goal-run linkage.
     let run_tag = format!("{}_{}_{:x}", safe(&goal_run_id), plan.role_key, nanos());
@@ -1319,7 +1459,12 @@ async fn run_invocation(
     let candidate_artifact_refs: Vec<String> = outcome
         .files_written
         .iter()
-        .map(|file| format!("artifact://goal-run/{}/{}/{}", goal_run_id, plan.role_key, file))
+        .map(|file| {
+            format!(
+                "artifact://goal-run/{}/{}/{}",
+                goal_run_id, plan.role_key, file
+            )
+        })
         .collect();
 
     // Invocation receipt (admitted authority named).
@@ -1494,29 +1639,34 @@ pub(crate) async fn handle_goal_run_start(
     // lease ref is named on every invocation receipt. 403 challenge shape identical to execute.
     // A refusal here happened before any side effect: release the reservation so the draft is
     // exactly re-runnable; a failed release is itself a typed 5xx, never a silent wedge.
-    let capability_lease_ref =
-        match execute_authority_gate(&body, &goal_ref, &target_workspace, &goal) {
-            Ok(lease) => lease,
-            Err(challenge) => {
-                if let Err((rcode, rmsg)) =
-                    release_lifecycle_reservation(&st.data_dir, &id, &op_token, "draft")
-                {
-                    return bad(
+    let capability_lease_ref = match execute_authority_gate(
+        &body,
+        &goal_ref,
+        &target_workspace,
+        &goal,
+    ) {
+        Ok(lease) => lease,
+        Err(challenge) => {
+            if let Err((rcode, rmsg)) =
+                release_lifecycle_reservation(&st.data_dir, &id, &op_token, "draft")
+            {
+                return bad(
                         StatusCode::INTERNAL_SERVER_ERROR,
                         "goal_run_release_failed",
                         &format!("the start authority gate refused AND the reservation release did not commit ({rcode}: {rmsg}) — manual inspection required"),
                     );
-                }
-                return (StatusCode::FORBIDDEN, Json(challenge));
             }
-        };
+            return (StatusCode::FORBIDDEN, Json(challenge));
+        }
+    };
 
     // Refresh live facts and admit each implementer invocation (fail-closed per role; a
     // rejected role becomes an explicit failed invocation + blocker, the run continues).
     let profiles = live_profiles(&st).await;
     let (route_ref, route_state, _, _) = route_fact(
         &st,
-        run.pointer("/role_topology/model_route_ref").and_then(Value::as_str),
+        run.pointer("/role_topology/model_route_ref")
+            .and_then(Value::as_str),
     );
     let kernel = RuntimeKernelService::new();
     let empty = Vec::new();
@@ -1545,7 +1695,10 @@ pub(crate) async fn handle_goal_run_start(
             object.insert("goal_ref".into(), json!(goal_ref));
             object.insert("role".into(), json!("implementer"));
             object.insert("task_brief_ref".into(), json!(brief_ref));
-            object.insert("context_cell_ref".into(), json!(text(cell, "context_cell_id")));
+            object.insert(
+                "context_cell_ref".into(),
+                json!(text(cell, "context_cell_id")),
+            );
             object.insert(
                 "session_ref".into(),
                 json!(format!("session:goalrun-{goal_run_id}-{role_key}")),
@@ -1692,14 +1845,18 @@ pub(crate) async fn handle_goal_run_start(
                     Ok(rel) => {
                         let path = std::path::Path::new(workspace).join(rel);
                         path.exists()
-                            && std::fs::metadata(&path).map(|m| m.len() > 0).unwrap_or(false)
+                            && std::fs::metadata(&path)
+                                .map(|m| m.len() > 0)
+                                .unwrap_or(false)
                     }
                     Err(_) => false,
                 };
                 checks.push(json!({ "check": "reported_file_exists_with_content", "file": file, "pass": real }));
                 files_real &= real;
             }
-            checks.push(json!({ "check": "workspace_mutation_reported", "pass": !changed.is_empty() }));
+            checks.push(
+                json!({ "check": "workspace_mutation_reported", "pass": !changed.is_empty() }),
+            );
         }
         let verdict = completed && files_real;
         let verification = json!({
@@ -1722,22 +1879,41 @@ pub(crate) async fn handle_goal_run_start(
         // CHECKED persist (#72 round 4 finding 2): a ref is bound ONLY after its record is
         // durable — a failed side-record write refuses typed with recovery state, never a 200
         // over nonexistent records.
-        if let Err(e) = persist_record(&st.data_dir, VERIFICATION_KIND, &verification_id, &verification) {
-            return start_evidence_abort(&st.data_dir, &goal_run_id, &op_token, VERIFICATION_KIND, &verification_id, &format!("{e}"), &invocations);
+        if let Err(e) = persist_record(
+            &st.data_dir,
+            VERIFICATION_KIND,
+            &verification_id,
+            &verification,
+        ) {
+            return start_evidence_abort(
+                &st.data_dir,
+                &goal_run_id,
+                &op_token,
+                VERIFICATION_KIND,
+                &verification_id,
+                &format!("{e}"),
+                &invocations,
+            );
         }
-        verification_refs.push(format!("agentgres://goal-run-verification/{verification_id}"));
+        verification_refs.push(format!(
+            "agentgres://goal-run-verification/{verification_id}"
+        ));
     }
 
     // Persist invocation records + update the run (checked, same discipline).
     let mut invocation_refs: Vec<String> = Vec::new();
     for invocation in &invocations {
-        let record_id = format!(
-            "{}_{}",
-            safe(&goal_run_id),
-            text(invocation, "role_key")
-        );
+        let record_id = format!("{}_{}", safe(&goal_run_id), text(invocation, "role_key"));
         if let Err(e) = persist_record(&st.data_dir, INVOCATION_KIND, &record_id, invocation) {
-            return start_evidence_abort(&st.data_dir, &goal_run_id, &op_token, INVOCATION_KIND, &record_id, &format!("{e}"), &invocations);
+            return start_evidence_abort(
+                &st.data_dir,
+                &goal_run_id,
+                &op_token,
+                INVOCATION_KIND,
+                &record_id,
+                &format!("{e}"),
+                &invocations,
+            );
         }
         invocation_refs.push(text(invocation, "harness_invocation_id").to_string());
     }
@@ -1771,7 +1947,8 @@ pub(crate) async fn handle_goal_run_start(
             {
                 return Err((
                     "goal_run_operation_conflict".to_string(),
-                    "start finalization no longer holds the reservation token — refusing to commit".to_string(),
+                    "start finalization no longer holds the reservation token — refusing to commit"
+                        .to_string(),
                 ));
             }
             Ok(())
@@ -1840,7 +2017,8 @@ pub(crate) async fn handle_goal_run_reconcile(
             if text(fresh, "status") != "active" {
                 return Err((
                     "goal_run_not_reconcilable".to_string(),
-                    "Reconciliation applies to a started (active) GoalRun exactly once.".to_string(),
+                    "Reconciliation applies to a started (active) GoalRun exactly once."
+                        .to_string(),
                 ));
             }
             Ok(())
@@ -1891,7 +2069,9 @@ pub(crate) async fn handle_goal_run_reconcile(
             verification
                 .get("harness_invocation_ref")
                 .and_then(Value::as_str)
-                == invocation.get("harness_invocation_id").and_then(Value::as_str)
+                == invocation
+                    .get("harness_invocation_id")
+                    .and_then(Value::as_str)
                 && text(verification, "verdict") == "pass"
         })
     };
@@ -1908,14 +2088,24 @@ pub(crate) async fn handle_goal_run_reconcile(
         invocation
             .pointer("/implementation_result/changed_files")
             .and_then(Value::as_array)
-            .map(|files| files.iter().filter_map(Value::as_str).map(str::to_string).collect())
+            .map(|files| {
+                files
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
             .unwrap_or_default()
     };
 
     // Deterministic strategy selection.
     let (merge_strategy, selected, reason_code): (&str, Vec<&Value>, String) = if passed.is_empty()
     {
-        ("none_blocked", Vec::new(), "no_verified_candidate".to_string())
+        (
+            "none_blocked",
+            Vec::new(),
+            "no_verified_candidate".to_string(),
+        )
     } else if passed.len() >= 2 {
         let files_a = changed_of(passed[0]);
         let files_b = changed_of(passed[1]);
@@ -2038,8 +2228,10 @@ pub(crate) async fn handle_goal_run_reconcile(
             &format!("{declared_count} declared output files exceed the per-attempt limit of {MAX_OUTPUT_FILES}; nothing was read or written"),
         );
     }
-    let mut planned_files: Vec<(String, std::path::PathBuf, std::path::PathBuf, String, u64)> = Vec::new();
-    let mut planned_set: std::collections::HashSet<std::path::PathBuf> = std::collections::HashSet::new();
+    let mut planned_files: Vec<(String, std::path::PathBuf, std::path::PathBuf, String, u64)> =
+        Vec::new();
+    let mut planned_set: std::collections::HashSet<std::path::PathBuf> =
+        std::collections::HashSet::new();
     let mut total_bytes: u64 = 0;
     let mut escape_errors: Vec<String> = Vec::new();
     let mut collision_errors: Vec<String> = Vec::new();
@@ -2068,7 +2260,9 @@ pub(crate) async fn handle_goal_run_reconcile(
                 continue;
             }
             let Some(candidate_root) = candidate_root.as_ref() else {
-                staging_errors.push(format!("{file}: candidate workspace '{candidate_workspace}' does not resolve/pin"));
+                staging_errors.push(format!(
+                    "{file}: candidate workspace '{candidate_workspace}' does not resolve/pin"
+                ));
                 continue;
             };
             let remaining = MAX_ATTEMPT_TOTAL_BYTES.saturating_sub(total_bytes);
@@ -2084,7 +2278,11 @@ pub(crate) async fn handle_goal_run_reconcile(
                     continue;
                 }
                 Err(nofollow::ReadRefusal::TooLarge(size)) => {
-                    let code = if size > MAX_OUTPUT_FILE_BYTES { "goal_run_output_file_too_large" } else { "goal_run_output_attempt_too_large" };
+                    let code = if size > MAX_OUTPUT_FILE_BYTES {
+                        "goal_run_output_file_too_large"
+                    } else {
+                        "goal_run_output_attempt_too_large"
+                    };
                     bound_errors.push((code, format!("'{}' ({size} bytes) exceeds the byte budget (file limit {MAX_OUTPUT_FILE_BYTES}, attempt limit {MAX_ATTEMPT_TOTAL_BYTES})", rel.display())));
                     continue;
                 }
@@ -2098,12 +2296,17 @@ pub(crate) async fn handle_goal_run_reconcile(
             // DURABLE staging (#72 round 7 finding 2): the staged attempt must survive a host
             // crash exactly as declared — atomic write, file fsync, directory-chain fsync.
             match stage_one(&st.data_dir, &staging_root, &rel, &bytes) {
-                Ok(staged) => planned_files.push((file.clone(), staged, rel, sha, bytes.len() as u64)),
+                Ok(staged) => {
+                    planned_files.push((file.clone(), staged, rel, sha, bytes.len() as u64))
+                }
                 Err(e) => staging_errors.push(format!("{file}: durable staging failed ({e})")),
             }
         }
     }
-    let bound_code: &str = bound_errors.first().map(|(c, _)| *c).unwrap_or("goal_run_output_bounds");
+    let bound_code: &str = bound_errors
+        .first()
+        .map(|(c, _)| *c)
+        .unwrap_or("goal_run_output_bounds");
     let bound_msgs: Vec<String> = bound_errors.iter().map(|(_, m)| m.clone()).collect();
     for (code, errors) in [
         ("goal_run_output_path_escape", &escape_errors),
@@ -2122,7 +2325,10 @@ pub(crate) async fn handle_goal_run_reconcile(
             );
         }
     }
-    let planned_list: Vec<String> = planned_files.iter().map(|(f, _, _, _, _)| f.clone()).collect();
+    let planned_list: Vec<String> = planned_files
+        .iter()
+        .map(|(f, _, _, _, _)| f.clone())
+        .collect();
     // The staged manifest binds per-file hashes + sizes into the PRE-OUTPUT receipt (#72 round
     // 7 finding 2): a restart validates the surviving staged bytes against exactly this.
     let staged_manifest: Vec<Value> = planned_files
@@ -2134,7 +2340,12 @@ pub(crate) async fn handle_goal_run_reconcile(
     // The attempt-scoped operation record builder — defined BEFORE anything persists, because
     // the DECLARED record is now the first durable artifact (#72 round 8 finding 2).
     let blocked = merge_strategy == "none_blocked";
-    let base_record = |status: &str, final_files: &[String], journal: &[Value], copy_errors: &[String], transcript: &Option<String>, state_root: &str| {
+    let base_record = |status: &str,
+                       final_files: &[String],
+                       journal: &[Value],
+                       copy_errors: &[String],
+                       transcript: &Option<String>,
+                       state_root: &str| {
         json!({
             "schema_version": RECONCILIATION_SCHEMA_VERSION,
             "reconciliation_result_id": format!("reconciliation_result://{reconciliation_id}"),
@@ -2168,7 +2379,12 @@ pub(crate) async fn handle_goal_run_reconcile(
     // receipt can never be orphaned. From this point the transaction DELETES NOTHING: every
     // refusal preserves the declared attempt and appends its ref on release.
     let declared = base_record("declared", &[], &[], &[], &None, "");
-    if let Err(f) = persist_record_durable(&st.data_dir, RECONCILIATION_KIND, &reconciliation_id, &declared) {
+    if let Err(f) = persist_record_durable(
+        &st.data_dir,
+        RECONCILIATION_KIND,
+        &reconciliation_id,
+        &declared,
+    ) {
         if f.visible() {
             return reconcile_preserve_abort(
                 &st.data_dir,
@@ -2230,14 +2446,26 @@ pub(crate) async fn handle_goal_run_reconcile(
             &reconciliation_id,
             &base_record("aborted_before_output_admission", &[], &[], &[], &None, ""),
             code,
-            &format!("the reconciliation receipt is {}; {note}; the target workspace was NOT touched", f.detail()),
+            &format!(
+                "the reconciliation receipt is {}; {note}; the target workspace was NOT touched",
+                f.detail()
+            ),
         );
     }
 
     // Operation record advances to `committing` before any target effect.
     let committing = base_record("committing", &[], &[], &[], &None, "");
-    if let Err(f) = persist_record_durable(&st.data_dir, RECONCILIATION_KIND, &reconciliation_id, &committing) {
-        let code = if f.visible() { "goal_run_reconciliation_durability_unconfirmed" } else { "goal_run_reconciliation_persist_failed" };
+    if let Err(f) = persist_record_durable(
+        &st.data_dir,
+        RECONCILIATION_KIND,
+        &reconciliation_id,
+        &committing,
+    ) {
+        let code = if f.visible() {
+            "goal_run_reconciliation_durability_unconfirmed"
+        } else {
+            "goal_run_reconciliation_persist_failed"
+        };
         return reconcile_preserve_abort(
             &st.data_dir,
             &goal_run_id,
@@ -2265,11 +2493,29 @@ pub(crate) async fn handle_goal_run_reconcile(
             &st.data_dir,
             RECONCILIATION_KIND,
             &reconciliation_id,
-            &base_record("committing", &final_changed_files, &commit_journal, &copy_errors, &None, ""),
+            &base_record(
+                "committing",
+                &final_changed_files,
+                &commit_journal,
+                &copy_errors,
+                &None,
+                "",
+            ),
         ) {
             commit_journal.pop();
-            let preserved = base_record("recovery_required", &final_changed_files, &commit_journal, &copy_errors, &None, "");
-            let code = if f.visible() { "goal_run_commit_journal_durability_unconfirmed" } else { "goal_run_commit_journal_persist_failed" };
+            let preserved = base_record(
+                "recovery_required",
+                &final_changed_files,
+                &commit_journal,
+                &copy_errors,
+                &None,
+                "",
+            );
+            let code = if f.visible() {
+                "goal_run_commit_journal_durability_unconfirmed"
+            } else {
+                "goal_run_commit_journal_persist_failed"
+            };
             return reconcile_preserve_abort(
                 &st.data_dir,
                 &goal_run_id,
@@ -2277,12 +2523,17 @@ pub(crate) async fn handle_goal_run_reconcile(
                 &reconciliation_id,
                 &preserved,
                 code,
-                &format!("the write-ahead journal entry for '{file}' is {}; '{file}' was NOT applied", f.detail()),
+                &format!(
+                    "the write-ahead journal entry for '{file}' is {}; '{file}' was NOT applied",
+                    f.detail()
+                ),
             );
         }
         commit_journal.pop();
         let Some(target_root_fd) = target_root_fd.as_ref() else {
-            copy_errors.push(format!("{file}: no pinned target root (planned files with an empty selection is a bug)"));
+            copy_errors.push(format!(
+                "{file}: no pinned target root (planned files with an empty selection is a bug)"
+            ));
             commit_journal.push(json!({ "file": file, "applied": false, "error": "no pinned target root", "at": iso_now() }));
             continue;
         };
@@ -2293,9 +2544,14 @@ pub(crate) async fn handle_goal_run_reconcile(
             }
             Err(CommitFailure::NotApplied(e)) => {
                 copy_errors.push(format!("{file}: {e}"));
-                commit_journal.push(json!({ "file": file, "applied": false, "error": e, "at": iso_now() }));
+                commit_journal
+                    .push(json!({ "file": file, "applied": false, "error": e, "at": iso_now() }));
             }
-            Err(CommitFailure::AppliedDurabilityUnconfirmed { bytes, sha256, error }) => {
+            Err(CommitFailure::AppliedDurabilityUnconfirmed {
+                bytes,
+                sha256,
+                error,
+            }) => {
                 // #72 round 7 finding 1: the COMPLETE destination is visible — the journal
                 // records unknown-but-possibly-applied, NEVER `applied: false`.
                 copy_errors.push(format!("{file}: applied (visible) but {error}"));
@@ -2306,10 +2562,28 @@ pub(crate) async fn handle_goal_run_reconcile(
             &st.data_dir,
             RECONCILIATION_KIND,
             &reconciliation_id,
-            &base_record("committing", &final_changed_files, &commit_journal, &copy_errors, &None, ""),
+            &base_record(
+                "committing",
+                &final_changed_files,
+                &commit_journal,
+                &copy_errors,
+                &None,
+                "",
+            ),
         ) {
-            let preserved = base_record("recovery_required", &final_changed_files, &commit_journal, &copy_errors, &None, "");
-            let code = if f.visible() { "goal_run_commit_journal_durability_unconfirmed" } else { "goal_run_commit_journal_persist_failed" };
+            let preserved = base_record(
+                "recovery_required",
+                &final_changed_files,
+                &commit_journal,
+                &copy_errors,
+                &None,
+                "",
+            );
+            let code = if f.visible() {
+                "goal_run_commit_journal_durability_unconfirmed"
+            } else {
+                "goal_run_commit_journal_persist_failed"
+            };
             return reconcile_preserve_abort(
                 &st.data_dir,
                 &goal_run_id,
@@ -2322,7 +2596,14 @@ pub(crate) async fn handle_goal_run_reconcile(
         }
     }
     if !copy_errors.is_empty() {
-        let preserved = base_record("failed_partial_commit", &final_changed_files, &commit_journal, &copy_errors, &None, "");
+        let preserved = base_record(
+            "failed_partial_commit",
+            &final_changed_files,
+            &commit_journal,
+            &copy_errors,
+            &None,
+            "",
+        );
         return reconcile_preserve_abort(
             &st.data_dir,
             &goal_run_id,
@@ -2381,9 +2662,25 @@ pub(crate) async fn handle_goal_run_reconcile(
         &transcript_run,
         &state_root,
     );
-    if let Err(f) = persist_record_durable(&st.data_dir, RECONCILIATION_KIND, &reconciliation_id, &reconciliation) {
-        let preserved = base_record("recovery_required", &final_changed_files, &commit_journal, &[], &transcript_run, &state_root);
-        let code = if f.visible() { "goal_run_reconciliation_finalize_durability_unconfirmed" } else { "goal_run_reconciliation_finalize_failed" };
+    if let Err(f) = persist_record_durable(
+        &st.data_dir,
+        RECONCILIATION_KIND,
+        &reconciliation_id,
+        &reconciliation,
+    ) {
+        let preserved = base_record(
+            "recovery_required",
+            &final_changed_files,
+            &commit_journal,
+            &[],
+            &transcript_run,
+            &state_root,
+        );
+        let code = if f.visible() {
+            "goal_run_reconciliation_finalize_durability_unconfirmed"
+        } else {
+            "goal_run_reconciliation_finalize_failed"
+        };
         return reconcile_preserve_abort(
             &st.data_dir,
             &goal_run_id,
@@ -2416,7 +2713,10 @@ pub(crate) async fn handle_goal_run_reconcile(
             Ok(())
         },
         |object| {
-            object.insert("status".into(), json!(if blocked { "blocked" } else { "complete" }));
+            object.insert(
+                "status".into(),
+                json!(if blocked { "blocked" } else { "complete" }),
+            );
             object.insert(
                 "continuation_state".into(),
                 json!(if blocked { "blocked" } else { "complete" }),
@@ -2434,11 +2734,17 @@ pub(crate) async fn handle_goal_run_reconcile(
                 .cloned()
                 .unwrap_or_default();
             let attempt_ref = format!("reconciliation_result://{reconciliation_id}");
-            if !attempts.iter().any(|a| a.as_str() == Some(attempt_ref.as_str())) {
+            if !attempts
+                .iter()
+                .any(|a| a.as_str() == Some(attempt_ref.as_str()))
+            {
                 attempts.push(json!(attempt_ref));
             }
             object.insert("reconciliation_attempt_refs".into(), Value::Array(attempts));
-            object.insert("final_changed_files".into(), json!(reconciliation["final_changed_files"]));
+            object.insert(
+                "final_changed_files".into(),
+                json!(reconciliation["final_changed_files"]),
+            );
             object.insert("updated_at".into(), json!(iso_now()));
             object.remove("lifecycle_op");
         },
@@ -2447,7 +2753,14 @@ pub(crate) async fn handle_goal_run_reconcile(
         // crash-revert resurfaces the reservation, which the recovery transition resolves.
         Ok(outcome) => outcome.into_record(),
         Err((code, msg)) => {
-            let preserved = base_record("recovery_required", &final_changed_files, &commit_journal, &[], &transcript_run, &state_root);
+            let preserved = base_record(
+                "recovery_required",
+                &final_changed_files,
+                &commit_journal,
+                &[],
+                &transcript_run,
+                &state_root,
+            );
             return reconcile_preserve_abort(
                 &st.data_dir,
                 &goal_run_id,
@@ -2489,7 +2802,12 @@ fn recovery_policy_hash(goal_run_id: &str) -> String {
 /// Daemon-derived REQUEST hash: binds the grant to THIS reservation token, THIS resolution, and
 /// the hash of THE failure evidence being resolved — a grant can never be replayed against a
 /// different reservation, a different resolution, or after the reservation's evidence changed.
-fn recovery_request_hash(goal_run_id: &str, token: &str, resolution: &str, failure_hash: &str) -> String {
+fn recovery_request_hash(
+    goal_run_id: &str,
+    token: &str,
+    resolution: &str,
+    failure_hash: &str,
+) -> String {
     sha256_canonical(&json!({
         "domain": "hypervisor.goal-run.lifecycle-recovery.request.v1",
         "goal_run_id": goal_run_id,
@@ -2516,7 +2834,11 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(token) = body.get("op_token").and_then(Value::as_str).map(str::to_string) else {
+    let Some(token) = body
+        .get("op_token")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+    else {
         return bad(
             StatusCode::BAD_REQUEST,
             "goal_run_recovery_token_required",
@@ -2536,7 +2858,11 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
         .into_iter()
         .find(|r| r.get("goal_run_id").and_then(Value::as_str) == Some(id.as_str()))
     else {
-        return bad(StatusCode::NOT_FOUND, "goal_run_not_found", "Unknown GoalRun.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "goal_run_not_found",
+            "Unknown GoalRun.",
+        );
     };
     let snapshot_op = snapshot.get("lifecycle_op").cloned().unwrap_or(Value::Null);
     if snapshot_op.get("token").and_then(Value::as_str) != Some(token.as_str()) {
@@ -2573,11 +2899,19 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    let grant_value = body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null);
+    let grant_value = body
+        .get("wallet_approval_grant")
+        .cloned()
+        .unwrap_or(Value::Null);
     let binding = if grant_value.is_null() {
         Err("a wallet_approval_grant is required".to_string())
     } else {
-        verify_wallet_approval_grant_binding(&grant_value, Some(now_ms), Some(&policy_hash), Some(&request_hash))
+        verify_wallet_approval_grant_binding(
+            &grant_value,
+            Some(now_ms),
+            Some(&policy_hash),
+            Some(&request_hash),
+        )
     };
     let binding = match binding {
         Ok(binding) => binding,
@@ -2597,7 +2931,10 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
             );
         }
     };
-    let acting_authority_id = grant_value.get("authority_id").cloned().unwrap_or(Value::Null);
+    let acting_authority_id = grant_value
+        .get("authority_id")
+        .cloned()
+        .unwrap_or(Value::Null);
 
     // ONE CRITICAL SECTION (#72 round 5 finding 5) RUNNING A DURABLE INTENT TRANSACTION (#72
     // round 6 finding 4): under the GoalRun mutation lock — so no operation can interleave —
@@ -2607,15 +2944,24 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
     // persist, (4) durable release. A crash between ANY of those steps leaves a state the boot
     // completer finishes FORWARD deterministically — nothing is guessed at restart, and a
     // synchronous receipt failure rolls the intent back exactly. No .await under the lock.
-    let _guard = GOAL_RUN_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = GOAL_RUN_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     let Some(prior) = read_record_dir(&st.data_dir, GOAL_RUN_KIND)
         .into_iter()
         .find(|r| r.get("goal_run_id").and_then(Value::as_str) == Some(id.as_str()))
     else {
-        return bad(StatusCode::NOT_FOUND, "goal_run_not_found", "Unknown GoalRun.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "goal_run_not_found",
+            "Unknown GoalRun.",
+        );
     };
     let prior_op = prior.get("lifecycle_op").cloned().unwrap_or(Value::Null);
-    let prior_attempt = read_attempt_record(&st.data_dir, prior_op.get("attempt_ref").and_then(Value::as_str));
+    let prior_attempt = read_attempt_record(
+        &st.data_dir,
+        prior_op.get("attempt_ref").and_then(Value::as_str),
+    );
     // Re-validate the STAGED BYTES under the lock (#72 round 8 finding 3): a staged file
     // mutated or deleted after the challenge changes this hash and forces a new challenge
     // carrying the damaged-state facts.
@@ -2641,7 +2987,11 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
             "a durable recovery intent already exists for this run — the boot completer (or the original request) finishes it deterministically",
         );
     }
-    let prior_status = prior.get("status").and_then(Value::as_str).unwrap_or("").to_string();
+    let prior_status = prior
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     let restored_status = prior_op
         .get("from_status")
         .and_then(Value::as_str)
@@ -2746,7 +3096,10 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
             return bad(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "goal_run_persist_failed",
-                &format!("the recovery intent is {} — the reservation is unchanged", f.detail()),
+                &format!(
+                    "the recovery intent is {} — the reservation is unchanged",
+                    f.detail()
+                ),
             );
         }
         // DURABLE INTENT REQUIRED before any evidence lands (#72 round 9 finding 2): if the
@@ -2763,7 +3116,11 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
     // DELIBERATE TEST KILL POINT (#72 round 6 finding 4): absent env = no effect. Crashing here
     // — after the GoalRun replacement, before receipt persistence — leaves ONLY the durable
     // intent; the boot completer must finish the transaction deterministically.
-    if std::env::var("IOI_TEST_KILL_AFTER_RECOVERY_INTENT").ok().as_deref() == Some("1") {
+    if std::env::var("IOI_TEST_KILL_AFTER_RECOVERY_INTENT")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
         std::process::abort();
     }
     // (3) Durable receipt REQUIRED (#72 round 9 finding 2): a NOT-COMMITTED failure rolls the
@@ -2802,8 +3159,17 @@ pub(crate) async fn handle_goal_run_lifecycle_recovery(
             .and_then(|r| r.strip_prefix("reconciliation_result://"))
             .unwrap_or_default()
             .to_string();
-        if let Err(f) = persist_record_durable(&st.data_dir, RECONCILIATION_KIND, &record_tail, &aborted_attempt_record) {
-            let code = if f.visible() { "goal_run_recovery_attempt_record_durability_unconfirmed" } else { "goal_run_recovery_finalize_failed" };
+        if let Err(f) = persist_record_durable(
+            &st.data_dir,
+            RECONCILIATION_KIND,
+            &record_tail,
+            &aborted_attempt_record,
+        ) {
+            let code = if f.visible() {
+                "goal_run_recovery_attempt_record_durability_unconfirmed"
+            } else {
+                "goal_run_recovery_finalize_failed"
+            };
             // Either way the DURABLE intent (and durable receipt) stand; the release has NOT
             // consumed them — restart validates the seals and finishes deterministically
             // (#72 round 9 finding 2: the intent outlives every unconfirmed piece of evidence).
@@ -2849,7 +3215,10 @@ fn validate_staged_manifest(attempt_record: &Value) -> Value {
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    let staging_root = attempt_record.get("staging_root").and_then(Value::as_str).unwrap_or("");
+    let staging_root = attempt_record
+        .get("staging_root")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     if attempt_record.is_null() || staging_root.is_empty() {
         return json!({ "validated": Value::Null, "checked": 0, "mismatches": [] });
     }
@@ -2877,13 +3246,20 @@ fn validate_staged_manifest(attempt_record: &Value) -> Value {
             }
         }
     }
-    mismatches.sort_by_key(|m| m.get("file").and_then(Value::as_str).unwrap_or("").to_string());
+    mismatches.sort_by_key(|m| {
+        m.get("file")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string()
+    });
     json!({ "validated": mismatches.is_empty(), "checked": manifest.len(), "mismatches": mismatches })
 }
 
 /// Resolve the attempt-scoped operation record a reservation names (Null when absent).
 fn read_attempt_record(data_dir: &str, attempt_ref: Option<&str>) -> Value {
-    let Some(aref) = attempt_ref else { return Value::Null };
+    let Some(aref) = attempt_ref else {
+        return Value::Null;
+    };
     read_record_dir(data_dir, RECONCILIATION_KIND)
         .into_iter()
         .find(|rec| rec.get("reconciliation_result_id").and_then(Value::as_str) == Some(aref))
@@ -2897,7 +3273,10 @@ fn build_released_run(prior: &Value, intent: &Value) -> Value {
     if let Some(obj) = released.as_object_mut() {
         obj.insert(
             "status".into(),
-            json!(intent.get("restored_status").and_then(Value::as_str).unwrap_or("draft")),
+            json!(intent
+                .get("restored_status")
+                .and_then(Value::as_str)
+                .unwrap_or("draft")),
         );
         obj.insert("updated_at".into(), json!(iso_now()));
         if let Some(aref) = intent.get("attempt_ref").and_then(Value::as_str) {
@@ -2924,17 +3303,29 @@ fn build_released_run(prior: &Value, intent: &Value) -> Value {
 /// reservation and intent). Nothing is guessed: every fact was sealed into the intent before
 /// the first observable transition. A persist failure leaves the intent for the next boot.
 pub(crate) fn complete_recovery_intents(data_dir: &str) {
-    let _guard = GOAL_RUN_MUTATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _guard = GOAL_RUN_MUTATION_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
     for run in read_record_dir(data_dir, GOAL_RUN_KIND) {
-        let Some(intent) = run.get("recovery_intent").cloned() else { continue };
-        let goal_run_id = run.get("goal_run_id").and_then(Value::as_str).unwrap_or("").to_string();
+        let Some(intent) = run.get("recovery_intent").cloned() else {
+            continue;
+        };
+        let goal_run_id = run
+            .get("goal_run_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
         // REPLAY VALIDATION (#72 round 7 finding 5): the embedded intent is only executed when
         // every seal checks out against the durable reservation — schema, token equality,
         // resolution, restored status vs from_status, attempt consistency, receipt identity,
         // and the receipt hash. Anything inconsistent is LEFT IN PLACE for manual repair;
         // replay never manufactures or overwrites evidence.
         let receipt = intent.get("receipt").cloned().unwrap_or(Value::Null);
-        let receipt_id = intent.get("receipt_id").and_then(Value::as_str).unwrap_or("").to_string();
+        let receipt_id = intent
+            .get("receipt_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
         let op = run.get("lifecycle_op").cloned().unwrap_or(Value::Null);
         let intent_token = intent.get("op_token").and_then(Value::as_str).unwrap_or("");
         let intent_attempt = intent.get("attempt_ref").and_then(Value::as_str);
@@ -2945,7 +3336,8 @@ pub(crate) fn complete_recovery_intents(data_dir: &str) {
         if intent.get("resolution").and_then(Value::as_str) != Some("release") {
             violations.push("resolution");
         }
-        if intent_token.is_empty() || op.get("token").and_then(Value::as_str) != Some(intent_token) {
+        if intent_token.is_empty() || op.get("token").and_then(Value::as_str) != Some(intent_token)
+        {
             violations.push("token vs lifecycle_op");
         }
         if intent.get("restored_status").and_then(Value::as_str)
@@ -2973,14 +3365,21 @@ pub(crate) fn complete_recovery_intents(data_dir: &str) {
         }
         // A pre-existing receipt must be BYTE-EXACT (canonically identical) — conflicting
         // evidence is never overwritten.
-        let receipt_tail: String = receipt_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_', "_");
-        let existing_receipt_path = std::path::Path::new(data_dir).join("receipts").join(format!("{receipt_tail}.json"));
+        let receipt_tail: String = receipt_id.replace(
+            |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
+            "_",
+        );
+        let existing_receipt_path = std::path::Path::new(data_dir)
+            .join("receipts")
+            .join(format!("{receipt_tail}.json"));
         if existing_receipt_path.exists() {
             let existing: Value = std::fs::read(&existing_receipt_path)
                 .ok()
                 .and_then(|b| serde_json::from_slice(&b).ok())
                 .unwrap_or(Value::Null);
-            if serde_json::to_vec(&existing).unwrap_or_default() != serde_json::to_vec(&receipt).unwrap_or_default() {
+            if serde_json::to_vec(&existing).unwrap_or_default()
+                != serde_json::to_vec(&receipt).unwrap_or_default()
+            {
                 eprintln!("goal-run recovery completer: a DIFFERENT receipt already exists at '{receipt_id}' for '{goal_run_id}' — conflicting evidence is never overwritten; left for manual repair");
                 continue;
             }
@@ -2995,14 +3394,24 @@ pub(crate) fn complete_recovery_intents(data_dir: &str) {
         // after validating its seal: canonical hash, record identity, goal/token equality, and
         // receipt binding. A pre-existing record must be byte-exact; conflicting evidence is
         // never overwritten and a broken seal leaves the intent for manual repair.
-        let aborted = intent.get("aborted_attempt_record").cloned().unwrap_or(Value::Null);
+        let aborted = intent
+            .get("aborted_attempt_record")
+            .cloned()
+            .unwrap_or(Value::Null);
         if !aborted.is_null() {
-            let sealed_hash = intent.get("aborted_attempt_record_hash").and_then(Value::as_str).unwrap_or("");
+            let sealed_hash = intent
+                .get("aborted_attempt_record_hash")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             let mut record_violations: Vec<&str> = Vec::new();
             if sealed_hash.is_empty() || sha256_canonical(&aborted) != sealed_hash {
                 record_violations.push("record hash");
             }
-            if aborted.get("reconciliation_result_id").and_then(Value::as_str) != intent_attempt {
+            if aborted
+                .get("reconciliation_result_id")
+                .and_then(Value::as_str)
+                != intent_attempt
+            {
                 record_violations.push("record identity vs attempt_ref");
             }
             if aborted.get("goal_run_id").and_then(Value::as_str) != Some(goal_run_id.as_str()) {
@@ -3019,7 +3428,9 @@ pub(crate) fn complete_recovery_intents(data_dir: &str) {
             if !receipt_bound {
                 record_violations.push("receipt binding");
             }
-            if aborted.get("status").and_then(Value::as_str) != Some("aborted_before_output_admission") {
+            if aborted.get("status").and_then(Value::as_str)
+                != Some("aborted_before_output_admission")
+            {
                 record_violations.push("status");
             }
             if !record_violations.is_empty() {
@@ -3028,7 +3439,9 @@ pub(crate) fn complete_recovery_intents(data_dir: &str) {
             }
             let already = read_attempt_record(data_dir, intent_attempt);
             if !already.is_null() {
-                if serde_json::to_vec(&already).unwrap_or_default() != serde_json::to_vec(&aborted).unwrap_or_default() {
+                if serde_json::to_vec(&already).unwrap_or_default()
+                    != serde_json::to_vec(&aborted).unwrap_or_default()
+                {
                     eprintln!("goal-run recovery completer: a DIFFERENT attempt record already exists at '{}' for '{goal_run_id}' — conflicting evidence is never overwritten; left for manual repair", intent_attempt.unwrap_or(""));
                     continue;
                 }
@@ -3037,7 +3450,9 @@ pub(crate) fn complete_recovery_intents(data_dir: &str) {
                     .and_then(|r| r.strip_prefix("reconciliation_result://"))
                     .unwrap_or_default()
                     .to_string();
-                if let Err(f) = persist_record_durable(data_dir, RECONCILIATION_KIND, &record_tail, &aborted) {
+                if let Err(f) =
+                    persist_record_durable(data_dir, RECONCILIATION_KIND, &record_tail, &aborted)
+                {
                     // DURABLE required before the intent is consumed (#72 round 9 finding 2).
                     eprintln!("goal-run recovery completer: aborted-attempt record persist for '{goal_run_id}' is {} — intent retained, retried next boot", f.detail());
                     continue;
@@ -3066,7 +3481,11 @@ pub(crate) async fn handle_goal_run_events(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     let Some(run) = load(&st, GOAL_RUN_KIND, &id) else {
-        return bad(StatusCode::NOT_FOUND, "goal_run_not_found", "Unknown GoalRun.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "goal_run_not_found",
+            "Unknown GoalRun.",
+        );
     };
     let goal_ref = text(&run, "goal_ref");
     let mut events: Vec<Value> = read_record_dir(&st.data_dir, "harness-adapter-events")
@@ -3129,7 +3548,8 @@ mod goal_run_seam_tests {
         plant(&dir, "seed.json", &seed);
 
         // Lane 1: unknown run — typed not-found, nothing else.
-        let (code, _) = update_goal_run_guarded(data_dir, "gr_missing", |_| Ok(()), |_| {}).unwrap_err();
+        let (code, _) =
+            update_goal_run_guarded(data_dir, "gr_missing", |_| Ok(()), |_| {}).unwrap_err();
         assert_eq!(code, "goal_run_not_found");
 
         // Lane 2: predicate refusal — propagated verbatim, the mutation NEVER runs.
@@ -3137,7 +3557,12 @@ mod goal_run_seam_tests {
         let (code, msg) = update_goal_run_guarded(
             data_dir,
             "gr_a",
-            |_| Err(("goal_run_not_reconcilable".to_string(), "state precheck refused".to_string())),
+            |_| {
+                Err((
+                    "goal_run_not_reconcilable".to_string(),
+                    "state precheck refused".to_string(),
+                ))
+            },
             |_| mutated = true,
         )
         .unwrap_err();
@@ -3149,11 +3574,19 @@ mod goal_run_seam_tests {
         let blocker = dir.join(GOAL_RUN_KIND).join("gr_a.json");
         std::fs::create_dir_all(blocker.join("occupied")).unwrap();
         let before = std::fs::read(dir.join(GOAL_RUN_KIND).join("seed.json")).unwrap();
-        let (code, _) = update_goal_run_guarded(data_dir, "gr_a", |_| Ok(()), |obj| {
-            obj.insert("status".into(), json!("complete"));
-        })
+        let (code, _) = update_goal_run_guarded(
+            data_dir,
+            "gr_a",
+            |_| Ok(()),
+            |obj| {
+                obj.insert("status".into(), json!("complete"));
+            },
+        )
         .unwrap_err();
-        assert_eq!(code, "goal_run_persist_failed", "a write failure is its OWN typed lane");
+        assert_eq!(
+            code, "goal_run_persist_failed",
+            "a write failure is its OWN typed lane"
+        );
         assert_eq!(
             std::fs::read(dir.join(GOAL_RUN_KIND).join("seed.json")).unwrap(),
             before,
@@ -3165,22 +3598,44 @@ mod goal_run_seam_tests {
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .filter(|n| n.contains(".tmp-"))
             .collect();
-        assert!(leaks.is_empty(), "no temporary artifact survives: {leaks:?}");
+        assert!(
+            leaks.is_empty(),
+            "no temporary artifact survives: {leaks:?}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
-
 
     #[test]
     fn contained_rel_path_rejects_every_escape_shape() {
         // #72 round 5 finding 1: traversal, absolute, current-dir, and empty declarations never
         // reach a workspace join.
-        assert_eq!(contained_rel_path("out.txt").unwrap(), std::path::PathBuf::from("out.txt"));
-        assert_eq!(contained_rel_path("nested/dir/out.txt").unwrap(), std::path::PathBuf::from("nested/dir/out.txt"));
+        assert_eq!(
+            contained_rel_path("out.txt").unwrap(),
+            std::path::PathBuf::from("out.txt")
+        );
+        assert_eq!(
+            contained_rel_path("nested/dir/out.txt").unwrap(),
+            std::path::PathBuf::from("nested/dir/out.txt")
+        );
         // An interior `./` NORMALIZES (the alias then collides with its plain form in the
         // planned set); leading `./`, parent traversal, absolute, and empty all REFUSE.
-        assert_eq!(contained_rel_path("a/./b.txt").unwrap(), std::path::PathBuf::from("a/b.txt"));
-        for escape in ["../escape.txt", "a/../../b.txt", "a/../b.txt", "/etc/passwd", "./a.txt", "", "  "] {
-            assert!(contained_rel_path(escape).is_err(), "'{escape}' must refuse");
+        assert_eq!(
+            contained_rel_path("a/./b.txt").unwrap(),
+            std::path::PathBuf::from("a/b.txt")
+        );
+        for escape in [
+            "../escape.txt",
+            "a/../../b.txt",
+            "a/../b.txt",
+            "/etc/passwd",
+            "./a.txt",
+            "",
+            "  ",
+        ] {
+            assert!(
+                contained_rel_path(escape).is_err(),
+                "'{escape}' must refuse"
+            );
         }
     }
 
@@ -3197,8 +3652,14 @@ mod goal_run_seam_tests {
         assert!(err.contains("symlinked ancestor"), "{err}");
         // A brand-new (not yet existing) subtree is fine — it cannot be a symlink.
         symlink_contained(&canon_root, std::path::Path::new("fresh/depth/x.txt")).unwrap();
-        assert!(std::fs::read_dir(&outside).unwrap().next().is_none(), "the check wrote NOTHING outside");
-        assert!(!root.join("fresh").exists(), "the check wrote NOTHING inside either");
+        assert!(
+            std::fs::read_dir(&outside).unwrap().next().is_none(),
+            "the check wrote NOTHING outside"
+        );
+        assert!(
+            !root.join("fresh").exists(),
+            "the check wrote NOTHING inside either"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3213,18 +3674,33 @@ mod goal_run_seam_tests {
         std::fs::write(&staged, b"FULL_CONTENT").unwrap();
         let root_fd = nofollow::open_root(&root).unwrap();
         // Happy path: full content lands, the applied hash is the content hash, no tmp survives.
-        let (bytes, sha) = commit_one(&staged, &root_fd, std::path::Path::new("deep/out.txt")).unwrap();
+        let (bytes, sha) =
+            commit_one(&staged, &root_fd, std::path::Path::new("deep/out.txt")).unwrap();
         assert_eq!(bytes, 12);
         assert_eq!(sha, sha256_hex(b"FULL_CONTENT"));
-        assert_eq!(std::fs::read(root.join("deep/out.txt")).unwrap(), b"FULL_CONTENT");
-        let leaks: Vec<String> = std::fs::read_dir(root.join("deep")).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).filter(|n| n.contains(".wal-tmp-")).collect();
+        assert_eq!(
+            std::fs::read(root.join("deep/out.txt")).unwrap(),
+            b"FULL_CONTENT"
+        );
+        let leaks: Vec<String> = std::fs::read_dir(root.join("deep"))
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.contains(".wal-tmp-"))
+            .collect();
         assert!(leaks.is_empty(), "no wal-tmp survives: {leaks:?}");
         // Symlink belt (now descriptor-relative, #72 round 6): a symlinked parent component
         // refuses AT THE OPEN and writes nothing outside.
         std::os::unix::fs::symlink(&outside, root.join("link")).unwrap();
         let err = commit_one(&staged, &root_fd, std::path::Path::new("link/out.txt")).unwrap_err();
-        assert!(matches!(&err, CommitFailure::NotApplied(m) if m.contains("pinned parent walk refused")), "{err:?}");
-        assert!(std::fs::read_dir(&outside).unwrap().next().is_none(), "zero external mutation");
+        assert!(
+            matches!(&err, CommitFailure::NotApplied(m) if m.contains("pinned parent walk refused")),
+            "{err:?}"
+        );
+        assert!(
+            std::fs::read_dir(&outside).unwrap().next().is_none(),
+            "zero external mutation"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3240,25 +3716,43 @@ mod goal_run_seam_tests {
         std::fs::create_dir_all(&fam).unwrap();
         // Happy path first.
         persist_record_durable(data_dir, "evidence", "rec_a", &json!({ "v": 1 })).unwrap();
-        assert_eq!(read_record_dir(data_dir, "evidence").pop().unwrap()["v"], json!(1));
+        assert_eq!(
+            read_record_dir(data_dir, "evidence").pop().unwrap()["v"],
+            json!(1)
+        );
         // WRITE boundary: read/exec-only family dir refuses the tmp create; nothing changes.
         std::fs::set_permissions(&fam, std::fs::Permissions::from_mode(0o555)).unwrap();
         assert!(persist_record_durable(data_dir, "evidence", "rec_a", &json!({ "v": 2 })).is_err());
         std::fs::set_permissions(&fam, std::fs::Permissions::from_mode(0o755)).unwrap();
-        assert_eq!(read_record_dir(data_dir, "evidence").pop().unwrap()["v"], json!(1), "the old record survives a write-boundary failure untouched");
+        assert_eq!(
+            read_record_dir(data_dir, "evidence").pop().unwrap()["v"],
+            json!(1),
+            "the old record survives a write-boundary failure untouched"
+        );
         // RENAME boundary: a non-empty directory blocks the destination; tmp is cleaned.
         let blocker = fam.join("rec_b.json");
         std::fs::create_dir_all(blocker.join("occupied")).unwrap();
         assert!(persist_record_durable(data_dir, "evidence", "rec_b", &json!({ "v": 3 })).is_err());
-        let leaks: Vec<String> = std::fs::read_dir(&fam).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).filter(|n| n.contains(".tmp-")).collect();
-        assert!(leaks.is_empty(), "no tmp survives a rename-boundary failure: {leaks:?}");
+        let leaks: Vec<String> = std::fs::read_dir(&fam)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.contains(".tmp-"))
+            .collect();
+        assert!(
+            leaks.is_empty(),
+            "no tmp survives a rename-boundary failure: {leaks:?}"
+        );
         // DIR-SYNC boundary: write+exec-only (no read) lets tmp-write and rename succeed but the
         // checked directory fsync cannot open the dir — the helper FAILS CLOSED rather than
         // report unconfirmed durability as success.
         std::fs::set_permissions(&fam, std::fs::Permissions::from_mode(0o333)).unwrap();
         let r = persist_record_durable(data_dir, "evidence", "rec_c", &json!({ "v": 4 }));
         std::fs::set_permissions(&fam, std::fs::Permissions::from_mode(0o755)).unwrap();
-        assert!(r.is_err(), "an unconfirmed rename durability is a FAILED persist, never a shrug");
+        assert!(
+            r.is_err(),
+            "an unconfirmed rename durability is a FAILED persist, never a shrug"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3277,8 +3771,14 @@ mod goal_run_seam_tests {
         std::os::unix::fs::symlink(&outside, root.join("link")).unwrap();
         let root_fd = nofollow::open_root(&root).unwrap();
         // Reads: a symlink component refuses at USE time; a legitimate path reads fine.
-        assert_eq!(nofollow::read_contained(&root_fd, std::path::Path::new("real/inside.txt"), 1 << 20).unwrap(), b"INSIDE");
-        let err = nofollow::read_contained(&root_fd, std::path::Path::new("link/loot.txt"), 1 << 20).unwrap_err();
+        assert_eq!(
+            nofollow::read_contained(&root_fd, std::path::Path::new("real/inside.txt"), 1 << 20)
+                .unwrap(),
+            b"INSIDE"
+        );
+        let err =
+            nofollow::read_contained(&root_fd, std::path::Path::new("link/loot.txt"), 1 << 20)
+                .unwrap_err();
         assert!(matches!(err, nofollow::ReadRefusal::Escape(_)), "{err:?}");
         // SWAP LANE (source/target parent swap): pin the root fd, then swap the root path to a
         // symlink pointing outside — the pinned fd still resolves to the ORIGINAL directory.
@@ -3287,10 +3787,18 @@ mod goal_run_seam_tests {
         let moved = dir.join("root-moved");
         std::fs::rename(&root, &moved).unwrap();
         std::os::unix::fs::symlink(&outside, &root).unwrap();
-        let (bytes, _) = commit_one(&staged, &root_fd, std::path::Path::new("swapped/out.txt")).unwrap();
+        let (bytes, _) =
+            commit_one(&staged, &root_fd, std::path::Path::new("swapped/out.txt")).unwrap();
         assert_eq!(bytes, 7);
-        assert_eq!(std::fs::read(moved.join("swapped/out.txt")).unwrap(), b"PAYLOAD", "the write followed the PINNED fd, not the swapped path");
-        assert!(!outside.join("swapped").exists() && !outside.join("out.txt").exists(), "the symlinked path received NOTHING");
+        assert_eq!(
+            std::fs::read(moved.join("swapped/out.txt")).unwrap(),
+            b"PAYLOAD",
+            "the write followed the PINNED fd, not the swapped path"
+        );
+        assert!(
+            !outside.join("swapped").exists() && !outside.join("out.txt").exists(),
+            "the symlinked path received NOTHING"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3306,12 +3814,20 @@ mod goal_run_seam_tests {
         std::fs::create_dir_all(&fam).unwrap();
         persist_record_durable(data_dir, "evidence", "rec", &json!({ "v": 1 })).unwrap();
         std::fs::set_permissions(&fam, std::fs::Permissions::from_mode(0o333)).unwrap();
-        let f = persist_record_durable(data_dir, "evidence", "rec", &json!({ "v": 2 })).unwrap_err();
+        let f =
+            persist_record_durable(data_dir, "evidence", "rec", &json!({ "v": 2 })).unwrap_err();
         std::fs::set_permissions(&fam, std::fs::Permissions::from_mode(0o755)).unwrap();
-        assert!(f.visible(), "a post-rename dir-sync failure is VISIBLE, not NotCommitted");
+        assert!(
+            f.visible(),
+            "a post-rename dir-sync failure is VISIBLE, not NotCommitted"
+        );
         assert!(matches!(f, PersistFailure::RenamedDurabilityUnconfirmed(_)));
         // The rename already replaced the record — v:2 is what a reader sees.
-        assert_eq!(read_record_dir(data_dir, "evidence").pop().unwrap()["v"], json!(2), "the RENAMED record is visible; it was NOT rolled back as absent");
+        assert_eq!(
+            read_record_dir(data_dir, "evidence").pop().unwrap()["v"],
+            json!(2),
+            "the RENAMED record is visible; it was NOT rolled back as absent"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3325,15 +3841,32 @@ mod goal_run_seam_tests {
         let root_fd = nofollow::open_root(&root).unwrap();
         // FIFO
         let fifo = std::ffi::CString::new(root.join("pipe").to_str().unwrap()).unwrap();
-        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o644) }, 0, "mkfifo failed");
-        let err = nofollow::read_contained(&root_fd, std::path::Path::new("pipe"), 1 << 20).unwrap_err();
-        assert!(matches!(err, nofollow::ReadRefusal::NotRegular(_)), "{err:?}");
+        assert_eq!(
+            unsafe { libc::mkfifo(fifo.as_ptr(), 0o644) },
+            0,
+            "mkfifo failed"
+        );
+        let err =
+            nofollow::read_contained(&root_fd, std::path::Path::new("pipe"), 1 << 20).unwrap_err();
+        assert!(
+            matches!(err, nofollow::ReadRefusal::NotRegular(_)),
+            "{err:?}"
+        );
         // Oversize regular file
         std::fs::write(root.join("big.bin"), vec![0u8; 4096]).unwrap();
-        let err = nofollow::read_contained(&root_fd, std::path::Path::new("big.bin"), 1024).unwrap_err();
-        assert!(matches!(err, nofollow::ReadRefusal::TooLarge(4096)), "{err:?}");
+        let err =
+            nofollow::read_contained(&root_fd, std::path::Path::new("big.bin"), 1024).unwrap_err();
+        assert!(
+            matches!(err, nofollow::ReadRefusal::TooLarge(4096)),
+            "{err:?}"
+        );
         // A within-budget regular file reads fine.
-        assert_eq!(nofollow::read_contained(&root_fd, std::path::Path::new("big.bin"), 8192).unwrap().len(), 4096);
+        assert_eq!(
+            nofollow::read_contained(&root_fd, std::path::Path::new("big.bin"), 8192)
+                .unwrap()
+                .len(),
+            4096
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3344,17 +3877,31 @@ mod goal_run_seam_tests {
         let dir = temp_dir("completer-reject");
         let data_dir = dir.to_str().unwrap();
         let receipt = json!({ "id": "receipt://hypervisor/goal-run-lifecycle-recovery/gr_r_t1", "receipt_type": "GoalRunLifecycleRecoveryReceipt", "goal_run_id": "gr_r", "op_token": "t1" });
-        plant(&dir, "gr_r.json", &json!({
-            "goal_run_id": "gr_r",
-            "status": "reconciling",
-            "lifecycle_op": { "op": "reconcile", "token": "t1", "from_status": "active", "attempt_ref": Value::Null },
-            "recovery_intent": { "op_token": "t1", "resolution": "release", "restored_status": "active", "attempt_ref": Value::Null, "receipt_id": "receipt://hypervisor/goal-run-lifecycle-recovery/gr_r_t1", "receipt": receipt, "receipt_hash": "sha256:deadbeef", "aborted_attempt_record": Value::Null, "at": "2026-01-01T00:00:00Z" }
-        }));
+        plant(
+            &dir,
+            "gr_r.json",
+            &json!({
+                "goal_run_id": "gr_r",
+                "status": "reconciling",
+                "lifecycle_op": { "op": "reconcile", "token": "t1", "from_status": "active", "attempt_ref": Value::Null },
+                "recovery_intent": { "op_token": "t1", "resolution": "release", "restored_status": "active", "attempt_ref": Value::Null, "receipt_id": "receipt://hypervisor/goal-run-lifecycle-recovery/gr_r_t1", "receipt": receipt, "receipt_hash": "sha256:deadbeef", "aborted_attempt_record": Value::Null, "at": "2026-01-01T00:00:00Z" }
+            }),
+        );
         complete_recovery_intents(data_dir);
         let run = read_record_dir(data_dir, GOAL_RUN_KIND).pop().unwrap();
-        assert_eq!(run["status"], json!("reconciling"), "a hash-mismatched intent is NOT executed");
-        assert!(run.get("recovery_intent").is_some(), "the intent is left in place for manual repair");
-        assert!(read_record_dir(data_dir, "receipts").is_empty(), "no receipt was manufactured");
+        assert_eq!(
+            run["status"],
+            json!("reconciling"),
+            "a hash-mismatched intent is NOT executed"
+        );
+        assert!(
+            run.get("recovery_intent").is_some(),
+            "the intent is left in place for manual repair"
+        );
+        assert!(
+            read_record_dir(data_dir, "receipts").is_empty(),
+            "no receipt was manufactured"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3377,7 +3924,11 @@ mod goal_run_seam_tests {
         let ok = validate_staged_manifest(&record);
         assert_eq!(ok["validated"], json!(true));
         let h1 = sha256_canonical(&ok);
-        assert_eq!(h1, sha256_canonical(&validate_staged_manifest(&record)), "deterministic across runs");
+        assert_eq!(
+            h1,
+            sha256_canonical(&validate_staged_manifest(&record)),
+            "deterministic across runs"
+        );
         std::fs::write(staging.join("a.txt"), b"TAMPERED").unwrap();
         std::fs::remove_file(staging.join("b.txt")).unwrap();
         let bad = validate_staged_manifest(&record);
@@ -3385,7 +3936,11 @@ mod goal_run_seam_tests {
         assert_eq!(bad["mismatches"][0]["file"], json!("a.txt"));
         assert_eq!(bad["mismatches"][0]["state"], json!("mismatched"));
         assert_eq!(bad["mismatches"][1]["state"], json!("missing"));
-        assert_ne!(h1, sha256_canonical(&bad), "damage changes the bindable hash — a stale grant can never release over it");
+        assert_ne!(
+            h1,
+            sha256_canonical(&bad),
+            "damage changes the bindable hash — a stale grant can never release over it"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3408,24 +3963,38 @@ mod goal_run_seam_tests {
         let sealed_hash = sha256_canonical(&aborted);
         // MUTATE only the record identity — the hash seal no longer matches.
         aborted["reconciliation_result_id"] = json!("reconciliation_result://rc_gr_OTHER_t1");
-        plant(&dir, "gr_m.json", &json!({
-            "goal_run_id": "gr_m",
-            "status": "reconciling",
-            "lifecycle_op": { "op": "reconcile", "token": "t1", "from_status": "active", "attempt_ref": "reconciliation_result://rc_gr_m_t1" },
-            "recovery_intent": {
-                "op_token": "t1", "resolution": "release", "restored_status": "active",
-                "attempt_ref": "reconciliation_result://rc_gr_m_t1",
-                "receipt_id": "receipt://hypervisor/goal-run-lifecycle-recovery/gr_m_t1",
-                "receipt": receipt, "receipt_hash": sha256_canonical(&receipt),
-                "aborted_attempt_record": aborted, "aborted_attempt_record_hash": sealed_hash,
-                "at": "2026-01-01T00:00:00Z",
-            }
-        }));
+        plant(
+            &dir,
+            "gr_m.json",
+            &json!({
+                "goal_run_id": "gr_m",
+                "status": "reconciling",
+                "lifecycle_op": { "op": "reconcile", "token": "t1", "from_status": "active", "attempt_ref": "reconciliation_result://rc_gr_m_t1" },
+                "recovery_intent": {
+                    "op_token": "t1", "resolution": "release", "restored_status": "active",
+                    "attempt_ref": "reconciliation_result://rc_gr_m_t1",
+                    "receipt_id": "receipt://hypervisor/goal-run-lifecycle-recovery/gr_m_t1",
+                    "receipt": receipt, "receipt_hash": sha256_canonical(&receipt),
+                    "aborted_attempt_record": aborted, "aborted_attempt_record_hash": sealed_hash,
+                    "at": "2026-01-01T00:00:00Z",
+                }
+            }),
+        );
         complete_recovery_intents(data_dir);
         let run = read_record_dir(data_dir, GOAL_RUN_KIND).pop().unwrap();
-        assert_eq!(run["status"], json!("reconciling"), "a mutated attempt record is NOT executed");
-        assert!(run.get("recovery_intent").is_some(), "the intent is left in place for manual repair");
-        assert!(read_record_dir(data_dir, RECONCILIATION_KIND).is_empty(), "no attempt record was manufactured");
+        assert_eq!(
+            run["status"],
+            json!("reconciling"),
+            "a mutated attempt record is NOT executed"
+        );
+        assert!(
+            run.get("recovery_intent").is_some(),
+            "the intent is left in place for manual repair"
+        );
+        assert!(
+            read_record_dir(data_dir, RECONCILIATION_KIND).is_empty(),
+            "no attempt record was manufactured"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3444,22 +4013,45 @@ mod goal_run_seam_tests {
         // Plant the attempt record so its ref resolves (finding 3).
         std::fs::create_dir_all(dir.join(RECONCILIATION_KIND)).unwrap();
         std::fs::write(dir.join(RECONCILIATION_KIND).join("rc_gr_i_t1.json"), serde_json::to_vec(&json!({ "reconciliation_result_id": "reconciliation_result://rc_gr_i_t1", "goal_run_id": "gr_i", "status": "failed_partial_commit" })).unwrap()).unwrap();
-        plant(&dir, "gr_i.json", &json!({
-            "goal_run_id": "gr_i",
-            "status": "reconciling",
-            "lifecycle_op": { "op": "reconcile", "token": "t1", "from_status": "active", "attempt_ref": "reconciliation_result://rc_gr_i_t1" },
-            "recovery_intent": { "op_token": "t1", "resolution": "release", "restored_status": "active", "attempt_ref": "reconciliation_result://rc_gr_i_t1", "receipt_id": "receipt://hypervisor/goal-run-lifecycle-recovery/gr_i_t1", "receipt": receipt, "receipt_hash": receipt_hash, "aborted_attempt_record": Value::Null, "at": "2026-01-01T00:00:00Z" }
-        }));
+        plant(
+            &dir,
+            "gr_i.json",
+            &json!({
+                "goal_run_id": "gr_i",
+                "status": "reconciling",
+                "lifecycle_op": { "op": "reconcile", "token": "t1", "from_status": "active", "attempt_ref": "reconciliation_result://rc_gr_i_t1" },
+                "recovery_intent": { "op_token": "t1", "resolution": "release", "restored_status": "active", "attempt_ref": "reconciliation_result://rc_gr_i_t1", "receipt_id": "receipt://hypervisor/goal-run-lifecycle-recovery/gr_i_t1", "receipt": receipt, "receipt_hash": receipt_hash, "aborted_attempt_record": Value::Null, "at": "2026-01-01T00:00:00Z" }
+            }),
+        );
         complete_recovery_intents(data_dir);
         let run = read_record_dir(data_dir, GOAL_RUN_KIND).pop().unwrap();
-        assert_eq!(run["status"], json!("active"), "released to the intent's from_status");
-        assert!(run.get("lifecycle_op").is_none() && run.get("recovery_intent").is_none(), "reservation and intent consumed");
-        assert_eq!(run["reconciliation_attempt_refs"], json!(["reconciliation_result://rc_gr_i_t1"]), "the crashed attempt ref is RETAINED");
-        let persisted_receipt = read_record_dir(data_dir, "receipts").pop().expect("the sealed receipt was persisted");
-        assert_eq!(persisted_receipt["receipt_type"], json!("GoalRunLifecycleRecoveryReceipt"));
+        assert_eq!(
+            run["status"],
+            json!("active"),
+            "released to the intent's from_status"
+        );
+        assert!(
+            run.get("lifecycle_op").is_none() && run.get("recovery_intent").is_none(),
+            "reservation and intent consumed"
+        );
+        assert_eq!(
+            run["reconciliation_attempt_refs"],
+            json!(["reconciliation_result://rc_gr_i_t1"]),
+            "the crashed attempt ref is RETAINED"
+        );
+        let persisted_receipt = read_record_dir(data_dir, "receipts")
+            .pop()
+            .expect("the sealed receipt was persisted");
+        assert_eq!(
+            persisted_receipt["receipt_type"],
+            json!("GoalRunLifecycleRecoveryReceipt")
+        );
         // Idempotent: a second boot pass changes nothing.
         complete_recovery_intents(data_dir);
-        assert_eq!(read_record_dir(data_dir, GOAL_RUN_KIND).pop().unwrap()["reconciliation_attempt_refs"], json!(["reconciliation_result://rc_gr_i_t1"]));
+        assert_eq!(
+            read_record_dir(data_dir, GOAL_RUN_KIND).pop().unwrap()["reconciliation_attempt_refs"],
+            json!(["reconciliation_result://rc_gr_i_t1"])
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3470,19 +4062,48 @@ mod goal_run_seam_tests {
         // reservation, and deletes NOTHING — receipt included.
         let dir = temp_dir("preserve");
         let data_dir = dir.to_str().unwrap();
-        plant(&dir, "gr_p.json", &json!({ "goal_run_id": "gr_p", "status": "reconciling", "lifecycle_op": { "op": "reconcile", "token": "tp", "from_status": "active" } }));
+        plant(
+            &dir,
+            "gr_p.json",
+            &json!({ "goal_run_id": "gr_p", "status": "reconciling", "lifecycle_op": { "op": "reconcile", "token": "tp", "from_status": "active" } }),
+        );
         std::fs::create_dir_all(dir.join(RECONCILIATION_KIND)).unwrap();
         std::fs::write(dir.join("receipts_marker"), b"x").unwrap();
         let preserved = json!({ "reconciliation_result_id": "reconciliation_result://rc_gr_p", "status": "failed_partial_commit", "commit_journal": [{ "file": "a.txt", "applied": true }], "final_receipt_refs": ["receipt://hypervisor/goal-run-reconciliation/gr_p"] });
-        let (status, body) = reconcile_preserve_abort(data_dir, "gr_p", "tp", "rc_gr_p", &preserved, "goal_run_output_commit_failed", "half the files landed");
+        let (status, body) = reconcile_preserve_abort(
+            data_dir,
+            "gr_p",
+            "tp",
+            "rc_gr_p",
+            &preserved,
+            "goal_run_output_commit_failed",
+            "half the files landed",
+        );
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(body.0["error"]["code"], json!("goal_run_output_commit_failed"));
-        let record = read_record_dir(data_dir, RECONCILIATION_KIND).pop().expect("the operation record is PRESERVED");
+        assert_eq!(
+            body.0["error"]["code"],
+            json!("goal_run_output_commit_failed")
+        );
+        let record = read_record_dir(data_dir, RECONCILIATION_KIND)
+            .pop()
+            .expect("the operation record is PRESERVED");
         assert_eq!(record["status"], json!("failed_partial_commit"));
-        assert_eq!(record["commit_journal"][0]["applied"], json!(true), "the journal survives as evidence");
-        assert_eq!(record["recovery"]["code"], json!("goal_run_output_commit_failed"), "the recovery lane is recorded ON the evidence");
+        assert_eq!(
+            record["commit_journal"][0]["applied"],
+            json!(true),
+            "the journal survives as evidence"
+        );
+        assert_eq!(
+            record["recovery"]["code"],
+            json!("goal_run_output_commit_failed"),
+            "the recovery lane is recorded ON the evidence"
+        );
         let run = read_record_dir(data_dir, GOAL_RUN_KIND).pop().unwrap();
-        assert_eq!(run["status"], json!("active"), "the reservation was released for an idempotent retry");
+        assert_eq!(
+            run["status"],
+            json!("active"),
+            "the reservation was released for an idempotent retry"
+        );
         assert!(run.get("lifecycle_op").is_none());
         assert_eq!(
             run["reconciliation_attempt_refs"],
@@ -3491,13 +4112,28 @@ mod goal_run_seam_tests {
         );
         // Bookkeeping failure lane: a blocked record family escalates to rollback_failed while
         // STILL deleting nothing.
-        plant(&dir, "gr_q.json", &json!({ "goal_run_id": "gr_q", "status": "reconciling", "lifecycle_op": { "op": "reconcile", "token": "tq", "from_status": "active" } }));
+        plant(
+            &dir,
+            "gr_q.json",
+            &json!({ "goal_run_id": "gr_q", "status": "reconciling", "lifecycle_op": { "op": "reconcile", "token": "tq", "from_status": "active" } }),
+        );
         let blocker = dir.join(RECONCILIATION_KIND).join("rc_gr_q.json");
         std::fs::create_dir_all(blocker.join("occupied")).unwrap();
-        let (status, body) = reconcile_preserve_abort(data_dir, "gr_q", "tq", "rc_gr_q", &preserved, "goal_run_output_commit_failed", "half the files landed");
+        let (status, body) = reconcile_preserve_abort(
+            data_dir,
+            "gr_q",
+            "tq",
+            "rc_gr_q",
+            &preserved,
+            "goal_run_output_commit_failed",
+            "half the files landed",
+        );
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(body.0["error"]["code"], json!("goal_run_rollback_failed"));
-        assert!(std::fs::read(dir.join("receipts_marker")).is_ok(), "nothing was deleted");
+        assert!(
+            std::fs::read(dir.join("receipts_marker")).is_ok(),
+            "nothing was deleted"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3508,20 +4144,63 @@ mod goal_run_seam_tests {
         // evidence durably on the run record, and binds NO refs.
         let dir = temp_dir("evidence");
         let data_dir = dir.to_str().unwrap();
-        plant(&dir, "gr_e.json", &json!({ "goal_run_id": "gr_e", "status": "starting", "lifecycle_op": { "op": "start", "token": "te", "from_status": "draft" } }));
-        let executed = vec![json!({ "harness_invocation_id": "harness_invocation://hi_gr_e_a", "role_key": "a", "status": "failed" })];
-        let (status, body) = start_evidence_abort(data_dir, "gr_e", "te", VERIFICATION_KIND, "gv_gr_e_a", "read-only dir", &executed);
+        plant(
+            &dir,
+            "gr_e.json",
+            &json!({ "goal_run_id": "gr_e", "status": "starting", "lifecycle_op": { "op": "start", "token": "te", "from_status": "draft" } }),
+        );
+        let executed = vec![
+            json!({ "harness_invocation_id": "harness_invocation://hi_gr_e_a", "role_key": "a", "status": "failed" }),
+        ];
+        let (status, body) = start_evidence_abort(
+            data_dir,
+            "gr_e",
+            "te",
+            VERIFICATION_KIND,
+            "gv_gr_e_a",
+            "read-only dir",
+            &executed,
+        );
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(body.0["error"]["code"], json!("goal_run_side_record_persist_failed"));
+        assert_eq!(
+            body.0["error"]["code"],
+            json!("goal_run_side_record_persist_failed")
+        );
         let run = read_record_dir(data_dir, GOAL_RUN_KIND).pop().unwrap();
-        assert_eq!(run["status"], json!("starting"), "the reservation is KEPT — releasing would re-open a duplicate wallet crossing");
+        assert_eq!(
+            run["status"],
+            json!("starting"),
+            "the reservation is KEPT — releasing would re-open a duplicate wallet crossing"
+        );
         assert_eq!(run["lifecycle_op"]["phase"], json!("recovery_required"));
-        assert_eq!(run["lifecycle_op"]["token"], json!("te"), "the token survives for the recovery transition");
-        assert_eq!(run["lifecycle_op"]["failure"]["family"], json!(VERIFICATION_KIND));
-        assert_eq!(run["lifecycle_op"]["executed_invocations"][0]["harness_invocation_id"], json!("harness_invocation://hi_gr_e_a"), "the executed work is durable attempt evidence");
-        assert!(run.get("invocation_refs").is_none() && run.get("verification_refs").is_none(), "no dangling refs were bound");
+        assert_eq!(
+            run["lifecycle_op"]["token"],
+            json!("te"),
+            "the token survives for the recovery transition"
+        );
+        assert_eq!(
+            run["lifecycle_op"]["failure"]["family"],
+            json!(VERIFICATION_KIND)
+        );
+        assert_eq!(
+            run["lifecycle_op"]["executed_invocations"][0]["harness_invocation_id"],
+            json!("harness_invocation://hi_gr_e_a"),
+            "the executed work is durable attempt evidence"
+        );
+        assert!(
+            run.get("invocation_refs").is_none() && run.get("verification_refs").is_none(),
+            "no dangling refs were bound"
+        );
         // Wrong-token marking refuses without touching the record.
-        let (_, body) = start_evidence_abort(data_dir, "gr_e", "wrong", VERIFICATION_KIND, "gv", "x", &executed);
+        let (_, body) = start_evidence_abort(
+            data_dir,
+            "gr_e",
+            "wrong",
+            VERIFICATION_KIND,
+            "gv",
+            "x",
+            &executed,
+        );
         assert_eq!(body.0["error"]["code"], json!("goal_run_rollback_failed"));
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -3533,7 +4212,11 @@ mod goal_run_seam_tests {
         // token; release restores the exact pre-reservation lifecycle state.
         let dir = temp_dir("reserve");
         let data_dir = dir.to_str().unwrap();
-        plant(&dir, "gr_b.json", &json!({ "goal_run_id": "gr_b", "status": "active" }));
+        plant(
+            &dir,
+            "gr_b.json",
+            &json!({ "goal_run_id": "gr_b", "status": "active" }),
+        );
         let reserve = |token: &str| {
             let token = token.to_string();
             update_goal_run_guarded(
@@ -3550,13 +4233,19 @@ mod goal_run_seam_tests {
                 },
                 move |obj| {
                     obj.insert("status".into(), json!("reconciling"));
-                    obj.insert("lifecycle_op".into(), json!({ "op": "reconcile", "token": token }));
+                    obj.insert(
+                        "lifecycle_op".into(),
+                        json!({ "op": "reconcile", "token": token }),
+                    );
                 },
             )
         };
         assert!(reserve("t1").is_ok(), "the first reservation wins");
         let (code, _) = reserve("t2").unwrap_err();
-        assert_eq!(code, "goal_run_not_reconcilable", "the second request loses the SAME CAS it would have raced");
+        assert_eq!(
+            code, "goal_run_not_reconcilable",
+            "the second request loses the SAME CAS it would have raced"
+        );
 
         // Finalization compares the token INSIDE the seam: a foreign token refuses.
         let finalize = |token: &str| {
@@ -3565,8 +4254,13 @@ mod goal_run_seam_tests {
                 data_dir,
                 "gr_b",
                 move |fresh| {
-                    if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str) != Some(token.as_str()) {
-                        return Err(("goal_run_operation_conflict".to_string(), "token mismatch".to_string()));
+                    if fresh.pointer("/lifecycle_op/token").and_then(Value::as_str)
+                        != Some(token.as_str())
+                    {
+                        return Err((
+                            "goal_run_operation_conflict".to_string(),
+                            "token mismatch".to_string(),
+                        ));
                     }
                     Ok(())
                 },
@@ -3580,24 +4274,50 @@ mod goal_run_seam_tests {
         assert_eq!(code, "goal_run_operation_conflict");
         let committed = finalize("t1").unwrap().into_record();
         assert_eq!(committed["status"], json!("complete"));
-        assert!(committed.get("lifecycle_op").is_none(), "the reservation is consumed by the commit");
+        assert!(
+            committed.get("lifecycle_op").is_none(),
+            "the reservation is consumed by the commit"
+        );
 
         // Release restores the reserved status exactly and consumes the token.
-        plant(&dir, "gr_c.json", &json!({ "goal_run_id": "gr_c", "status": "active" }));
-        let hold = update_goal_run_guarded(data_dir, "gr_c", |_| Ok(()), |obj| {
-            obj.insert("status".into(), json!("reconciling"));
-            obj.insert("lifecycle_op".into(), json!({ "op": "reconcile", "token": "t3" }));
-        });
+        plant(
+            &dir,
+            "gr_c.json",
+            &json!({ "goal_run_id": "gr_c", "status": "active" }),
+        );
+        let hold = update_goal_run_guarded(
+            data_dir,
+            "gr_c",
+            |_| Ok(()),
+            |obj| {
+                obj.insert("status".into(), json!("reconciling"));
+                obj.insert(
+                    "lifecycle_op".into(),
+                    json!({ "op": "reconcile", "token": "t3" }),
+                );
+            },
+        );
         assert!(hold.is_ok());
         release_lifecycle_reservation(data_dir, "gr_c", "t3", "active").unwrap();
         let restored = read_record_dir(data_dir, GOAL_RUN_KIND)
             .into_iter()
             .find(|r| r.get("goal_run_id").and_then(Value::as_str) == Some("gr_c"))
             .unwrap();
-        assert_eq!(restored["status"], json!("active"), "release restores the pre-reservation status");
-        assert!(restored.get("lifecycle_op").is_none(), "release consumes the reservation");
-        let (code, _) = release_lifecycle_reservation(data_dir, "gr_c", "t3", "active").unwrap_err();
-        assert_eq!(code, "goal_run_operation_conflict", "a consumed token releases nothing twice");
+        assert_eq!(
+            restored["status"],
+            json!("active"),
+            "release restores the pre-reservation status"
+        );
+        assert!(
+            restored.get("lifecycle_op").is_none(),
+            "release consumes the reservation"
+        );
+        let (code, _) =
+            release_lifecycle_reservation(data_dir, "gr_c", "t3", "active").unwrap_err();
+        assert_eq!(
+            code, "goal_run_operation_conflict",
+            "a consumed token releases nothing twice"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

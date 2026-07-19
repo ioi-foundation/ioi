@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for the base ontology used to describe broad autonomous labor on aiagent.xyz.
 Supersedes: plan prose that treats aiagent categories as hardcoded marketplace verticals.
 Superseded by: none.
-Last alignment pass: 2026-06-29.
+Last alignment pass: 2026-07-12.
 Doctrine status: canonical
 Implementation status: planned (ontology design over the draft plane)
 Last implementation audit: 2026-07-05
@@ -137,7 +137,11 @@ DigitalWorkerOntologyProfile:
   worker_composition_ref: composition://...
   source_provenance_refs:
     - git://... | package://... | artifact://...
-  harness_adapter_ref: harness_adapter://...
+  harness_profile_revision_ref: harness-profile://.../revision/... | null
+  harness_profile_content_hash: hash | null
+  agent_harness_adapter_revision_ref:
+    agent-harness-adapter://.../revision/... | null
+  agent_harness_adapter_content_hash: hash | null
   model_route_options:
     - model_route://...
   integration_surfaces:
@@ -179,7 +183,7 @@ DigitalWorkerOntologyProfile:
     - project_convention
     - connector_observation
   memory_projection_targets:
-    - harness://...
+    - harness-profile://...
     - model_route://...
     - surface://...
   memory_archive_policy_ref: policy://... | optional
@@ -201,8 +205,9 @@ grant authority. Consequential transitions require daemon gates, the relevant
 authority provider or local/domain governance gate, Agentgres admission, and
 receipts. wallet.network is mandatory when the action needs portable delegated
 authority, secrets, spend, decryption, external effects, or high-risk approval.
-IOI L1 is used only when a listing, license, payout, dispute, reputation root,
-rights commitment, or cross-domain settlement trigger requires it.
+IOI L1 is used only when an active connected/secured enrollment selected that
+service and its listing, license, payout, dispute, reputation, rights, or
+cross-domain settlement trigger applies.
 
 ## Events And Receipts
 

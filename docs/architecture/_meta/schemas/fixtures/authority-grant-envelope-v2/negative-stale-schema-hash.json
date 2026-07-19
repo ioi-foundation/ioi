@@ -1,0 +1,48 @@
+{
+  "schema_version": "ioi.foundations.authority-grant-envelope.v2",
+  "envelope_type": "ioi.authority-grant",
+  "signature_domain": "ioi.authority-grant-envelope.v2",
+  "schema_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "authority_grant_id": "grant://acme/repo-auditor/2",
+  "request_id": "authority-request://acme/repo-auditor/2",
+  "issuer_id": "wallet://acme/security",
+  "issuer_key_set_ref": "keyset://acme/security/4",
+  "issuer_key_set_version": 4,
+  "issuer_key_id": "key://acme/security/ed25519-4",
+  "holder_id": "system://acme/delegator",
+  "holder_key_id": "key://acme/delegator/ed25519-1",
+  "audience": "runtime://acme/hypervisor/node-7",
+  "issued_at": 1784203200,
+  "not_before": 1784203200,
+  "expires_at": 1784289600,
+  "parent_grant": null,
+  "authority_scopes": [
+    "scope:repo.read",
+    "scope:repo.write"
+  ],
+  "primitive_capability_constraints": [
+    "prim:fs.read",
+    "prim:fs.write"
+  ],
+  "resources": [
+    "agentgres://project/hypervisor/source",
+    "agentgres://project/hypervisor/source/src"
+  ],
+  "attenuating_caveats": [],
+  "risk_restrictions": {
+    "allowed_risk_classes": [
+      "read",
+      "draft"
+    ],
+    "max_budget_microusd": 10000000,
+    "max_calls": 100,
+    "approval_required_for": [
+      "secret_export"
+    ]
+  },
+  "revocation_epoch": 7,
+  "body_hash": "sha256:1cb1754a47d624efd29717b210773b0c3be5d8c9d60b255fc656fddee5e11c96",
+  "signature_suite": "ed25519",
+  "signature_key_id": "key://acme/security/ed25519-4",
+  "signature": "maOqb4ZoJ231trhjheA8z2ADYLSW4gOx-CJvpadrhR_8PF3kQ1RbcOAgmmIsbwc-xZunocrhnTzrZZPMtCIdBg"
+}

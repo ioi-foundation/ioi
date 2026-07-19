@@ -1,0 +1,17 @@
+{
+  "authority_grant_id": "grant://acme/repo-auditor/7",
+  "request_id": "authority-request://acme/repo-auditor/7",
+  "issuer_id": "wallet://acme/security",
+  "subject_id": "agent://repo-auditor",
+  "authority_scopes": ["scope:repo.read"],
+  "primitive_capability_constraints": ["prim:fs.read"],
+  "resources": ["agentgres://project/hypervisor/source"],
+  "constraints": {
+    "max_budget_usd": 10,
+    "expires_at": "2026-08-01T00:00:00Z",
+    "max_calls": 100,
+    "approval_required_for": ["external_message"]
+  },
+  "revocation_epoch": 7,
+  "status": "active"
+}

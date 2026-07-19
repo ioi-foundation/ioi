@@ -183,10 +183,16 @@ pub(crate) async fn handle_eval_suite_create(
 
     // subject_scope — required, non-empty, every kind known.
     let Some(subject_scope) = str_array(body.get("subject_scope")) else {
-        return bad("eval_suite_subject_scope_invalid", "subject_scope must be an array of strings");
+        return bad(
+            "eval_suite_subject_scope_invalid",
+            "subject_scope must be an array of strings",
+        );
     };
     if subject_scope.is_empty() {
-        return bad("eval_suite_subject_scope_required", "declare at least one subject kind the suite assesses");
+        return bad(
+            "eval_suite_subject_scope_required",
+            "declare at least one subject kind the suite assesses",
+        );
     }
     for s in &subject_scope {
         if !SUBJECT_KINDS.contains(&s.as_str()) {
@@ -199,7 +205,10 @@ pub(crate) async fn handle_eval_suite_create(
 
     // evidence_requirements — optional, but every kind known when present.
     let Some(evidence_requirements) = str_array(body.get("evidence_requirements")) else {
-        return bad("eval_suite_evidence_invalid", "evidence_requirements must be an array of strings");
+        return bad(
+            "eval_suite_evidence_invalid",
+            "evidence_requirements must be an array of strings",
+        );
     };
     for ev in &evidence_requirements {
         if !EVIDENCE_KINDS.contains(&ev.as_str()) {
@@ -212,7 +221,10 @@ pub(crate) async fn handle_eval_suite_create(
 
     // consent_requirements — required, valid rungs, must admit something (gate).
     let Some(consent_requirements) = str_array(body.get("consent_requirements")) else {
-        return bad("eval_suite_consent_invalid", "consent_requirements must be an array of strings");
+        return bad(
+            "eval_suite_consent_invalid",
+            "consent_requirements must be an array of strings",
+        );
     };
     if let Err((c, m)) = consent_requirements_usable(&consent_requirements) {
         return bad(c, &m);
@@ -220,10 +232,16 @@ pub(crate) async fn handle_eval_suite_create(
 
     // rubric_refs / candidate_refs — optional named refs; candidates must look like refs (`scheme://`).
     let Some(rubric_refs) = str_array(body.get("rubric_refs")) else {
-        return bad("eval_suite_rubric_invalid", "rubric_refs must be an array of strings");
+        return bad(
+            "eval_suite_rubric_invalid",
+            "rubric_refs must be an array of strings",
+        );
     };
     let Some(candidate_refs) = str_array(body.get("candidate_refs")) else {
-        return bad("eval_suite_candidate_invalid", "candidate_refs must be an array of strings");
+        return bad(
+            "eval_suite_candidate_invalid",
+            "candidate_refs must be an array of strings",
+        );
     };
     for cr in &candidate_refs {
         if !candidate_ref_ok(cr) {
@@ -254,7 +272,10 @@ pub(crate) async fn handle_eval_suite_create(
         "created_at": now, "updated_at": now
     });
     let _ = persist_record(&st.data_dir, KIND_EVAL_SUITE, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "eval_suite": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "eval_suite": record })),
+    )
 }
 
 pub(crate) async fn handle_eval_suite_get(
@@ -289,32 +310,50 @@ pub(crate) async fn handle_eval_suite_patch(
     }
     if let Some(raw) = body.get("subject_scope") {
         let Some(scope) = str_array(Some(raw)) else {
-            return bad("eval_suite_subject_scope_invalid", "subject_scope must be an array of strings");
+            return bad(
+                "eval_suite_subject_scope_invalid",
+                "subject_scope must be an array of strings",
+            );
         };
         if scope.is_empty() {
-            return bad("eval_suite_subject_scope_required", "at least one subject kind is required");
+            return bad(
+                "eval_suite_subject_scope_required",
+                "at least one subject kind is required",
+            );
         }
         for s in &scope {
             if !SUBJECT_KINDS.contains(&s.as_str()) {
-                return bad("eval_suite_subject_scope_invalid", &format!("unknown subject kind `{s}`"));
+                return bad(
+                    "eval_suite_subject_scope_invalid",
+                    &format!("unknown subject kind `{s}`"),
+                );
             }
         }
         e["subject_scope"] = json!(scope);
     }
     if let Some(raw) = body.get("evidence_requirements") {
         let Some(ev) = str_array(Some(raw)) else {
-            return bad("eval_suite_evidence_invalid", "evidence_requirements must be an array of strings");
+            return bad(
+                "eval_suite_evidence_invalid",
+                "evidence_requirements must be an array of strings",
+            );
         };
         for x in &ev {
             if !EVIDENCE_KINDS.contains(&x.as_str()) {
-                return bad("eval_suite_evidence_invalid", &format!("unknown evidence kind `{x}`"));
+                return bad(
+                    "eval_suite_evidence_invalid",
+                    &format!("unknown evidence kind `{x}`"),
+                );
             }
         }
         e["evidence_requirements"] = json!(ev);
     }
     if let Some(raw) = body.get("consent_requirements") {
         let Some(reqs) = str_array(Some(raw)) else {
-            return bad("eval_suite_consent_invalid", "consent_requirements must be an array of strings");
+            return bad(
+                "eval_suite_consent_invalid",
+                "consent_requirements must be an array of strings",
+            );
         };
         if let Err((c, m)) = consent_requirements_usable(&reqs) {
             return bad(c, &m);
@@ -323,13 +362,19 @@ pub(crate) async fn handle_eval_suite_patch(
     }
     if let Some(raw) = body.get("rubric_refs") {
         let Some(rr) = str_array(Some(raw)) else {
-            return bad("eval_suite_rubric_invalid", "rubric_refs must be an array of strings");
+            return bad(
+                "eval_suite_rubric_invalid",
+                "rubric_refs must be an array of strings",
+            );
         };
         e["rubric_refs"] = json!(rr);
     }
     if let Some(raw) = body.get("candidate_refs") {
         let Some(cr) = str_array(Some(raw)) else {
-            return bad("eval_suite_candidate_invalid", "candidate_refs must be an array of strings");
+            return bad(
+                "eval_suite_candidate_invalid",
+                "candidate_refs must be an array of strings",
+            );
         };
         for c in &cr {
             if !candidate_ref_ok(c) {
@@ -365,7 +410,9 @@ mod tests {
         // unknown rung → fail closed
         assert!(consent_requirements_usable(&["made_up".into()]).is_err());
         // a real admissible rung (even alongside never_train) → usable
-        assert!(consent_requirements_usable(&["never_train".into(), "synthetic_only".into()]).is_ok());
+        assert!(
+            consent_requirements_usable(&["never_train".into(), "synthetic_only".into()]).is_ok()
+        );
         assert!(consent_requirements_usable(&["org_policy".into()]).is_ok());
     }
 

@@ -95,6 +95,10 @@ const architectureImplementationMatrix = read(
   "docs/architecture/_meta/implementation-matrix.md",
 );
 const architectureVocabulary = read("docs/architecture/_meta/vocabulary.md");
+const normalizedArchitectureSourceOfTruthMap = architectureSourceOfTruthMap.replace(
+  /\s+/g,
+  " ",
+);
 const codeEditorAdapterLauncher = read(
   "scripts/launch-hypervisor-code-editor-adapter-host.mjs",
 );
@@ -595,7 +599,9 @@ assert(
   architectureSourceOfTruthMap.includes("Hypervisor Core") &&
     architectureSourceOfTruthMap.includes("Hypervisor Daemon") &&
     architectureSourceOfTruthMap.includes("AdapterConnectionProfile") &&
-    architectureSourceOfTruthMap.includes("adapter targets, not Hypervisor's product identity") &&
+    normalizedArchitectureSourceOfTruthMap.includes(
+      "adapter targets, not Hypervisor's product identity",
+    ) &&
     architectureVocabulary.includes("HypervisorAdapterTarget") &&
     architectureVocabulary.includes("AdapterConnectionProfile"),
   [
@@ -606,7 +612,7 @@ assert(
 );
 assert(
   "hypervisor-canon-folds-fleet-into-provider-environment-views",
-  architectureSourceOfTruthMap.includes("Hypervisor Providers / Environments") &&
+  architectureSourceOfTruthMap.includes("Hypervisor Environments / Providers") &&
     hypervisorProvidersEnvironmentsDoc.includes("cross-session environment inventory") &&
     hypervisorProvidersEnvironmentsDoc.includes("session access leases") &&
     hypervisorProvidersEnvironmentsDoc.includes("development environment recipes") &&
@@ -1000,7 +1006,13 @@ assert(
     hypervisorConformanceSource.includes("check:wallet-packaging") &&
     hypervisorConformanceSource.includes("check:candidate-evidence") &&
     hypervisorConformanceSource.includes("check:service-composition-evidence") &&
-    hypervisorConformanceSource.includes("check:artifact-availability-incident"),
+    hypervisorConformanceSource.includes("check:artifact-availability-incident") &&
+    hypervisorConformanceSource.includes(
+      "verify-hypervisor-product-surface-catalog.mjs",
+    ) &&
+    hypervisorConformanceSource.includes(
+      "verify-hypervisor-product-surface-live-smoke.mjs",
+    ),
   [
     "package.json",
     "scripts/conformance/hypervisor-conformance.mjs",
@@ -1079,7 +1091,7 @@ assert(
 assert(
   "hypervisor-core-taxonomy-projection",
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/core-taxonomy") &&
-    daemonRuntimeApiDoc.includes("ioi.runtime.hypervisor_core_taxonomy.v1"),
+    daemonRuntimeApiDoc.includes("ioi.runtime.hypervisor_core_taxonomy.v2"),
   [
     "docs/architecture/components/daemon-runtime/api.md",
   ],

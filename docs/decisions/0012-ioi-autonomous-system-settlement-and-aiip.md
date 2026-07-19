@@ -1,8 +1,13 @@
 # ADR 0012: Define IOI As Autonomous-System Settlement Layer And AIIP As Work Interop
 
-- Status: Accepted
+- Status: Superseded by [ADR 0015](./0015-bounded-distributed-autonomous-systems-and-network-enrollment.md)
 - Date: 2026-05-25
 - Owners: IOI architecture / IOI L1 / AIIP / Hypervisor / aiagent.xyz / sas.xyz / wallet.network / Agentgres
+
+Historical note: ADR 0015 and `INV-32` supersede this ADR's internal-AIIP
+language. Same-system node, worker, or embodied-unit coordination now uses native
+L0 and Embodied Runtime contracts; AIIP begins only at an independently governed
+system boundary.
 
 ## Context
 
@@ -19,8 +24,9 @@ The remaining ambiguity was whether IOI should be framed as:
 - a broader autonomous-system settlement and interoperability layer.
 
 The broader category is the durable one. Autonomous systems can run in local
-runtimes, private enterprise environments, third-party systems, microharnesses,
-robots, VMs, APIs, model providers, marketplaces, or independent
+runtimes, private enterprise environments, third-party systems, bounded
+GoalRuns with scoped HarnessInvocations, robots, VMs, APIs, model providers,
+marketplaces, or independent
 autonomous-system L1s. The shared problem is not where execution happens. The
 shared problem is how authority, receipts, payments, reputation, disputes,
 worker eligibility, routing decisions, and cross-system handoffs become
@@ -49,11 +55,12 @@ Receipts prove what happened.
 IOI mainnet settles the consequential record.
 ```
 
-AIIP is used for both internal Hypervisor microharness routing and external
-handoffs between workers, service providers, marketplaces, enterprises,
-third-party systems, and independent AS-L1s. The protocol semantics stay the
-same; transport, trust boundary, privacy posture, and settlement depth vary by
-profile.
+This ADR originally applied AIIP semantics to internal Hypervisor routing. ADR
+0015 and `INV-32` supersede that part of the decision: same-system GoalRuns,
+HarnessInvocations, member nodes, and embodied units use native L0 contracts;
+AIIP carries voluntarily accepted handoffs only between independently governed
+workers, service providers, marketplaces, enterprises, third-party systems, and
+independent AS-L1s.
 
 aiagent.xyz and sas.xyz are first-party protocol applications and demand
 generators. They use AIIP and IOI settlement, but they do not define the full
@@ -69,8 +76,9 @@ protocol boundary.
 - AIIP requires its own canonical foundation doc and later low-level protocol
   references for packets, profiles, conformance, channels, relay/router
   markets, and privacy modes.
-- Hypervisor becomes the reference meta-harness and local governance surface for
-  AIIP-powered work, not the entire protocol.
+- Hypervisor becomes the reference bounded-autonomy operating environment and
+  local governance surface for AIIP-powered work, not the entire protocol or a
+  privileged meta-harness.
 - First-party marketplaces should be described as applications of the protocol,
   not as the protocol itself.
 - Independent AS-L1s, appchains, sovereign domains, enterprises, robot fleets,
