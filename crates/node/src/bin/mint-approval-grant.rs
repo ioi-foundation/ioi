@@ -9,8 +9,8 @@
 //! settlement-layer cryptographic `verify_approval_grant_signature`. No test-only
 //! bypass — the routes verify the grant exactly the way production does.
 //!
-//! Usage: `mint-approval-grant [--seed <hex32>] [--expires-at <ms>]`. Prints the
-//! grant as a single line of JSON on stdout.
+//! Usage: `mint-approval-grant [--seed <hex32>] [--audience <hex32>]
+//! [--expires-at <ms>]`. Prints the grant as a single line of JSON on stdout.
 
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
@@ -31,6 +31,20 @@ fn hash32(args: &[String], name: &str, default_byte: u8) -> [u8; 32] {
     if let Some(raw) = flag(args, name) {
         let hex_str = raw.trim().trim_start_matches("sha256:");
         let decoded = hex::decode(hex_str).expect("hash must be hex");
+        assert_eq!(decoded.len(), 32, "{name} must be 32 bytes (64 hex chars)");
+        out.copy_from_slice(&decoded);
+    }
+    out
+}
+
+fn exact_hex32(args: &[String], name: &str, default_byte: u8) -> [u8; 32] {
+    let mut out = [default_byte; 32];
+    if let Some(raw) = flag(args, name) {
+        assert!(
+            !raw.starts_with("sha256:"),
+            "{name} must be bare 32-byte hex"
+        );
+        let decoded = hex::decode(raw.trim()).expect("value must be hex");
         assert_eq!(decoded.len(), 32, "{name} must be 32 bytes (64 hex chars)");
         out.copy_from_slice(&decoded);
     }
@@ -64,7 +78,9 @@ fn main() {
         // these to daemon-derived expected hashes (the request-time lease's policy_hash).
         request_hash: hash32(&args, "--request-hash", 1),
         policy_hash: hash32(&args, "--policy-hash", 2),
-        audience: [3u8; 32],
+        // Preserve the historical fixture audience unless a real wallet capability client
+        // is explicitly selected by the caller.
+        audience: exact_hex32(&args, "--audience", 3),
         nonce: [4u8; 32],
         counter: 1,
         expires_at,
@@ -91,4 +107,26 @@ fn main() {
         "{}",
         serde_json::to_string(&grant).expect("serialize grant")
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::exact_hex32;
+
+    #[test]
+    fn audience_keeps_the_legacy_default_and_accepts_exact_hex() {
+        assert_eq!(exact_hex32(&[], "--audience", 3), [3u8; 32]);
+        let args = vec!["--audience".to_string(), "ab".repeat(32)];
+        assert_eq!(exact_hex32(&args, "--audience", 3), [0xabu8; 32]);
+    }
+
+    #[test]
+    #[should_panic(expected = "--audience must be bare 32-byte hex")]
+    fn audience_refuses_hash_prefixed_input() {
+        let args = vec![
+            "--audience".to_string(),
+            format!("sha256:{}", "ab".repeat(32)),
+        ];
+        let _ = exact_hex32(&args, "--audience", 3);
+    }
 }

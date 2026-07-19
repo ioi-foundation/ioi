@@ -4,10 +4,10 @@ Status: canonical architecture authority.
 Canonical owner: this file for governed autonomous-system chains, Hypervisor Node settlement domains, collaborative-pursuit topology, and the coherent machine-economy stack.
 Supersedes: product prose that collapses Hypervisor UI, Hypervisor Node, autonomous-system state machines, and IOI L1 into one layer.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
-Implementation status: mixed (the improvement-proposal plane, bounded GoalRun multi-HarnessInvocation slice, and hosted OutcomeRoom graph through participation, frontier/claim, offers/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge are built or partial; local-agent pairing, autonomous-system chains, federated admission, acceptance/verdict/settlement, and local operational-finality domains remain planned or speculative)
-Last implementation audit: 2026-07-11
+Implementation status: mixed (the improvement-proposal plane, bounded GoalRun multi-HarnessInvocation slice, hosted OutcomeRoom graph through participation, frontier/claim, offers/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge are built or partial; the held M1.3 cut adds wallet-authorized one-time System genesis admission without activation; local-agent pairing, active System profiles and lifecycle chains, federated admission, acceptance/verdict/settlement, and local operational-finality domains remain planned or speculative)
+Last implementation audit: 2026-07-19
 
 ## Canonical Definition
 

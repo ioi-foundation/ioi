@@ -9,30 +9,39 @@
 //! path; it never receives a resolver-shaped response fixture.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
-use std::time::Duration;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
 use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
-use ioi_cli::testing::{build_test_artifacts, submit_transaction, wait_for_height, TestCluster};
+use ioi_api::state::service_namespace_prefix;
+use ioi_cli::testing::{
+    build_test_artifacts, rpc::query_state_key, submit_transaction, wait_for_height, TestCluster,
+};
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
 use ioi_services::wallet_network::RegisterApprovalAuthorityParams;
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
 use ioi_types::app::wallet_network::{
     IssuePrincipalAuthorityBindingParams, PrincipalAuthorityBindingProofV1,
     PrincipalAuthorityBindingStatementV1, PrincipalAuthorityBindingStatus, PrincipalAuthorityKind,
-    VaultSurface, WalletClientRole, WalletClientState, WalletConfigureControlRootParams,
-    WalletControlPlaneRootRecord, WalletRegisterClientParams, WalletRegisteredClientRecord,
+    VaultSurface, WalletApprovalDecision, WalletApprovalDecisionKind, WalletClientRole,
+    WalletClientState, WalletConfigureControlRootParams, WalletControlPlaneRootRecord,
+    WalletInterceptionContext, WalletRegisterClientParams, WalletRegisteredClientRecord,
     PRINCIPAL_AUTHORITY_BINDING_SCHEMA_VERSION,
 };
 use ioi_types::app::{
-    account_id_from_key_material, action::ApprovalAuthority, AccountId, ChainId, ChainTransaction,
-    SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+    account_id_from_key_material, AccountId, ActionTarget, ChainId, ChainTransaction, SignHeader,
+    SignatureProof, SignatureSuite, StateEntry, SystemPayload, SystemTransaction,
 };
 use ioi_types::codec;
 use ioi_types::config::ServicePolicy;
+use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
 use ioi_types::service_configs::MethodPermission;
 use ioi_validator::common::GuardianContainer;
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 const HOST_SEED: [u8; 32] = [0x07; 32];
 const PARTICIPANT_SEED: [u8; 32] = [0x09; 32];
@@ -42,6 +51,33 @@ const SCOPE_LIMITED_PARTICIPANT_SEED: [u8; 32] = [0x0c; 32];
 const ROOT_SEED: [u8; 32] = [0x41; 32];
 const CAPABILITY_SEED: [u8; 32] = [0x31; 32];
 const EXPIRES_AT_MS: u64 = 1_850_000_000_000;
+const COMMAND_SCHEMA_VERSION: u16 = 1;
+const MAX_COMMAND_BYTES: u64 = 64 * 1024;
+const MAX_PENDING_COMMANDS: usize = 64;
+const SYSTEM_GENESIS_SCOPE: &str = "scope:autonomous_system.genesis_admit";
+const SYSTEM_GENESIS_APPROVAL_REASON: &str = "System genesis admission fixture approval";
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FixtureCommand {
+    schema_version: u16,
+    operation: String,
+    principal_ref: String,
+    policy_hash: String,
+    request_hash: String,
+    approval_grant: ApprovalGrant,
+}
+
+#[derive(Debug, Serialize)]
+struct FixtureCommandResponse {
+    schema_version: u16,
+    command_id: String,
+    ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    request_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
 
 fn keypair(seed: &[u8; 32]) -> Result<Ed25519KeyPair> {
     let private =
@@ -56,6 +92,8 @@ fn wallet_policy() -> ServicePolicy {
         "register_approval_authority@v1",
         "issue_principal_authority_binding@v1",
         "resolve_principal_authority@v1",
+        "record_approval@v1",
+        "consume_approval_grant_for_effect@v1",
     ]
     .into_iter()
     .map(|method| (method.to_string(), MethodPermission::User))
@@ -135,7 +173,7 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             "attempt.*".to_string(),
             "finding.*".to_string(),
             "verifier_challenge.*".to_string(),
-            "system_genesis.*".to_string(),
+            SYSTEM_GENESIS_SCOPE.to_string(),
         ],
     )
 }
@@ -199,6 +237,319 @@ fn signed_binding(
     .map_err(|error| anyhow!(error.to_string()))
 }
 
+fn exact_hash32(value: &str, field: &str) -> Result<[u8; 32]> {
+    let raw = value.trim().strip_prefix("sha256:").unwrap_or(value.trim());
+    if raw.len() != 64 || !raw.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(anyhow!("{field} must be exact 32-byte hex"));
+    }
+    let decoded = hex::decode(raw).with_context(|| format!("{field} must be hex"))?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&decoded);
+    Ok(out)
+}
+
+fn command_id_is_safe(command_id: &str) -> bool {
+    command_id.len() == 36
+        && command_id
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() || byte == b'-')
+}
+
+fn authority_for_principal(principal_ref: &str) -> Result<ApprovalAuthority> {
+    match principal_ref {
+        "domain://acme-host" | "org://acme/research" => approval_authority(&HOST_SEED),
+        "worker://independent-alloy-lab" => approval_authority(&PARTICIPANT_SEED),
+        "worker://replication-lab-two" => approval_authority(&PARTICIPANT_TWO_SEED),
+        "worker://replication-lab-three" => approval_authority(&PARTICIPANT_THREE_SEED),
+        "worker://frontier-only-lab" => approval_authority_with_scopes(
+            &SCOPE_LIMITED_PARTICIPANT_SEED,
+            vec!["work_frontier.*".to_string()],
+        ),
+        _ => Err(anyhow!(
+            "wallet.network fixture has no approval authority for {principal_ref}"
+        )),
+    }
+}
+
+fn decode_state_value<T: Decode>(bytes: &[u8], label: &str) -> Result<T> {
+    if let Ok(value) = codec::from_bytes_canonical::<T>(bytes) {
+        return Ok(value);
+    }
+    let entry: StateEntry = codec::from_bytes_canonical(bytes)
+        .map_err(|error| anyhow!("{label} state wrapper is malformed: {error}"))?;
+    codec::from_bytes_canonical(&entry.value)
+        .map_err(|error| anyhow!("{label} state value is malformed: {error}"))
+}
+
+async fn account_nonce(rpc_addr: &str, account_id: &[u8; 32]) -> Result<u64> {
+    let key = [ACCOUNT_NONCE_PREFIX, account_id.as_slice()].concat();
+    match query_state_key(rpc_addr, &key).await? {
+        Some(bytes) => decode_state_value(&bytes, "capability nonce"),
+        None => Ok(0),
+    }
+}
+
+fn wallet_approval_key(request_hash: &[u8; 32]) -> Vec<u8> {
+    [
+        service_namespace_prefix("wallet_network").as_slice(),
+        b"approval::",
+        request_hash.as_slice(),
+    ]
+    .concat()
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+fn existing_approval_matches(
+    approval: &WalletApprovalDecision,
+    request_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    grant: &ApprovalGrant,
+) -> bool {
+    approval.interception.session_id.is_none()
+        && approval.interception.request_hash == request_hash
+        && approval.interception.target.canonical_label() == SYSTEM_GENESIS_SCOPE
+        && approval.interception.policy_hash == policy_hash
+        && approval.interception.value_usd_micros.is_none()
+        && approval.interception.reason == SYSTEM_GENESIS_APPROVAL_REASON
+        && approval.interception.intercepted_at_ms.saturating_add(1) == approval.decided_at_ms
+        && approval.decision == WalletApprovalDecisionKind::ApprovedByHuman
+        && approval.approval_grant.as_ref() == Some(grant)
+        && approval.surface == VaultSurface::Desktop
+        && approval.decided_at_ms < grant.expires_at
+}
+
+async fn submit_record_approval(
+    rpc_addr: &str,
+    chain_id: ChainId,
+    capability: &Ed25519KeyPair,
+    capability_account_id: [u8; 32],
+    command: FixtureCommand,
+) -> Result<[u8; 32]> {
+    if command.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(anyhow!(
+            "unsupported fixture command schema {}",
+            command.schema_version
+        ));
+    }
+    if command.operation != "record_approval" {
+        return Err(anyhow!(
+            "unsupported fixture command operation '{}'",
+            command.operation
+        ));
+    }
+    if command.principal_ref.is_empty() || command.principal_ref.len() > 256 {
+        return Err(anyhow!("principal_ref must contain 1..=256 bytes"));
+    }
+
+    let request_hash = exact_hash32(&command.request_hash, "request_hash")?;
+    let policy_hash = exact_hash32(&command.policy_hash, "policy_hash")?;
+    let expected_authority = authority_for_principal(&command.principal_ref)?;
+    let grant = command.approval_grant;
+    if grant.request_hash != request_hash
+        || grant.policy_hash != policy_hash
+        || grant.authority_id != expected_authority.authority_id
+        || grant.approver_public_key != expected_authority.public_key
+        || grant.approver_suite != expected_authority.signature_suite
+    {
+        return Err(anyhow!(
+            "approval grant does not match the requested principal/policy/request tuple"
+        ));
+    }
+    if grant.audience != capability_account_id {
+        return Err(anyhow!(
+            "approval grant audience does not match the fixture capability account"
+        ));
+    }
+    if grant.max_usages != Some(1) {
+        return Err(anyhow!(
+            "stateful System-genesis fixture grants must have max_usages=1"
+        ));
+    }
+
+    let approval_key = wallet_approval_key(&request_hash);
+    if let Some(existing_bytes) = query_state_key(rpc_addr, &approval_key).await? {
+        let existing: WalletApprovalDecision =
+            decode_state_value(&existing_bytes, "approval decision")?;
+        if existing_approval_matches(&existing, request_hash, policy_hash, &grant) {
+            return Ok(request_hash);
+        }
+        return Err(anyhow!(
+            "request_hash already names a different wallet approval decision"
+        ));
+    }
+
+    let decided_at_ms = now_ms();
+    if grant.expires_at <= decided_at_ms {
+        return Err(anyhow!("approval grant is already expired"));
+    }
+    let approval = WalletApprovalDecision {
+        interception: WalletInterceptionContext {
+            session_id: None,
+            request_hash,
+            target: ActionTarget::Custom(SYSTEM_GENESIS_SCOPE.to_string()),
+            policy_hash,
+            value_usd_micros: None,
+            reason: SYSTEM_GENESIS_APPROVAL_REASON.to_string(),
+            intercepted_at_ms: decided_at_ms.saturating_sub(1),
+        },
+        decision: WalletApprovalDecisionKind::ApprovedByHuman,
+        approval_grant: Some(grant),
+        surface: VaultSurface::Desktop,
+        decided_at_ms,
+    };
+    let nonce = account_nonce(rpc_addr, &capability_account_id).await?;
+    submit(
+        rpc_addr,
+        capability,
+        chain_id,
+        nonce,
+        "record_approval@v1",
+        &approval,
+    )
+    .await?;
+
+    let persisted_bytes = query_state_key(rpc_addr, &approval_key)
+        .await?
+        .ok_or_else(|| anyhow!("committed record_approval emitted no approval decision"))?;
+    let persisted: WalletApprovalDecision =
+        decode_state_value(&persisted_bytes, "approval decision")?;
+    if persisted != approval {
+        return Err(anyhow!(
+            "persisted wallet approval decision differs from the submitted decision"
+        ));
+    }
+    Ok(request_hash)
+}
+
+fn write_command_response(command_dir: &Path, response: &FixtureCommandResponse) -> Result<()> {
+    let final_path = command_dir.join("response.json");
+    if final_path.exists() {
+        return Ok(());
+    }
+    let temp_path = command_dir.join("response.json.tmp");
+    let bytes = serde_json::to_vec(response)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temp_path)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    std::fs::rename(&temp_path, &final_path)?;
+    Ok(())
+}
+
+async fn process_fixture_commands(
+    commands_dir: &Path,
+    rpc_addr: &str,
+    chain_id: ChainId,
+    capability: &Ed25519KeyPair,
+    capability_account_id: [u8; 32],
+) -> Result<()> {
+    let mut commands = Vec::new();
+    for entry in std::fs::read_dir(commands_dir)? {
+        let entry = entry?;
+        if entry.file_type()?.is_dir() {
+            commands.push(entry);
+        }
+    }
+    commands.sort_by_key(|entry| entry.file_name());
+    if commands.len() > MAX_PENDING_COMMANDS {
+        return Err(anyhow!(
+            "wallet fixture command queue exceeds {MAX_PENDING_COMMANDS} entries"
+        ));
+    }
+
+    for entry in commands {
+        let command_id = entry.file_name().to_string_lossy().to_string();
+        if !command_id_is_safe(&command_id) {
+            return Err(anyhow!("unsafe wallet fixture command id"));
+        }
+        let command_dir = entry.path();
+        if command_dir.join("response.json").exists() {
+            continue;
+        }
+        let request_path = command_dir.join("request.json");
+        let Ok(metadata) = std::fs::metadata(&request_path) else {
+            continue;
+        };
+        let result = if metadata.len() > MAX_COMMAND_BYTES {
+            Err(anyhow!(
+                "wallet fixture command exceeds {MAX_COMMAND_BYTES} bytes"
+            ))
+        } else {
+            match std::fs::read(&request_path)
+                .context("wallet fixture command could not be read")
+                .and_then(|bytes| {
+                    serde_json::from_slice::<FixtureCommand>(&bytes)
+                        .context("wallet fixture command is invalid JSON")
+                }) {
+                Ok(command) => {
+                    submit_record_approval(
+                        rpc_addr,
+                        chain_id,
+                        capability,
+                        capability_account_id,
+                        command,
+                    )
+                    .await
+                }
+                Err(error) => Err(error),
+            }
+        };
+        let (ok, request_hash, error) = match result {
+            Ok(request_hash) => (true, Some(hex::encode(request_hash)), None),
+            Err(error) => {
+                let text = format!("{error:#}");
+                (
+                    false,
+                    None,
+                    Some(text.chars().take(2_048).collect::<String>()),
+                )
+            }
+        };
+        write_command_response(
+            &command_dir,
+            &FixtureCommandResponse {
+                schema_version: COMMAND_SCHEMA_VERSION,
+                command_id,
+                ok,
+                request_hash,
+                error,
+            },
+        )?;
+    }
+    Ok(())
+}
+
+#[test]
+fn fixture_command_contract_is_canonical_and_bounded() {
+    assert_eq!(
+        exact_hash32(&format!("sha256:{}", "ab".repeat(32)), "request_hash")
+            .expect("canonical hash"),
+        [0xabu8; 32]
+    );
+    assert!(exact_hash32("ab", "request_hash").is_err());
+    assert!(command_id_is_safe("123e4567-e89b-12d3-a456-426614174000"));
+    assert!(!command_id_is_safe("../record-approval"));
+
+    let policy = wallet_policy();
+    assert!(policy.methods.contains_key("record_approval@v1"));
+    assert!(policy
+        .methods
+        .contains_key("consume_approval_grant_for_effect@v1"));
+    let host = approval_authority(&HOST_SEED).expect("host authority");
+    assert!(host
+        .scope_allowlist
+        .iter()
+        .any(|scope| scope == SYSTEM_GENESIS_SCOPE));
+}
+
 #[tokio::test]
 #[ignore = "spawned by verify-hypervisor-room-participation-plane.mjs"]
 async fn wallet_network_principal_authority_fixture() -> Result<()> {
@@ -249,6 +600,8 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
 
         let capability = keypair(&CAPABILITY_SEED)?;
         let capability_public_key = capability.public_key().to_bytes();
+        let capability_account_id =
+            account_id_from_key_material(SignatureSuite::ED25519, &capability_public_key)?;
         submit(
             &rpc_addr,
             &root,
@@ -257,10 +610,7 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
             "register_client@v1",
             &WalletRegisterClientParams {
                 client: WalletRegisteredClientRecord {
-                    client_id: account_id_from_key_material(
-                        SignatureSuite::ED25519,
-                        &capability_public_key,
-                    )?,
+                    client_id: capability_account_id,
                     label: "Hypervisor room participation".to_string(),
                     surface: VaultSurface::Desktop,
                     signature_suite: SignatureSuite::ED25519,
@@ -369,11 +719,15 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         GuardianContainer::save_encrypted_file(&capability_key_path, &CAPABILITY_SEED)?;
         let root_record_path = fixture_dir.join("wallet-control-root.json");
         std::fs::write(&root_record_path, serde_json::to_vec_pretty(&root_record)?)?;
+        let commands_dir = fixture_dir.join("commands");
+        std::fs::create_dir(&commands_dir)?;
         let manifest = serde_json::json!({
             "rpc_addr": rpc_addr,
             "chain_id": chain_id.0,
             "capability_key_path": capability_key_path,
+            "capability_account_id": hex::encode(capability_account_id),
             "root_record_path": root_record_path,
+            "commands_dir": commands_dir,
             "guardian_key_pass": "hypervisor-held-bar",
         });
         std::fs::write(
@@ -383,6 +737,14 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
 
         let shutdown = fixture_dir.join("shutdown");
         while !shutdown.exists() {
+            process_fixture_commands(
+                &commands_dir,
+                &rpc_addr,
+                chain_id,
+                &capability,
+                capability_account_id,
+            )
+            .await?;
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         Ok(())

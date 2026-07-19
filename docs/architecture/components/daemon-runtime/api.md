@@ -2865,14 +2865,30 @@ POST   /v1/hypervisor/budget/reconcile
 
 ## Autonomous-System Control APIs
 
-These target-only routes expose one logical bounded autonomous system across
-its constitution, deployment, observed membership, failover, lifecycle, and
-optional IOI Network enrollment. They are not present in the currently audited
-daemon registry.
+The held M1.3 cut mounts the narrow genesis-admission owner routes:
 
 ```http
 POST /v1/hypervisor/autonomous-systems
-GET  /v1/hypervisor/autonomous-systems/{system_id}
+GET  /v1/hypervisor/autonomous-systems?system_id={canonical_system_ref}
+GET  /v1/hypervisor/autonomous-systems/{canonical_record_key}
+```
+
+`POST /autonomous-systems` accepts the immutable package release, proposed
+instantiation, and exact wallet approval grant. The daemon re-runs the pure
+proposal compiler, derives the governing constitution authority and admission
+effect, resolves the authority through wallet.network, durably prepares the
+admission, statefully consumes the exact grant under
+`scope:autonomous_system.genesis_admit`, and only then commits the immutable
+record, portable receipt, and mandatory Agentgres evidence. Exact GETs
+reconstruct and compare all local and Agentgres evidence before returning
+`200`; one-sided, malformed, or mismatched proof fails closed. The result is
+`authorized`, not active.
+
+The following wider bounded-System control routes remain target-only. They
+expose constitution, deployment, observed membership, failover, lifecycle, and
+optional IOI Network enrollment only after their owner contracts land:
+
+```http
 GET  /v1/hypervisor/autonomous-systems/{system_id}/topology
 GET  /v1/hypervisor/autonomous-systems/{system_id}/constitution
 POST /v1/hypervisor/autonomous-systems/{system_id}/upgrade-proposals
@@ -2893,15 +2909,12 @@ POST /v1/hypervisor/autonomous-systems/{system_id}/network-enrollment/transition
 POST /v1/hypervisor/autonomous-systems/{system_id}/network-service-invocations
 ```
 
-`POST /autonomous-systems` accepts a package release, constitution and initial
-profile candidates and governing decision/authority refs. The daemon derives
-the sequence-zero operation/transition/state/receipt commitments from canonical
-admitted inputs and may compare caller-supplied expected values; callers never
-author commitment truth. It compiles an `AutonomousSystemGenesisEnvelope` and
-`initialize`/`activate` lifecycle proposals; it never creates an already-active
-free-floating system. Genesis/activation receipts must bind release,
-constitution, profiles, authority decision, initial state/receipt roots, and the
-genesis transition commitment.
+M1.4+ must derive the sequence-zero operation/transition/state/receipt
+commitments from canonical admitted inputs; callers never author commitment
+truth. Active-profile materialization and `initialize`/`activate` lifecycle
+transitions remain distinct future crossings. Genesis and activation receipts
+must remain distinct and bind the release, constitution, profiles, authority
+decision, initial state/receipt roots, and genesis transition commitment.
 
 All mutation routes create typed proposals or lifecycle transitions; none
 directly mutates a constitution, membership role, writer epoch, ordering rule,

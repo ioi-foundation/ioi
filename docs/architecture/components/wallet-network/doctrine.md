@@ -6,12 +6,12 @@ Supersedes: older generic capability-grant wording when it conflicts with `scope
 Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, and the principal-to-approval-authority resolver are live; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
   - `crates/services/src/wallet_network/handlers/principal_authority.rs`
-Last implementation audit: 2026-07-14
+Last implementation audit: 2026-07-19
 
 ## Canonical Definition
 
@@ -783,6 +783,7 @@ Autonomous-system control uses distinct high-assurance scopes rather than one
 generic deployment or improvement grant:
 
 ```text
+scope:autonomous_system.genesis_admit
 scope:autonomous_system.constitution_amend
 scope:autonomous_system.node_admit
 scope:autonomous_system.node_role_change
@@ -796,6 +797,13 @@ scope:autonomous_system.dissolve
 scope:autonomous_system.decommission
 scope:autonomous_system.network_enrollment_change
 ```
+
+Genesis admission is separately scoped because selecting and reviewing a
+package-to-System proposal is not the same as consuming authority to admit it.
+`scope:autonomous_system.genesis_admit` binds the exact compiled proposal and
+daemon-derived effect; wallet.network decrements the exact grant's durable
+usage ledger and emits an immutable consumption receipt before the System
+owner plane may publish the admission.
 
 Bounded improvement uses distinct scopes for campaign governance rather than a
 generic self-improvement grant:

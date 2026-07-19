@@ -22,7 +22,10 @@ use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{
     GetTransactionStatusRequest, SubmissionStatus, SubmitTransactionRequest, TxStatus,
 };
-use ioi_services::wallet_network::verify_wallet_signature_proof;
+use ioi_services::wallet_network::{
+    verify_wallet_signature_proof, ApprovalGrantConsumptionReceipt,
+    ConsumeApprovalGrantForEffectParams,
+};
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainId, ChainTransaction,
     PrincipalAuthorityBindingProofV1, PrincipalAuthorityResolutionReceipt,
@@ -36,6 +39,7 @@ use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
 
 const RECEIPT_PREFIX: &[u8] = b"principal_authority_resolution_receipt::";
 const BINDING_PREFIX: &[u8] = b"principal_authority_binding::";
+const EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] = b"approval_effect_consumption_receipt::";
 const DEFAULT_TIMEOUT_MS: u64 = 5_000;
 const MIN_TIMEOUT_MS: u64 = 250;
 const MAX_TIMEOUT_MS: u64 = 180_000;
@@ -246,7 +250,8 @@ fn build_transaction(
     keypair: &Ed25519KeyPair,
     chain_id: ChainId,
     nonce: u64,
-    params: &ResolvePrincipalAuthorityParams,
+    method: &str,
+    params: Vec<u8>,
 ) -> Result<ChainTransaction, ResolveError> {
     let public_key = keypair.public_key().to_bytes();
     let account_id = account_id_from_key_material(SignatureSuite::ED25519, &public_key)
@@ -258,10 +263,8 @@ fn build_transaction(
         })?;
     let payload = SystemPayload::CallService {
         service_id: "wallet_network".to_string(),
-        method: "resolve_principal_authority@v1".to_string(),
-        params: codec::to_bytes_canonical(params).map_err(|error| {
-            ResolveError::Invalid(format!("resolution request encoding failed: {error}"))
-        })?,
+        method: method.to_string(),
+        params,
     };
     let mut transaction = SystemTransaction {
         header: SignHeader {
@@ -295,12 +298,12 @@ fn build_transaction(
     Ok(ChainTransaction::System(Box::new(transaction)))
 }
 
-async fn resolve_inner(
+async fn submit_service_call(
     config: &Config,
-    params: ResolvePrincipalAuthorityParams,
-) -> Result<AuthenticatedResolution, ResolveError> {
-    let _transaction_guard = TRANSACTION_LOCK.lock().await;
-    let mut client = connect(config).await?;
+    client: &mut PublicApiClient<Channel>,
+    method: &str,
+    params: Vec<u8>,
+) -> Result<(), ResolveError> {
     let public_key = config.client_key.public_key().to_bytes();
     let account_id =
         account_id_from_key_material(SignatureSuite::ED25519, &public_key).map_err(|error| {
@@ -309,13 +312,16 @@ async fn resolve_inner(
             ))
         })?;
     let nonce_key = [ACCOUNT_NONCE_PREFIX, account_id.as_slice()].concat();
-    let nonce = match query_raw(&mut client, nonce_key).await? {
+    let nonce = match query_raw(client, nonce_key).await? {
         Some(bytes) => decode_nonce(&bytes)?,
         None => 0,
     };
-    let transaction = build_transaction(&config.client_key, config.chain_id, nonce, &params)?;
+    let transaction =
+        build_transaction(&config.client_key, config.chain_id, nonce, method, params)?;
     let transaction_bytes = codec::to_bytes_canonical(&transaction).map_err(|error| {
-        ResolveError::Invalid(format!("resolution transaction encoding failed: {error}"))
+        ResolveError::Invalid(format!(
+            "wallet.network {method} transaction encoding failed: {error}"
+        ))
     })?;
     let submitted = client
         .submit_transaction(tonic::Request::new(SubmitTransactionRequest {
@@ -324,14 +330,14 @@ async fn resolve_inner(
         .await
         .map_err(|error| {
             ResolveError::Unavailable(format!(
-                "wallet.network resolution transaction submission failed: {error}"
+                "wallet.network {method} transaction submission failed: {error}"
             ))
         })?
         .into_inner();
     if submitted.tx_hash.trim().is_empty() {
-        return Err(ResolveError::Refused(
-            "wallet.network refused the resolution transaction before assigning a hash".to_string(),
-        ));
+        return Err(ResolveError::Refused(format!(
+            "wallet.network refused {method} before assigning a transaction hash"
+        )));
     }
     match SubmissionStatus::try_from(submitted.status)
         .unwrap_or(SubmissionStatus::SubmissionRejected)
@@ -339,13 +345,13 @@ async fn resolve_inner(
         SubmissionStatus::Accepted => {}
         SubmissionStatus::SubmissionRejected => {
             return Err(ResolveError::Refused(format!(
-                "wallet.network rejected resolution submission: {}",
+                "wallet.network rejected {method} submission: {}",
                 submitted.approval_reason
             )))
         }
         SubmissionStatus::PendingApproval => {
             return Err(ResolveError::Refused(format!(
-                "wallet.network unexpectedly gated capability-client resolution: {}",
+                "wallet.network unexpectedly gated capability-client {method}: {}",
                 submitted.approval_reason
             )))
         }
@@ -358,21 +364,39 @@ async fn resolve_inner(
             .await
             .map_err(|error| {
                 ResolveError::Unavailable(format!(
-                    "wallet.network resolution transaction status failed: {error}"
+                    "wallet.network {method} transaction status failed: {error}"
                 ))
             })?
             .into_inner();
         match TxStatus::try_from(status.status).unwrap_or(TxStatus::Unknown) {
-            TxStatus::Committed => break,
+            TxStatus::Committed => return Ok(()),
             TxStatus::Rejected => {
                 return Err(ResolveError::Refused(format!(
-                    "wallet.network rejected authenticated resolution: {}",
+                    "wallet.network rejected authenticated {method}: {}",
                     status.error_message
                 )))
             }
             _ => tokio::time::sleep(Duration::from_millis(25)).await,
         }
     }
+}
+
+async fn resolve_inner(
+    config: &Config,
+    params: ResolvePrincipalAuthorityParams,
+) -> Result<AuthenticatedResolution, ResolveError> {
+    let _transaction_guard = TRANSACTION_LOCK.lock().await;
+    let mut client = connect(config).await?;
+    let encoded = codec::to_bytes_canonical(&params).map_err(|error| {
+        ResolveError::Invalid(format!("resolution request encoding failed: {error}"))
+    })?;
+    submit_service_call(
+        config,
+        &mut client,
+        "resolve_principal_authority@v1",
+        encoded,
+    )
+    .await?;
 
     let receipt_key = namespaced_key(RECEIPT_PREFIX, &params.request_id);
     let receipt_bytes = query_raw(&mut client, receipt_key).await?.ok_or_else(|| {
@@ -443,6 +467,46 @@ async fn resolve_inner(
     })
 }
 
+async fn consume_for_effect_inner(
+    config: &Config,
+    params: ConsumeApprovalGrantForEffectParams,
+) -> Result<ApprovalGrantConsumptionReceipt, ResolveError> {
+    let _transaction_guard = TRANSACTION_LOCK.lock().await;
+    let mut client = connect(config).await?;
+    let encoded = codec::to_bytes_canonical(&params).map_err(|error| {
+        ResolveError::Invalid(format!(
+            "approval-grant consumption request encoding failed: {error}"
+        ))
+    })?;
+    submit_service_call(
+        config,
+        &mut client,
+        "consume_approval_grant_for_effect@v1",
+        encoded,
+    )
+    .await?;
+
+    let receipt_key = namespaced_key(EFFECT_CONSUMPTION_RECEIPT_PREFIX, &params.consumption_id);
+    let receipt_bytes = query_raw(&mut client, receipt_key).await?.ok_or_else(|| {
+        ResolveError::Invalid(
+            "committed wallet.network grant consumption emitted no receipt".to_string(),
+        )
+    })?;
+    let receipt: ApprovalGrantConsumptionReceipt = decode_state_value(&receipt_bytes)?;
+    if receipt.schema_version != 1
+        || receipt.request_hash != params.request_hash
+        || receipt.grant_hash != params.grant_hash
+        || receipt.consumption_id != params.consumption_id
+        || receipt.receipt_hash == [0u8; 32]
+    {
+        return Err(ResolveError::Invalid(
+            "wallet.network grant-consumption receipt does not match the requested durable intent"
+                .to_string(),
+        ));
+    }
+    Ok(receipt)
+}
+
 pub(crate) async fn resolve_principal_authority(
     params: ResolvePrincipalAuthorityParams,
 ) -> Result<AuthenticatedResolution, ResolveError> {
@@ -453,6 +517,21 @@ pub(crate) async fn resolve_principal_authority(
         .map_err(|_| {
             ResolveError::Unavailable(format!(
                 "authenticated wallet.network resolution exceeded {} ms",
+                timeout.as_millis()
+            ))
+        })?
+}
+
+pub(crate) async fn consume_approval_grant_for_effect(
+    params: ConsumeApprovalGrantForEffectParams,
+) -> Result<ApprovalGrantConsumptionReceipt, ResolveError> {
+    let config = load_config()?;
+    let timeout = config.timeout;
+    tokio::time::timeout(timeout, consume_for_effect_inner(&config, params))
+        .await
+        .map_err(|_| {
+            ResolveError::Unavailable(format!(
+                "authenticated wallet.network grant consumption exceeded {} ms",
                 timeout.as_millis()
             ))
         })?

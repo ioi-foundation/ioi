@@ -9,6 +9,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -38,7 +39,14 @@ const GENESIS_REF = "genesis://acme/system-alpha/zero";
 const RECORD_FAMILY = "autonomous-system-genesis-registry";
 const RECEIPT_FAMILY = "autonomous-system-genesis-receipts";
 const INTENT_FAMILY = "autonomous-system-genesis-intents";
-const SYSTEM_FAMILIES = [RECORD_FAMILY, RECEIPT_FAMILY, INTENT_FAMILY];
+const CONSUMPTION_FAMILY = "autonomous-system-genesis-authority-consumptions";
+const SYSTEM_FAMILIES = [
+  RECORD_FAMILY,
+  RECEIPT_FAMILY,
+  INTENT_FAMILY,
+  CONSUMPTION_FAMILY,
+];
+const REQUIRED_SCOPE = "scope:autonomous_system.genesis_admit";
 const REAL_DATA_DIR =
   process.env.IOI_HYPERVISOR_DATA_DIR || `${process.env.HOME}/.ioi/hypervisor/data`;
 const TEMP_PREFIXES = [
@@ -46,6 +54,7 @@ const TEMP_PREFIXES = [
   "ioi-system-genesis-fault-",
   "ioi-system-genesis-agentgres-durability-",
   "ioi-system-genesis-required-",
+  "ioi-system-genesis-wallet-consumption-",
   "ioi-wallet-network-pa-",
 ];
 
@@ -351,6 +360,9 @@ function expectedBoundFacts(record) {
     governing_authority_ref: record.governing_authority_ref,
     canonical_authority_grant_ref: record.canonical_authority_grant_ref,
     wallet_authority_grant_ref: record.wallet_authority_grant_ref,
+    wallet_grant_consumption_ref: record.wallet_grant_consumption_ref,
+    wallet_grant_consumption_evidence_ref:
+      record.wallet_grant_consumption_evidence_ref,
     sequence: genesis.cryptographic_origin.sequence,
     proposal_root: record.proposal_root,
     initial_profile_bundle_root: record.initial_profile_bundle_root,
@@ -372,8 +384,20 @@ async function challengeAndGrant(call, resolver, body) {
   const approval = challenge.body.error?.approval;
   const grant =
     approval?.policy_hash && approval?.request_hash
-      ? resolver.mint(OWNER, approval.policy_hash, approval.request_hash)
+      ? resolver.mintForCapability(
+          OWNER,
+          approval.policy_hash,
+          approval.request_hash,
+        )
       : null;
+  if (grant) {
+    await resolver.recordApproval(
+      OWNER,
+      approval.policy_hash,
+      approval.request_hash,
+      grant,
+    );
+  }
   return { challenge, grant };
 }
 
@@ -405,6 +429,12 @@ async function runPrimaryJourney(resolver) {
         intentScanAt < recordReadAt &&
         !exactRead.slice(lockAt, recordReadAt).includes("drop(_plane)"),
       `lock=${lockAt} scan=${intentScanAt} read=${recordReadAt}`,
+    );
+    ok(
+      "AUTHORITY DISCIPLINE: production admission consumes a recorded wallet grant and never records approvals itself",
+      routeSource.includes("consume_wallet_grant_for_intent") &&
+        !routeSource.includes("record_approval"),
+      `consume=${routeSource.includes("consume_wallet_grant_for_intent")} production_record=${routeSource.includes("record_approval")}`,
     );
     ok(
       "FIXTURE: exact compiler inputs reconstruct both immutable release commitments",
@@ -519,7 +549,7 @@ async function runPrimaryJourney(resolver) {
       "AUTHORITY: exact compiled proposal receives a 403 scope-bound wallet challenge",
       challenge.status === 403 &&
         challenge.body.error?.code === "system_genesis_host_authority_required" &&
-        challenge.body.error?.required_scope === "system_genesis.admit" &&
+        challenge.body.error?.required_scope === REQUIRED_SCOPE &&
         challenge.body.error?.required_authority_ref === OWNER &&
         challenge.body.error?.approval?.policy_hash?.startsWith("sha256:") &&
         challenge.body.error?.approval?.request_hash?.startsWith("sha256:") &&
@@ -533,6 +563,7 @@ async function runPrimaryJourney(resolver) {
       seed: "08".repeat(32),
       policyHash: challenge.body.error.approval.policy_hash,
       requestHash: challenge.body.error.approval.request_hash,
+      audience: resolver.capabilityAccountId,
     });
     const foreign = await call("POST", ROUTE, {
       ...fixtureBody,
@@ -602,8 +633,10 @@ async function runPrimaryJourney(resolver) {
         record?.genesis_ref === GENESIS_REF &&
         receipt?.receipt_type === "AutonomousSystemGenesisReceipt" &&
         receipt?.principal_authority_binding?.principal_ref === OWNER &&
-        receipt?.principal_authority_binding?.required_scope === "system_genesis.admit" &&
-        Boolean(receipt?.wallet_approval_grant?.approver_sig),
+        receipt?.principal_authority_binding?.required_scope === REQUIRED_SCOPE &&
+        Boolean(receipt?.wallet_approval_grant?.approver_sig) &&
+        admitted.body.wallet_grant_consumption_receipt?.usage_ordinal === 1 &&
+        admitted.body.wallet_grant_consumption_receipt?.remaining_usages === 0,
       `${admitted.status}/${record?.admission_id || admitted.body.error?.code || "no-record"}`,
     );
     requireValue(record, `signed admission did not return a record: ${JSON.stringify(admitted)}`);
@@ -614,10 +647,20 @@ async function runPrimaryJourney(resolver) {
       "",
     );
     const receiptKey = String(receipt.receipt_ref).replace("receipt://", "");
+    const consumptionKey = String(record.wallet_grant_consumption_evidence_ref).replace(
+      "system-genesis-authority-consumption://",
+      "",
+    );
     const recordPath = join(plane.dataDir, RECORD_FAMILY, `${recordKey}.json`);
     const receiptPath = join(plane.dataDir, RECEIPT_FAMILY, `${receiptKey}.json`);
+    const consumptionPath = join(
+      plane.dataDir,
+      CONSUMPTION_FAMILY,
+      `${consumptionKey}.json`,
+    );
     const persistedRecord = JSON.parse(readFileSync(recordPath, "utf8"));
     const persistedReceipt = JSON.parse(readFileSync(receiptPath, "utf8"));
+    const persistedConsumption = JSON.parse(readFileSync(consumptionPath, "utf8"));
 
     ok(
       "COMPILE: admitted record binds the exact fixture release and all compiler golden roots",
@@ -641,10 +684,15 @@ async function runPrimaryJourney(resolver) {
     );
     ok(
       "DURABLE: response record and receipt are byte-equivalent to their canonical files",
-      sameJson(record, persistedRecord) &&
+        sameJson(record, persistedRecord) &&
         sameJson(receipt, persistedReceipt) &&
+        sameJson(
+          admitted.body.wallet_grant_consumption_receipt,
+          persistedConsumption,
+        ) &&
         familyNames(plane.dataDir, RECORD_FAMILY).length === 1 &&
         familyNames(plane.dataDir, RECEIPT_FAMILY).length === 1 &&
+        familyNames(plane.dataDir, CONSUMPTION_FAMILY).length === 1 &&
         familyNames(plane.dataDir, INTENT_FAMILY).length === 0 &&
         tempResidue(plane.dataDir).length === 0,
       `records=${familyNames(plane.dataDir, RECORD_FAMILY).length} receipts=${familyNames(plane.dataDir, RECEIPT_FAMILY).length} intents=${familyNames(plane.dataDir, INTENT_FAMILY).length}`,
@@ -666,7 +714,69 @@ async function runPrimaryJourney(resolver) {
           "system_genesis_authority_binding_configured" &&
         bySystem.body.authority?.reachability === "not_probed" &&
         byKey.body.nonclaims?.activation === false,
-      `${bySystem.status}/${byKey.status}/${recordKey}`,
+      `${bySystem.status}/${byKey.status}/${recordKey} detail=${bySystem.body.error?.message || byKey.body.error?.message || ""}`,
+    );
+
+    const recordBytes = readFileSync(recordPath);
+    const receiptBytes = readFileSync(receiptPath);
+    const consumptionBytes = readFileSync(consumptionPath);
+    const muxPath = join(plane.dataDir, "substrate", "muxlog.bin");
+    const muxBytes = readFileSync(muxPath);
+
+    const forgedRecord = clone(persistedRecord);
+    forgedRecord.activation_state = "activated";
+    writeFileSync(recordPath, JSON.stringify(forgedRecord));
+    const forgedRecordRead = await call("GET", `${ROUTE}/${recordKey}`);
+    writeFileSync(recordPath, recordBytes);
+    ok(
+      "GET PROOF: a locally plausible but receipt-inconsistent aggregate refuses typed",
+      forgedRecordRead.status === 500 &&
+        forgedRecordRead.body.error?.code ===
+          "system_genesis_local_evidence_mismatch",
+      `${forgedRecordRead.status}/${forgedRecordRead.body.error?.code || "no-code"}`,
+    );
+
+    const forgedReceipt = clone(persistedReceipt);
+    forgedReceipt.assurance_note = "forged assurance";
+    writeFileSync(receiptPath, JSON.stringify(forgedReceipt));
+    const forgedReceiptRead = await call("GET", `${ROUTE}/${recordKey}`);
+    writeFileSync(receiptPath, receiptBytes);
+    ok(
+      "GET PROOF: a forged local admission receipt refuses typed",
+      forgedReceiptRead.status === 500 &&
+        forgedReceiptRead.body.error?.code ===
+          "system_genesis_local_evidence_mismatch",
+      `${forgedReceiptRead.status}/${forgedReceiptRead.body.error?.code || "no-code"}`,
+    );
+
+    const forgedConsumption = clone(persistedConsumption);
+    forgedConsumption.remaining_usages = 1;
+    writeFileSync(consumptionPath, JSON.stringify(forgedConsumption));
+    const forgedConsumptionRead = await call("GET", `${ROUTE}/${recordKey}`);
+    writeFileSync(consumptionPath, consumptionBytes);
+    ok(
+      "GET PROOF: a forged local wallet-use receipt refuses typed",
+      forgedConsumptionRead.status === 500 &&
+        forgedConsumptionRead.body.error?.code ===
+          "system_genesis_local_evidence_mismatch",
+      `${forgedConsumptionRead.status}/${forgedConsumptionRead.body.error?.code || "no-code"}`,
+    );
+
+    writeFileSync(muxPath, muxBytes.subarray(0, muxBytes.length - 1));
+    const truncatedAgentgresRead = await call("GET", `${ROUTE}/${recordKey}`);
+    writeFileSync(muxPath, muxBytes);
+    const restoredProofRead = await call("GET", `${ROUTE}/${recordKey}`);
+    ok(
+      "GET PROOF: a truncated Agentgres log refuses typed and exact restoration recovers",
+      truncatedAgentgresRead.status === 500 &&
+        truncatedAgentgresRead.body.error?.code ===
+          "system_genesis_agentgres_evidence_mismatch" &&
+        restoredProofRead.status === 200 &&
+        sameJson(
+          restoredProofRead.body.autonomous_system_genesis_admission,
+          persistedRecord,
+        ),
+      `${truncatedAgentgresRead.status}/${truncatedAgentgresRead.body.error?.code || "no-code"} restored=${restoredProofRead.status}/${restoredProofRead.body.error?.code || "ok"} detail=${restoredProofRead.body.error?.message || ""}`,
     );
 
     ok(
@@ -675,7 +785,7 @@ async function runPrimaryJourney(resolver) {
         recordOutputHash(persistedRecord, receipt.hash_scope_excludes || []) &&
         sameJson(receipt.bound_facts, expectedBoundFacts(persistedRecord)) &&
         receipt.assurance_posture === "genesis_admitted_not_activated" &&
-        sameJson(receipt.authority_scopes, ["system_genesis.admit"]) &&
+        sameJson(receipt.authority_scopes, [REQUIRED_SCOPE]) &&
         receipt.authorized_effect?.proposal_root === record.proposal_root &&
         receipt.authorized_effect?.manifest_release_payload_hash ===
           record.manifest_release_payload_hash &&
@@ -709,6 +819,7 @@ async function runPrimaryJourney(resolver) {
         Object.values(nonclaims || {}).every((claim) => claim === false) &&
         changedStartupJson.length === 0 &&
         sameJson(jsonDelta, [
+          `${CONSUMPTION_FAMILY}/${consumptionKey}.json`,
           `${RECEIPT_FAMILY}/${receiptKey}.json`,
           `${RECORD_FAMILY}/${recordKey}.json`,
         ].sort()),
@@ -1074,21 +1185,167 @@ async function runRequiredAdmissionBoundary(resolver) {
   }
 }
 
+async function runWalletConsumptionReplay(resolver) {
+  const dataDir = mkdtempSync(
+    join(tmpdir(), "ioi-system-genesis-wallet-consumption-"),
+  );
+  ownedTempPaths.add(dataDir);
+  let plane;
+  try {
+    plane = await startIsolatedPlane({
+      serve: false,
+      env: {
+        ...resolver.env,
+        IOI_TEST_FORCE_SYSTEM_GENESIS_AFTER_WALLET_CONSUME: "1",
+      },
+      dataDir,
+    });
+    if (!plane) throw new Error("BLOCKED: wallet-consumption fault plane could not start");
+    let call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+    const body = exactFixtureBody();
+    const { challenge, grant } = await challengeAndGrant(call, resolver, body);
+    requireValue(
+      grant,
+      `wallet-consumption lane did not expose a challenge: ${JSON.stringify(challenge)}`,
+    );
+    const interrupted = await call("POST", ROUTE, {
+      ...body,
+      wallet_approval_grant: grant,
+    });
+    ok(
+      "WALLET CONSUMPTION: interruption after wallet commit retains only the prepared replay anchor locally",
+      interrupted.status === 500 &&
+        interrupted.body.error?.code === "system_genesis_pending_convergence" &&
+        familyNames(dataDir, INTENT_FAMILY).length === 1 &&
+        familyNames(dataDir, CONSUMPTION_FAMILY).length === 0 &&
+        familyNames(dataDir, RECORD_FAMILY).length === 0 &&
+        familyNames(dataDir, RECEIPT_FAMILY).length === 0,
+      `${interrupted.status}/${interrupted.body.error?.code || "no-code"} counts=${JSON.stringify(familyCounts(dataDir))}`,
+    );
+
+    process.kill(plane.daemonPid, "SIGKILL");
+    await plane.stop();
+    plane = null;
+
+    plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
+    if (!plane) throw new Error("BLOCKED: wallet-consumption replay plane could not start");
+    call = (method, path, replayBody) =>
+      jsonCall(plane.daemonUrl, method, path, replayBody);
+    const converged = await pollJson(
+      () =>
+        call(
+          "GET",
+          `${ROUTE}?system_id=${encodeURIComponent(SYSTEM_ID)}`,
+        ),
+      (response) =>
+        response.status === 200 && familyNames(dataDir, INTENT_FAMILY).length === 0,
+    );
+    const walletReceipt = converged?.body?.wallet_grant_consumption_receipt;
+    ok(
+      "WALLET CONSUMPTION REPLAY: restart recovers the same immutable use receipt without spending a second grant usage",
+      converged?.status === 200 &&
+        walletReceipt?.usage_ordinal === 1 &&
+        walletReceipt?.remaining_usages === 0 &&
+        familyNames(dataDir, CONSUMPTION_FAMILY).length === 1 &&
+        familyNames(dataDir, RECORD_FAMILY).length === 1 &&
+        familyNames(dataDir, RECEIPT_FAMILY).length === 1 &&
+        familyNames(dataDir, INTENT_FAMILY).length === 0 &&
+        tempResidue(dataDir).length === 0,
+      `${converged?.status || "no-status"} usage=${walletReceipt?.usage_ordinal ?? "missing"} remaining=${walletReceipt?.remaining_usages ?? "missing"} counts=${JSON.stringify(familyCounts(dataDir))}`,
+    );
+  } finally {
+    if (plane) await plane.stop();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
+async function runConcurrentExactAdmission(resolver) {
+  const plane = await startIsolatedPlane({ serve: false, env: resolver.env });
+  if (!plane) throw new Error("BLOCKED: concurrent admission plane could not start");
+  ownedTempPaths.add(plane.dataDir);
+  const call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+  try {
+    const body = exactFixtureBody();
+    const { challenge, grant } = await challengeAndGrant(call, resolver, body);
+    requireValue(
+      grant,
+      `concurrency lane did not expose a challenge: ${JSON.stringify(challenge)}`,
+    );
+    const responses = await Promise.all(
+      Array.from({ length: 16 }, () =>
+        call("POST", ROUTE, {
+          ...body,
+          wallet_approval_grant: grant,
+        }),
+      ),
+    );
+    const admitted = responses.filter((response) => response.status === 201);
+    const refused = responses.filter(
+      (response) =>
+        response.status === 409 &&
+        [
+          "system_genesis_mutation_in_flight",
+          "system_genesis_already_admitted",
+        ].includes(response.body.error?.code),
+    );
+    const get = await call(
+      "GET",
+      `${ROUTE}?system_id=${encodeURIComponent(SYSTEM_ID)}`,
+    );
+    ok(
+      "CONCURRENCY: sixteen exact admissions linearize to one record, one receipt, and one wallet usage",
+      admitted.length === 1 &&
+        refused.length === 15 &&
+        get.status === 200 &&
+        get.body.wallet_grant_consumption_receipt?.usage_ordinal === 1 &&
+        get.body.wallet_grant_consumption_receipt?.remaining_usages === 0 &&
+        familyNames(plane.dataDir, RECORD_FAMILY).length === 1 &&
+        familyNames(plane.dataDir, RECEIPT_FAMILY).length === 1 &&
+        familyNames(plane.dataDir, CONSUMPTION_FAMILY).length === 1 &&
+        familyNames(plane.dataDir, INTENT_FAMILY).length === 0,
+      `created=${admitted.length} refused=${refused.length} statuses=${responses.map((response) => `${response.status}/${response.body.error?.code || "ok"}`).join(",")}`,
+    );
+  } finally {
+    await plane.stop();
+  }
+}
+
+async function withFreshResolver(journey) {
+  const resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
+  try {
+    await journey(resolver);
+  } finally {
+    await resolver.stop();
+  }
+}
+
 async function run() {
   const tempBefore = tempDataEntries();
   const realBefore = familyCounts(REAL_DATA_DIR);
-  let resolver;
   let fatal;
   try {
-    resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
-    await runPrimaryJourney(resolver);
-    await runDurabilityReplay(resolver);
-    await runRequiredDurabilityConfirmation(resolver);
-    await runRequiredAdmissionBoundary(resolver);
+    const journeys = new Map([
+      ["primary", runPrimaryJourney],
+      ["wallet-replay", runWalletConsumptionReplay],
+      ["durability", runDurabilityReplay],
+      ["agentgres-durability", runRequiredDurabilityConfirmation],
+      ["agentgres-replay", runRequiredAdmissionBoundary],
+      ["concurrency", runConcurrentExactAdmission],
+    ]);
+    const selected = (
+      process.env.IOI_SYSTEM_GENESIS_VERIFIER_JOURNEYS ||
+      [...journeys.keys()].join(",")
+    )
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    for (const name of selected) {
+      const journey = journeys.get(name);
+      if (!journey) throw new Error(`unknown verifier journey '${name}'`);
+      await withFreshResolver(journey);
+    }
   } catch (error) {
     fatal = error;
-  } finally {
-    if (resolver) await resolver.stop();
   }
 
   const realAfter = familyCounts(REAL_DATA_DIR);

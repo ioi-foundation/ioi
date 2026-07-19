@@ -13,8 +13,8 @@
 //! a domain's roots depend only on that domain's operation order.
 
 use crate::{
-    sha_hex_pub as sha_hex, AdmitAck, AdmittedRecord, BatchRootRecord, CheckpointRecord,
-    Durability, Head, Operation, Refusal, Root, GENESIS_ROOT,
+    sha_hex_pub as sha_hex, validate_head_condition, AdmitAck, AdmittedRecord, BatchRootRecord,
+    CheckpointRecord, Durability, Head, Operation, Refusal, Root, GENESIS_ROOT,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -23,6 +23,9 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
+
+const MAX_STRICT_FRAME_BYTES: usize = 64 * 1024 * 1024;
+const MAX_STRICT_PENDING_RECORDS: usize = 1_000_000;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "frame")]
@@ -43,12 +46,38 @@ pub enum MuxLogFrame {
     },
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DomainState {
     pub heads: BTreeMap<String, Head>,
     pub next_seq: u64,
     pub next_batch_seq: u64,
     pub root: Root,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ExactProjection {
+    pub operation: Operation,
+    pub seq: u64,
+    pub head: Head,
+    pub admission_batch_seq: u64,
+    pub admission_root: Root,
+    pub terminal_root: Root,
+}
+
+struct StrictDomainState {
+    terminal: DomainState,
+    pending_records: Vec<AdmittedRecord>,
+    pending_hashes: Vec<u8>,
+}
+
+impl StrictDomainState {
+    fn new() -> Self {
+        Self {
+            terminal: DomainState::new(),
+            pending_records: Vec::new(),
+            pending_hashes: Vec::new(),
+        }
+    }
 }
 
 impl DomainState {
@@ -60,6 +89,65 @@ impl DomainState {
             root: GENESIS_ROOT.to_string(),
         }
     }
+}
+
+fn invalid_log(message: impl Into<String>) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidData, message.into())
+}
+
+fn read_exact_or_clean_eof(
+    reader: &mut impl Read,
+    buffer: &mut [u8],
+    label: &str,
+) -> std::io::Result<bool> {
+    let mut read = 0usize;
+    while read < buffer.len() {
+        match reader.read(&mut buffer[read..]) {
+            Ok(0) if read == 0 => return Ok(false),
+            Ok(0) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    format!("partial {label}: read {read} of {} bytes", buffer.len()),
+                ));
+            }
+            Ok(count) => read += count,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(true)
+}
+
+fn read_strict_frame(
+    reader: &mut impl Read,
+    frame_index: u64,
+) -> std::io::Result<Option<(MuxLogFrame, Vec<u8>)>> {
+    let mut length_bytes = [0u8; 4];
+    if !read_exact_or_clean_eof(reader, &mut length_bytes, "mux frame length")? {
+        return Ok(None);
+    }
+    let length = u32::from_le_bytes(length_bytes) as usize;
+    if length == 0 || length > MAX_STRICT_FRAME_BYTES {
+        return Err(invalid_log(format!(
+            "mux frame {frame_index} length {length} is outside 1..={MAX_STRICT_FRAME_BYTES}"
+        )));
+    }
+    let mut body = vec![0u8; length];
+    if !read_exact_or_clean_eof(reader, &mut body, "mux frame body")? {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::UnexpectedEof,
+            format!("mux frame {frame_index} body is absent"),
+        ));
+    }
+    let frame = serde_json::from_slice::<MuxLogFrame>(&body).map_err(|error| {
+        invalid_log(format!(
+            "mux frame {frame_index} is malformed JSON ({error})"
+        ))
+    })?;
+    let mut encoded = Vec::with_capacity(4 + body.len());
+    encoded.extend_from_slice(&length_bytes);
+    encoded.extend_from_slice(&body);
+    Ok(Some((frame, encoded)))
 }
 
 pub struct MuxEngine {
@@ -269,15 +357,7 @@ impl MuxEngine {
             let effective = dom_staged
                 .get(&op.object_ref)
                 .or_else(|| committed.and_then(|d| d.heads.get(&op.object_ref)));
-            let ok = match (&op.expected_head, effective) {
-                (None, _) => Ok(()),
-                (Some(exp), Some(act)) if exp == act => Ok(()),
-                (Some(exp), act) => Err(Refusal::ExpectedHeadConflict {
-                    object_ref: op.object_ref.clone(),
-                    expected: Some(exp.clone()),
-                    actual: act.cloned(),
-                }),
-            };
+            let ok = validate_head_condition(&op, effective);
             if let Err(refusal) = ok {
                 results[i] = Some(Err(refusal));
                 continue;
@@ -416,6 +496,240 @@ impl MuxEngine {
         Ok(latest.into_values().collect())
     }
 
+    /// Strict exact projection for one object key. Unlike `project_domain`,
+    /// this path rejects every malformed, truncated, unrooted, or internally
+    /// inconsistent log and proves the reconstructed terminal state agrees
+    /// with the writer's in-memory heads and roots.
+    pub fn project_exact(
+        &self,
+        domain: &str,
+        object_ref: &str,
+    ) -> std::io::Result<Option<ExactProjection>> {
+        let mut reader = BufReader::new(File::open(self.dir.join("muxlog.bin"))?);
+        let mut reconstructed: BTreeMap<String, StrictDomainState> = BTreeMap::new();
+        let mut latest = None;
+        let mut reconstructed_epoch = 0u64;
+        let mut frame_index = 0u64;
+        while let Some((frame, encoded)) = read_strict_frame(&mut reader, frame_index)? {
+            match frame {
+                MuxLogFrame::Admitted(record) => {
+                    if record.op.object_ref.is_empty() {
+                        return Err(invalid_log(format!(
+                            "mux admitted frame {frame_index} has an empty object_ref"
+                        )));
+                    }
+                    let state = reconstructed
+                        .entry(record.op.domain.clone())
+                        .or_insert_with(StrictDomainState::new);
+                    if state.pending_records.len() >= MAX_STRICT_PENDING_RECORDS {
+                        return Err(invalid_log(format!(
+                            "mux domain '{}' exceeds {MAX_STRICT_PENDING_RECORDS} unrooted records",
+                            record.op.domain
+                        )));
+                    }
+                    let pending_count =
+                        u64::try_from(state.pending_records.len()).map_err(|_| {
+                            invalid_log(format!(
+                                "mux domain '{}' pending record count overflows u64",
+                                record.op.domain
+                            ))
+                        })?;
+                    let expected_seq = state
+                        .terminal
+                        .next_seq
+                        .checked_add(pending_count)
+                        .ok_or_else(|| {
+                            invalid_log(format!(
+                                "mux domain '{}' sequence overflows u64",
+                                record.op.domain
+                            ))
+                        })?;
+                    if record.seq != expected_seq {
+                        return Err(invalid_log(format!(
+                            "mux admitted frame {frame_index} sequence mismatch for '{}': expected {expected_seq}, found {}",
+                            record.op.domain, record.seq
+                        )));
+                    }
+                    let prior_head = state.terminal.heads.get(&record.op.object_ref);
+                    validate_head_condition(&record.op, prior_head).map_err(|refusal| {
+                        invalid_log(format!(
+                            "mux admitted frame {frame_index} violates its head condition ({refusal})"
+                        ))
+                    })?;
+                    let operation_bytes =
+                        serde_json::to_vec(&record.op).map_err(std::io::Error::other)?;
+                    let prior = prior_head.cloned().unwrap_or_default();
+                    let expected_head =
+                        sha_hex(&[b"head|", prior.as_bytes(), b"|", &operation_bytes]);
+                    if record.new_head != expected_head {
+                        return Err(invalid_log(format!(
+                            "mux admitted frame {frame_index} head mismatch for '{}': expected {expected_head}, found {}",
+                            record.op.object_ref, record.new_head
+                        )));
+                    }
+                    state
+                        .terminal
+                        .heads
+                        .insert(record.op.object_ref.clone(), record.new_head.clone());
+                    let mut frame_hash = Sha256::new();
+                    frame_hash.update(&encoded);
+                    state
+                        .pending_hashes
+                        .extend_from_slice(&frame_hash.finalize());
+                    state.pending_records.push(record);
+                }
+                MuxLogFrame::DomainRoot {
+                    domain: root_domain,
+                    rec,
+                } => {
+                    let Some(state) = reconstructed.get_mut(&root_domain) else {
+                        return Err(invalid_log(format!(
+                            "mux root frame {frame_index} has no admitted records for domain '{root_domain}'"
+                        )));
+                    };
+                    if state.pending_records.is_empty() {
+                        return Err(invalid_log(format!(
+                            "mux root frame {frame_index} does not cover any admitted records for domain '{root_domain}'"
+                        )));
+                    }
+                    let expected_from = state.terminal.next_seq;
+                    let pending_count =
+                        u64::try_from(state.pending_records.len()).map_err(|_| {
+                            invalid_log(format!(
+                                "mux domain '{root_domain}' pending record count overflows u64"
+                            ))
+                        })?;
+                    let expected_to =
+                        expected_from
+                            .checked_add(pending_count - 1)
+                            .ok_or_else(|| {
+                                invalid_log(format!(
+                                    "mux domain '{root_domain}' sequence range overflows u64"
+                                ))
+                            })?;
+                    if rec.from_seq != expected_from || rec.to_seq != expected_to {
+                        return Err(invalid_log(format!(
+                            "mux root frame {frame_index} sequence range mismatch for domain '{root_domain}': expected {expected_from}..={expected_to}, found {}..={}",
+                            rec.from_seq, rec.to_seq
+                        )));
+                    }
+                    if rec.batch_seq != state.terminal.next_batch_seq {
+                        return Err(invalid_log(format!(
+                            "mux root frame {frame_index} batch sequence mismatch for domain '{root_domain}': expected {}, found {}",
+                            state.terminal.next_batch_seq, rec.batch_seq
+                        )));
+                    }
+                    if rec.prev_root != state.terminal.root {
+                        return Err(invalid_log(format!(
+                            "mux root frame {frame_index} prior root mismatch for domain '{root_domain}'"
+                        )));
+                    }
+                    let expected_root = sha_hex(&[
+                        b"root|",
+                        state.terminal.root.as_bytes(),
+                        b"|",
+                        &state.pending_hashes,
+                    ]);
+                    if rec.root != expected_root {
+                        return Err(invalid_log(format!(
+                            "mux root frame {frame_index} root mismatch for domain '{root_domain}': expected {expected_root}, found {}",
+                            rec.root
+                        )));
+                    }
+                    for record in &state.pending_records {
+                        if root_domain == domain && record.op.object_ref == object_ref {
+                            latest = Some(ExactProjection {
+                                operation: record.op.clone(),
+                                seq: record.seq,
+                                head: record.new_head.clone(),
+                                admission_batch_seq: rec.batch_seq,
+                                admission_root: rec.root.clone(),
+                                terminal_root: String::new(),
+                            });
+                        }
+                    }
+                    state.terminal.next_seq = rec.to_seq.checked_add(1).ok_or_else(|| {
+                        invalid_log(format!(
+                            "mux root frame {frame_index} terminal sequence overflows u64"
+                        ))
+                    })?;
+                    state.terminal.next_batch_seq =
+                        rec.batch_seq.checked_add(1).ok_or_else(|| {
+                            invalid_log(format!(
+                                "mux root frame {frame_index} terminal batch sequence overflows u64"
+                            ))
+                        })?;
+                    state.terminal.root = rec.root;
+                    state.pending_records.clear();
+                    state.pending_hashes.clear();
+                }
+                MuxLogFrame::EpochBump { epoch, .. } => {
+                    if reconstructed
+                        .values()
+                        .any(|state| !state.pending_records.is_empty())
+                    {
+                        return Err(invalid_log(format!(
+                            "mux epoch frame {frame_index} interrupts unrooted admitted records"
+                        )));
+                    }
+                    reconstructed_epoch = reconstructed_epoch.max(epoch);
+                }
+            }
+            frame_index += 1;
+        }
+        if let Some((pending_domain, _)) = reconstructed
+            .iter()
+            .find(|(_, state)| !state.pending_records.is_empty())
+        {
+            return Err(invalid_log(format!(
+                "mux log ends with unrooted admitted records for domain '{pending_domain}'"
+            )));
+        }
+        if reconstructed.len() != self.domains.len() {
+            return Err(invalid_log(format!(
+                "mux reconstructed {} domains but writer holds {}",
+                reconstructed.len(),
+                self.domains.len()
+            )));
+        }
+        for (reconstructed_domain, state) in &reconstructed {
+            let Some(in_memory) = self.domains.get(reconstructed_domain) else {
+                return Err(invalid_log(format!(
+                    "mux reconstructed unknown domain '{reconstructed_domain}'"
+                )));
+            };
+            if state.terminal != *in_memory {
+                return Err(invalid_log(format!(
+                    "mux reconstructed terminal state disagrees with writer memory for domain '{reconstructed_domain}'"
+                )));
+            }
+        }
+        if reconstructed_epoch != self.current_epoch {
+            return Err(invalid_log(format!(
+                "mux reconstructed epoch {reconstructed_epoch} disagrees with writer epoch {}",
+                self.current_epoch
+            )));
+        }
+        let Some(mut exact) = latest else {
+            return Ok(None);
+        };
+        let terminal = &reconstructed
+            .get(domain)
+            .ok_or_else(|| {
+                invalid_log(format!(
+                    "mux exact projection lost reconstructed domain '{domain}'"
+                ))
+            })?
+            .terminal;
+        if terminal.heads.get(object_ref) != Some(&exact.head) {
+            return Err(invalid_log(format!(
+                "mux exact projection head for '{object_ref}' is not the reconstructed terminal head"
+            )));
+        }
+        exact.terminal_root = terminal.root.clone();
+        Ok(Some(exact))
+    }
+
     /// Per-domain checkpoint — O(domain head-map), independent of log length.
     pub fn checkpoint_domain(
         &mut self,
@@ -459,6 +773,11 @@ pub enum MuxWriterMsg {
         String,
         mpsc::Sender<std::io::Result<Vec<serde_json::Value>>>,
     ),
+    ProjectExact(
+        String,
+        String,
+        mpsc::Sender<std::io::Result<Option<ExactProjection>>>,
+    ),
     Shutdown(mpsc::Sender<()>),
 }
 
@@ -479,6 +798,22 @@ impl MuxHandle {
         let (tx, rx) = mpsc::channel();
         self.tx
             .send(MuxWriterMsg::ProjectLatest(domain.to_string(), tx))
+            .map_err(|_| std::io::Error::other("mux writer gone"))?;
+        rx.recv()
+            .map_err(|_| std::io::Error::other("mux writer ack lost"))?
+    }
+    pub fn project_exact(
+        &self,
+        domain: &str,
+        object_ref: &str,
+    ) -> std::io::Result<Option<ExactProjection>> {
+        let (tx, rx) = mpsc::channel();
+        self.tx
+            .send(MuxWriterMsg::ProjectExact(
+                domain.to_string(),
+                object_ref.to_string(),
+                tx,
+            ))
             .map_err(|_| std::io::Error::other("mux writer gone"))?;
         rx.recv()
             .map_err(|_| std::io::Error::other("mux writer ack lost"))?
@@ -595,12 +930,20 @@ pub fn spawn_mux_writer_cfg(
                 String,
                 mpsc::Sender<std::io::Result<Vec<serde_json::Value>>>,
             )> = Vec::new();
+            let mut exact_projections: Vec<(
+                String,
+                String,
+                mpsc::Sender<std::io::Result<Option<ExactProjection>>>,
+            )> = Vec::new();
             match first {
                 MuxWriterMsg::Admit(op, ack) => {
                     ops.push(op);
                     acks.push(ack);
                 }
                 MuxWriterMsg::ProjectLatest(domain, tx) => projections.push((domain, tx)),
+                MuxWriterMsg::ProjectExact(domain, object_ref, tx) => {
+                    exact_projections.push((domain, object_ref, tx));
+                }
                 MuxWriterMsg::Shutdown(tx) => shutdown = Some(tx),
             }
             if shutdown.is_none() && !ops.is_empty() {
@@ -612,6 +955,9 @@ pub fn spawn_mux_writer_cfg(
                         }
                         Ok(MuxWriterMsg::ProjectLatest(domain, tx)) => {
                             projections.push((domain, tx));
+                        }
+                        Ok(MuxWriterMsg::ProjectExact(domain, object_ref, tx)) => {
+                            exact_projections.push((domain, object_ref, tx));
                         }
                         Ok(MuxWriterMsg::Shutdown(tx)) => {
                             shutdown = Some(tx);
@@ -681,6 +1027,9 @@ pub fn spawn_mux_writer_cfg(
             for (domain, tx) in projections {
                 let _ = tx.send(engine.project_latest_payloads(&domain));
             }
+            for (domain, object_ref, tx) in exact_projections {
+                let _ = tx.send(engine.project_exact(&domain, &object_ref));
+            }
             if let Some(tx) = shutdown {
                 if cfg.flush_every_batches > 0 {
                     let _ = engine.sync_log();
@@ -703,10 +1052,139 @@ mod tests {
             object_ref: obj.into(),
             op_kind: "w".into(),
             expected_head: None,
+            expected_absent: false,
             payload: serde_json::json!({ "n": n }),
             recorded_at_ms: 1_000 + n,
             idem_key: format!("i{n}"),
         }
+    }
+
+    fn create_once(domain: &str, obj: &str, n: u64) -> Operation {
+        let mut operation = op(domain, obj, n);
+        operation.expected_absent = true;
+        operation
+    }
+
+    #[test]
+    fn expected_absent_same_key_batch_admits_exactly_one() {
+        let mut engine = MuxEngine::open(&tmp("expected-absent-batch"), false).unwrap();
+        let results = engine
+            .admit_batch(vec![
+                create_once("a", "o://same", 1),
+                create_once("a", "o://same", 2),
+            ])
+            .unwrap();
+        assert!(results[0].is_ok());
+        assert!(matches!(
+            results[1],
+            Err(Refusal::ExpectedAbsentConflict { .. })
+        ));
+        assert_eq!(engine.domain_next_seq("a"), 1);
+    }
+
+    #[test]
+    fn expected_absent_refuses_foreign_same_key_occupant() {
+        let mut engine = MuxEngine::open(&tmp("expected-absent-foreign"), false).unwrap();
+        engine.admit_batch(vec![op("a", "o://same", 1)]).unwrap();
+        let results = engine
+            .admit_batch(vec![create_once("a", "o://same", 2)])
+            .unwrap();
+        assert!(matches!(
+            results[0],
+            Err(Refusal::ExpectedAbsentConflict { .. })
+        ));
+        let exact = engine.project_exact("a", "o://same").unwrap().unwrap();
+        assert_eq!(exact.operation.payload, serde_json::json!({ "n": 1 }));
+    }
+
+    #[test]
+    fn writer_exact_projection_agrees_with_admission_ack() {
+        let engine = MuxEngine::open(&tmp("exact-writer"), false).unwrap();
+        let (handle, writer) = spawn_mux_writer(engine, 1024);
+        let operation = op("a", "o://exact", 1);
+        let ack = handle.admit(operation.clone()).unwrap();
+        let domain_ack = handle.admit(op("a", "o://other", 2)).unwrap();
+        let exact = handle.project_exact("a", "o://exact").unwrap().unwrap();
+        assert_eq!(exact.operation, operation);
+        assert_eq!(exact.seq, ack.seq);
+        assert_eq!(exact.head, ack.new_head);
+        assert_eq!(exact.admission_batch_seq, ack.batch_seq);
+        assert_eq!(exact.admission_root, ack.root);
+        assert_eq!(exact.terminal_root, domain_ack.root);
+        assert!(handle.project_exact("a", "o://missing").unwrap().is_none());
+        handle.shutdown();
+        writer.join.join().unwrap().unwrap();
+    }
+
+    #[test]
+    fn strict_exact_projection_refuses_deleted_log() {
+        let directory = tmp("exact-deleted");
+        let mut engine = MuxEngine::open(&directory, false).unwrap();
+        engine.admit_batch(vec![op("a", "o://exact", 1)]).unwrap();
+        std::fs::remove_file(directory.join("muxlog.bin")).unwrap();
+        let error = engine.project_exact("a", "o://exact").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn strict_exact_projection_refuses_one_byte_truncation() {
+        let directory = tmp("exact-truncated");
+        let mut engine = MuxEngine::open(&directory, false).unwrap();
+        engine.admit_batch(vec![op("a", "o://exact", 1)]).unwrap();
+        let path = directory.join("muxlog.bin");
+        let length = std::fs::metadata(&path).unwrap().len();
+        OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(length - 1)
+            .unwrap();
+        let error = engine.project_exact("a", "o://exact").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::UnexpectedEof);
+    }
+
+    #[test]
+    fn strict_exact_projection_refuses_unrooted_admitted_frame() {
+        let directory = tmp("exact-unrooted");
+        let mut engine = MuxEngine::open(&directory, false).unwrap();
+        engine.admit_batch(vec![op("a", "o://exact", 1)]).unwrap();
+        let path = directory.join("muxlog.bin");
+        let bytes = std::fs::read(&path).unwrap();
+        let body_length = u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as u64;
+        OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(4 + body_length)
+            .unwrap();
+        let error = engine.project_exact("a", "o://exact").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("unrooted admitted records"));
+    }
+
+    #[test]
+    fn strict_exact_projection_refuses_malformed_json() {
+        let directory = tmp("exact-malformed");
+        let engine = MuxEngine::open(&directory, false).unwrap();
+        let path = directory.join("muxlog.bin");
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&1u32.to_le_bytes());
+        bytes.push(b'{');
+        std::fs::write(path, bytes).unwrap();
+        let error = engine.project_exact("a", "o://exact").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("malformed JSON"));
+    }
+
+    #[test]
+    fn strict_exact_projection_refuses_oversized_frame_before_allocation() {
+        let directory = tmp("exact-oversized");
+        let engine = MuxEngine::open(&directory, false).unwrap();
+        let oversized = u32::try_from(MAX_STRICT_FRAME_BYTES + 1).unwrap();
+        std::fs::write(directory.join("muxlog.bin"), oversized.to_le_bytes()).unwrap();
+        let error = engine.project_exact("a", "o://exact").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("outside"));
     }
 
     fn tmp(name: &str) -> PathBuf {
@@ -740,6 +1218,15 @@ mod tests {
             "heads must depend only on the domain's own op order"
         );
         assert_eq!(e1.domain_head("b", "o://2"), e2.domain_head("b", "o://2"));
+        assert_eq!(
+            e1.project_exact("a", "o://1")
+                .unwrap()
+                .unwrap()
+                .operation
+                .payload,
+            serde_json::json!({ "n": 1 }),
+            "strict projection must validate the complete interleaved multi-domain log"
+        );
         // ...but batch partitioning differs, so batch ROOT chains may differ
         // (roots bind batches). Heads equality is the truth-decoupling claim.
     }

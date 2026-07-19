@@ -1,8 +1,18 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { connect as connectTcp } from "node:net";
 import { createServer as createTlsServer } from "node:tls";
 
@@ -19,6 +29,44 @@ const seeds = new Map([
 ]);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const MAX_PENDING_COMMANDS = 64;
+const MAX_COMMAND_BYTES = 64 * 1024;
+const COMMAND_TIMEOUT_MS = 180_000;
+
+function exactHex32(value, label) {
+  const normalized = String(value || "").trim().replace(/^sha256:/, "").toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(normalized)) {
+    throw new Error(`${label} must be exact 32-byte hex`);
+  }
+  return normalized;
+}
+
+function grantHex32(grant, field) {
+  const bytes = grant?.[field];
+  if (!Array.isArray(bytes) || bytes.length !== 32 || bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
+    throw new Error(`approval grant ${field} must be a 32-byte array`);
+  }
+  return Buffer.from(bytes).toString("hex");
+}
+
+function createCommandDirectory(commandsDir) {
+  const pending = readdirSync(commandsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory()).length;
+  if (pending >= MAX_PENDING_COMMANDS) {
+    throw new Error(`wallet.network fixture command queue is full (${pending}/${MAX_PENDING_COMMANDS})`);
+  }
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const commandId = randomUUID();
+    const commandDir = path.join(commandsDir, commandId);
+    try {
+      mkdirSync(commandDir, { mode: 0o700 });
+      return { commandId, commandDir };
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+    }
+  }
+  throw new Error("wallet.network fixture could not allocate a collision-free command id");
+}
 
 function runOpenSsl(args, fixtureDir) {
   const result = spawnSync("openssl", args, { cwd: fixtureDir, encoding: "utf8" });
@@ -142,6 +190,14 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
     await delay(50);
   }
   const manifest = JSON.parse(readFileSync(readyPath, "utf8"));
+  const capabilityAccountId = exactHex32(manifest.capability_account_id, "capability_account_id");
+  const commandsDir = path.resolve(String(manifest.commands_dir || ""));
+  if (commandsDir !== path.join(fixtureDir, "commands")) {
+    process.off("exit", exitCleanup);
+    child.kill("SIGKILL");
+    rmSync(fixtureDir, { recursive: true, force: true });
+    throw new Error("real wallet.network fixture returned an unexpected command directory");
+  }
   let tlsProxy;
   try {
     tlsProxy = await startPinnedTlsProxy(manifest.rpc_addr, fixtureDir);
@@ -150,6 +206,62 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
     child.kill("SIGKILL");
     rmSync(fixtureDir, { recursive: true, force: true });
     throw error;
+  }
+  async function recordApproval(principalRef, policyHash, requestHash, grant) {
+    if (!seeds.has(principalRef)) {
+      throw new Error(`real wallet.network fixture has no approver for ${principalRef}`);
+    }
+    const normalizedPolicyHash = exactHex32(policyHash, "policyHash");
+    const normalizedRequestHash = exactHex32(requestHash, "requestHash");
+    if (grantHex32(grant, "policy_hash") !== normalizedPolicyHash ||
+        grantHex32(grant, "request_hash") !== normalizedRequestHash) {
+      throw new Error("approval grant does not match the requested policy/request hashes");
+    }
+    if (grantHex32(grant, "audience") !== capabilityAccountId) {
+      throw new Error("approval grant does not target the fixture capability account");
+    }
+
+    const { commandId, commandDir } = createCommandDirectory(commandsDir);
+    const requestPath = path.join(commandDir, "request.json");
+    const tempPath = path.join(commandDir, "request.json.tmp");
+    const command = JSON.stringify({
+      schema_version: 1,
+      operation: "record_approval",
+      principal_ref: principalRef,
+      policy_hash: normalizedPolicyHash,
+      request_hash: normalizedRequestHash,
+      approval_grant: grant,
+    });
+    if (Buffer.byteLength(command) > MAX_COMMAND_BYTES) {
+      rmSync(commandDir, { recursive: true, force: true });
+      throw new Error(`wallet.network fixture command exceeds ${MAX_COMMAND_BYTES} bytes`);
+    }
+    writeFileSync(tempPath, command, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    renameSync(tempPath, requestPath);
+
+    const responsePath = path.join(commandDir, "response.json");
+    const deadline = Date.now() + COMMAND_TIMEOUT_MS;
+    while (!existsSync(responsePath)) {
+      if (exited) {
+        throw new Error(`real wallet.network fixture exited during record_approval (${JSON.stringify(exited)}):\n${output}`);
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(`real wallet.network fixture record_approval timed out after ${COMMAND_TIMEOUT_MS}ms`);
+      }
+      await delay(25);
+    }
+    const response = JSON.parse(readFileSync(responsePath, "utf8"));
+    rmSync(commandDir, { recursive: true, force: true });
+    if (response.schema_version !== 1 || response.command_id !== commandId) {
+      throw new Error("real wallet.network fixture returned a mismatched command response");
+    }
+    if (!response.ok) {
+      throw new Error(`wallet.network record_approval refused: ${response.error || "unknown error"}`);
+    }
+    if (response.request_hash !== normalizedRequestHash) {
+      throw new Error("wallet.network record_approval response named a different request hash");
+    }
+    return response;
   }
   return {
     env: {
@@ -167,11 +279,23 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
       IOI_WALLET_NETWORK_RESOLUTION_TIMEOUT_MS: "180000",
       IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "45000",
     },
+    capabilityAccountId,
     mint(principalRef, policyHash, requestHash) {
       const seed = seeds.get(principalRef);
       if (!seed) throw new Error(`real wallet.network fixture has no approver for ${principalRef}`);
       return mintApprovalGrant({ seed, policyHash, requestHash });
     },
+    mintForCapability(principalRef, policyHash, requestHash) {
+      const seed = seeds.get(principalRef);
+      if (!seed) throw new Error(`real wallet.network fixture has no approver for ${principalRef}`);
+      return mintApprovalGrant({
+        seed,
+        policyHash,
+        requestHash,
+        audience: capabilityAccountId,
+      });
+    },
+    recordApproval,
     async stop() {
       process.off("exit", exitCleanup);
       await tlsProxy.stop();

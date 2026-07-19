@@ -9,8 +9,8 @@ Supersedes: older wallet authority API wording when it conflicts with `scope:*` 
 Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: reference
-Implementation status: partial (authority-client seams, lease APIs, and portable principal-to-approval-authority binding resolution are live; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts with no registered schema, emitter, or verifier)
-Last implementation audit: 2026-07-17
+Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts with no registered schema, emitter, or verifier)
+Last implementation audit: 2026-07-19
 
 ## Purpose
 
@@ -742,6 +742,7 @@ scope:mow.route
 Protected autonomous-system transitions use separate scopes:
 
 ```text
+scope:autonomous_system.genesis_admit
 scope:autonomous_system.constitution_amend
 scope:autonomous_system.deployment_profile_change
 scope:autonomous_system.node_admit
@@ -765,6 +766,15 @@ scope:autonomous_system.dissolve
 scope:autonomous_system.decommission
 scope:autonomous_system.network_enrollment_change
 ```
+
+`scope:autonomous_system.genesis_admit` is the one-time package-to-System
+admission scope. It binds the exact compiled release, proposed instantiation,
+System and genesis identities, proposal root, governing constitution authority,
+and daemon-derived admission effect. The accepted wallet grant is consumed
+statefully by exact grant hash before the System admission can become visible;
+the immutable consumption receipt and remaining-use count are part of the
+admission evidence. A review or recorded grant that has not crossed this
+consumption boundary is not admission authority.
 
 Requests for these scopes additionally bind `system_id`, active constitution
 root, target profile or membership ref, predecessor and proposed roots,
