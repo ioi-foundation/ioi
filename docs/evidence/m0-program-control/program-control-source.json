@@ -318,7 +318,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "78ace449becd6410abcf5b40773013c96d18205ed89f1af1140209562ec35922"
+      "source_sha256": "0ea754603cb1890a166d48478b2c0e3366915f4b9cd8b2eeaf36e80404a28178"
     },
     {
       "role": "landed owner canon",
@@ -480,7 +480,7 @@
           {
             "note": "enumerated wallet.network service registry",
             "source_file": "crates/services/src/wallet_network/mod.rs",
-            "source_sha256": "154323ecfcf143eb569cc6f4752704a2462aedb07ab442abd95ec8d1ffac9a00"
+            "source_sha256": "9116f3af8d96d2d7d123144da6e8ece6d708ed13abed2342dcdd1e084239cdd8"
           },
           {
             "note": "no externally callable service method; transaction decorator and end-block hooks only",
@@ -545,7 +545,7 @@
           {
             "note": "ReplicaServer binds occur only in the cfg(test) module",
             "source_file": "crates/agentgres/src/mux.rs",
-            "source_sha256": "d7ddcca89046d5a712517b32992469b59c1f683fb89cf2e4265a8a7c816d9751"
+            "source_sha256": "844d5489f5eedd7b85e05bb08e98b292e8e2760c0122764bea0a252d5dbd141c"
           },
           {
             "note": "enumerated standalone AGRS2 replication wildcard",

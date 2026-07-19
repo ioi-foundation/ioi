@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-18",
-  "build_fingerprint": "f95efed4af9d2d3605df5cf61638b2148f1b52b4b6f902b1ebed1274ee741eb2",
+  "build_fingerprint": "a94adb31aee471291e14c09e069fba7ebbfde0013dd538289dff436b71bf7d22",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -506,7 +506,7 @@
         "claim_state": "verified_boundary_not_downstream_effect",
         "note": "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
         "resolution": "verified_service_effect_calls_not_production_pep",
-        "source_anchor_sha256": "231a4e2962b4b99a38b42fe3d33d16a6bfb4875c0f1d6965bc69f34f39d6934e",
+        "source_anchor_sha256": "976c91064a3c6b80bb65ab431fbad1164cf4a92d9ad5bc411550e3e13f03a4b4",
         "source_file": "crates/services/src/wallet_network/handlers/principal_authority.rs",
         "symbol": "commit_binding | append_audit_event_with_records | state.batch_apply"
       },
@@ -534,7 +534,7 @@
         "claim_state": "verified_boundary_not_downstream_effect",
         "note": "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
         "resolution": "verified_service_effect_calls_not_production_pep",
-        "source_anchor_sha256": "47c5f0e4de95a2de4270ce89f658b249a806056ae44b5415cc33a16f69ad3312",
+        "source_anchor_sha256": "0d5d5b7b9c6c9a9a179ee31f682be77358fe988ba2ff2293c10ee42d08517cc6",
         "source_file": "crates/services/src/wallet_network/handlers/approval.rs",
         "symbol": "store_typed | state.insert | append_audit_event"
       },
@@ -548,7 +548,7 @@
         "claim_state": "verified_boundary_not_downstream_effect",
         "note": "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
         "resolution": "verified_service_effect_calls_not_production_pep",
-        "source_anchor_sha256": "231a4e2962b4b99a38b42fe3d33d16a6bfb4875c0f1d6965bc69f34f39d6934e",
+        "source_anchor_sha256": "976c91064a3c6b80bb65ab431fbad1164cf4a92d9ad5bc411550e3e13f03a4b4",
         "source_file": "crates/services/src/wallet_network/handlers/principal_authority.rs",
         "symbol": "append_audit_event_with_records | state.batch_apply"
       },
