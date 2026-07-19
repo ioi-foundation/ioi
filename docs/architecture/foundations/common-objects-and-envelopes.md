@@ -4409,6 +4409,7 @@ operator/control boundary, exact representation binding, request/effect
 linkage, enrollment and attestation evidence, UP/UV posture, freshness/replay
 handling, and independence from the proposing client. These are orthogonal
 properties, not a `same client` versus `independent trusted` assurance tier.
+The profile and evidence may support only the claims they actually bind.
 
 `approval_ceremony_context_ref` resolves the exact closed
 `ApprovalCeremonyContextEnvelope`; its domain-separated hash commits the
@@ -4419,7 +4420,10 @@ required by the portable principal contract.
 `approval_evidence_profile_ref` defines ordered leaf types, canonical encoding,
 hash algorithm, and domain-separated construction for
 `approval_evidence_root`; an opaque root without that exact profile is
-inadmissible. When `principal_authority_resolution_ref` is non-null, that exact
+inadmissible. The root commits the request, review, presentation evidence,
+ceremony evidence, satisfied posture, and decision receipt without making any
+one leaf evidence of all the others. When
+`principal_authority_resolution_ref` is non-null, that exact
 artifact ref/hash is a required typed leaf. The posture-satisfaction profile,
 closed evaluations, and root are bound directly by an approved grant; none may
 be inferred from the satisfied-ref projections alone.

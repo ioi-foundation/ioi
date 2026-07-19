@@ -888,8 +888,9 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   random nonce, expiry, revocation posture, and any required exact
   principal-authority resolution. Its domain-separated hash supplies the
   WebAuthn challenge bytes; it is not mutable challenge status.
-- `AuthorityReviewReceipt`: a target portable wrapper around the exact common
-  `ReceiptEnvelope` v1 recording one immutable authority-review result. It binds
+- `AuthorityReviewReceipt`: a target typed receipt profile and portable wrapper
+  around the exact common `ReceiptEnvelope` v1 recording one immutable
+  authority-review result. It binds
   the request, principal/session/origin, authorization subject, canonical reviewed
   representation, ceremony context, presentation surface and evidence profile,
   separate authenticator evidence, required and satisfied factor/guardian
