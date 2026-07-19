@@ -15,17 +15,21 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
+use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_api::state::service_namespace_prefix;
 use ioi_cli::testing::{
-    build_test_artifacts, rpc::query_state_key, submit_transaction, wait_for_height, TestCluster,
+    build_test_artifacts,
+    rpc::{get_chain_timestamp, query_state_key},
+    submit_transaction, wait_for_height, TestCluster,
 };
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
 use ioi_services::wallet_network::RegisterApprovalAuthorityParams;
 use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
 use ioi_types::app::wallet_network::{
-    IssuePrincipalAuthorityBindingParams, PrincipalAuthorityBindingProofV1,
-    PrincipalAuthorityBindingStatementV1, PrincipalAuthorityBindingStatus, PrincipalAuthorityKind,
+    IssuePrincipalAuthorityBindingParams, PrincipalAuthorityBindingHeadV1,
+    PrincipalAuthorityBindingProofV1, PrincipalAuthorityBindingStatementV1,
+    PrincipalAuthorityBindingStatus, PrincipalAuthorityKind, RevokePrincipalAuthorityBindingParams,
     VaultSurface, WalletApprovalDecision, WalletApprovalDecisionKind, WalletClientRole,
     WalletClientState, WalletConfigureControlRootParams, WalletControlPlaneRootRecord,
     WalletInterceptionContext, WalletRegisterClientParams, WalletRegisteredClientRecord,
@@ -63,9 +67,12 @@ struct FixtureCommand {
     schema_version: u16,
     operation: String,
     principal_ref: String,
-    policy_hash: String,
-    request_hash: String,
-    approval_grant: ApprovalGrant,
+    #[serde(default)]
+    policy_hash: Option<String>,
+    #[serde(default)]
+    request_hash: Option<String>,
+    #[serde(default)]
+    approval_grant: Option<ApprovalGrant>,
 }
 
 #[derive(Debug, Serialize)]
@@ -76,7 +83,14 @@ struct FixtureCommandResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     request_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    binding_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+}
+
+enum FixtureCommandResult {
+    Approval([u8; 32]),
+    Revocation(String),
 }
 
 fn keypair(seed: &[u8; 32]) -> Result<Ed25519KeyPair> {
@@ -91,6 +105,7 @@ fn wallet_policy() -> ServicePolicy {
         "register_client@v1",
         "register_approval_authority@v1",
         "issue_principal_authority_binding@v1",
+        "revoke_principal_authority_binding@v1",
         "resolve_principal_authority@v1",
         "record_approval@v1",
         "consume_approval_grant_for_effect@v1",
@@ -298,11 +313,71 @@ fn wallet_approval_key(request_hash: &[u8; 32]) -> Vec<u8> {
     .concat()
 }
 
+fn principal_authority_head_key(principal_ref: &str) -> Vec<u8> {
+    let digest = Sha256::digest(principal_ref.as_bytes()).expect("principal-ref hash");
+    let mut principal_hash = [0u8; 32];
+    principal_hash.copy_from_slice(digest.as_ref());
+    [
+        service_namespace_prefix("wallet_network").as_slice(),
+        b"principal_authority_binding_head::",
+        principal_hash.as_slice(),
+    ]
+    .concat()
+}
+
+fn principal_authority_proof_key(binding_hash: &[u8; 32]) -> Vec<u8> {
+    [
+        service_namespace_prefix("wallet_network").as_slice(),
+        b"principal_authority_binding::",
+        binding_hash.as_slice(),
+    ]
+    .concat()
+}
+
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+
+fn signed_revocation(
+    root: &Ed25519KeyPair,
+    root_record: &WalletControlPlaneRootRecord,
+    previous: &PrincipalAuthorityBindingProofV1,
+    signed_at_ms: u64,
+) -> Result<PrincipalAuthorityBindingProofV1> {
+    let statement = PrincipalAuthorityBindingStatementV1 {
+        schema_version: PRINCIPAL_AUTHORITY_BINDING_SCHEMA_VERSION,
+        principal_ref: previous.statement.principal_ref.clone(),
+        authority_kind: previous.statement.authority_kind,
+        binding_version: previous.statement.binding_version.saturating_add(1),
+        status: PrincipalAuthorityBindingStatus::Revoked,
+        authority_id: previous.statement.authority_id,
+        authority_public_key: previous.statement.authority_public_key.clone(),
+        authority_signature_suite: previous.statement.authority_signature_suite,
+        approval_authority_snapshot_hash: previous.statement.approval_authority_snapshot_hash,
+        previous_binding_ref: Some(previous.binding_ref.clone()),
+        previous_binding_hash: Some(previous.binding_hash),
+        signed_at_ms,
+        expires_at_ms: previous.statement.expires_at_ms,
+        issuer_root_account_id: root_record.account_id,
+        reason: Some("Hypervisor verifier terminal revocation".to_string()),
+    };
+    let message = statement.signing_bytes()?;
+    PrincipalAuthorityBindingProofV1::new(
+        statement,
+        SignatureProof {
+            suite: SignatureSuite::ED25519,
+            public_key: root_record.public_key.clone(),
+            signature: root
+                .private_key()
+                .sign(&message)
+                .map_err(|error| anyhow!(error.to_string()))?
+                .to_bytes(),
+        },
+    )
+    .map_err(|error| anyhow!(error.to_string()))
 }
 
 fn existing_approval_matches(
@@ -347,10 +422,24 @@ async fn submit_record_approval(
         return Err(anyhow!("principal_ref must contain 1..=256 bytes"));
     }
 
-    let request_hash = exact_hash32(&command.request_hash, "request_hash")?;
-    let policy_hash = exact_hash32(&command.policy_hash, "policy_hash")?;
+    let request_hash = exact_hash32(
+        command
+            .request_hash
+            .as_deref()
+            .ok_or_else(|| anyhow!("record_approval requires request_hash"))?,
+        "request_hash",
+    )?;
+    let policy_hash = exact_hash32(
+        command
+            .policy_hash
+            .as_deref()
+            .ok_or_else(|| anyhow!("record_approval requires policy_hash"))?,
+        "policy_hash",
+    )?;
     let expected_authority = authority_for_principal(&command.principal_ref)?;
-    let grant = command.approval_grant;
+    let grant = command
+        .approval_grant
+        .ok_or_else(|| anyhow!("record_approval requires approval_grant"))?;
     if grant.request_hash != request_hash
         || grant.policy_hash != policy_hash
         || grant.authority_id != expected_authority.authority_id
@@ -427,6 +516,98 @@ async fn submit_record_approval(
     Ok(request_hash)
 }
 
+async fn submit_revoke_principal_authority(
+    rpc_addr: &str,
+    chain_id: ChainId,
+    root: &Ed25519KeyPair,
+    root_record: &WalletControlPlaneRootRecord,
+    command: FixtureCommand,
+) -> Result<String> {
+    if command.schema_version != COMMAND_SCHEMA_VERSION {
+        return Err(anyhow!(
+            "unsupported fixture command schema {}",
+            command.schema_version
+        ));
+    }
+    if command.operation != "revoke_principal_authority" {
+        return Err(anyhow!(
+            "unsupported fixture command operation '{}'",
+            command.operation
+        ));
+    }
+    if command.principal_ref.is_empty() || command.principal_ref.len() > 256 {
+        return Err(anyhow!("principal_ref must contain 1..=256 bytes"));
+    }
+    if command.policy_hash.is_some()
+        || command.request_hash.is_some()
+        || command.approval_grant.is_some()
+    {
+        return Err(anyhow!(
+            "revoke_principal_authority accepts no approval payload fields"
+        ));
+    }
+
+    let head_key = principal_authority_head_key(&command.principal_ref);
+    let head_bytes = query_state_key(rpc_addr, &head_key)
+        .await?
+        .ok_or_else(|| anyhow!("principal authority head is absent"))?;
+    let head: PrincipalAuthorityBindingHeadV1 =
+        decode_state_value(&head_bytes, "principal authority head")?;
+    if head.principal_ref != command.principal_ref
+        || head.authority_kind != PrincipalAuthorityKind::Approval
+        || head.status != PrincipalAuthorityBindingStatus::Active
+    {
+        return Err(anyhow!(
+            "principal authority head is foreign, unsupported, or already terminal"
+        ));
+    }
+    let proof_bytes = query_state_key(
+        rpc_addr,
+        &principal_authority_proof_key(&head.coordinates.binding_hash),
+    )
+    .await?
+    .ok_or_else(|| anyhow!("principal authority head proof is absent"))?;
+    let previous: PrincipalAuthorityBindingProofV1 =
+        decode_state_value(&proof_bytes, "principal authority proof")?;
+    if previous.coordinates() != head.coordinates
+        || previous.statement.principal_ref != command.principal_ref
+    {
+        return Err(anyhow!(
+            "principal authority head and immutable proof disagree"
+        ));
+    }
+
+    let signed_at_ms = get_chain_timestamp(rpc_addr).await?.saturating_mul(1_000);
+    let revoked = signed_revocation(root, root_record, &previous, signed_at_ms)?;
+    let nonce = account_nonce(rpc_addr, &root_record.account_id).await?;
+    submit(
+        rpc_addr,
+        root,
+        chain_id,
+        nonce,
+        "revoke_principal_authority_binding@v1",
+        &RevokePrincipalAuthorityBindingParams {
+            predecessor_binding_ref: previous.binding_ref,
+            proof: revoked.clone(),
+        },
+    )
+    .await?;
+
+    let persisted_bytes = query_state_key(rpc_addr, &head_key)
+        .await?
+        .ok_or_else(|| anyhow!("revocation emitted no principal authority head"))?;
+    let persisted: PrincipalAuthorityBindingHeadV1 =
+        decode_state_value(&persisted_bytes, "principal authority head")?;
+    if persisted.status != PrincipalAuthorityBindingStatus::Revoked
+        || persisted.coordinates != revoked.coordinates()
+    {
+        return Err(anyhow!(
+            "persisted principal authority head differs from the signed revocation"
+        ));
+    }
+    Ok(revoked.binding_ref)
+}
+
 fn write_command_response(command_dir: &Path, response: &FixtureCommandResponse) -> Result<()> {
     let final_path = command_dir.join("response.json");
     if final_path.exists() {
@@ -450,6 +631,8 @@ async fn process_fixture_commands(
     chain_id: ChainId,
     capability: &Ed25519KeyPair,
     capability_account_id: [u8; 32],
+    root: &Ed25519KeyPair,
+    root_record: &WalletControlPlaneRootRecord,
 ) -> Result<()> {
     let mut commands = Vec::new();
     for entry in std::fs::read_dir(commands_dir)? {
@@ -489,8 +672,8 @@ async fn process_fixture_commands(
                     serde_json::from_slice::<FixtureCommand>(&bytes)
                         .context("wallet fixture command is invalid JSON")
                 }) {
-                Ok(command) => {
-                    submit_record_approval(
+                Ok(command) => match command.operation.as_str() {
+                    "record_approval" => submit_record_approval(
                         rpc_addr,
                         chain_id,
                         capability,
@@ -498,16 +681,35 @@ async fn process_fixture_commands(
                         command,
                     )
                     .await
-                }
+                    .map(FixtureCommandResult::Approval),
+                    "revoke_principal_authority" => submit_revoke_principal_authority(
+                        rpc_addr,
+                        chain_id,
+                        root,
+                        root_record,
+                        command,
+                    )
+                    .await
+                    .map(FixtureCommandResult::Revocation),
+                    operation => Err(anyhow!(
+                        "unsupported fixture command operation '{operation}'"
+                    )),
+                },
                 Err(error) => Err(error),
             }
         };
-        let (ok, request_hash, error) = match result {
-            Ok(request_hash) => (true, Some(hex::encode(request_hash)), None),
+        let (ok, request_hash, binding_ref, error) = match result {
+            Ok(FixtureCommandResult::Approval(request_hash)) => {
+                (true, Some(hex::encode(request_hash)), None, None)
+            }
+            Ok(FixtureCommandResult::Revocation(binding_ref)) => {
+                (true, None, Some(binding_ref), None)
+            }
             Err(error) => {
                 let text = format!("{error:#}");
                 (
                     false,
+                    None,
                     None,
                     Some(text.chars().take(2_048).collect::<String>()),
                 )
@@ -520,6 +722,7 @@ async fn process_fixture_commands(
                 command_id,
                 ok,
                 request_hash,
+                binding_ref,
                 error,
             },
         )?;
@@ -743,6 +946,8 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
                 chain_id,
                 &capability,
                 capability_account_id,
+                &root,
+                &root_record,
             )
             .await?;
             tokio::time::sleep(Duration::from_millis(50)).await;

@@ -46,13 +46,141 @@ pub enum MuxLogFrame {
     },
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DomainState {
     pub heads: BTreeMap<String, Head>,
     pub next_seq: u64,
     pub next_batch_seq: u64,
     pub root: Root,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+pub enum MuxRecoveryOutcome {
+    Clean,
+    RecoverableTail {
+        cause: MuxRecoverableTailCause,
+        detail: String,
+        original_bytes: u64,
+        retained_bytes: u64,
+        discarded_bytes: u64,
+    },
+    CorruptionDetected {
+        cause: MuxCorruptionCause,
+        detail: String,
+        original_bytes: u64,
+        last_rooted_bytes: u64,
+        suspect_bytes: u64,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MuxRecoverableTailCause {
+    PartialFrame,
+    UnrootedBatch,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MuxCorruptionCause {
+    InvalidLength,
+    MalformedFrame,
+    InvalidFrame,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MuxCorruptionError {
+    pub cause: MuxCorruptionCause,
+    pub detail: String,
+    pub original_bytes: u64,
+    pub last_rooted_bytes: u64,
+    pub suspect_bytes: u64,
+}
+
+impl std::fmt::Display for MuxCorruptionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "mux corruption detected cause={:?} original_bytes={} last_rooted_bytes={} suspect_bytes={} detail={}",
+            self.cause,
+            self.original_bytes,
+            self.last_rooted_bytes,
+            self.suspect_bytes,
+            self.detail
+        )
+    }
+}
+
+impl std::error::Error for MuxCorruptionError {}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MuxStatusSnapshot {
+    pub domains: BTreeMap<String, DomainState>,
+    pub current_epoch: u64,
+    pub log_bytes: u64,
+    pub recovery: MuxRecoveryOutcome,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DurabilityFailureStage {
+    Write,
+    Fsync,
+}
+
+impl std::fmt::Display for DurabilityFailureStage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Write => write!(f, "write"),
+            Self::Fsync => write!(f, "fsync"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WriterRecovery {
+    StoppedReopenRequired,
+}
+
+impl std::fmt::Display for WriterRecovery {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::StoppedReopenRequired => write!(f, "stopped_reopen_required"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DurabilityUncertainty {
+    pub stage: DurabilityFailureStage,
+    pub detail: String,
+    pub recovery: WriterRecovery,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MuxAdmitError {
+    Refused(Refusal),
+    DurabilityUncertain(DurabilityUncertainty),
+    WriterUnavailable { detail: String },
+}
+
+impl std::fmt::Display for MuxAdmitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Refused(refusal) => write!(f, "{refusal}"),
+            Self::DurabilityUncertain(uncertainty) => write!(
+                f,
+                "durability_uncertain stage={} recovery={} detail={}",
+                uncertainty.stage, uncertainty.recovery, uncertainty.detail
+            ),
+            Self::WriterUnavailable { detail } => {
+                write!(f, "mux_writer_unavailable detail={detail}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for MuxAdmitError {}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExactProjection {
@@ -64,10 +192,12 @@ pub struct ExactProjection {
     pub terminal_root: Root,
 }
 
+#[derive(Clone)]
 struct StrictDomainState {
     terminal: DomainState,
     pending_records: Vec<AdmittedRecord>,
     pending_hashes: Vec<u8>,
+    pending_heads: BTreeMap<String, Head>,
 }
 
 impl StrictDomainState {
@@ -76,6 +206,7 @@ impl StrictDomainState {
             terminal: DomainState::new(),
             pending_records: Vec::new(),
             pending_hashes: Vec::new(),
+            pending_heads: BTreeMap::new(),
         }
     }
 }
@@ -150,65 +281,480 @@ fn read_strict_frame(
     Ok(Some((frame, encoded)))
 }
 
+struct RecoveryScan {
+    domains: BTreeMap<String, DomainState>,
+    current_epoch: u64,
+    original_bytes: u64,
+    retained_bytes: u64,
+    outcome: MuxRecoveryOutcome,
+}
+
+enum MuxBatchError {
+    Preparation(std::io::Error),
+    DurabilityUncertain(DurabilityUncertainty),
+}
+
+impl From<std::io::Error> for MuxBatchError {
+    fn from(error: std::io::Error) -> Self {
+        Self::Preparation(error)
+    }
+}
+
+impl MuxBatchError {
+    fn into_io_error(self) -> std::io::Error {
+        match self {
+            Self::Preparation(error) => error,
+            Self::DurabilityUncertain(uncertainty) => std::io::Error::new(
+                std::io::ErrorKind::Other,
+                MuxAdmitError::DurabilityUncertain(uncertainty),
+            ),
+        }
+    }
+}
+
+fn pending_is_empty(states: &BTreeMap<String, StrictDomainState>) -> bool {
+    states
+        .values()
+        .all(|state| state.pending_records.is_empty())
+}
+
+fn terminal_domains(states: &BTreeMap<String, StrictDomainState>) -> BTreeMap<String, DomainState> {
+    states
+        .iter()
+        .map(|(domain, state)| (domain.clone(), state.terminal.clone()))
+        .collect()
+}
+
+fn replay_mux_prefix(
+    log_path: &Path,
+    retained_bytes: u64,
+) -> std::io::Result<(BTreeMap<String, DomainState>, u64)> {
+    if retained_bytes == 0 {
+        return Ok((BTreeMap::new(), 0));
+    }
+    let mut reader = BufReader::new(File::open(log_path)?);
+    let mut states: BTreeMap<String, StrictDomainState> = BTreeMap::new();
+    let mut current_epoch = 0u64;
+    let mut offset = 0u64;
+    let mut frame_index = 0u64;
+    let mut rooting_started = false;
+    while offset < retained_bytes {
+        let Some((frame, encoded)) = read_strict_frame(&mut reader, frame_index)? else {
+            return Err(invalid_log(format!(
+                "mux replay ended at byte {offset} before retained boundary {retained_bytes}"
+            )));
+        };
+        let encoded_len = u64::try_from(encoded.len()).map_err(std::io::Error::other)?;
+        let next_offset = offset
+            .checked_add(encoded_len)
+            .ok_or_else(|| invalid_log("mux replay offset overflows u64"))?;
+        if next_offset > retained_bytes {
+            return Err(invalid_log(format!(
+                "mux replay frame {frame_index} crosses retained boundary {retained_bytes}"
+            )));
+        }
+        if rooting_started && matches!(&frame, MuxLogFrame::Admitted(_)) {
+            return Err(invalid_log(format!(
+                "mux admitted frame {frame_index} appears after domain rooting began for its batch"
+            )));
+        }
+        let is_root = matches!(&frame, MuxLogFrame::DomainRoot { .. });
+        apply_replayed_frame(
+            &mut states,
+            &mut current_epoch,
+            frame,
+            &encoded,
+            frame_index,
+        )?;
+        if is_root {
+            rooting_started = !pending_is_empty(&states);
+        }
+        offset = next_offset;
+        frame_index += 1;
+    }
+    if offset != retained_bytes || !pending_is_empty(&states) {
+        return Err(invalid_log(format!(
+            "mux retained boundary {retained_bytes} is not a complete rooted batch"
+        )));
+    }
+    Ok((terminal_domains(&states), current_epoch))
+}
+
+fn apply_replayed_frame(
+    states: &mut BTreeMap<String, StrictDomainState>,
+    current_epoch: &mut u64,
+    frame: MuxLogFrame,
+    encoded: &[u8],
+    frame_index: u64,
+) -> std::io::Result<()> {
+    match frame {
+        MuxLogFrame::Admitted(record) => {
+            if record.op.object_ref.is_empty() {
+                return Err(invalid_log(format!(
+                    "mux admitted frame {frame_index} has an empty object_ref"
+                )));
+            }
+            let state = states
+                .entry(record.op.domain.clone())
+                .or_insert_with(StrictDomainState::new);
+            if state.pending_records.len() >= MAX_STRICT_PENDING_RECORDS {
+                return Err(invalid_log(format!(
+                    "mux domain '{}' exceeds {MAX_STRICT_PENDING_RECORDS} unrooted records",
+                    record.op.domain
+                )));
+            }
+            let pending_count = u64::try_from(state.pending_records.len()).map_err(|_| {
+                invalid_log(format!(
+                    "mux domain '{}' pending record count overflows u64",
+                    record.op.domain
+                ))
+            })?;
+            let expected_seq = state
+                .terminal
+                .next_seq
+                .checked_add(pending_count)
+                .ok_or_else(|| {
+                    invalid_log(format!(
+                        "mux domain '{}' sequence overflows u64",
+                        record.op.domain
+                    ))
+                })?;
+            if record.seq != expected_seq {
+                return Err(invalid_log(format!(
+                    "mux admitted frame {frame_index} sequence mismatch for '{}': expected {expected_seq}, found {}",
+                    record.op.domain, record.seq
+                )));
+            }
+            let prior_head = state
+                .pending_heads
+                .get(&record.op.object_ref)
+                .or_else(|| state.terminal.heads.get(&record.op.object_ref));
+            validate_head_condition(&record.op, prior_head).map_err(|refusal| {
+                invalid_log(format!(
+                    "mux admitted frame {frame_index} violates its head condition ({refusal})"
+                ))
+            })?;
+            let operation_bytes = serde_json::to_vec(&record.op).map_err(std::io::Error::other)?;
+            let prior = prior_head.cloned().unwrap_or_default();
+            let expected_head = sha_hex(&[b"head|", prior.as_bytes(), b"|", &operation_bytes]);
+            if record.new_head != expected_head {
+                return Err(invalid_log(format!(
+                    "mux admitted frame {frame_index} head mismatch for '{}': expected {expected_head}, found {}",
+                    record.op.object_ref, record.new_head
+                )));
+            }
+            state
+                .pending_heads
+                .insert(record.op.object_ref.clone(), record.new_head.clone());
+            let mut frame_hash = Sha256::new();
+            frame_hash.update(encoded);
+            state
+                .pending_hashes
+                .extend_from_slice(&frame_hash.finalize());
+            state.pending_records.push(record);
+        }
+        MuxLogFrame::DomainRoot {
+            domain: root_domain,
+            rec,
+        } => {
+            let Some(state) = states.get_mut(&root_domain) else {
+                return Err(invalid_log(format!(
+                    "mux root frame {frame_index} has no admitted records for domain '{root_domain}'"
+                )));
+            };
+            if state.pending_records.is_empty() {
+                return Err(invalid_log(format!(
+                    "mux root frame {frame_index} does not cover any admitted records for domain '{root_domain}'"
+                )));
+            }
+            let expected_from = state.terminal.next_seq;
+            let pending_count = u64::try_from(state.pending_records.len()).map_err(|_| {
+                invalid_log(format!(
+                    "mux domain '{root_domain}' pending record count overflows u64"
+                ))
+            })?;
+            let expected_to = expected_from
+                .checked_add(pending_count - 1)
+                .ok_or_else(|| {
+                    invalid_log(format!(
+                        "mux domain '{root_domain}' sequence range overflows u64"
+                    ))
+                })?;
+            if rec.from_seq != expected_from || rec.to_seq != expected_to {
+                return Err(invalid_log(format!(
+                    "mux root frame {frame_index} sequence range mismatch for domain '{root_domain}': expected {expected_from}..={expected_to}, found {}..={}",
+                    rec.from_seq, rec.to_seq
+                )));
+            }
+            if rec.batch_seq != state.terminal.next_batch_seq {
+                return Err(invalid_log(format!(
+                    "mux root frame {frame_index} batch sequence mismatch for domain '{root_domain}': expected {}, found {}",
+                    state.terminal.next_batch_seq, rec.batch_seq
+                )));
+            }
+            if rec.prev_root != state.terminal.root {
+                return Err(invalid_log(format!(
+                    "mux root frame {frame_index} prior root mismatch for domain '{root_domain}'"
+                )));
+            }
+            let expected_root = sha_hex(&[
+                b"root|",
+                state.terminal.root.as_bytes(),
+                b"|",
+                &state.pending_hashes,
+            ]);
+            if rec.root != expected_root {
+                return Err(invalid_log(format!(
+                    "mux root frame {frame_index} root mismatch for domain '{root_domain}': expected {expected_root}, found {}",
+                    rec.root
+                )));
+            }
+            for record in &state.pending_records {
+                state
+                    .terminal
+                    .heads
+                    .insert(record.op.object_ref.clone(), record.new_head.clone());
+            }
+            state.terminal.next_seq = rec.to_seq.checked_add(1).ok_or_else(|| {
+                invalid_log(format!(
+                    "mux root frame {frame_index} terminal sequence overflows u64"
+                ))
+            })?;
+            state.terminal.next_batch_seq = rec.batch_seq.checked_add(1).ok_or_else(|| {
+                invalid_log(format!(
+                    "mux root frame {frame_index} terminal batch sequence overflows u64"
+                ))
+            })?;
+            state.terminal.root = rec.root;
+            state.pending_records.clear();
+            state.pending_hashes.clear();
+            state.pending_heads.clear();
+        }
+        MuxLogFrame::EpochBump { epoch, .. } => {
+            if !pending_is_empty(states) {
+                return Err(invalid_log(format!(
+                    "mux epoch frame {frame_index} interrupts unrooted admitted records"
+                )));
+            }
+            *current_epoch = (*current_epoch).max(epoch);
+        }
+    }
+    Ok(())
+}
+
+enum MuxScanIssue {
+    Recoverable(MuxRecoverableTailCause, String),
+    Corruption(MuxCorruptionCause, String),
+}
+
+fn recovery_outcome(
+    issue: MuxScanIssue,
+    original_bytes: u64,
+    last_rooted_bytes: u64,
+) -> MuxRecoveryOutcome {
+    match issue {
+        MuxScanIssue::Recoverable(cause, detail) => MuxRecoveryOutcome::RecoverableTail {
+            cause,
+            detail,
+            original_bytes,
+            retained_bytes: last_rooted_bytes,
+            discarded_bytes: original_bytes.saturating_sub(last_rooted_bytes),
+        },
+        MuxScanIssue::Corruption(cause, detail) => MuxRecoveryOutcome::CorruptionDetected {
+            cause,
+            detail,
+            original_bytes,
+            last_rooted_bytes,
+            suspect_bytes: original_bytes.saturating_sub(last_rooted_bytes),
+        },
+    }
+}
+
+fn corruption_error(outcome: &MuxRecoveryOutcome) -> Option<MuxCorruptionError> {
+    let MuxRecoveryOutcome::CorruptionDetected {
+        cause,
+        detail,
+        original_bytes,
+        last_rooted_bytes,
+        suspect_bytes,
+    } = outcome
+    else {
+        return None;
+    };
+    Some(MuxCorruptionError {
+        cause: *cause,
+        detail: detail.clone(),
+        original_bytes: *original_bytes,
+        last_rooted_bytes: *last_rooted_bytes,
+        suspect_bytes: *suspect_bytes,
+    })
+}
+
+fn scan_mux_log(log_path: &Path) -> std::io::Result<RecoveryScan> {
+    if !log_path.exists() {
+        return Ok(RecoveryScan {
+            domains: BTreeMap::new(),
+            current_epoch: 0,
+            original_bytes: 0,
+            retained_bytes: 0,
+            outcome: MuxRecoveryOutcome::Clean,
+        });
+    }
+    let original_bytes = std::fs::metadata(log_path)?.len();
+    let mut reader = BufReader::new(File::open(log_path)?);
+    let mut states: BTreeMap<String, StrictDomainState> = BTreeMap::new();
+    let mut current_epoch = 0u64;
+    let mut offset = 0u64;
+    let mut safe_offset = 0u64;
+    let mut frame_index = 0u64;
+    let mut rooting_started = false;
+    let mut issue: Option<MuxScanIssue> = None;
+
+    loop {
+        let mut length_bytes = [0u8; 4];
+        match read_exact_or_clean_eof(&mut reader, &mut length_bytes, "mux frame length") {
+            Ok(false) => break,
+            Ok(true) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => {
+                issue = Some(MuxScanIssue::Recoverable(
+                    MuxRecoverableTailCause::PartialFrame,
+                    error.to_string(),
+                ));
+                break;
+            }
+            Err(error) => return Err(error),
+        }
+        let length = u32::from_le_bytes(length_bytes) as usize;
+        if length == 0 || length > MAX_STRICT_FRAME_BYTES {
+            issue = Some(MuxScanIssue::Corruption(
+                MuxCorruptionCause::InvalidLength,
+                format!(
+                    "mux frame {frame_index} length {length} is outside 1..={MAX_STRICT_FRAME_BYTES}"
+                ),
+            ));
+            break;
+        }
+        let mut body = vec![0u8; length];
+        match read_exact_or_clean_eof(&mut reader, &mut body, "mux frame body") {
+            Ok(true) => {}
+            Ok(false) => unreachable!("non-empty frame body cannot cleanly EOF"),
+            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => {
+                issue = Some(MuxScanIssue::Recoverable(
+                    MuxRecoverableTailCause::PartialFrame,
+                    error.to_string(),
+                ));
+                break;
+            }
+            Err(error) => return Err(error),
+        }
+        let frame = match serde_json::from_slice::<MuxLogFrame>(&body) {
+            Ok(frame) => frame,
+            Err(error) => {
+                issue = Some(MuxScanIssue::Corruption(
+                    MuxCorruptionCause::MalformedFrame,
+                    format!("mux frame {frame_index} is malformed JSON ({error})"),
+                ));
+                break;
+            }
+        };
+        let mut encoded = Vec::with_capacity(4 + body.len());
+        encoded.extend_from_slice(&length_bytes);
+        encoded.extend_from_slice(&body);
+        if rooting_started && matches!(&frame, MuxLogFrame::Admitted(_)) {
+            issue = Some(MuxScanIssue::Corruption(
+                MuxCorruptionCause::InvalidFrame,
+                format!(
+                    "mux admitted frame {frame_index} appears after domain rooting began for its batch"
+                ),
+            ));
+            break;
+        }
+        let is_root = matches!(&frame, MuxLogFrame::DomainRoot { .. });
+        if let Err(error) = apply_replayed_frame(
+            &mut states,
+            &mut current_epoch,
+            frame,
+            &encoded,
+            frame_index,
+        ) {
+            issue = Some(MuxScanIssue::Corruption(
+                MuxCorruptionCause::InvalidFrame,
+                error.to_string(),
+            ));
+            break;
+        }
+        if is_root {
+            rooting_started = !pending_is_empty(&states);
+        }
+        offset = offset
+            .checked_add(u64::try_from(encoded.len()).map_err(std::io::Error::other)?)
+            .ok_or_else(|| invalid_log("mux log offset overflows u64"))?;
+        frame_index += 1;
+        if pending_is_empty(&states) {
+            safe_offset = offset;
+        }
+    }
+
+    if issue.is_none() && !pending_is_empty(&states) {
+        let domain = states
+            .iter()
+            .find(|(_, state)| !state.pending_records.is_empty())
+            .map(|(domain, _)| domain.as_str())
+            .unwrap_or("unknown");
+        issue = Some(MuxScanIssue::Recoverable(
+            MuxRecoverableTailCause::UnrootedBatch,
+            format!("mux log ends with unrooted admitted records for domain '{domain}'"),
+        ));
+    }
+    let (outcome, domains, retained_epoch) = match issue {
+        Some(issue) => {
+            let outcome = recovery_outcome(issue, original_bytes, safe_offset);
+            let (domains, epoch) = replay_mux_prefix(log_path, safe_offset)?;
+            (outcome, domains, epoch)
+        }
+        None => (
+            MuxRecoveryOutcome::Clean,
+            terminal_domains(&states),
+            current_epoch,
+        ),
+    };
+    Ok(RecoveryScan {
+        domains,
+        current_epoch: retained_epoch,
+        original_bytes,
+        retained_bytes: safe_offset,
+        outcome,
+    })
+}
+
 pub struct MuxEngine {
     dir: PathBuf,
     log: File,
     domains: BTreeMap<String, DomainState>,
     sync_on_commit: bool,
     current_epoch: u64,
+    recovery: MuxRecoveryOutcome,
 }
 
 impl MuxEngine {
     pub fn open(dir: &Path, sync_on_commit: bool) -> std::io::Result<Self> {
-        std::fs::create_dir_all(dir.join("checkpoints"))?;
         let log_path = dir.join("muxlog.bin");
-        let mut domains: BTreeMap<String, DomainState> = BTreeMap::new();
-        let mut current_epoch = 0u64;
-        if log_path.exists() {
-            let file_len = std::fs::metadata(&log_path)?.len();
-            let mut r = BufReader::new(File::open(&log_path)?);
-            let mut len_buf = [0u8; 4];
-            // WAL recovery: torn/unparseable tail = incomplete unacked
-            // batch; truncate to the last valid frame boundary.
-            let mut valid: u64 = 0;
-            loop {
-                if r.read_exact(&mut len_buf).is_err() {
-                    break;
-                }
-                let len = u32::from_le_bytes(len_buf) as usize;
-                let mut frame = vec![0u8; len];
-                if r.read_exact(&mut frame).is_err() {
-                    break;
-                }
-                let Ok(frame) = serde_json::from_slice::<MuxLogFrame>(&frame) else {
-                    break;
-                };
-                match frame {
-                    MuxLogFrame::Admitted(rec) => {
-                        let st = domains
-                            .entry(rec.op.domain.clone())
-                            .or_insert_with(DomainState::new);
-                        st.heads
-                            .insert(rec.op.object_ref.clone(), rec.new_head.clone());
-                        st.next_seq = rec.seq + 1;
-                    }
-                    MuxLogFrame::DomainRoot { domain, rec } => {
-                        let st = domains.entry(domain).or_insert_with(DomainState::new);
-                        st.root = rec.root.clone();
-                        st.next_batch_seq = rec.batch_seq + 1;
-                    }
-                    MuxLogFrame::EpochBump { epoch, .. } => {
-                        current_epoch = current_epoch.max(epoch);
-                    }
-                }
-                valid += 4 + len as u64;
-            }
-            if valid < file_len {
-                OpenOptions::new()
-                    .write(true)
-                    .open(&log_path)?
-                    .set_len(valid)?;
-            }
+        let recovery = scan_mux_log(&log_path)?;
+        if let Some(corruption) = corruption_error(&recovery.outcome) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                corruption,
+            ));
+        }
+        std::fs::create_dir_all(dir.join("checkpoints"))?;
+        if matches!(
+            &recovery.outcome,
+            MuxRecoveryOutcome::RecoverableTail { .. }
+        ) && recovery.retained_bytes < recovery.original_bytes
+        {
+            let recovery_log = OpenOptions::new().write(true).open(&log_path)?;
+            recovery_log.set_len(recovery.retained_bytes)?;
+            recovery_log.sync_data()?;
         }
         let log = OpenOptions::new()
             .create(true)
@@ -217,18 +763,42 @@ impl MuxEngine {
         Ok(Self {
             dir: dir.to_path_buf(),
             log,
-            domains,
+            domains: recovery.domains,
             sync_on_commit,
-            current_epoch,
+            current_epoch: recovery.current_epoch,
+            recovery: recovery.outcome,
         })
+    }
+
+    pub fn inspect(dir: &Path) -> std::io::Result<MuxStatusSnapshot> {
+        let scan = scan_mux_log(&dir.join("muxlog.bin"))?;
+        Ok(MuxStatusSnapshot {
+            domains: scan.domains,
+            current_epoch: scan.current_epoch,
+            log_bytes: scan.original_bytes,
+            recovery: scan.outcome,
+        })
+    }
+
+    pub fn status_snapshot(&self) -> std::io::Result<MuxStatusSnapshot> {
+        Ok(MuxStatusSnapshot {
+            domains: self.domains.clone(),
+            current_epoch: self.current_epoch,
+            log_bytes: self.log_len()?,
+            recovery: self.recovery.clone(),
+        })
+    }
+
+    pub fn recovery_outcome(&self) -> &MuxRecoveryOutcome {
+        &self.recovery
     }
 
     pub fn current_epoch(&self) -> u64 {
         self.current_epoch
     }
 
-    /// Current log length in bytes (frame-boundary aligned after open()'s
-    /// torn-tail truncation) — the catch-up handshake offset.
+    /// Current log length in bytes (fully rooted batch-boundary aligned
+    /// after recovery) — the catch-up handshake offset.
     pub fn log_len(&self) -> std::io::Result<u64> {
         Ok(std::fs::metadata(self.dir.join("muxlog.bin"))
             .map(|m| m.len())
@@ -336,6 +906,14 @@ impl MuxEngine {
         &mut self,
         ops: Vec<Operation>,
     ) -> std::io::Result<(Vec<Result<AdmitAck, Refusal>>, Vec<u8>)> {
+        self.admit_batch_full_for_writer(ops)
+            .map_err(MuxBatchError::into_io_error)
+    }
+
+    fn admit_batch_full_for_writer(
+        &mut self,
+        ops: Vec<Operation>,
+    ) -> Result<(Vec<Result<AdmitAck, Refusal>>, Vec<u8>), MuxBatchError> {
         if ops.is_empty() {
             return Ok((Vec::new(), Vec::new()));
         }
@@ -417,9 +995,21 @@ impl MuxEngine {
         }
         // Durability point: ONE write + (sync mode) ONE fsync for all
         // domains' batches.
-        self.log.write_all(&buf)?;
+        self.log.write_all(&buf).map_err(|error| {
+            MuxBatchError::DurabilityUncertain(DurabilityUncertainty {
+                stage: DurabilityFailureStage::Write,
+                detail: error.to_string(),
+                recovery: WriterRecovery::StoppedReopenRequired,
+            })
+        })?;
         if self.sync_on_commit {
-            self.log.sync_data()?;
+            self.log.sync_data().map_err(|error| {
+                MuxBatchError::DurabilityUncertain(DurabilityUncertainty {
+                    stage: DurabilityFailureStage::Fsync,
+                    detail: error.to_string(),
+                    recovery: WriterRecovery::StoppedReopenRequired,
+                })
+            })?;
         }
         let durability = if self.sync_on_commit {
             Durability::DeviceFlush
@@ -456,19 +1046,16 @@ impl MuxEngine {
         visit: &mut dyn FnMut(&MuxLogFrame),
     ) -> std::io::Result<u64> {
         let mut r = BufReader::new(File::open(self.dir.join("muxlog.bin"))?);
-        let mut len_buf = [0u8; 4];
         let mut visited = 0u64;
+        let mut frame_index = 0u64;
         loop {
-            if r.read_exact(&mut len_buf).is_err() {
-                break;
-            }
-            let len = u32::from_le_bytes(len_buf) as usize;
-            let mut frame = vec![0u8; len];
-            if r.read_exact(&mut frame).is_err() {
-                break; // torn tail: unacked bytes, not yet truth
-            }
-            let Ok(frame) = serde_json::from_slice::<MuxLogFrame>(&frame) else {
-                break;
+            let frame = match read_strict_frame(&mut r, frame_index) {
+                Ok(Some((frame, _))) => frame,
+                Ok(None) => break,
+                Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    break; // torn tail: unacked bytes, not yet truth
+                }
+                Err(error) => return Err(error),
             };
             let keep = match &frame {
                 MuxLogFrame::Admitted(rec) => rec.op.domain == domain && rec.seq >= from_seq,
@@ -479,6 +1066,7 @@ impl MuxEngine {
                 visit(&frame);
                 visited += 1;
             }
+            frame_index += 1;
         }
         Ok(visited)
     }
@@ -510,7 +1098,14 @@ impl MuxEngine {
         let mut latest = None;
         let mut reconstructed_epoch = 0u64;
         let mut frame_index = 0u64;
+        let mut rooting_started = false;
         while let Some((frame, encoded)) = read_strict_frame(&mut reader, frame_index)? {
+            if rooting_started && matches!(&frame, MuxLogFrame::Admitted(_)) {
+                return Err(invalid_log(format!(
+                    "mux admitted frame {frame_index} appears after domain rooting began for its batch"
+                )));
+            }
+            let is_root = matches!(&frame, MuxLogFrame::DomainRoot { .. });
             match frame {
                 MuxLogFrame::Admitted(record) => {
                     if record.op.object_ref.is_empty() {
@@ -550,7 +1145,10 @@ impl MuxEngine {
                             record.op.domain, record.seq
                         )));
                     }
-                    let prior_head = state.terminal.heads.get(&record.op.object_ref);
+                    let prior_head = state
+                        .pending_heads
+                        .get(&record.op.object_ref)
+                        .or_else(|| state.terminal.heads.get(&record.op.object_ref));
                     validate_head_condition(&record.op, prior_head).map_err(|refusal| {
                         invalid_log(format!(
                             "mux admitted frame {frame_index} violates its head condition ({refusal})"
@@ -568,8 +1166,7 @@ impl MuxEngine {
                         )));
                     }
                     state
-                        .terminal
-                        .heads
+                        .pending_heads
                         .insert(record.op.object_ref.clone(), record.new_head.clone());
                     let mut frame_hash = Sha256::new();
                     frame_hash.update(&encoded);
@@ -647,6 +1244,10 @@ impl MuxEngine {
                                 terminal_root: String::new(),
                             });
                         }
+                        state
+                            .terminal
+                            .heads
+                            .insert(record.op.object_ref.clone(), record.new_head.clone());
                     }
                     state.terminal.next_seq = rec.to_seq.checked_add(1).ok_or_else(|| {
                         invalid_log(format!(
@@ -662,6 +1263,7 @@ impl MuxEngine {
                     state.terminal.root = rec.root;
                     state.pending_records.clear();
                     state.pending_hashes.clear();
+                    state.pending_heads.clear();
                 }
                 MuxLogFrame::EpochBump { epoch, .. } => {
                     if reconstructed
@@ -674,6 +1276,9 @@ impl MuxEngine {
                     }
                     reconstructed_epoch = reconstructed_epoch.max(epoch);
                 }
+            }
+            if is_root {
+                rooting_started = !pending_is_empty(&reconstructed);
             }
             frame_index += 1;
         }
@@ -766,7 +1371,7 @@ impl MuxEngine {
 // --------------------------------------------------------------------------
 
 pub enum MuxWriterMsg {
-    Admit(Operation, mpsc::Sender<Result<AdmitAck, Refusal>>),
+    Admit(Operation, mpsc::Sender<Result<AdmitAck, MuxAdmitError>>),
     /// Consistent read: served by the writer thread between batches, so
     /// projections never observe a mid-write torn tail.
     ProjectLatest(
@@ -778,7 +1383,8 @@ pub enum MuxWriterMsg {
         String,
         mpsc::Sender<std::io::Result<Option<ExactProjection>>>,
     ),
-    Shutdown(mpsc::Sender<()>),
+    Status(mpsc::Sender<std::io::Result<MuxStatusSnapshot>>),
+    Shutdown(mpsc::Sender<std::io::Result<()>>),
 }
 
 #[derive(Clone)]
@@ -787,12 +1393,18 @@ pub struct MuxHandle {
 }
 
 impl MuxHandle {
-    pub fn admit(&self, op: Operation) -> Result<AdmitAck, Refusal> {
+    pub fn admit(&self, op: Operation) -> Result<AdmitAck, MuxAdmitError> {
         let (ack_tx, ack_rx) = mpsc::channel();
-        self.tx
-            .send(MuxWriterMsg::Admit(op, ack_tx))
-            .expect("mux writer alive");
-        ack_rx.recv().expect("mux writer ack")
+        self.tx.send(MuxWriterMsg::Admit(op, ack_tx)).map_err(|_| {
+            MuxAdmitError::WriterUnavailable {
+                detail: "writer command channel is closed".to_string(),
+            }
+        })?;
+        ack_rx
+            .recv()
+            .map_err(|_| MuxAdmitError::WriterUnavailable {
+                detail: "writer stopped before returning an admission outcome".to_string(),
+            })?
     }
     pub fn project_latest(&self, domain: &str) -> std::io::Result<Vec<serde_json::Value>> {
         let (tx, rx) = mpsc::channel();
@@ -818,11 +1430,21 @@ impl MuxHandle {
         rx.recv()
             .map_err(|_| std::io::Error::other("mux writer ack lost"))?
     }
-    pub fn shutdown(&self) {
+    pub fn status_snapshot(&self) -> std::io::Result<MuxStatusSnapshot> {
         let (tx, rx) = mpsc::channel();
-        if self.tx.send(MuxWriterMsg::Shutdown(tx)).is_ok() {
-            let _ = rx.recv();
-        }
+        self.tx
+            .send(MuxWriterMsg::Status(tx))
+            .map_err(|_| std::io::Error::other("mux writer gone"))?;
+        rx.recv()
+            .map_err(|_| std::io::Error::other("mux writer status lost"))?
+    }
+    pub fn shutdown(&self) -> std::io::Result<()> {
+        let (tx, rx) = mpsc::channel();
+        self.tx
+            .send(MuxWriterMsg::Shutdown(tx))
+            .map_err(|_| std::io::Error::other("mux writer command channel is closed"))?;
+        rx.recv()
+            .map_err(|_| std::io::Error::other("mux writer stopped before final flush"))?
     }
 }
 
@@ -853,8 +1475,9 @@ pub struct WriterConfig {
     /// Required replica acks per batch. 0 means "all currently connected".
     pub ack_quorum: usize,
     /// In async-flush mode (engine opened with `sync_on_commit=false`),
-    /// call `sync_log()` every N batches and at shutdown — ON the writer
-    /// thread (adds periodic flush stalls to the tail). 0 disables.
+    /// call `sync_log()` every N batches ON the writer thread (adds periodic
+    /// flush stalls to the tail). 0 disables the cadence. Orderly shutdown
+    /// always performs and reports one final flush regardless of this value.
     pub flush_every_batches: u64,
     /// Background flush: a dedicated thread fsyncs the log every N ms via
     /// its own fd, keeping device flush entirely OFF the ack critical path
@@ -917,15 +1540,12 @@ pub fn spawn_mux_writer_cfg(
             let first = match rx.recv() {
                 Ok(m) => m,
                 Err(_) => {
-                    if cfg.flush_every_batches > 0 {
-                        let _ = engine.sync_log();
-                    }
-                    return Ok(());
+                    return engine.sync_log();
                 }
             };
             let mut ops = Vec::new();
             let mut acks = Vec::new();
-            let mut shutdown: Option<mpsc::Sender<()>> = None;
+            let mut shutdown: Option<mpsc::Sender<std::io::Result<()>>> = None;
             let mut projections: Vec<(
                 String,
                 mpsc::Sender<std::io::Result<Vec<serde_json::Value>>>,
@@ -935,6 +1555,7 @@ pub fn spawn_mux_writer_cfg(
                 String,
                 mpsc::Sender<std::io::Result<Option<ExactProjection>>>,
             )> = Vec::new();
+            let mut statuses: Vec<mpsc::Sender<std::io::Result<MuxStatusSnapshot>>> = Vec::new();
             match first {
                 MuxWriterMsg::Admit(op, ack) => {
                     ops.push(op);
@@ -944,6 +1565,7 @@ pub fn spawn_mux_writer_cfg(
                 MuxWriterMsg::ProjectExact(domain, object_ref, tx) => {
                     exact_projections.push((domain, object_ref, tx));
                 }
+                MuxWriterMsg::Status(tx) => statuses.push(tx),
                 MuxWriterMsg::Shutdown(tx) => shutdown = Some(tx),
             }
             if shutdown.is_none() && !ops.is_empty() {
@@ -959,6 +1581,7 @@ pub fn spawn_mux_writer_cfg(
                         Ok(MuxWriterMsg::ProjectExact(domain, object_ref, tx)) => {
                             exact_projections.push((domain, object_ref, tx));
                         }
+                        Ok(MuxWriterMsg::Status(tx)) => statuses.push(tx),
                         Ok(MuxWriterMsg::Shutdown(tx)) => {
                             shutdown = Some(tx);
                             break;
@@ -966,7 +1589,28 @@ pub fn spawn_mux_writer_cfg(
                         Err(_) => break,
                     }
                 }
-                let (mut results, bytes) = engine.admit_batch_full(ops)?;
+                let (mut results, bytes) = match engine.admit_batch_full_for_writer(ops) {
+                    Ok(batch) => batch,
+                    Err(MuxBatchError::DurabilityUncertain(uncertainty)) => {
+                        for ack in acks {
+                            let _ = ack
+                                .send(Err(MuxAdmitError::DurabilityUncertain(uncertainty.clone())));
+                        }
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            MuxAdmitError::DurabilityUncertain(uncertainty),
+                        ));
+                    }
+                    Err(MuxBatchError::Preparation(error)) => {
+                        let detail = format!("batch preparation failed: {error}");
+                        for ack in acks {
+                            let _ = ack.send(Err(MuxAdmitError::WriterUnavailable {
+                                detail: detail.clone(),
+                            }));
+                        }
+                        return Err(error);
+                    }
+                };
                 // Replicate-then-ack: the batch's durability class rises to
                 // a replicated tier only after enough peers hold the bytes.
                 if !cfg.replicas.is_empty() && !bytes.is_empty() {
@@ -1012,15 +1656,30 @@ pub fn spawn_mux_writer_cfg(
                         );
                     }
                 }
-                for (res, ack) in results.into_iter().zip(acks) {
-                    let _ = ack.send(res);
-                }
                 if cfg.flush_every_batches > 0 {
                     batches_since_sync += 1;
                     if batches_since_sync >= cfg.flush_every_batches {
-                        engine.sync_log()?;
+                        if let Err(error) = engine.sync_log() {
+                            let uncertainty = DurabilityUncertainty {
+                                stage: DurabilityFailureStage::Fsync,
+                                detail: error.to_string(),
+                                recovery: WriterRecovery::StoppedReopenRequired,
+                            };
+                            for ack in acks {
+                                let _ = ack.send(Err(MuxAdmitError::DurabilityUncertain(
+                                    uncertainty.clone(),
+                                )));
+                            }
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                MuxAdmitError::DurabilityUncertain(uncertainty),
+                            ));
+                        }
                         batches_since_sync = 0;
                     }
+                }
+                for (res, ack) in results.into_iter().zip(acks) {
+                    let _ = ack.send(res.map_err(MuxAdmitError::Refused));
                 }
             }
             // Projections run between batches: the log has no torn tail here.
@@ -1030,12 +1689,16 @@ pub fn spawn_mux_writer_cfg(
             for (domain, object_ref, tx) in exact_projections {
                 let _ = tx.send(engine.project_exact(&domain, &object_ref));
             }
+            for tx in statuses {
+                let _ = tx.send(engine.status_snapshot());
+            }
             if let Some(tx) = shutdown {
-                if cfg.flush_every_batches > 0 {
-                    let _ = engine.sync_log();
-                }
-                let _ = tx.send(());
-                return Ok(());
+                let result = engine.sync_log();
+                let acknowledgement = result.as_ref().map(|_| ()).map_err(|error| {
+                    std::io::Error::new(error.kind(), format!("mux final flush failed: {error}"))
+                });
+                let _ = tx.send(acknowledgement);
+                return result;
             }
         }
     });
@@ -1112,7 +1775,7 @@ mod tests {
         assert_eq!(exact.admission_root, ack.root);
         assert_eq!(exact.terminal_root, domain_ack.root);
         assert!(handle.project_exact("a", "o://missing").unwrap().is_none());
-        handle.shutdown();
+        handle.shutdown().unwrap();
         writer.join.join().unwrap().unwrap();
     }
 
@@ -1185,6 +1848,246 @@ mod tests {
         let error = engine.project_exact("a", "o://exact").unwrap_err();
         assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
         assert!(error.to_string().contains("outside"));
+    }
+
+    fn assert_corruption_open_preserves_log(directory: &Path, expected_cause: MuxCorruptionCause) {
+        let log_path = directory.join("muxlog.bin");
+        let before = std::fs::read(&log_path).unwrap();
+        let inspected = MuxEngine::inspect(directory).unwrap();
+        assert!(matches!(
+            inspected.recovery,
+            MuxRecoveryOutcome::CorruptionDetected { cause, .. }
+                if cause == expected_cause
+        ));
+        assert_eq!(
+            std::fs::read(&log_path).unwrap(),
+            before,
+            "read-only inspection must not alter corruption evidence"
+        );
+
+        let error = MuxEngine::open(directory, false)
+            .err()
+            .expect("corrupt mux log must fail open");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        let typed = error
+            .get_ref()
+            .and_then(|source| source.downcast_ref::<MuxCorruptionError>())
+            .expect("open error must retain typed mux corruption");
+        assert_eq!(typed.cause, expected_cause);
+        assert_eq!(
+            std::fs::read(&log_path).unwrap(),
+            before,
+            "failed open must leave corruption evidence byte-identical"
+        );
+    }
+
+    #[test]
+    fn status_first_inspection_does_not_initialize_writer_storage() {
+        let directory = tmp("status-first");
+        assert!(!directory.exists());
+        let inspected = MuxEngine::inspect(&directory).unwrap();
+        assert_eq!(inspected.recovery, MuxRecoveryOutcome::Clean);
+        assert!(inspected.domains.is_empty());
+        assert!(
+            !directory.exists(),
+            "status-first inspection must not create engine storage"
+        );
+
+        let mut engine = MuxEngine::open(&directory, false).unwrap();
+        engine
+            .admit_batch(vec![op("a", "o://first-writer", 1)])
+            .unwrap();
+        assert_eq!(engine.domain_next_seq("a"), 1);
+    }
+
+    #[test]
+    fn startup_recovery_discards_batch_with_partial_domain_root() {
+        let directory = tmp("recovery-partial-domain-root");
+        let baseline_bytes;
+        let baseline_root;
+        {
+            let mut engine = MuxEngine::open(&directory, false).unwrap();
+            engine
+                .admit_batch(vec![op("a", "o://baseline", 1)])
+                .unwrap();
+            baseline_bytes = engine.log_len().unwrap();
+            baseline_root = engine.domain_root("a").unwrap().clone();
+            engine
+                .admit_batch(vec![op("a", "o://next", 2), op("b", "o://new", 3)])
+                .unwrap();
+        }
+        let log_path = directory.join("muxlog.bin");
+        let complete_bytes = std::fs::metadata(&log_path).unwrap().len();
+        OpenOptions::new()
+            .write(true)
+            .open(&log_path)
+            .unwrap()
+            .set_len(complete_bytes - 1)
+            .unwrap();
+
+        let recovered = MuxEngine::open(&directory, false).unwrap();
+        assert_eq!(recovered.log_len().unwrap(), baseline_bytes);
+        assert_eq!(recovered.domain_root("a"), Some(&baseline_root));
+        assert_eq!(recovered.domain_next_seq("a"), 1);
+        assert_eq!(recovered.domain_next_seq("b"), 0);
+        assert!(matches!(
+            recovered.status_snapshot().unwrap().recovery,
+            MuxRecoveryOutcome::RecoverableTail {
+                cause: MuxRecoverableTailCause::PartialFrame,
+                retained_bytes,
+                ..
+            } if retained_bytes == baseline_bytes
+        ));
+    }
+
+    #[test]
+    fn startup_recovery_discards_syntactically_valid_unrooted_batch() {
+        let directory = tmp("recovery-unrooted-batch");
+        let baseline_bytes;
+        {
+            let mut engine = MuxEngine::open(&directory, false).unwrap();
+            engine
+                .admit_batch(vec![op("a", "o://baseline", 1)])
+                .unwrap();
+            baseline_bytes = engine.log_len().unwrap();
+            engine
+                .admit_batch(vec![op("a", "o://unrooted", 2)])
+                .unwrap();
+        }
+        let log_path = directory.join("muxlog.bin");
+        let bytes = std::fs::read(&log_path).unwrap();
+        let suffix = &bytes[usize::try_from(baseline_bytes).unwrap()..];
+        let admitted_body_bytes = u32::from_le_bytes(suffix[0..4].try_into().unwrap()) as u64;
+        OpenOptions::new()
+            .write(true)
+            .open(&log_path)
+            .unwrap()
+            .set_len(baseline_bytes + 4 + admitted_body_bytes)
+            .unwrap();
+
+        let recovered = MuxEngine::open(&directory, false).unwrap();
+        assert_eq!(recovered.log_len().unwrap(), baseline_bytes);
+        assert_eq!(recovered.domain_next_seq("a"), 1);
+        assert!(matches!(
+            recovered.recovery_outcome(),
+            MuxRecoveryOutcome::RecoverableTail {
+                cause: MuxRecoverableTailCause::UnrootedBatch,
+                retained_bytes,
+                ..
+            } if *retained_bytes == baseline_bytes
+        ));
+    }
+
+    #[test]
+    fn recovery_replays_one_large_safe_prefix_after_unrooted_tail() {
+        let directory = tmp("recovery-large-safe-prefix");
+        let baseline_bytes;
+        let baseline_root;
+        {
+            let mut engine = MuxEngine::open(&directory, false).unwrap();
+            for index in 0..2_048u64 {
+                engine
+                    .admit_batch(vec![op(
+                        "a",
+                        &format!("o://large-safe-prefix/{index}"),
+                        index,
+                    )])
+                    .unwrap();
+            }
+            baseline_bytes = engine.log_len().unwrap();
+            baseline_root = engine.domain_root("a").unwrap().clone();
+            engine
+                .admit_batch(vec![op("a", "o://unrooted-large-tail", 2_049)])
+                .unwrap();
+        }
+        let log_path = directory.join("muxlog.bin");
+        let bytes = std::fs::read(&log_path).unwrap();
+        let suffix = &bytes[usize::try_from(baseline_bytes).unwrap()..];
+        let admitted_body_bytes = u32::from_le_bytes(suffix[0..4].try_into().unwrap()) as u64;
+        OpenOptions::new()
+            .write(true)
+            .open(&log_path)
+            .unwrap()
+            .set_len(baseline_bytes + 4 + admitted_body_bytes)
+            .unwrap();
+
+        let recovered = MuxEngine::open(&directory, false).unwrap();
+        assert_eq!(recovered.log_len().unwrap(), baseline_bytes);
+        assert_eq!(recovered.domain_next_seq("a"), 2_048);
+        assert_eq!(recovered.domain_root("a"), Some(&baseline_root));
+        assert!(recovered
+            .domain_head("a", "o://large-safe-prefix/2047")
+            .is_some());
+        assert!(recovered
+            .domain_head("a", "o://unrooted-large-tail")
+            .is_none());
+    }
+
+    #[test]
+    fn startup_refuses_oversized_length_without_changing_bytes() {
+        let directory = tmp("recovery-oversized");
+        {
+            let mut engine = MuxEngine::open(&directory, false).unwrap();
+            engine
+                .admit_batch(vec![op("a", "o://baseline", 1)])
+                .unwrap();
+        }
+        let oversized = u32::try_from(MAX_STRICT_FRAME_BYTES + 1).unwrap();
+        OpenOptions::new()
+            .append(true)
+            .open(directory.join("muxlog.bin"))
+            .unwrap()
+            .write_all(&oversized.to_le_bytes())
+            .unwrap();
+        assert_corruption_open_preserves_log(&directory, MuxCorruptionCause::InvalidLength);
+    }
+
+    #[test]
+    fn startup_refuses_malformed_frame_without_changing_bytes() {
+        let directory = tmp("recovery-malformed");
+        {
+            let mut engine = MuxEngine::open(&directory, false).unwrap();
+            engine
+                .admit_batch(vec![op("a", "o://baseline", 1)])
+                .unwrap();
+        }
+        let mut log = OpenOptions::new()
+            .append(true)
+            .open(directory.join("muxlog.bin"))
+            .unwrap();
+        log.write_all(&1u32.to_le_bytes()).unwrap();
+        log.write_all(b"{").unwrap();
+        drop(log);
+        assert_corruption_open_preserves_log(&directory, MuxCorruptionCause::MalformedFrame);
+    }
+
+    #[test]
+    fn startup_refuses_semantically_invalid_frame_without_changing_bytes() {
+        let directory = tmp("recovery-invalid-frame");
+        {
+            let mut engine = MuxEngine::open(&directory, false).unwrap();
+            engine
+                .admit_batch(vec![op("a", "o://baseline", 1)])
+                .unwrap();
+        }
+        let invalid_root = MuxEngine::encode(&MuxLogFrame::DomainRoot {
+            domain: "a".to_string(),
+            rec: BatchRootRecord {
+                batch_seq: 1,
+                from_seq: 1,
+                to_seq: 1,
+                prev_root: "invalid".to_string(),
+                root: "invalid".to_string(),
+            },
+        })
+        .unwrap();
+        OpenOptions::new()
+            .append(true)
+            .open(directory.join("muxlog.bin"))
+            .unwrap()
+            .write_all(&invalid_root)
+            .unwrap();
+        assert_corruption_open_preserves_log(&directory, MuxCorruptionCause::InvalidFrame);
     }
 
     fn tmp(name: &str) -> PathBuf {
@@ -1345,7 +2248,7 @@ mod tests {
             assert_eq!(ack.durability, crate::Durability::ReplicatedSameHost);
             last = Some(ack);
         }
-        h.shutdown();
+        h.shutdown().unwrap();
         w.join.join().unwrap().unwrap();
         srv.join().unwrap();
         // Byte-identical logs -> identical replayed roots.
@@ -1390,7 +2293,7 @@ mod tests {
             let ack = h.admit(op("a", &format!("o://{}", i % 5), i)).unwrap();
             assert_eq!(ack.durability, crate::Durability::ReplicatedSameHost);
         }
-        h.shutdown();
+        h.shutdown().unwrap();
         w.join.join().unwrap().unwrap();
         srv.join().unwrap();
         let p = MuxEngine::open(&dp, false).unwrap();
@@ -1497,7 +2400,7 @@ mod tests {
             );
             let ack = h.admit(op("a", "o://1", 1)).unwrap();
             assert_eq!(ack.durability, expect);
-            h.shutdown();
+            h.shutdown().unwrap();
             w.join.join().unwrap().unwrap();
             for s in srvs {
                 s.join().unwrap();
@@ -1574,8 +2477,104 @@ mod tests {
             ns.contains(&3) && ns.contains(&2),
             "o://1 must be its latest write: {ns:?}"
         );
-        h.shutdown();
+        h.shutdown().unwrap();
         w.join.join().unwrap().unwrap();
+    }
+
+    #[test]
+    fn writer_status_snapshot_is_consistent_during_append() {
+        let directory = tmp("status-during-append");
+        let engine = MuxEngine::open(&directory, false).unwrap();
+        let (handle, writer) = spawn_mux_writer(engine, 32);
+        let start = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let append_handle = handle.clone();
+        let append_start = start.clone();
+        let append_done = done.clone();
+        let append = std::thread::spawn(move || {
+            append_start.wait();
+            for index in 0..512u64 {
+                append_handle
+                    .admit(op("a", &format!("o://{}", index % 7), index))
+                    .unwrap();
+            }
+            append_done.store(true, std::sync::atomic::Ordering::Release);
+        });
+        start.wait();
+        let mut saw_live_state = false;
+        while !done.load(std::sync::atomic::Ordering::Acquire) {
+            let snapshot = handle.status_snapshot().unwrap();
+            if let Some(state) = snapshot.domains.get("a") {
+                assert_ne!(state.root, GENESIS_ROOT);
+                assert!(state.next_seq <= 512);
+                saw_live_state |= state.next_seq < 512;
+            }
+            assert_eq!(snapshot.recovery, MuxRecoveryOutcome::Clean);
+        }
+        append.join().unwrap();
+        let terminal = handle.status_snapshot().unwrap();
+        assert_eq!(terminal.domains["a"].next_seq, 512);
+        assert!(
+            saw_live_state,
+            "status must be served while appends are live"
+        );
+        handle.shutdown().unwrap();
+        writer.join.join().unwrap().unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn writer_write_error_returns_typed_uncertainty_and_stops() {
+        let mut engine = MuxEngine::open(&tmp("writer-write-failure"), false).unwrap();
+        engine.log = OpenOptions::new().write(true).open("/dev/full").unwrap();
+        let (handle, writer) = spawn_mux_writer(engine, 16);
+        let error = handle.admit(op("a", "o://write-failure", 1)).unwrap_err();
+        assert!(matches!(
+            error,
+            MuxAdmitError::DurabilityUncertain(DurabilityUncertainty {
+                stage: DurabilityFailureStage::Write,
+                recovery: WriterRecovery::StoppedReopenRequired,
+                ..
+            })
+        ));
+        assert!(matches!(
+            handle.admit(op("a", "o://after-stop", 2)),
+            Err(MuxAdmitError::WriterUnavailable { .. })
+        ));
+        assert!(writer.join.join().unwrap().is_err());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn writer_fsync_error_returns_typed_uncertainty_and_stops() {
+        let mut engine = MuxEngine::open(&tmp("writer-fsync-failure"), true).unwrap();
+        engine.log = OpenOptions::new().write(true).open("/dev/null").unwrap();
+        let (handle, writer) = spawn_mux_writer(engine, 16);
+        let error = handle.admit(op("a", "o://fsync-failure", 1)).unwrap_err();
+        assert!(matches!(
+            error,
+            MuxAdmitError::DurabilityUncertain(DurabilityUncertainty {
+                stage: DurabilityFailureStage::Fsync,
+                recovery: WriterRecovery::StoppedReopenRequired,
+                ..
+            })
+        ));
+        assert!(matches!(
+            handle.admit(op("a", "o://after-stop", 2)),
+            Err(MuxAdmitError::WriterUnavailable { .. })
+        ));
+        assert!(writer.join.join().unwrap().is_err());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn shutdown_reports_final_flush_failure_to_caller_and_writer() {
+        let mut engine = MuxEngine::open(&tmp("writer-shutdown-fsync-failure"), false).unwrap();
+        engine.log = OpenOptions::new().write(true).open("/dev/null").unwrap();
+        let (handle, writer) = spawn_mux_writer(engine, 16);
+        let error = handle.shutdown().unwrap_err();
+        assert!(error.to_string().contains("mux final flush failed"));
+        assert!(writer.join.join().unwrap().is_err());
     }
 
     #[test]
@@ -1600,7 +2599,7 @@ mod tests {
         for j in joins {
             j.join().unwrap();
         }
-        h.shutdown();
+        h.shutdown().unwrap();
         w.join.join().unwrap().unwrap();
         let e = MuxEngine::open(&d, false).unwrap();
         let total: u64 = e.domains().map(|k| e.domain_next_seq(k)).sum();

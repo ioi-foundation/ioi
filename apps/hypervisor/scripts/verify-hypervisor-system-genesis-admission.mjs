@@ -55,6 +55,7 @@ const TEMP_PREFIXES = [
   "ioi-system-genesis-agentgres-durability-",
   "ioi-system-genesis-required-",
   "ioi-system-genesis-wallet-consumption-",
+  "ioi-system-genesis-binding-revocation-",
   "ioi-wallet-network-pa-",
 ];
 
@@ -115,6 +116,14 @@ function recordOutputHash(record, excludes = []) {
   const material = clone(record);
   for (const field of excludes) delete material[field];
   return `sha256:${createHash("sha256").update(canonicalJson(material)).digest("hex")}`;
+}
+
+function walletConsumptionReceiptHash(receipt) {
+  const material = clone(receipt);
+  material.receipt_hash = Array(32).fill(0);
+  return [
+    ...createHash("sha256").update(canonicalJson(material)).digest(),
+  ];
 }
 
 function recomputeReleaseHashes(release) {
@@ -750,15 +759,20 @@ async function runPrimaryJourney(resolver) {
     );
 
     const forgedConsumption = clone(persistedConsumption);
-    forgedConsumption.remaining_usages = 1;
+    forgedConsumption.consumed_at_ms = Math.max(
+      1,
+      Number(forgedConsumption.consumed_at_ms) - 1,
+    );
+    forgedConsumption.receipt_hash =
+      walletConsumptionReceiptHash(forgedConsumption);
     writeFileSync(consumptionPath, JSON.stringify(forgedConsumption));
     const forgedConsumptionRead = await call("GET", `${ROUTE}/${recordKey}`);
     writeFileSync(consumptionPath, consumptionBytes);
     ok(
-      "GET PROOF: a forged local wallet-use receipt refuses typed",
+      "GET PROOF: a self-consistent rehashed local wallet-use receipt still refuses against immutable Agentgres evidence",
       forgedConsumptionRead.status === 500 &&
         forgedConsumptionRead.body.error?.code ===
-          "system_genesis_local_evidence_mismatch",
+          "system_genesis_agentgres_evidence_mismatch",
       `${forgedConsumptionRead.status}/${forgedConsumptionRead.body.error?.code || "no-code"}`,
     );
 
@@ -985,7 +999,8 @@ async function runRequiredDurabilityConfirmation(resolver) {
       "AGENTGRES DURABILITY: an unconfirmed required-admission sync retains the intent and refuses success",
       pending.status === 500 &&
         pending.body.error?.code === "system_genesis_agentgres_admission_failed" &&
-        familyNames(dataDir, RECEIPT_FAMILY).length === 1 &&
+        familyNames(dataDir, CONSUMPTION_FAMILY).length === 1 &&
+        familyNames(dataDir, RECEIPT_FAMILY).length === 0 &&
         familyNames(dataDir, RECORD_FAMILY).length === 0 &&
         familyNames(dataDir, INTENT_FAMILY).length === 1 &&
         status.body.required_admission_durability?.includes(
@@ -1022,8 +1037,10 @@ async function runRequiredDurabilityConfirmation(resolver) {
       converged?.status === 200 &&
         requiredDomainState(statusAfter, RECORD_FAMILY) &&
         requiredDomainState(statusAfter, RECEIPT_FAMILY) &&
+        requiredDomainState(statusAfter, CONSUMPTION_FAMILY) &&
         familyNames(dataDir, RECORD_FAMILY).length === 1 &&
         familyNames(dataDir, RECEIPT_FAMILY).length === 1 &&
+        familyNames(dataDir, CONSUMPTION_FAMILY).length === 1 &&
         familyNames(dataDir, INTENT_FAMILY).length === 0 &&
         tempResidue(dataDir).length === 0,
       `${converged?.status || "no-status"} counts=${JSON.stringify(familyCounts(dataDir))}`,
@@ -1061,13 +1078,15 @@ async function runRequiredAdmissionBoundary(resolver) {
     });
     const recordNames = familyNames(dataDir, RECORD_FAMILY);
     const receiptNames = familyNames(dataDir, RECEIPT_FAMILY);
+    const consumptionNames = familyNames(dataDir, CONSUMPTION_FAMILY);
     const intentNames = familyNames(dataDir, INTENT_FAMILY);
     ok(
-      "AGENTGRES FAULT: POST stops pending after exactly one required record and receipt admission",
+      "AGENTGRES FAULT: POST stops pending after exactly one admission in each mandatory evidence domain",
       pending.status === 500 &&
         pending.body.error?.code === "system_genesis_pending_convergence" &&
         recordNames.length === 1 &&
         receiptNames.length === 1 &&
+        consumptionNames.length === 1 &&
         intentNames.length === 1 &&
         tempResidue(dataDir).length === 0,
       `${pending.status}/${pending.body.error?.code || "no-code"} counts=${JSON.stringify(familyCounts(dataDir))}`,
@@ -1085,6 +1104,10 @@ async function runRequiredAdmissionBoundary(resolver) {
       `post-Agentgres fault did not persist a receipt: ${JSON.stringify(pending)}`,
     );
     requireValue(
+      consumptionNames[0],
+      `post-Agentgres fault did not persist wallet-use evidence: ${JSON.stringify(pending)}`,
+    );
+    requireValue(
       intentNames[0],
       `post-Agentgres fault did not retain an intent: ${JSON.stringify(pending)}`,
     );
@@ -1093,28 +1116,39 @@ async function runRequiredAdmissionBoundary(resolver) {
       (response) =>
         response.status === 200 &&
         requiredDomainState(response, RECORD_FAMILY) &&
-        requiredDomainState(response, RECEIPT_FAMILY),
+        requiredDomainState(response, RECEIPT_FAMILY) &&
+        requiredDomainState(response, CONSUMPTION_FAMILY),
     );
     const requiredDomains = statusBefore?.body?.required_admission_domains || [];
     const soakDomains = statusBefore?.body?.soak?.domains || [];
     const recordStateBefore = requiredDomainState(statusBefore, RECORD_FAMILY);
     const receiptStateBefore = requiredDomainState(statusBefore, RECEIPT_FAMILY);
+    const consumptionStateBefore = requiredDomainState(
+      statusBefore,
+      CONSUMPTION_FAMILY,
+    );
     const pendingBySystem = await call(
       "GET",
       `${ROUTE}?system_id=${encodeURIComponent(SYSTEM_ID)}`,
     );
     const pendingByKey = await call("GET", `${ROUTE}/${recordKey}`);
     ok(
-      "AGENTGRES: both mandatory domains are admitted without soak while exact GETs remain pending",
+      "AGENTGRES: all three mandatory evidence domains are admitted without soak while exact GETs remain pending",
       statusBefore?.status === 200 &&
-        sameJson([...requiredDomains].sort(), [RECORD_FAMILY, RECEIPT_FAMILY].sort()) &&
+        sameJson(
+          [...requiredDomains].sort(),
+          [RECORD_FAMILY, RECEIPT_FAMILY, CONSUMPTION_FAMILY].sort(),
+        ) &&
         !soakDomains.includes(RECORD_FAMILY) &&
         !soakDomains.includes(RECEIPT_FAMILY) &&
+        !soakDomains.includes(CONSUMPTION_FAMILY) &&
         recordStateBefore &&
         receiptStateBefore &&
+        consumptionStateBefore &&
         Number(recordStateBefore.admitted_seq) > 0 &&
         Number(receiptStateBefore.admitted_seq) > 0 &&
-        (statusBefore.body.admitted || 0) >= 2 &&
+        Number(consumptionStateBefore.admitted_seq) > 0 &&
+        (statusBefore.body.admitted || 0) >= 3 &&
         statusBefore.body.errors === 0 &&
         statusBefore.body.engine_open_error === null &&
         pendingBySystem.status === 500 &&
@@ -1147,10 +1181,15 @@ async function runRequiredAdmissionBoundary(resolver) {
       (response) =>
         response.status === 200 &&
         requiredDomainState(response, RECORD_FAMILY) &&
-        requiredDomainState(response, RECEIPT_FAMILY),
+        requiredDomainState(response, RECEIPT_FAMILY) &&
+        requiredDomainState(response, CONSUMPTION_FAMILY),
     );
     const recordStateAfter = requiredDomainState(statusAfter, RECORD_FAMILY);
     const receiptStateAfter = requiredDomainState(statusAfter, RECEIPT_FAMILY);
+    const consumptionStateAfter = requiredDomainState(
+      statusAfter,
+      CONSUMPTION_FAMILY,
+    );
     const requiredDomainsAfter =
       statusAfter?.body?.required_admission_domains || [];
     const soakDomainsAfter = statusAfter?.body?.soak?.domains || [];
@@ -1165,19 +1204,21 @@ async function runRequiredAdmissionBoundary(resolver) {
         ) &&
         sameJson(
           [...requiredDomainsAfter].sort(),
-          [RECORD_FAMILY, RECEIPT_FAMILY].sort(),
+          [RECORD_FAMILY, RECEIPT_FAMILY, CONSUMPTION_FAMILY].sort(),
         ) &&
         !soakDomainsAfter.includes(RECORD_FAMILY) &&
         !soakDomainsAfter.includes(RECEIPT_FAMILY) &&
+        !soakDomainsAfter.includes(CONSUMPTION_FAMILY) &&
         sameJson(recordStateAfter, recordStateBefore) &&
         sameJson(receiptStateAfter, receiptStateBefore) &&
+        sameJson(consumptionStateAfter, consumptionStateBefore) &&
         statusAfter?.body?.errors === 0 &&
         statusAfter?.body?.engine_open_error === null &&
         familyNames(dataDir, RECORD_FAMILY).length === 1 &&
         familyNames(dataDir, RECEIPT_FAMILY).length === 1 &&
         familyNames(dataDir, INTENT_FAMILY).length === 0 &&
         tempResidue(dataDir).length === 0,
-      `record_state=${JSON.stringify(recordStateBefore)}->${JSON.stringify(recordStateAfter)} receipt_state=${JSON.stringify(receiptStateBefore)}->${JSON.stringify(receiptStateAfter)} counts=${JSON.stringify(familyCounts(dataDir))}`,
+      `record_state=${JSON.stringify(recordStateBefore)}->${JSON.stringify(recordStateAfter)} receipt_state=${JSON.stringify(receiptStateBefore)}->${JSON.stringify(receiptStateAfter)} consumption_state=${JSON.stringify(consumptionStateBefore)}->${JSON.stringify(consumptionStateAfter)} counts=${JSON.stringify(familyCounts(dataDir))}`,
     );
   } finally {
     if (plane) await plane.stop();
@@ -1259,6 +1300,110 @@ async function runWalletConsumptionReplay(resolver) {
   }
 }
 
+async function runBindingRevocationAfterPrepare(resolver) {
+  const dataDir = mkdtempSync(
+    join(tmpdir(), "ioi-system-genesis-binding-revocation-"),
+  );
+  ownedTempPaths.add(dataDir);
+  let plane;
+  try {
+    plane = await startIsolatedPlane({
+      serve: false,
+      env: {
+        ...resolver.env,
+        IOI_TEST_FORCE_SYSTEM_GENESIS_AFTER_PREPARE: "1",
+      },
+      dataDir,
+    });
+    if (!plane) {
+      throw new Error("BLOCKED: binding-revocation plane could not start");
+    }
+    let call = (method, path, requestBody) =>
+      jsonCall(plane.daemonUrl, method, path, requestBody);
+    const body = exactFixtureBody();
+    const { challenge, grant } = await challengeAndGrant(
+      call,
+      resolver,
+      body,
+    );
+    requireValue(
+      grant,
+      `binding-revocation lane did not expose a challenge: ${JSON.stringify(challenge)}`,
+    );
+    const pending = await call("POST", ROUTE, {
+      ...body,
+      wallet_approval_grant: grant,
+    });
+    const intentNames = familyNames(dataDir, INTENT_FAMILY);
+    const intentName = requireValue(
+      intentNames[0],
+      `prepare fault emitted no durable intent: ${JSON.stringify(pending)}`,
+    );
+    const intentPath = join(dataDir, INTENT_FAMILY, intentName);
+    const intentBefore = readFileSync(intentPath);
+    const revoked = await resolver.revokePrincipalAuthority(OWNER);
+    ok(
+      "WALLET BINDING PREPARE: the durable intent exists before a real root-signed principal-authority revocation",
+      pending.status === 500 &&
+        pending.body.error?.code === "system_genesis_pending_convergence" &&
+        intentNames.length === 1 &&
+        familyNames(dataDir, RECORD_FAMILY).length === 0 &&
+        familyNames(dataDir, RECEIPT_FAMILY).length === 0 &&
+        familyNames(dataDir, CONSUMPTION_FAMILY).length === 0 &&
+        revoked.binding_ref?.startsWith(
+          "wallet.network://principal-authority-binding/",
+        ),
+      `${pending.status}/${pending.body.error?.code || "no-code"} binding=${revoked.binding_ref || "missing"}`,
+    );
+
+    process.kill(plane.daemonPid, "SIGKILL");
+    await plane.stop();
+    plane = null;
+    plane = await startIsolatedPlane({
+      serve: false,
+      env: resolver.env,
+      dataDir,
+    });
+    if (!plane) {
+      throw new Error("BLOCKED: binding-revocation restart could not start");
+    }
+    call = (method, path, requestBody) =>
+      jsonCall(plane.daemonUrl, method, path, requestBody);
+    await delay(1_500);
+    const get = await call(
+      "GET",
+      `${ROUTE}?system_id=${encodeURIComponent(SYSTEM_ID)}`,
+    );
+    let restartLogs = "";
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      restartLogs = readdirSync(dataDir)
+        .filter((name) => name.startsWith("isolated-daemon-restart-"))
+        .map((name) => readFileSync(join(dataDir, name), "utf8"))
+        .join("\n");
+      if (restartLogs.includes("wallet consumption pending")) break;
+      await delay(500);
+    }
+    ok(
+      "WALLET BINDING ATOMICITY: revocation after prepare refuses first consumption with the intent byte-exact and zero admission effects",
+      get.status === 500 &&
+        get.body.error?.code === "system_genesis_pending_convergence" &&
+        familyNames(dataDir, INTENT_FAMILY).length === 1 &&
+        readFileSync(intentPath).equals(intentBefore) &&
+        familyNames(dataDir, RECORD_FAMILY).length === 0 &&
+        familyNames(dataDir, RECEIPT_FAMILY).length === 0 &&
+        familyNames(dataDir, CONSUMPTION_FAMILY).length === 0 &&
+        restartLogs.includes("wallet consumption pending") &&
+        restartLogs.includes(
+          "principal_authority_binding_coordinates_stale",
+        ),
+      `get=${get.status}/${get.body.error?.code || "no-code"} counts=${JSON.stringify(familyCounts(dataDir))} log_match=${restartLogs.includes("wallet consumption pending")}/${restartLogs.includes("principal_authority_binding_coordinates_stale")} log_tail=${JSON.stringify(restartLogs.slice(-400))}`,
+    );
+  } finally {
+    if (plane) await plane.stop();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
 async function runConcurrentExactAdmission(resolver) {
   const plane = await startIsolatedPlane({ serve: false, env: resolver.env });
   if (!plane) throw new Error("BLOCKED: concurrent admission plane could not start");
@@ -1310,6 +1455,84 @@ async function runConcurrentExactAdmission(resolver) {
   }
 }
 
+async function runStartupCompleterRace(resolver) {
+  const preparation = await startIsolatedPlane({
+    serve: false,
+    env: resolver.env,
+  });
+  if (!preparation) {
+    throw new Error("BLOCKED: startup-race preparation plane could not start");
+  }
+  ownedTempPaths.add(preparation.dataDir);
+  const body = exactFixtureBody();
+  let grant;
+  try {
+    const prepareCall = (method, path, requestBody) =>
+      jsonCall(preparation.daemonUrl, method, path, requestBody);
+    const result = await challengeAndGrant(
+      prepareCall,
+      resolver,
+      body,
+    );
+    grant = requireValue(
+      result.grant,
+      `startup-race preparation did not expose a challenge: ${JSON.stringify(result.challenge)}`,
+    );
+  } finally {
+    await preparation.stop();
+  }
+
+  const plane = await startIsolatedPlane({
+    serve: false,
+    env: {
+      ...resolver.env,
+      IOI_TEST_SYSTEM_GENESIS_COMPLETER_PRE_SCAN_PAUSE_MS: "750",
+    },
+  });
+  if (!plane) throw new Error("BLOCKED: startup-race plane could not start");
+  ownedTempPaths.add(plane.dataDir);
+  const call = (method, path, body) =>
+    jsonCall(plane.daemonUrl, method, path, body);
+  try {
+    const responses = await Promise.all(
+      Array.from({ length: 16 }, () =>
+        call("POST", ROUTE, {
+          ...body,
+          wallet_approval_grant: grant,
+        }),
+      ),
+    );
+    const admitted = responses.filter((response) => response.status === 201);
+    const refused = responses.filter(
+      (response) =>
+        response.status === 409 &&
+        [
+          "system_genesis_mutation_in_flight",
+          "system_genesis_already_admitted",
+        ].includes(response.body.error?.code),
+    );
+    const falseFailures = responses.filter((response) => response.status >= 500);
+    const get = await call(
+      "GET",
+      `${ROUTE}?system_id=${encodeURIComponent(SYSTEM_ID)}`,
+    );
+    ok(
+      "STARTUP OWNERSHIP: the boot completer and sixteen online admissions share one gate, yielding one 201 and no false convergence failure",
+      admitted.length === 1 &&
+        refused.length === 15 &&
+        falseFailures.length === 0 &&
+        get.status === 200 &&
+        familyNames(plane.dataDir, RECORD_FAMILY).length === 1 &&
+        familyNames(plane.dataDir, RECEIPT_FAMILY).length === 1 &&
+        familyNames(plane.dataDir, CONSUMPTION_FAMILY).length === 1 &&
+        familyNames(plane.dataDir, INTENT_FAMILY).length === 0,
+      `created=${admitted.length} refused=${refused.length} 5xx=${falseFailures.length} statuses=${responses.map((response) => `${response.status}/${response.body.error?.code || "ok"}`).join(",")}`,
+    );
+  } finally {
+    await plane.stop();
+  }
+}
+
 async function withFreshResolver(journey) {
   const resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
   try {
@@ -1327,10 +1550,12 @@ async function run() {
     const journeys = new Map([
       ["primary", runPrimaryJourney],
       ["wallet-replay", runWalletConsumptionReplay],
+      ["binding-revocation", runBindingRevocationAfterPrepare],
       ["durability", runDurabilityReplay],
       ["agentgres-durability", runRequiredDurabilityConfirmation],
       ["agentgres-replay", runRequiredAdmissionBoundary],
       ["concurrency", runConcurrentExactAdmission],
+      ["startup-race", runStartupCompleterRace],
     ]);
     const selected = (
       process.env.IOI_SYSTEM_GENESIS_VERIFIER_JOURNEYS ||

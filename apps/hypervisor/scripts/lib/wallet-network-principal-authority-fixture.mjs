@@ -207,6 +207,54 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
     rmSync(fixtureDir, { recursive: true, force: true });
     throw error;
   }
+  async function runCommand(payload) {
+    const { commandId, commandDir } = createCommandDirectory(commandsDir);
+    const requestPath = path.join(commandDir, "request.json");
+    const tempPath = path.join(commandDir, "request.json.tmp");
+    const command = JSON.stringify(payload);
+    if (Buffer.byteLength(command) > MAX_COMMAND_BYTES) {
+      rmSync(commandDir, { recursive: true, force: true });
+      throw new Error(
+        `wallet.network fixture command exceeds ${MAX_COMMAND_BYTES} bytes`,
+      );
+    }
+    writeFileSync(tempPath, command, {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600,
+    });
+    renameSync(tempPath, requestPath);
+
+    const responsePath = path.join(commandDir, "response.json");
+    const deadline = Date.now() + COMMAND_TIMEOUT_MS;
+    while (!existsSync(responsePath)) {
+      if (exited) {
+        throw new Error(
+          `real wallet.network fixture exited during ${payload.operation} (${JSON.stringify(exited)}):\n${output}`,
+        );
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(
+          `real wallet.network fixture ${payload.operation} timed out after ${COMMAND_TIMEOUT_MS}ms`,
+        );
+      }
+      await delay(25);
+    }
+    const response = JSON.parse(readFileSync(responsePath, "utf8"));
+    rmSync(commandDir, { recursive: true, force: true });
+    if (response.schema_version !== 1 || response.command_id !== commandId) {
+      throw new Error(
+        "real wallet.network fixture returned a mismatched command response",
+      );
+    }
+    if (!response.ok) {
+      throw new Error(
+        `wallet.network ${payload.operation} refused: ${response.error || "unknown error"}`,
+      );
+    }
+    return response;
+  }
+
   async function recordApproval(principalRef, policyHash, requestHash, grant) {
     if (!seeds.has(principalRef)) {
       throw new Error(`real wallet.network fixture has no approver for ${principalRef}`);
@@ -221,10 +269,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
       throw new Error("approval grant does not target the fixture capability account");
     }
 
-    const { commandId, commandDir } = createCommandDirectory(commandsDir);
-    const requestPath = path.join(commandDir, "request.json");
-    const tempPath = path.join(commandDir, "request.json.tmp");
-    const command = JSON.stringify({
+    const response = await runCommand({
       schema_version: 1,
       operation: "record_approval",
       principal_ref: principalRef,
@@ -232,34 +277,32 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
       request_hash: normalizedRequestHash,
       approval_grant: grant,
     });
-    if (Buffer.byteLength(command) > MAX_COMMAND_BYTES) {
-      rmSync(commandDir, { recursive: true, force: true });
-      throw new Error(`wallet.network fixture command exceeds ${MAX_COMMAND_BYTES} bytes`);
-    }
-    writeFileSync(tempPath, command, { encoding: "utf8", flag: "wx", mode: 0o600 });
-    renameSync(tempPath, requestPath);
-
-    const responsePath = path.join(commandDir, "response.json");
-    const deadline = Date.now() + COMMAND_TIMEOUT_MS;
-    while (!existsSync(responsePath)) {
-      if (exited) {
-        throw new Error(`real wallet.network fixture exited during record_approval (${JSON.stringify(exited)}):\n${output}`);
-      }
-      if (Date.now() >= deadline) {
-        throw new Error(`real wallet.network fixture record_approval timed out after ${COMMAND_TIMEOUT_MS}ms`);
-      }
-      await delay(25);
-    }
-    const response = JSON.parse(readFileSync(responsePath, "utf8"));
-    rmSync(commandDir, { recursive: true, force: true });
-    if (response.schema_version !== 1 || response.command_id !== commandId) {
-      throw new Error("real wallet.network fixture returned a mismatched command response");
-    }
-    if (!response.ok) {
-      throw new Error(`wallet.network record_approval refused: ${response.error || "unknown error"}`);
-    }
     if (response.request_hash !== normalizedRequestHash) {
       throw new Error("wallet.network record_approval response named a different request hash");
+    }
+    return response;
+  }
+
+  async function revokePrincipalAuthority(principalRef) {
+    if (!seeds.has(principalRef)) {
+      throw new Error(
+        `real wallet.network fixture has no binding for ${principalRef}`,
+      );
+    }
+    const response = await runCommand({
+      schema_version: 1,
+      operation: "revoke_principal_authority",
+      principal_ref: principalRef,
+    });
+    if (
+      typeof response.binding_ref !== "string" ||
+      !response.binding_ref.startsWith(
+        "wallet.network://principal-authority-binding/",
+      )
+    ) {
+      throw new Error(
+        "wallet.network revocation response lacks canonical binding coordinates",
+      );
     }
     return response;
   }
@@ -296,6 +339,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
       });
     },
     recordApproval,
+    revokePrincipalAuthority,
     async stop() {
       process.off("exit", exitCleanup);
       await tlsProxy.stop();

@@ -17,7 +17,9 @@
 //! `IOI_SUBSTRATE_DUAL_WRITE_DOMAINS`), which is the pre-promotion
 //! evidence lane proven by `substrate-parity`.
 
-use agentgres::mux::{spawn_mux_writer_cfg, ExactProjection, MuxEngine, MuxHandle, WriterConfig};
+use agentgres::mux::{
+    spawn_mux_writer_cfg, ExactProjection, MuxAdmitError, MuxEngine, MuxHandle, WriterConfig,
+};
 use agentgres::replica::ReplicaLink;
 use agentgres::{parse_rfc3339_ms, AdmitAck, Operation, Refusal};
 use axum::{extract::State, Json};
@@ -34,6 +36,7 @@ pub(crate) const PROMOTED_DOMAINS: &[&str] = &["provider-receipts"];
 pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-genesis-registry",
     "autonomous-system-genesis-receipts",
+    "autonomous-system-genesis-authority-consumptions",
 ];
 
 static HANDLE: OnceLock<Option<MuxHandle>> = OnceLock::new();
@@ -119,6 +122,9 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             format!("system-genesis-admission://{record_id}"),
         ),
         "autonomous-system-genesis-receipts" => ("receipt_ref", format!("receipt://{record_id}")),
+        "autonomous-system-genesis-authority-consumptions" => {
+            unreachable!("wallet consumption identity is validated from its 32-byte field")
+        }
         _ => unreachable!("required-admission domains are exhaustively matched"),
     }
 }
@@ -128,6 +134,39 @@ fn validate_required_identity(
     record_id: &str,
     record: &Value,
 ) -> std::io::Result<()> {
+    if record_dir == "autonomous-system-genesis-authority-consumptions" {
+        let Some(encoded_id) = record_id.strip_prefix("asgc_") else {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres wallet consumption key must start with 'asgc_'",
+            ));
+        };
+        if encoded_id.len() != 64
+            || !encoded_id
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres wallet consumption key must be 'asgc_' plus 64 lowercase hex characters",
+            ));
+        }
+        let consumption_id: [u8; 32] =
+            serde_json::from_value(record.get("consumption_id").cloned().unwrap_or(Value::Null))
+                .map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "required Agentgres wallet receipt must contain a 32-byte 'consumption_id'",
+                    )
+                })?;
+        if hex::encode(consumption_id) != encoded_id {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres wallet consumption key does not match the receipt 'consumption_id'",
+            ));
+        }
+        return Ok(());
+    }
     let (identity_field, expected_identity) = required_identity(record_dir, record_id);
     if record.get(identity_field).and_then(Value::as_str) == Some(expected_identity.as_str()) {
         return Ok(());
@@ -222,34 +261,57 @@ fn verify_required_ack(
 /// One-time idempotent backfill of a promoted family's legacy JSON dir into
 /// the engine, in canonical `(at, record_id)` order. Legacy files are left
 /// on disk as inert history; the engine is truth from here on.
-fn backfill_domain(engine: &mut MuxEngine, data_dir: &str, domain: &str) {
+fn backfill_domain_with(
+    engine: &mut MuxEngine,
+    data_dir: &str,
+    domain: &str,
+    mut admit: impl FnMut(
+        &mut MuxEngine,
+        Vec<Operation>,
+    ) -> std::io::Result<Vec<Result<AdmitAck, Refusal>>>,
+) -> std::io::Result<u64> {
     let legacy = std::path::Path::new(data_dir).join(domain);
-    let Ok(entries) = std::fs::read_dir(&legacy) else {
-        return;
+    let entries = match std::fs::read_dir(&legacy) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(error) => return Err(error),
     };
     let mut pending: Vec<(String, String, Value)> = Vec::new();
-    for entry in entries.flatten() {
+    for entry in entries {
+        let entry = entry?;
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("json") {
             continue;
         }
-        let Ok(bytes) = std::fs::read(&path) else {
-            continue;
-        };
-        let Ok(v) = serde_json::from_slice::<Value>(&bytes) else {
-            continue;
-        };
+        let bytes = std::fs::read(&path)?;
+        let v = serde_json::from_slice::<Value>(&bytes).map_err(|error| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "legacy backfill record '{}' is invalid JSON: {error}",
+                    path.display()
+                ),
+            )
+        })?;
         let id = v
             .get("receipt_id")
             .or_else(|| v.get("id"))
             .and_then(|x| x.as_str())
             .map(str::to_string)
-            .unwrap_or_else(|| {
+            .or_else(|| {
                 path.file_stem()
                     .and_then(|s| s.to_str())
-                    .unwrap_or("unknown")
-                    .to_string()
-            });
+                    .map(str::to_string)
+            })
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!(
+                        "legacy backfill record '{}' has no UTF-8 identity",
+                        path.display()
+                    ),
+                )
+            })?;
         let object_ref = format!("agentgres://{domain}/{id}");
         if engine.domain_head(domain, &object_ref).is_some() {
             continue; // already admitted — idempotent re-run
@@ -262,7 +324,7 @@ fn backfill_domain(engine: &mut MuxEngine, data_dir: &str, domain: &str) {
         pending.push((at, id, v));
     }
     if pending.is_empty() {
-        return;
+        return Ok(0);
     }
     pending.sort_by(|a, b| (a.0.as_str(), a.1.as_str()).cmp(&(b.0.as_str(), b.1.as_str())));
     let mut done = 0u64;
@@ -271,27 +333,102 @@ fn backfill_domain(engine: &mut MuxEngine, data_dir: &str, domain: &str) {
             .iter()
             .map(|(_, id, v)| build_op(domain, id, v))
             .collect();
-        match engine.admit_batch(ops) {
-            Ok(results) => done += results.iter().filter(|r| r.is_ok()).count() as u64,
-            Err(e) => {
-                eprintln!("substrate-store: backfill batch FAILED for {domain}: {e}");
-                break;
+        let results = admit(engine, ops)?;
+        if results.len() != chunk.len() {
+            return Err(std::io::Error::other(format!(
+                "legacy backfill for '{domain}' returned {} outcomes for {} records",
+                results.len(),
+                chunk.len()
+            )));
+        }
+        if let Some(refusal) = results.iter().find_map(|result| result.as_ref().err()) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("legacy backfill for '{domain}' was refused: {refusal}"),
+            ));
+        }
+        done += u64::try_from(results.len()).map_err(std::io::Error::other)?;
+    }
+    Ok(done)
+}
+
+fn backfill_domain(engine: &mut MuxEngine, data_dir: &str, domain: &str) -> std::io::Result<u64> {
+    backfill_domain_with(engine, data_dir, domain, MuxEngine::admit_batch)
+}
+
+fn backfill_promoted_domains(engine: &mut MuxEngine, data_dir: &str) -> std::io::Result<()> {
+    for domain in PROMOTED_DOMAINS {
+        let done = backfill_domain(engine, data_dir, domain)?;
+        BACKFILLED.fetch_add(done, Ordering::Relaxed);
+        eprintln!(
+            "substrate-store: backfilled {done} legacy {domain} records into the substrate engine"
+        );
+    }
+    Ok(())
+}
+
+fn initialize_handle_with(
+    data_dir: &str,
+    mut engine: MuxEngine,
+    addrs: Vec<String>,
+    want_async: bool,
+    backfill: impl FnOnce(&mut MuxEngine, &str) -> std::io::Result<()>,
+) -> Option<MuxHandle> {
+    if let Err(error) = backfill(&mut engine, data_dir) {
+        eprintln!(
+            "substrate-store: backfill FAILED ({error}) — writer will not start; restart must reopen and recover the engine"
+        );
+        return None;
+    }
+
+    let mut replicas = Vec::new();
+    if !addrs.is_empty() {
+        let independent = std::env::var("IOI_SUBSTRATE_REPLICA_INDEPENDENT")
+            .map(|v| v == "1")
+            .unwrap_or(false);
+        let epoch = engine.current_epoch();
+        let len = engine.log_len().unwrap_or(0);
+        let log_path = engine_dir(data_dir).join("muxlog.bin");
+        for address in &addrs {
+            match ReplicaLink::connect(address.as_str(), independent, epoch, &log_path, len) {
+                Ok(link) => replicas.push(link),
+                Err(error) => eprintln!(
+                    "substrate-store: replica {address} unreachable ({error}) — continuing without it"
+                ),
             }
         }
     }
-    BACKFILLED.fetch_add(done, Ordering::Relaxed);
-    eprintln!(
-        "substrate-store: backfilled {done} legacy {domain} records into the substrate engine"
+    let ack_quorum = std::env::var("IOI_SUBSTRATE_ACK_QUORUM")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(0);
+    let flush_every_batches = if want_async && replicas.is_empty() {
+        eprintln!(
+            "substrate-store: FAIL-SAFE — async flush requested but no replica connected; forcing per-batch sync"
+        );
+        1
+    } else {
+        0
+    };
+    let background_flush_ms = if want_async && !replicas.is_empty() {
+        std::env::var("IOI_SUBSTRATE_BG_FLUSH_MS")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(200)
+    } else {
+        0
+    };
+    let (handle, _writer) = spawn_mux_writer_cfg(
+        engine,
+        WriterConfig {
+            max_batch: 1024,
+            replicas,
+            ack_quorum,
+            flush_every_batches,
+            background_flush_ms,
+        },
     );
-}
-
-fn replica_addrs() -> Vec<String> {
-    std::env::var("IOI_SUBSTRATE_REPLICA_ADDRS")
-        .unwrap_or_default()
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
+    Some(handle)
 }
 
 fn handle(data_dir: &str) -> &'static Option<MuxHandle> {
@@ -304,59 +441,28 @@ fn handle(data_dir: &str) -> &'static Option<MuxHandle> {
         // replica; otherwise the fail-safe below restores per-batch sync.
         let want_async = !addrs.is_empty() && async_flush;
         match MuxEngine::open(&engine_dir(data_dir), !want_async) {
-            Ok(mut engine) => {
-                for domain in PROMOTED_DOMAINS {
-                    backfill_domain(&mut engine, data_dir, domain);
-                }
-                let mut replicas = Vec::new();
-                if !addrs.is_empty() {
-                    let independent = std::env::var("IOI_SUBSTRATE_REPLICA_INDEPENDENT")
-                        .map(|v| v == "1")
-                        .unwrap_or(false);
-                    let epoch = engine.current_epoch();
-                    let len = engine.log_len().unwrap_or(0);
-                    let log_path = engine_dir(data_dir).join("muxlog.bin");
-                    for a in &addrs {
-                        match ReplicaLink::connect(a.as_str(), independent, epoch, &log_path, len) {
-                            Ok(l) => replicas.push(l),
-                            Err(e) => eprintln!(
-                                "substrate-store: replica {a} unreachable ({e}) — continuing without it"
-                            ),
-                        }
-                    }
-                }
-                let ack_quorum = std::env::var("IOI_SUBSTRATE_ACK_QUORUM")
-                    .ok()
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(0);
-                let flush_every_batches = if want_async && replicas.is_empty() {
-                    eprintln!(
-                        "substrate-store: FAIL-SAFE — async flush requested but no replica connected; forcing per-batch sync"
-                    );
-                    1
-                } else {
-                    0
-                };
-                let background_flush_ms = if want_async && !replicas.is_empty() {
-                    std::env::var("IOI_SUBSTRATE_BG_FLUSH_MS")
-                        .ok()
-                        .and_then(|v| v.parse().ok())
-                        .unwrap_or(200)
-                } else {
-                    0
-                };
-                let (handle, _writer) = spawn_mux_writer_cfg(
-                    engine,
-                    WriterConfig { max_batch: 1024, replicas, ack_quorum, flush_every_batches, background_flush_ms },
-                );
-                Some(handle)
-            }
+            Ok(engine) => initialize_handle_with(
+                data_dir,
+                engine,
+                addrs,
+                want_async,
+                backfill_promoted_domains,
+            ),
             Err(e) => {
                 eprintln!("substrate-store: engine open FAILED ({e}) — promoted-family persistence will fail loudly");
                 None
             }
         }
     })
+}
+
+fn replica_addrs() -> Vec<String> {
+    std::env::var("IOI_SUBSTRATE_REPLICA_ADDRS")
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
 }
 
 /// Write path for promoted families: the engine IS truth; failure is a
@@ -385,13 +491,13 @@ fn admit_required_inner(
             ADMITTED.fetch_add(1, Ordering::Relaxed);
             Ok(())
         }
-        Err(refusal) => {
+        Err(error) => {
             ERRORS.fetch_add(1, Ordering::Relaxed);
             eprintln!(
-                "substrate-store: admission refused ({refusal}) record={record_dir}/{record_id}"
+                "substrate-store: admission failed ({error}) record={record_dir}/{record_id}"
             );
             Err(std::io::Error::other(format!(
-                "substrate admission refused: {refusal}"
+                "substrate admission failed: {error}"
             )))
         }
     }
@@ -436,7 +542,7 @@ pub(crate) fn admit_required(
     }
     let ack = match h.admit(operation.clone()) {
         Ok(ack) => ack,
-        Err(Refusal::ExpectedAbsentConflict { .. }) => {
+        Err(MuxAdmitError::Refused(Refusal::ExpectedAbsentConflict { .. })) => {
             let existing = h.project_exact(record_dir, &object_ref).map_err(|error| {
                 ERRORS.fetch_add(1, Ordering::Relaxed);
                 error
@@ -461,13 +567,13 @@ pub(crate) fn admit_required(
             })?;
             return Ok(());
         }
-        Err(refusal) => {
+        Err(error) => {
             ERRORS.fetch_add(1, Ordering::Relaxed);
             eprintln!(
-                "substrate-store: admission refused ({refusal}) record={record_dir}/{record_id}"
+                "substrate-store: admission failed ({error}) record={record_dir}/{record_id}"
             );
             return Err(std::io::Error::other(format!(
-                "substrate admission refused: {refusal}"
+                "substrate admission failed: {error}"
             )));
         }
     };
@@ -553,9 +659,9 @@ pub(crate) fn dual_write(data_dir: &str, record_dir: &str, record_id: &str, reco
         Ok(_) => {
             ADMITTED.fetch_add(1, Ordering::Relaxed);
         }
-        Err(refusal) => {
+        Err(error) => {
             ERRORS.fetch_add(1, Ordering::Relaxed);
-            eprintln!("substrate-store: soak dual-write refused ({refusal}) record={record_dir}/{record_id} — legacy path unaffected");
+            eprintln!("substrate-store: soak dual-write failed ({error}) record={record_dir}/{record_id} — legacy path unaffected");
         }
     }
 }
@@ -568,23 +674,40 @@ pub(crate) async fn handle_substrate_status(
 ) -> Json<Value> {
     let dir = engine_dir(&st.data_dir);
     let mut engine_domains = json!({});
-    let mut engine_open_error: Option<String> = None;
-    if dir.join("muxlog.bin").exists() {
-        match MuxEngine::open(&dir, false) {
-            Ok(engine) => {
+    let mut engine_open_error = matches!(HANDLE.get(), Some(None))
+        .then(|| "substrate engine unavailable after initialization failure".to_string());
+    let mut engine_recovery = Value::Null;
+    let snapshot = match HANDLE.get() {
+        Some(Some(handle)) => handle.status_snapshot(),
+        Some(None) => MuxEngine::inspect(&dir),
+        None => MuxEngine::inspect(&dir),
+    };
+    match snapshot {
+        Ok(snapshot) => {
+            engine_recovery = serde_json::to_value(&snapshot.recovery).unwrap_or_else(
+                |error| json!({"outcome": "status_encoding_failed", "detail": error.to_string()}),
+            );
+            if !snapshot.domains.is_empty() {
                 let mut m = serde_json::Map::new();
-                for d in engine.domains() {
+                for (domain, state) in snapshot.domains {
                     m.insert(
-                        d.clone(),
+                        domain,
                         json!({
-                            "root": engine.domain_root(d),
-                            "admitted_seq": engine.domain_next_seq(d),
+                            "root": state.root,
+                            "admitted_seq": state.next_seq,
                         }),
                     );
                 }
                 engine_domains = Value::Object(m);
             }
-            Err(e) => engine_open_error = Some(e.to_string()),
+        }
+        Err(error) => {
+            engine_open_error = Some(match engine_open_error {
+                Some(initialization_error) => {
+                    format!("{initialization_error}; status inspection failed: {error}")
+                }
+                None => error.to_string(),
+            })
         }
     }
     let residual_legacy: Value = PROMOTED_DOMAINS
@@ -606,6 +729,7 @@ pub(crate) async fn handle_substrate_status(
         "engine_dir": dir.display().to_string(),
         "engine_domains": engine_domains,
         "engine_open_error": engine_open_error,
+        "engine_recovery": engine_recovery,
         "admitted": ADMITTED.load(Ordering::Relaxed),
         "errors": ERRORS.load(Ordering::Relaxed),
         "backfilled": BACKFILLED.load(Ordering::Relaxed),
@@ -633,6 +757,7 @@ mod tests {
 
     const REQUIRED_DOMAIN: &str = "autonomous-system-genesis-registry";
     const REQUIRED_ID: &str = "sga_0123456789abcdef";
+    const CONSUMPTION_DOMAIN: &str = "autonomous-system-genesis-authority-consumptions";
 
     fn required_record() -> Value {
         json!({
@@ -651,6 +776,50 @@ mod tests {
             admission_root: "sha256:admission-root".to_string(),
             terminal_root: "sha256:terminal-root".to_string(),
         }
+    }
+
+    #[test]
+    fn backfill_failure_prevents_writer_start_and_requires_reopen() {
+        let data_dir = std::env::temp_dir().join(format!(
+            "ioi-substrate-backfill-failure-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&data_dir);
+        let legacy = data_dir.join(PROMOTED_DOMAINS[0]);
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::write(
+            legacy.join("receipt.json"),
+            serde_json::to_vec(&json!({
+                "receipt_id": "receipt://backfill-failure",
+                "at": "2026-07-19T12:00:00Z"
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let engine = MuxEngine::open(&engine_dir(data_dir.to_str().unwrap()), true).unwrap();
+        let initialized = initialize_handle_with(
+            data_dir.to_str().unwrap(),
+            engine,
+            Vec::new(),
+            false,
+            |engine, root| {
+                backfill_domain_with(engine, root, PROMOTED_DOMAINS[0], |_engine, _operations| {
+                    Err(std::io::Error::other(
+                        "test-forced backfill durability uncertainty",
+                    ))
+                })
+                .map(|_| ())
+            },
+        );
+        assert!(
+            initialized.is_none(),
+            "a failed backfill must not start the writer"
+        );
+
+        let reopened = MuxEngine::open(&engine_dir(data_dir.to_str().unwrap()), true).unwrap();
+        assert_eq!(reopened.domain_next_seq(PROMOTED_DOMAINS[0]), 0);
+        assert_eq!(reopened.log_len().unwrap(), 0);
+        std::fs::remove_dir_all(data_dir).unwrap();
     }
 
     #[test]
@@ -694,5 +863,43 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(conflict.kind(), std::io::ErrorKind::AlreadyExists);
+    }
+
+    #[test]
+    fn wallet_consumption_required_identity_binds_canonical_key_to_receipt_bytes() {
+        let consumption_id = [0xabu8; 32];
+        let record_id = format!("asgc_{}", hex::encode(consumption_id));
+        let record = json!({
+            "schema_version": 1,
+            "consumption_id": consumption_id,
+        });
+        assert!(REQUIRED_ADMISSION_DOMAINS.contains(&CONSUMPTION_DOMAIN));
+        validate_required_domain(CONSUMPTION_DOMAIN).unwrap();
+        validate_required_identity(CONSUMPTION_DOMAIN, &record_id, &record).unwrap();
+
+        let uppercase = format!("asgc_{}", hex::encode_upper(consumption_id));
+        assert_eq!(
+            validate_required_identity(CONSUMPTION_DOMAIN, &uppercase, &record)
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::InvalidInput
+        );
+        let mismatched = format!("asgc_{}", "cd".repeat(32));
+        assert_eq!(
+            validate_required_identity(CONSUMPTION_DOMAIN, &mismatched, &record)
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::InvalidInput
+        );
+        assert_eq!(
+            validate_required_identity(
+                CONSUMPTION_DOMAIN,
+                &record_id,
+                &json!({"consumption_id": vec![0xabu8; 31]})
+            )
+            .unwrap_err()
+            .kind(),
+            std::io::ErrorKind::InvalidInput
+        );
     }
 }
