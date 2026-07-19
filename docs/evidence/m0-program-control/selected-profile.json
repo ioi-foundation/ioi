@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-18",
-  "build_fingerprint": "204bf06961621232e15074aa6be127730f36630c22c1058b0d5400de630fba03",
+  "build_fingerprint": "3b3b5a9a7567d1992ebb502de89acfb50bd34e432e9b2ee3ed20c53554b0add6",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -226,7 +226,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "ef144796d5fa8eb77cb31eb367d8e04ade16dbd64f4ffebd8e278dbc66da936a",
+        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -254,7 +254,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "33f777c34917d416ba935dfd71c31228ae2634ed8aa8b921f2dde136a701f067",
+        "source_anchor_sha256": "68c468887f3b9e2f5298b3fad25bfd9186bde06018feda0f2e9254c0bfd22c19",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
         "symbol": "spawn_mux_writer_cfg"
       },
@@ -282,7 +282,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "ef144796d5fa8eb77cb31eb367d8e04ade16dbd64f4ffebd8e278dbc66da936a",
+        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "spawn_mux_writer_cfg"
       },
@@ -310,7 +310,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "ef144796d5fa8eb77cb31eb367d8e04ade16dbd64f4ffebd8e278dbc66da936a",
+        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "handle_auth_login"
       },
@@ -324,7 +324,7 @@
         "claim_state": "verified_effect_leaf",
         "note": "Every admit and refusal branch calls emit_receipt, whose final leaf persists an authority-receipt record.",
         "resolution": "verified_effect_leaf",
-        "source_anchor_sha256": "e02015f85f95900316b7f94c0f65b87c5c5e1057a69bc9a2535c46949b947322",
+        "source_anchor_sha256": "4d369145914064cb692b7e99b69a30f944d99fe101cfe389b58af5f4a4953ad9",
         "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
         "symbol": "persist_record[authority-receipts]"
       },
@@ -338,7 +338,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "33f777c34917d416ba935dfd71c31228ae2634ed8aa8b921f2dde136a701f067",
+        "source_anchor_sha256": "68c468887f3b9e2f5298b3fad25bfd9186bde06018feda0f2e9254c0bfd22c19",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
         "symbol": "persist_record"
       },
@@ -352,7 +352,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "33f777c34917d416ba935dfd71c31228ae2634ed8aa8b921f2dde136a701f067",
+        "source_anchor_sha256": "68c468887f3b9e2f5298b3fad25bfd9186bde06018feda0f2e9254c0bfd22c19",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
         "symbol": "persist_goal_run_atomic"
       },
@@ -366,7 +366,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "33f777c34917d416ba935dfd71c31228ae2634ed8aa8b921f2dde136a701f067",
+        "source_anchor_sha256": "68c468887f3b9e2f5298b3fad25bfd9186bde06018feda0f2e9254c0bfd22c19",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
         "symbol": "persist_record"
       },
@@ -380,7 +380,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "a3413172e9a3033fc3511066544a2e3f853fd42352825e7ba321fdf92d74cd5b",
+        "source_anchor_sha256": "1e58fb908fd8f9b383549432f3e49e60a7b4337c33c5a0a0594693da70aacd82",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
         "symbol": "handle_outcome_room_create"
       },
@@ -394,7 +394,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "a3413172e9a3033fc3511066544a2e3f853fd42352825e7ba321fdf92d74cd5b",
+        "source_anchor_sha256": "1e58fb908fd8f9b383549432f3e49e60a7b4337c33c5a0a0594693da70aacd82",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
         "symbol": "handle_outcome_room_attach_goal_run"
       },
@@ -408,7 +408,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "ec8e4c3b2f711f8b502e62f62f1686c2366c3588a56f9f6c01e7eff3e13c0e70",
+        "source_anchor_sha256": "77d8e82c5ec3eb40ec51ac0c7506a2e8c7587339cb1d551a5348794ec7cd069c",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
         "symbol": "persist_and_complete_intent_locked"
       },
@@ -422,7 +422,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "ec8e4c3b2f711f8b502e62f62f1686c2366c3588a56f9f6c01e7eff3e13c0e70",
+        "source_anchor_sha256": "77d8e82c5ec3eb40ec51ac0c7506a2e8c7587339cb1d551a5348794ec7cd069c",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
         "symbol": "persist_and_complete_intent_locked"
       },
@@ -436,7 +436,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
         "resolution": "handler_boundary_only",
-        "source_anchor_sha256": "76019eeeebac2f81ad6063ab8a4315f102ed7f111c91557b9c8492d84f8c5fa0",
+        "source_anchor_sha256": "cc3aeaf091b5f2387589264e125bcb2bc15a809cfe291e98450cc9920bad4445",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
         "symbol": "handle_work_result_create"
       },
@@ -464,7 +464,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "ef144796d5fa8eb77cb31eb367d8e04ade16dbd64f4ffebd8e278dbc66da936a",
+        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "admit_and_persist_event"
       },
@@ -478,7 +478,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "ef144796d5fa8eb77cb31eb367d8e04ade16dbd64f4ffebd8e278dbc66da936a",
+        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "admit_and_persist_event"
       },
