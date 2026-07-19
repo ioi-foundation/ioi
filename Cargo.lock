@@ -7189,6 +7189,7 @@ dependencies = [
  "ioi-crypto",
  "libp2p",
  "parity-scale-codec",
+ "proc-macro2",
  "prost 0.13.5",
  "regex",
  "schemars 0.8.22",

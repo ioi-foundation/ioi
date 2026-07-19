@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 
+use proc_macro2::{TokenStream, TokenTree};
 use syn::visit::{self, Visit};
-use syn::{Attribute, File, Item, ItemUse, Path, UseTree};
+use syn::{Attribute, File, Item, ItemExternCrate, ItemUse, Path, UseTree};
 
 const COMPILER_SOURCE: &str = include_str!("../src/app/system_genesis.rs");
 
@@ -162,6 +163,17 @@ impl<'ast> Visit<'ast> for CapabilityVisitor<'_> {
         visit::visit_item_use(self, item_use);
     }
 
+    fn visit_item_extern_crate(&mut self, item: &'ast ItemExternCrate) {
+        let alias = item
+            .rename
+            .as_ref()
+            .map(|(_, alias)| format!(" as {alias}"))
+            .unwrap_or_default();
+        self.imports
+            .insert(format!("extern crate {}{alias}", item.ident));
+        visit::visit_item_extern_crate(self, item);
+    }
+
     fn visit_path(&mut self, path: &'ast Path) {
         let rendered = path
             .segments
@@ -188,7 +200,35 @@ impl<'ast> Visit<'ast> for CapabilityVisitor<'_> {
             self.forbidden_capabilities.insert("filesystem".to_owned());
         }
         classify_path(&rendered, self.forbidden_capabilities);
+        classify_token_paths(&expression.tokens, self.forbidden_capabilities);
         visit::visit_macro(self, expression);
+    }
+}
+
+fn classify_token_paths(tokens: &TokenStream, violations: &mut BTreeSet<String>) {
+    let trees = tokens.clone().into_iter().collect::<Vec<_>>();
+    for (index, tree) in trees.iter().enumerate() {
+        if let TokenTree::Group(group) = tree {
+            classify_token_paths(&group.stream(), violations);
+        }
+        let TokenTree::Ident(first) = tree else {
+            continue;
+        };
+        let mut path = first.to_string();
+        classify_path(&path, violations);
+        let mut cursor = index + 1;
+        while cursor + 2 < trees.len()
+            && matches!(&trees[cursor], TokenTree::Punct(punct) if punct.as_char() == ':')
+            && matches!(&trees[cursor + 1], TokenTree::Punct(punct) if punct.as_char() == ':')
+        {
+            let TokenTree::Ident(segment) = &trees[cursor + 2] else {
+                break;
+            };
+            path.push_str("::");
+            path.push_str(&segment.to_string());
+            classify_path(&path, violations);
+            cursor += 3;
+        }
     }
 }
 
@@ -239,6 +279,14 @@ fn system_genesis_source_policy_catches_grouped_aliased_imports() {
         BTreeSet::from(["filesystem".to_owned()]),
     );
     assert!(nested.imports.contains("std::fs as disk"));
+
+    let extern_alias = parse_and_analyze(
+        "extern crate std as runtime; fn compile() { runtime::fs::read(\"x\"); }",
+    );
+    assert!(
+        extern_alias.imports.contains("extern crate std as runtime"),
+        "extern-crate aliases must enter the exact production import census",
+    );
 }
 
 #[test]
@@ -258,6 +306,33 @@ fn system_genesis_source_policy_ignores_only_structural_cfg_test_items() {
         parse_and_analyze(fake_marker).forbidden_capabilities,
         BTreeSet::from(["filesystem".to_owned()]),
         "comment text must not truncate production analysis",
+    );
+}
+
+#[test]
+fn system_genesis_source_policy_descends_into_macro_tokens() {
+    let formatted =
+        parse_and_analyze("fn compile() { let _ = format!(\"{:?}\", std::fs::read(\"x\")); }");
+    assert_eq!(
+        formatted.forbidden_capabilities,
+        BTreeSet::from(["filesystem".to_owned()]),
+        "a forbidden path inside macro arguments escaped",
+    );
+
+    let local_macro = parse_and_analyze(
+        "macro_rules! effect { () => { std::process::Command::new(\"x\") } } fn compile() { effect!(); }",
+    );
+    assert_eq!(
+        local_macro.forbidden_capabilities,
+        BTreeSet::from(["process".to_owned()]),
+        "a forbidden path inside a local macro definition escaped",
+    );
+
+    let harmless_literal =
+        parse_and_analyze("fn compile() { let _ = format!(\"std::fs is documentation\"); }");
+    assert!(
+        harmless_literal.forbidden_capabilities.is_empty(),
+        "string-literal text must not be treated as executable syntax",
     );
 }
 

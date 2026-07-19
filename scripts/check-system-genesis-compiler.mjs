@@ -53,7 +53,10 @@ function main(args) {
   const sourcePolicy = fs.readFileSync(sourcePolicyPath, "utf8");
   for (const requiredProbe of [
     "use std::{fs as disk}",
+    "extern crate std as runtime",
     "fake_marker",
+    "classify_token_paths",
+    "system_genesis_source_policy_descends_into_macro_tokens",
     "ALLOWED_PRODUCTION_IMPORTS",
     "FORBIDDEN_CAPABILITY_PREFIXES",
   ]) {

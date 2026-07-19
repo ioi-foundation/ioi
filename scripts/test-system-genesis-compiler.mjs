@@ -13,8 +13,14 @@ const sourcePolicyPath = path.join(
 test("syntax-aware purity policy carries alias and fake-marker regressions", () => {
   const source = fs.readFileSync(sourcePolicyPath, "utf8");
   assert.match(source, /use std::\{fs as disk\}/u);
+  assert.match(source, /extern crate std as runtime/u);
   assert.match(source, /fake_marker/u);
   assert.match(source, /comment text must not truncate production analysis/u);
+  assert.match(source, /classify_token_paths/u);
+  assert.match(
+    source,
+    /system_genesis_source_policy_descends_into_macro_tokens/u,
+  );
   assert.match(source, /ALLOWED_PRODUCTION_IMPORTS/u);
 });
 
