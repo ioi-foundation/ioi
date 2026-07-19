@@ -27,6 +27,8 @@ fn wallet_network_policy_exposes_policy_rule_upsert() {
         "revoke_principal_authority_binding@v1",
         "resolve_principal_authority@v1",
         "lookup_principal_authority_binding@v1",
+        "consume_approval_grant@v1",
+        "consume_approval_grant_for_effect@v1",
     ] {
         assert_eq!(
             wallet.methods.get(method),
