@@ -6,9 +6,7 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import {
-  ARCHITECTURE_CONTRACT_CONSUMER_TARGETS,
-} from "./lib/architecture-contract-consumer-targets.mjs";
+import { ARCHITECTURE_CONTRACT_CONSUMER_TARGETS } from "./lib/architecture-contract-consumer-targets.mjs";
 import { architectureContractConsumerBindingFailures } from "./lib/architecture-contract-consumer-bindings.mjs";
 import { safeRepositoryPath } from "./lib/repository-path-boundary.mjs";
 
@@ -174,8 +172,7 @@ function preflightGeneratedTargets(registryDocument) {
         fail(`${targetAt}: unknown generated target kind ${target.kind}`);
         continue;
       }
-      const consumerTarget =
-        PINNED_CONSUMER_TARGET_BY_KIND.get(target.kind);
+      const consumerTarget = PINNED_CONSUMER_TARGET_BY_KIND.get(target.kind);
       if (target.path !== consumerTarget.path) {
         fail(
           `${targetAt}: generated target path must match canonical ${target.kind} consumer ${consumerTarget.path}`,
@@ -186,7 +183,9 @@ function preflightGeneratedTargets(registryDocument) {
       }
       seenKinds.add(target.kind);
       if (expectedSymbol === null || target.symbol !== expectedSymbol) {
-        fail(`${targetAt}: generated target symbol must be ${expectedSymbol ?? "derivable"}`);
+        fail(
+          `${targetAt}: generated target symbol must be ${expectedSymbol ?? "derivable"}`,
+        );
       }
       const definition = `${target.kind}\u0000${target.path}\u0000${target.symbol}`;
       if (seenDefinitions.has(definition)) {
@@ -241,7 +240,9 @@ function checkPortableSchemaProfiles(value, at = "$") {
     value.format === "date-time" &&
     value.pattern !== portableCanonicalDateTimePattern
   ) {
-    fail(`${at}: date-time schema lacks the portable canonical RFC3339 pattern`);
+    fail(
+      `${at}: date-time schema lacks the portable canonical RFC3339 pattern`,
+    );
   }
   for (const [key, item] of Object.entries(value)) {
     checkPortableSchemaProfiles(item, `${at}.${key}`);
@@ -258,11 +259,15 @@ function resolvePointer(value, ref) {
 }
 
 function valueAtPath(value, pointer) {
-  if (typeof pointer !== "string" || !pointer.startsWith("$.")) return undefined;
+  if (typeof pointer !== "string" || !pointer.startsWith("$."))
+    return undefined;
   return pointer
     .slice(2)
     .split(".")
-    .reduce((current, part) => (isObject(current) ? current[part] : undefined), value);
+    .reduce(
+      (current, part) => (isObject(current) ? current[part] : undefined),
+      value,
+    );
 }
 
 function evaluateInvariants(profiles, value, expectedSchemaHash) {
@@ -310,6 +315,34 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
           valueAtPath(value, expression.paths[0]),
           valueAtPath(value, expression.paths[1]),
         );
+      } else if (
+        expression.operator === "array_field_equals" &&
+        typeof expression.array_path === "string" &&
+        typeof expression.field === "string" &&
+        typeof expression.expected_path === "string"
+      ) {
+        const values = valueAtPath(value, expression.array_path);
+        const expected = valueAtPath(value, expression.expected_path);
+        valid =
+          Array.isArray(values) &&
+          expected !== undefined &&
+          values.every(
+            (item) =>
+              isObject(item) && Object.is(item[expression.field], expected),
+          );
+      } else if (
+        expression.operator === "optional_field_equals" &&
+        typeof expression.optional_object_path === "string" &&
+        typeof expression.field === "string" &&
+        typeof expression.expected_path === "string"
+      ) {
+        const optional = valueAtPath(value, expression.optional_object_path);
+        const expected = valueAtPath(value, expression.expected_path);
+        valid =
+          optional === null ||
+          (isObject(optional) &&
+            expected !== undefined &&
+            Object.is(optional[expression.field], expected));
       } else if (expression.operator === "matches_contract_schema_hash") {
         valid = valueAtPath(value, expression.path) === expectedSchemaHash;
       } else if (
@@ -322,9 +355,13 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
         valid =
           typeof left === "number" &&
           typeof right === "number" &&
-          (expression.operator === "numbers_lte" ? left <= right : left < right);
+          (expression.operator === "numbers_lte"
+            ? left <= right
+            : left < right);
       } else {
-        fail(`${profile.$id}: unsupported invariant operator ${expression.operator}`);
+        fail(
+          `${profile.$id}: unsupported invariant operator ${expression.operator}`,
+        );
       }
       if (!valid) errors.push(rule.rule_id);
     }
@@ -384,23 +421,36 @@ function checkRegistryMetadata(registry) {
   const ids = new Set();
   for (const contract of registry.contracts) {
     for (const field of required) {
-      if (!Object.hasOwn(contract, field)) fail(`${contract.contract_id ?? "contract"}: missing ${field}`);
+      if (!Object.hasOwn(contract, field))
+        fail(`${contract.contract_id ?? "contract"}: missing ${field}`);
     }
-    if (ids.has(contract.contract_id)) fail(`registry: duplicate ${contract.contract_id}`);
+    if (ids.has(contract.contract_id))
+      fail(`registry: duplicate ${contract.contract_id}`);
     ids.add(contract.contract_id);
-    if (!/^schema:\/\/ioi\/[a-z0-9/-]+\/v[1-9][0-9]*$/u.test(contract.contract_id)) {
+    if (
+      !/^schema:\/\/ioi\/[a-z0-9/-]+\/v[1-9][0-9]*$/u.test(contract.contract_id)
+    ) {
       fail(`${contract.contract_id}: invalid contract id`);
     }
     if (!/^[A-Z][A-Za-z0-9]+$/u.test(contract.canonical_name)) {
       fail(`${contract.contract_id}: invalid canonical_name`);
     }
-    if (!["implemented", "partial", "target", "research", "reserved"].includes(contract.maturity)) {
+    if (
+      !["implemented", "partial", "target", "research", "reserved"].includes(
+        contract.maturity,
+      )
+    ) {
       fail(`${contract.contract_id}: invalid maturity`);
     }
-    if (!["experimental", "provisional", "stable", "deprecated"].includes(contract.stability)) {
+    if (
+      !["experimental", "provisional", "stable", "deprecated"].includes(
+        contract.stability,
+      )
+    ) {
       fail(`${contract.contract_id}: invalid stability`);
     }
-    if (contract.wire_format !== "json") fail(`${contract.contract_id}: pilot wire format must be json`);
+    if (contract.wire_format !== "json")
+      fail(`${contract.contract_id}: pilot wire format must be json`);
     if (
       contract.canonical_encoding_profile_ref !== null &&
       !/^encoding-profile:\/\/ioi\/[a-z0-9/-]+\/v[1-9][0-9]*$/u.test(
@@ -421,19 +471,37 @@ function checkRegistryMetadata(registry) {
     ) {
       fail(`${contract.contract_id}: incomplete evolution metadata`);
     } else {
-      if (!['initial', 'backward_compatible', 'breaking'].includes(contract.evolution.compatibility)) {
+      if (
+        !["initial", "backward_compatible", "breaking"].includes(
+          contract.evolution.compatibility,
+        )
+      ) {
         fail(`${contract.contract_id}: invalid evolution compatibility`);
       }
-      if (!['none', 'explicit_adapter_required'].includes(contract.evolution.migration_policy)) {
+      if (
+        !["none", "explicit_adapter_required"].includes(
+          contract.evolution.migration_policy,
+        )
+      ) {
         fail(`${contract.contract_id}: invalid migration policy`);
       }
-      if (typeof contract.evolution.predecessor_remains_valid !== 'boolean') {
-        fail(`${contract.contract_id}: predecessor_remains_valid must be boolean`);
+      if (typeof contract.evolution.predecessor_remains_valid !== "boolean") {
+        fail(
+          `${contract.contract_id}: predecessor_remains_valid must be boolean`,
+        );
       }
-      if (contract.evolution.wire_mutation_policy !== 'forbidden') {
-        fail(`${contract.contract_id}: durable wire mutation must remain forbidden`);
+      if (contract.evolution.wire_mutation_policy !== "forbidden") {
+        fail(
+          `${contract.contract_id}: durable wire mutation must remain forbidden`,
+        );
       }
-      if (!['none', 'canonical_body_changed', 'signature_preimage_changed'].includes(contract.evolution.hash_impact)) {
+      if (
+        ![
+          "none",
+          "canonical_body_changed",
+          "signature_preimage_changed",
+        ].includes(contract.evolution.hash_impact)
+      ) {
         fail(`${contract.contract_id}: invalid hash impact`);
       }
     }
@@ -454,37 +522,62 @@ function checkRegistryMetadata(registry) {
         fail(error instanceof Error ? error.message : String(error));
       }
       if (ownerPath && !markdownAnchorExists(ownerPath, anchor)) {
-        fail(`${contract.contract_id}: missing canonical owner anchor #${anchor}`);
+        fail(
+          `${contract.contract_id}: missing canonical owner anchor #${anchor}`,
+        );
       }
     }
   }
-  const contractsById = new Map(registry.contracts.map((contract) => [contract.contract_id, contract]));
+  const contractsById = new Map(
+    registry.contracts.map((contract) => [contract.contract_id, contract]),
+  );
   for (const contract of registry.contracts) {
     const evolution = contract.evolution;
     if (!isObject(evolution)) continue;
     if (evolution.successor_of !== null) {
       const predecessor = contractsById.get(evolution.successor_of);
       if (!predecessor) {
-        fail(`${contract.contract_id}: missing predecessor ${evolution.successor_of}`);
+        fail(
+          `${contract.contract_id}: missing predecessor ${evolution.successor_of}`,
+        );
       } else {
-        if (predecessor.evolution?.successor_contract_id !== contract.contract_id) {
-          fail(`${contract.contract_id}: predecessor does not point to successor`);
+        if (
+          predecessor.evolution?.successor_contract_id !== contract.contract_id
+        ) {
+          fail(
+            `${contract.contract_id}: predecessor does not point to successor`,
+          );
         }
         if (predecessor.canonical_name !== contract.canonical_name) {
           fail(`${contract.contract_id}: successor changed canonical name`);
         }
-        if ((contractVersion(predecessor.contract_id) ?? 0) >= (contractVersion(contract.contract_id) ?? 0)) {
+        if (
+          (contractVersion(predecessor.contract_id) ?? 0) >=
+          (contractVersion(contract.contract_id) ?? 0)
+        ) {
           fail(`${contract.contract_id}: successor version must increase`);
         }
       }
-      if (evolution.compatibility === 'initial' || evolution.migration_policy === 'none') {
-        fail(`${contract.contract_id}: successor lacks compatibility or migration disposition`);
+      if (
+        evolution.compatibility === "initial" ||
+        evolution.migration_policy === "none"
+      ) {
+        fail(
+          `${contract.contract_id}: successor lacks compatibility or migration disposition`,
+        );
       }
-    } else if (evolution.compatibility !== 'initial') {
-      fail(`${contract.contract_id}: initial contract must use initial compatibility`);
+    } else if (evolution.compatibility !== "initial") {
+      fail(
+        `${contract.contract_id}: initial contract must use initial compatibility`,
+      );
     }
-    if (evolution.successor_contract_id !== null && !contractsById.has(evolution.successor_contract_id)) {
-      fail(`${contract.contract_id}: missing successor ${evolution.successor_contract_id}`);
+    if (
+      evolution.successor_contract_id !== null &&
+      !contractsById.has(evolution.successor_contract_id)
+    ) {
+      fail(
+        `${contract.contract_id}: missing successor ${evolution.successor_contract_id}`,
+      );
     }
   }
 }
@@ -498,7 +591,11 @@ if (failures.length > 0) {
 }
 checkRegistryMetadata(registry);
 
-const ajv = new Ajv2020({ allErrors: true, strict: true, validateFormats: true });
+const ajv = new Ajv2020({
+  allErrors: true,
+  strict: true,
+  validateFormats: true,
+});
 ajv.addKeyword({ keyword: "x-ioi-schema-version", schemaType: "string" });
 addFormats(ajv);
 
@@ -514,8 +611,10 @@ for (const contract of registry.contracts ?? []) {
   if (schema.$schema !== "https://json-schema.org/draft/2020-12/schema") {
     fail(`${contract.contract_id}: schema is not 2020-12`);
   }
-  if (schema.$id !== contract.contract_id) fail(`${contract.contract_id}: schema $id mismatch`);
-  if (schema.title !== contract.canonical_name) fail(`${contract.contract_id}: schema title mismatch`);
+  if (schema.$id !== contract.contract_id)
+    fail(`${contract.contract_id}: schema $id mismatch`);
+  if (schema.title !== contract.canonical_name)
+    fail(`${contract.contract_id}: schema title mismatch`);
   if (schema["x-ioi-schema-version"] !== contract.schema_version) {
     fail(`${contract.contract_id}: schema version mismatch`);
   }
@@ -526,7 +625,9 @@ for (const contract of registry.contracts ?? []) {
     if (ref.startsWith("#/") && resolvePointer(schema, ref) === undefined) {
       fail(`${contract.contract_id}: unresolved local ref ${ref} at ${at}`);
     } else if (!ref.startsWith("#/")) {
-      fail(`${contract.contract_id}: pilot schema uses non-local $ref ${ref} at ${at}`);
+      fail(
+        `${contract.contract_id}: pilot schema uses non-local $ref ${ref} at ${at}`,
+      );
     }
   }
 
@@ -550,24 +651,31 @@ for (const contract of registry.contracts ?? []) {
     if (!profile) continue;
     invariantProfiles.push(profile);
     if (profile.$id !== invariantRef.invariant_id) {
-      fail(`${contract.contract_id}: invariant id mismatch at ${invariantRef.path}`);
+      fail(
+        `${contract.contract_id}: invariant id mismatch at ${invariantRef.path}`,
+      );
     }
     if (profile.contract_id !== contract.contract_id) {
-      fail(`${contract.contract_id}: invariant contract mismatch at ${invariantRef.path}`);
+      fail(
+        `${contract.contract_id}: invariant contract mismatch at ${invariantRef.path}`,
+      );
     }
     if (profile.language !== "ioi.portable-invariants.v1") {
       fail(`${contract.contract_id}: unsupported invariant language`);
     }
     const ruleIds = new Set();
     for (const rule of profile.rules ?? []) {
-      if (ruleIds.has(rule.rule_id)) fail(`${profile.$id}: duplicate rule ${rule.rule_id}`);
+      if (ruleIds.has(rule.rule_id))
+        fail(`${profile.$id}: duplicate rule ${rule.rule_id}`);
       ruleIds.add(rule.rule_id);
       const pointers = [
         ...(rule.expression?.paths ?? [rule.expression?.path]),
         rule.expression?.when_path,
       ];
       for (const pointer of pointers.filter(Boolean)) {
-        const property = pointer.startsWith("$.") ? pointer.slice(2).split(".")[0] : null;
+        const property = pointer.startsWith("$.")
+          ? pointer.slice(2).split(".")[0]
+          : null;
         if (!property || !Object.hasOwn(schema.properties ?? {}, property)) {
           fail(`${profile.$id}: invariant path is outside schema: ${pointer}`);
         }
@@ -589,17 +697,14 @@ for (const contract of registry.contracts ?? []) {
       `${contract.contract_id}: fixture`,
     );
     if (!fixturePath) continue;
-    if (fixturePaths.has(fixture.path)) fail(`registry: duplicate fixture ${fixture.path}`);
+    if (fixturePaths.has(fixture.path))
+      fail(`registry: duplicate fixture ${fixture.path}`);
     fixturePaths.add(fixture.path);
     const value = readJson(fixturePath);
     if (!value) continue;
     const schemaValid = validate(value);
     const invariantErrors = schemaValid
-      ? evaluateInvariants(
-          invariantProfiles,
-          value,
-          expectedSchemaHash,
-        )
+      ? evaluateInvariants(invariantProfiles, value, expectedSchemaHash)
       : [];
     const accepted = schemaValid && invariantErrors.length === 0;
     if (fixture.expected === "accept" && !accepted) {
@@ -614,25 +719,39 @@ for (const contract of registry.contracts ?? []) {
       fail(`${fixture.path}: expected schema rejection but reached invariants`);
     }
     if (fixture.expected_failure === "invariant") {
-      if (!schemaValid) fail(`${fixture.path}: expected invariant rejection but schema rejected`);
+      if (!schemaValid)
+        fail(
+          `${fixture.path}: expected invariant rejection but schema rejected`,
+        );
       if (!invariantErrors.includes(fixture.expected_rule_id)) {
-        fail(`${fixture.path}: missing expected invariant ${fixture.expected_rule_id}`);
+        fail(
+          `${fixture.path}: missing expected invariant ${fixture.expected_rule_id}`,
+        );
       }
     }
   }
 
   const aliases = new Set();
   for (const alias of contract.compatibility_aliases) {
-    if (aliases.has(alias.alias)) fail(`${contract.contract_id}: duplicate alias ${alias.alias}`);
+    if (aliases.has(alias.alias))
+      fail(`${contract.contract_id}: duplicate alias ${alias.alias}`);
     aliases.add(alias.alias);
-    if (alias.kind !== "field") fail(`${contract.contract_id}: unsupported alias kind ${alias.kind}`);
+    if (alias.kind !== "field")
+      fail(`${contract.contract_id}: unsupported alias kind ${alias.kind}`);
     if (!Object.hasOwn(schema.properties ?? {}, alias.canonical)) {
-      fail(`${contract.contract_id}: alias target ${alias.canonical} is not canonical`);
+      fail(
+        `${contract.contract_id}: alias target ${alias.canonical} is not canonical`,
+      );
     }
     if (Object.hasOwn(schema.properties ?? {}, alias.alias)) {
-      fail(`${contract.contract_id}: compatibility alias ${alias.alias} is writeable`);
+      fail(
+        `${contract.contract_id}: compatibility alias ${alias.alias} is writeable`,
+      );
     }
-    if (alias.read_policy !== "compatibility_adapter_only" || alias.write_policy !== "forbidden") {
+    if (
+      alias.read_policy !== "compatibility_adapter_only" ||
+      alias.write_policy !== "forbidden"
+    ) {
       fail(`${contract.contract_id}: alias ${alias.alias} is not read-only`);
     }
     const aliasFixture = contract.negative_fixture_refs.some((fixture) => {
@@ -644,7 +763,10 @@ for (const contract of registry.contracts ?? []) {
       const value = readJson(fixturePath);
       return isObject(value) && Object.hasOwn(value, alias.alias);
     });
-    if (!aliasFixture) fail(`${contract.contract_id}: alias ${alias.alias} has no write-rejection fixture`);
+    if (!aliasFixture)
+      fail(
+        `${contract.contract_id}: alias ${alias.alias} has no write-rejection fixture`,
+      );
   }
 
   for (const target of Array.isArray(contract.generated_targets)
@@ -659,7 +781,9 @@ for (const contract of registry.contracts ?? []) {
     if (!fs.existsSync(targetPath)) {
       fail(`${contract.contract_id}: missing generated target ${target.path}`);
     } else if (!fs.readFileSync(targetPath, "utf8").includes(target.symbol)) {
-      fail(`${contract.contract_id}: generated target lacks symbol ${target.symbol}`);
+      fail(
+        `${contract.contract_id}: generated target lacks symbol ${target.symbol}`,
+      );
     }
   }
 }

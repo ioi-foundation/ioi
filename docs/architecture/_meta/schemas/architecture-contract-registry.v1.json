@@ -272,10 +272,12 @@
         "hash_impact": "none"
       },
       "schema_ref": "authority-key-set.v1.schema.json",
-      "cross_field_invariant_refs": [{
-        "invariant_id": "invariant://ioi/foundations/authority-key-set/validity-window/v1",
-        "path": "invariants/authority-key-set.v1.invariants.json"
-      }],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/authority-key-set/validity-window/v1",
+          "path": "invariants/authority-key-set.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -324,10 +326,12 @@
         "hash_impact": "none"
       },
       "schema_ref": "authority-revocation-snapshot.v1.schema.json",
-      "cross_field_invariant_refs": [{
-        "invariant_id": "invariant://ioi/foundations/authority-revocation-snapshot/validity-window/v1",
-        "path": "invariants/authority-revocation-snapshot.v1.invariants.json"
-      }],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/authority-revocation-snapshot/validity-window/v1",
+          "path": "invariants/authority-revocation-snapshot.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -756,6 +760,63 @@
         {
           "path": "fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json",
           "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+      "canonical_name": "AutonomousSystemInitialProfileBundle",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussysteminitialprofilebundle",
+      "schema_version": "ioi.autonomous-system-initial-profile-bundle.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "autonomous-system-initial-profile-bundle.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-initial-profile-bundle/exact-bodies/v1",
+          "path": "invariants/autonomous-system-initial-profile-bundle.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemInitialProfileBundleV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemInitialProfileBundleV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-initial-profile-bundle-v1/positive-closed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-initial-profile-bundle-v1/negative-hollow-profile-bodies.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-initial-profile-bundle-v1/negative-missing-enrollment-slot.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-initial-profile-bundle-v1/negative-foreign-oracle-system.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_initial_profile_bundle.oracles.system_id"
         }
       ]
     },

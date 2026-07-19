@@ -28,6 +28,7 @@ schemars = "0.8"
 toml = { workspace = true }
 ioi-crypto = { path = "../crypto" }
 ioi-api = { path = "../api" }
+syn = { version = "2.0.116", features = ["full", "visit"] }
 
 [features]
 default = []

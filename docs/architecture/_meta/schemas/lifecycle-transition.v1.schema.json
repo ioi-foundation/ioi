@@ -270,6 +270,77 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "proposed"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "decision_ref": {
+            "type": "null"
+          },
+          "authority_grant_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "resulting_state_root": {
+            "type": "null"
+          },
+          "state_transition_commitment_ref": {
+            "type": "null"
+          },
+          "disposition_receipt_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "receipt_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "public_commitment_ref": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "committed"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "decision_ref": {
+            "type": "string",
+            "pattern": "^decision://[^\\s]{1,248}$"
+          },
+          "authority_grant_refs": {
+            "type": "array",
+            "minItems": 1
+          },
+          "resulting_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "state_transition_commitment_ref": {
+            "type": "string",
+            "pattern": "^transition://[^\\s]{1,248}$"
+          },
+          "receipt_refs": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      }
     }
   ],
   "$defs": {
@@ -307,7 +378,7 @@
     },
     "packageReleaseRef": {
       "type": "string",
-      "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+      "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
     },
     "nullablePackageReleaseRef": {
       "anyOf": [

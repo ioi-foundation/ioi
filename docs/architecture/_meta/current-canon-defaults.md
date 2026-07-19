@@ -1140,9 +1140,13 @@ applicable;
   package -> sign -> release -> promote -> deprecate/revoke;
 - `AutonomousSystemGenesisEnvelope` alone binds a selected package release to a
   new stable `system_id`, constitution, initial profiles, governing
-  decision/authority, and cryptographic origin. Activation, operation,
-  improvement, recovery, migration, succession, dissolution, and decommission
-  are live-system lifecycle, not package lifecycle;
+  decision/authority, and cryptographic origin. Its
+  `initial_profile_bundle_root` commits the exact closed candidate constitution,
+  ordered oracle profiles, ordering and lifecycle profiles, and explicit
+  nullable network enrollment before the genesis operation commitment.
+  Activation, operation, improvement, recovery, migration, succession,
+  dissolution, and decommission are live-system lifecycle, not package
+  lifecycle;
 - Worker is the protocol actor;
 - Model is a cognition backend;
 - MoW is labor routing;

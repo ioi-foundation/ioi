@@ -745,6 +745,153 @@
       },
       "expected_code": "profile_coordinate_mismatch",
       "expected_path": "$.proposed.candidate.initial_profile_refs.lifecycle_continuity_profile_ref"
+    },
+    {
+      "id": "upgrade-only-release-new-system-gate",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/system_binding/allowed_use",
+      "value": "upgrade_existing",
+      "recompute_release_hashes": true,
+      "expected_code": "new_system_instantiation_forbidden",
+      "expected_path": "$.release.system_binding.allowed_use"
+    },
+    {
+      "id": "mutable-query-alias",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/template_bindings/deployment_template_ref",
+      "value": "schema://acme/api?ref=latest",
+      "expected_code": "mutable_reference",
+      "expected_path": "$.proposed.template_bindings.deployment_template_ref"
+    },
+    {
+      "id": "mutable-fragment-alias",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/initial_profile_refs/deployment_profile_ref",
+      "value": "deployment-profile://acme/system-alpha/local#head",
+      "expected_code": "mutable_reference",
+      "expected_path": "$.proposed.candidate.initial_profile_refs.deployment_profile_ref"
+    },
+    {
+      "id": "mutable-encoded-separator-alias",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/initial_profile_refs/deployment_profile_ref",
+      "value": "deployment-profile://acme/system-alpha/local?ref%3Dcurrent",
+      "expected_code": "mutable_reference",
+      "expected_path": "$.proposed.candidate.initial_profile_refs.deployment_profile_ref"
+    },
+    {
+      "id": "mutable-double-encoded-separator-alias",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/initial_profile_refs/deployment_profile_ref",
+      "value": "deployment-profile://acme/system-alpha/local%253Fref%253Dfloating",
+      "expected_code": "mutable_reference",
+      "expected_path": "$.proposed.candidate.initial_profile_refs.deployment_profile_ref"
+    },
+    {
+      "id": "mutable-alternate-separator-alias",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/initial_profile_refs/deployment_profile_ref",
+      "value": "deployment-profile://acme/system-alpha/local\\latest\\revision",
+      "expected_code": "mutable_reference",
+      "expected_path": "$.proposed.candidate.initial_profile_refs.deployment_profile_ref"
+    },
+    {
+      "id": "wrong-type-schema-version",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/schema_version",
+      "value": false,
+      "expected_code": "proposed_instantiation_invalid",
+      "expected_path": "$.proposed.schema_version"
+    },
+    {
+      "id": "wrong-type-candidate",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate",
+      "value": [],
+      "expected_code": "proposed_instantiation_invalid",
+      "expected_path": "$.proposed.candidate"
+    },
+    {
+      "id": "wrong-type-template-bindings",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/template_bindings",
+      "value": "invalid",
+      "expected_code": "proposed_instantiation_invalid",
+      "expected_path": "$.proposed.template_bindings"
+    },
+    {
+      "id": "wrong-type-constitution",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/constitution",
+      "value": [],
+      "expected_code": "proposed_instantiation_invalid",
+      "expected_path": "$.proposed.constitution"
+    },
+    {
+      "id": "wrong-type-ordering-profile",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/ordering_profile",
+      "value": false,
+      "expected_code": "proposed_instantiation_invalid",
+      "expected_path": "$.proposed.ordering_profile"
+    },
+    {
+      "id": "wrong-type-oracle-profiles",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/oracle_profiles",
+      "value": {
+        "not": "an array"
+      },
+      "expected_code": "proposed_instantiation_invalid",
+      "expected_path": "$.proposed.oracle_profiles"
+    },
+    {
+      "id": "wrong-type-lifecycle-profile",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/lifecycle_profile",
+      "value": null,
+      "expected_code": "proposed_instantiation_invalid",
+      "expected_path": "$.proposed.lifecycle_profile"
+    },
+    {
+      "id": "wrong-type-network-enrollment",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/network_enrollment",
+      "value": "invalid",
+      "expected_code": "proposed_instantiation_invalid",
+      "expected_path": "$.proposed.network_enrollment"
+    },
+    {
+      "id": "sequence-zero-constitution-predecessor",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/constitution/predecessor_constitution_ref",
+      "value": "constitution://acme/system-alpha/v0",
+      "expected_code": "constitution_predecessor_forbidden",
+      "expected_path": "$.proposed.constitution.predecessor_constitution_ref"
+    },
+    {
+      "id": "sequence-zero-constitution-activation-residue",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/constitution/activation_receipt_ref",
+      "value": "receipt://acme/system-alpha/constitution-active",
+      "expected_code": "constitution_activation_receipt_forbidden",
+      "expected_path": "$.proposed.constitution.activation_receipt_ref"
     }
   ]
 }

@@ -175,31 +175,31 @@
           "$ref": "#/$defs/hash"
         },
         "goal_run_profiles": {
-          "$ref": "#/$defs/revisionHashTuples"
+          "$ref": "#/$defs/goalRunProfileRevisionHashTuples"
         },
         "workflow_templates": {
-          "$ref": "#/$defs/revisionHashTuples"
+          "$ref": "#/$defs/workflowTemplateRevisionHashTuples"
         },
         "automation_specs": {
-          "$ref": "#/$defs/revisionHashTuples"
+          "$ref": "#/$defs/automationRevisionHashTuples"
         },
         "harness_profiles": {
-          "$ref": "#/$defs/revisionHashTuples"
+          "$ref": "#/$defs/harnessProfileRevisionHashTuples"
         },
         "agent_harness_adapters": {
-          "$ref": "#/$defs/revisionHashTuples"
+          "$ref": "#/$defs/agentHarnessAdapterRevisionHashTuples"
         },
         "skill_manifests": {
-          "$ref": "#/$defs/revisionHashTuples"
+          "$ref": "#/$defs/skillRevisionHashTuples"
         },
         "data_recipes": {
-          "$ref": "#/$defs/revisionHashTuples"
+          "$ref": "#/$defs/dataRecipeRevisionHashTuples"
         },
         "runtime_tool_contracts": {
-          "$ref": "#/$defs/revisionHashTuples"
+          "$ref": "#/$defs/toolRevisionHashTuples"
         },
         "mcp_gateway_requirements": {
-          "$ref": "#/$defs/revisionHashTuples"
+          "$ref": "#/$defs/mcpGatewayRequirementRevisionHashTuples"
         }
       }
     },
@@ -234,7 +234,7 @@
           ]
         },
         "compatible_harness_profile_revision_refs": {
-          "$ref": "#/$defs/immutableRevisionRefs"
+          "$ref": "#/$defs/harnessProfileRevisionRefs"
         },
         "topology_hash": {
           "anyOf": [
@@ -624,8 +624,15 @@
       "required": ["publisher_signature_ref", "registry_published_at"],
       "properties": {
         "publisher_signature_ref": {
-          "type": "string",
-          "pattern": "^(?:receipt|evidence)://[^\\s]{1,248}$"
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:receipt|evidence)://[^\\s]{1,248}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "registry_published_at": {
           "anyOf": [
@@ -640,6 +647,79 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "registry_status": {
+            "const": "draft"
+          }
+        },
+        "required": ["registry_status"]
+      },
+      "then": {
+        "properties": {
+          "receipts": {
+            "type": "object",
+            "properties": {
+              "package_readiness_receipt_ref": {
+                "type": "null"
+              }
+            },
+            "required": ["package_readiness_receipt_ref"]
+          },
+          "release": {
+            "type": "object",
+            "properties": {
+              "publisher_signature_ref": {
+                "type": "null"
+              },
+              "registry_published_at": {
+                "type": "null"
+              }
+            },
+            "required": ["publisher_signature_ref", "registry_published_at"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "registry_status": {
+            "enum": ["released", "promoted"]
+          }
+        },
+        "required": ["registry_status"]
+      },
+      "then": {
+        "properties": {
+          "receipts": {
+            "type": "object",
+            "properties": {
+              "package_readiness_receipt_ref": {
+                "$ref": "#/$defs/receiptRef"
+              }
+            },
+            "required": ["package_readiness_receipt_ref"]
+          },
+          "release": {
+            "type": "object",
+            "properties": {
+              "publisher_signature_ref": {
+                "type": "string",
+                "pattern": "^(?:receipt|evidence)://[^\\s]{1,248}$"
+              },
+              "registry_published_at": {
+                "$ref": "#/$defs/canonicalDateTime"
+              }
+            },
+            "required": ["publisher_signature_ref", "registry_published_at"]
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "hash": {
       "type": "string",
@@ -703,7 +783,7 @@
     },
     "packageReleaseRef": {
       "type": "string",
-      "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+      "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
     },
     "policyRef": {
       "type": "string",
@@ -761,50 +841,227 @@
       "maxItems": 64,
       "uniqueItems": true
     },
-    "immutableRevisionRef": {
+    "workerRevisionRef": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      "pattern": "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
     },
-    "immutableRevisionRefs": {
+    "workflowRevisionRef": {
+      "type": "string",
+      "pattern": "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "developmentRecipeRevisionRef": {
+      "type": "string",
+      "pattern": "^development-environment-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "harnessProfileRevisionRefs": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/immutableRevisionRef"
+        "type": "string",
+        "pattern": "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
       },
       "maxItems": 128,
       "uniqueItems": true
     },
-    "workerRevisionRef": {
-      "type": "string",
-      "pattern": "^worker://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    "goalRunProfileRevisionHashTuples": {
+      "$ref": "#/$defs/goalRunProfileRevisionHashTupleArray"
     },
-    "workflowRevisionRef": {
-      "type": "string",
-      "pattern": "^workflow-template://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    "goalRunProfileRevisionHashTupleArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/goalRunProfileRevisionHashTuple"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
     },
-    "developmentRecipeRevisionRef": {
-      "type": "string",
-      "pattern": "^development-environment-recipe://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
-    },
-    "revisionHashTuple": {
+    "goalRunProfileRevisionHashTuple": {
       "type": "object",
       "additionalProperties": false,
       "required": ["revision_ref", "content_hash"],
       "properties": {
         "revision_ref": {
-          "$ref": "#/$defs/immutableRevisionRef"
+          "type": "string",
+          "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
         },
         "content_hash": {
           "$ref": "#/$defs/hash"
         }
       }
     },
-    "revisionHashTuples": {
+    "workflowTemplateRevisionHashTuples": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/revisionHashTuple"
+        "$ref": "#/$defs/workflowTemplateRevisionHashTuple"
       },
       "maxItems": 128,
       "uniqueItems": true
+    },
+    "workflowTemplateRevisionHashTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_ref", "content_hash"],
+      "properties": {
+        "revision_ref": {
+          "type": "string",
+          "pattern": "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "automationRevisionHashTuples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/automationRevisionHashTuple"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "automationRevisionHashTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_ref", "content_hash"],
+      "properties": {
+        "revision_ref": {
+          "type": "string",
+          "pattern": "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "harnessProfileRevisionHashTuples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/harnessProfileRevisionHashTuple"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "harnessProfileRevisionHashTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_ref", "content_hash"],
+      "properties": {
+        "revision_ref": {
+          "type": "string",
+          "pattern": "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "agentHarnessAdapterRevisionHashTuples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/agentHarnessAdapterRevisionHashTuple"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "agentHarnessAdapterRevisionHashTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_ref", "content_hash"],
+      "properties": {
+        "revision_ref": {
+          "type": "string",
+          "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "skillRevisionHashTuples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/skillRevisionHashTuple"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "skillRevisionHashTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_ref", "content_hash"],
+      "properties": {
+        "revision_ref": {
+          "type": "string",
+          "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "dataRecipeRevisionHashTuples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dataRecipeRevisionHashTuple"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "dataRecipeRevisionHashTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_ref", "content_hash"],
+      "properties": {
+        "revision_ref": {
+          "type": "string",
+          "pattern": "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "toolRevisionHashTuples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/toolRevisionHashTuple"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "toolRevisionHashTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_ref", "content_hash"],
+      "properties": {
+        "revision_ref": {
+          "type": "string",
+          "pattern": "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "mcpGatewayRequirementRevisionHashTuples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mcpGatewayRequirementRevisionHashTuple"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "mcpGatewayRequirementRevisionHashTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_ref", "content_hash"],
+      "properties": {
+        "revision_ref": {
+          "type": "string",
+          "pattern": "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
     },
     "canonicalDateTime": {
       "type": "string",

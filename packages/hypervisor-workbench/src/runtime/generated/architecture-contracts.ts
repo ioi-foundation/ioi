@@ -772,9 +772,18 @@ export type AutonomousSystemManifestV1 = {
       release_evaluation_receipt_refs: Array<string>;
     };
   release: {
-      publisher_signature_ref: string;
+      publisher_signature_ref: string | null;
       registry_published_at: string | null;
     };
+};
+
+export type AutonomousSystemInitialProfileBundleV1 = {
+  schema_version: "ioi.autonomous-system-initial-profile-bundle.v1";
+  constitution: Record<string, unknown>;
+  ordering_profile: Record<string, unknown>;
+  oracle_profiles: Array<Record<string, unknown>>;
+  lifecycle_profile: Record<string, unknown>;
+  network_enrollment: Record<string, unknown> | null;
 };
 
 export type AutonomousSystemGenesisV1 = {
@@ -785,6 +794,7 @@ export type AutonomousSystemGenesisV1 = {
   manifest_ref: string;
   admitted_manifest_root: string;
   constitution_ref: string;
+  initial_profile_bundle_root: string;
   initial_profile_refs: {
       deployment_profile_ref: string;
       ordering_admission_finality_profile_ref: string;
@@ -1617,6 +1627,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/positive-closed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-hollow-profile-bodies.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-missing-enrollment-slot.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-foreign-oracle-system.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_initial_profile_bundle.oracles.system_id"
+  },
+  {
     "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
     "expected": "accept",
@@ -2135,6 +2177,518 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pointer": "/governance/agent_may_commit_amendment",
       "value": true
     }
+  },
+  {
+    "id": "genesis-authorized-without-admission-authority-status-evidence",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "minItems"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/status",
+      "value": "authorized"
+    }
+  },
+  {
+    "id": "genesis-activated-without-activation-lifecycle-evidence",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "minItems"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/status",
+      "value": "activated"
+    }
+  },
+  {
+    "id": "constitution-active-without-activation-receipt",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/status",
+      "value": "active"
+    }
+  },
+  {
+    "id": "constitution-draft-with-activation-residue",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/activation_receipt_ref",
+      "value": "receipt://acme/system-alpha/activation"
+    }
+  },
+  {
+    "id": "constitution-draft-with-public-commitment-residue",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/public_commitment_ref",
+      "value": "commitment://acme/system-alpha/constitution"
+    }
+  },
+  {
+    "id": "ordering-active-without-conformance-evidence",
+    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "minItems"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/status",
+      "value": "active"
+    }
+  },
+  {
+    "id": "ordering-draft-with-conformance-residue",
+    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "maxItems"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/conformance_receipt_refs",
+      "value": [
+        "receipt://acme/system-alpha/ordering-conformance"
+      ]
+    }
+  },
+  {
+    "id": "lifecycle-committed-without-terminal-proof-set",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "minItems"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/status",
+      "value": "committed"
+    }
+  },
+  {
+    "id": "lifecycle-proposed-with-decision-residue",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/decision_ref",
+      "value": "decision://acme/system-alpha/initialize"
+    }
+  },
+  {
+    "id": "manifest-goal-run-profiles-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/typed_components/goal_run_profiles",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "manifest-workflow-templates-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/typed_components/workflow_templates",
+      "value": [
+        {
+          "revision_ref": "goal-run-profile://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "manifest-automation-specs-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/typed_components/automation_specs",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "manifest-harness-profiles-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/typed_components/harness_profiles",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "manifest-agent-harness-adapters-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/typed_components/agent_harness_adapters",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "manifest-skill-manifests-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/typed_components/skill_manifests",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "manifest-data-recipes-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/typed_components/data_recipes",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "manifest-runtime-tool-contracts-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/typed_components/runtime_tool_contracts",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "manifest-mcp-gateway-requirements-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/typed_components/mcp_gateway_requirements",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "genesis-goal-run-profiles-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/initial_component_bindings/goal_run_profiles",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "genesis-workflow-templates-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/initial_component_bindings/workflow_templates",
+      "value": [
+        {
+          "revision_ref": "goal-run-profile://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "genesis-automation-specs-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/initial_component_bindings/automation_specs",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "genesis-harness-profiles-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/initial_component_bindings/harness_profiles",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "genesis-agent-harness-adapters-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/initial_component_bindings/agent_harness_adapters",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "genesis-data-recipes-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/initial_component_bindings/data_recipes",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  },
+  {
+    "id": "genesis-runtime-tool-contracts-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "covered_keywords": [
+      "$ref",
+      "items",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/initial_component_bindings/runtime_tool_contracts",
+      "value": [
+        {
+          "revision_ref": "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
   }
 ];
 
@@ -2498,6 +3052,34 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/positive-closed.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/positive-closed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-hollow-profile-bodies.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-hollow-profile-bodies.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-missing-enrollment-slot.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-missing-enrollment-slot.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-foreign-oracle-system.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-foreign-oracle-system.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
     "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
@@ -2771,6 +3353,181 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "mutation:genesis-authorized-without-admission-authority-status-evidence",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": null,
+    "mutation_id": "genesis-authorized-without-admission-authority-status-evidence",
+    "value_json": null
+  },
+  {
+    "id": "mutation:genesis-activated-without-activation-lifecycle-evidence",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": null,
+    "mutation_id": "genesis-activated-without-activation-lifecycle-evidence",
+    "value_json": null
+  },
+  {
+    "id": "mutation:constitution-active-without-activation-receipt",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "source_fixture_path": null,
+    "mutation_id": "constitution-active-without-activation-receipt",
+    "value_json": null
+  },
+  {
+    "id": "mutation:constitution-draft-with-activation-residue",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "source_fixture_path": null,
+    "mutation_id": "constitution-draft-with-activation-residue",
+    "value_json": null
+  },
+  {
+    "id": "mutation:constitution-draft-with-public-commitment-residue",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "source_fixture_path": null,
+    "mutation_id": "constitution-draft-with-public-commitment-residue",
+    "value_json": null
+  },
+  {
+    "id": "mutation:ordering-active-without-conformance-evidence",
+    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    "source_fixture_path": null,
+    "mutation_id": "ordering-active-without-conformance-evidence",
+    "value_json": null
+  },
+  {
+    "id": "mutation:ordering-draft-with-conformance-residue",
+    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    "source_fixture_path": null,
+    "mutation_id": "ordering-draft-with-conformance-residue",
+    "value_json": null
+  },
+  {
+    "id": "mutation:lifecycle-committed-without-terminal-proof-set",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "source_fixture_path": null,
+    "mutation_id": "lifecycle-committed-without-terminal-proof-set",
+    "value_json": null
+  },
+  {
+    "id": "mutation:lifecycle-proposed-with-decision-residue",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "source_fixture_path": null,
+    "mutation_id": "lifecycle-proposed-with-decision-residue",
+    "value_json": null
+  },
+  {
+    "id": "mutation:manifest-goal-run-profiles-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": null,
+    "mutation_id": "manifest-goal-run-profiles-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:manifest-workflow-templates-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": null,
+    "mutation_id": "manifest-workflow-templates-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:manifest-automation-specs-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": null,
+    "mutation_id": "manifest-automation-specs-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:manifest-harness-profiles-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": null,
+    "mutation_id": "manifest-harness-profiles-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:manifest-agent-harness-adapters-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": null,
+    "mutation_id": "manifest-agent-harness-adapters-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:manifest-skill-manifests-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": null,
+    "mutation_id": "manifest-skill-manifests-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:manifest-data-recipes-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": null,
+    "mutation_id": "manifest-data-recipes-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:manifest-runtime-tool-contracts-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": null,
+    "mutation_id": "manifest-runtime-tool-contracts-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:manifest-mcp-gateway-requirements-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": null,
+    "mutation_id": "manifest-mcp-gateway-requirements-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:genesis-goal-run-profiles-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": null,
+    "mutation_id": "genesis-goal-run-profiles-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:genesis-workflow-templates-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": null,
+    "mutation_id": "genesis-workflow-templates-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:genesis-automation-specs-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": null,
+    "mutation_id": "genesis-automation-specs-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:genesis-harness-profiles-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": null,
+    "mutation_id": "genesis-harness-profiles-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:genesis-agent-harness-adapters-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": null,
+    "mutation_id": "genesis-agent-harness-adapters-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:genesis-data-recipes-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": null,
+    "mutation_id": "genesis-data-recipes-cross-category-ref",
+    "value_json": null
+  },
+  {
+    "id": "mutation:genesis-runtime-tool-contracts-cross-category-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": null,
+    "mutation_id": "genesis-runtime-tool-contracts-cross-category-ref",
+    "value_json": null
+  },
+  {
     "id": "differential:authority-timestamp-integral-decimal",
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "source_fixture_path": null,
@@ -2932,7 +3689,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9-]*://[^\\s]+$",
-  "^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^[a-z][a-z0-9._-]*$",
   "^[a-z][a-z0-9._-]{0,127}$",
   "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
@@ -2940,6 +3696,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^acceptance://[^\\s]+$",
   "^action-schema://[^\\s]+$",
   "^actuator://[^\\s]+$",
+  "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^agentgres://operation/[^\\s]+$",
   "^approval://[A-Za-z0-9._~:/-]+$",
   "^artifact://[^\\s]+$",
@@ -2947,6 +3704,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^assurance-evidence://[^\\s]+$",
   "^assurance-profile://[^\\s]{1,248}$",
   "^authority-request://[^\\s]+$",
+  "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^build://[^\\s]+$",
   "^caveat://[^\\s]+$",
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
@@ -2954,33 +3712,37 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^constitution-amendment://[^\\s]{1,248}$",
   "^constitution://[^\\s]{1,248}$",
   "^controller-binding://[^\\s]+$",
+  "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^decision://[^\\s]{1,248}$",
   "^deployment-profile://[^\\s]{1,248}$",
-  "^development-environment-recipe://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^development-environment-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^effect://[^\\s]+$",
   "^embodied-resource-group-revision://[^\\s]+$",
   "^embodied-runtime-graph-manifest://[^\\s]+$",
   "^estop://[^\\s]+$",
   "^fee-basis://[^\\s]{1,248}$",
   "^genesis://[^\\s]{1,248}$",
+  "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^grant://[A-Za-z0-9._~:/-]+$",
   "^grant://[^\\s]+$",
   "^grant://[^\\s]{1,248}$",
+  "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^ifc-label://[A-Za-z0-9._~:/-]+$",
-  "^improvement-governance-profile://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^incident://[^\\s]+$",
-  "^install://automation/[^\\s]{1,140}/revision/sha256:[0-9a-f]{64}$",
+  "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$",
   "^ioi://publisher/[^\\s]{1,224}$",
   "^key://[^\\s]+$",
   "^keyset://[^\\s]+$",
   "^lifecycle-profile://[^\\s]{1,248}$",
   "^lifecycle-transition://[^\\s]{1,248}$",
-  "^mcp-gateway://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^network-enrollment://[^\\s]{1,248}$",
   "^node-membership://[^\\s]{1,248}$",
   "^oracle-evidence-profile://[^\\s]{1,248}$",
   "^ordering-profile://[^\\s]{1,248}$",
-  "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$",
+  "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$",
   "^package://[^\\s]{1,248}$",
   "^physical-action-admission:[^\\s]+$",
   "^policy://[A-Za-z0-9._~:/-]+$",
@@ -3011,17 +3773,18 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^settlement://[^\\s]+$",
   "^sha256:[0-9a-f]{64}$",
   "^sha256:[a-f0-9]{64}$",
-  "^skill-entry://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
-  "^skill://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^snapshot://[^\\s]+$",
   "^system://[^\\s]{1,248}$",
   "^task://[^\\s]+$",
   "^terms://[^\\s]{1,248}$",
   "^tool://[A-Za-z0-9._~:/-]+$",
   "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$",
+  "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^transition://[^\\s]{1,248}$",
-  "^worker://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
-  "^workflow-template://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^zone://[^\\s]+$"
 ] as const;
 
@@ -3039,15 +3802,16 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1": "sha256:deea4ddad84b377612579947f8c7fecca276962ccbba1cc1fd9232ab3d58d5f2",
   "schema://ioi/foundations/dispute-rail-bundle/v1": "sha256:9397106bbed6d24ce8c9c7c1a8123160102aae677d024636b89ace67d25ae340",
   "schema://ioi/foundations/declassification-approval/v1": "sha256:6b94c87e2891c4389886ad9f8d2f0492ca18e699fb57db5af83c2a21e9817efe",
-  "schema://ioi/foundations/autonomous-system-manifest/v1": "sha256:34ff27418865a0a71864f0039df3286966f6b6dec4bb94134b72b3846fd6c79d",
-  "schema://ioi/foundations/autonomous-system-genesis/v1": "sha256:2da92e599b2339fb1422e048ef9cb25cdc614f2abd14b93f2f8da8271aec747e",
-  "schema://ioi/foundations/autonomous-system-constitution/v1": "sha256:b9df3fe23b867d6e1fa22a61ec88bdd7859fbbcc4283aaa8431c7f92acefe274",
-  "schema://ioi/foundations/autonomous-system-constitution-amendment/v1": "sha256:226af49494e76d61c1a89270647fe5284d926df6669d47179f227e3a9329b54a",
-  "schema://ioi/foundations/ordering-admission-finality-profile/v1": "sha256:a80163005c8225d4ba6cc733741ec0b47ccfbb2d7832ca1546f9518f6cc7cebb",
+  "schema://ioi/foundations/autonomous-system-manifest/v1": "sha256:7560d4cf80b893c89133a6a3afddd523207791778da7fdc594e71bed18ebdc26",
+  "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1": "sha256:448e4c665241863cc775ada805e2ca73ff4fc9cbd29a58118722e9fefe0b3397",
+  "schema://ioi/foundations/autonomous-system-genesis/v1": "sha256:843897a91ec65f41c794cb01ddeca43b91bd6c3586cd3d392d1643efb938acc5",
+  "schema://ioi/foundations/autonomous-system-constitution/v1": "sha256:ac6b394c4664e90cece1792eeb6857d99087a56e019368b70077001dffc4e36c",
+  "schema://ioi/foundations/autonomous-system-constitution-amendment/v1": "sha256:d84937bb5651c4c4dabae249b639928b61bb3e5b950b00151df4bbbe2996a67b",
+  "schema://ioi/foundations/ordering-admission-finality-profile/v1": "sha256:c2cf0f68516971e4bd87938da7bee04bac25a5995c501044bf3a2a0da5e65af3",
   "schema://ioi/foundations/oracle-evidence-profile/v1": "sha256:2407e5eafa3515d1f55629182b802590e40e93c59b6766d8e4b1170fa6acf5f1",
   "schema://ioi/foundations/lifecycle-continuity-profile/v1": "sha256:ed62bc37de918a3e7c271ba26420b7973eca5d2aaddd276a7450253e63fec475",
-  "schema://ioi/foundations/lifecycle-transition/v1": "sha256:1a5374e05ee33412ffa79bab205143b37f400bf4ad32af9097960b3959660b40",
-  "schema://ioi/foundations/ioi-network-enrollment/v1": "sha256:f418987a1feb67e3b81efd847d4ba07136d132776221262234a5b0bdf4085273"
+  "schema://ioi/foundations/lifecycle-transition/v1": "sha256:fc61451dd0c8160ce4ce376295e6c17e9eb8495fb5f033121ef2b79083b5b270",
+  "schema://ioi/foundations/ioi-network-enrollment/v1": "sha256:a5e2fbb51d71d7d51d8a48cc915899045d874977c30c1daaabe182578807c77f"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -7194,31 +7958,31 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "$ref": "#/$defs/hash"
           },
           "goal_run_profiles": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/goalRunProfileRevisionHashTuples"
           },
           "workflow_templates": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/workflowTemplateRevisionHashTuples"
           },
           "automation_specs": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/automationRevisionHashTuples"
           },
           "harness_profiles": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/harnessProfileRevisionHashTuples"
           },
           "agent_harness_adapters": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/agentHarnessAdapterRevisionHashTuples"
           },
           "skill_manifests": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/skillRevisionHashTuples"
           },
           "data_recipes": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/dataRecipeRevisionHashTuples"
           },
           "runtime_tool_contracts": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/toolRevisionHashTuples"
           },
           "mcp_gateway_requirements": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/mcpGatewayRequirementRevisionHashTuples"
           }
         }
       },
@@ -7253,7 +8017,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             ]
           },
           "compatible_harness_profile_revision_refs": {
-            "$ref": "#/$defs/immutableRevisionRefs"
+            "$ref": "#/$defs/harnessProfileRevisionRefs"
           },
           "topology_hash": {
             "anyOf": [
@@ -7659,8 +8423,15 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "publisher_signature_ref": {
-            "type": "string",
-            "pattern": "^(?:receipt|evidence)://[^\\s]{1,248}$"
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:receipt|evidence)://[^\\s]{1,248}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "registry_published_at": {
             "anyOf": [
@@ -7675,6 +8446,96 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "registry_status": {
+              "const": "draft"
+            }
+          },
+          "required": [
+            "registry_status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "receipts": {
+              "type": "object",
+              "properties": {
+                "package_readiness_receipt_ref": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "package_readiness_receipt_ref"
+              ]
+            },
+            "release": {
+              "type": "object",
+              "properties": {
+                "publisher_signature_ref": {
+                  "type": "null"
+                },
+                "registry_published_at": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "publisher_signature_ref",
+                "registry_published_at"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "registry_status": {
+              "enum": [
+                "released",
+                "promoted"
+              ]
+            }
+          },
+          "required": [
+            "registry_status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "receipts": {
+              "type": "object",
+              "properties": {
+                "package_readiness_receipt_ref": {
+                  "$ref": "#/$defs/receiptRef"
+                }
+              },
+              "required": [
+                "package_readiness_receipt_ref"
+              ]
+            },
+            "release": {
+              "type": "object",
+              "properties": {
+                "publisher_signature_ref": {
+                  "type": "string",
+                  "pattern": "^(?:receipt|evidence)://[^\\s]{1,248}$"
+                },
+                "registry_published_at": {
+                  "$ref": "#/$defs/canonicalDateTime"
+                }
+              },
+              "required": [
+                "publisher_signature_ref",
+                "registry_published_at"
+              ]
+            }
+          }
+        }
+      }
+    ],
     "$defs": {
       "hash": {
         "type": "string",
@@ -7738,7 +8599,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "packageReleaseRef": {
         "type": "string",
-        "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+        "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
       },
       "policyRef": {
         "type": "string",
@@ -7796,31 +8657,39 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "maxItems": 64,
         "uniqueItems": true
       },
-      "immutableRevisionRef": {
+      "workerRevisionRef": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        "pattern": "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
       },
-      "immutableRevisionRefs": {
+      "workflowRevisionRef": {
+        "type": "string",
+        "pattern": "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "developmentRecipeRevisionRef": {
+        "type": "string",
+        "pattern": "^development-environment-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "harnessProfileRevisionRefs": {
         "type": "array",
         "items": {
-          "$ref": "#/$defs/immutableRevisionRef"
+          "type": "string",
+          "pattern": "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
         },
         "maxItems": 128,
         "uniqueItems": true
       },
-      "workerRevisionRef": {
-        "type": "string",
-        "pattern": "^worker://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      "goalRunProfileRevisionHashTuples": {
+        "$ref": "#/$defs/goalRunProfileRevisionHashTupleArray"
       },
-      "workflowRevisionRef": {
-        "type": "string",
-        "pattern": "^workflow-template://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      "goalRunProfileRevisionHashTupleArray": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/goalRunProfileRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
       },
-      "developmentRecipeRevisionRef": {
-        "type": "string",
-        "pattern": "^development-environment-recipe://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
-      },
-      "revisionHashTuple": {
+      "goalRunProfileRevisionHashTuple": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -7829,25 +8698,382 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "revision_ref": {
-            "$ref": "#/$defs/immutableRevisionRef"
+            "type": "string",
+            "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
           },
           "content_hash": {
             "$ref": "#/$defs/hash"
           }
         }
       },
-      "revisionHashTuples": {
+      "workflowTemplateRevisionHashTuples": {
         "type": "array",
         "items": {
-          "$ref": "#/$defs/revisionHashTuple"
+          "$ref": "#/$defs/workflowTemplateRevisionHashTuple"
         },
         "maxItems": 128,
         "uniqueItems": true
+      },
+      "workflowTemplateRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "automationRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/automationRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "automationRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "harnessProfileRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/harnessProfileRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "harnessProfileRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "agentHarnessAdapterRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/agentHarnessAdapterRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "agentHarnessAdapterRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "skillRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/skillRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "skillRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "dataRecipeRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/dataRecipeRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "dataRecipeRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "toolRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/toolRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "toolRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "mcpGatewayRequirementRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/mcpGatewayRequirementRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "mcpGatewayRequirementRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
       },
       "canonicalDateTime": {
         "type": "string",
         "format": "date-time",
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+    "title": "AutonomousSystemInitialProfileBundle",
+    "description": "Closed canonical bundle of the exact candidate constitution and initial profile bodies committed by a proposed System genesis.",
+    "x-ioi-schema-version": "ioi.autonomous-system-initial-profile-bundle.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "constitution",
+      "ordering_profile",
+      "oracle_profiles",
+      "lifecycle_profile",
+      "network_enrollment"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-initial-profile-bundle.v1"
+      },
+      "constitution": {
+        "type": "object",
+        "allOf": [
+          {
+            "required": [
+              "schema_version",
+              "constitution_id",
+              "system_id"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "ioi.autonomous-system-constitution.v1"
+              },
+              "constitution_id": {
+                "type": "string"
+              },
+              "system_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ordering_profile": {
+        "type": "object",
+        "allOf": [
+          {
+            "required": [
+              "schema_version",
+              "ordering_profile_id",
+              "system_id",
+              "constitution_ref"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "ioi.ordering-admission-finality-profile.v1"
+              },
+              "ordering_profile_id": {
+                "type": "string"
+              },
+              "system_id": {
+                "type": "string"
+              },
+              "constitution_ref": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "oracle_profiles": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "allOf": [
+            {
+              "required": [
+                "schema_version",
+                "oracle_evidence_profile_id",
+                "system_id"
+              ],
+              "properties": {
+                "schema_version": {
+                  "const": "ioi.oracle-evidence-profile.v1"
+                },
+                "oracle_evidence_profile_id": {
+                  "type": "string"
+                },
+                "system_id": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "maxItems": 32
+      },
+      "lifecycle_profile": {
+        "type": "object",
+        "allOf": [
+          {
+            "required": [
+              "schema_version",
+              "lifecycle_profile_id",
+              "system_id",
+              "constitution_ref"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "ioi.lifecycle-continuity-profile.v1"
+              },
+              "lifecycle_profile_id": {
+                "type": "string"
+              },
+              "system_id": {
+                "type": "string"
+              },
+              "constitution_ref": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "network_enrollment": {
+        "anyOf": [
+          {
+            "type": "object",
+            "allOf": [
+              {
+                "required": [
+                  "schema_version",
+                  "network_enrollment_id",
+                  "system_id",
+                  "constitution_ref",
+                  "manifest_ref"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "ioi.network-enrollment.v1"
+                  },
+                  "network_enrollment_id": {
+                    "type": "string"
+                  },
+                  "system_id": {
+                    "type": "string"
+                  },
+                  "constitution_ref": {
+                    "type": "string"
+                  },
+                  "manifest_ref": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     }
   },
@@ -7867,6 +9093,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "manifest_ref",
       "admitted_manifest_root",
       "constitution_ref",
+      "initial_profile_bundle_root",
       "initial_profile_refs",
       "initial_component_bindings",
       "instantiation",
@@ -7898,6 +9125,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "constitution_ref": {
         "$ref": "#/$defs/constitutionRef"
+      },
+      "initial_profile_bundle_root": {
+        "$ref": "#/$defs/hash"
       },
       "initial_profile_refs": {
         "type": "object",
@@ -7964,13 +9194,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "$ref": "#/$defs/hash"
           },
           "goal_run_profiles": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/goalRunProfileRevisionHashTuples"
           },
           "workflow_templates": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/workflowTemplateRevisionHashTuples"
           },
           "automation_specs": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/automationRevisionHashTuples"
           },
           "automation_installations": {
             "type": "array",
@@ -7985,7 +9215,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               "properties": {
                 "binding_revision_ref": {
                   "type": "string",
-                  "pattern": "^install://automation/[^\\s]{1,140}/revision/sha256:[0-9a-f]{64}$"
+                  "pattern": "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$"
                 },
                 "binding_hash": {
                   "$ref": "#/$defs/hash"
@@ -7999,10 +9229,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "uniqueItems": true
           },
           "harness_profiles": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/harnessProfileRevisionHashTuples"
           },
           "agent_harness_adapters": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/agentHarnessAdapterRevisionHashTuples"
           },
           "skill_entries": {
             "type": "array",
@@ -8018,14 +9248,14 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               "properties": {
                 "binding_revision_ref": {
                   "type": "string",
-                  "pattern": "^skill-entry://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+                  "pattern": "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
                 },
                 "binding_hash": {
                   "$ref": "#/$defs/hash"
                 },
                 "skill_manifest_revision_ref": {
                   "type": "string",
-                  "pattern": "^skill://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+                  "pattern": "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
                 },
                 "skill_manifest_content_hash": {
                   "$ref": "#/$defs/hash"
@@ -8036,10 +9266,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "uniqueItems": true
           },
           "data_recipes": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/dataRecipeRevisionHashTuples"
           },
           "runtime_tool_contracts": {
-            "$ref": "#/$defs/revisionHashTuples"
+            "$ref": "#/$defs/toolRevisionHashTuples"
           },
           "mcp_gateway_profiles": {
             "type": "array",
@@ -8053,7 +9283,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               "properties": {
                 "profile_revision_ref": {
                   "type": "string",
-                  "pattern": "^mcp-gateway://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+                  "pattern": "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
                 },
                 "profile_content_hash": {
                   "$ref": "#/$defs/hash"
@@ -8214,6 +9444,70 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               "required": [
                 "admission_proof_ref"
               ]
+            },
+            "instantiation": {
+              "type": "object",
+              "properties": {
+                "authority_grant_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                },
+                "conformance_receipt_refs": {
+                  "type": "array",
+                  "maxItems": 0
+                }
+              },
+              "required": [
+                "authority_grant_refs",
+                "conformance_receipt_refs"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "enum": [
+                "authorized",
+                "activated"
+              ]
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "cryptographic_origin": {
+              "type": "object",
+              "properties": {
+                "admission_proof_ref": {
+                  "type": "string",
+                  "pattern": "^(?:evidence|receipt)://[^\\s]{1,248}$"
+                }
+              },
+              "required": [
+                "admission_proof_ref"
+              ]
+            },
+            "instantiation": {
+              "type": "object",
+              "properties": {
+                "authority_grant_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "authority_grant_refs"
+              ]
+            },
+            "status_source_receipt_refs": {
+              "type": "array",
+              "minItems": 1
             }
           }
         }
@@ -8265,7 +9559,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "packageReleaseRef": {
         "type": "string",
-        "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+        "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
       },
       "constitutionRef": {
         "type": "string",
@@ -8307,11 +9601,15 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "maxItems": 128,
         "uniqueItems": true
       },
-      "immutableRevisionRef": {
-        "type": "string",
-        "pattern": "^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      "goalRunProfileRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/goalRunProfileRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
       },
-      "revisionHashTuple": {
+      "goalRunProfileRevisionHashTuple": {
         "type": "object",
         "additionalProperties": false,
         "required": [
@@ -8320,20 +9618,163 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ],
         "properties": {
           "revision_ref": {
-            "$ref": "#/$defs/immutableRevisionRef"
+            "type": "string",
+            "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
           },
           "content_hash": {
             "$ref": "#/$defs/hash"
           }
         }
       },
-      "revisionHashTuples": {
+      "workflowTemplateRevisionHashTuples": {
         "type": "array",
         "items": {
-          "$ref": "#/$defs/revisionHashTuple"
+          "$ref": "#/$defs/workflowTemplateRevisionHashTuple"
         },
         "maxItems": 128,
         "uniqueItems": true
+      },
+      "workflowTemplateRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "automationRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/automationRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "automationRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "harnessProfileRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/harnessProfileRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "harnessProfileRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "agentHarnessAdapterRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/agentHarnessAdapterRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "agentHarnessAdapterRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "dataRecipeRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/dataRecipeRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "dataRecipeRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "toolRevisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/toolRevisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "toolRevisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "type": "string",
+            "pattern": "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
       },
       "canonicalDateTime": {
         "type": "string",
@@ -8615,7 +10056,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^improvement-governance-profile://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+                "pattern": "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
               },
               {
                 "type": "null"
@@ -8715,6 +10156,50 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       }
     },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "draft"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "activation_receipt_ref": {
+              "type": "null"
+            },
+            "public_commitment_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "active"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "activation_receipt_ref": {
+              "type": "string",
+              "pattern": "^receipt://[^\\s]{1,248}$"
+            }
+          }
+        }
+      }
+    ],
     "$defs": {
       "hash": {
         "type": "string",
@@ -8884,6 +10369,28 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     },
     "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "enum": [
+                "proposed",
+                "evidence_pending"
+              ]
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "decision_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
       {
         "if": {
           "properties": {
@@ -9290,6 +10797,46 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
                   "maxItems": 1
                 }
               }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "draft"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "conformance_receipt_refs": {
+              "type": "array",
+              "maxItems": 0
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "active"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "conformance_receipt_refs": {
+              "type": "array",
+              "minItems": 1
             }
           }
         }
@@ -10361,6 +11908,81 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             }
           }
         }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "proposed"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "decision_ref": {
+              "type": "null"
+            },
+            "authority_grant_refs": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "resulting_state_root": {
+              "type": "null"
+            },
+            "state_transition_commitment_ref": {
+              "type": "null"
+            },
+            "disposition_receipt_refs": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "receipt_refs": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "public_commitment_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "committed"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "decision_ref": {
+              "type": "string",
+              "pattern": "^decision://[^\\s]{1,248}$"
+            },
+            "authority_grant_refs": {
+              "type": "array",
+              "minItems": 1
+            },
+            "resulting_state_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "state_transition_commitment_ref": {
+              "type": "string",
+              "pattern": "^transition://[^\\s]{1,248}$"
+            },
+            "receipt_refs": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
       }
     ],
     "$defs": {
@@ -10398,7 +12020,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "packageReleaseRef": {
         "type": "string",
-        "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+        "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
       },
       "nullablePackageReleaseRef": {
         "anyOf": [
@@ -10880,6 +12502,69 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             }
           }
         }
+      },
+      {
+        "if": {
+          "properties": {
+            "profile": {
+              "enum": [
+                "ioi_connected",
+                "ioi_secured"
+              ]
+            },
+            "status": {
+              "const": "active"
+            }
+          },
+          "required": [
+            "profile",
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "authority_grant_refs": {
+              "type": "array",
+              "minItems": 1
+            },
+            "transition_receipt_refs": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "profile": {
+              "const": "ioi_secured"
+            },
+            "status": {
+              "const": "active"
+            }
+          },
+          "required": [
+            "profile",
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "conformance": {
+              "type": "object",
+              "properties": {
+                "conformance_receipt_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "conformance_receipt_refs"
+              ]
+            }
+          }
+        }
       }
     ],
     "$defs": {
@@ -10905,7 +12590,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "packageReleaseRef": {
         "type": "string",
-        "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+        "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
       },
       "canonicalRef": {
         "type": "string",
@@ -11491,6 +13176,82 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1": [
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.ordering.system_id",
+      "description": "The ordering profile belongs to the same System as the candidate constitution.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.constitution.system_id",
+          "$.ordering_profile.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.ordering.constitution_ref",
+      "description": "The ordering profile binds the exact candidate constitution.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.constitution.constitution_id",
+          "$.ordering_profile.constitution_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.oracles.system_id",
+      "description": "Every ordered oracle profile belongs to the same System as the candidate constitution.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.oracle_profiles",
+        "field": "system_id",
+        "expected_path": "$.constitution.system_id"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.lifecycle.system_id",
+      "description": "The lifecycle profile belongs to the same System as the candidate constitution.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.constitution.system_id",
+          "$.lifecycle_profile.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.lifecycle.constitution_ref",
+      "description": "The lifecycle profile binds the exact candidate constitution.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.constitution.constitution_id",
+          "$.lifecycle_profile.constitution_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.enrollment.system_id",
+      "description": "A supplied network enrollment belongs to the same System as the candidate constitution.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.network_enrollment",
+        "field": "system_id",
+        "expected_path": "$.constitution.system_id"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.enrollment.constitution_ref",
+      "description": "A supplied network enrollment binds the exact candidate constitution.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.network_enrollment",
+        "field": "constitution_ref",
+        "expected_path": "$.constitution.constitution_id"
+      }
+    }
+  ],
   "schema://ioi/foundations/autonomous-system-genesis/v1": [],
   "schema://ioi/foundations/autonomous-system-constitution/v1": [
     {
@@ -11885,6 +13646,37 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
         valueAtPath(value, expression.paths[0]),
         valueAtPath(value, expression.paths[1]),
       );
+    } else if (
+      operator === "array_field_equals" &&
+      typeof expression.array_path === "string" &&
+      typeof expression.field === "string" &&
+      typeof expression.expected_path === "string"
+    ) {
+      const values = valueAtPath(value, expression.array_path);
+      const expected = valueAtPath(value, expression.expected_path);
+      const field = expression.field;
+      valid =
+        Array.isArray(values) &&
+        expected !== undefined &&
+        values.every(
+          (item) =>
+            isObject(item) &&
+            jsonSchemaEqual(item[field], expected),
+        );
+    } else if (
+      operator === "optional_field_equals" &&
+      typeof expression.optional_object_path === "string" &&
+      typeof expression.field === "string" &&
+      typeof expression.expected_path === "string"
+    ) {
+      const optional = valueAtPath(value, expression.optional_object_path);
+      const expected = valueAtPath(value, expression.expected_path);
+      const field = expression.field;
+      valid =
+        optional === null ||
+        (isObject(optional) &&
+          expected !== undefined &&
+          jsonSchemaEqual(optional[field], expected));
     } else if (operator === "matches_contract_schema_hash") {
       valid = valueAtPath(value, expression.path) === architectureContractSchemaHash(contractId);
     } else if (
@@ -12000,6 +13792,12 @@ export function validateAutonomousSystemManifestV1(
   value: unknown,
 ): value is AutonomousSystemManifestV1 {
   return validateArchitectureContract("schema://ioi/foundations/autonomous-system-manifest/v1", value).ok;
+}
+
+export function validateAutonomousSystemInitialProfileBundleV1(
+  value: unknown,
+): value is AutonomousSystemInitialProfileBundleV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1", value).ok;
 }
 
 export function validateAutonomousSystemGenesisV1(

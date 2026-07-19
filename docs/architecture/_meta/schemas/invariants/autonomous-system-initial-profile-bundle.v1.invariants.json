@@ -1,0 +1,75 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-initial-profile-bundle/exact-bodies/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.ordering.system_id",
+      "description": "The ordering profile belongs to the same System as the candidate constitution.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.constitution.system_id", "$.ordering_profile.system_id"]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.ordering.constitution_ref",
+      "description": "The ordering profile binds the exact candidate constitution.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.constitution.constitution_id",
+          "$.ordering_profile.constitution_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.oracles.system_id",
+      "description": "Every ordered oracle profile belongs to the same System as the candidate constitution.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.oracle_profiles",
+        "field": "system_id",
+        "expected_path": "$.constitution.system_id"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.lifecycle.system_id",
+      "description": "The lifecycle profile belongs to the same System as the candidate constitution.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.constitution.system_id", "$.lifecycle_profile.system_id"]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.lifecycle.constitution_ref",
+      "description": "The lifecycle profile binds the exact candidate constitution.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.constitution.constitution_id",
+          "$.lifecycle_profile.constitution_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.enrollment.system_id",
+      "description": "A supplied network enrollment belongs to the same System as the candidate constitution.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.network_enrollment",
+        "field": "system_id",
+        "expected_path": "$.constitution.system_id"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_initial_profile_bundle.enrollment.constitution_ref",
+      "description": "A supplied network enrollment binds the exact candidate constitution.",
+      "expression": {
+        "operator": "optional_field_equals",
+        "optional_object_path": "$.network_enrollment",
+        "field": "constitution_ref",
+        "expected_path": "$.constitution.constitution_id"
+      }
+    }
+  ]
+}

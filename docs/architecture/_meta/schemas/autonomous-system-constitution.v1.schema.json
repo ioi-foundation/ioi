@@ -266,7 +266,7 @@
           "anyOf": [
             {
               "type": "string",
-              "pattern": "^improvement-governance-profile://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+              "pattern": "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
             },
             {
               "type": "null"
@@ -361,6 +361,46 @@
       "enum": ["draft", "active", "superseded", "revoked"]
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "draft"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "activation_receipt_ref": {
+            "type": "null"
+          },
+          "public_commitment_ref": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "active"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "activation_receipt_ref": {
+            "type": "string",
+            "pattern": "^receipt://[^\\s]{1,248}$"
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "hash": {
       "type": "string",

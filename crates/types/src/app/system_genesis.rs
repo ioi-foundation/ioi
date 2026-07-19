@@ -2,6 +2,7 @@
 
 use crate::app::generated::architecture_contracts::{
     validate_architecture_contract, AutonomousSystemGenesisV1,
+    AutonomousSystemInitialProfileBundleV1,
 };
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use serde::Serialize;
@@ -14,6 +15,9 @@ pub const SYSTEM_COMPONENT_SET_HASH_PROFILE: &str =
 /// RFC 8785 JCS + SHA-256 profile for the immutable package-release body.
 pub const SYSTEM_RELEASE_ROOT_HASH_PROFILE: &str =
     "ioi.autonomous-system-manifest-release-root-jcs-sha256.v1";
+/// RFC 8785 JCS + SHA-256 profile for the exact supplied initial profile bodies.
+pub const SYSTEM_INITIAL_PROFILE_BUNDLE_HASH_PROFILE: &str =
+    "ioi.autonomous-system-initial-profile-bundle-jcs-sha256.v1";
 /// RFC 8785 JCS + SHA-256 profile for the pre-transition genesis operation.
 pub const SYSTEM_GENESIS_OPERATION_HASH_PROFILE: &str =
     "ioi.autonomous-system-genesis-operation-jcs-sha256.v1";
@@ -25,6 +29,8 @@ pub const SYSTEM_GENESIS_PROPOSAL_AUTHORITY_BOUNDARY: &str =
     "unverified_proposal_only_no_authority_admission_activation_or_effect";
 
 const MANIFEST_CONTRACT_ID: &str = "schema://ioi/foundations/autonomous-system-manifest/v1";
+const INITIAL_PROFILE_BUNDLE_CONTRACT_ID: &str =
+    "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1";
 const GENESIS_CONTRACT_ID: &str = "schema://ioi/foundations/autonomous-system-genesis/v1";
 const CONSTITUTION_CONTRACT_ID: &str = "schema://ioi/foundations/autonomous-system-constitution/v1";
 const ORDERING_CONTRACT_ID: &str =
@@ -33,6 +39,8 @@ const ORACLE_CONTRACT_ID: &str = "schema://ioi/foundations/oracle-evidence-profi
 const LIFECYCLE_CONTRACT_ID: &str = "schema://ioi/foundations/lifecycle-continuity-profile/v1";
 const NETWORK_ENROLLMENT_CONTRACT_ID: &str = "schema://ioi/foundations/ioi-network-enrollment/v1";
 const PROPOSAL_INPUT_SCHEMA_VERSION: &str = "ioi.autonomous-system-genesis-proposal-input.v1";
+const INITIAL_PROFILE_BUNDLE_SCHEMA_VERSION: &str =
+    "ioi.autonomous-system-initial-profile-bundle.v1";
 const BLOCKER_REPORT_SCHEMA_VERSION: &str = "ioi.autonomous-system-genesis-blocker-report.v1";
 const MAX_BLOCKERS: usize = 64;
 
@@ -76,6 +84,10 @@ pub enum SystemGenesisBlockerCode {
     ComponentSetHashMismatch,
     /// Constitution coordinates differ from the proposed System coordinates.
     ConstitutionCoordinateMismatch,
+    /// A sequence-zero constitution carries activation evidence.
+    ConstitutionActivationReceiptForbidden,
+    /// A sequence-zero constitution carries a predecessor.
+    ConstitutionPredecessorForbidden,
     /// The proposal claims authorization, admission, or activation.
     GenesisActivationClaimForbidden,
     /// Genesis identity does not belong to the proposed System namespace.
@@ -90,14 +102,20 @@ pub enum SystemGenesisBlockerCode {
     GenesisStatusNotProposed,
     /// Canonicalization or hashing failed.
     HashingFailed,
+    /// The exact initial profile bundle is malformed or internally inconsistent.
+    InitialProfileBundleInvalid,
     /// The proposal contains a binding that requires later admission.
     LiveBindingAdmissionUnavailable,
     /// Manifest and package coordinates disagree.
     ManifestPackageMismatch,
+    /// The package release cannot instantiate a new System.
+    NewSystemInstantiationForbidden,
     /// An immutable coordinate uses a mutable alias.
     MutableReference,
     /// Network enrollment coordinates differ from the proposal.
     NetworkEnrollmentCoordinateMismatch,
+    /// A sequence-zero enrollment carries a predecessor.
+    NetworkEnrollmentPredecessorForbidden,
     /// Input contains a clock, random, process, or environment field.
     NondeterministicField,
     /// A reusable package contains live runtime state.
@@ -139,6 +157,12 @@ impl SystemGenesisBlockerCode {
             Self::ConstitutionCoordinateMismatch => {
                 "constitution coordinates differ from the proposed System or genesis"
             }
+            Self::ConstitutionActivationReceiptForbidden => {
+                "a sequence-zero constitution cannot carry an activation receipt"
+            }
+            Self::ConstitutionPredecessorForbidden => {
+                "a sequence-zero constitution cannot carry a predecessor constitution"
+            }
             Self::GenesisActivationClaimForbidden => {
                 "a pure proposal cannot claim authorization, admission, or activation"
             }
@@ -156,17 +180,26 @@ impl SystemGenesisBlockerCode {
                 "the pure compiler accepts only proposed genesis status"
             }
             Self::HashingFailed => "JCS canonicalization or SHA-256 hashing failed",
+            Self::InitialProfileBundleInvalid => {
+                "the closed initial profile bundle is malformed or internally inconsistent"
+            }
             Self::LiveBindingAdmissionUnavailable => {
                 "live installation, skill-entry, or gateway binding requires later admission"
             }
             Self::ManifestPackageMismatch => {
                 "package and release coordinates do not identify the same package"
             }
+            Self::NewSystemInstantiationForbidden => {
+                "system_binding.allowed_use forbids new-System instantiation"
+            }
             Self::MutableReference => {
                 "mutable, floating, current, latest, or head reference is forbidden"
             }
             Self::NetworkEnrollmentCoordinateMismatch => {
                 "network enrollment coordinates differ from the proposed genesis"
+            }
+            Self::NetworkEnrollmentPredecessorForbidden => {
+                "a sequence-zero enrollment cannot carry a predecessor enrollment"
             }
             Self::NondeterministicField => {
                 "clock, random, environment, process, or generated identity field is forbidden"
@@ -212,6 +245,10 @@ impl SystemGenesisBlockerCode {
             Self::ComponentBindingMismatch => "component_binding_mismatch",
             Self::ComponentSetHashMismatch => "component_set_hash_mismatch",
             Self::ConstitutionCoordinateMismatch => "constitution_coordinate_mismatch",
+            Self::ConstitutionActivationReceiptForbidden => {
+                "constitution_activation_receipt_forbidden"
+            }
+            Self::ConstitutionPredecessorForbidden => "constitution_predecessor_forbidden",
             Self::GenesisActivationClaimForbidden => "genesis_activation_claim_forbidden",
             Self::GenesisCoordinateMismatch => "genesis_coordinate_mismatch",
             Self::GenesisHistoryForbidden => "genesis_history_forbidden",
@@ -219,10 +256,15 @@ impl SystemGenesisBlockerCode {
             Self::GenesisSequenceNotZero => "genesis_sequence_not_zero",
             Self::GenesisStatusNotProposed => "genesis_status_not_proposed",
             Self::HashingFailed => "hashing_failed",
+            Self::InitialProfileBundleInvalid => "initial_profile_bundle_invalid",
             Self::LiveBindingAdmissionUnavailable => "live_binding_admission_unavailable",
             Self::ManifestPackageMismatch => "manifest_package_mismatch",
+            Self::NewSystemInstantiationForbidden => "new_system_instantiation_forbidden",
             Self::MutableReference => "mutable_reference",
             Self::NetworkEnrollmentCoordinateMismatch => "network_enrollment_coordinate_mismatch",
+            Self::NetworkEnrollmentPredecessorForbidden => {
+                "network_enrollment_predecessor_forbidden"
+            }
             Self::NondeterministicField => "nondeterministic_field",
             Self::PackageLiveStateForbidden => "package_live_state_forbidden",
             Self::ProfileCoordinateMismatch => "profile_coordinate_mismatch",
@@ -262,9 +304,24 @@ pub struct SystemGenesisBlockerReport {
     pub truncated: bool,
 }
 
+/// Exact candidate profile bodies and their canonical commitment.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CompiledSystemInitialProfileBundle {
+    /// Closed generated projection preserving the exact supplied profile bodies.
+    pub bundle: AutonomousSystemInitialProfileBundleV1,
+    /// RFC 8785 canonical bytes of `bundle`.
+    pub canonical_json: Vec<u8>,
+    /// Domain-separated SHA-256 commitment to `canonical_json`.
+    pub bundle_root: String,
+    /// Hash profile used for `bundle_root`.
+    pub hash_profile: &'static str,
+}
+
 /// Canonical proposed genesis artifact and its root.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct CompiledSystemGenesisProposal {
+    /// Exact initial profile material available to a later persistence step.
+    pub initial_profile_bundle: CompiledSystemInitialProfileBundle,
     /// Typed proposed genesis artifact.
     pub genesis: AutonomousSystemGenesisV1,
     /// RFC 8785 canonical bytes of `genesis`.
@@ -364,13 +421,6 @@ pub fn compute_system_release_root(release: &Value) -> Result<String, String> {
         release_projection.remove("publisher_signature_ref");
         release_projection.remove("registry_published_at");
     }
-    if material
-        .get("release")
-        .and_then(Value::as_object)
-        .is_some_and(Map::is_empty)
-    {
-        material.remove("release");
-    }
     domain_hash(SYSTEM_RELEASE_ROOT_HASH_PROFILE, &Value::Object(material))
 }
 
@@ -395,18 +445,60 @@ pub fn compile_system_genesis_proposal(
     );
     validate_proposal_input_shape(proposed_instantiation, &mut blockers);
     validate_manifest_coordinates(release, &mut blockers);
+    validate_new_system_use(release, &mut blockers);
     validate_manifest_hashes_and_tuples(release, &mut blockers);
     validate_template_bindings(release, proposed_instantiation, &mut blockers);
     validate_proposal_coordinates(release, proposed_instantiation, &mut blockers);
     validate_component_bindings(release, proposed_instantiation, &mut blockers);
+
+    let initial_profile_bundle_value = build_initial_profile_bundle(proposed_instantiation);
+    validate_contract(
+        INITIAL_PROFILE_BUNDLE_CONTRACT_ID,
+        &initial_profile_bundle_value,
+        "$.proposed.initial_profile_bundle",
+        SystemGenesisBlockerCode::InitialProfileBundleInvalid,
+        &mut blockers,
+    );
+    let initial_profile_bundle_canonical_json =
+        match serde_jcs::to_vec(&initial_profile_bundle_value) {
+            Ok(bytes) => Some(bytes),
+            Err(_) => {
+                blockers.push(
+                    SystemGenesisBlockerCode::HashingFailed,
+                    "$.proposed.initial_profile_bundle",
+                );
+                None
+            }
+        };
+    let initial_profile_bundle_root = match domain_hash(
+        SYSTEM_INITIAL_PROFILE_BUNDLE_HASH_PROFILE,
+        &initial_profile_bundle_value,
+    ) {
+        Ok(root) => Some(root),
+        Err(_) => {
+            blockers.push(
+                SystemGenesisBlockerCode::HashingFailed,
+                "$.proposed.initial_profile_bundle",
+            );
+            None
+        }
+    };
 
     let mut genesis_value = proposed_instantiation
         .pointer("/candidate")
         .cloned()
         .unwrap_or(Value::Null);
     let release_root = release.get("release_root").cloned();
-    if let (Some(genesis), Some(release_root)) = (genesis_value.as_object_mut(), release_root) {
+    if let (Some(genesis), Some(release_root), Some(bundle_root)) = (
+        genesis_value.as_object_mut(),
+        release_root,
+        initial_profile_bundle_root.as_ref(),
+    ) {
         genesis.insert("admitted_manifest_root".to_owned(), release_root);
+        genesis.insert(
+            "initial_profile_bundle_root".to_owned(),
+            Value::String(bundle_root.clone()),
+        );
     }
 
     let operation_commitment = if genesis_value.is_object() {
@@ -475,6 +567,30 @@ pub fn compile_system_genesis_proposal(
             );
         }
     };
+    let initial_profile_bundle = match serde_json::from_value::<
+        AutonomousSystemInitialProfileBundleV1,
+    >(initial_profile_bundle_value)
+    {
+        Ok(bundle) => bundle,
+        Err(_) => {
+            return failed_hash_or_projection(
+                SystemGenesisBlockerCode::InitialProfileBundleInvalid,
+                "$.proposed.initial_profile_bundle",
+            );
+        }
+    };
+    let Some(initial_profile_bundle_canonical_json) = initial_profile_bundle_canonical_json else {
+        return failed_hash_or_projection(
+            SystemGenesisBlockerCode::HashingFailed,
+            "$.proposed.initial_profile_bundle",
+        );
+    };
+    let Some(initial_profile_bundle_root) = initial_profile_bundle_root else {
+        return failed_hash_or_projection(
+            SystemGenesisBlockerCode::HashingFailed,
+            "$.proposed.initial_profile_bundle",
+        );
+    };
     let canonical_json = match serde_jcs::to_vec(&genesis_value) {
         Ok(bytes) => bytes,
         Err(_) => {
@@ -497,6 +613,12 @@ pub fn compile_system_genesis_proposal(
 
     SystemGenesisCompilation {
         proposal: Some(CompiledSystemGenesisProposal {
+            initial_profile_bundle: CompiledSystemInitialProfileBundle {
+                bundle: initial_profile_bundle,
+                canonical_json: initial_profile_bundle_canonical_json,
+                bundle_root: initial_profile_bundle_root,
+                hash_profile: SYSTEM_INITIAL_PROFILE_BUNDLE_HASH_PROFILE,
+            },
             genesis,
             canonical_json,
             proposal_root,
@@ -557,6 +679,27 @@ fn join_schema_path(base_path: &str, error: &str) -> String {
     }
 }
 
+fn build_initial_profile_bundle(proposed: &Value) -> Value {
+    let mut bundle = Map::new();
+    bundle.insert(
+        "schema_version".to_owned(),
+        Value::String(INITIAL_PROFILE_BUNDLE_SCHEMA_VERSION.to_owned()),
+    );
+    for field in [
+        "constitution",
+        "ordering_profile",
+        "oracle_profiles",
+        "lifecycle_profile",
+        "network_enrollment",
+    ] {
+        bundle.insert(
+            field.to_owned(),
+            proposed.get(field).cloned().unwrap_or(Value::Null),
+        );
+    }
+    Value::Object(bundle)
+}
+
 fn validate_proposal_input_shape(value: &Value, blockers: &mut BlockerCollector) {
     const TOP_LEVEL: &[&str] = &[
         "schema_version",
@@ -609,9 +752,98 @@ fn validate_proposal_input_shape(value: &Value, blockers: &mut BlockerCollector)
             "$.proposed.schema_version",
         );
     }
-    if let Some(candidate) = value.get("candidate") {
+    let Some(proposal) = value.as_object() else {
+        return;
+    };
+    check_type(
+        proposal.get("schema_version"),
+        "$.proposed.schema_version",
+        Value::is_string,
+        blockers,
+    );
+    for field in [
+        "candidate",
+        "template_bindings",
+        "constitution",
+        "ordering_profile",
+        "lifecycle_profile",
+    ] {
+        check_type(
+            proposal.get(field),
+            &format!("$.proposed.{field}"),
+            Value::is_object,
+            blockers,
+        );
+    }
+    check_type(
+        proposal.get("oracle_profiles"),
+        "$.proposed.oracle_profiles",
+        Value::is_array,
+        blockers,
+    );
+    if let Some(profiles) = proposal.get("oracle_profiles").and_then(Value::as_array) {
+        for (index, profile) in profiles.iter().enumerate() {
+            check_type(
+                Some(profile),
+                &format!("$.proposed.oracle_profiles[{index}]"),
+                Value::is_object,
+                blockers,
+            );
+        }
+    }
+    check_type(
+        proposal.get("network_enrollment"),
+        "$.proposed.network_enrollment",
+        |candidate| candidate.is_null() || candidate.is_object(),
+        blockers,
+    );
+
+    if let Some(candidate) = proposal.get("candidate").filter(|value| value.is_object()) {
         check_closed_object(candidate, "$.proposed.candidate", CANDIDATE, blockers);
         check_required_properties(candidate, "$.proposed.candidate", CANDIDATE, blockers);
+        for field in [
+            "schema_version",
+            "genesis_id",
+            "system_id",
+            "package_id",
+            "manifest_ref",
+            "constitution_ref",
+            "created_at",
+            "status",
+        ] {
+            check_type(
+                candidate.get(field),
+                &format!("$.proposed.candidate.{field}"),
+                Value::is_string,
+                blockers,
+            );
+        }
+        for field in [
+            "initial_profile_refs",
+            "initial_component_bindings",
+            "instantiation",
+            "cryptographic_origin",
+        ] {
+            check_type(
+                candidate.get(field),
+                &format!("$.proposed.candidate.{field}"),
+                Value::is_object,
+                blockers,
+            );
+        }
+        check_type(
+            candidate.get("activation_receipt_ref"),
+            "$.proposed.candidate.activation_receipt_ref",
+            is_nullable_string,
+            blockers,
+        );
+        for field in ["lifecycle_transition_refs", "status_source_receipt_refs"] {
+            check_string_array(
+                candidate.get(field),
+                &format!("$.proposed.candidate.{field}"),
+                blockers,
+            );
+        }
         if let Some(origin) = candidate.get("cryptographic_origin") {
             check_closed_object(
                 origin,
@@ -625,9 +857,36 @@ fn validate_proposal_input_shape(value: &Value, blockers: &mut BlockerCollector)
                 ORIGIN,
                 blockers,
             );
+            if let Some(origin) = origin.as_object() {
+                check_type(
+                    origin.get("sequence"),
+                    "$.proposed.candidate.cryptographic_origin.sequence",
+                    is_json_integer,
+                    blockers,
+                );
+                for field in ["predecessor_commitment_ref", "admission_proof_ref"] {
+                    check_type(
+                        origin.get(field),
+                        &format!("$.proposed.candidate.cryptographic_origin.{field}"),
+                        is_nullable_string,
+                        blockers,
+                    );
+                }
+                for field in ["initial_state_root", "initial_receipt_root"] {
+                    check_type(
+                        origin.get(field),
+                        &format!("$.proposed.candidate.cryptographic_origin.{field}"),
+                        Value::is_string,
+                        blockers,
+                    );
+                }
+            }
         }
     }
-    if let Some(bindings) = value.get("template_bindings") {
+    if let Some(bindings) = proposal
+        .get("template_bindings")
+        .filter(|value| value.is_object())
+    {
         check_closed_object(
             bindings,
             "$.proposed.template_bindings",
@@ -640,7 +899,59 @@ fn validate_proposal_input_shape(value: &Value, blockers: &mut BlockerCollector)
             TEMPLATE_BINDINGS,
             blockers,
         );
+        for field in [
+            "constitution_template_ref",
+            "deployment_template_ref",
+            "ordering_admission_finality_template_ref",
+            "lifecycle_continuity_template_ref",
+            "network_enrollment_constraint_ref",
+        ] {
+            check_type(
+                bindings.get(field),
+                &format!("$.proposed.template_bindings.{field}"),
+                Value::is_string,
+                blockers,
+            );
+        }
+        check_string_array(
+            bindings.get("oracle_evidence_template_refs"),
+            "$.proposed.template_bindings.oracle_evidence_template_refs",
+            blockers,
+        );
     }
+}
+
+fn check_type(
+    value: Option<&Value>,
+    path: &str,
+    predicate: impl Fn(&Value) -> bool,
+    blockers: &mut BlockerCollector,
+) {
+    if value.is_some_and(|candidate| !predicate(candidate)) {
+        blockers.push(SystemGenesisBlockerCode::ProposedInstantiationInvalid, path);
+    }
+}
+
+fn check_string_array(value: Option<&Value>, path: &str, blockers: &mut BlockerCollector) {
+    check_type(value, path, Value::is_array, blockers);
+    if let Some(items) = value.and_then(Value::as_array) {
+        for (index, item) in items.iter().enumerate() {
+            check_type(
+                Some(item),
+                &format!("{path}[{index}]"),
+                Value::is_string,
+                blockers,
+            );
+        }
+    }
+}
+
+fn is_nullable_string(value: &Value) -> bool {
+    value.is_null() || value.is_string()
+}
+
+fn is_json_integer(value: &Value) -> bool {
+    value.as_i64().is_some() || value.as_u64().is_some()
 }
 
 fn check_closed_object(
@@ -679,6 +990,19 @@ fn check_required_properties(
                 format!("{path}.{key}"),
             );
         }
+    }
+}
+
+fn validate_new_system_use(release: &Value, blockers: &mut BlockerCollector) {
+    if release
+        .pointer("/system_binding/allowed_use")
+        .and_then(Value::as_str)
+        == Some("upgrade_existing")
+    {
+        blockers.push(
+            SystemGenesisBlockerCode::NewSystemInstantiationForbidden,
+            "$.release.system_binding.allowed_use",
+        );
     }
 }
 
@@ -1039,6 +1363,24 @@ fn validate_proposal_coordinates(
             "$.proposed.constitution.status",
             blockers,
         );
+        if constitution
+            .get("predecessor_constitution_ref")
+            .is_some_and(|value| !value.is_null())
+        {
+            blockers.push(
+                SystemGenesisBlockerCode::ConstitutionPredecessorForbidden,
+                "$.proposed.constitution.predecessor_constitution_ref",
+            );
+        }
+        if constitution
+            .get("activation_receipt_ref")
+            .is_some_and(|value| !value.is_null())
+        {
+            blockers.push(
+                SystemGenesisBlockerCode::ConstitutionActivationReceiptForbidden,
+                "$.proposed.constitution.activation_receipt_ref",
+            );
+        }
     }
 
     if let Some(ordering) = proposed.get("ordering_profile") {
@@ -1203,6 +1545,15 @@ fn validate_proposal_coordinates(
                 "$.proposed.network_enrollment.status",
                 blockers,
             );
+            if enrollment
+                .get("predecessor_enrollment_ref")
+                .is_some_and(|value| !value.is_null())
+            {
+                blockers.push(
+                    SystemGenesisBlockerCode::NetworkEnrollmentPredecessorForbidden,
+                    "$.proposed.network_enrollment.predecessor_enrollment_ref",
+                );
+            }
             for (pointer, path) in [
                 (
                     "/authority_grant_refs",
@@ -1508,21 +1859,104 @@ fn scan_mutable_references(value: &Value, path: &str, blockers: &mut BlockerColl
                 scan_mutable_references(child, &format!("{path}[{index}]"), blockers);
             }
         }
-        Value::String(text) if text.contains("://") => {
-            let lower = text.to_ascii_lowercase();
-            let segments = lower
-                .split(['/', ':'])
-                .filter(|segment| !segment.is_empty())
-                .collect::<BTreeSet<_>>();
-            if ["current", "latest", "head", "floating"]
-                .iter()
-                .any(|alias| segments.contains(alias))
-            {
+        Value::String(text) => {
+            if uri_contains_mutable_alias(text) {
                 blockers.push(SystemGenesisBlockerCode::MutableReference, path);
             }
         }
         _ => {}
     }
+}
+
+fn uri_contains_mutable_alias(text: &str) -> bool {
+    let Some(colon) = text.find(':') else {
+        return false;
+    };
+    let scheme = &text[..colon];
+    if scheme.is_empty()
+        || !scheme
+            .bytes()
+            .next()
+            .is_some_and(|byte| byte.is_ascii_alphabetic())
+        || !scheme
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'-' | b'.'))
+    {
+        return false;
+    }
+
+    let mut decoded = text.to_owned();
+    for _ in 0..4 {
+        match percent_decode_once(&decoded) {
+            Ok(next) if next == decoded => break,
+            Ok(next) => decoded = next,
+            Err(()) => return true,
+        }
+    }
+    decoded
+        .to_ascii_lowercase()
+        .split(is_uri_token_separator)
+        .filter(|token| !token.is_empty())
+        .collect::<BTreeSet<_>>()
+        .iter()
+        .any(|token| matches!(*token, "current" | "latest" | "head" | "floating"))
+}
+
+fn percent_decode_once(value: &str) -> Result<String, ()> {
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] != b'%' {
+            decoded.push(bytes[index]);
+            index += 1;
+            continue;
+        }
+        let high = *bytes.get(index + 1).ok_or(())?;
+        let low = *bytes.get(index + 2).ok_or(())?;
+        decoded.push(
+            hex_nibble(high)
+                .zip(hex_nibble(low))
+                .map_or(Err(()), |(high, low)| Ok((high << 4) | low))?,
+        );
+        index += 3;
+    }
+    String::from_utf8(decoded).map_err(|_| ())
+}
+
+fn hex_nibble(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn is_uri_token_separator(character: char) -> bool {
+    character.is_ascii_whitespace()
+        || matches!(
+            character,
+            ':' | '/'
+                | '?'
+                | '#'
+                | '['
+                | ']'
+                | '@'
+                | '!'
+                | '$'
+                | '&'
+                | '\''
+                | '('
+                | ')'
+                | '*'
+                | '+'
+                | ','
+                | ';'
+                | '='
+                | '\\'
+                | '|'
+        )
 }
 
 #[cfg(test)]
@@ -1556,6 +1990,10 @@ mod tests {
             .as_object_mut()
             .expect("candidate object")
             .remove("admitted_manifest_root");
+        candidate
+            .as_object_mut()
+            .expect("candidate object")
+            .remove("initial_profile_bundle_root");
         let origin = candidate["cryptographic_origin"]
             .as_object_mut()
             .expect("origin object");
@@ -1626,11 +2064,329 @@ mod tests {
                 .proposal
                 .as_ref()
                 .map(|value| value.proposal_root.as_str()),
-            Some("sha256:28a6c2094b6b2a0b24c53fb488ca8fadcbec795bc55123d459989e4a2fc71bb7")
+            Some("sha256:1d337b534c9ee000ba3dafffb86b00ff727e0d58d05468595d037514e43c29c6")
+        );
+        let compiled = first.proposal.as_ref().expect("valid compiled proposal");
+        assert_eq!(
+            compiled.initial_profile_bundle.bundle_root,
+            "sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48",
+        );
+        assert_eq!(
+            genesis_operation_commitment(compiled),
+            "sha256:37b92d683d7b543a26e1e82ab80c54bb4609119047b0957437c52d14cc0bce9d",
         );
         assert_eq!(
             first.authority_effect_boundary,
             SYSTEM_GENESIS_PROPOSAL_AUTHORITY_BOUNDARY
+        );
+    }
+
+    #[test]
+    fn exact_profile_body_changes_bundle_operation_and_proposal_roots() {
+        let release = valid_release();
+        let first_input = valid_proposal(&release);
+        let mut second_input = first_input.clone();
+        second_input["constitution"]["declared_purpose"]["statement"] = Value::String(
+            "Pursue bounded research outcomes for accountable project stakeholders with review."
+                .to_owned(),
+        );
+
+        let first = compile_system_genesis_proposal(&release, &first_input)
+            .proposal
+            .expect("first profile bundle compiles");
+        let second = compile_system_genesis_proposal(&release, &second_input)
+            .proposal
+            .expect("changed valid profile body compiles");
+
+        assert_ne!(
+            first.initial_profile_bundle.bundle_root, second.initial_profile_bundle.bundle_root,
+            "the bundle root must commit the exact supplied profile bodies",
+        );
+        assert_ne!(
+            genesis_operation_commitment(&first),
+            genesis_operation_commitment(&second),
+            "the operation commitment must bind the inserted bundle root",
+        );
+        assert_ne!(
+            first.proposal_root, second.proposal_root,
+            "the proposal root must bind the inserted bundle root",
+        );
+        assert_eq!(
+            first.initial_profile_bundle.canonical_json,
+            serde_jcs::to_vec(&build_initial_profile_bundle(&first_input))
+                .expect("independent bundle canonicalization"),
+            "the compiled result must return the exact closed canonical bundle",
+        );
+    }
+
+    #[test]
+    fn release_root_removes_only_canon_named_fields_and_preserves_empty_release() {
+        let release = fixture(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/architecture/_meta/schemas/fixtures/",
+            "autonomous-system-manifest-v1/positive-reusable-release.json"
+        )));
+        let mut material = release.as_object().cloned().expect("manifest object");
+        material.remove("release_root");
+        material.remove("registry_status");
+        material
+            .get_mut("receipts")
+            .and_then(Value::as_object_mut)
+            .expect("receipt projection")
+            .remove("package_readiness_receipt_ref");
+        let release_projection = material
+            .get_mut("release")
+            .and_then(Value::as_object_mut)
+            .expect("release projection");
+        release_projection.remove("publisher_signature_ref");
+        release_projection.remove("registry_published_at");
+        assert_eq!(
+            material.get("release"),
+            Some(&Value::Object(Map::new())),
+            "canon retains the resulting empty release object",
+        );
+
+        let material = Value::Object(material);
+        let canonical = serde_jcs::to_vec(&serde_json::json!({
+            "domain": SYSTEM_RELEASE_ROOT_HASH_PROFILE,
+            "value": material,
+        }))
+        .expect("independent release-root canonicalization");
+        let digest = Sha256::digest(&canonical).expect("independent release-root digest");
+        let independently_computed = format!(
+            "sha256:{}",
+            digest
+                .as_ref()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>(),
+        );
+        assert_eq!(
+            compute_system_release_root(&release).expect("compiler release root"),
+            independently_computed,
+        );
+        assert_eq!(
+            independently_computed,
+            "sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b",
+            "release-root golden drifted",
+        );
+    }
+
+    #[test]
+    fn upgrade_only_release_is_refused_after_release_hashes_are_recomputed() {
+        let mut release = valid_release();
+        release["system_binding"]["allowed_use"] = Value::String("upgrade_existing".to_owned());
+        recompute_release_hashes(&mut release);
+        let proposal = valid_proposal(&release);
+        let result = compile_system_genesis_proposal(&release, &proposal);
+        assert!(result.proposal.is_none());
+        assert!(has_blocker(
+            &result,
+            SystemGenesisBlockerCode::NewSystemInstantiationForbidden,
+            "$.release.system_binding.allowed_use",
+        ));
+        assert!(!result.blocker_report.blockers.iter().any(|blocker| {
+            matches!(
+                blocker.code,
+                SystemGenesisBlockerCode::ComponentSetHashMismatch
+                    | SystemGenesisBlockerCode::ReleaseRootMismatch
+            )
+        }));
+    }
+
+    #[test]
+    fn every_proposal_top_level_member_has_a_fail_closed_type() {
+        let release = valid_release();
+        for (field, replacement) in [
+            ("schema_version", Value::Bool(false)),
+            ("candidate", Value::Array(Vec::new())),
+            ("template_bindings", Value::String("invalid".to_owned())),
+            ("constitution", Value::Array(Vec::new())),
+            ("ordering_profile", Value::Bool(false)),
+            ("oracle_profiles", serde_json::json!({"not": "an array"})),
+            ("lifecycle_profile", Value::Null),
+            ("network_enrollment", Value::String("invalid".to_owned())),
+        ] {
+            let mut proposal = valid_proposal(&release);
+            proposal[field] = replacement;
+            let result = compile_system_genesis_proposal(&release, &proposal);
+            assert!(
+                has_blocker(
+                    &result,
+                    SystemGenesisBlockerCode::ProposedInstantiationInvalid,
+                    &format!("$.proposed.{field}"),
+                ),
+                "{field}: wrong top-level type escaped: {:?}",
+                result.blocker_report.blockers,
+            );
+            assert!(result.proposal.is_none(), "{field}: wrong type compiled");
+        }
+    }
+
+    #[test]
+    fn sequence_zero_profiles_reject_predecessors_and_activation_residue() {
+        let release = valid_release();
+
+        let mut predecessor = valid_proposal(&release);
+        predecessor["constitution"]["predecessor_constitution_ref"] =
+            Value::String("constitution://acme/system-alpha/v0".to_owned());
+        let result = compile_system_genesis_proposal(&release, &predecessor);
+        assert!(has_blocker(
+            &result,
+            SystemGenesisBlockerCode::ConstitutionPredecessorForbidden,
+            "$.proposed.constitution.predecessor_constitution_ref",
+        ));
+
+        let mut activation = valid_proposal(&release);
+        activation["constitution"]["activation_receipt_ref"] =
+            Value::String("receipt://acme/system-alpha/constitution-active".to_owned());
+        let result = compile_system_genesis_proposal(&release, &activation);
+        assert!(has_blocker(
+            &result,
+            SystemGenesisBlockerCode::ConstitutionActivationReceiptForbidden,
+            "$.proposed.constitution.activation_receipt_ref",
+        ));
+
+        let mut enrollment = proposal_with_network_enrollment(&release);
+        enrollment["network_enrollment"]["predecessor_enrollment_ref"] =
+            Value::String("network-enrollment://acme/system-alpha/ioi/v0".to_owned());
+        let result = compile_system_genesis_proposal(&release, &enrollment);
+        assert!(has_blocker(
+            &result,
+            SystemGenesisBlockerCode::NetworkEnrollmentPredecessorForbidden,
+            "$.proposed.network_enrollment.predecessor_enrollment_ref",
+        ));
+    }
+
+    #[test]
+    fn every_typed_component_lane_refuses_a_cross_category_revision() {
+        const MANIFEST_LANES: &[(&str, &str)] = &[
+            (
+                "goal_run_profiles",
+                "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ),
+            (
+                "workflow_templates",
+                "goal-run-profile://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ),
+            (
+                "automation_specs",
+                "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ),
+            (
+                "harness_profiles",
+                "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ),
+            (
+                "agent_harness_adapters",
+                "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ),
+            (
+                "data_recipes",
+                "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ),
+            (
+                "runtime_tool_contracts",
+                "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ),
+            (
+                "skill_manifests",
+                "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ),
+            (
+                "mcp_gateway_requirements",
+                "workflow-template://acme/cross-category/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ),
+        ];
+        for (field, wrong_ref) in MANIFEST_LANES {
+            let mut release = valid_release();
+            release["typed_components"][*field] = serde_json::json!([{
+                "revision_ref": wrong_ref,
+                "content_hash": format!("sha256:{}", "b".repeat(64)),
+            }]);
+            recompute_release_hashes(&mut release);
+            let proposal = valid_proposal(&release);
+            let result = compile_system_genesis_proposal(&release, &proposal);
+            assert!(
+                result.blocker_report.blockers.iter().any(|blocker| {
+                    blocker.code == SystemGenesisBlockerCode::ReleaseContractInvalid
+                        && blocker
+                            .path
+                            .starts_with(&format!("$.release.typed_components.{field}"))
+                }),
+                "manifest {field}: cross-category ref escaped: {:?}",
+                result.blocker_report.blockers,
+            );
+            assert!(
+                result.proposal.is_none(),
+                "manifest {field}: cross-category ref compiled",
+            );
+        }
+
+        let release = valid_release();
+        for (field, wrong_ref) in MANIFEST_LANES
+            .iter()
+            .filter(|(field, _)| !matches!(*field, "skill_manifests" | "mcp_gateway_requirements"))
+        {
+            let mut proposal = valid_proposal(&release);
+            proposal["candidate"]["initial_component_bindings"][*field] = serde_json::json!([{
+                "revision_ref": wrong_ref,
+                "content_hash": format!("sha256:{}", "b".repeat(64)),
+            }]);
+            let result = compile_system_genesis_proposal(&release, &proposal);
+            assert!(
+                result.blocker_report.blockers.iter().any(|blocker| {
+                    blocker.code == SystemGenesisBlockerCode::ProposedInstantiationInvalid
+                        && blocker.path.starts_with(&format!(
+                            "$.proposed.candidate.initial_component_bindings.{field}"
+                        ))
+                }),
+                "{field}: cross-category ref escaped: {:?}",
+                result.blocker_report.blockers,
+            );
+            assert!(
+                result.proposal.is_none(),
+                "{field}: cross-category ref compiled"
+            );
+        }
+    }
+
+    #[test]
+    fn mutable_uri_aliases_are_tokenized_without_rejecting_ordinary_names() {
+        for malicious in [
+            "schema://acme/api?ref=latest",
+            "schema://acme/api#head",
+            "schema://acme/api?ref%3Dcurrent",
+            "schema://acme/api%253Fref%253Dfloating",
+            "schema://acme/api\\latest\\revision",
+            "schema://acme/api;ref=LATEST",
+        ] {
+            assert!(
+                uri_contains_mutable_alias(malicious),
+                "mutable alias escaped: {malicious}",
+            );
+        }
+        for immutable in [
+            "schema://acme/latest-api",
+            "schema://acme/headless-browser",
+            "schema://acme/api?mode=strict#v1",
+            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ] {
+            assert!(
+                !uri_contains_mutable_alias(immutable),
+                "ordinary canonical ref was over-rejected: {immutable}",
+            );
+        }
+
+        let release = valid_release();
+        let mut proposal = valid_proposal(&release);
+        proposal["candidate"]["initial_profile_refs"]["deployment_profile_ref"] =
+            Value::String("deployment-profile://acme/system-alpha/latest-api".to_owned());
+        let result = compile_system_genesis_proposal(&release, &proposal);
+        assert!(
+            result.blocker_report.blockers.is_empty(),
+            "ordinary canonical ref did not compile: {:?}",
+            result.blocker_report.blockers,
         );
     }
 
@@ -1707,7 +2463,7 @@ mod tests {
             "system-genesis-compiler-v1/adversarial-cases.json"
         )));
         let cases = corpus["cases"].as_array().expect("adversarial cases");
-        assert_eq!(cases.len(), 77, "adversarial census drift");
+        assert_eq!(cases.len(), 93, "adversarial census drift");
 
         for case in cases {
             let id = case["id"].as_str().expect("case id");
@@ -1719,6 +2475,13 @@ mod tests {
                 _ => panic!("{id}: unknown mutation target"),
             };
             apply_corpus_mutation(target, case);
+            if case
+                .get("recompute_release_hashes")
+                .and_then(Value::as_bool)
+                == Some(true)
+            {
+                recompute_release_hashes(&mut release);
+            }
 
             let result = compile_system_genesis_proposal(&release, &proposal);
             assert!(result.proposal.is_none(), "{id}: mutation compiled");
@@ -1745,6 +2508,63 @@ mod tests {
             proposal.hash_profile,
             SYSTEM_GENESIS_PROPOSAL_ROOT_HASH_PROFILE
         );
+        let bundle = serde_json::to_value(&proposal.initial_profile_bundle.bundle)
+            .expect("bundle serializes");
+        validate_architecture_contract(INITIAL_PROFILE_BUNDLE_CONTRACT_ID, &bundle)
+            .expect("compiled bundle satisfies generated contract");
+        assert_eq!(
+            proposal.initial_profile_bundle.hash_profile,
+            SYSTEM_INITIAL_PROFILE_BUNDLE_HASH_PROFILE,
+        );
+    }
+
+    fn genesis_operation_commitment(proposal: &CompiledSystemGenesisProposal) -> String {
+        serde_json::to_value(&proposal.genesis)
+            .expect("genesis serializes")
+            .pointer("/cryptographic_origin/genesis_operation_commitment")
+            .and_then(Value::as_str)
+            .expect("compiled genesis has operation commitment")
+            .to_owned()
+    }
+
+    fn has_blocker(
+        compilation: &SystemGenesisCompilation,
+        code: SystemGenesisBlockerCode,
+        path: &str,
+    ) -> bool {
+        compilation
+            .blocker_report
+            .blockers
+            .iter()
+            .any(|blocker| blocker.code == code && blocker.path == path)
+    }
+
+    fn recompute_release_hashes(release: &mut Value) {
+        let component_hash =
+            compute_system_component_set_hash(release).expect("recomputed component hash");
+        release["typed_components"]["component_set_hash"] = Value::String(component_hash);
+        let release_root = compute_system_release_root(release).expect("recomputed release root");
+        release["release_root"] = Value::String(release_root);
+    }
+
+    fn proposal_with_network_enrollment(release: &Value) -> Value {
+        let mut proposal = valid_proposal(release);
+        let bundle = fixture(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/architecture/_meta/schemas/fixtures/",
+            "autonomous-system-initial-profile-bundle-v1/positive-closed.json"
+        )));
+        let enrollment = bundle["network_enrollment"].clone();
+        proposal["candidate"]["initial_profile_refs"]["network_enrollment_ref"] =
+            enrollment["network_enrollment_id"].clone();
+        proposal["network_enrollment"] = enrollment;
+        let compilation = compile_system_genesis_proposal(release, &proposal);
+        assert!(
+            compilation.blocker_report.blockers.is_empty(),
+            "network-enrollment baseline must compile: {:?}",
+            compilation.blocker_report.blockers,
+        );
+        proposal
     }
 
     fn apply_corpus_mutation(target: &mut Value, case: &Value) {

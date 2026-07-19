@@ -7195,6 +7195,7 @@ dependencies = [
  "serde",
  "serde_jcs",
  "serde_json",
+ "syn 2.0.116",
  "thiserror 1.0.69",
  "toml",
 ]

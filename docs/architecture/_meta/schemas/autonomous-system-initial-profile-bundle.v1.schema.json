@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
+  "title": "AutonomousSystemInitialProfileBundle",
+  "description": "Closed canonical bundle of the exact candidate constitution and initial profile bodies committed by a proposed System genesis.",
+  "x-ioi-schema-version": "ioi.autonomous-system-initial-profile-bundle.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "constitution",
+    "ordering_profile",
+    "oracle_profiles",
+    "lifecycle_profile",
+    "network_enrollment"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-initial-profile-bundle.v1"
+    },
+    "constitution": {
+      "type": "object",
+      "allOf": [
+        {
+          "required": ["schema_version", "constitution_id", "system_id"],
+          "properties": {
+            "schema_version": {
+              "const": "ioi.autonomous-system-constitution.v1"
+            },
+            "constitution_id": {
+              "type": "string"
+            },
+            "system_id": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "ordering_profile": {
+      "type": "object",
+      "allOf": [
+        {
+          "required": [
+            "schema_version",
+            "ordering_profile_id",
+            "system_id",
+            "constitution_ref"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "ioi.ordering-admission-finality-profile.v1"
+            },
+            "ordering_profile_id": {
+              "type": "string"
+            },
+            "system_id": {
+              "type": "string"
+            },
+            "constitution_ref": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "oracle_profiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "allOf": [
+          {
+            "required": [
+              "schema_version",
+              "oracle_evidence_profile_id",
+              "system_id"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "ioi.oracle-evidence-profile.v1"
+              },
+              "oracle_evidence_profile_id": {
+                "type": "string"
+              },
+              "system_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "maxItems": 32
+    },
+    "lifecycle_profile": {
+      "type": "object",
+      "allOf": [
+        {
+          "required": [
+            "schema_version",
+            "lifecycle_profile_id",
+            "system_id",
+            "constitution_ref"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "ioi.lifecycle-continuity-profile.v1"
+            },
+            "lifecycle_profile_id": {
+              "type": "string"
+            },
+            "system_id": {
+              "type": "string"
+            },
+            "constitution_ref": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "network_enrollment": {
+      "anyOf": [
+        {
+          "type": "object",
+          "allOf": [
+            {
+              "required": [
+                "schema_version",
+                "network_enrollment_id",
+                "system_id",
+                "constitution_ref",
+                "manifest_ref"
+              ],
+              "properties": {
+                "schema_version": {
+                  "const": "ioi.network-enrollment.v1"
+                },
+                "network_enrollment_id": {
+                  "type": "string"
+                },
+                "system_id": {
+                  "type": "string"
+                },
+                "constitution_ref": {
+                  "type": "string"
+                },
+                "manifest_ref": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

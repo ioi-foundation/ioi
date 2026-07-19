@@ -3,18 +3,29 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  SYSTEM_GENESIS_EFFECT_GUARDS,
-  compilerEffectViolations,
-} from "./lib/system-genesis-compiler-effect-guard.mjs";
-
 const scriptPath = fileURLToPath(import.meta.url);
 const root = path.resolve(path.dirname(scriptPath), "..");
 const compilerPath = path.join(root, "crates/types/src/app/system_genesis.rs");
+const sourcePolicyPath = path.join(
+  root,
+  "crates/types/tests/system_genesis_source_policy.rs",
+);
 const corpusPath = path.join(
   root,
   "docs/architecture/_meta/schemas/fixtures/system-genesis-compiler-v1/adversarial-cases.json",
 );
+
+const SYNTAX_AWARE_PURITY_CLASSES = Object.freeze([
+  "filesystem",
+  "network",
+  "clock",
+  "random",
+  "environment",
+  "process",
+  "daemon",
+  "wallet",
+  "agentgres",
+]);
 
 function main(args) {
   if (args.length !== 1 || args[0] !== "--check") {
@@ -25,23 +36,31 @@ function main(args) {
   }
 
   const compilerSource = fs.readFileSync(compilerPath, "utf8");
-  const violations = compilerEffectViolations(compilerSource);
-  if (violations.length > 0) {
-    throw new Error(
-      `pure compiler imports or invokes prohibited effect classes: ${violations.join(", ")}`,
-    );
-  }
   for (const requiredMarker of [
     "compile_system_genesis_proposal",
     "serde_jcs::to_vec",
     "SYSTEM_COMPONENT_SET_HASH_PROFILE",
     "SYSTEM_RELEASE_ROOT_HASH_PROFILE",
+    "SYSTEM_INITIAL_PROFILE_BUNDLE_HASH_PROFILE",
     "SYSTEM_GENESIS_OPERATION_HASH_PROFILE",
     "SYSTEM_GENESIS_PROPOSAL_ROOT_HASH_PROFILE",
     "SYSTEM_GENESIS_PROPOSAL_AUTHORITY_BOUNDARY",
   ]) {
     if (!compilerSource.includes(requiredMarker)) {
       throw new Error(`pure compiler lacks required marker ${requiredMarker}`);
+    }
+  }
+  const sourcePolicy = fs.readFileSync(sourcePolicyPath, "utf8");
+  for (const requiredProbe of [
+    "use std::{fs as disk}",
+    "fake_marker",
+    "ALLOWED_PRODUCTION_IMPORTS",
+    "FORBIDDEN_CAPABILITY_PREFIXES",
+  ]) {
+    if (!sourcePolicy.includes(requiredProbe)) {
+      throw new Error(
+        `syntax-aware production source policy lacks probe ${requiredProbe}`,
+      );
     }
   }
 
@@ -52,8 +71,8 @@ function main(args) {
   ) {
     throw new Error("system genesis adversarial corpus version drifted");
   }
-  if (!Array.isArray(corpus.cases) || corpus.cases.length !== 77) {
-    throw new Error("system genesis adversarial corpus must contain 77 cases");
+  if (!Array.isArray(corpus.cases) || corpus.cases.length !== 93) {
+    throw new Error("system genesis adversarial corpus must contain 93 cases");
   }
   const caseIds = new Set(corpus.cases.map((candidate) => candidate.id));
   if (caseIds.size !== corpus.cases.length) {
@@ -64,7 +83,8 @@ function main(args) {
     `${JSON.stringify(
       {
         ok: true,
-        purity_guards: SYSTEM_GENESIS_EFFECT_GUARDS.map(({ id }) => id),
+        purity_verifier: "rust_syn_production_item_and_import_analysis",
+        purity_classes: SYNTAX_AWARE_PURITY_CLASSES,
         adversarial_cases: corpus.cases.length,
         authority_effect_boundary:
           "unverified_proposal_only_no_authority_admission_activation_or_effect",

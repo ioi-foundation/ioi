@@ -335,6 +335,42 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "draft"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "conformance_receipt_refs": {
+            "type": "array",
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "active"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "conformance_receipt_refs": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      }
     }
   ],
   "$defs": {

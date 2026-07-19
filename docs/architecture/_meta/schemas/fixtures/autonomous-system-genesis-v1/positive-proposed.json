@@ -4,8 +4,9 @@
   "system_id": "system://acme/system-alpha",
   "package_id": "package://acme/outcome-operator",
   "manifest_ref": "package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111",
-  "admitted_manifest_root": "sha256:79c72f3793f04d127eb723fc5ca9e7b51148d7b9f48e1ea97623ae03a7dc98a4",
+  "admitted_manifest_root": "sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b",
   "constitution_ref": "constitution://acme/system-alpha/v1",
+  "initial_profile_bundle_root": "sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48",
   "initial_profile_refs": {
     "deployment_profile_ref": "deployment-profile://acme/system-alpha/local",
     "ordering_admission_finality_profile_ref": "ordering-profile://acme/system-alpha/poa1",
@@ -58,8 +59,8 @@
   "cryptographic_origin": {
     "sequence": 0,
     "predecessor_commitment_ref": null,
-    "genesis_operation_commitment": "sha256:0290b7210a9038c75db3d62e9aee75056e536e2c129062b6728b75fdba405671",
-    "genesis_transition_commitment_ref": "commitment://ioi/system-genesis/sha256:0290b7210a9038c75db3d62e9aee75056e536e2c129062b6728b75fdba405671",
+    "genesis_operation_commitment": "sha256:37b92d683d7b543a26e1e82ab80c54bb4609119047b0957437c52d14cc0bce9d",
+    "genesis_transition_commitment_ref": "commitment://ioi/system-genesis/sha256:37b92d683d7b543a26e1e82ab80c54bb4609119047b0957437c52d14cc0bce9d",
     "initial_state_root": "sha256:f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
     "initial_receipt_root": "sha256:f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3",
     "admission_proof_ref": null

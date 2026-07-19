@@ -1157,7 +1157,7 @@ AutonomousSystemManifestEnvelope:
     package_readiness_receipt_ref: optional
     release_evaluation_receipt_refs: []
   release:
-    publisher_signature_ref: receipt://... | evidence://...
+    publisher_signature_ref: receipt://... | evidence://... | null
     registry_published_at: timestamp | null
 ```
 
@@ -1178,6 +1178,14 @@ resulting `mcp-gateway://...` profile. Capability descriptors and connector
 requirements are semantic or dependency constraints; they are not admitted
 RuntimeToolContracts, connector account bindings, credentials, or provider
 invocation permission.
+
+Each typed component lane accepts only its owner scheme:
+`goal-run-profile://`, `workflow-template://`, `automation://`,
+`harness-profile://`, `agent-harness-adapter://`, `skill://`,
+`data-recipe://`, `tool://`, or `mcp-gateway-requirement://`, respectively.
+Cross-category revision refs fail closed. Live `skill_entries` remain typed
+bindings, and live gateway profiles remain `mcp-gateway://`; neither is
+reclassified as a package tuple.
 
 The release body and `release_root` are immutable. `registry_status`,
 `registry_published_at`, `publisher_signature_ref`,
@@ -1206,8 +1214,47 @@ The portable hash profile is exact. `component_set_hash` is SHA-256 over RFC
 manifest with `release_root`, `registry_status`,
 `receipts.package_readiness_receipt_ref`,
 `release.publisher_signature_ref`, and
-`release.registry_published_at` removed. No implementation may substitute
-route-local object ordering or omit fixed release material from either hash.
+`release.registry_published_at` removed. Those are the only removals, and their
+parent objects remain in the canonical value even when a removal leaves an
+empty object. No implementation may substitute route-local object ordering,
+remove an empty parent, or omit fixed release material from either hash.
+
+A `draft` manifest carries no package-readiness receipt, publisher signature,
+or registry publication time. `released` and `promoted` require all three.
+These status conditions do not add a public-settlement requirement.
+
+For a new-System genesis, `system_binding.allowed_use` must be
+`instantiate_new` or `either`. `upgrade_existing` is valid package metadata
+but cannot pass the new-System proposal compiler.
+
+### AutonomousSystemInitialProfileBundle
+
+```yaml
+AutonomousSystemInitialProfileBundle:
+  schema_version: ioi.autonomous-system-initial-profile-bundle.v1
+  constitution: AutonomousSystemConstitutionEnvelope
+  ordering_profile: OrderingAdmissionFinalityProfileEnvelope
+  oracle_profiles:
+    - OracleEvidenceProfileEnvelope
+  lifecycle_profile: LifecycleContinuityProfileEnvelope
+  network_enrollment: IOINetworkEnrollmentEnvelope | null
+```
+
+This is a closed canonical object with exactly the explicit keys above. Each
+non-null value is the exact supplied body and must independently satisfy its
+own registered contract; an empty or partial nested placeholder is not a valid
+compiler input. Every body carries the same `system_id`. Ordering, lifecycle,
+and a supplied enrollment bind the bundled constitution, while the enrollment
+also binds the selected manifest. `oracle_profiles` preserves the supplied
+array order exactly, and that order must match genesis
+`initial_profile_refs.oracle_evidence_profile_refs`. The enrollment key is
+always present and is explicitly `null` when no initial enrollment is supplied.
+
+`initial_profile_bundle_root` is SHA-256 over RFC 8785 JCS for
+`{domain, value}`, where `domain` is
+`ioi.autonomous-system-initial-profile-bundle-jcs-sha256.v1` and `value` is
+the complete bundle above. This commitment binds candidate bodies to the
+proposal; it does not admit, activate, verify, or persist any profile.
 
 ### AutonomousSystemGenesisEnvelope
 
@@ -1220,6 +1267,7 @@ AutonomousSystemGenesisEnvelope:
   manifest_ref: package://.../release/...
   admitted_manifest_root: hash
   constitution_ref: constitution://...
+  initial_profile_bundle_root: hash
   initial_profile_refs:
     deployment_profile_ref: deployment-profile://...
     ordering_admission_finality_profile_ref: ordering-profile://...
@@ -1304,22 +1352,37 @@ definition-only.
 
 For `status: proposed`, `admission_proof_ref`, `activation_receipt_ref`,
 authority-grant refs, conformance-receipt refs, lifecycle-transition refs, and
-status-source receipt refs are absent or empty as typed above. The pure proposal
-compiler accepts an immutable release plus explicitly supplied candidate
-coordinates and timestamps, recomputes the component-set hash and release root,
-derives domain-separated operation/proposal commitments with RFC 8785 JCS, and
-returns bytes, a root, or a bounded blocker report. It does not mint identity,
-read a current head, verify authority, admit or activate a System, persist a
-record, or perform file, daemon, network, wallet, Agentgres, clock, random, or
-environment effects. Supplied evidence, grant, decision, or receipt refs are
-inputs to later governance only and never prove admission or activation.
+status-source receipt refs are absent or empty as typed above. `authorized`
+requires an admission-proof ref, non-empty authority-grant refs, and non-empty
+status-source receipt refs. `activated` requires those fields plus an activation
+receipt and at least one lifecycle-transition ref. These fields make status
+claims fail closed; their presence in an unverified object is not independent
+proof of authorization, admission, or activation.
+
+The pure proposal compiler accepts an immutable release plus an explicitly
+supplied closed candidate input, validates every nested body against its owning
+contract, recomputes the component-set hash and release root, builds and returns
+the canonical initial-profile bundle/root, and derives domain-separated
+operation/proposal commitments with RFC 8785 JCS. It returns bytes, roots, or a
+bounded blocker report. It does not mint identity, read a current head, verify
+authority, admit or activate a System, persist a record, or perform file,
+daemon, network, wallet, Agentgres, clock, random, or environment effects.
+Supplied evidence, grant, decision, or receipt refs are inputs to later
+governance only and never prove admission or activation.
 The operation commitment uses domain
 `ioi.autonomous-system-genesis-operation-jcs-sha256.v1` over the proposed
-genesis after inserting `admitted_manifest_root` and before inserting either
-operation or transition commitment. The final proposal root uses domain
+genesis after inserting both `admitted_manifest_root` and
+`initial_profile_bundle_root`, and before inserting either operation or
+transition commitment. The final proposal root uses domain
 `ioi.autonomous-system-genesis-proposal-root-jcs-sha256.v1` over the complete
 compiled genesis. Both use the same `{domain, value}` JCS wrapper as the
 manifest hashes.
+
+Sequence zero is initial-only: the bundled constitution has
+`predecessor_constitution_ref: null` and, while draft,
+`activation_receipt_ref: null`; a supplied initial network enrollment has
+`predecessor_enrollment_ref: null`. Any predecessor or constitution activation
+residue blocks compilation with its own typed reason.
 
 ## Governed Autonomous-System Chain Envelopes
 
@@ -1427,6 +1490,10 @@ A null improvement-governance profile disables ImprovementCampaign admission
 and unattended target-generation for that System; it does not disable ordinary
 owner-governed one-shot UpgradeProposals. Enabling the profile follows the
 constitution's protected amendment/change path rather than an implicit default.
+
+A `draft` constitution has neither an activation receipt nor a public
+commitment. An `active` constitution requires its activation receipt. This does
+not require public settlement.
 
 ### AutonomousSystemConstitutionAmendmentEnvelope
 
@@ -2028,6 +2095,10 @@ DAS without that verifiable root/commitment chain is a bounded autonomous
 application or institution, not an intelligent blockchain. Consensus and a
 token remain optional.
 
+A `draft` ordering profile has no conformance receipts. An `active` ordering
+profile requires at least one conformance receipt; changing the status string
+alone cannot certify conformance.
+
 ### OracleEvidenceProfileEnvelope
 
 ```yaml
@@ -2202,6 +2273,12 @@ those fields to be null and operates against the already active system chain.
 The genesis object and lifecycle projection may not disagree: only an admitted
 lifecycle transition changes whether the system is initialized or active.
 
+A `proposed` lifecycle transition carries no decision, authority grant,
+resulting state root, transition commitment, disposition receipt, transition
+receipt, or public commitment. A `committed` transition requires a decision,
+at least one authority grant, the resulting state root, the transition
+commitment, and at least one receipt. Public settlement remains optional.
+
 Migration preserves `system_id` and therefore sets
 `resulting_or_related_system_id` to the same identity. A fork mints a different
 system ID and binds lineage without inheriting enrollment, assurance,
@@ -2273,7 +2350,10 @@ without a network ref and at least one complete selected-service record.
 at least one named shared-security/assurance service with service terms,
 coverage/fault-model evidence, and any required bond or claim policy. Missing,
 expired, suspended, or contradictory prerequisites keep the enrollment pending
-or suspended and prohibit the corresponding assurance claim.
+or suspended and prohibit the corresponding assurance claim. An active
+connected or secured enrollment also requires non-empty authority-grant and
+transition-receipt refs. An active secured enrollment additionally requires
+non-empty conformance receipts.
 
 ```yaml
 AutonomousSystemChainEnvelope:

@@ -6,7 +6,7 @@
   "description": "Reusable bounded outcome-operator package release.",
   "version": "1.0.0",
   "predecessor_manifest_ref": null,
-  "release_root": "sha256:79c72f3793f04d127eb723fc5ca9e7b51148d7b9f48e1ea97623ae03a7dc98a4",
+  "release_root": "sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b",
   "registry_status": "released",
   "constitution_template_ref": "artifact://sha256/constitution-template",
   "required_profile_templates": {

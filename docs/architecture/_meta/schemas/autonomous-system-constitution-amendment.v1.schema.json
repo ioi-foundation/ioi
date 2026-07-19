@@ -104,6 +104,23 @@
       "if": {
         "properties": {
           "status": {
+            "enum": ["proposed", "evidence_pending"]
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "decision_ref": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
             "const": "approved"
           }
         },

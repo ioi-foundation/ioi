@@ -1,0 +1,28 @@
+{
+  "schema_version": "ioi.autonomous-system-initial-profile-bundle.v1",
+  "constitution": {
+    "schema_version": "ioi.autonomous-system-constitution.v1",
+    "constitution_id": "constitution://acme/system-alpha/v1",
+    "system_id": "system://acme/system-alpha"
+  },
+  "ordering_profile": {
+    "schema_version": "ioi.ordering-admission-finality-profile.v1",
+    "ordering_profile_id": "ordering-profile://acme/system-alpha/poa1",
+    "system_id": "system://acme/system-alpha",
+    "constitution_ref": "constitution://acme/system-alpha/v1"
+  },
+  "oracle_profiles": [
+    {
+      "schema_version": "ioi.oracle-evidence-profile.v1",
+      "oracle_evidence_profile_id": "oracle-evidence-profile://acme/system-beta/public-records",
+      "system_id": "system://acme/system-beta"
+    }
+  ],
+  "lifecycle_profile": {
+    "schema_version": "ioi.lifecycle-continuity-profile.v1",
+    "lifecycle_profile_id": "lifecycle-profile://acme/system-alpha/default",
+    "system_id": "system://acme/system-alpha",
+    "constitution_ref": "constitution://acme/system-alpha/v1"
+  },
+  "network_enrollment": null
+}

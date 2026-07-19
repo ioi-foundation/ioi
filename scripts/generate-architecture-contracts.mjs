@@ -27,15 +27,12 @@ try {
 }
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const {
-  ARCHITECTURE_CONTRACT_CONSUMER_TARGETS,
-} = await import("./lib/architecture-contract-consumer-targets.mjs");
-const { architectureContractConsumerBindingFailures } = await import(
-  "./lib/architecture-contract-consumer-bindings.mjs"
-);
-const { safeRepositoryPath } = await import(
-  "./lib/repository-path-boundary.mjs"
-);
+const { ARCHITECTURE_CONTRACT_CONSUMER_TARGETS } =
+  await import("./lib/architecture-contract-consumer-targets.mjs");
+const { architectureContractConsumerBindingFailures } =
+  await import("./lib/architecture-contract-consumer-bindings.mjs");
+const { safeRepositoryPath } =
+  await import("./lib/repository-path-boundary.mjs");
 const PINNED_CONSUMER_TARGETS = Object.freeze([
   Object.freeze({
     kind: "typescript_projection",
@@ -218,7 +215,10 @@ function schemaHash(schema) {
 
 function contractVersion(entry) {
   const match = entry.contract_id.match(/\/v([1-9][0-9]*)$/u);
-  if (!match) throw new Error(`Contract id has no terminal version: ${entry.contract_id}`);
+  if (!match)
+    throw new Error(
+      `Contract id has no terminal version: ${entry.contract_id}`,
+    );
   return Number.parseInt(match[1], 10);
 }
 
@@ -254,21 +254,26 @@ function validateGeneratedTargets(registryDocument) {
         throw new Error(`${targetAt}: expected a generated target object`);
       }
       if (!SUPPORTED_TARGET_KINDS.has(target.kind)) {
-        throw new Error(`${targetAt}: unknown generated target kind ${JSON.stringify(target.kind)}`);
+        throw new Error(
+          `${targetAt}: unknown generated target kind ${JSON.stringify(target.kind)}`,
+        );
       }
-      const consumerTarget =
-        PINNED_CONSUMER_TARGET_BY_KIND.get(target.kind);
+      const consumerTarget = PINNED_CONSUMER_TARGET_BY_KIND.get(target.kind);
       if (target.path !== consumerTarget.path) {
         throw new Error(
           `${targetAt}: generated target path must match canonical ${target.kind} consumer ${consumerTarget.path}`,
         );
       }
       if (seenKinds.has(target.kind)) {
-        throw new Error(`${at}: duplicate generated target kind ${target.kind}`);
+        throw new Error(
+          `${at}: duplicate generated target kind ${target.kind}`,
+        );
       }
       seenKinds.add(target.kind);
       if (target.symbol !== expectedSymbol) {
-        throw new Error(`${targetAt}: generated target symbol must be ${expectedSymbol}`);
+        throw new Error(
+          `${targetAt}: generated target symbol must be ${expectedSymbol}`,
+        );
       }
       const absolutePath = safeGeneratedTargetPath(target.path, targetAt);
       const definition = `${target.kind}\u0000${target.path}\u0000${target.symbol}`;
@@ -280,7 +285,9 @@ function validateGeneratedTargets(registryDocument) {
     }
     for (const kind of SUPPORTED_TARGET_KINDS) {
       if (!seenKinds.has(kind)) {
-        throw new Error(`${at}: missing required generated target kind ${kind}`);
+        throw new Error(
+          `${at}: missing required generated target kind ${kind}`,
+        );
       }
     }
   }
@@ -289,7 +296,9 @@ function validateGeneratedTargets(registryDocument) {
 
 function resolveLocalRef(rootSchema, ref) {
   if (!ref.startsWith("#/")) {
-    throw new Error(`Only local JSON Schema refs are supported by the pilot: ${ref}`);
+    throw new Error(
+      `Only local JSON Schema refs are supported by the pilot: ${ref}`,
+    );
   }
   return ref
     .slice(2)
@@ -327,20 +336,42 @@ function rustEcmaPattern(pattern, at) {
     throw new Error(`${at}: invalid ECMA-262 pattern: ${error.message}`);
   }
 
-  const grammarProbe = pattern
-    .replaceAll("[^\\s]", "X")
-    .replaceAll("\\S", "X");
-  if (grammarProbe.includes("\\")) {
-    throw new Error(
-      `${at}: unsupported ECMA-262 escape; only out-of-class \\S and [^\\s] are supported`,
-    );
+  let inEscapedClass = false;
+  let grammarProbe = "";
+  let translated = "";
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
+    if (character === "\\") {
+      const escaped = pattern[index + 1];
+      if (!inEscapedClass && escaped === "S") {
+        grammarProbe += "X";
+        translated += `[^${RUST_ECMA_WHITESPACE_CLASS}]`;
+      } else if (inEscapedClass && escaped === "s") {
+        grammarProbe += "X";
+        translated += RUST_ECMA_WHITESPACE_CLASS;
+      } else if (inEscapedClass && escaped === "\\") {
+        grammarProbe += "X";
+        translated += "\\\\";
+      } else {
+        throw new Error(
+          `${at}: unsupported ECMA-262 escape; only out-of-class \\S and negated-class \\s or \\\\ are supported`,
+        );
+      }
+      index += 1;
+      continue;
+    }
+    grammarProbe += character;
+    translated += character;
+    if (character === "[") inEscapedClass = true;
+    if (character === "]") inEscapedClass = false;
   }
   let inClass = false;
   let groupDepth = 0;
   for (let index = 1; index < grammarProbe.length - 1; index += 1) {
     const character = grammarProbe[index];
     if (character === "[") {
-      if (inClass) throw new Error(`${at}: nested character classes are unsupported`);
+      if (inClass)
+        throw new Error(`${at}: nested character classes are unsupported`);
       inClass = true;
       continue;
     }
@@ -379,9 +410,7 @@ function rustEcmaPattern(pattern, at) {
     throw new Error(`${at}: unterminated character class or group`);
   }
 
-  return pattern
-    .replaceAll("[^\\s]", `[^${RUST_ECMA_WHITESPACE_CLASS}]`)
-    .replaceAll("\\S", `[^${RUST_ECMA_WHITESPACE_CLASS}]`);
+  return translated;
 }
 
 function inventorySchemaKeywords(schema, at) {
@@ -402,14 +431,22 @@ function inventorySchemaKeywords(schema, at) {
     } else if (keyword === "type") {
       if (
         typeof value !== "string" ||
-        !["null", "string", "integer", "number", "boolean", "array", "object"].includes(
-          value,
-        )
+        ![
+          "null",
+          "string",
+          "integer",
+          "number",
+          "boolean",
+          "array",
+          "object",
+        ].includes(value)
       ) {
         throw new Error(`${at}.type: unsupported type declaration`);
       }
     } else if (keyword === "format" && value !== "date-time") {
-      throw new Error(`${at}.format: unsupported format ${JSON.stringify(value)}`);
+      throw new Error(
+        `${at}.format: unsupported format ${JSON.stringify(value)}`,
+      );
     } else if (
       ["minimum", "maximum", "minLength", "minItems", "maxItems"].includes(
         keyword,
@@ -426,10 +463,7 @@ function inventorySchemaKeywords(schema, at) {
       throw new Error(
         `${at}.additionalProperties: schema-valued additionalProperties is unsupported`,
       );
-    } else if (
-      keyword === "required" &&
-      !Array.isArray(value)
-    ) {
+    } else if (keyword === "required" && !Array.isArray(value)) {
       throw new Error(`${at}.${keyword}: expected an array`);
     } else if (
       keyword === "enum" &&
@@ -529,7 +563,10 @@ function indent(text, spaces) {
 
 function closedStringValues(schema, rootSchema) {
   if (schema.$ref) {
-    return closedStringValues(resolveLocalRef(rootSchema, schema.$ref), rootSchema);
+    return closedStringValues(
+      resolveLocalRef(rootSchema, schema.$ref),
+      rootSchema,
+    );
   }
   if (typeof schema.const === "string") return [schema.const];
   if (
@@ -565,7 +602,9 @@ function tsLiteralType(value) {
       .map(([key, child]) => `${JSON.stringify(key)}: ${tsLiteralType(child)}`)
       .join("; ")} }`;
   }
-  throw new Error(`Unsupported JSON literal in TypeScript projection: ${value}`);
+  throw new Error(
+    `Unsupported JSON literal in TypeScript projection: ${value}`,
+  );
 }
 
 function tsType(schema, rootSchema, depth = 0) {
@@ -634,6 +673,65 @@ function fixtureMetadata() {
     })),
   ]);
 }
+
+const COMPONENT_LANE_SCHEMES = Object.freeze([
+  Object.freeze(["goal_run_profiles", "goal-run-profile"]),
+  Object.freeze(["workflow_templates", "workflow-template"]),
+  Object.freeze(["automation_specs", "automation"]),
+  Object.freeze(["harness_profiles", "harness-profile"]),
+  Object.freeze(["agent_harness_adapters", "agent-harness-adapter"]),
+  Object.freeze(["skill_manifests", "skill"]),
+  Object.freeze(["data_recipes", "data-recipe"]),
+  Object.freeze(["runtime_tool_contracts", "tool"]),
+  Object.freeze(["mcp_gateway_requirements", "mcp-gateway-requirement"]),
+]);
+
+function crossCategoryRevisionRef(scheme) {
+  const wrongScheme =
+    scheme === "workflow-template" ? "goal-run-profile" : "workflow-template";
+  return `${wrongScheme}://acme/cross-category/revision/sha256:${"a".repeat(64)}`;
+}
+
+const componentLaneSchemeMutationDefinitions = [
+  ...COMPONENT_LANE_SCHEMES.map(([field, scheme]) => ({
+    id: `manifest-${field.replaceAll("_", "-")}-cross-category-ref`,
+    contractId: "schema://ioi/foundations/autonomous-system-manifest/v1",
+    fixture:
+      "fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    keywords: ["$ref", "items", "pattern"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: `/typed_components/${field}`,
+      value: [
+        {
+          revision_ref: crossCategoryRevisionRef(scheme),
+          content_hash: `sha256:${"b".repeat(64)}`,
+        },
+      ],
+    },
+  })),
+  ...COMPONENT_LANE_SCHEMES.filter(
+    ([field]) =>
+      field !== "skill_manifests" && field !== "mcp_gateway_requirements",
+  ).map(([field, scheme]) => ({
+    id: `genesis-${field.replaceAll("_", "-")}-cross-category-ref`,
+    contractId: "schema://ioi/foundations/autonomous-system-genesis/v1",
+    fixture: "fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    keywords: ["$ref", "items", "pattern"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: `/initial_component_bindings/${field}`,
+      value: [
+        {
+          revision_ref: crossCategoryRevisionRef(scheme),
+          content_hash: `sha256:${"b".repeat(64)}`,
+        },
+      ],
+    },
+  })),
+];
 
 const mutationDefinitions = [
   {
@@ -817,8 +915,7 @@ const mutationDefinitions = [
   },
   {
     id: "type-less-if-then-max-items-violated",
-    contractId:
-      "schema://ioi/foundations/physical-action-execution-receipt/v1",
+    contractId: "schema://ioi/foundations/physical-action-execution-receipt/v1",
     fixture:
       "fixtures/physical-action-execution-receipt-v1/positive-committed.json",
     keywords: ["allOf", "if", "then", "maxItems"],
@@ -837,10 +934,7 @@ const mutationDefinitions = [
     patch: {
       operation: "set",
       pointer: "/resolution/required_receipt_kinds",
-      value: [
-        "dispute_resolution",
-        "dispute_remedy_execution",
-      ],
+      value: ["dispute_resolution", "dispute_remedy_execution"],
     },
   },
   {
@@ -857,10 +951,8 @@ const mutationDefinitions = [
   },
   {
     id: "boolean-const-self-authority-violated",
-    contractId:
-      "schema://ioi/foundations/autonomous-system-constitution/v1",
-    fixture:
-      "fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    contractId: "schema://ioi/foundations/autonomous-system-constitution/v1",
+    fixture: "fixtures/autonomous-system-constitution-v1/positive-draft.json",
     keywords: ["const"],
     directProjectionRejection: true,
     patch: {
@@ -869,6 +961,101 @@ const mutationDefinitions = [
       value: true,
     },
   },
+  {
+    id: "genesis-authorized-without-admission-authority-status-evidence",
+    contractId: "schema://ioi/foundations/autonomous-system-genesis/v1",
+    fixture: "fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    keywords: ["allOf", "if", "then", "minItems"],
+    directProjectionRejection: true,
+    patch: { operation: "set", pointer: "/status", value: "authorized" },
+  },
+  {
+    id: "genesis-activated-without-activation-lifecycle-evidence",
+    contractId: "schema://ioi/foundations/autonomous-system-genesis/v1",
+    fixture: "fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    keywords: ["allOf", "if", "then", "minItems"],
+    directProjectionRejection: true,
+    patch: { operation: "set", pointer: "/status", value: "activated" },
+  },
+  {
+    id: "constitution-active-without-activation-receipt",
+    contractId: "schema://ioi/foundations/autonomous-system-constitution/v1",
+    fixture: "fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    keywords: ["allOf", "if", "then"],
+    directProjectionRejection: true,
+    patch: { operation: "set", pointer: "/status", value: "active" },
+  },
+  {
+    id: "constitution-draft-with-activation-residue",
+    contractId: "schema://ioi/foundations/autonomous-system-constitution/v1",
+    fixture: "fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    keywords: ["allOf", "if", "then"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/activation_receipt_ref",
+      value: "receipt://acme/system-alpha/activation",
+    },
+  },
+  {
+    id: "constitution-draft-with-public-commitment-residue",
+    contractId: "schema://ioi/foundations/autonomous-system-constitution/v1",
+    fixture: "fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    keywords: ["allOf", "if", "then"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/public_commitment_ref",
+      value: "commitment://acme/system-alpha/constitution",
+    },
+  },
+  {
+    id: "ordering-active-without-conformance-evidence",
+    contractId:
+      "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    fixture:
+      "fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
+    keywords: ["allOf", "if", "then", "minItems"],
+    directProjectionRejection: true,
+    patch: { operation: "set", pointer: "/status", value: "active" },
+  },
+  {
+    id: "ordering-draft-with-conformance-residue",
+    contractId:
+      "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    fixture:
+      "fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
+    keywords: ["allOf", "if", "then", "maxItems"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/conformance_receipt_refs",
+      value: ["receipt://acme/system-alpha/ordering-conformance"],
+    },
+  },
+  {
+    id: "lifecycle-committed-without-terminal-proof-set",
+    contractId: "schema://ioi/foundations/lifecycle-transition/v1",
+    fixture:
+      "fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
+    keywords: ["allOf", "if", "then", "minItems"],
+    directProjectionRejection: true,
+    patch: { operation: "set", pointer: "/status", value: "committed" },
+  },
+  {
+    id: "lifecycle-proposed-with-decision-residue",
+    contractId: "schema://ioi/foundations/lifecycle-transition/v1",
+    fixture:
+      "fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
+    keywords: ["allOf", "if", "then"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/decision_ref",
+      value: "decision://acme/system-alpha/initialize",
+    },
+  },
+  ...componentLaneSchemeMutationDefinitions,
 ];
 
 const generatorAjv = new Ajv2020({
@@ -912,7 +1099,8 @@ function applyMutation(value, patch) {
 }
 
 function generatorValueAtPath(value, pointer) {
-  if (typeof pointer !== "string" || !pointer.startsWith("$.")) return undefined;
+  if (typeof pointer !== "string" || !pointer.startsWith("$."))
+    return undefined;
   return pointer
     .slice(2)
     .split(".")
@@ -936,9 +1124,7 @@ function generatorInvariantErrors(contract, value) {
       const expression = rule.expression ?? {};
       let valid = false;
       if (expression.operator === "non_empty") {
-        valid = generatorNonEmpty(
-          generatorValueAtPath(value, expression.path),
-        );
+        valid = generatorNonEmpty(generatorValueAtPath(value, expression.path));
       } else if (
         expression.operator === "any_non_empty" &&
         Array.isArray(expression.paths)
@@ -962,6 +1148,39 @@ function generatorInvariantErrors(contract, value) {
         valid =
           canonicalJson(generatorValueAtPath(value, expression.paths[0])) ===
           canonicalJson(generatorValueAtPath(value, expression.paths[1]));
+      } else if (
+        expression.operator === "array_field_equals" &&
+        typeof expression.array_path === "string" &&
+        typeof expression.field === "string" &&
+        typeof expression.expected_path === "string"
+      ) {
+        const values = generatorValueAtPath(value, expression.array_path);
+        const expected = generatorValueAtPath(value, expression.expected_path);
+        valid =
+          Array.isArray(values) &&
+          expected !== undefined &&
+          values.every(
+            (item) =>
+              isPlainObject(item) &&
+              canonicalJson(item[expression.field]) === canonicalJson(expected),
+          );
+      } else if (
+        expression.operator === "optional_field_equals" &&
+        typeof expression.optional_object_path === "string" &&
+        typeof expression.field === "string" &&
+        typeof expression.expected_path === "string"
+      ) {
+        const optional = generatorValueAtPath(
+          value,
+          expression.optional_object_path,
+        );
+        const expected = generatorValueAtPath(value, expression.expected_path);
+        valid =
+          optional === null ||
+          (isPlainObject(optional) &&
+            expected !== undefined &&
+            canonicalJson(optional[expression.field]) ===
+              canonicalJson(expected));
       } else if (expression.operator === "matches_contract_schema_hash") {
         valid =
           generatorValueAtPath(value, expression.path) === expectedSchemaHash;
@@ -975,7 +1194,9 @@ function generatorInvariantErrors(contract, value) {
         valid =
           typeof left === "number" &&
           typeof right === "number" &&
-          (expression.operator === "numbers_lte" ? left <= right : left < right);
+          (expression.operator === "numbers_lte"
+            ? left <= right
+            : left < right);
       } else {
         throw new Error(
           `${profile.$id}: unsupported invariant operator ${expression.operator}`,
@@ -1159,18 +1380,19 @@ function differentialCorpus() {
     const contract = contractsById.get(candidate.contract_id);
     const validate = generatorAjvValidators.get(candidate.contract_id);
     if (!contract || !validate) {
-      throw new Error(`Differential case ${candidate.id} names an unknown contract`);
+      throw new Error(
+        `Differential case ${candidate.id} names an unknown contract`,
+      );
     }
-    const value =
-      candidate.value ??
-      JSON.parse(candidate.value_json);
+    const value = candidate.value ?? JSON.parse(candidate.value_json);
     const ajvSchemaAccept = Boolean(validate(value));
     const { value: _value, ...serializable } = candidate;
     return {
       ...serializable,
       ajv_schema_accept: ajvSchemaAccept,
       oracle_contract_accept:
-        ajvSchemaAccept && generatorInvariantErrors(contract, value).length === 0,
+        ajvSchemaAccept &&
+        generatorInvariantErrors(contract, value).length === 0,
     };
   });
 }
@@ -1221,7 +1443,10 @@ function renderTypescript() {
     ]),
   );
   const schemaHashes = Object.fromEntries(
-    contracts.map(({ entry, schema }) => [entry.contract_id, schemaHash(schema)]),
+    contracts.map(({ entry, schema }) => [
+      entry.contract_id,
+      schemaHash(schema),
+    ]),
   );
   const mutations = mutationCorpus();
   const differentialCases = differentialCorpus().map((candidate) => ({
@@ -1578,6 +1803,37 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
         valueAtPath(value, expression.paths[0]),
         valueAtPath(value, expression.paths[1]),
       );
+    } else if (
+      operator === "array_field_equals" &&
+      typeof expression.array_path === "string" &&
+      typeof expression.field === "string" &&
+      typeof expression.expected_path === "string"
+    ) {
+      const values = valueAtPath(value, expression.array_path);
+      const expected = valueAtPath(value, expression.expected_path);
+      const field = expression.field;
+      valid =
+        Array.isArray(values) &&
+        expected !== undefined &&
+        values.every(
+          (item) =>
+            isObject(item) &&
+            jsonSchemaEqual(item[field], expected),
+        );
+    } else if (
+      operator === "optional_field_equals" &&
+      typeof expression.optional_object_path === "string" &&
+      typeof expression.field === "string" &&
+      typeof expression.expected_path === "string"
+    ) {
+      const optional = valueAtPath(value, expression.optional_object_path);
+      const expected = valueAtPath(value, expression.expected_path);
+      const field = expression.field;
+      valid =
+        optional === null ||
+        (isObject(optional) &&
+          expected !== undefined &&
+          jsonSchemaEqual(optional[field], expected));
     } else if (operator === "matches_contract_schema_hash") {
       valid = valueAtPath(value, expression.path) === architectureContractSchemaHash(contractId);
     } else if (
@@ -1654,10 +1910,54 @@ function rustStructsFor(entry, schema) {
     }
     return nameHint;
   }
+  function rustBooleanLiteral(nameHint, value) {
+    if (!definitions.has(nameHint)) {
+      const variant = value ? "True" : "False";
+      definitions.set(
+        nameHint,
+        `#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ${nameHint} {
+    ${variant},
+}
+
+impl serde::Serialize for ${nameHint} {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(${value})
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ${nameHint} {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == ${value} {
+            Ok(Self::${variant})
+        } else {
+            Err(serde::de::Error::custom(${rustString(`expected boolean literal ${value}`)}))
+        }
+    }
+}`,
+      );
+    }
+    return nameHint;
+  }
   function rustType(node, rootSchema, nameHint) {
-    if (node.$ref) return rustType(resolveLocalRef(rootSchema, node.$ref), rootSchema, nameHint);
+    if (node.$ref)
+      return rustType(
+        resolveLocalRef(rootSchema, node.$ref),
+        rootSchema,
+        nameHint,
+      );
     const nullable = nullableBranch(node, rootSchema);
     if (nullable) return `Option<${rustType(nullable, rootSchema, nameHint)}>`;
+    if (typeof node.const === "boolean") {
+      return rustBooleanLiteral(nameHint, node.const);
+    }
     const closedStrings = closedStringValues(node, rootSchema);
     if (closedStrings !== null) {
       return rustClosedStringEnum(nameHint, closedStrings);
@@ -1683,21 +1983,27 @@ function rustStructsFor(entry, schema) {
         if (!definitions.has(nameHint)) {
           definitions.set(nameHint, null);
           const required = new Set(node.required ?? []);
-          const fields = Object.entries(node.properties).map(([name, property]) => {
-            let fieldType = rustType(property, rootSchema, `${nameHint}${name
-              .split("_")
-              .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-              .join("")}`);
-            if (!required.has(name) && !fieldType.startsWith("Option<")) {
-              fieldType = `Option<${fieldType}>`;
-            }
-            return {
-              fieldType,
-              jsonName: name,
-              required: required.has(name),
-              rustName: rustFieldName(name),
-            };
-          });
+          const fields = Object.entries(node.properties).map(
+            ([name, property]) => {
+              let fieldType = rustType(
+                property,
+                rootSchema,
+                `${nameHint}${name
+                  .split("_")
+                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                  .join("")}`,
+              );
+              if (!required.has(name) && !fieldType.startsWith("Option<")) {
+                fieldType = `Option<${fieldType}>`;
+              }
+              return {
+                fieldType,
+                jsonName: name,
+                required: required.has(name),
+                rustName: rustFieldName(name),
+              };
+            },
+          );
           const publicFields = fields
             .map(
               ({ rustName, fieldType, required }) =>
@@ -1779,11 +2085,15 @@ function renderRust() {
     .map(({ entry, schema }) => rustStructsFor(entry, schema))
     .join("\n\n");
   const schemaEntries = contracts
-    .map(({ entry, schema }) => `    (${JSON.stringify(entry.contract_id)}, ${rustRaw(schema)}),`)
+    .map(
+      ({ entry, schema }) =>
+        `    (${JSON.stringify(entry.contract_id)}, ${rustRaw(schema)}),`,
+    )
     .join("\n");
   const invariantEntries = contracts
-    .map(({ entry, invariants }) =>
-      `    (${JSON.stringify(entry.contract_id)}, ${rustRaw(invariants.flatMap((profile) => profile.rules))}),`,
+    .map(
+      ({ entry, invariants }) =>
+        `    (${JSON.stringify(entry.contract_id)}, ${rustRaw(invariants.flatMap((profile) => profile.rules))}),`,
     )
     .join("\n");
   const differentialCases = differentialCorpus();
@@ -1885,7 +2195,10 @@ pub const ARCHITECTURE_CONTRACT_ORACLE_PROFILE: &str =
     "ajv-2020-12-plus-portable-invariants-and-canonical-rfc3339";
 
 pub const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS: &[&str] = &[
-${[...usedSchemaKeywords].sort(codePointCompare).map((keyword) => `    ${rustString(keyword)},`).join("\n")}
+${[...usedSchemaKeywords]
+  .sort(codePointCompare)
+  .map((keyword) => `    ${rustString(keyword)},`)
+  .join("\n")}
 ];
 
 pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
@@ -2395,6 +2708,49 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                     ))
                 })
                 .is_some_and(|(left, right)| json_schema_equal(left, right)),
+            Some("array_field_equals") => expression
+                .get("array_path")
+                .and_then(Value::as_str)
+                .and_then(|path| value_at_path(value, path))
+                .and_then(Value::as_array)
+                .zip(
+                    expression
+                        .get("field")
+                        .and_then(Value::as_str)
+                        .zip(
+                            expression
+                                .get("expected_path")
+                                .and_then(Value::as_str)
+                                .and_then(|path| value_at_path(value, path)),
+                        ),
+                )
+                .is_some_and(|(items, (field, expected))| {
+                    items.iter().all(|item| {
+                        item.get(field)
+                            .is_some_and(|actual| json_schema_equal(actual, expected))
+                    })
+                }),
+            Some("optional_field_equals") => expression
+                .get("optional_object_path")
+                .and_then(Value::as_str)
+                .and_then(|path| value_at_path(value, path))
+                .zip(
+                    expression
+                        .get("field")
+                        .and_then(Value::as_str)
+                        .zip(
+                            expression
+                                .get("expected_path")
+                                .and_then(Value::as_str)
+                                .and_then(|path| value_at_path(value, path)),
+                        ),
+                )
+                .is_some_and(|(optional, (field, expected))| {
+                    optional.is_null()
+                        || optional
+                            .get(field)
+                            .is_some_and(|actual| json_schema_equal(actual, expected))
+                }),
             Some("matches_contract_schema_hash") => expression
                 .get("path")
                 .and_then(Value::as_str)
@@ -2539,6 +2895,17 @@ ${roundTripArms},
         serde_json::from_str(body).expect("fixture contains JSON")
     }
 
+    fn set_json_pointer(value: &mut Value, pointer: &str, replacement: Value) {
+        let (parent_pointer, encoded_name) =
+            pointer.rsplit_once('/').expect("pointer has a parent");
+        let name = encoded_name.replace("~1", "/").replace("~0", "~");
+        value
+            .pointer_mut(parent_pointer)
+            .and_then(Value::as_object_mut)
+            .expect("pointer parent is an object")
+            .insert(name, replacement);
+    }
+
     fn differential_expectations() -> (BTreeMap<String, (bool, bool)>, bool) {
         let oracle_path = match std::env::var("IOI_ARCHITECTURE_CONTRACT_AJV_ORACLE") {
             Ok(path) => path,
@@ -2614,8 +2981,8 @@ ${roundTripArms},
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            66,
-            "the registered golden corpus must remain the explicit 66-fixture bar",
+            ${fixtures.length},
+            "the registered golden corpus must remain the explicit ${fixtures.length}-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -2939,6 +3306,374 @@ ${roundTripArms},
     }
 
     #[test]
+    fn system_status_claims_require_their_exact_evidence_sets() {
+        let assert_rejected = |contract: &str, value: &Value, label: &str| {
+            assert!(
+                validate_architecture_contract(contract, value).is_err(),
+                "{label}",
+            );
+        };
+        let manifest_contract =
+            "schema://ioi/foundations/autonomous-system-manifest/v1";
+        let mut draft_manifest = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+        );
+        draft_manifest["registry_status"] = Value::String("draft".to_owned());
+        draft_manifest["receipts"]["package_readiness_receipt_ref"] = Value::Null;
+        draft_manifest["release"]["publisher_signature_ref"] = Value::Null;
+        draft_manifest["release"]["registry_published_at"] = Value::Null;
+        validate_architecture_contract(manifest_contract, &draft_manifest)
+            .expect("draft manifest is free of terminal registry proof");
+        for (pointer, residue) in [
+            (
+                "/receipts/package_readiness_receipt_ref",
+                Value::String("receipt://acme/package-ready/v1".to_owned()),
+            ),
+            (
+                "/release/publisher_signature_ref",
+                Value::String("evidence://acme/package-signature/v1".to_owned()),
+            ),
+            (
+                "/release/registry_published_at",
+                Value::String("2026-07-18T12:00:00Z".to_owned()),
+            ),
+        ] {
+            let mut residue_manifest = draft_manifest.clone();
+            set_json_pointer(&mut residue_manifest, pointer, residue);
+            assert_rejected(
+                manifest_contract,
+                &residue_manifest,
+                "draft manifest carried terminal registry proof residue",
+            );
+        }
+
+        let genesis_contract =
+            "schema://ioi/foundations/autonomous-system-genesis/v1";
+        let mut authorized = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+        );
+        authorized["status"] = Value::String("authorized".to_owned());
+        authorized["cryptographic_origin"]["admission_proof_ref"] =
+            Value::String("receipt://acme/system-alpha/admission".to_owned());
+        authorized["instantiation"]["authority_grant_refs"] =
+            serde_json::json!(["grant://acme/system-alpha/genesis"]);
+        authorized["status_source_receipt_refs"] =
+            serde_json::json!(["receipt://acme/system-alpha/authorized-status"]);
+        validate_architecture_contract(genesis_contract, &authorized)
+            .expect("authorized genesis carries admission, authority, and status evidence");
+        for (label, pointer, replacement) in [
+            (
+                "authorized genesis omitted admission proof",
+                "/cryptographic_origin/admission_proof_ref",
+                Value::Null,
+            ),
+            (
+                "authorized genesis omitted authority evidence",
+                "/instantiation/authority_grant_refs",
+                serde_json::json!([]),
+            ),
+            (
+                "authorized genesis omitted status evidence",
+                "/status_source_receipt_refs",
+                serde_json::json!([]),
+            ),
+        ] {
+            let mut missing = authorized.clone();
+            set_json_pointer(&mut missing, pointer, replacement);
+            assert_rejected(genesis_contract, &missing, label);
+        }
+
+        let mut activated = authorized.clone();
+        activated["status"] = Value::String("activated".to_owned());
+        activated["activation_receipt_ref"] =
+            Value::String("receipt://acme/system-alpha/activation".to_owned());
+        activated["lifecycle_transition_refs"] =
+            serde_json::json!(["lifecycle-transition://acme/system-alpha/activate"]);
+        validate_architecture_contract(genesis_contract, &activated)
+            .expect("activated genesis carries activation and lifecycle evidence");
+        for (label, pointer, replacement) in [
+            (
+                "activated genesis omitted activation receipt",
+                "/activation_receipt_ref",
+                Value::Null,
+            ),
+            (
+                "activated genesis omitted lifecycle receipt",
+                "/lifecycle_transition_refs",
+                serde_json::json!([]),
+            ),
+        ] {
+            let mut missing = activated.clone();
+            set_json_pointer(&mut missing, pointer, replacement);
+            assert_rejected(genesis_contract, &missing, label);
+        }
+
+        let proposed_genesis = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+        );
+        for (label, pointer, replacement) in [
+            (
+                "proposed genesis carried admission residue",
+                "/cryptographic_origin/admission_proof_ref",
+                Value::String("receipt://acme/system-alpha/admission".to_owned()),
+            ),
+            (
+                "proposed genesis carried activation residue",
+                "/activation_receipt_ref",
+                Value::String("receipt://acme/system-alpha/activation".to_owned()),
+            ),
+            (
+                "proposed genesis carried authority residue",
+                "/instantiation/authority_grant_refs",
+                serde_json::json!(["grant://acme/system-alpha/genesis"]),
+            ),
+            (
+                "proposed genesis carried conformance residue",
+                "/instantiation/conformance_receipt_refs",
+                serde_json::json!(["receipt://acme/system-alpha/conformance"]),
+            ),
+            (
+                "proposed genesis carried lifecycle residue",
+                "/lifecycle_transition_refs",
+                serde_json::json!(["lifecycle-transition://acme/system-alpha/activate"]),
+            ),
+            (
+                "proposed genesis carried status residue",
+                "/status_source_receipt_refs",
+                serde_json::json!(["receipt://acme/system-alpha/status"]),
+            ),
+        ] {
+            let mut residue = proposed_genesis.clone();
+            set_json_pointer(&mut residue, pointer, replacement);
+            assert_rejected(genesis_contract, &residue, label);
+        }
+
+        let constitution_contract =
+            "schema://ioi/foundations/autonomous-system-constitution/v1";
+        let mut constitution = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
+        );
+        constitution["status"] = Value::String("active".to_owned());
+        constitution["activation_receipt_ref"] =
+            Value::String("receipt://acme/system-alpha/constitution-activation".to_owned());
+        validate_architecture_contract(constitution_contract, &constitution)
+            .expect("active constitution carries its activation receipt");
+        let mut missing_constitution_activation = constitution;
+        missing_constitution_activation["activation_receipt_ref"] = Value::Null;
+        assert_rejected(
+            constitution_contract,
+            &missing_constitution_activation,
+            "active constitution omitted activation receipt",
+        );
+        let draft_constitution = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
+        );
+        for (field, residue) in [
+            (
+                "activation_receipt_ref",
+                Value::String("receipt://acme/system-alpha/constitution-activation".to_owned()),
+            ),
+            (
+                "public_commitment_ref",
+                Value::String("commitment://acme/system-alpha/constitution".to_owned()),
+            ),
+        ] {
+            let mut draft_with_residue = draft_constitution.clone();
+            draft_with_residue[field] = residue;
+            assert_rejected(
+                constitution_contract,
+                &draft_with_residue,
+                "draft constitution carried terminal proof residue",
+            );
+        }
+
+        let amendment_contract =
+            "schema://ioi/foundations/autonomous-system-constitution-amendment/v1";
+        let mut proposed_amendment = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json",
+        );
+        proposed_amendment["decision_ref"] =
+            Value::String("decision://acme/system-alpha/amendment".to_owned());
+        assert_rejected(
+            amendment_contract,
+            &proposed_amendment,
+            "proposed constitution amendment carried terminal decision residue",
+        );
+
+        let ordering_contract =
+            "schema://ioi/foundations/ordering-admission-finality-profile/v1";
+        let mut ordering = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
+        );
+        ordering["status"] = Value::String("active".to_owned());
+        ordering["conformance_receipt_refs"] =
+            serde_json::json!(["receipt://acme/system-alpha/ordering-conformance"]);
+        validate_architecture_contract(ordering_contract, &ordering)
+            .expect("active ordering profile carries conformance evidence");
+        let mut missing_ordering_evidence = ordering;
+        missing_ordering_evidence["conformance_receipt_refs"] = serde_json::json!([]);
+        assert_rejected(
+            ordering_contract,
+            &missing_ordering_evidence,
+            "active ordering profile omitted conformance evidence",
+        );
+        let mut draft_ordering_residue = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
+        );
+        draft_ordering_residue["conformance_receipt_refs"] =
+            serde_json::json!(["receipt://acme/system-alpha/ordering-conformance"]);
+        assert_rejected(
+            ordering_contract,
+            &draft_ordering_residue,
+            "draft ordering profile carried conformance residue",
+        );
+
+        let lifecycle_contract =
+            "schema://ioi/foundations/lifecycle-transition/v1";
+        let mut transition = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
+        );
+        transition["decision_ref"] =
+            Value::String("decision://acme/system-alpha/initialize".to_owned());
+        transition["authority_grant_refs"] =
+            serde_json::json!(["grant://acme/system-alpha/initialize"]);
+        transition["resulting_state_root"] =
+            Value::String(format!("sha256:{}", "e".repeat(64)));
+        transition["state_transition_commitment_ref"] =
+            Value::String("transition://acme/system-alpha/initialize".to_owned());
+        transition["receipt_refs"] =
+            serde_json::json!(["receipt://acme/system-alpha/initialize"]);
+        transition["status"] = Value::String("committed".to_owned());
+        validate_architecture_contract(lifecycle_contract, &transition)
+            .expect("committed lifecycle transition carries its terminal proof set");
+        for (field, replacement) in [
+            ("decision_ref", Value::Null),
+            ("authority_grant_refs", serde_json::json!([])),
+            ("resulting_state_root", Value::Null),
+            ("state_transition_commitment_ref", Value::Null),
+            ("receipt_refs", serde_json::json!([])),
+        ] {
+            let mut missing = transition.clone();
+            missing[field] = replacement;
+            assert_rejected(
+                lifecycle_contract,
+                &missing,
+                "committed lifecycle transition omitted required proof",
+            );
+        }
+        let proposed_transition = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
+        );
+        for (field, residue) in [
+            (
+                "decision_ref",
+                Value::String("decision://acme/system-alpha/initialize".to_owned()),
+            ),
+            (
+                "authority_grant_refs",
+                serde_json::json!(["grant://acme/system-alpha/initialize"]),
+            ),
+            (
+                "resulting_state_root",
+                Value::String(format!("sha256:{}", "e".repeat(64))),
+            ),
+            (
+                "state_transition_commitment_ref",
+                Value::String("transition://acme/system-alpha/initialize".to_owned()),
+            ),
+            (
+                "disposition_receipt_refs",
+                serde_json::json!(["receipt://acme/system-alpha/disposition"]),
+            ),
+            (
+                "receipt_refs",
+                serde_json::json!(["receipt://acme/system-alpha/initialize"]),
+            ),
+            (
+                "public_commitment_ref",
+                Value::String("commitment://acme/system-alpha/initialize".to_owned()),
+            ),
+        ] {
+            let mut proposed_with_residue = proposed_transition.clone();
+            proposed_with_residue[field] = residue;
+            assert_rejected(
+                lifecycle_contract,
+                &proposed_with_residue,
+                "proposed lifecycle transition carried terminal proof residue",
+            );
+        }
+
+        let enrollment_contract =
+            "schema://ioi/foundations/ioi-network-enrollment/v1";
+        let mut connected = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json",
+        );
+        connected["profile"] = Value::String("ioi_connected".to_owned());
+        connected["status"] = Value::String("active".to_owned());
+        connected["assurance_claim"] =
+            Value::String("connected_services_only".to_owned());
+        connected["connection"]["network_ref"] =
+            Value::String("network://ioi-l1".to_owned());
+        connected["authority_grant_refs"] =
+            serde_json::json!(["grant://acme/system-alpha/network-enrollment"]);
+        connected["transition_receipt_refs"] =
+            serde_json::json!(["receipt://acme/system-alpha/network-activation"]);
+        validate_architecture_contract(enrollment_contract, &connected)
+            .expect("connected active enrollment carries authority and transition receipts");
+        let mut missing_authority = connected.clone();
+        missing_authority["authority_grant_refs"] = serde_json::json!([]);
+        assert_rejected(
+            enrollment_contract,
+            &missing_authority,
+            "connected active enrollment omitted authority evidence",
+        );
+        let mut missing_transition_receipt = connected.clone();
+        missing_transition_receipt["transition_receipt_refs"] = serde_json::json!([]);
+        assert_rejected(
+            enrollment_contract,
+            &missing_transition_receipt,
+            "connected active enrollment omitted transition receipt",
+        );
+
+        let mut secured = connected;
+        secured["profile"] = Value::String("ioi_secured".to_owned());
+        secured["assurance_claim"] = Value::String("secured_profile".to_owned());
+        secured["standard_das_conformance_profile_ref"] =
+            Value::String("conformance-profile://acme/standard-das".to_owned());
+        secured["conformance"]["conformance_receipt_refs"] =
+            serde_json::json!(["receipt://acme/system-alpha/standard-das-conformance"]);
+        validate_architecture_contract(enrollment_contract, &secured)
+            .expect("secured active enrollment carries conformance evidence");
+        secured["conformance"]["conformance_receipt_refs"] = serde_json::json!([]);
+        assert_rejected(
+            enrollment_contract,
+            &secured,
+            "secured active enrollment omitted conformance evidence",
+        );
+    }
+
+    #[test]
+    fn boolean_const_projection_uses_a_literal_type() {
+        let literal =
+            AutonomousSystemConstitutionV1GovernanceAgentMayCommitAmendment::False;
+        assert_eq!(
+            serde_json::to_value(literal).expect("literal false serializes"),
+            Value::Bool(false),
+        );
+        assert!(
+            serde_json::from_value::<
+                AutonomousSystemConstitutionV1GovernanceAgentMayCommitAmendment,
+            >(Value::Bool(true))
+            .is_err(),
+            "literal-false projection accepted true",
+        );
+        serde_json::from_value::<
+            AutonomousSystemConstitutionV1GovernanceAgentMayCommitAmendment,
+        >(Value::Bool(false))
+        .expect("literal-false projection accepts false");
+    }
+
+    #[test]
     fn dynamic_raw_string_delimiter_survives_schema_controlled_hashes() {
         let schema: Value = serde_json::from_str(RAW_STRING_DELIMITER_REGRESSION_SCHEMA)
             .expect("dynamic raw literal contains JSON");
@@ -3110,6 +3845,18 @@ function runGeneratorCapabilityRegressions() {
       "Generator regression: ECMA-262 whitespace translation drifted",
     );
   }
+  const immutableRefTranslation = rustEcmaPattern(
+    "^schema://[^\\s?#\\\\]+$",
+    "generator-regression.immutable-ref-separators",
+  );
+  if (
+    !immutableRefTranslation.includes("\\u{FEFF}") ||
+    !immutableRefTranslation.includes("?#\\\\")
+  ) {
+    throw new Error(
+      "Generator regression: immutable-ref separator class translation drifted",
+    );
+  }
 
   const rawLiteral = rustRaw({
     const: 'schema-controlled"###literal',
@@ -3145,7 +3892,9 @@ const outputsByPath = new Map();
 for (const target of declaredTargets) {
   const content = renderedTargets.get(target.kind);
   if (content === undefined) {
-    throw new Error(`No renderer exists for generated target kind ${target.kind}`);
+    throw new Error(
+      `No renderer exists for generated target kind ${target.kind}`,
+    );
   }
   if (!content.includes(target.symbol)) {
     throw new Error(

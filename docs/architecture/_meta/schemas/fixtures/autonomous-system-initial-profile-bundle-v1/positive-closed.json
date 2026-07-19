@@ -1,0 +1,303 @@
+{
+  "schema_version": "ioi.autonomous-system-initial-profile-bundle.v1",
+  "constitution": {
+    "schema_version": "ioi.autonomous-system-constitution.v1",
+    "constitution_id": "constitution://acme/system-alpha/v1",
+    "system_id": "system://acme/system-alpha",
+    "version": "1.0.0",
+    "predecessor_constitution_ref": null,
+    "constitution_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "declared_purpose": {
+      "statement": "Pursue bounded research outcomes for accountable project stakeholders.",
+      "ontology_refs": ["ontology://acme/research/v1"],
+      "beneficiary_or_stakeholder_refs": ["org://acme/research"],
+      "acceptance_policy_refs": ["policy://acme/acceptance/research"]
+    },
+    "normative_constraints": {
+      "invariant_refs": ["invariant://acme/no-unreceipted-effects/v1"],
+      "permitted_objective_policy_refs": ["policy://acme/objectives/permitted"],
+      "prohibited_objective_policy_refs": [
+        "policy://acme/objectives/prohibited"
+      ],
+      "permitted_ontology_action_contract_refs": [],
+      "prohibited_effect_policy_refs": ["policy://acme/effects/prohibited"]
+    },
+    "agency_boundary": {
+      "authority_ceiling_scope_refs": ["scope:network.read"],
+      "delegable_scope_refs": [],
+      "non_delegable_scope_refs": ["scope:governance.amend"],
+      "resource_and_budget_ceiling_policy_refs": [
+        "policy://acme/budget/ceiling"
+      ],
+      "time_and_duration_ceiling_policy_refs": ["policy://acme/time/ceiling"],
+      "data_and_privacy_ceiling_policy_refs": ["policy://acme/privacy/default"],
+      "effect_and_externality_ceiling_policy_refs": [
+        "policy://acme/effects/ceiling"
+      ],
+      "egress_policy_ref": "policy://acme/egress/default",
+      "node_expansion": "governed_membership_only",
+      "code_propagation": "admitted_deployment_only",
+      "self_authority_widening": "forbidden"
+    },
+    "governance": {
+      "governance_owner_refs": ["org://acme/research"],
+      "accountable_principal_refs": ["wallet://acme/governance"],
+      "affected_party_policy_ref": "policy://acme/governance/affected-parties",
+      "ordinary_upgrade_policy_ref": "policy://acme/governance/upgrades",
+      "amendment_mode": "external_governance_only",
+      "amendment_decision_profile_ref": "policy://acme/governance/amendments",
+      "protected_clause_refs": ["constitution-clause://acme/purpose"],
+      "agent_may_propose_amendment": true,
+      "agent_may_commit_amendment": false,
+      "emergency_pause_authority_refs": ["wallet://acme/governance"],
+      "revocation_authority_refs": ["wallet://acme/governance"]
+    },
+    "protected_profile_governance": {
+      "improvement_governance_profile_ref": null,
+      "improvement_governance_profile_change_decision_profile_ref": null,
+      "deployment_constraint_ref": "policy://acme/deployment/constraint",
+      "deployment_change_decision_profile_ref": "policy://acme/deployment/change",
+      "ordering_admission_finality_constraint_ref": "policy://acme/ordering/constraint",
+      "ordering_profile_change_decision_profile_ref": "policy://acme/ordering/change",
+      "oracle_evidence_constraint_ref": "policy://acme/oracle/constraint",
+      "oracle_profile_change_decision_profile_ref": "policy://acme/oracle/change",
+      "lifecycle_continuity_constraint_ref": "policy://acme/lifecycle/constraint",
+      "lifecycle_profile_change_decision_profile_ref": "policy://acme/lifecycle/change",
+      "network_enrollment_constraint_ref": "policy://acme/network/local-only",
+      "network_enrollment_change_decision_profile_ref": "policy://acme/network/change"
+    },
+    "shutdown": {
+      "kill_switch_ref": "policy://acme/shutdown/kill-switch",
+      "decommission_policy_ref": "policy://acme/shutdown/decommission",
+      "minimum_archive_policy_ref": "policy://acme/archive/minimum"
+    },
+    "activation_receipt_ref": null,
+    "public_commitment_ref": null,
+    "status": "draft"
+  },
+  "ordering_profile": {
+    "schema_version": "ioi.ordering-admission-finality-profile.v1",
+    "ordering_profile_id": "ordering-profile://acme/system-alpha/poa1",
+    "system_id": "system://acme/system-alpha",
+    "constitution_ref": "constitution://acme/system-alpha/v1",
+    "version": "1.0.0",
+    "profile": "single_authority",
+    "authority_distribution": {
+      "posture": "single_principal",
+      "principal_refs": ["wallet://acme/system-alpha-writer"],
+      "independence_evidence_refs": []
+    },
+    "ordering": {
+      "rule_ref": "policy://acme/ordering/strict-sequence",
+      "member_node_membership_refs": [],
+      "writer_epoch_required": true,
+      "fencing_required": true,
+      "leader_or_sequencer_selection_ref": null,
+      "conflict_rule_ref": "policy://acme/ordering/fail-closed-conflict"
+    },
+    "admission": {
+      "deterministic_transition_function_ref": "artifact://sha256/system-transition-v1",
+      "schema_root": "sha256:c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+      "policy_root": "sha256:c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2",
+      "authority_rule_ref": "policy://acme/ordering/writer-authority",
+      "threshold": { "required": 1, "eligible": 1 },
+      "require_expected_predecessor_root": true,
+      "receipt_obligations": ["schema://acme/receipts/system-admission/v1"]
+    },
+    "cryptographic_continuity": {
+      "hash_and_signature_suite_ref": "schema://acme/crypto/sha256-ed25519/v1",
+      "sequence_rule_ref": "policy://acme/sequence/monotonic",
+      "require_monotonic_sequence": true,
+      "require_expected_predecessor_commitment": true,
+      "operation_or_batch_commitment_schema_ref": "schema://acme/commitment/system-operation/v1",
+      "admission_proof_schema_ref": "schema://acme/proof/system-admission/v1",
+      "require_resulting_state_root": true,
+      "require_receipt_root": true,
+      "checkpoint_and_compaction_policy_ref": "policy://acme/checkpoint/default"
+    },
+    "finality": {
+      "scope": "local_operational",
+      "rule_ref": "policy://acme/finality/local",
+      "proof_schema_ref": "schema://acme/proof/local-finality/v1",
+      "rollback_posture": "recoverable_before_final",
+      "external_network_ref": null,
+      "external_contract_ref": null,
+      "external_confirmation_policy_ref": null
+    },
+    "fault_model_ref": "policy://acme/fault-model/poa1",
+    "liveness_policy_ref": "policy://acme/liveness/poa1",
+    "membership_and_profile_change_policy_ref": "policy://acme/ordering/profile-change",
+    "conformance_receipt_refs": [],
+    "status": "draft"
+  },
+  "oracle_profiles": [
+    {
+      "schema_version": "ioi.oracle-evidence-profile.v1",
+      "oracle_evidence_profile_id": "oracle-evidence-profile://acme/system-alpha/public-records",
+      "system_id": "system://acme/system-alpha",
+      "version": "1.0.0",
+      "fact_class_refs": ["ontology://acme/facts/public-record"],
+      "source_requirements": [
+        {
+          "source_class": "official_record",
+          "source_refs": ["source://acme/public-records"],
+          "evidence_schema_ref": "schema://acme/evidence/public-record/v1",
+          "signer_or_principal_refs": ["org://acme/records-office"],
+          "freshness_and_finality_policy_ref": "policy://acme/evidence/freshness",
+          "independence_group_ref": "independence-group://acme/public-records",
+          "required": true
+        }
+      ],
+      "aggregation": {
+        "rule": "single_source",
+        "minimum_sources": 1,
+        "minimum_independent_principals": 1,
+        "threshold_policy_ref": null,
+        "correlated_failure_policy_ref": "policy://acme/evidence/correlation",
+        "uncertainty_policy_ref": "policy://acme/evidence/uncertainty"
+      },
+      "contradiction": {
+        "policy": "fail_closed",
+        "adjudicator_refs": [],
+        "dispute_policy_ref": "policy://acme/evidence/dispute"
+      },
+      "challenge": {
+        "challenge_window_ref": "policy://acme/evidence/challenge-window",
+        "verifier_refs": ["verifier-path://acme/public-record"],
+        "appeal_policy_ref": "policy://acme/evidence/appeal"
+      },
+      "admission": {
+        "decision_semantics": "qualified_scope_bound_operational_determination",
+        "ontology_assertion_schema_refs": [
+          "schema://acme/ontology/assertion/v1"
+        ],
+        "required_verifier_path_refs": ["verifier-path://acme/public-record"],
+        "ontology_action_contract_refs": [],
+        "permitted_applicability_scope_refs": ["scope:ontology.assert"],
+        "permitted_consequence_scope_refs": ["scope:workflow.read"],
+        "maximum_assertion_validity_policy_ref": "policy://acme/evidence/assertion-validity",
+        "required_authority_refs": [],
+        "policy_ref": "policy://acme/evidence/admission",
+        "receipt_obligations": ["oracle_evidence_admission"]
+      },
+      "missing_or_stale_evidence_mode": "unknown",
+      "source_replacement_policy_ref": "policy://acme/evidence/source-replacement",
+      "privacy_policy_ref": "policy://acme/evidence/privacy",
+      "retention_policy_ref": "policy://acme/evidence/retention",
+      "status": "draft"
+    }
+  ],
+  "lifecycle_profile": {
+    "schema_version": "ioi.lifecycle-continuity-profile.v1",
+    "lifecycle_profile_id": "lifecycle-profile://acme/system-alpha/default",
+    "system_id": "system://acme/system-alpha",
+    "constitution_ref": "constitution://acme/system-alpha/v1",
+    "version": "1.0.0",
+    "continuity_class": "successor_governed",
+    "continuity": {
+      "operating_budget_policy_ref": "policy://acme/lifecycle/budget",
+      "dependency_replacement_policy_ref": "policy://acme/lifecycle/dependencies",
+      "minimum_archive_policy_ref": "policy://acme/lifecycle/archive",
+      "degraded_mode": "read_only"
+    },
+    "recovery_and_suspension": {
+      "recovery_policy_ref": "policy://acme/lifecycle/recovery",
+      "pause_and_resume_policy_ref": "policy://acme/lifecycle/pause-resume",
+      "suspension_and_reinstatement_policy_ref": "policy://acme/lifecycle/suspend-reinstate",
+      "quarantine_and_release_policy_ref": "policy://acme/lifecycle/quarantine",
+      "retirement_policy_ref": "policy://acme/lifecycle/retire"
+    },
+    "succession": {
+      "enabled": true,
+      "trigger_classes": ["organization_dissolution", "authority_loss"],
+      "oracle_evidence_profile_refs": [
+        "oracle-evidence-profile://acme/system-alpha/public-records"
+      ],
+      "successor_candidate_refs": ["org://acme/successor"],
+      "selection_policy_ref": "policy://acme/lifecycle/successor-selection",
+      "required_legal_or_governance_authority_refs": [
+        "wallet://acme/governance"
+      ],
+      "challenge_window_ref": "policy://acme/lifecycle/succession-challenge",
+      "authority_handoff": "rotate_and_reissue",
+      "constitution_must_be_preserved": true
+    },
+    "dissolution": {
+      "trigger_policy_refs": ["policy://acme/lifecycle/dissolution-trigger"],
+      "approval_policy_ref": "policy://acme/lifecycle/dissolution-approval",
+      "active_work_disposition_policy_ref": "policy://acme/lifecycle/work-disposition",
+      "asset_disposition_contract_refs": [],
+      "outstanding_obligation_policy_ref": "policy://acme/lifecycle/obligations",
+      "authority_revocation_policy_ref": "policy://acme/lifecycle/revoke-authority",
+      "worker_and_node_shutdown_policy_ref": "policy://acme/lifecycle/shutdown",
+      "data_export_retention_and_erasure_policy_ref": "policy://acme/lifecycle/data-disposition",
+      "network_exit_policy_ref": "policy://acme/lifecycle/network-exit",
+      "tombstone_policy_ref": "policy://acme/lifecycle/tombstone"
+    },
+    "migration": {
+      "allowed": true,
+      "migration_policy_ref": "policy://acme/lifecycle/migration",
+      "identity_continuity_required": true,
+      "state_root_verification_required": true
+    },
+    "fork": {
+      "allowed": false,
+      "fork_policy_ref": "policy://acme/lifecycle/fork",
+      "new_system_id_required": true,
+      "source_identity_inheritance": "forbidden",
+      "state_root_and_lineage_proof_required": true
+    },
+    "adoption": {
+      "allowed": false,
+      "adoption_policy_ref": "policy://acme/lifecycle/adoption",
+      "identity_continuity_decision_profile_ref": "policy://acme/lifecycle/identity-continuity",
+      "explicit_identity_decision_required": true,
+      "state_root_and_lineage_proof_required": true
+    },
+    "status": "draft"
+  },
+  "network_enrollment": {
+    "schema_version": "ioi.network-enrollment.v1",
+    "network_enrollment_id": "network-enrollment://acme/system-alpha/local",
+    "system_id": "system://acme/system-alpha",
+    "constitution_ref": "constitution://acme/system-alpha/v1",
+    "manifest_ref": "package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "version": "1.0.0",
+    "predecessor_enrollment_ref": null,
+    "profile": "ioi_compatible",
+    "governing_decision_ref": "decision://acme/system-alpha/local-enrollment",
+    "authority_grant_refs": [],
+    "effective_at": "2026-07-18T12:00:00Z",
+    "expires_at": null,
+    "renewal_policy_ref": "policy://acme/network/renewal",
+    "conformance": {
+      "kernel_release_root": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+      "conformance_profile_refs": [
+        "conformance-profile://acme/local-compatible"
+      ],
+      "conformance_receipt_refs": [],
+      "ecosystem_assurance_profile_refs": []
+    },
+    "connection": {
+      "network_ref": null,
+      "system_registration_ref": null,
+      "constitution_commitment_ref": null,
+      "release_commitment_ref": null,
+      "endpoint_commitment_refs": [],
+      "aiip_profile_refs": [],
+      "aiip_channel_refs": []
+    },
+    "selected_network_services": [],
+    "assurance_claim": "none",
+    "standard_das_conformance_profile_ref": null,
+    "exit": {
+      "exit_policy_ref": "policy://acme/network/exit",
+      "outstanding_obligation_refs": [],
+      "dispute_refs": [],
+      "final_commitment_ref": null
+    },
+    "suspension_reason_code": null,
+    "transition_receipt_refs": [],
+    "status": "local_only"
+  }
+}
