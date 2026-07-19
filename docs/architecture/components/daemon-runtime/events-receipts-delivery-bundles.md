@@ -4,10 +4,10 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-18.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, and `PhysicalActionExecutionReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, OutcomeRoom/collective-pursuit receipt families, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
-Last implementation audit: 2026-07-18
+Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, and `PhysicalActionExecutionReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, `TemporalVerificationProfile`/`TemporalValidityEvaluation` contracts, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, OutcomeRoom/collective-pursuit receipt families, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
+Last implementation audit: 2026-07-19
 
 ## Purpose
 
@@ -254,6 +254,21 @@ Offline verification fails closed unless it can:
    leaves;
 6. bind the manifest to those trusted inputs and verify its signature.
 
+The verifier reports three conclusions independently:
+
+1. `integrity`: whether the exact receipt, manifest, signatures, accumulator,
+   inclusion, and consistency relations verify;
+2. `valid_as_of`: whether the named key/revocation/temporal inputs establish
+   validity at the declared checkpoint or evidence horizon; and
+3. `currentness`: whether a current admitted `TemporalVerificationProfile`,
+   fresh owner inputs, and any required outside-rollback-domain floors
+   establish the present key/revocation/authority posture.
+
+An old authentic proof may retain `integrity: verified` and an established
+historical `valid_as_of` result while `currentness` is `indeterminate` or
+`unavailable`. That is neither total proof failure nor current effect
+authority.
+
 The registered schemas, invariants, and adversarial fixtures encode refusal
 cases for receipt, type, domain, version, leaf, index, root, predecessor,
 manifest, signer, key, revocation, and staleness substitution. They are not a
@@ -263,6 +278,12 @@ split-view detection, and live daemon/Agentgres emission remain separate
 planned work. Consequential runtime receipts do not acquire signed-checkpoint
 coverage until a production emitter records them in an implemented
 accumulator.
+
+`ReceiptProofBundle` v1 remains immutable and continues to list
+`trusted_time` as a caller-supplied offline input. That field does not by itself
+meet the temporal verification contract above. A portable successor must bind
+the exact temporal profile/evaluation and preserve the three conclusion axes;
+the current v1 schema is not silently widened or reinterpreted.
 
 Trace bundles are the inspection projection over events, logs, receipts,
 artifacts, authority decisions, and proof refs. A trace bundle should support
@@ -1067,6 +1088,35 @@ An `after_effect` review receipt is retrospective evidence only and cannot
 authorize the completed effect; that effect must resolve an earlier admitted
 grant or standing envelope and its own effect-admission receipt.
 
+## Temporal Evaluation Receipt Boundary
+
+Platform Operability owns `TemporalVerificationProfile` semantics and the
+recomputable `TemporalValidityEvaluation` input to its existing cross-plane
+decision. This file owns any portable receipt wrapper for that evaluation and
+the exact refs/hashes carried by consequential receipts. It does not create a
+clock, currentness oracle, authority decision, owner epoch, or resource fence.
+
+A portable temporal-evaluation receipt must bind:
+
+- the exact immutable profile ref/version/hash;
+- the subject ref/hash and operation class;
+- every requested temporal claim and its
+  `established | indeterminate | failed | unavailable` result;
+- admitted source identities, failure domains, evidence refs, bounds,
+  uncertainty, challenge/boot/incarnation context, and evidence horizon;
+- each relevant owner-scoped continuity floor and the evidence that its anchor
+  survives outside the declared rollback domain;
+- disconnected holdover/exposure and remaining budget when used;
+- the existing owner-specific effect-fence context ref when the operation
+  requires one;
+- stable reason codes, obligations, body hash, and receipt hash.
+
+The receipt proves only that the named evaluator produced those claim results
+from the bound inputs under the named profile. The Platform Operability
+decision maps them to `available | degraded | fail_closed`; the final authority
+or resource PEP makes the exact effect decision. Imported `verified`,
+`healthy`, or `current` fields are never accepted in place of recomputation.
+
 ## Authority Effect Admission Receipt
 
 `AuthorityEffectAdmissionReceiptV1` is the target policy-enforcement-point
@@ -1094,12 +1144,16 @@ AuthorityEffectAdmissionReceiptV1:
     principal_authority_resolution_hash: sha256:... | null
     principal_authority_revalidation_receipt_ref: receipt://... | null
     principal_authority_revalidation_receipt_hash: sha256:... | null
-    trusted_time_evidence_status: verified | not_evaluated | unavailable | invalid | stale
-    trusted_time_receipt_ref: receipt://... | null
-    trusted_time_receipt_hash: sha256:... | null
-    trusted_time_observed_at: timestamp | null
+    temporal_verification_profile_ref: policy://...
+    temporal_verification_profile_hash: sha256:...
+    temporal_validity_evaluation_ref: evidence://... | receipt://...
+    temporal_validity_evaluation_hash: sha256:...
+    temporal_posture:
+      online_fresh | bounded_offline | historical_only | insufficient
+    continuity_floor_evidence_refs:
+      - evidence://... | receipt://...
     revocation_evidence_status: verified | not_evaluated | unavailable | invalid | stale
-    revocation_snapshot_ref: revocation-snapshot://... | null
+    revocation_snapshot_ref: snapshot://... | null
     revocation_snapshot_hash: sha256:... | null
     revocation_epoch: integer | null
     actual_effect_ref: effect://...
@@ -1215,9 +1269,9 @@ tool-execution receipt substitutes for this typed admission evidence.
 `refusal_code` is null exactly when `decision == admitted`; refused and unknown
 decisions carry a non-empty typed code.
 
-The evidence-status/nullability matrix is exact:
+The revocation-evidence status/nullability matrix is exact:
 
-| status | ref/hash pair | observed time or epoch | decision |
+| revocation status | revocation ref/hash pair | observed revocation epoch | decision |
 |---|---|---|---|
 | `verified` | non-null, valid, and matching | non-null | may support `admitted` |
 | `not_evaluated` | both null | null | `refused` or `unknown` only |
@@ -1225,9 +1279,18 @@ The evidence-status/nullability matrix is exact:
 | `invalid` | non-null capture of the rejected evidence | null only when the invalid evidence has no parseable value; otherwise the observed value | `refused` or `unknown` only |
 | `stale` | non-null, valid, and matching | non-null stale value | `refused` or `unknown` only |
 
-An admitted decision requires both statuses to be `verified`, both ref/hash
-pairs to be valid, a non-null trusted observed time and revocation epoch, and
-policy-fresh evidence. No non-verified state can support admission.
+An admitted decision requires a valid exact temporal-profile ref/hash and
+temporal-evaluation ref/hash, `revocation_evidence_status: verified` with a
+valid matching snapshot ref/hash and non-null epoch, every required
+continuity-floor evidence ref, and either every profile-required temporal claim
+`established` or the exact `bounded_offline` posture explicitly permitted for
+that operation. `historical_only`, `insufficient`, an unpermitted bounded
+offline posture, or any required `indeterminate | failed | unavailable` claim
+cannot support admission. The `TemporalValidityEvaluation` itself remains
+evidence; Platform Operability derives operation readiness and the final
+authority/resource PEP owns this admission.
+
+No non-verified revocation state can support admission.
 `not_evaluated` is permitted only after the actual effect has been
 canonicalized and an independent earlier PEP gate has already made that
 evidence unnecessary; its typed refusal code names that gate. `unavailable`

@@ -6,7 +6,7 @@ conformance details live in
 [`../../conformance/hypervisor-core/`](../../conformance/hypervisor-core/).
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-18.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: partial (authority/receipt gates are enforced across existing owner planes; registered multi-axis information-flow and declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; the shared pre-effect evaluator and production propagation/enforcement across HTTP connectors, MCP, hosted models, browsers, memory, OutcomeRoom, ContextCell, general computer use, and inbound connectors/webhooks remain planned; local-agent pairing and TEE/cTEE/L1 items follow their owners and remain planned where not exposed by live routes)
 Last implementation audit: 2026-07-18
@@ -72,8 +72,10 @@ registry invariant, the registry wording wins on conflict.
    subject, reviewed-representation hash, presentation and ceremony evidence,
    one evaluation for every required factor/guardian posture ref, and, when
    portable-principal authority is claimed, exact authority binding coordinates
-   and snapshot, plus policy, risk, expiry, grant, trusted time, and revocation
-   posture through final effect admission.
+   and snapshot, plus policy, risk, expiry, grant, the exact
+   `TemporalVerificationProfile` and `TemporalValidityEvaluation`, revocation
+   posture, and required continuity-floor evidence through final effect
+   admission.
    A missing required link, undefined comparison, stale dependency, or field
    substitution fails before the consequential invoker.
 3. A WebAuthn assertion may establish the enrolled credential, exact challenge,
@@ -121,6 +123,37 @@ contracts. They are not a claim that current registered v1/v2 authority or
 receipt schemas already implement the complete chain. Final admission requires
 typed `AuthorityEffectAdmissionReceiptV1` evidence; a generic tool or execution
 receipt does not substitute for it.
+
+## Temporal Verification Invariants
+
+The canonical cross-cutting rule is `INV-36`; the clauses below are its
+security-domain application.
+
+1. A point timestamp, signature, sequence, owner epoch, or clock-health flag
+   proves only its declared boundary fact. It cannot substitute for an
+   absolute interval, challenge freshness, elapsed continuity, status-as-of,
+   non-regression floor, or final resource fence.
+2. Every consequential temporal claim binds an immutable
+   `TemporalVerificationProfile`, exact evidence, source/failure-domain
+   assumptions, conservative bounds, and a recomputable
+   `TemporalValidityEvaluation`.
+3. `TemporalValidityEvaluation` is evidence for the existing Platform
+   Operability decision. It cannot issue or revoke authority, admit an effect,
+   promote a writer, select a finality head, or create a resource fence.
+4. Uncertainty overlapping an activation or expiry boundary is
+   `indeterminate`, never rounded toward permission. The owning PEP may
+   refresh, wait, narrow, or fail closed only as its policy allows.
+5. Rollback resistance is relative to a named rollback domain. A
+   per-namespace floor must survive outside that domain or be freshly rebound
+   by admitted independent evidence; state restored with the protected subject
+   cannot attest its own non-rollback.
+6. Owner epochs remain scoped ordering generations and are never a global
+   clock. Historical integrity, valid-as-of posture, and current authority are
+   separate conclusions.
+7. Disconnected continuation requires pre-admitted elapsed/boot continuity,
+   holdover and revocation-exposure bounds, operation and effect budgets,
+   replay/fencing posture, and reconnect behavior. Reboot, restore, continuity
+   loss, or bound exhaustion cannot mint new authority or mission scope.
 
 ## Runtime Invariants
 

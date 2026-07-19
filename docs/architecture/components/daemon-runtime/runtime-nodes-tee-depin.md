@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for runtime-node and execution-privacy doctrine; low-level task capsule protocol lives in [`runtime-node-and-task-capsule-protocol.md`](./task-capsule-protocol.md).
 Supersedes: overlapping hosted/DePIN/TEE prose when execution-venue boundaries conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-12.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: mixed (the local venue is real; structured RATS-role attestation evaluation, startup assurance narrowing, live quote drivers, attestation-bound leases/re-attestation, and TEE/DePIN/cTEE/embodied venue deployments remain target contracts)
 Last implementation audit: 2026-07-16
@@ -290,6 +290,13 @@ attestation_assurance:
     revocation_epoch: integer
     revocation_status: current | revoked | unverified
     revocation_check_receipt_ref: receipt://...
+  temporal_state:
+    temporal_verification_profile_ref: policy://...
+    temporal_verification_profile_hash: sha256:...
+    temporal_validity_evaluation_ref: evidence://... | receipt://...
+    temporal_validity_evaluation_hash: sha256:...
+    continuity_floor_evidence_refs:
+      - evidence://... | receipt://...
   reattest_by: timestamp
 ```
 
@@ -329,6 +336,14 @@ missing or expired lease, revoked or stale revocation state, and overdue
 re-attestation make the affected stronger evidence ineligible. The Relying
 Party fails closed when no remaining eligible evidence satisfies its required
 posture.
+
+Nonce freshness, appraisal time, lease expiry, revocation epoch, and temporal
+currentness remain separate claims. The bound `TemporalValidityEvaluation`
+qualifies the required interval, challenge, status-as-of, boot/elapsed, and
+continuity-floor facts under Platform Operability; it does not replace the
+attestation appraiser, authority owner, or Relying Party. An appraisal restored
+with its verifier state cannot claim rollback-resistant currentness unless its
+profile resolves a fresh anchor or a floor outside that rollback domain.
 
 ```text
 Attester produces nonce-bound evidence

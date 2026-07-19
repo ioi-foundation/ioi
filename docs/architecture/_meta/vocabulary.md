@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-18.
+Last alignment pass: 2026-07-19.
 Doctrine status: reference
 Implementation status: mixed (naming reference across all maturity levels)
 Last implementation audit: 2026-07-05
@@ -899,11 +899,30 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   new authority primitive and does not prove pixels, human comprehension,
   external-world correctness, effect admission, or per-effect review under a
   batch or standing envelope.
+- `TemporalVerificationProfile`: immutable versioned Platform Operability
+  policy declaring the temporal propositions an operation requires, admissible
+  sources and failure-domain assumptions, uncertainty and evidence horizons,
+  owner-scoped continuity floors and rollback domain, bounded-offline posture,
+  and discontinuity/re-anchor behavior. It is not a clock, time oracle,
+  authority grant, global epoch, or executable.
+- `TemporalValidityEvaluation`: recomputable, subject- and operation-bound
+  evaluation of the exact temporal profile and evidence. It reports each
+  requested absolute-interval, challenge, elapsed/boot, owner-epoch,
+  status-as-of, or continuity-floor claim as `established`,
+  `indeterminate`, `failed`, or `unavailable`, with bounds, evidence, reason
+  codes, horizon, and invalidation obligations. It is an input to
+  `PlatformOperabilityDecision`, not admission, authority, truth, or a resource
+  fence.
+- `PlatformOperabilityDecision`: the existing cross-plane result mapping exact
+  owner-produced observations and any required temporal evaluation to
+  `available`, `degraded`, or `fail_closed` for one operation. The final
+  authority/resource PEP still owns effect admission and invocation.
 - `AuthorityEffectAdmissionReceipt`: target typed PEP evidence binding the
   authorized subject, grant, review and ceremony, daemon-derived actual effect,
-  exact-equality/batch-membership/standing-constraint proof, fresh trusted-time
-  and revocation evidence, and a durable pre-invocation admission decision. A
-  review, grant, or generic tool receipt does not substitute for it.
+  exact-equality/batch-membership/standing-constraint proof, exact temporal
+  profile/evaluation, revocation and required continuity-floor evidence, and a
+  durable pre-invocation admission decision. A review, grant, temporal
+  evaluation, or generic tool receipt does not substitute for it.
 - `AccessPointBinding`: a wallet.network binding for low-assurance access
   points such as SMS, email, chat apps, voice bridges, or webhooks. These
   channels may notify, wake, pause, steer, or initiate preapproved low-risk

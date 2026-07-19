@@ -7,10 +7,10 @@ node integrity receipts, and HypervisorOS deployment profiles.
 Supersedes: wording that treats Hypervisor only as a hosted IDE, local daemon,
 Type-2 runtime, or cloud agent harness.
 Superseded by: none.
-Last alignment pass: 2026-07-12.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: speculative (bare-metal node profile design; no HypervisorOS build)
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-19
 
 ## Canonical Definition
 
@@ -461,7 +461,10 @@ HypervisorOSBootProfile:
     maximum_reattestation_interval_ms: integer
   update_policy:
     signed_updates_required: true
-    rollback_protection: true
+    rollback_protection_profile_ref: policy://...
+    rollback_domain_ref: failure-domain://...
+    protected_namespace_floor_kind: signed_update_version_and_image_head
+    reanchor_after_boot_restore_or_replacement: required | policy_bounded
 ```
 
 ```yaml
@@ -510,6 +513,14 @@ HypervisorOSBootReceipt:
     revocation_status: current | revoked | unverified
     revocation_check_receipt_ref: receipt://... | null
     reattest_by: timestamp
+  temporal_state:
+    temporal_verification_profile_ref: policy://...
+    temporal_verification_profile_hash: sha256:...
+    temporal_validity_evaluation_ref: evidence://... | receipt://...
+    temporal_validity_evaluation_hash: sha256:...
+    rollback_domain_ref: failure-domain://...
+    continuity_floor_evidence_refs:
+      - evidence://... | receipt://...
   note: "Boot measurement is an integrity receipt, not a consumer-GPU plaintext privacy guarantee."
   signature: ...
 ```
@@ -522,6 +533,14 @@ the effective posture contains the required CPU/TEE or GPU confidential-compute
 evidence and the deployment's separate privacy policy permits that claim.
 Measured boot, TPM presence, secure element, software measurement, and trusted
 operator posture never imply plaintext confidentiality on their own.
+They also do not establish rollback-resistant freshness by themselves.
+`boot_epoch`, appraisal/lease timestamps, and `revocation_epoch` remain
+owner-scoped evidence. A claimed non-regressing update, key, revocation,
+appraisal, or boot posture requires the exact
+`TemporalVerificationProfile` and `TemporalValidityEvaluation`, plus a
+namespace floor outside the declared rollback domain or fresh independent
+re-anchoring. A boot receipt restored with its verifier state can retain
+historical integrity without proving currentness.
 
 ```yaml
 NodeEnforcementProfile:
@@ -711,12 +730,27 @@ PersistentHypervisorOSNode:
     - execute_unbounded_action
   freshness:
     revocation_epoch_required: true
+    temporal_verification_profile_ref: policy://...
+    temporal_validity_evaluation_required: true
+    continuity_floor_or_fresh_reanchor_required_after:
+      - reboot
+      - restore
+      - rollback_suspected
+      - node_replacement
     lease_check_required_before:
       - model_mount
       - private_head_eval
       - declassification
       - capability_exit
 ```
+
+Persistent autonomy inherits the bounded-offline contract of the selected
+temporal profile: exact allowed operations, elapsed/boot continuity, maximum
+holdover and revocation exposure, effect/call budgets, and reconnect
+revalidation. A local lease, revocation epoch, wall clock, or signed boot
+receipt alone cannot extend that envelope. Lost continuity narrows the node to
+the profile's safe local inspection/proposal behavior until re-anchored; it
+cannot mint authority or pass a `CapabilityExit`.
 
 ## Admission / Settlement Boundary
 

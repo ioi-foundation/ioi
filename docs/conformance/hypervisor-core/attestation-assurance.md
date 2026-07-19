@@ -7,9 +7,10 @@ effector.
 Canonical inputs:
 [`runtime-nodes-tee-depin.md`](../../architecture/components/daemon-runtime/runtime-nodes-tee-depin.md),
 [`hypervisoros.md`](../../architecture/components/daemon-runtime/hypervisoros.md),
+[`platform-operability.md`](../../architecture/components/daemon-runtime/platform-operability.md),
 and
 [`ecosystem-assurance-certification-liability.md`](../../architecture/foundations/ecosystem-assurance-certification-liability.md).
-Last audited: 2026-07-16.
+Last audited: 2026-07-19.
 
 ## Scope and honest implementation posture
 
@@ -72,7 +73,9 @@ and a current validity window. A provider self-report is not an appraisal.
 Every candidate must bind the expected unexpired lease, a current revocation
 check receipt at or beyond the required epoch, and a current re-attestation
 deadline no later than policy cadence. Missing, stale, revoked, or expired state
-makes that candidate ineligible.
+makes that candidate ineligible. Those comparisons require the exact
+Platform Operability temporal profile/evaluation rather than a caller-supplied
+point timestamp or `current` flag.
 
 ### CAA-6 — Deterministic narrowing without overclaim
 
@@ -119,6 +122,26 @@ refs require the pack's exception policy and project `excepted`, never erased.
 A conforming generated projection may expose only
 `legal_conformity_claim: not_determined`.
 
+### CAA-10 — Temporal qualification and restored-verifier rollback
+
+Attestation admission binds the exact `TemporalVerificationProfile` and
+recomputable `TemporalValidityEvaluation` for every required absolute
+interval, challenge freshness, elapsed/boot continuity, owner epoch,
+status-as-of, and continuity-floor claim. An established challenge proves a
+response followed that challenge; it does not make the appraised source fact or
+revocation snapshot latest. Appraisal, lease, revocation, and re-attestation
+point values are not accepted without the profile-qualified claim result.
+
+A verifier restored with its clock, prior appraisals, signed revocation state,
+and local high-water marks cannot establish non-rollback from those restored
+bytes. The relevant namespace floor must survive outside the declared rollback
+domain or admitted fresh independent evidence must re-anchor the new
+boot/restore generation. Otherwise currentness is `indeterminate` or
+`unavailable` and the stronger candidate is ineligible. Historical integrity
+may remain reportable. The temporal evaluation does not replace the
+Verifier/Appraiser roles, choose the effective attestation posture, issue a
+lease, or admit startup.
+
 ## Required adversarial evidence
 
 A future executable conformance tier must cover:
@@ -133,8 +156,17 @@ A future executable conformance tier must cover:
   preserves a non-hardware startup;
 - wrong workload, daemon build, and policy build;
 - stale appraisal and overdue re-attestation;
+- uncertainty overlapping appraisal, lease, or re-attestation expiry;
+- a fresh nonce response carrying a stale underlying appraisal or revocation
+  snapshot;
 - untrusted endorsements and reference values;
 - missing lease and revocation evidence;
+- whole-verifier restore to a pre-revocation clock/snapshot/high-water state,
+  both without an outside-domain floor and with a valid fresh re-anchor;
+- a replayed boot or restore generation that shares the restored rollback
+  domain;
+- an authentic historical appraisal retaining integrity while currentness is
+  indeterminate;
 - loss of GPU evidence narrowing deterministically to CPU/TEE;
 - rejected CPU/TEE narrowing to trusted-operator without a hardware claim;
 - the real startup gate preserving an allowed software fallback; and

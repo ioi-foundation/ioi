@@ -5,7 +5,7 @@ matrix. No current cross-plane operability evaluator, recovery kernel, or live
 fault-injection tier is claimed.
 Canonical input:
 [`platform-operability.md`](../../architecture/components/daemon-runtime/platform-operability.md).
-Last audited: 2026-07-16.
+Last audited: 2026-07-19.
 
 ## Scope and honest implementation posture
 
@@ -87,6 +87,35 @@ Each field must be allowlisted and retain a contract-valid
 `InformationFlowLabel`. Confidential, private, or restricted values may enter
 the projection only as a governed ref or SHA-256 hash, never raw content.
 
+### CPO-11 — Typed temporal validity and rollback limits
+
+Every operation requiring temporal claims binds an exact
+`TemporalVerificationProfile` and recomputable
+`TemporalValidityEvaluation`. Each requested claim returns
+`established`, `indeterminate`, `failed`, or `unavailable`; the evaluation
+cannot make the operability or final effect decision.
+
+The executable matrix must prove:
+
+- lower/upper interval evaluation under the owner's exact activation/expiry
+  operators, with overlap never rounded toward admission;
+- challenge freshness separately from source-fact recency;
+- same-boot elapsed continuity with explicit suspend, pause, drift, reset, and
+  reboot behavior;
+- owner-scoped version/epoch floors without interpreting them as time;
+- whole-state rollback refusal unless the relevant floor survives outside the
+  declared rollback domain or fresh independent evidence re-anchors it;
+- historical integrity and valid-as-of conclusions without a false currentness
+  claim;
+- bounded-offline holdover, revocation exposure, effect budget, and reconnect
+  behavior; and
+- final resource fencing independently of clock or lease freshness.
+
+Where a matrix case reaches a resource fence, it records Platform
+Operability's expected disposition separately from the final PEP disposition.
+Fresh temporal/plane evidence may yield `available` while the owner-derived
+stale fence still yields a final fail-closed result and zero invoker calls.
+
 ## Canonical matrix
 
 The canonical target matrix is
@@ -98,12 +127,22 @@ Current master has no `operability` conformance tier. The matrix must remain
 valid JSON and linked from canon, but that documentation/fixture evidence must
 not be reported as an executable platform pass.
 
+The older v1 rows that use only `{plane: clock, state: healthy}` exercise coarse
+cross-plane dependency handling; that flag is not temporal proof. They must be
+augmented with owner-produced temporal evaluation inputs before an executable
+operation-readiness or effect-admission claim is made. The dedicated temporal
+rows below state the new refusal boundary.
+
 ## Open live gates
 
 - the cross-plane evaluator and stable reason/obligation implementation;
 - deterministic checkpoint/suffix recovery, mixed-version, key-epoch, and
   privacy-safe observability kernels with adversarial tests;
 - owner-signed or owner-rooted plane-observation fixtures;
+- registered temporal profile/evaluation contracts, source adapters, and
+  portable receipt wrapper;
+- outside-rollback-domain continuity floors or fresh re-anchor adapters plus
+  interval, reboot, restore, and holdover fault injection;
 - daemon/scheduler admission immediately before real effects;
 - correlated failure injection across shared failure domains;
 - live checkpoint/backup restore using each plane's actual persistence engine;

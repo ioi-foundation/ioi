@@ -6,7 +6,7 @@ Implementation status: mixed (each invariant lists where it is enforced today)
 Canonical owner: this file for the canonical one-sentence wording of cross-cutting invariants; subject owners apply them.
 Supersedes: repeated restatements of these invariants across foundations, components, and domains docs when wordings drift.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-19.
 
 ## Purpose
 
@@ -319,6 +319,17 @@ Owner application:
 [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md),
 [`../components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md),
 [`../components/daemon-runtime/api.md`](../components/daemon-runtime/api.md).
+
+**INV-36 — Temporal evidence is proposition-scoped and conditional.** Every
+consequential temporal claim binds an exact `TemporalVerificationProfile` and
+recomputable `TemporalValidityEvaluation`; a point timestamp, signature,
+clock-health flag, or owner epoch cannot substitute for the requested
+proposition, rollback resistance requires a namespace floor outside the
+declared rollback domain or fresh independent re-anchoring, and the evaluation
+supplies evidence without issuing authority or admitting the final effect.
+Owner application:
+[`security-privacy-policy-invariants.md`](./security-privacy-policy-invariants.md),
+[`../components/daemon-runtime/platform-operability.md`](../components/daemon-runtime/platform-operability.md).
 
 ## Citation Rule
 

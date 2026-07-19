@@ -296,6 +296,384 @@
       "expected_effective_assurance": "software_only",
       "required_reason_codes": ["required_plane_unavailable:provider"],
       "required_obligations": ["recover_or_route_around_plane:provider"]
+    },
+    {
+      "scenario_id": "temporal-uncertainty-overlaps-expiry",
+      "input": {
+        "operation": "external_effect",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "network_fleet", "state": "healthy" }
+        ],
+        "temporal_validity_evaluation": {
+          "profile_ref": "policy://platform/temporal/managed-online-v1",
+          "profile_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "claims": [
+            {
+              "kind": "absolute_time_interval",
+              "status": "indeterminate",
+              "earliest": "2026-07-19T12:00:00Z",
+              "latest": "2026-07-19T12:00:02Z",
+              "boundary": {
+                "operator": "strictly_before",
+                "value": "2026-07-19T12:00:01Z"
+              }
+            }
+          ],
+          "temporal_posture": "insufficient"
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["temporal_claim_indeterminate:absolute_time_interval"],
+      "required_obligations": ["refresh_wait_narrow_or_refuse_under_owner_policy"]
+    },
+    {
+      "scenario_id": "whole-state-rollback-without-outside-domain-floor",
+      "input": {
+        "operation": "external_effect",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "network_fleet", "state": "healthy" }
+        ],
+        "restore_generation": "restored-with-subject",
+        "temporal_validity_evaluation": {
+          "profile_ref": "policy://platform/temporal/rollback-sensitive-v1",
+          "profile_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "claims": [
+            {
+              "kind": "continuity_floor",
+              "status": "unavailable",
+              "namespace_ref": "wallet://example",
+              "floor_kind": "authority_revocation",
+              "rollback_domain_ref": "failure-domain://restored-vm",
+              "outside_rollback_domain_evidence_refs": []
+            }
+          ],
+          "temporal_posture": "insufficient"
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["rollback_detection_unavailable:authority_revocation"],
+      "required_obligations": ["obtain_fresh_anchor_or_outside_domain_floor"]
+    },
+    {
+      "scenario_id": "bounded-offline-physical-continuation-with-established-holdover",
+      "input": {
+        "operation": "physical_bounded_continuation",
+        "observations": [
+          {
+            "plane": "clock",
+            "state": "degraded",
+            "degraded_contract_ref": "policy://platform/temporal/bounded-offline-physical-v1",
+            "degraded_allowed_operations": ["physical_bounded_continuation"]
+          },
+          { "plane": "daemon", "state": "unavailable" },
+          { "plane": "network_fleet", "state": "unavailable" },
+          { "plane": "agentgres", "state": "unavailable" }
+        ],
+        "local_supervisor_available": true,
+        "temporal_validity_evaluation": {
+          "profile_ref": "policy://platform/temporal/bounded-offline-physical-v1",
+          "profile_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "claims": [
+            {
+              "kind": "elapsed_duration",
+              "status": "established",
+              "boot_or_incarnation_ref": "evidence://boot/current",
+              "lower_bound_ms": 1000,
+              "upper_bound_ms": 1100
+            },
+            {
+              "kind": "status_as_of",
+              "status": "established",
+              "maximum_offline_age_ms": 10000,
+              "observed_offline_age_upper_bound_ms": 1100
+            }
+          ],
+          "temporal_posture": "bounded_offline"
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "degraded",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["bounded_offline_holdover"],
+      "required_obligations": ["retain_local_safety_effect_budget_and_reconnect_revalidation"]
+    },
+    {
+      "scenario_id": "historical-checkpoint-does-not-prove-current-assurance",
+      "input": {
+        "operation": "portable_assurance_export",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "storage", "state": "healthy" },
+          { "plane": "clock", "state": "stale" },
+          { "plane": "attestation", "state": "healthy" }
+        ],
+        "historical_proof": {
+          "integrity": "verified",
+          "valid_as_of": "established",
+          "currentness": "indeterminate"
+        },
+        "asserted_assurance": "hardware_attested",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["historical_proof_currentness_indeterminate"],
+      "required_obligations": ["retain_historical_result_and_refresh_currentness"]
+    },
+    {
+      "scenario_id": "whole-state-rollback-with-outside-domain-floor",
+      "input": {
+        "operation": "external_effect",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "network_fleet", "state": "healthy" }
+        ],
+        "restore_generation": "freshly-reanchored-after-restore",
+        "temporal_validity_evaluation": {
+          "profile_ref": "policy://platform/temporal/rollback-sensitive-v1",
+          "profile_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "claims": [
+            {
+              "kind": "continuity_floor",
+              "status": "established",
+              "namespace_ref": "wallet://example",
+              "floor_kind": "authority_revocation",
+              "accepted_version_or_epoch": 42,
+              "rollback_domain_ref": "failure-domain://restored-vm",
+              "outside_rollback_domain_evidence_refs": [
+                "evidence://independent-authority-floor/42"
+              ]
+            }
+          ],
+          "temporal_posture": "online_fresh"
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "available",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["temporal_continuity_floor_established"],
+      "required_obligations": ["bind_floor_and_reanchor_to_effect_receipt"]
+    },
+    {
+      "scenario_id": "bounded-offline-holdover-exhaustion-fails-closed",
+      "input": {
+        "operation": "physical_bounded_continuation",
+        "observations": [
+          {
+            "plane": "clock",
+            "state": "degraded",
+            "degraded_contract_ref": "policy://platform/temporal/bounded-offline-physical-v1",
+            "degraded_allowed_operations": ["physical_bounded_continuation"]
+          },
+          { "plane": "daemon", "state": "unavailable" },
+          { "plane": "network_fleet", "state": "unavailable" },
+          { "plane": "agentgres", "state": "unavailable" }
+        ],
+        "local_supervisor_available": true,
+        "temporal_validity_evaluation": {
+          "profile_ref": "policy://platform/temporal/bounded-offline-physical-v1",
+          "profile_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "claims": [
+            {
+              "kind": "elapsed_duration",
+              "status": "established",
+              "boot_or_incarnation_ref": "evidence://boot/current",
+              "lower_bound_ms": 10100,
+              "upper_bound_ms": 10200
+            },
+            {
+              "kind": "status_as_of",
+              "status": "failed",
+              "maximum_offline_age_ms": 10000,
+              "observed_offline_age_upper_bound_ms": 10200
+            }
+          ],
+          "temporal_posture": "insufficient"
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["bounded_offline_holdover_exhausted"],
+      "required_obligations": ["enter_minimum_risk_and_revalidate_before_continuation"]
+    },
+    {
+      "scenario_id": "fresh-challenge-does-not-refresh-stale-source-fact",
+      "input": {
+        "operation": "external_effect",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "network_fleet", "state": "healthy" }
+        ],
+        "temporal_validity_evaluation": {
+          "profile_ref": "policy://platform/temporal/challenge-and-status-v1",
+          "profile_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "claims": [
+            {
+              "kind": "challenge_freshness",
+              "status": "established",
+              "challenge_ref": "challenge://fresh-response"
+            },
+            {
+              "kind": "status_as_of",
+              "status": "failed",
+              "status_subject_ref": "snapshot://authority/revocation/old",
+              "status_kind": "authority_revocation",
+              "maximum_age_ms": 10000,
+              "observed_age_ms": 60000
+            }
+          ],
+          "temporal_posture": "insufficient"
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["temporal_claim_failed:status_as_of"],
+      "required_obligations": ["refresh_underlying_status_not_only_challenge"]
+    },
+    {
+      "scenario_id": "reboot-breaks-same-boot-elapsed-continuity",
+      "input": {
+        "operation": "physical_bounded_continuation",
+        "observations": [
+          {
+            "plane": "clock",
+            "state": "degraded",
+            "degraded_contract_ref": "policy://platform/temporal/bounded-offline-physical-v1",
+            "degraded_allowed_operations": ["physical_bounded_continuation"]
+          }
+        ],
+        "local_supervisor_available": true,
+        "previous_boot_or_incarnation_ref": "evidence://boot/previous",
+        "current_boot_or_incarnation_ref": "evidence://boot/current",
+        "temporal_validity_evaluation": {
+          "profile_ref": "policy://platform/temporal/bounded-offline-physical-v1",
+          "profile_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "claims": [
+            {
+              "kind": "elapsed_duration",
+              "status": "unavailable",
+              "boot_or_incarnation_ref": "evidence://boot/current",
+              "reason_codes": ["boot_discontinuity_requires_reanchor"]
+            }
+          ],
+          "temporal_posture": "insufficient"
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["temporal_claim_unavailable:elapsed_duration"],
+      "required_obligations": ["reanchor_or_enter_minimum_risk_state"]
+    },
+    {
+      "scenario_id": "suspend-pause-and-drift-exceed-elapsed-profile",
+      "input": {
+        "operation": "external_effect",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "network_fleet", "state": "healthy" }
+        ],
+        "temporal_validity_evaluation": {
+          "profile_ref": "policy://platform/temporal/continuous-elapsed-v1",
+          "profile_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "claims": [
+            {
+              "kind": "elapsed_duration",
+              "status": "indeterminate",
+              "boot_or_incarnation_ref": "evidence://boot/current",
+              "suspend_detected": true,
+              "vm_pause_detected": true,
+              "observed_drift_ms": 2500,
+              "maximum_drift_ms": 100
+            }
+          ],
+          "temporal_posture": "insufficient"
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["temporal_claim_indeterminate:elapsed_duration"],
+      "required_obligations": ["reanchor_elapsed_basis_before_effect"]
+    },
+    {
+      "scenario_id": "fresh-temporal-evidence-does-not-replace-final-resource-fence",
+      "input": {
+        "operation": "external_effect",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "clock", "state": "healthy" },
+          { "plane": "network_fleet", "state": "healthy" }
+        ],
+        "temporal_validity_evaluation": {
+          "profile_ref": "policy://platform/temporal/managed-online-v1",
+          "profile_hash": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "claims": [
+            {
+              "kind": "absolute_time_interval",
+              "status": "established",
+              "earliest": "2026-07-19T12:00:00Z",
+              "latest": "2026-07-19T12:00:00.010Z"
+            },
+            {
+              "kind": "status_as_of",
+              "status": "established",
+              "status_subject_ref": "snapshot://authority/revocation/current",
+              "status_kind": "authority_revocation"
+            }
+          ],
+          "temporal_posture": "online_fresh"
+        },
+        "consequential_effect_fence_context": {
+          "presented_writer_epoch": 7,
+          "resource_active_writer_epoch": 8
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "available",
+      "expected_effective_assurance": "software_only",
+      "required_reason_codes": ["temporal_claims_established"],
+      "required_obligations": ["carry_operability_decision_to_final_pep"],
+      "expected_final_pep_disposition": "fail_closed",
+      "required_final_pep_reason_codes": ["resource_fence_stale"],
+      "required_final_pep_obligations": [
+        "refuse_before_final_invoker_and_reconcile_writer"
+      ]
     }
   ]
 }

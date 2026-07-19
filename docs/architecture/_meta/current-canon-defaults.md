@@ -7,10 +7,10 @@ files named in [source-of-truth-map.md](./source-of-truth-map.md).
 Supersedes: the inline "Current canonical defaults" digest formerly embedded in
 [source-of-truth-map.md](./source-of-truth-map.md).
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: mixed (cross-owner digest)
-Last implementation audit: 2026-07-16
+Last implementation audit: 2026-07-19
 
 ## Purpose
 
@@ -39,6 +39,15 @@ synchronized.
 - daemon/public runtime APIs own execution semantics;
 - Hypervisor Daemon runtime nodes are the hypervisor/control plane for
   autonomous execution;
+- Platform Operability evaluates exact operation readiness across owner-produced
+  plane observations. Temporal requirements bind an immutable
+  `TemporalVerificationProfile` and recomputable
+  `TemporalValidityEvaluation`; absolute interval, challenge freshness,
+  same-boot elapsed duration, owner epochs, status-as-of, continuity floors,
+  and final resource fencing remain distinct. The evaluation does not create
+  authority or permission. Rollback resistance requires an owner-scoped floor
+  outside the declared rollback domain or fresh independent re-anchoring;
+  software-only deployments remain valid with correspondingly narrower claims;
 - Workflow Compositor owns high-level directed workflow/service shape:
   graph, dependencies, step contracts, review points, delivery contracts,
   and immutable versioned WorkflowTemplates;
@@ -932,8 +941,9 @@ applicable;
   domain-separated object with a fresh random nonce; the target review receipt
   is a portable wrapper over the exact common receipt base and carries one
   hash-bound satisfaction evaluation per required factor or guardian; and final
-  equality/membership/constraint admission, fresh trusted time, and revocation
-  evidence are recorded by a distinct `AuthorityEffectAdmissionReceipt` before
+  equality/membership/constraint admission, the exact temporal profile/
+  evaluation, revocation evidence, and required continuity-floor evidence are
+  recorded by a distinct `AuthorityEffectAdmissionReceipt` before
   invocation. These successor contracts are not claims
   about current v1/v2 schemas. Face ID, Touch ID, Windows Hello, or a device PIN
   unlocks the authenticator locally; biometric material is not an IOI

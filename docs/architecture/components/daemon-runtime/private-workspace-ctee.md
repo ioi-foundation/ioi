@@ -6,7 +6,7 @@ Supersedes: hosted/DePIN privacy wording that implies a rented GPU node can
 safely receive plaintext secrets merely because it runs a daemon, container,
 VM, benchmarked image, or boot-measured image.
 Superseded by: none.
-Last alignment pass: 2026-07-13.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: speculative (cTEE/CLPD design; no cTEE implementation)
 Last implementation audit: 2026-07-05
@@ -1470,6 +1470,13 @@ AutonomyLease:
   owner_ref: wallet://...
   node_ref: runtime_node:...
   valid_until: timestamp
+  temporal_verification_profile_ref: policy://...
+  temporal_verification_profile_hash: hash
+  temporal_validity_evaluation_ref: evidence://... | receipt://...
+  temporal_validity_evaluation_hash: hash
+  last_online_anchor_ref: evidence://... | receipt://...
+  continuity_floor_evidence_refs:
+    - evidence://... | receipt://...
   allowed_without_user_online:
     - refresh_public_data
     - run_public_model_inference
@@ -1495,7 +1502,16 @@ AutonomyLease:
   revocation_epoch: integer
 ```
 
-The lease grants bounded autonomy, not plaintext access.
+The lease grants bounded autonomy, not plaintext access or proof that no later
+revocation exists. Its temporal profile declares the admitted same-boot or
+stronger elapsed-continuity basis, maximum offline holdover and revocation
+exposure, allowed operations and effect/call budget, rollback domain, and
+reconnect behavior. `valid_until`, a signed lease, or the local wall clock is
+not sufficient by itself. Reboot, restore, lost continuity, indeterminate
+currentness, or exhausted holdover narrows the node to the profile's safe
+inspection/proposal behavior until fresh revalidation; it cannot reveal
+protected material, widen broker authority, or invoke a newly authorized
+effect.
 
 ## Declassification Gate
 

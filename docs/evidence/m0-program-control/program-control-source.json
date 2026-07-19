@@ -318,17 +318,17 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "3f04adc3edcd142421bf23482adcd17a3f58ae87c861ea388b2a71e959ce59ce"
+      "source_sha256": "4bc9bebd8b543cc57b09d9eee80f2fab3fdc977ab95d26a0ba8f4e0f69193b90"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "b8c5aab25676f04f23eaf45973facb9c28a6a8b0a17d9b9615f244f277591816"
+      "source_sha256": "ed24af227165aa93f73d1afeff044b12e6107a437757485a1ed2f4104ea4c790"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "3766a84d788aadc365216b0cc1bb7d02f1bcd9b829905948703a2d76c49aaa4e"
+      "source_sha256": "33c620202a421fa0817b00d3e5e00010a98c87bc914f6f9c8dbf05b768a21bb1"
     },
     {
       "role": "landed owner canon",
@@ -353,7 +353,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
-      "source_sha256": "69e6a82d55c5b9ade8231233fa2220d8035d7bde1ef290fe021af6bff7eecb21"
+      "source_sha256": "5202cd16e7f3134829f86d4d96d2e72013a9643d6176cea2d495f169fdea97f9"
     },
     {
       "role": "landed owner canon",
@@ -363,12 +363,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/doctrine.md",
-      "source_sha256": "75b23ca0dd001238aa6d8299c0d940ceb4c3d9c03796c94dc5d7d10f7230e305"
+      "source_sha256": "0e1280e6453592365444c692fa24b5361f0f2db4ac1db6b89d53851bb608280a"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/api-authority-scopes.md",
-      "source_sha256": "86764a44a19d59d449098f3955407fae4c640e1120068a8d0f9b6d01f9abfff8"
+      "source_sha256": "61c2dd63934d6d39f596778825a3af3fb54973592de949f5ca05cc752e1c6dc4"
     },
     {
       "role": "landed owner canon",

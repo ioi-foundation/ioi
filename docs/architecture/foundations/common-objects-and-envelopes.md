@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope and contract names, ID namespaces, principal refs, primitive capability tiers, authority grants, reusable GoalRun-profile, workflow-template, and skill-manifest contracts, bounded-autonomous-system package/genesis/constitution/deployment/membership/finality/recovery/oracle/lifecycle/enrollment/transition/service/settlement fields, dispute rail profile/value-unit/case/resolution fields, bounded-improvement governance/agenda/campaign/evaluation/exposure/evidence/cutoff fields, conditional-cooperation terms and participation fields, room admission fields, AIIP standards bindings, pre-AIIP local-agent pairing fields, native embodied graph/profile/component/stream/adapter/policy/world/action/activation/reservation/deployment-assurance fields, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-07-18.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: mixed (the registered architecture-contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for `ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, `AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, `AuthorityRevocationSnapshot` v1, `InformationFlowLabel` v1, `DeclassificationApproval` v1, `ManagedWorkBillingLedgerBundle` v1, `DisputeRailBundle` v1, `PhysicalActionExecutionReceipt` v1, and the bounded-System manifest/genesis/constitution/amendment/ordering/oracle/lifecycle/enrollment family listed below; a pure bounded-System genesis proposal compiler is built, but System admission, persistence, authority verification, activation, amendment/lifecycle execution, network-enrollment effects, and product surfaces are not started; production portable-authority and receipt-proof cryptographic verifiers/CLIs, information-flow enforcement, managed-work billing and dispute kernels, shared work-lifecycle persistence/routes, physical execution, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned; other core runtime envelopes and IDs are built or partial only where their owner routes exist; bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine, conditional-cooperation terms, local-agent pairing, AIIP transport/bindings and collaborative-pursuit, optional federated ontology/action, Institutional Learning Boundary, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families remain planned or speculative)
 Last implementation audit: 2026-07-18
@@ -1714,6 +1714,7 @@ AutonomousSystemFailoverProfileEnvelope:
   deployment_timing_assumptions:
     evidence_mode: bounded_clock_partial_synchrony | external_witness
     clock_or_witness_profile_ref: policy://... | witness-profile://...
+    temporal_verification_profile_ref: policy://...
     maximum_clock_skew_or_uncertainty_ms: nonnegative_integer
     heartbeat_interval_ms: positive_integer
     heartbeat_evidence_expires_after_ms: positive_integer
@@ -1786,6 +1787,11 @@ Timing is a declared deployment assumption, not a generic clock service. The
 renewal margin must be shorter than the writer-lease TTL, heartbeat evidence
 must expire after its declared interval, and a preauthorized promotion requires
 either bounded-clock partial-synchrony evidence or the named external witness.
+The referenced `TemporalVerificationProfile` qualifies the exact absolute-time,
+elapsed-duration, status-as-of, and continuity-floor claims. A named source,
+point timestamp, owner epoch, or healthy observation does not establish those
+claims by implication, and the resulting `TemporalValidityEvaluation` does not
+authorize promotion.
 The successor writer cannot emit consequential effects until every affected
 resource fence has advanced, or until the declared wait-out covers the latest
 possible displaced-writer/effect lease, revocation propagation, and clock
@@ -1840,13 +1846,16 @@ AutonomousSystemWriterEpochTransitionEnvelope:
     proof_ref: evidence://... | receipt://...
   authority:
     authority_grant_refs: []
-    authority_revocation_snapshot_ref: revocation-snapshot://...
+    authority_revocation_snapshot_ref: snapshot://...
     authority_revocation_epoch: nonnegative_integer
   displaced_writer_fencing:
     writer_fence_receipt_refs: []
     effect_lease_fence_receipt_refs: []
     effects_admissible_not_before: timestamp
   timing_evidence:
+    temporal_verification_profile_ref: policy://...
+    temporal_validity_evaluation_ref: evidence://... | receipt://...
+    temporal_validity_evaluation_hash: hash
     observed_at: timestamp
     expires_at: timestamp
     displaced_writer_leases_expire_at: timestamp
@@ -1873,7 +1882,10 @@ displaced-writer fencing or safe wait-out, and every declared resource fence
 are admission requirements. Timing evidence must satisfy
 `observed_at <= committed_at <= expires_at`; effect activation must cover the
 maximum displaced lease, revocation propagation, and declared clock/witness
-uncertainty without exceeding evidence expiry. The CAS
+uncertainty without exceeding evidence expiry. Those scalar comparisons are
+accepted only when the bound `TemporalValidityEvaluation` establishes the
+required interval, status-as-of, and continuity claims under the exact profile;
+an overlapping or unavailable result fails closed. The CAS
 resulting head binds the exact immutable transition: the content commitment is
 computed over every field except `writer_epoch_transition_hash` and
 `continuity_cas.resulting_head`, and both excluded fields must then equal that
@@ -1942,8 +1954,11 @@ ConsequentialEffectFenceContext:
   writer_epoch: positive_integer
   writer_lease_expires_at: timestamp
   authority_grant_ref: grant://...
-  authority_revocation_snapshot_ref: revocation-snapshot://...
+  authority_revocation_snapshot_ref: snapshot://...
   authority_revocation_epoch: nonnegative_integer
+  temporal_verification_profile_ref: policy://...
+  temporal_validity_evaluation_ref: evidence://... | receipt://...
+  temporal_validity_evaluation_hash: hash
   read_consistency:
     cached_projection | projection_consistent | snapshot_consistent |
     state_root_consistent | linearized_domain | serializable_domain
@@ -1964,6 +1979,10 @@ writer/timing posture, and the resource's declared read consistency,
 watermark, and state root. Caller omission never converts a System-scoped
 effect into an unscoped effect. Any stale or mismatched field refuses before
 the consequential invoker is called.
+The bound temporal profile/evaluation must establish every required expiry,
+status-as-of, and continuity claim, but it is not the fence. The resource still
+compares its owner-derived active generation and context immediately before
+invocation; an otherwise fresh former writer is refused after a higher fence.
 Observed read evidence supplies the context's consistency, watermark, and state
 root; a PEP may not copy the resource fence's required values and present them
 as observations. If the executing path cannot derive those facts from durable
@@ -3847,6 +3866,10 @@ RuntimeAssignmentEnvelope:
     required_read_watermark: string | null
     state_freshness_policy_ref: policy://...
     state_sync_before_start: required | policy_conditional | not_required
+    temporal_verification_profile_ref: policy://... | null
+    temporal_verification_profile_hash: hash | null
+    temporal_validity_evaluation_ref: evidence://... | receipt://... | null
+    temporal_validity_evaluation_hash: hash | null
     partition_mode:
       fail_closed | read_only | bounded_local_execution | disconnected_autonomy
     partition_and_degraded_mode_policy_ref: policy://...
@@ -3995,7 +4018,13 @@ by those records and grants.
 predecessor drain/fencing evidence prevent a replacement or partitioned worker
 from proceeding on silently stale state. `bounded_local_execution` and
 `disconnected_autonomy` are valid only under the referenced system partition
-policy; they do not permit undeclared external effects or override the
+policy and an exact `TemporalVerificationProfile`. That profile must bind the
+admitted elapsed-duration/boot-continuity basis, maximum holdover and
+revocation exposure, allowed operation classes, call/effect budget, and
+reconnect/revalidation rule. Reboot, restore, continuity loss, or bound
+exhaustion makes the stronger claim indeterminate or unavailable until
+re-anchored; a signed lease or rolled-back wall clock cannot preserve it.
+These modes do not permit undeclared external effects or override the
 independently enforceable local safety boundary. An ambiguous predecessor
 effect requires satisfied reconciliation
 before activation. A `non_retryable` or `reconciliation_required` effect cannot
@@ -4284,6 +4313,15 @@ wire contract, invariants, fixtures, and generated projections but does not
 contain the portable Ed25519/JCS verifier or an offline CLI. Network key
 discovery, trust-root acquisition, transparency infrastructure, and universal
 revocation distribution remain separate planned work.
+
+For consequential use, “locally trusted” does not mean caller-asserted
+current. The operation must also bind an admitted
+`TemporalVerificationProfile` and recomputable `TemporalValidityEvaluation`
+covering the grant interval, key-set/revocation status-as-of horizon, and any
+required owner-scoped continuity floors. An old authentic snapshot may support
+a historical `valid_as_of` conclusion while present currentness remains
+indeterminate. Portable v1/v2 stay immutable; this cross-plane evaluation is an
+admission input rather than an inferred field in those envelopes.
 
 Portable v3 is the target successor required before the embedded
 sign-in-to-effect product proof. It retains the v2 portability and attenuation

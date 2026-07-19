@@ -4,9 +4,9 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`wallet-network-api-and-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-18.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, and the principal-to-approval-authority resolver are live; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, and the principal-to-approval-authority resolver are live; embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, and MPC vault are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
@@ -268,8 +268,9 @@ AuthorityGrantEnvelope v3
 
 AuthorityEffectAdmissionReceipt
   binds the daemon-derived actual effect, equality/membership/constraint proof,
-  fresh trusted-time and revocation evidence, and the pre-invocation admission
-  decision
+  the exact TemporalVerificationProfile and TemporalValidityEvaluation,
+  revocation evidence, continuity-floor evidence when required, and the
+  pre-invocation admission decision
 
 execution/effect receipts
   bind only the invocation and effect facts their profiles declare
@@ -1292,6 +1293,11 @@ profiles select external services such as IOI L1
     complete constraint validation.
 13. Editing any reviewed consequential field creates a successor request,
     review, and approval ceremony and invalidates predecessor approval evidence.
+14. A point timestamp, owner epoch, signed revocation snapshot, or
+    `clock: healthy` flag does not establish current authority. Consequential
+    use resolves the exact `TemporalVerificationProfile` and recomputable
+    `TemporalValidityEvaluation`; wallet.network retains grant/revocation
+    ownership while Platform Operability qualifies temporal claims.
 
 ## One-Line Doctrine
 

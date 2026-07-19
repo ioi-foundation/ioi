@@ -12,7 +12,7 @@ queues, spacetime reservations, fleet policy, recovery, and operator handoff.
 Supersedes: plan prose that treats robot fleets, actuator APIs, sensor streams,
 or physical telemetry as ordinary connector/tool details.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: partial admission precursor only (current master retains the older Rust physical-action-intent admission path; the stricter deployment-assurance, graph-timing, ODD, assured-input, restart/writer, and teleoperation checks described here are target contract. Native graph compiler, mixed-criticality executor, physical stream runtime, local supervisor, actuator execution, and the Embodied Systems surface are not implemented.)
 Last implementation audit: 2026-07-16
@@ -1590,6 +1590,15 @@ TimeSyncContract:
   receipt_refs:
     - receipt://...
 ```
+
+`TimeSyncContract` remains the embodied data-plane contract for correlating
+sensor, controller, command, and frame time. It does not establish current
+authority, lease validity, revocation freshness, rollback resistance, or a
+global clock. When graph activation, allocation, action-chunk expiry, or
+disconnected continuation depends on those propositions, the responsible PEP
+also resolves the exact Platform Operability `TemporalVerificationProfile` and
+`TemporalValidityEvaluation`. The two contracts may cite the same underlying
+clock evidence while retaining distinct owners and claim scopes.
 
 ```yaml
 RawRobotLog:

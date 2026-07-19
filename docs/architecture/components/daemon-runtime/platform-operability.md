@@ -4,10 +4,10 @@ Status: canonical architecture authority.
 Canonical owner: this file for cross-plane operability, degraded-mode, recovery, and platform SRE doctrine.
 Supersedes: implicit or component-local assumptions that a healthy daemon implies a healthy platform.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: planned (the canonical fault matrix is machine-readable target fixture data; the deterministic evaluator, plane observers, scheduler, recovery controllers, and estate-wide probes are not implemented on current master)
-Last implementation audit: 2026-07-18
+Last implementation audit: 2026-07-19
 
 ## Canonical Definition
 
@@ -27,6 +27,15 @@ owner. Plane observations must be produced by those owners and bound to their
 source head, observation time, validity window, and evidence refs. The
 operability evaluator consumes those facts; it does not self-certify them.
 
+Temporal validity is likewise not one clock reading or health flag. The clock
+plane qualifies time-related evidence, while authority owners still own grant,
+key, revocation, and policy state; System-continuity owners still own writer
+generations; proof owners still own checkpoints; and the resource-side PEP
+still owns the final fence. Platform Operability may evaluate whether the
+required temporal propositions are established under an admitted profile. It
+cannot create current authority, promote a writer, make a checkpoint latest, or
+invoke an effect.
+
 ## Plane Model
 
 | Plane | Owns | Representative failure signals |
@@ -35,7 +44,7 @@ operability evaluator consumes those facts; it does not self-certify them.
 | `agentgres` | admitted operational truth, object heads, state roots, replay | quorum/read loss, stale head, suspected split brain, replay gap |
 | `authority` | grants, revocation, delegation, policy-authority resolution | issuer unavailable, revocation freshness lost, grant verifier failure |
 | `storage` | artifact and payload custody behind governed refs | object unavailable, invalid hash, restore failure, capacity exhaustion |
-| `clock` | trusted time evidence for leases, expiry, ordering, and latency claims | skew outside bound, stale source, monotonicity failure |
+| `clock` | source-qualified temporal evidence for absolute bounds, elapsed duration, freshness, leases, expiry, ordering, and latency claims | uncertainty outside profile, stale or divergent source, boot/monotonicity discontinuity, rollback anchor unavailable |
 | `provider` | selected external compute/model/service venue | endpoint unavailable, throttling, placement loss, ambiguous provider effect |
 | `network_fleet` | node reachability, membership transport, coordination, and partition evidence | partition, lost quorum/peer, delayed membership state, route isolation |
 | `attestation` | workload/platform evidence and appraisal freshness | stale appraisal, endorsement loss, measurement mismatch, verifier unavailable |
@@ -113,6 +122,14 @@ provider was irrelevant.
 9. **Caller claims do not become plane facts.** Requests may state requirements
    but cannot author their own health, writer, authority, attestation, billing,
    or settlement observations.
+10. **Temporal propositions remain typed.** Absolute-time bounds, response
+    freshness, same-boot elapsed duration, owner epochs, status-as-of,
+    non-regression floors, and resource fences are different claims. One valid
+    claim never implies another.
+11. **Currentness is conditional.** A signature, point timestamp, local
+    high-water mark, or `clock: healthy` flag cannot establish latest or
+    rollback-resistant currentness. The exact required claim must be
+    established under an admitted profile immediately before use.
 
 ## Deterministic Decision Boundary
 
@@ -131,6 +148,232 @@ Its result is an admission input or operational projection, not a durable
 source of plane truth. A caller cannot use an `available` result after any
 bound observation expires, its source head changes, or a dependency required
 by the concrete action becomes newly relevant.
+
+The decision embeds or references one typed `TemporalValidityEvaluation` when
+the operation requires temporal claims. That evaluation reports which claims
+are `established`, `indeterminate`, `failed`, or `unavailable`; it does not
+itself return `admit`, `wait`, `attenuate`, or `refuse`. Platform Operability
+maps the temporal results together with the other required plane observations
+to `available | degraded | fail_closed`. The final authority/resource PEP
+consumes that decision, rechecks its owner facts and fence, and separately owns
+effect admission and invocation.
+
+## Temporal Verification Contract
+
+### One profile, several orthogonal claims
+
+`TemporalVerificationProfile` is the immutable, versioned policy that declares
+which temporal propositions one operation class must establish, which evidence
+and failure domains are admissible, the maximum uncertainty and holdover
+bounds, and the behavior required after discontinuity, restore, or
+disconnection. It is a policy/profile, not a clock, time oracle, authority
+grant, continuity database, or executable.
+
+The semantic minimum is:
+
+```yaml
+TemporalVerificationProfile:
+  profile_ref: policy://...
+  profile_version: integer
+  profile_hash: sha256:...
+  applicable_operation_classes: [external_effect]
+  required_claims:
+    - absolute_time_interval
+    - challenge_freshness
+    - status_as_of
+    - continuity_floor
+  evidence_policy:
+    admitted_source_profile_refs: [policy://...]
+    required_failure_domain_separation: object
+    maximum_uncertainty_ms: integer | null
+    maximum_evidence_age_ms: integer | null
+  continuity_policy:
+    protected_namespace_floor_kinds:
+      - authority_key_set
+      - authority_revocation
+      - receipt_checkpoint
+      - owner_generation
+    rollback_domain_ref: failure-domain://...
+    accepted_outside_domain_anchor_classes: [string]
+    reanchor_after_boot_or_restore: required | policy_bounded
+  disconnected_policy:
+    allowed_operation_classes: [physical_bounded_continuation]
+    maximum_holdover_ms: integer | null
+    maximum_revocation_exposure_ms: integer | null
+    call_or_effect_budget_ref: policy://... | null
+    reconnect_action: revalidate_and_reconcile | quarantine | fail_closed
+  required_effect_fence_profile_ref: policy://... | null
+```
+
+This block is the canonical semantic target, not a registered wire schema.
+Future portable use requires a new registered contract revision, invariants,
+positive/adversarial fixtures, generated projections, and compatibility rules.
+Registered authority, revocation, checkpoint, and proof-bundle v1 contracts
+remain immutable.
+
+Platform Operability owns this shared observation interface and qualification
+semantics. It does not operate the underlying sources. OS/host clocks,
+authenticated network-time clients, hardware counters, witness services,
+ledger/finality adapters, and operator anchors are deployment- or
+owner-specific producers with explicit trust roots, failure domains, and
+revocation/update lifecycles. The evaluator may not produce the observation it
+then treats as independent evidence.
+
+An evaluation binds the exact profile, subject, operation, requested claims,
+and owner-produced evidence:
+
+```yaml
+TemporalValidityEvaluation:
+  profile_ref: policy://...
+  profile_hash: sha256:...
+  subject_ref: <owner-defined canonical subject reference>
+  subject_hash: sha256:...
+  operation_class: external_effect
+  evidence_refs: [evidence://..., receipt://...]
+  source_failure_domain_refs: [failure-domain://...]
+  claims:
+    - kind: absolute_time_interval
+      status: established | indeterminate | failed | unavailable
+      earliest: timestamp | null
+      latest: timestamp | null
+      uncertainty_ms: integer | null
+      reason_codes: [string]
+    - kind: challenge_freshness
+      status: established | indeterminate | failed | unavailable
+      challenge_ref: challenge://... | null
+      maximum_age_ms: integer | null
+      reason_codes: [string]
+    - kind: elapsed_duration
+      status: established | indeterminate | failed | unavailable
+      boot_or_incarnation_ref: evidence://... | null
+      lower_bound_ms: integer | null
+      upper_bound_ms: integer | null
+      reason_codes: [string]
+    - kind: owner_epoch
+      status: established | indeterminate | failed | unavailable
+      namespace_ref: <owner-defined canonical namespace reference>
+      epoch_kind: string
+      observed_version_or_epoch: integer | null
+      required_minimum_version_or_epoch: integer | null
+      observed_head_hash: sha256:... | null
+      reason_codes: [string]
+    - kind: status_as_of
+      status: established | indeterminate | failed | unavailable
+      status_subject_ref: <owner-defined canonical subject reference>
+      status_kind: string
+      status_value_hash: sha256:... | null
+      as_of: timestamp | null
+      maximum_age_ms: integer | null
+      reason_codes: [string]
+    - kind: continuity_floor
+      status: established | indeterminate | failed | unavailable
+      namespace_ref: <owner-defined canonical namespace reference> | null
+      floor_kind: string | null
+      accepted_version_or_epoch: integer | null
+      accepted_head_hash: sha256:... | null
+      outside_rollback_domain_evidence_refs: [evidence://...]
+      reason_codes: [string]
+  temporal_posture:
+    online_fresh | bounded_offline | historical_only | insufficient
+  evidence_horizon:
+    valid_from: timestamp | null
+    valid_until: timestamp | null
+  invalidation_triggers: [string]
+  obligations: [string]
+  evaluation_hash: sha256:...
+```
+
+The exact wire shape may group or normalize repeated claim fields, but it must
+preserve their meanings and claim-specific results. A generic
+`trusted_time_observed_at` field or `verified` boolean is insufficient.
+The four claim results mean:
+
+- `established`: the bound evidence satisfies that exact requested proposition
+  under the selected profile and current evidence horizon;
+- `indeterminate`: admitted evidence exists, but uncertainty, competing
+  observations, or a boundary overlap prevents the proposition from being
+  established or disproved;
+- `failed`: admitted evidence establishes that the requested proposition is
+  false or violates its profile; and
+- `unavailable`: the required admissible evidence, source, continuity basis,
+  or outside-domain anchor cannot currently be obtained.
+
+The result is per claim. One `established` claim never fills a missing or
+indeterminate sibling claim.
+
+### Claim semantics and conservative boundaries
+
+- **Absolute interval:** evidence yields a lower and upper bound, not a
+  favorable point estimate. To establish `now >= not_before`, the lower bound
+  must satisfy the owner's exact boundary rule. To establish
+  `now < expires_at`, the upper bound must satisfy it. An interval overlapping
+  the boundary is `indeterminate`; the PEP may refresh, wait out uncertainty,
+  narrow the operation, or fail closed according to policy, but never round
+  toward admission.
+- **Challenge freshness:** a nonce can establish that a response followed a
+  challenge within a verifier-owned window. It does not prove the underlying
+  source fact was newly created or that no later revocation exists.
+- **Elapsed duration:** a monotonic source establishes deltas only across the
+  boot/incarnation, suspend, VM-pause, steering, drift, and reset semantics it
+  names. A replayable boot identifier is not rollback evidence. Reboot,
+  counter reset, replacement, or continuity loss requires re-anchoring before
+  the stronger claim resumes.
+- **Owner epoch:** a key-set version, revocation epoch, writer generation,
+  checkpoint size, or finality height states owner-defined order. It is never
+  wall time, and no global IOI epoch is created.
+- **Status-as-of:** a signed key, revocation, appraisal, or provider status is
+  current only through its admitted evidence horizon and refresh policy.
+  Signature validity alone establishes neither freshness nor latest state.
+- **Continuity floor:** non-regression is scoped to an owner namespace, kind,
+  version/epoch, and exact head/hash. The floor establishes rollback resistance
+  only when it survives outside the declared rollback domain or fresh
+  independent evidence rebinds it after restore.
+- **Effect fence:** time and continuity evidence do not replace the existing
+  owner-specific `ConsequentialEffectFenceContext` or equivalent
+  resource-side generation check. A former writer with otherwise valid local
+  time and lease evidence still reaches zero invokers after the resource has
+  accepted a higher fence.
+
+### Rollback, restore, and disconnected operation
+
+A verifier restored together with its clock, revocation snapshot, and local
+high-water marks cannot distinguish the original past from a later rollback
+using those bytes alone. Hardware counters, independently administered
+services, retained remote/quorum state, selected ledger finality, witness logs,
+or operator-controlled anchors may satisfy an admitted profile. None is a
+universal dependency.
+
+If the required floor is not outside the rollback domain and no fresh
+independent evidence is available, the corresponding claim is
+`indeterminate` or `unavailable`. Consequential current-authority operations
+fail closed. Historical inspection, proposal-only work, and already admitted
+physical minimum-risk continuation may remain available under their own
+policies and exact nonclaims.
+
+Disconnected operation never proves that no later revocation occurred. It may
+continue only under a pre-admitted profile binding:
+
+- an established elapsed-duration/boot-continuity basis;
+- a conservative maximum holdover and revocation-exposure bound;
+- exact allowed operation classes and call/effect budget;
+- replay, idempotency, writer-fence, and local-safety posture; and
+- mandatory revalidation and reconciliation, quarantine, or fail-closed
+  behavior on reconnect, reboot, restore, or bound exhaustion.
+
+Loss of temporal evidence cannot admit a new mission, grant, writer,
+deployment, ODD, or assurance claim.
+
+### Historical validity versus current authority
+
+Portable verification reports at least three conclusions separately:
+
+1. cryptographic and structural integrity;
+2. validity as of a declared evidence/checkpoint horizon, when established; and
+3. current key, revocation, authority, or latest-head posture.
+
+An old receipt or checkpoint may remain authentic and historically valid while
+currentness is unknown. Missing currentness must not erase valid history, and
+valid history must not become current effect authority.
 
 ## Plane SLI and SLO Contract
 
@@ -214,6 +457,14 @@ is recorded as a `LostSuffixRecord` or the owner-equivalent incident; it is not
 silently accepted. Restored environment bytes do not prove reconciliation of
 external, financial, physical, or provider effects.
 
+Restore and migration also hand off every required per-namespace temporal,
+key-set, revocation, checkpoint, and owner-generation floor. Imported
+`healthy`, `verified`, `current`, or evaluation outputs are evidence inputs,
+not target-side truth. The target re-resolves the exact profile, trust roots,
+authority status, temporal sources, outside-domain floors, and resource fence
+before readiness. A floor that cannot be retained or freshly re-established
+narrows the posture or fails closed; restore never lowers it silently.
+
 ## Key Rotation and Revocation
 
 Key-bearing planes must support overlapping verification windows without
@@ -229,6 +480,12 @@ overlapping signing authority:
 Emergency revocation may narrow or stop service immediately. Recovery may not
 resurrect revoked authority from a checkpoint, cache, copied receipt field, or
 stale verifier process.
+
+Key-set and revocation epochs are owner-specific non-regression inputs, not
+clocks. Their signatures prove issuer attribution and integrity. Currentness
+also requires the admitted temporal evidence horizon and, when rollback is in
+scope, a namespace floor outside the restored failure domain or fresh
+independent revalidation.
 
 ## Schema Rollout and Mixed Versions
 
@@ -255,6 +512,9 @@ safety contracts are never down-converted in a way that widens behavior.
 Proof reconciliation compares receipt body hash, inclusion/checkpoint proof,
 signer/key epoch, state root, and revocation/appraisal freshness. A valid
 signature without the required inclusion or current authority is insufficient.
+Its result separately records integrity, valid-as-of horizon, and currentness;
+an authentic historical proof is not rejected merely because currentness is
+unknown, and it is never reused as current effect authority.
 
 Billing reconciliation compares the exact rate-card and plan versions, quote,
 hold, usage head, overrun decision, final debit, and any adjustment/refund or
@@ -274,6 +534,8 @@ An operability incident preserves:
 - affected system, operation, plane, service profile, failure domains, and
   dependency graph;
 - last known good heads/roots, plane observations, and clock evidence;
+- the exact temporal profile/evaluation, source failure domains, uncertainty,
+  boot/incarnation, evidence horizon, and retained or lost namespace floors;
 - admission, attempt, effect, authority, writer epoch, quote/hold, and receipt
   refs applicable to the failure;
 - exact ambiguity: not attempted, attempted, effect known, effect unknown,
@@ -335,6 +597,12 @@ It must cover at least:
 - billing loss before paid work;
 - public-settlement loss during unrelated local work;
 - stale attestation and clock evidence;
+- uncertainty spanning a grant/lease expiry;
+- reboot or restore without a required temporal re-anchor;
+- whole-VM rollback to a pre-revocation snapshot with and without an
+  outside-domain namespace floor;
+- bounded disconnected continuation and holdover exhaustion;
+- an authentic historical checkpoint whose currentness is unknown;
 - provider loss for provider-required work; and
 - an unknown effect that cannot become success.
 
@@ -355,6 +623,10 @@ Also not built or claimed:
 
 - authoritative producers for every plane observation;
 - a daemon API or scheduler-wide operation-admission choke point;
+- a registered `TemporalVerificationProfile` or portable
+  `TemporalValidityEvaluation` contract, producer, evaluator, or verifier;
+- rollback-resistant per-namespace floor storage or fresh re-anchoring across
+  restore;
 - scheduled correlated-failure injection across a deployed estate;
 - integration with every plane's real backup/restore path;
 - live key distribution/activation/revocation across verifier processes;
@@ -382,3 +654,13 @@ contract only, not production operability or a reference implementation.
 - **PO-6:** recovery, compaction, mixed-version operation, and observability
   preserve the proof, privacy, authority, billing, and incident facts required
   by their canonical owners.
+- **PO-7:** every required temporal proposition is evaluated separately under
+  the exact immutable `TemporalVerificationProfile`; a point timestamp,
+  signature, owner epoch, or clock-health flag cannot stand in for another
+  claim.
+- **PO-8:** rollback resistance is claimed only relative to a named rollback
+  domain and a namespace floor retained outside it or freshly re-established
+  by admitted independent evidence.
+- **PO-9:** a `TemporalValidityEvaluation` supplies typed evidence to an
+  existing PEP; it never creates authority, current truth, writer state,
+  fencing, or effect permission.

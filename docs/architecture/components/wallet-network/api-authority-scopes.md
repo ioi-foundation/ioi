@@ -7,9 +7,9 @@ brokerage, payment, exchange, exposure, protection, receipt, wallet authority
 client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-07-18.
+Last alignment pass: 2026-07-19.
 Doctrine status: reference
-Implementation status: partial (authority-client seams, lease APIs, and portable principal-to-approval-authority binding resolution are live; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned; the closed approval-ceremony context, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts with no registered schema, emitter, or verifier)
+Implementation status: partial (authority-client seams, lease APIs, and portable principal-to-approval-authority binding resolution are live; account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, and shard surfaces are planned; the closed approval-ceremony context, temporal profile/evaluation input, review/effect-admission receipt profiles, context-bound v3 grant, and WalletReceipt v2 are target successor contracts with no registered schema, emitter, or verifier)
 Last implementation audit: 2026-07-17
 
 ## Purpose
@@ -1807,8 +1807,11 @@ to the active blast-radius report.
 22. `exact_effect` requires `exact_equality` and daemon-derived hash equality;
     `batch_manifest` requires `batch_membership` and a non-null membership proof;
     `standing_envelope` requires `standing_constraint` and a non-null constraint
-    evaluation. Every other proof field is null, and fresh trusted-time and
-    revocation evidence are required before the invoker.
+    evaluation. Every other proof field is null. The exact
+    `TemporalVerificationProfile`, recomputable `TemporalValidityEvaluation`,
+    current revocation evidence, and any required outside-rollback-domain
+    continuity floors are resolved before the invoker; no scalar timestamp or
+    clock-health flag substitutes for them.
 23. `edit-and-approve` creates a successor request, review, representation,
     authorization subject, challenge, and ceremony. Predecessor approval
     evidence is invalid for the successor.
