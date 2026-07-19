@@ -29,6 +29,17 @@ pub(crate) enum Governance {
     Participant,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum AuthorityPolicyContext<'a> {
+    OutcomeRoom {
+        outcome_room_ref: &'a str,
+    },
+    SystemGenesis {
+        system_id: &'a str,
+        genesis_id: &'a str,
+    },
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct AuthorityContract {
     pub(crate) scope_prefix: &'static str,
@@ -104,16 +115,49 @@ pub(crate) fn decision_policy_hash(
     required_authority: &str,
     op: &str,
 ) -> String {
-    record_output_hash(
-        &json!({
-            "domain": contract.policy_domain,
-            "governance": contract.governance_label(governance),
-            "outcome_room_ref": room_ref,
-            "required_authority_ref": required_authority,
-            "required_scope": contract.operation_scope(op),
-        }),
-        &[],
+    decision_policy_hash_for_context(
+        contract,
+        governance,
+        AuthorityPolicyContext::OutcomeRoom {
+            outcome_room_ref: room_ref,
+        },
+        required_authority,
+        op,
     )
+}
+
+/// Context-neutral policy commitment for governed planes that are not room-owned.
+///
+/// Existing room planes stay on `decision_policy_hash`, which delegates here with the original
+/// `outcome_room_ref` key and therefore preserves their policy hashes byte-for-byte.
+pub(crate) fn decision_policy_hash_for_context(
+    contract: AuthorityContract,
+    governance: Governance,
+    context: AuthorityPolicyContext<'_>,
+    required_authority: &str,
+    op: &str,
+) -> String {
+    let mut material = serde_json::Map::new();
+    material.insert("domain".into(), json!(contract.policy_domain));
+    material.insert(
+        "governance".into(),
+        json!(contract.governance_label(governance)),
+    );
+    match context {
+        AuthorityPolicyContext::OutcomeRoom { outcome_room_ref } => {
+            material.insert("outcome_room_ref".into(), json!(outcome_room_ref));
+        }
+        AuthorityPolicyContext::SystemGenesis {
+            system_id,
+            genesis_id,
+        } => {
+            material.insert("genesis_id".into(), json!(genesis_id));
+            material.insert("system_id".into(), json!(system_id));
+        }
+    }
+    material.insert("required_authority_ref".into(), json!(required_authority));
+    material.insert("required_scope".into(), json!(contract.operation_scope(op)));
+    record_output_hash(&Value::Object(material), &[])
 }
 
 pub(crate) fn decision_request_hash(
@@ -339,8 +383,38 @@ pub(crate) fn authorize_decision_for_resolution(
     revision: u64,
     effect: &Value,
 ) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
+    authorize_decision_for_resolution_with_context(
+        contract,
+        body,
+        governance,
+        AuthorityPolicyContext::OutcomeRoom {
+            outcome_room_ref: room_ref,
+        },
+        required_authority,
+        verified_resolution,
+        subject_ref,
+        op,
+        revision,
+        effect,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn authorize_decision_for_resolution_with_context(
+    contract: AuthorityContract,
+    body: &Value,
+    governance: Governance,
+    context: AuthorityPolicyContext<'_>,
+    required_authority: &str,
+    verified_resolution: &VerifiedAuthorityResolution,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    effect: &Value,
+) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
     let resolution = &verified_resolution.resolution;
-    let policy_hash = decision_policy_hash(contract, governance, room_ref, required_authority, op);
+    let policy_hash =
+        decision_policy_hash_for_context(contract, governance, context, required_authority, op);
     let effect_hash = decision_effect_hash(contract, effect);
     let request_hash = decision_request_hash(
         contract,
@@ -425,7 +499,36 @@ pub(crate) async fn authorize_decision(
     revision: u64,
     effect: &Value,
 ) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
-    let policy_hash = decision_policy_hash(contract, governance, room_ref, required_authority, op);
+    authorize_decision_with_context(
+        contract,
+        body,
+        governance,
+        AuthorityPolicyContext::OutcomeRoom {
+            outcome_room_ref: room_ref,
+        },
+        required_authority,
+        subject_ref,
+        op,
+        revision,
+        effect,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn authorize_decision_with_context(
+    contract: AuthorityContract,
+    body: &Value,
+    governance: Governance,
+    context: AuthorityPolicyContext<'_>,
+    required_authority: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    effect: &Value,
+) -> Result<AuthorizedDecision, (StatusCode, Json<Value>)> {
+    let policy_hash =
+        decision_policy_hash_for_context(contract, governance, context, required_authority, op);
     let effect_hash = decision_effect_hash(contract, effect);
     let request_hash = decision_request_hash(
         contract,
@@ -463,11 +566,11 @@ pub(crate) async fn authorize_decision(
             ));
         }
     };
-    authorize_decision_for_resolution(
+    authorize_decision_for_resolution_with_context(
         contract,
         body,
         governance,
-        room_ref,
+        context,
         required_authority,
         &resolution,
         subject_ref,
@@ -554,6 +657,34 @@ pub(crate) async fn reauthorize_sealed_receipt(
     revision: u64,
     effect: &Value,
 ) -> Result<u64, String> {
+    reauthorize_sealed_receipt_with_context(
+        contract,
+        receipt,
+        governance,
+        AuthorityPolicyContext::OutcomeRoom {
+            outcome_room_ref: room_ref,
+        },
+        required_authority,
+        subject_ref,
+        op,
+        revision,
+        effect,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn reauthorize_sealed_receipt_with_context(
+    contract: AuthorityContract,
+    receipt: &Value,
+    governance: Governance,
+    context: AuthorityPolicyContext<'_>,
+    required_authority: &str,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    effect: &Value,
+) -> Result<u64, String> {
     let sealed = sealed_evidence(receipt);
     if sealed.wallet_approval_grant.is_null() || !sealed.authority_binding.is_object() {
         return Err("the governed intent does not retain its complete signed grant and authority binding tuple".into());
@@ -596,11 +727,11 @@ pub(crate) async fn reauthorize_sealed_receipt(
         return Err("wallet.network no longer resolves the exact snapshot, scope, and immutable coordinates pinned by the governed intent".into());
     }
     let body = json!({ "wallet_approval_grant": sealed.wallet_approval_grant });
-    let live = authorize_decision_for_resolution(
+    let live = authorize_decision_for_resolution_with_context(
         contract,
         &body,
         governance,
-        room_ref,
+        context,
         required_authority,
         &resolution,
         subject_ref,

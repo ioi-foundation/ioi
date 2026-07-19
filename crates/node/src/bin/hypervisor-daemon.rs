@@ -136,6 +136,8 @@ mod storage_backend_routes;
 mod substrate_store;
 #[path = "hypervisor_daemon_routes/supervisor_routes.rs"]
 mod supervisor_routes;
+#[path = "hypervisor_daemon_routes/system_genesis_routes.rs"]
+mod system_genesis_routes;
 #[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
 mod transformation_run_routes;
 #[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
@@ -1936,6 +1938,14 @@ async fn async_main() -> anyhow::Result<()> {
             get(data_source_routes::handle_data_source_get),
         )
         .route(
+            "/v1/hypervisor/autonomous-systems",
+            get(system_genesis_routes::handle_get).post(system_genesis_routes::handle_admit),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id",
+            get(system_genesis_routes::handle_get_by_key),
+        )
+        .route(
             "/v1/hypervisor/work-results",
             get(work_result_routes::handle_work_results_list)
                 .post(work_result_routes::handle_work_result_create),
@@ -3057,6 +3067,10 @@ async fn async_main() -> anyhow::Result<()> {
                         governed_max_intents,
                     ),
                     verifier_challenge_routes::complete_governed_verifier_challenge_intents(
+                        &governed_data_dir,
+                        governed_max_intents,
+                    ),
+                    system_genesis_routes::complete_governed_system_genesis_intents(
                         &governed_data_dir,
                         governed_max_intents,
                     ),

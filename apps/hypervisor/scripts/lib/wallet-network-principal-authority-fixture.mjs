@@ -11,6 +11,7 @@ import { mintApprovalGrant } from "../../../../scripts/lib/mint-approval-grant.m
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const seeds = new Map([
   ["domain://acme-host", "07".repeat(32)],
+  ["org://acme/research", "07".repeat(32)],
   ["worker://independent-alloy-lab", "09".repeat(32)],
   ["worker://replication-lab-two", "0a".repeat(32)],
   ["worker://replication-lab-three", "0b".repeat(32)],
