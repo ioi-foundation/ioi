@@ -10,7 +10,7 @@ use std::process::Command;
 use tempfile::tempdir;
 
 fn bridge_script_path() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools/browsergym/workarena_cdp_bridge.py")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/benchmarks/workarena-cdp-bridge.py")
 }
 
 fn run_bridge_json(args: &[&str]) -> Result<(Value, i32, String)> {
