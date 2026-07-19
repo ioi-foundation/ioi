@@ -90,7 +90,7 @@
     },
     {
       "blocker_id": "BLK-M0-WALLET-PRODUCTION-PEP",
-      "reference_count": 42,
+      "reference_count": 43,
       "references": [
         "service:wallet.network:close_channel@v1",
         "service:wallet.network:commit_receipt_root@v1",
@@ -101,6 +101,7 @@
         "service:wallet.network:connector_auth_list@v1",
         "service:wallet.network:connector_auth_upsert@v1",
         "service:wallet.network:consume_approval_grant@v1",
+        "service:wallet.network:consume_approval_grant_for_effect@v1",
         "service:wallet.network:create_identity@v1",
         "service:wallet.network:get_client@v1",
         "service:wallet.network:grant_secret_injection@v1",
@@ -258,7 +259,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 661,
+      "reference_count": 662,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -621,6 +622,7 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/automations/:id/start",
         "http:hypervisor-daemon:POST /v1/hypervisor/automations/:id/webhook",
         "http:hypervisor-daemon:POST /v1/hypervisor/automations/:id/webhook-rotate",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems",
         "http:hypervisor-daemon:POST /v1/hypervisor/backups",
         "http:hypervisor-daemon:POST /v1/hypervisor/budget/reconcile",
         "http:hypervisor-daemon:POST /v1/hypervisor/capability-offers",
@@ -1502,7 +1504,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "6f2674fbf445eb714b82c63ef618de7bab64967f2cd02d9b4339930c77e3a092",
+  "build_fingerprint": "f95efed4af9d2d3605df5cf61638b2148f1b52b4b6f902b1ebed1274ee741eb2",
   "counts": {
     "by_state": {
       "open": 19,
