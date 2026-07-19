@@ -318,22 +318,22 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "4bc9bebd8b543cc57b09d9eee80f2fab3fdc977ab95d26a0ba8f4e0f69193b90"
+      "source_sha256": "78ace449becd6410abcf5b40773013c96d18205ed89f1af1140209562ec35922"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "ed24af227165aa93f73d1afeff044b12e6107a437757485a1ed2f4104ea4c790"
+      "source_sha256": "93a13aef5d46ce7a4f3e6259d8d23d37a699c6c4107d69dde6748212e7767deb"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "33c620202a421fa0817b00d3e5e00010a98c87bc914f6f9c8dbf05b768a21bb1"
+      "source_sha256": "4f093cd5105b6407d2e3e08a74ccb20687db379efc87e29730f91e0367d2ecbc"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/governed-autonomous-systems.md",
-      "source_sha256": "0d5599eb3916214702815f8c8ee7763fba40df6e959a57a84fe50a9e802faee9"
+      "source_sha256": "8fc653be26b31ddecefac16455ef7fcca60fb9566913d258e68423354534236d"
     },
     {
       "role": "landed owner canon",
@@ -348,7 +348,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/api.md",
-      "source_sha256": "704056e5a267d3c83e3373f1e2cf73fa4872ddd612f361860add58ac9ea306e8"
+      "source_sha256": "96fca5a9e9a543678a285ec5bf86004544cdf0f57d00e2150ef40394ba7bb877"
     },
     {
       "role": "landed owner canon",
@@ -363,12 +363,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/doctrine.md",
-      "source_sha256": "0e1280e6453592365444c692fa24b5361f0f2db4ac1db6b89d53851bb608280a"
+      "source_sha256": "dc5ea983a16e6de175fb5cf7af25720ddec351ac723327287b3802da83b6ba1c"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/api-authority-scopes.md",
-      "source_sha256": "61c2dd63934d6d39f596778825a3af3fb54973592de949f5ca05cc752e1c6dc4"
+      "source_sha256": "1dd581a3df9c19cead21bb204e2472bc6e106a912089c5c12863e7ff62314f24"
     },
     {
       "role": "landed owner canon",
@@ -410,7 +410,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "4d369145914064cb692b7e99b69a30f944d99fe101cfe389b58af5f4a4953ad9"
+            "source_sha256": "4a4f7f76ab808b30628267f00a1e62c1008995498be56968e35a035171adc598"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -480,7 +480,7 @@
           {
             "note": "enumerated wallet.network service registry",
             "source_file": "crates/services/src/wallet_network/mod.rs",
-            "source_sha256": "dd7306b2e979bd043193f2abb3be50284e92cc47217725a5fd08af24506a51cb"
+            "source_sha256": "154323ecfcf143eb569cc6f4752704a2462aedb07ab442abd95ec8d1ffac9a00"
           },
           {
             "note": "no externally callable service method; transaction decorator and end-block hooks only",
@@ -545,7 +545,7 @@
           {
             "note": "ReplicaServer binds occur only in the cfg(test) module",
             "source_file": "crates/agentgres/src/mux.rs",
-            "source_sha256": "805f55a3c16583f760a35a1cfa0d674f2067874cbb3d5c479e6f8cb5b325c044"
+            "source_sha256": "d7ddcca89046d5a712517b32992469b59c1f683fb89cf2e4265a8a7c816d9751"
           },
           {
             "note": "enumerated standalone AGRS2 replication wildcard",
@@ -585,7 +585,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "4d369145914064cb692b7e99b69a30f944d99fe101cfe389b58af5f4a4953ad9"
+            "source_sha256": "4a4f7f76ab808b30628267f00a1e62c1008995498be56968e35a035171adc598"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -795,7 +795,7 @@
           {
             "note": "explicit test-signer child-process crossing, dynamically loaded only by the development flag",
             "source_file": "scripts/lib/mint-approval-grant.mjs",
-            "source_sha256": "18cd6c091ab13762950f45da159a1a8f47d665d0475b1bd2c466826b036516ff"
+            "source_sha256": "b24deae5b30fa054c3f68cf003b053783dd0470f721487547b42e6c4e99647c5"
           }
         ]
       },
@@ -930,7 +930,7 @@
             ],
             "identity": "js-system-effect:scripts/lib/mint-approval-grant.mjs#mintApprovalGrant",
             "operation": "PROCESS_EXEC build and invoke deterministic test approval signer",
-            "source_anchor_sha256": "5051f35b99ae0c1349e22fb73d02375e619f9756b976eb8de16506dc8cd94e8b",
+            "source_anchor_sha256": "cf916799ed65196c6531f3a9060c6a4459ffe6398a03f414aee8da59be139ee9",
             "source_file": "scripts/lib/mint-approval-grant.mjs",
             "source_line": 16
           }

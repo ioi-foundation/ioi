@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-18",
-  "build_fingerprint": "6f2674fbf445eb714b82c63ef618de7bab64967f2cd02d9b4339930c77e3a092",
+  "build_fingerprint": "f95efed4af9d2d3605df5cf61638b2148f1b52b4b6f902b1ebed1274ee741eb2",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -298,7 +298,7 @@
         "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "13093217d3a0ff37a0f9f0edb2672871a2cc8b83a9a44d7a74920b70588f73c0",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs",
-        "symbol": "persist_and_complete_locked"
+        "symbol": "directory.sync_all"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/attempts",
       "implementation_state": "unavailable",
@@ -308,11 +308,11 @@
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
       "final_invoker": {
         "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
-        "resolution": "handler_boundary_only",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-        "symbol": "handle_auth_login"
+        "symbol": "std::fs::write"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
       "implementation_state": "unavailable",
@@ -324,7 +324,7 @@
         "claim_state": "verified_effect_leaf",
         "note": "Every admit and refusal branch calls emit_receipt, whose final leaf persists an authority-receipt record.",
         "resolution": "verified_effect_leaf",
-        "source_anchor_sha256": "4d369145914064cb692b7e99b69a30f944d99fe101cfe389b58af5f4a4953ad9",
+        "source_anchor_sha256": "4a4f7f76ab808b30628267f00a1e62c1008995498be56968e35a035171adc598",
         "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
         "symbol": "persist_record[authority-receipts]"
       },
@@ -340,7 +340,7 @@
         "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "68c468887f3b9e2f5298b3fad25bfd9186bde06018feda0f2e9254c0bfd22c19",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
-        "symbol": "persist_record"
+        "symbol": "std::fs::write"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs",
       "implementation_state": "unavailable",
@@ -354,7 +354,7 @@
         "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "68c468887f3b9e2f5298b3fad25bfd9186bde06018feda0f2e9254c0bfd22c19",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
-        "symbol": "persist_goal_run_atomic"
+        "symbol": "std::fs::rename"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/lifecycle-recovery",
       "implementation_state": "unavailable",
@@ -368,7 +368,7 @@
         "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "68c468887f3b9e2f5298b3fad25bfd9186bde06018feda0f2e9254c0bfd22c19",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
-        "symbol": "persist_record"
+        "symbol": "invocations.append"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/start",
       "implementation_state": "unavailable",
@@ -378,11 +378,11 @@
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
       "final_invoker": {
         "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
-        "resolution": "handler_boundary_only",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "1e58fb908fd8f9b383549432f3e49e60a7b4337c33c5a0a0594693da70aacd82",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
-        "symbol": "handle_outcome_room_create"
+        "symbol": "occupant.sync_all"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms",
       "implementation_state": "unavailable",
@@ -392,11 +392,11 @@
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
       "final_invoker": {
         "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
-        "resolution": "handler_boundary_only",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "1e58fb908fd8f9b383549432f3e49e60a7b4337c33c5a0a0594693da70aacd82",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
-        "symbol": "handle_outcome_room_attach_goal_run"
+        "symbol": "occupant.sync_all"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run",
       "implementation_state": "unavailable",
@@ -410,7 +410,7 @@
         "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "77d8e82c5ec3eb40ec51ac0c7506a2e8c7587339cb1d551a5348794ec7cd069c",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
-        "symbol": "persist_and_complete_intent_locked"
+        "symbol": "directory.sync_all"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/work-claim-leases",
       "implementation_state": "unavailable",
@@ -424,7 +424,7 @@
         "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "77d8e82c5ec3eb40ec51ac0c7506a2e8c7587339cb1d551a5348794ec7cd069c",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
-        "symbol": "persist_and_complete_intent_locked"
+        "symbol": "directory.sync_all"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/work-frontier-items",
       "implementation_state": "unavailable",
@@ -434,11 +434,11 @@
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
       "final_invoker": {
         "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "No deeper effect leaf was proven; the typed census blocker remains open.",
-        "resolution": "handler_boundary_only",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "cc3aeaf091b5f2387589264e125bcb2bc15a809cfe291e98450cc9920bad4445",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs",
-        "symbol": "handle_work_result_create"
+        "symbol": "std::fs::remove_file"
       },
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/work-results",
       "implementation_state": "unavailable",
@@ -466,7 +466,7 @@
         "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-        "symbol": "admit_and_persist_event"
+        "symbol": "std::fs::OpenOptions::open[write]"
       },
       "identity": "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/control",
       "implementation_state": "unavailable",
@@ -480,7 +480,7 @@
         "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-        "symbol": "admit_and_persist_event"
+        "symbol": "std::fs::OpenOptions::open[write]"
       },
       "identity": "http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/detect",
       "implementation_state": "unavailable",
@@ -494,7 +494,7 @@
         "resolution": "verified_service_effect_calls_not_production_pep",
         "source_anchor_sha256": "a38abe06c58acbbf2103467e70d887d06358bf3472c08304a887b1620d4009dc",
         "source_file": "crates/services/src/wallet_network/handlers/channel.rs",
-        "symbol": "store_typed | append_audit_event"
+        "symbol": "store_typed | state.insert | append_audit_event"
       },
       "identity": "service:wallet.network:commit_receipt_root@v1",
       "implementation_state": "partial",
@@ -508,7 +508,7 @@
         "resolution": "verified_service_effect_calls_not_production_pep",
         "source_anchor_sha256": "231a4e2962b4b99a38b42fe3d33d16a6bfb4875c0f1d6965bc69f34f39d6934e",
         "source_file": "crates/services/src/wallet_network/handlers/principal_authority.rs",
-        "symbol": "commit_binding"
+        "symbol": "commit_binding | append_audit_event_with_records | state.batch_apply"
       },
       "identity": "service:wallet.network:issue_principal_authority_binding@v1",
       "implementation_state": "partial",
@@ -522,7 +522,7 @@
         "resolution": "verified_service_effect_calls_not_production_pep",
         "source_anchor_sha256": "cab7cb34597a9728ef7b31fe4f8615d74b601e427ccfff8ee41c96fe98499b5d",
         "source_file": "crates/services/src/wallet_network/handlers/session.rs",
-        "symbol": "store_typed | append_audit_event"
+        "symbol": "store_typed | state.insert | append_audit_event"
       },
       "identity": "service:wallet.network:issue_session_grant@v1",
       "implementation_state": "partial",
@@ -534,9 +534,9 @@
         "claim_state": "verified_boundary_not_downstream_effect",
         "note": "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
         "resolution": "verified_service_effect_calls_not_production_pep",
-        "source_anchor_sha256": "b2e3f97dc8e270bc69d7e05da855f659fa7aeecc71d25be2c157c2849991b7a1",
+        "source_anchor_sha256": "47c5f0e4de95a2de4270ce89f658b249a806056ae44b5415cc33a16f69ad3312",
         "source_file": "crates/services/src/wallet_network/handlers/approval.rs",
-        "symbol": "store_typed | append_audit_event"
+        "symbol": "store_typed | state.insert | append_audit_event"
       },
       "identity": "service:wallet.network:panic_stop@v1",
       "implementation_state": "partial",
@@ -550,7 +550,7 @@
         "resolution": "verified_service_effect_calls_not_production_pep",
         "source_anchor_sha256": "231a4e2962b4b99a38b42fe3d33d16a6bfb4875c0f1d6965bc69f34f39d6934e",
         "source_file": "crates/services/src/wallet_network/handlers/principal_authority.rs",
-        "symbol": "append_audit_event_with_records"
+        "symbol": "append_audit_event_with_records | state.batch_apply"
       },
       "identity": "service:wallet.network:resolve_principal_authority@v1",
       "implementation_state": "partial",
