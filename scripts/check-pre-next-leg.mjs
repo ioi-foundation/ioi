@@ -40,6 +40,11 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     args: Object.freeze(["run", "check:architecture-contract-bar"]),
   }),
   Object.freeze({
+    id: "system-genesis-compiler",
+    command: "npm",
+    args: Object.freeze(["run", "check:system-genesis-compiler"]),
+  }),
+  Object.freeze({
     id: "architecture-docs",
     command: "npm",
     args: Object.freeze(["run", "check:architecture-docs"]),

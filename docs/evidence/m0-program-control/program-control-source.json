@@ -318,17 +318,17 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "f2869bc0084f61a5627cfdc3b703dbb7ec3d9a665559dadd366e34e010c334cd"
+      "source_sha256": "733545c9855cc37bbc8301b983597f26f2c8b8b880fc0d3a9befe0ac1cc1f398"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "d1538ee36c0f0ff8fc9b869a51119f9698e7d3754f7928f70715dc9d9d8aaea3"
+      "source_sha256": "44dad8f042634286fba6600cfb3203c549555a7dcdd0a7f8d8776ce74dbdcedb"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "553bdaacc19a93dc73f1305bc16750f17a40643b19d812efddfb88d3a2abf301"
+      "source_sha256": "fc38a3e0cf5165472b35cd491bb53f0c510acd6c3c6be542b55d746667cf1479"
     },
     {
       "role": "landed owner canon",

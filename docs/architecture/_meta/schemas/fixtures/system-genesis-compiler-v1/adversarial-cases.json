@@ -1,0 +1,750 @@
+{
+  "schema_version": "ioi.system-genesis-compiler-adversarial-corpus.v1",
+  "cases": [
+    {
+      "id": "release-root-mismatch",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/release_root",
+      "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "expected_code": "release_root_mismatch",
+      "expected_path": "$.release.release_root"
+    },
+    {
+      "id": "component-set-hash-mismatch",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/typed_components/component_set_hash",
+      "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "expected_code": "component_set_hash_mismatch",
+      "expected_path": "$.release.typed_components.component_set_hash"
+    },
+    {
+      "id": "component-tuple-hash-mutation",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/typed_components/workflow_templates/0/content_hash",
+      "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "expected_code": "component_set_hash_mismatch",
+      "expected_path": "$.release.typed_components.component_set_hash"
+    },
+    {
+      "id": "duplicate-tuple-identity",
+      "target": "release",
+      "operation": "append",
+      "pointer": "/typed_components/workflow_templates",
+      "value": {
+        "revision_ref": "workflow-template://acme/default/revision/sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "content_hash": "sha256:7878787878787878787878787878787878787878787878787878787878787878"
+      },
+      "expected_code": "tuple_identity_duplicate",
+      "expected_path": "$.release.typed_components.workflow_templates[1].revision_ref"
+    },
+    {
+      "id": "colliding-tuple-identity",
+      "target": "release",
+      "operation": "append",
+      "pointer": "/typed_components/workflow_templates",
+      "value": {
+        "revision_ref": "workflow-template://acme/default/revision/sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expected_code": "tuple_identity_collision",
+      "expected_path": "$.release.typed_components.workflow_templates[1].revision_ref"
+    },
+    {
+      "id": "mutable-current-ref",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/worker/worker_revision_ref",
+      "value": "worker://acme/outcome-operator/revision/current",
+      "expected_code": "mutable_reference",
+      "expected_path": "$.release.worker.worker_revision_ref"
+    },
+    {
+      "id": "mutable-latest-ref",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/typed_components/workflow_templates/0/revision_ref",
+      "value": "workflow-template://acme/default/revision/latest",
+      "expected_code": "mutable_reference",
+      "expected_path": "$.release.typed_components.workflow_templates[0].revision_ref"
+    },
+    {
+      "id": "mutable-floating-ref",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/typed_components/harness_profiles/0/revision_ref",
+      "value": "harness-profile://acme/default/revision/floating",
+      "expected_code": "mutable_reference",
+      "expected_path": "$.release.typed_components.harness_profiles[0].revision_ref"
+    },
+    {
+      "id": "mutable-head-ref",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/typed_components/runtime_tool_contracts/0/revision_ref",
+      "value": "tool://acme/search/revision/head",
+      "expected_code": "mutable_reference",
+      "expected_path": "$.release.typed_components.runtime_tool_contracts[0].revision_ref"
+    },
+    {
+      "id": "missing-constitution-template",
+      "target": "release",
+      "operation": "remove",
+      "pointer": "/constitution_template_ref",
+      "expected_code": "required_template_missing",
+      "expected_path": "$.release.constitution_template_ref"
+    },
+    {
+      "id": "missing-deployment-template",
+      "target": "release",
+      "operation": "remove",
+      "pointer": "/required_profile_templates/deployment_template_ref",
+      "expected_code": "required_template_missing",
+      "expected_path": "$.release.required_profile_templates.deployment_template_ref"
+    },
+    {
+      "id": "missing-ordering-template",
+      "target": "release",
+      "operation": "remove",
+      "pointer": "/required_profile_templates/ordering_admission_finality_template_ref",
+      "expected_code": "required_template_missing",
+      "expected_path": "$.release.required_profile_templates.ordering_admission_finality_template_ref"
+    },
+    {
+      "id": "missing-oracle-template",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/required_profile_templates/oracle_evidence_template_refs",
+      "value": [],
+      "expected_code": "required_template_missing",
+      "expected_path": "$.release.required_profile_templates.oracle_evidence_template_refs"
+    },
+    {
+      "id": "missing-lifecycle-template",
+      "target": "release",
+      "operation": "remove",
+      "pointer": "/required_profile_templates/lifecycle_continuity_template_ref",
+      "expected_code": "required_template_missing",
+      "expected_path": "$.release.required_profile_templates.lifecycle_continuity_template_ref"
+    },
+    {
+      "id": "missing-network-constraint-template",
+      "target": "release",
+      "operation": "remove",
+      "pointer": "/required_profile_templates/network_enrollment_constraint_ref",
+      "expected_code": "required_template_missing",
+      "expected_path": "$.release.required_profile_templates.network_enrollment_constraint_ref"
+    },
+    {
+      "id": "cross-package-release-manifest",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/manifest_id",
+      "value": "package://foreign/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_code": "manifest_package_mismatch",
+      "expected_path": "$.release.manifest_id"
+    },
+    {
+      "id": "cross-package-candidate-package",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/package_id",
+      "value": "package://foreign/outcome-operator",
+      "expected_code": "manifest_package_mismatch",
+      "expected_path": "$.proposed.candidate.package_id"
+    },
+    {
+      "id": "cross-package-candidate-manifest",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/manifest_ref",
+      "value": "package://foreign/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "expected_code": "manifest_package_mismatch",
+      "expected_path": "$.proposed.candidate.manifest_ref"
+    },
+    {
+      "id": "package-live-system-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/system_id",
+      "value": "system://acme/system-alpha",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.system_id"
+    },
+    {
+      "id": "package-live-genesis-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/genesis_id",
+      "value": "genesis://acme/system-alpha/zero",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.genesis_id"
+    },
+    {
+      "id": "package-live-node-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/node_id",
+      "value": "node://acme/system-alpha/node-1",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.node_id"
+    },
+    {
+      "id": "package-live-run-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/run_id",
+      "value": "run://acme/system-alpha/run-1",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.run_id"
+    },
+    {
+      "id": "package-live-session-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/session_id",
+      "value": "session://acme/system-alpha/session-1",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.session_id"
+    },
+    {
+      "id": "package-live-gateway-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/gateway_id",
+      "value": "mcp-gateway://acme/system-alpha/gateway-1",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.gateway_id"
+    },
+    {
+      "id": "package-live-lease-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/lease_id",
+      "value": "lease://acme/system-alpha/lease-1",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.lease_id"
+    },
+    {
+      "id": "package-live-grant-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/grant_id",
+      "value": "grant://acme/system-alpha/grant-1",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.grant_id"
+    },
+    {
+      "id": "package-live-credential-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/credential_id",
+      "value": "credential://acme/system-alpha/credential-1",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.credential_id"
+    },
+    {
+      "id": "package-live-runtime-assignment-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/runtime_assignment_id",
+      "value": "runtime-assignment://acme/system-alpha/assignment-1",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.runtime_assignment_id"
+    },
+    {
+      "id": "package-live-active-skill-set-id",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/active_skill_set_id",
+      "value": "active-skill-set://acme/system-alpha/set-1",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.active_skill_set_id"
+    },
+    {
+      "id": "package-live-status",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/status",
+      "value": "active",
+      "expected_code": "package_live_state_forbidden",
+      "expected_path": "$.release.status"
+    },
+    {
+      "id": "recursive-release-private-key",
+      "target": "release",
+      "operation": "set",
+      "pointer": "/source_project/provenance/private_key",
+      "value": "-----BEGIN PRIVATE KEY-----test",
+      "expected_code": "secret_material_forbidden",
+      "expected_path": "$.release.source_project.provenance.private_key"
+    },
+    {
+      "id": "recursive-proposal-api-key",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/instantiation/evidence_bundle/nested/api_key",
+      "value": "sk-concrete-secret",
+      "expected_code": "secret_material_forbidden",
+      "expected_path": "$.proposed.candidate.instantiation.evidence_bundle.nested.api_key"
+    },
+    {
+      "id": "secret-literal-without-secret-key",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/instantiation/decision_ref",
+      "value": "sk-concrete-secret",
+      "expected_code": "secret_material_forbidden",
+      "expected_path": "$.proposed.candidate.instantiation.decision_ref"
+    },
+    {
+      "id": "non-proposed-status",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/status",
+      "value": "rejected",
+      "expected_code": "genesis_status_not_proposed",
+      "expected_path": "$.proposed.candidate.status"
+    },
+    {
+      "id": "claimed-admission-status",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/status",
+      "value": "admitted",
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.candidate.status"
+    },
+    {
+      "id": "claimed-activation-status",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/status",
+      "value": "activated",
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.candidate.status"
+    },
+    {
+      "id": "nonzero-genesis-sequence",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/cryptographic_origin/sequence",
+      "value": 1,
+      "expected_code": "genesis_sequence_not_zero",
+      "expected_path": "$.proposed.candidate.cryptographic_origin.sequence"
+    },
+    {
+      "id": "genesis-predecessor-commitment",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/cryptographic_origin/predecessor_commitment_ref",
+      "value": "commitment://ioi/system-genesis/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_code": "genesis_predecessor_forbidden",
+      "expected_path": "$.proposed.candidate.cryptographic_origin.predecessor_commitment_ref"
+    },
+    {
+      "id": "claimed-admission-proof",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/cryptographic_origin/admission_proof_ref",
+      "value": "evidence://acme/system-alpha/admission-proof",
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.candidate.cryptographic_origin.admission_proof_ref"
+    },
+    {
+      "id": "activation-receipt",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/activation_receipt_ref",
+      "value": "receipt://acme/system-alpha/activation",
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.candidate.activation_receipt_ref"
+    },
+    {
+      "id": "authority-grant-claim",
+      "target": "proposal",
+      "operation": "append",
+      "pointer": "/candidate/instantiation/authority_grant_refs",
+      "value": "grant://acme/system-alpha/genesis",
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.candidate.instantiation.authority_grant_refs"
+    },
+    {
+      "id": "conformance-receipt-claim",
+      "target": "proposal",
+      "operation": "append",
+      "pointer": "/candidate/instantiation/conformance_receipt_refs",
+      "value": "receipt://acme/system-alpha/conformance",
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.candidate.instantiation.conformance_receipt_refs"
+    },
+    {
+      "id": "lifecycle-receipt-history",
+      "target": "proposal",
+      "operation": "append",
+      "pointer": "/candidate/lifecycle_transition_refs",
+      "value": "lifecycle-transition://acme/system-alpha/initialize",
+      "expected_code": "genesis_history_forbidden",
+      "expected_path": "$.proposed.candidate.lifecycle_transition_refs"
+    },
+    {
+      "id": "status-receipt-history",
+      "target": "proposal",
+      "operation": "append",
+      "pointer": "/candidate/status_source_receipt_refs",
+      "value": "receipt://acme/system-alpha/status",
+      "expected_code": "genesis_history_forbidden",
+      "expected_path": "$.proposed.candidate.status_source_receipt_refs"
+    },
+    {
+      "id": "genesis-system-coordinate-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/genesis_id",
+      "value": "genesis://acme/system-beta/zero",
+      "expected_code": "genesis_coordinate_mismatch",
+      "expected_path": "$.proposed.candidate.genesis_id"
+    },
+    {
+      "id": "constitution-system-coordinate-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/constitution/system_id",
+      "value": "system://acme/system-beta",
+      "expected_code": "constitution_coordinate_mismatch",
+      "expected_path": "$.proposed.constitution.system_id"
+    },
+    {
+      "id": "constitution-ref-coordinate-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/constitution/constitution_id",
+      "value": "constitution://acme/system-beta/v1",
+      "expected_code": "constitution_coordinate_mismatch",
+      "expected_path": "$.proposed.constitution.constitution_id"
+    },
+    {
+      "id": "ordering-system-coordinate-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/ordering_profile/system_id",
+      "value": "system://acme/system-beta",
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.ordering_profile.system_id"
+    },
+    {
+      "id": "ordering-constitution-coordinate-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/ordering_profile/constitution_ref",
+      "value": "constitution://acme/system-beta/v1",
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.ordering_profile.constitution_ref"
+    },
+    {
+      "id": "ordering-profile-id-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/ordering_profile/ordering_profile_id",
+      "value": "ordering-profile://acme/system-beta/poa1",
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.ordering_profile.ordering_profile_id"
+    },
+    {
+      "id": "oracle-system-coordinate-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/oracle_profiles/0/system_id",
+      "value": "system://acme/system-beta",
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.oracle_profiles[0].system_id"
+    },
+    {
+      "id": "oracle-profile-id-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/oracle_profiles/0/oracle_evidence_profile_id",
+      "value": "oracle-evidence-profile://acme/system-beta/public-records",
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.candidate.initial_profile_refs.oracle_evidence_profile_refs"
+    },
+    {
+      "id": "lifecycle-system-coordinate-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/lifecycle_profile/system_id",
+      "value": "system://acme/system-beta",
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.lifecycle_profile.system_id"
+    },
+    {
+      "id": "lifecycle-constitution-coordinate-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/lifecycle_profile/constitution_ref",
+      "value": "constitution://acme/system-beta/v1",
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.lifecycle_profile.constitution_ref"
+    },
+    {
+      "id": "lifecycle-profile-id-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/lifecycle_profile/lifecycle_profile_id",
+      "value": "lifecycle-profile://acme/system-beta/default",
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.lifecycle_profile.lifecycle_profile_id"
+    },
+    {
+      "id": "network-enrollment-coordinate-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/initial_profile_refs/network_enrollment_ref",
+      "value": "network-enrollment://acme/system-alpha/ioi",
+      "expected_code": "network_enrollment_coordinate_mismatch",
+      "expected_path": "$.proposed.candidate.initial_profile_refs.network_enrollment_ref"
+    },
+    {
+      "id": "component-snapshot-binding-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/initial_component_bindings/admitted_component_set_snapshot_ref",
+      "value": "artifact://sha256/foreign-component-set",
+      "expected_code": "component_binding_mismatch",
+      "expected_path": "$.proposed.candidate.initial_component_bindings.admitted_component_set_snapshot_ref"
+    },
+    {
+      "id": "component-hash-binding-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/initial_component_bindings/admitted_component_set_hash",
+      "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "expected_code": "component_binding_mismatch",
+      "expected_path": "$.proposed.candidate.initial_component_bindings.admitted_component_set_hash"
+    },
+    {
+      "id": "component-tuple-binding-mismatch",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/initial_component_bindings/workflow_templates/0/content_hash",
+      "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "expected_code": "component_binding_mismatch",
+      "expected_path": "$.proposed.candidate.initial_component_bindings.workflow_templates"
+    },
+    {
+      "id": "live-automation-binding-unavailable",
+      "target": "proposal",
+      "operation": "append",
+      "pointer": "/candidate/initial_component_bindings/automation_installations",
+      "value": {
+        "binding_revision_ref": "install://automation/acme/system-alpha/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "binding_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "admission_receipt_ref": "receipt://acme/system-alpha/automation-admission"
+      },
+      "expected_code": "live_binding_admission_unavailable",
+      "expected_path": "$.proposed.candidate.initial_component_bindings.automation_installations"
+    },
+    {
+      "id": "live-skill-binding-unavailable",
+      "target": "proposal",
+      "operation": "append",
+      "pointer": "/candidate/initial_component_bindings/skill_entries",
+      "value": {
+        "binding_revision_ref": "skill-entry://acme/system-alpha/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "binding_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "skill_manifest_revision_ref": "skill://acme/research/revision/sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "skill_manifest_content_hash": "sha256:9090909090909090909090909090909090909090909090909090909090909090"
+      },
+      "expected_code": "live_binding_admission_unavailable",
+      "expected_path": "$.proposed.candidate.initial_component_bindings.skill_entries"
+    },
+    {
+      "id": "live-gateway-binding-unavailable",
+      "target": "proposal",
+      "operation": "append",
+      "pointer": "/candidate/initial_component_bindings/mcp_gateway_profiles",
+      "value": {
+        "profile_revision_ref": "mcp-gateway://acme/system-alpha/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "profile_content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "expected_code": "live_binding_admission_unavailable",
+      "expected_path": "$.proposed.candidate.initial_component_bindings.mcp_gateway_profiles"
+    },
+    {
+      "id": "unknown-proposal-property",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/claimed_current_head",
+      "value": "artifact://sha256/head",
+      "expected_code": "unknown_property",
+      "expected_path": "$.proposed.candidate.claimed_current_head"
+    },
+    {
+      "id": "nondeterministic-clock-field",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/generated_at",
+      "value": "2026-07-18T12:00:01Z",
+      "expected_code": "nondeterministic_field",
+      "expected_path": "$.proposed.generated_at"
+    },
+    {
+      "id": "nondeterministic-random-field",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/random_seed",
+      "value": "seed",
+      "expected_code": "nondeterministic_field",
+      "expected_path": "$.proposed.candidate.random_seed"
+    },
+    {
+      "id": "recursive-credential-material",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/instantiation/evidence_bundle/nested/credential_material",
+      "value": {
+        "username": "operator",
+        "password": "concrete-password"
+      },
+      "expected_code": "secret_material_forbidden",
+      "expected_path": "$.proposed.candidate.instantiation.evidence_bundle.nested.credential_material"
+    },
+    {
+      "id": "bearer-token-literal",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/instantiation/decision_ref",
+      "value": "Bearer concrete-token-material",
+      "expected_code": "secret_material_forbidden",
+      "expected_path": "$.proposed.candidate.instantiation.decision_ref"
+    },
+    {
+      "id": "active-constitution-claim",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/constitution/status",
+      "value": "active",
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.constitution.status"
+    },
+    {
+      "id": "active-ordering-profile-claim",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/ordering_profile/status",
+      "value": "active",
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.ordering_profile.status"
+    },
+    {
+      "id": "active-oracle-profile-claim",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/oracle_profiles/0/status",
+      "value": "active",
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.oracle_profiles[0].status"
+    },
+    {
+      "id": "active-lifecycle-profile-claim",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/lifecycle_profile/status",
+      "value": "active",
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.lifecycle_profile.status"
+    },
+    {
+      "id": "active-network-enrollment-claim",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/network_enrollment",
+      "value": {
+        "status": "active"
+      },
+      "expected_code": "genesis_activation_claim_forbidden",
+      "expected_path": "$.proposed.network_enrollment.status"
+    },
+    {
+      "id": "lockstep-foreign-constitution-coordinate",
+      "target": "proposal",
+      "operation": "merge",
+      "value": {
+        "candidate": {
+          "constitution_ref": "constitution://acme/system-beta/v1"
+        },
+        "constitution": {
+          "constitution_id": "constitution://acme/system-beta/v1"
+        }
+      },
+      "expected_code": "constitution_coordinate_mismatch",
+      "expected_path": "$.proposed.candidate.constitution_ref"
+    },
+    {
+      "id": "foreign-deployment-profile-coordinate",
+      "target": "proposal",
+      "operation": "set",
+      "pointer": "/candidate/initial_profile_refs/deployment_profile_ref",
+      "value": "deployment-profile://acme/system-beta/local",
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.candidate.initial_profile_refs.deployment_profile_ref"
+    },
+    {
+      "id": "lockstep-foreign-ordering-profile-coordinate",
+      "target": "proposal",
+      "operation": "merge",
+      "value": {
+        "candidate": {
+          "initial_profile_refs": {
+            "ordering_admission_finality_profile_ref": "ordering-profile://acme/system-beta/poa1"
+          }
+        },
+        "ordering_profile": {
+          "ordering_profile_id": "ordering-profile://acme/system-beta/poa1"
+        }
+      },
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.candidate.initial_profile_refs.ordering_admission_finality_profile_ref"
+    },
+    {
+      "id": "lockstep-foreign-oracle-profile-coordinate",
+      "target": "proposal",
+      "operation": "merge",
+      "value": {
+        "candidate": {
+          "initial_profile_refs": {
+            "oracle_evidence_profile_refs": [
+              "oracle-evidence-profile://acme/system-beta/public-records"
+            ]
+          }
+        },
+        "oracle_profiles": [
+          {
+            "oracle_evidence_profile_id": "oracle-evidence-profile://acme/system-beta/public-records"
+          }
+        ]
+      },
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.candidate.initial_profile_refs.oracle_evidence_profile_refs[0]"
+    },
+    {
+      "id": "lockstep-foreign-lifecycle-profile-coordinate",
+      "target": "proposal",
+      "operation": "merge",
+      "value": {
+        "candidate": {
+          "initial_profile_refs": {
+            "lifecycle_continuity_profile_ref": "lifecycle-profile://acme/system-beta/default"
+          }
+        },
+        "lifecycle_profile": {
+          "lifecycle_profile_id": "lifecycle-profile://acme/system-beta/default"
+        }
+      },
+      "expected_code": "profile_coordinate_mismatch",
+      "expected_path": "$.proposed.candidate.initial_profile_refs.lifecycle_continuity_profile_ref"
+    }
+  ]
+}

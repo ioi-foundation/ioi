@@ -40,6 +40,8 @@ pub mod runtime;
 pub mod runtime_contracts;
 /// Data structures for economic settlement.
 pub mod settlement;
+/// Pure compiler for package-bound proposed System genesis artifacts.
+pub mod system_genesis;
 /// Data structures for deterministic block timing.
 pub mod timing; // [NEW]
 /// Data structures for wallet.network control-plane and session artifacts.
@@ -71,6 +73,7 @@ pub use model_registry::*;
 pub use penalties::*;
 pub use runtime_contracts::*;
 pub use settlement::*;
+pub use system_genesis::*;
 pub use timing::*; // [NEW]
 pub use wallet_network::*;
 pub use workload::*;

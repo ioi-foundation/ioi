@@ -57,6 +57,8 @@
     "check:architecture-contracts": "node scripts/check-architecture-contracts.mjs",
     "test:architecture-contract-projections": "node --experimental-strip-types scripts/test-architecture-contract-projections.mjs",
     "check:architecture-contract-bar": "node scripts/generate-architecture-contracts.mjs --check && npm run check:architecture-contracts && npm run test:architecture-contract-projections && node --test scripts/test-architecture-docs-integrity.mjs && cargo test --locked -p ioi-types architecture_contracts",
+    "test:system-genesis-compiler": "cargo test --locked -p ioi-types system_genesis",
+    "check:system-genesis-compiler": "node --test scripts/test-system-genesis-compiler.mjs && node scripts/check-system-genesis-compiler.mjs --check && npm run test:system-genesis-compiler",
     "dev:web": "npm run dev --workspace=@ioi/hypervisor-app",
     "dev:benchmarks": "npm run dev --workspace=apps/benchmarks",
     "build:benchmarks": "npm run build --workspace=apps/benchmarks",

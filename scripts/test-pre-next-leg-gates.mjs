@@ -43,6 +43,7 @@ test("pre-next-leg propagates a compositor-tier failure", () => {
     "pre-next-leg-gate-regressions",
     "m0-program-control",
     "architecture-contract-bar",
+    "system-genesis-compiler",
     "architecture-docs",
     "conformance-docs",
     "readiness",
