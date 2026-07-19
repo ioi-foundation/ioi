@@ -28,6 +28,13 @@ use std::sync::{Arc, OnceLock};
 /// Families whose truth is the substrate engine. Extend only after the
 /// candidate family has passed a dual-write soak with clean parity.
 pub(crate) const PROMOTED_DOMAINS: &[&str] = &["provider-receipts"];
+/// Families that remain daemon-file projections but MUST also cross the Agentgres operation log
+/// before their owner-plane intent may clear. This is a synchronous pre-promotion boundary, not a
+/// CUT: reads remain on the owner plane until the normal shadow/compare/promotion bar is met.
+pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
+    "autonomous-system-genesis-registry",
+    "autonomous-system-genesis-receipts",
+];
 
 static HANDLE: OnceLock<Option<MuxHandle>> = OnceLock::new();
 static ADMITTED: AtomicU64 = AtomicU64::new(0);
@@ -49,12 +56,29 @@ fn soak_domains() -> Vec<String> {
         .unwrap_or_default()
         .split(',')
         .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty() && !is_promoted(s))
+        .filter(|s| {
+            !s.is_empty() && !is_promoted(s) && !REQUIRED_ADMISSION_DOMAINS.contains(&s.as_str())
+        })
         .collect()
 }
 
 fn engine_dir(data_dir: &str) -> std::path::PathBuf {
     std::path::Path::new(data_dir).join("substrate")
+}
+
+fn confirm_required_admission_durability(data_dir: &str) -> std::io::Result<()> {
+    if std::env::var("IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        return Err(std::io::Error::other(
+            "test-forced required-admission durability failure",
+        ));
+    }
+    let dir = engine_dir(data_dir);
+    std::fs::File::open(dir.join("muxlog.bin"))?.sync_all()?;
+    std::fs::File::open(dir)?.sync_all()
 }
 
 fn build_op(record_dir: &str, record_id: &str, record: &Value) -> Operation {
@@ -221,6 +245,15 @@ pub(crate) fn persist_promoted(
     record_id: &str,
     record: &Value,
 ) -> std::io::Result<()> {
+    admit_required_inner(data_dir, record_dir, record_id, record)
+}
+
+fn admit_required_inner(
+    data_dir: &str,
+    record_dir: &str,
+    record_id: &str,
+    record: &Value,
+) -> std::io::Result<()> {
     let Some(h) = handle(data_dir) else {
         ERRORS.fetch_add(1, Ordering::Relaxed);
         return Err(std::io::Error::other("substrate engine unavailable"));
@@ -240,6 +273,83 @@ pub(crate) fn persist_promoted(
             )))
         }
     }
+}
+
+/// Synchronous Agentgres boundary for a declared pre-promotion family.
+///
+/// The caller owns its crash-convergent intent and local projection. It may clear that intent only
+/// after this admission succeeds; retries are idempotent on the exact record id and bytes.
+pub(crate) fn admit_required(
+    data_dir: &str,
+    record_dir: &str,
+    record_id: &str,
+    record: &Value,
+) -> std::io::Result<()> {
+    if !REQUIRED_ADMISSION_DOMAINS.contains(&record_dir) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("'{record_dir}' is not a declared required-admission domain"),
+        ));
+    }
+    let Some(h) = handle(data_dir) else {
+        ERRORS.fetch_add(1, Ordering::Relaxed);
+        return Err(std::io::Error::other("substrate engine unavailable"));
+    };
+    let expected_ref = match record_dir {
+        "autonomous-system-genesis-registry" => {
+            format!("system-genesis-admission://{record_id}")
+        }
+        "autonomous-system-genesis-receipts" => format!("receipt://{record_id}"),
+        _ => unreachable!("required-admission domains are exhaustively matched"),
+    };
+    let identity_field = match record_dir {
+        "autonomous-system-genesis-registry" => "admission_id",
+        "autonomous-system-genesis-receipts" => "receipt_ref",
+        _ => unreachable!("required-admission domains are exhaustively matched"),
+    };
+    let existing_records = h.project_latest(record_dir).map_err(|error| {
+        ERRORS.fetch_add(1, Ordering::Relaxed);
+        error
+    })?;
+    for existing in existing_records {
+        if existing.get(identity_field).and_then(Value::as_str) != Some(expected_ref.as_str()) {
+            continue;
+        }
+        if &existing == record {
+            confirm_required_admission_durability(data_dir).map_err(|error| {
+                ERRORS.fetch_add(1, Ordering::Relaxed);
+                std::io::Error::other(format!(
+                    "required Agentgres admission durability is unconfirmed: {error}"
+                ))
+            })?;
+            return Ok(());
+        }
+        ERRORS.fetch_add(1, Ordering::Relaxed);
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!(
+                "Agentgres key '{record_dir}/{record_id}' already holds different immutable evidence"
+            ),
+        ));
+    }
+    let ack = h
+        .admit(build_op(record_dir, record_id, record))
+        .map_err(|refusal| {
+            ERRORS.fetch_add(1, Ordering::Relaxed);
+            eprintln!(
+                "substrate-store: admission refused ({refusal}) record={record_dir}/{record_id}"
+            );
+            std::io::Error::other(format!("substrate admission refused: {refusal}"))
+        })?;
+    confirm_required_admission_durability(data_dir).map_err(|error| {
+        ERRORS.fetch_add(1, Ordering::Relaxed);
+        std::io::Error::other(format!(
+            "required Agentgres admission durability is unconfirmed after {} ack: {error}",
+            ack.durability
+        ))
+    })?;
+    ADMITTED.fetch_add(1, Ordering::Relaxed);
+    Ok(())
 }
 
 /// Read path for promoted families: last-write-wins projection served by
@@ -319,7 +429,9 @@ pub(crate) async fn handle_substrate_status(
     Json(json!({
         "schema_version": "ioi.hypervisor.substrate-status.v1",
         "promoted_domains": PROMOTED_DOMAINS,
-        "mode": "engine_truth for promoted domains; no legacy write/read for them (no split brain)",
+        "required_admission_domains": REQUIRED_ADMISSION_DOMAINS,
+        "required_admission_durability": "explicit muxlog file sync plus substrate-directory sync after every fresh or exact replay; a caller intent may clear only after both succeed",
+        "mode": "engine_truth for promoted domains; mandatory admission evidence for required-admission domains whose owner-plane files remain read truth until promotion",
         "engine_dir": dir.display().to_string(),
         "engine_domains": engine_domains,
         "engine_open_error": engine_open_error,

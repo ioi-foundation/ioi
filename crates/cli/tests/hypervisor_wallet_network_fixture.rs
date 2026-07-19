@@ -135,6 +135,7 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             "attempt.*".to_string(),
             "finding.*".to_string(),
             "verifier_challenge.*".to_string(),
+            "system_genesis.*".to_string(),
         ],
     )
 }
@@ -332,6 +333,18 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
             "issue_principal_authority_binding@v1",
             &IssuePrincipalAuthorityBindingParams {
                 proof: signed_binding(&root, &root_record, "domain://acme-host", &host_authority)?,
+            },
+        )
+        .await?;
+        nonce += 1;
+        submit(
+            &rpc_addr,
+            &root,
+            chain_id,
+            nonce,
+            "issue_principal_authority_binding@v1",
+            &IssuePrincipalAuthorityBindingParams {
+                proof: signed_binding(&root, &root_record, "org://acme/research", &host_authority)?,
             },
         )
         .await?;
