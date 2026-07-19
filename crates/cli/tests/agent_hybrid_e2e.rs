@@ -259,6 +259,7 @@ async fn test_hybrid_routing_logic() -> Result<()> {
     let start_params = StartAgentParams {
         session_id,
         goal: "Click the UI button".into(),
+        runtime_route_frame: None,
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1000,

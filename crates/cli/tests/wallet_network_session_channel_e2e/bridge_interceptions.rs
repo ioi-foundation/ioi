@@ -65,6 +65,7 @@ async fn wallet_network_bridge_records_firewall_interceptions_from_ingestion() -
         let start_params = StartAgentParams {
             session_id: [0x91u8; 32],
             goal: "Open calculator".to_string(),
+            runtime_route_frame: None,
             max_steps: 1,
             parent_session_id: None,
             initial_budget: 1_000_000,

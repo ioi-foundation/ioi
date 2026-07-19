@@ -107,6 +107,7 @@ async fn test_agent_budget_limit() -> Result<()> {
     let start_params = StartAgentParams {
         session_id: parent_id,
         goal: "Coordinate a small task".into(),
+        runtime_route_frame: None,
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 20,
@@ -125,6 +126,7 @@ async fn test_agent_budget_limit() -> Result<()> {
     let child_start = StartAgentParams {
         session_id: child_id,
         goal: "Click the UI button".into(),
+        runtime_route_frame: None,
         max_steps: 5,
         parent_session_id: Some(parent_id),
         initial_budget: 100,

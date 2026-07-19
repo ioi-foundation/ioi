@@ -915,6 +915,7 @@ pub async fn run_case(
     let start_params = StartAgentParams {
         session_id,
         goal: run_query.clone(),
+        runtime_route_frame: None,
         max_steps: case.max_steps,
         parent_session_id: None,
         initial_budget: 4_000,

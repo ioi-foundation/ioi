@@ -387,6 +387,7 @@ async fn browser_live_http_runtime_validation() -> Result<()> {
             &codec::to_bytes_canonical(&StartAgentParams {
                 session_id,
                 goal: "The current browser page is already open. Click the button labeled 'Mark complete' so the status text becomes done. Do not ask questions.".to_string(),
+                runtime_route_frame: None,
                 max_steps: 8,
                 parent_session_id: None,
                 initial_budget: 1_600,

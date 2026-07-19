@@ -254,6 +254,7 @@ async fn test_agent_mcp_integration() -> Result<()> {
     let start_params = StartAgentParams {
         session_id,
         goal: "Call the MCP echo tool".into(),
+        runtime_route_frame: None,
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1000,

@@ -234,6 +234,7 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
     let start_params = StartAgentParams {
         session_id,
         goal: "Recall favorite color".into(),
+        runtime_route_frame: None,
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1000,

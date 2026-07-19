@@ -238,6 +238,7 @@ async fn test_agent_pause_resume() -> Result<()> {
     let start_params = StartAgentParams {
         session_id,
         goal: "Run pwd in the terminal".into(),
+        runtime_route_frame: None,
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1000,

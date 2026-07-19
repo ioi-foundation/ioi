@@ -203,6 +203,7 @@ async fn test_agent_delegation_flow() -> Result<()> {
     let start_params = StartAgentParams {
         session_id: parent_id,
         goal: "Wait for the child worker result".into(),
+        runtime_route_frame: None,
         max_steps: 10,
         parent_session_id: None,
         initial_budget: 1000,
@@ -220,6 +221,7 @@ async fn test_agent_delegation_flow() -> Result<()> {
     let child_start = StartAgentParams {
         session_id: child_id,
         goal: "Click the button in the UI".into(),
+        runtime_route_frame: None,
         max_steps: 10,
         parent_session_id: Some(parent_id),
         initial_budget: 100,

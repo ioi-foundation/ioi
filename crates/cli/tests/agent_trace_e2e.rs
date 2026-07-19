@@ -290,6 +290,7 @@ async fn test_agent_trace_records_ui_step() -> Result<()> {
     let start_params = StartAgentParams {
         session_id,
         goal: "Type hello into the focused UI field".to_string(),
+        runtime_route_frame: None,
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1_000,

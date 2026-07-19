@@ -327,6 +327,7 @@ async fn test_agent_self_healing() -> Result<()> {
     let start_params = StartAgentParams {
         session_id,
         goal: "Click".into(),
+        runtime_route_frame: None,
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1000,
@@ -398,6 +399,7 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
     let start_params = StartAgentParams {
         session_id,
         goal: "search latest news and summarize".into(),
+        runtime_route_frame: None,
         max_steps: 12,
         parent_session_id: None,
         initial_budget: 1000,

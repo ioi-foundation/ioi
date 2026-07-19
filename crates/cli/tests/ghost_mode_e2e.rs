@@ -235,6 +235,7 @@ async fn test_ghost_mode_event_pipeline() -> Result<()> {
     let start_params = StartAgentParams {
         session_id,
         goal: "Type hello into the focused UI field".into(),
+        runtime_route_frame: None,
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1000,
