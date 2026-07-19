@@ -545,7 +545,7 @@
           {
             "note": "ReplicaServer binds occur only in the cfg(test) module",
             "source_file": "crates/agentgres/src/mux.rs",
-            "source_sha256": "844d5489f5eedd7b85e05bb08e98b292e8e2760c0122764bea0a252d5dbd141c"
+            "source_sha256": "b4894234e688b50c5c80ecaea7aaf8f366f3241fe4fd5c977b146a903428fd0f"
           },
           {
             "note": "enumerated standalone AGRS2 replication wildcard",
