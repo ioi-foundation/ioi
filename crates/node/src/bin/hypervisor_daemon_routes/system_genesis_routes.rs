@@ -12,6 +12,9 @@ use axum::{
     http::StatusCode,
     Json,
 };
+use ioi_services::wallet_network::{
+    ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectParams,
+};
 use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
 use ioi_types::app::{
     compile_system_genesis_proposal, validate_principal_authority_ref, ApprovalGrant,
@@ -31,6 +34,7 @@ type VErr = (String, String);
 const RECORD_DIR: &str = "autonomous-system-genesis-registry";
 const RECEIPT_DIR: &str = "autonomous-system-genesis-receipts";
 const INTENT_DIR: &str = "autonomous-system-genesis-intents";
+const CONSUMPTION_DIR: &str = "autonomous-system-genesis-authority-consumptions";
 const AGGREGATE_SCHEMA: &str = "ioi.hypervisor.autonomous-system-genesis-admission.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.autonomous-system-genesis-receipt.v1";
 const INTENT_SCHEMA: &str = "ioi.hypervisor.autonomous-system-genesis-intent.v1";
@@ -38,7 +42,7 @@ const GENESIS_CONTRACT: &str = "schema://ioi/foundations/autonomous-system-genes
 const MAX_REQUEST_BYTES: usize = 4 * 1024 * 1024;
 
 const AUTHORITY: AuthorityContract = AuthorityContract {
-    scope_prefix: "system_genesis",
+    scope_prefix: "scope:autonomous_system",
     policy_domain: "hypervisor.system-genesis.decision.policy.v1",
     request_domain: "hypervisor.system-genesis.decision.request.v1",
     resolution_domain: "hypervisor.system-genesis.authority-resolution.v1",
@@ -48,6 +52,8 @@ const AUTHORITY: AuthorityContract = AuthorityContract {
 };
 
 pub(crate) static SYSTEM_GENESIS_LOCK: Mutex<()> = Mutex::new(());
+static SYSTEM_GENESIS_ADMISSION_GATE: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
 
 #[derive(Clone)]
 struct CompiledAdmission {
@@ -63,15 +69,13 @@ struct CompiledAdmission {
 
 #[derive(Debug)]
 struct ReconstructedIntent {
-    system_id: String,
-    genesis_ref: String,
-    required_authority_ref: String,
-    subject_ref: String,
-    effect: Value,
     receipt: Value,
     receipt_tail: String,
     final_record: Value,
     record_tail: String,
+    wallet_consumption: ConsumeApprovalGrantForEffectParams,
+    wallet_consumption_ref: String,
+    wallet_consumption_tail: String,
 }
 
 fn verr(code: &str, message: impl Into<String>) -> VErr {
@@ -81,6 +85,12 @@ fn verr(code: &str, message: impl Into<String>) -> VErr {
 fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
     let status = if code.ends_with("_not_found") {
         StatusCode::NOT_FOUND
+    } else if code == "system_genesis_wallet_consumption_refused" {
+        StatusCode::FORBIDDEN
+    } else if code == "system_genesis_wallet_consumption_unavailable" {
+        StatusCode::SERVICE_UNAVAILABLE
+    } else if code == "system_genesis_wallet_consumption_invalid" {
+        StatusCode::BAD_GATEWAY
     } else if code.contains("conflict")
         || code.contains("in_flight")
         || code.contains("already_admitted")
@@ -94,6 +104,8 @@ fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
         || code.contains("durability")
         || code.contains("swapped")
         || code.contains("agentgres")
+        || code.contains("evidence_mismatch")
+        || code.contains("evidence_missing")
     {
         StatusCode::INTERNAL_SERVER_ERROR
     } else {
@@ -140,6 +152,10 @@ fn canonical_intent_tail(tail: &str) -> bool {
     canonical_tail(tail, "asgi_")
 }
 
+fn canonical_consumption_tail(tail: &str) -> bool {
+    canonical_tail(tail, "asgc_")
+}
+
 fn canonical_ref(value: &str, prefix: &str) -> bool {
     value.len() <= 320
         && value.strip_prefix(prefix).is_some_and(|tail| {
@@ -165,16 +181,105 @@ fn record_tail(system_id: &str) -> String {
     )
 }
 
-fn fresh_tail(prefix: &str, subject: &str, resolved_at_ms: u64) -> String {
-    deterministic_tail(
-        prefix,
-        &json!({
-            "domain": "hypervisor.autonomous-system-genesis.evidence-nonce.v1",
-            "subject_ref": subject,
-            "resolved_at_ms": resolved_at_ms,
-            "nonce": uuid::Uuid::new_v4().to_string()
-        }),
+fn hash_bytes_from_ref(value: &str, field: &str) -> Result<[u8; 32], VErr> {
+    let raw = value.strip_prefix("sha256:").ok_or_else(|| {
+        verr(
+            "system_genesis_authority_evidence_invalid",
+            format!("{field} is not a canonical sha256 ref"),
+        )
+    })?;
+    let decoded = hex::decode(raw).map_err(|_| {
+        verr(
+            "system_genesis_authority_evidence_invalid",
+            format!("{field} is not lowercase hexadecimal"),
+        )
+    })?;
+    if decoded.len() != 32 || raw.len() != 64 || raw != raw.to_ascii_lowercase() {
+        return Err(verr(
+            "system_genesis_authority_evidence_invalid",
+            format!("{field} must contain exactly 32 lowercase hexadecimal bytes"),
+        ));
+    }
+    let mut bytes = [0u8; 32];
+    bytes.copy_from_slice(&decoded);
+    Ok(bytes)
+}
+
+fn wallet_consumption_coordinates(
+    authorized: &AuthorizedDecision,
+    system_id: &str,
+    genesis_ref: &str,
+    proposal_root: &str,
+) -> Result<(ConsumeApprovalGrantForEffectParams, String), VErr> {
+    let request_hash =
+        hash_bytes_from_ref(&authorized.evidence.request_hash, "authority request_hash")?;
+    let grant: ApprovalGrant = serde_json::from_value(
+        authorized.evidence.wallet_approval_grant.clone(),
     )
+    .map_err(|error| {
+        verr(
+            "system_genesis_authority_evidence_invalid",
+            format!("wallet approval grant is malformed ({error})"),
+        )
+    })?;
+    let grant_hash = grant.artifact_hash().map_err(|error| {
+        verr(
+            "system_genesis_authority_evidence_invalid",
+            format!("wallet approval grant cannot be hashed ({error})"),
+        )
+    })?;
+    let consumption_material = json!({
+        "domain": "ioi.hypervisor.system-genesis.authority-use.v1",
+        "system_id": system_id,
+        "genesis_ref": genesis_ref,
+        "proposal_root": proposal_root,
+        "policy_hash": authorized.evidence.policy_hash,
+        "request_hash": authorized.evidence.request_hash,
+        "effect_hash": authorized.evidence.effect_hash,
+        "grant_hash": format!("sha256:{}", hex::encode(grant_hash))
+    });
+    let consumption_hash =
+        super::outcome_room_routes::record_output_hash(&consumption_material, &[]);
+    let consumption_id = hash_bytes_from_ref(&consumption_hash, "wallet consumption id")?;
+    let consumption_ref = format!(
+        "wallet.network://approval-effect-consumption/{}/{}",
+        hex::encode(request_hash),
+        hex::encode(consumption_id)
+    );
+    Ok((
+        ConsumeApprovalGrantForEffectParams {
+            request_hash,
+            grant_hash,
+            consumption_id,
+        },
+        consumption_ref,
+    ))
+}
+
+fn deterministic_evidence_tails(
+    authorized: &AuthorizedDecision,
+    system_id: &str,
+    genesis_ref: &str,
+    proposal_root: &str,
+) -> Result<
+    (
+        String,
+        String,
+        String,
+        ConsumeApprovalGrantForEffectParams,
+        String,
+    ),
+    VErr,
+> {
+    let (consumption, consumption_ref) =
+        wallet_consumption_coordinates(authorized, system_id, genesis_ref, proposal_root)?;
+    Ok((
+        format!("asgr_{}", hex::encode(consumption.consumption_id)),
+        format!("asgi_{}", hex::encode(consumption.request_hash)),
+        format!("asgc_{}", hex::encode(consumption.consumption_id)),
+        consumption,
+        consumption_ref,
+    ))
 }
 
 fn ms_to_rfc3339(ms: u64) -> Result<String, VErr> {
@@ -421,6 +526,16 @@ fn build_record(
         .unwrap_or("");
     let tail = record_tail(system_id);
     let grant_ref = canonical_grant_ref(&authorized.evidence.grant_ref);
+    let (wallet_consumption, wallet_grant_consumption_ref) = wallet_consumption_coordinates(
+        authorized,
+        system_id,
+        genesis_ref,
+        &compiled.proposal_root,
+    )?;
+    let wallet_consumption_evidence_ref = format!(
+        "system-genesis-authority-consumption://asgc_{}",
+        hex::encode(wallet_consumption.consumption_id)
+    );
     let governing_authority_ref = governing_authority_ref(compiled)?;
     let authorized_genesis = build_authorized_genesis(compiled, receipt_ref, &grant_ref)?;
     Ok(json!({
@@ -439,6 +554,7 @@ fn build_record(
         "initial_profile_bundle_hash_profile": compiled.bundle_hash_profile,
         "proposal_authority_boundary": SYSTEM_GENESIS_PROPOSAL_AUTHORITY_BOUNDARY,
         "manifest_release": compiled.release,
+        "proposed_instantiation": compiled.proposed_instantiation,
         "proposed_genesis": compiled.proposed_genesis,
         "initial_profile_bundle": compiled.initial_profile_bundle,
         "authorized_genesis": authorized_genesis,
@@ -447,6 +563,8 @@ fn build_record(
         "governing_authority_ref": governing_authority_ref,
         "canonical_authority_grant_ref": grant_ref,
         "wallet_authority_grant_ref": authorized.evidence.grant_ref,
+        "wallet_grant_consumption_ref": wallet_grant_consumption_ref,
+        "wallet_grant_consumption_evidence_ref": wallet_consumption_evidence_ref,
         "admission_receipt_ref": receipt_ref,
         "admission_status": "authorized",
         "active_profile_materialization_state": "pending_m1_4",
@@ -519,6 +637,14 @@ fn build_receipt(
         .get("canonical_authority_grant_ref")
         .and_then(Value::as_str)
         .unwrap_or("")));
+    boundary_refs.push(json!(record
+        .get("wallet_grant_consumption_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")));
+    boundary_refs.push(json!(record
+        .get("wallet_grant_consumption_evidence_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")));
     let constitution_root = record
         .pointer("/initial_profile_bundle/constitution/constitution_root")
         .cloned()
@@ -549,6 +675,8 @@ fn build_receipt(
             "governing_authority_ref": record.get("governing_authority_ref"),
             "canonical_authority_grant_ref": record.get("canonical_authority_grant_ref"),
             "wallet_authority_grant_ref": record.get("wallet_authority_grant_ref"),
+            "wallet_grant_consumption_ref": record.get("wallet_grant_consumption_ref"),
+            "wallet_grant_consumption_evidence_ref": record.get("wallet_grant_consumption_evidence_ref"),
             "sequence": genesis.pointer("/cryptographic_origin/sequence"),
             "proposal_root": record.get("proposal_root"),
             "initial_profile_bundle_root": record.get("initial_profile_bundle_root"),
@@ -574,7 +702,7 @@ fn build_receipt(
         "policy_hash": Value::Null,
         "authority_grant_id": Value::Null,
         "primitive_capabilities": [],
-        "authority_scopes": [AUTHORITY.operation_scope("admit")],
+        "authority_scopes": [AUTHORITY.operation_scope("genesis_admit")],
         "artifact_refs": [record.get("manifest_ref").cloned().unwrap_or(Value::Null)],
         "evidence_bundle_refs": [],
         "adjudication_ref": Value::Null,
@@ -597,12 +725,59 @@ fn validate_record_identity(tail: &str, record: &Value) -> Result<(), String> {
     let genesis = record
         .get("authorized_genesis")
         .ok_or_else(|| "aggregate lacks authorized_genesis".to_string())?;
+    let proposed = record
+        .get("proposed_genesis")
+        .ok_or_else(|| "aggregate lacks proposed_genesis".to_string())?;
+    let genesis_ref = record
+        .get("genesis_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "aggregate lacks genesis_ref".to_string())?;
+    let receipt_ref = record
+        .get("admission_receipt_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "aggregate lacks admission_receipt_ref".to_string())?;
+    let receipt_tail = receipt_ref
+        .strip_prefix("receipt://")
+        .filter(|value| canonical_receipt_tail(value))
+        .ok_or_else(|| "aggregate admission_receipt_ref is noncanonical".to_string())?;
+    let wallet_consumption_ref = record
+        .get("wallet_grant_consumption_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "aggregate lacks wallet_grant_consumption_ref".to_string())?;
+    let wallet_consumption_evidence_tail = record
+        .get("wallet_grant_consumption_evidence_ref")
+        .and_then(Value::as_str)
+        .and_then(|value| value.strip_prefix("system-genesis-authority-consumption://"))
+        .filter(|value| canonical_consumption_tail(value))
+        .ok_or_else(|| {
+            "aggregate lacks canonical wallet_grant_consumption_evidence_ref".to_string()
+        })?;
     if !canonical_record_tail(tail)
         || tail != record_tail(system_id)
         || record.get("schema_version").and_then(Value::as_str) != Some(AGGREGATE_SCHEMA)
         || record.get("admission_id").and_then(Value::as_str)
             != Some(format!("system-genesis-admission://{tail}").as_str())
         || genesis.get("system_id").and_then(Value::as_str) != Some(system_id)
+        || genesis.get("genesis_id").and_then(Value::as_str) != Some(genesis_ref)
+        || proposed.get("system_id").and_then(Value::as_str) != Some(system_id)
+        || proposed.get("genesis_id").and_then(Value::as_str) != Some(genesis_ref)
+        || genesis.get("package_id") != record.get("package_id")
+        || proposed.get("package_id") != record.get("package_id")
+        || genesis.get("manifest_ref") != record.get("manifest_ref")
+        || proposed.get("manifest_ref") != record.get("manifest_ref")
+        || genesis.get("admitted_manifest_root") != record.get("admitted_manifest_root")
+        || proposed.get("admitted_manifest_root") != record.get("admitted_manifest_root")
+        || genesis
+            .pointer("/cryptographic_origin/admission_proof_ref")
+            .and_then(Value::as_str)
+            != Some(receipt_ref)
+        || genesis
+            .get("status_source_receipt_refs")
+            .and_then(Value::as_array)
+            .is_none_or(|refs| refs != &vec![json!(receipt_ref)])
+        || !wallet_consumption_ref.starts_with("wallet.network://approval-effect-consumption/")
+        || wallet_consumption_evidence_tail.is_empty()
+        || receipt_tail.is_empty()
         || genesis.get("status").and_then(Value::as_str) != Some("authorized")
         || record.get("admission_status").and_then(Value::as_str) != Some("authorized")
         || record
@@ -637,6 +812,162 @@ fn load_record(data_dir: &str, tail: &str) -> Result<Option<Value>, String> {
         .map_err(|error| format!("record slot '{name}' is malformed ({error})"))?;
     validate_record_identity(tail, &record)?;
     Ok(Some(record))
+}
+
+fn load_receipt(data_dir: &str, tail: &str) -> Result<Option<Value>, String> {
+    if !canonical_receipt_tail(tail) {
+        return Err(format!("noncanonical autonomous-System receipt key '{tail}'"));
+    }
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, RECEIPT_DIR) {
+        Ok(value) => value,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("receipt family cannot be pinned ({error})")),
+    };
+    let name = format!("{tail}.json");
+    let bytes = match super::durable_fs::read_slot_strict(&directory, &name) {
+        Ok(None) => return Ok(None),
+        Ok(Some((_file, bytes))) => bytes,
+        Err(error) => return Err(format!("receipt slot '{name}' is unreadable ({error})")),
+    };
+    let receipt: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("receipt slot '{name}' is malformed ({error})"))?;
+    if receipt.get("receipt_ref").and_then(Value::as_str)
+        != Some(format!("receipt://{tail}").as_str())
+        || receipt.get("receipt_id") != receipt.get("receipt_ref")
+        || receipt.get("schema_version").and_then(Value::as_str) != Some(RECEIPT_SCHEMA)
+        || receipt.get("receipt_type").and_then(Value::as_str)
+            != Some("AutonomousSystemGenesisReceipt")
+    {
+        return Err(format!(
+            "canonical slot '{RECEIPT_DIR}/{tail}.json' fails receipt identity binding"
+        ));
+    }
+    Ok(Some(receipt))
+}
+
+fn reconstruct_converged_local_evidence(
+    record_tail: &str,
+    record: &Value,
+    receipt_tail: &str,
+    receipt: &Value,
+) -> Result<(ConsumeApprovalGrantForEffectParams, String, String), String> {
+    validate_record_identity(record_tail, record)?;
+    let release = record
+        .get("manifest_release")
+        .filter(|value| value.is_object())
+        .ok_or_else(|| "aggregate lacks immutable manifest_release".to_string())?;
+    let proposed = record
+        .get("proposed_instantiation")
+        .filter(|value| value.is_object())
+        .ok_or_else(|| "aggregate lacks proposed_instantiation".to_string())?;
+    let compiled = compile_or_error(release, proposed).map_err(|(_, message)| message)?;
+    let resolved_at_ms = receipt
+        .get("authority_resolved_at_ms")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| "receipt lacks wallet authority time".to_string())?;
+    let authorized = AuthorizedDecision {
+        evidence: governed::sealed_evidence(receipt),
+        resolved_at_ms,
+    };
+    let admitted_at = ms_to_rfc3339(resolved_at_ms).map_err(|(_, message)| message)?;
+    let expected_record = build_record(
+        &compiled,
+        &format!("receipt://{receipt_tail}"),
+        &authorized,
+        &admitted_at,
+    )
+    .map_err(|(_, message)| message)?;
+    let expected_receipt =
+        build_receipt(receipt_tail, &expected_record, &authorized, &admitted_at);
+    if record != &expected_record || receipt != &expected_receipt {
+        return Err(
+            "record and receipt do not reconstruct byte-exactly from canonical inputs and sealed authority evidence"
+                .to_string(),
+        );
+    }
+    let system_id = s(record, "system_id");
+    let genesis_ref = s(record, "genesis_ref");
+    let (wallet_consumption, wallet_consumption_ref) = wallet_consumption_coordinates(
+        &authorized,
+        &system_id,
+        &genesis_ref,
+        &compiled.proposal_root,
+    )
+    .map_err(|(_, message)| message)?;
+    let wallet_consumption_tail = format!(
+        "asgc_{}",
+        hex::encode(wallet_consumption.consumption_id)
+    );
+    Ok((
+        wallet_consumption,
+        wallet_consumption_ref,
+        wallet_consumption_tail,
+    ))
+}
+
+fn verify_converged_admission(
+    data_dir: &str,
+    record_tail: &str,
+    record: &Value,
+) -> Result<(Value, ApprovalGrantConsumptionReceipt), VErr> {
+    let receipt_tail = record
+        .get("admission_receipt_ref")
+        .and_then(Value::as_str)
+        .and_then(|value| value.strip_prefix("receipt://"))
+        .filter(|value| canonical_receipt_tail(value))
+        .ok_or_else(|| {
+            verr(
+                "system_genesis_local_evidence_mismatch",
+                "admitted aggregate lacks a canonical receipt identity",
+            )
+        })?;
+    let receipt = load_receipt(data_dir, receipt_tail)
+        .map_err(|message| verr("system_genesis_local_evidence_unreadable", message))?
+        .ok_or_else(|| {
+            verr(
+                "system_genesis_local_evidence_missing",
+                format!("local receipt '{RECEIPT_DIR}/{receipt_tail}' is absent"),
+            )
+        })?;
+    let (wallet_consumption, wallet_consumption_ref, wallet_consumption_tail) =
+        reconstruct_converged_local_evidence(record_tail, record, receipt_tail, &receipt)
+            .map_err(|message| verr("system_genesis_local_evidence_mismatch", message))?;
+    let wallet_receipt = load_wallet_consumption_evidence(data_dir, &wallet_consumption_tail)
+        .map_err(|message| verr("system_genesis_local_evidence_unreadable", message))?
+        .ok_or_else(|| {
+            verr(
+                "system_genesis_local_evidence_missing",
+                format!(
+                    "local wallet-consumption evidence '{CONSUMPTION_DIR}/{wallet_consumption_tail}' is absent"
+                ),
+            )
+        })?;
+    validate_wallet_consumption_receipt(
+        &receipt,
+        &wallet_consumption,
+        &wallet_consumption_ref,
+        &wallet_receipt,
+    )
+    .map_err(|(_, message)| verr("system_genesis_local_evidence_mismatch", message))?;
+    super::substrate_store::verify_required_exact(data_dir, RECORD_DIR, record_tail, record)
+        .map_err(|error| {
+            verr(
+                "system_genesis_agentgres_evidence_mismatch",
+                format!(
+                    "Agentgres record proof for '{RECORD_DIR}/{record_tail}' is absent, unreadable, or foreign ({error})"
+                ),
+            )
+        })?;
+    super::substrate_store::verify_required_exact(data_dir, RECEIPT_DIR, receipt_tail, &receipt)
+        .map_err(|error| {
+            verr(
+                "system_genesis_agentgres_evidence_mismatch",
+                format!(
+                    "Agentgres receipt proof for '{RECEIPT_DIR}/{receipt_tail}' is absent, unreadable, or foreign ({error})"
+                ),
+            )
+        })?;
+    Ok((receipt, wallet_receipt))
 }
 
 fn scan_records(data_dir: &str) -> Result<Vec<Value>, String> {
@@ -698,15 +1029,62 @@ fn persist_immutable(data_dir: &str, family: &str, tail: &str, value: &Value) ->
 }
 
 fn persist_intent(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
-    super::durable_fs::persist_record_durable(data_dir, INTENT_DIR, tail, intent).map_err(
-        |failure| {
-            if failure.visible() {
-                verr("system_genesis_pending_convergence", failure.detail())
-            } else {
-                verr("system_genesis_persist_failed", failure.detail())
-            }
-        },
-    )
+    super::durable_fs::persist_receipt_no_clobber(data_dir, INTENT_DIR, tail, intent)
+        .map_err(map_commit_failure)
+}
+
+fn persist_wallet_consumption_evidence(
+    data_dir: &str,
+    tail: &str,
+    receipt: &ApprovalGrantConsumptionReceipt,
+) -> Result<(), VErr> {
+    if !canonical_consumption_tail(tail) {
+        return Err(verr(
+            "system_genesis_wallet_consumption_invalid",
+            "wallet consumption evidence key is noncanonical",
+        ));
+    }
+    let value = serde_json::to_value(receipt).map_err(|error| {
+        verr(
+            "system_genesis_wallet_consumption_invalid",
+            format!("wallet consumption receipt cannot be projected ({error})"),
+        )
+    })?;
+    super::durable_fs::persist_receipt_no_clobber(data_dir, CONSUMPTION_DIR, tail, &value)
+        .map_err(map_commit_failure)
+}
+
+fn load_wallet_consumption_evidence(
+    data_dir: &str,
+    tail: &str,
+) -> Result<Option<ApprovalGrantConsumptionReceipt>, String> {
+    if !canonical_consumption_tail(tail) {
+        return Err(format!(
+            "noncanonical wallet consumption evidence key '{tail}'"
+        ));
+    }
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, CONSUMPTION_DIR) {
+        Ok(value) => value,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(format!(
+                "wallet consumption evidence family cannot be pinned ({error})"
+            ))
+        }
+    };
+    let name = format!("{tail}.json");
+    let bytes = match super::durable_fs::read_slot_strict(&directory, &name) {
+        Ok(None) => return Ok(None),
+        Ok(Some((_file, bytes))) => bytes,
+        Err(error) => {
+            return Err(format!(
+                "wallet consumption evidence slot '{name}' is unreadable ({error})"
+            ))
+        }
+    };
+    serde_json::from_slice(&bytes).map(Some).map_err(|error| {
+        format!("wallet consumption evidence slot '{name}' is malformed ({error})")
+    })
 }
 
 fn consume_intent(data_dir: &str, tail: &str) -> Result<(), VErr> {
@@ -733,13 +1111,20 @@ fn consume_intent(data_dir: &str, tail: &str) -> Result<(), VErr> {
     })
 }
 
-fn touched_refs(system_id: &str, genesis_ref: &str, proposal_root: &str) -> Vec<String> {
+fn touched_refs(
+    system_id: &str,
+    genesis_ref: &str,
+    proposal_root: &str,
+    wallet_consumption_ref: &str,
+) -> Vec<String> {
     BTreeSet::from([
         system_id.to_string(),
         genesis_ref.to_string(),
         proposal_root.to_string(),
+        wallet_consumption_ref.to_string(),
     ])
     .into_iter()
+    .filter(|reference| !reference.is_empty())
     .collect()
 }
 
@@ -747,6 +1132,7 @@ fn seal_intent(mut intent: Value, tail: &str) -> Value {
     let system_id = s(&intent, "system_id");
     let genesis_ref = s(&intent, "genesis_ref");
     let proposal_root = s(&intent, "proposal_root");
+    let wallet_consumption_ref = s(&intent, "wallet_grant_consumption_ref");
     let object = intent.as_object_mut().expect("intent object");
     object.insert("schema_version".into(), json!(INTENT_SCHEMA));
     object.insert(
@@ -755,7 +1141,12 @@ fn seal_intent(mut intent: Value, tail: &str) -> Value {
     );
     object.insert(
         "touched_refs".into(),
-        json!(touched_refs(&system_id, &genesis_ref, &proposal_root)),
+        json!(touched_refs(
+            &system_id,
+            &genesis_ref,
+            &proposal_root,
+            &wallet_consumption_ref
+        )),
     );
     let hash = super::outcome_room_routes::record_output_hash(&intent, &[]);
     intent
@@ -785,6 +1176,7 @@ fn validate_intent_seal(intent: &Value, tail: &str) -> Result<(), String> {
         &s(intent, "system_id"),
         &s(intent, "genesis_ref"),
         &s(intent, "proposal_root"),
+        &s(intent, "wallet_grant_consumption_ref"),
     );
     if intent.get("touched_refs") != Some(&json!(expected)) {
         return Err("intent touched_refs differs from the exact admission coordinates".to_string());
@@ -821,6 +1213,29 @@ fn scan_intents(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
     Ok(intents)
 }
 
+fn load_intent(data_dir: &str, tail: &str) -> Result<Option<Value>, String> {
+    if !canonical_intent_tail(tail) {
+        return Err(format!(
+            "noncanonical autonomous-System intent key '{tail}'"
+        ));
+    }
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, INTENT_DIR) {
+        Ok(value) => value,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("intent family cannot be pinned ({error})")),
+    };
+    let name = format!("{tail}.json");
+    let bytes = match super::durable_fs::read_slot_strict(&directory, &name) {
+        Ok(None) => return Ok(None),
+        Ok(Some((_file, bytes))) => bytes,
+        Err(error) => return Err(format!("intent slot '{name}' is unreadable ({error})")),
+    };
+    let intent: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("intent slot '{name}' is malformed ({error})"))?;
+    validate_intent_seal(&intent, tail)?;
+    Ok(Some(intent))
+}
+
 fn refuse_pending_overlap(
     data_dir: &str,
     refs: &[String],
@@ -846,6 +1261,45 @@ fn refuse_pending_overlap(
                 format!("a durable genesis intent '{tail}' owns these coordinates"),
             ));
         }
+    }
+    Ok(())
+}
+
+fn preflight_admission_locked(
+    data_dir: &str,
+    system_id: &str,
+    genesis_ref: &str,
+    proposal_root: &str,
+    record_tail: &str,
+    wallet_consumption_ref: &str,
+) -> Result<(), VErr> {
+    let refs = touched_refs(
+        system_id,
+        genesis_ref,
+        proposal_root,
+        wallet_consumption_ref,
+    );
+    refuse_pending_overlap(data_dir, &refs, None)?;
+    match load_record(data_dir, record_tail) {
+        Ok(None) => {}
+        Ok(Some(_)) => {
+            return Err(verr(
+                "system_genesis_already_admitted",
+                format!("System '{system_id}' already has an admitted genesis"),
+            ))
+        }
+        Err(message) => return Err(verr("system_genesis_registry_unreadable", message)),
+    }
+    let existing = scan_records(data_dir)
+        .map_err(|message| verr("system_genesis_registry_unreadable", message))?;
+    if existing.iter().any(|record| {
+        record.get("genesis_ref").and_then(Value::as_str) == Some(genesis_ref)
+            || record.get("proposal_root").and_then(Value::as_str) == Some(proposal_root)
+    }) {
+        return Err(verr(
+            "system_genesis_coordinate_conflict",
+            "genesis identity or proposal root is already admitted",
+        ));
     }
     Ok(())
 }
@@ -900,6 +1354,39 @@ fn reconstruct_intent(intent: &Value, tail: &str) -> Result<ReconstructedIntent,
         evidence: governed::sealed_evidence(&receipt),
         resolved_at_ms,
     };
+    let (wallet_consumption, wallet_consumption_ref) = wallet_consumption_coordinates(
+        &authorized,
+        &system_id,
+        &genesis_ref,
+        &compiled.proposal_root,
+    )
+    .map_err(|(_, message)| message)?;
+    if intent
+        .get("wallet_consumption_request_hash")
+        .and_then(Value::as_str)
+        != Some(format!("sha256:{}", hex::encode(wallet_consumption.request_hash)).as_str())
+        || intent.get("wallet_consumption_id").and_then(Value::as_str)
+            != Some(hex::encode(wallet_consumption.consumption_id).as_str())
+        || intent
+            .get("wallet_consumption_grant_hash")
+            .and_then(Value::as_str)
+            != Some(format!("sha256:{}", hex::encode(wallet_consumption.grant_hash)).as_str())
+        || intent
+            .get("wallet_grant_consumption_ref")
+            .and_then(Value::as_str)
+            != Some(wallet_consumption_ref.as_str())
+        || intent
+            .get("wallet_consumption_tail")
+            .and_then(Value::as_str)
+            != Some(format!("asgc_{}", hex::encode(wallet_consumption.consumption_id)).as_str())
+        || intent.get("op").and_then(Value::as_str) != Some("genesis_admit")
+        || intent.get("phase").and_then(Value::as_str) != Some("prepared_for_authority_consumption")
+    {
+        return Err(
+            "intent wallet-consumption coordinates differ from its sealed authority request"
+                .to_string(),
+        );
+    }
     let expected_record = build_record(
         &compiled,
         &format!("receipt://{receipt_tail}"),
@@ -919,22 +1406,146 @@ fn reconstruct_intent(intent: &Value, tail: &str) -> Result<ReconstructedIntent,
     if intent.get("record_tail").and_then(Value::as_str) != Some(expected_record_tail.as_str()) {
         return Err("intent record key differs from the exact system identity".to_string());
     }
+    let wallet_consumption_tail =
+        format!("asgc_{}", hex::encode(wallet_consumption.consumption_id));
     Ok(ReconstructedIntent {
-        system_id,
-        genesis_ref: genesis_ref.clone(),
-        required_authority_ref,
-        subject_ref: genesis_ref,
-        effect: admission_effect(&compiled),
         receipt,
         receipt_tail,
         final_record: expected_record,
         record_tail: expected_record_tail,
+        wallet_consumption,
+        wallet_consumption_ref,
+        wallet_consumption_tail,
     })
+}
+
+fn validate_wallet_consumption_receipt(
+    system_receipt: &Value,
+    wallet_consumption: &ConsumeApprovalGrantForEffectParams,
+    wallet_consumption_ref: &str,
+    wallet_receipt: &ApprovalGrantConsumptionReceipt,
+) -> Result<(), VErr> {
+    let grant: ApprovalGrant = serde_json::from_value(
+        system_receipt
+            .get("wallet_approval_grant")
+            .cloned()
+            .unwrap_or(Value::Null),
+    )
+    .map_err(|error| {
+        verr(
+            "system_genesis_wallet_consumption_invalid",
+            format!("sealed wallet approval grant is malformed ({error})"),
+        )
+    })?;
+    let grant_hash = grant.artifact_hash().map_err(|error| {
+        verr(
+            "system_genesis_wallet_consumption_invalid",
+            format!("sealed wallet approval grant cannot be hashed ({error})"),
+        )
+    })?;
+    let mut receipt_hash_material = serde_json::to_value(wallet_receipt).map_err(|error| {
+        verr(
+            "system_genesis_wallet_consumption_invalid",
+            format!("wallet consumption receipt cannot be serialized ({error})"),
+        )
+    })?;
+    receipt_hash_material["receipt_hash"] = json!(vec![0u8; 32]);
+    let canonical_receipt = serde_jcs::to_vec(&receipt_hash_material).map_err(|error| {
+        verr(
+            "system_genesis_wallet_consumption_invalid",
+            format!("wallet consumption receipt cannot be canonicalized ({error})"),
+        )
+    })?;
+    let expected_receipt_hash: [u8; 32] = Sha256::digest(&canonical_receipt).into();
+    let max_usages = grant.max_usages.unwrap_or(1);
+    let expected_scope = AUTHORITY.operation_scope("genesis_admit");
+    let expected_ref = format!(
+        "wallet.network://approval-effect-consumption/{}/{}",
+        hex::encode(wallet_consumption.request_hash),
+        hex::encode(wallet_consumption.consumption_id)
+    );
+    if wallet_consumption_ref != expected_ref
+        || wallet_receipt.schema_version != 1
+        || wallet_receipt.request_hash != wallet_consumption.request_hash
+        || wallet_receipt.grant_hash != wallet_consumption.grant_hash
+        || wallet_receipt.consumption_id != wallet_consumption.consumption_id
+        || wallet_receipt.receipt_hash != expected_receipt_hash
+        || wallet_receipt.policy_hash != grant.policy_hash
+        || wallet_receipt.authority_id != grant.authority_id
+        || wallet_receipt.target.canonical_label() != expected_scope
+        || wallet_receipt.session_id.is_some()
+        || wallet_receipt.audience != grant.audience
+        || wallet_receipt.grant_nonce != grant.nonce
+        || wallet_receipt.grant_counter != grant.counter
+        || wallet_receipt.grant_hash != grant_hash
+        || wallet_receipt.consumed_at_ms > grant.expires_at
+        || wallet_receipt.usage_ordinal == 0
+        || wallet_receipt.usage_ordinal > max_usages
+        || wallet_receipt
+            .remaining_usages
+            .saturating_add(wallet_receipt.usage_ordinal)
+            != max_usages
+    {
+        return Err(verr(
+            "system_genesis_wallet_consumption_invalid",
+            "wallet.network consumption receipt does not bind the exact retained grant, canonical scope, and durable intent",
+        ));
+    }
+    Ok(())
+}
+
+async fn consume_wallet_grant_for_intent(
+    reconstructed: &ReconstructedIntent,
+) -> Result<ApprovalGrantConsumptionReceipt, VErr> {
+    let wallet_receipt =
+        super::wallet_network_capability_client::consume_approval_grant_for_effect(
+            reconstructed.wallet_consumption.clone(),
+        )
+        .await
+        .map_err(|error| {
+            use super::wallet_network_capability_client::ResolveError;
+            match error {
+                ResolveError::NotConfigured(message) => {
+                    verr("system_genesis_wallet_consumption_unavailable", message)
+                }
+                ResolveError::Unavailable(message) => {
+                    verr("system_genesis_wallet_consumption_unavailable", message)
+                }
+                ResolveError::Refused(message) => {
+                    verr("system_genesis_wallet_consumption_refused", message)
+                }
+                ResolveError::Invalid(message) => {
+                    verr("system_genesis_wallet_consumption_invalid", message)
+                }
+            }
+        })?;
+    validate_wallet_consumption_receipt(
+        &reconstructed.receipt,
+        &reconstructed.wallet_consumption,
+        &reconstructed.wallet_consumption_ref,
+        &wallet_receipt,
+    )?;
+    Ok(wallet_receipt)
 }
 
 fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
     let reconstructed = reconstruct_intent(intent, tail)
         .map_err(|error| verr("system_genesis_intent_unreadable", error))?;
+    let wallet_receipt =
+        load_wallet_consumption_evidence(data_dir, &reconstructed.wallet_consumption_tail)
+            .map_err(|error| verr("system_genesis_wallet_consumption_invalid", error))?
+            .ok_or_else(|| {
+                verr(
+                    "system_genesis_pending_convergence",
+                    "durable wallet consumption evidence is absent",
+                )
+            })?;
+    validate_wallet_consumption_receipt(
+        &reconstructed.receipt,
+        &reconstructed.wallet_consumption,
+        &reconstructed.wallet_consumption_ref,
+        &wallet_receipt,
+    )?;
     persist_immutable(
         data_dir,
         RECEIPT_DIR,
@@ -961,11 +1572,6 @@ fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<
         ));
     }
     consume_intent(data_dir, tail)
-}
-
-fn persist_and_complete_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
-    persist_intent(data_dir, tail, intent)?;
-    complete_intent_locked(data_dir, tail, intent)
 }
 
 pub(crate) async fn handle_admit(
@@ -1007,6 +1613,28 @@ pub(crate) async fn handle_admit(
             "compiled genesis lacks canonical System or genesis coordinates",
         ));
     }
+    let record_tail = record_tail(&system_id);
+    // Serialize the full admission decision, including the async wallet crossing. The
+    // synchronous plane lock below still owns each byte-level storage operation; this
+    // async gate prevents concurrent requests from all resolving authority before one
+    // of them can establish the durable mutation intent.
+    let _admission_gate = SYSTEM_GENESIS_ADMISSION_GATE.lock().await;
+    {
+        let _plane = SYSTEM_GENESIS_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Err(error) = preflight_admission_locked(
+            &state.data_dir,
+            &system_id,
+            &genesis_ref,
+            &compiled.proposal_root,
+            &record_tail,
+            "",
+        ) {
+            return classify(error);
+        }
+    }
+
     let effect = admission_effect(&compiled);
     let authority_body = match canonical_authority_body(&body) {
         Ok(value) => value,
@@ -1022,7 +1650,7 @@ pub(crate) async fn handle_admit(
         },
         &required_authority_ref,
         &genesis_ref,
-        "admit",
+        "genesis_admit",
         0,
         &effect,
     )
@@ -1035,25 +1663,43 @@ pub(crate) async fn handle_admit(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
-    let record_tail = record_tail(&system_id);
-    let receipt_tail = fresh_tail("asgr_", &genesis_ref, authorized.resolved_at_ms);
+    let (
+        receipt_tail,
+        intent_tail,
+        wallet_consumption_tail,
+        wallet_consumption,
+        wallet_consumption_ref,
+    ) = match deterministic_evidence_tails(
+        &authorized,
+        &system_id,
+        &genesis_ref,
+        &compiled.proposal_root,
+    ) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
     let receipt_ref = format!("receipt://{receipt_tail}");
     let final_record = match build_record(&compiled, &receipt_ref, &authorized, &admitted_at) {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
     let receipt = build_receipt(&receipt_tail, &final_record, &authorized, &admitted_at);
-    let intent_tail = fresh_tail("asgi_", &genesis_ref, authorized.resolved_at_ms);
     let intent = seal_intent(
         json!({
             "kind": "admit_genesis",
-            "op": "admit",
+            "op": "genesis_admit",
+            "phase": "prepared_for_authority_consumption",
             "system_id": system_id,
             "genesis_ref": genesis_ref,
             "proposal_root": compiled.proposal_root,
             "required_authority_ref": required_authority_ref,
             "record_tail": record_tail,
             "receipt_tail": receipt_tail,
+            "wallet_consumption_tail": wallet_consumption_tail,
+            "wallet_consumption_request_hash": format!("sha256:{}", hex::encode(wallet_consumption.request_hash)),
+            "wallet_consumption_grant_hash": format!("sha256:{}", hex::encode(wallet_consumption.grant_hash)),
+            "wallet_consumption_id": hex::encode(wallet_consumption.consumption_id),
+            "wallet_grant_consumption_ref": wallet_consumption_ref,
             "release": compiled.release,
             "proposed_instantiation": compiled.proposed_instantiation,
             "receipt": receipt,
@@ -1062,43 +1708,94 @@ pub(crate) async fn handle_admit(
         &intent_tail,
     );
 
-    let _plane = SYSTEM_GENESIS_LOCK
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let refs = touched_refs(&system_id, &genesis_ref, &compiled.proposal_root);
-    if let Err(error) = refuse_pending_overlap(&state.data_dir, &refs, None) {
-        return classify(error);
-    }
-    match load_record(&state.data_dir, &record_tail) {
-        Ok(None) => {}
-        Ok(Some(_)) => {
-            return classify(verr(
-                "system_genesis_already_admitted",
-                format!("System '{system_id}' already has an admitted genesis"),
-            ))
+    {
+        let _plane = SYSTEM_GENESIS_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Err(error) = preflight_admission_locked(
+            &state.data_dir,
+            &system_id,
+            &genesis_ref,
+            &compiled.proposal_root,
+            &record_tail,
+            &wallet_consumption_ref,
+        ) {
+            return classify(error);
         }
-        Err(message) => return classify(verr("system_genesis_registry_unreadable", message)),
+        if let Err(error) = persist_intent(&state.data_dir, &intent_tail, &intent) {
+            return classify(error);
+        }
     }
-    let existing = match scan_records(&state.data_dir) {
-        Ok(value) => value,
-        Err(message) => return classify(verr("system_genesis_registry_unreadable", message)),
-    };
-    if existing.iter().any(|record| {
-        record.get("genesis_ref").and_then(Value::as_str) == Some(genesis_ref.as_str())
-            || record.get("proposal_root").and_then(Value::as_str)
-                == Some(compiled.proposal_root.as_str())
-    }) {
+    if std::env::var("IOI_TEST_FORCE_SYSTEM_GENESIS_AFTER_PREPARE")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
         return classify(verr(
-            "system_genesis_coordinate_conflict",
-            "genesis identity or proposal root is already admitted",
+            "system_genesis_pending_convergence",
+            "test-forced interruption after durable authority-consumption preparation",
         ));
     }
-    match persist_and_complete_locked(&state.data_dir, &intent_tail, &intent) {
+
+    let reconstructed = match reconstruct_intent(&intent, &intent_tail) {
+        Ok(value) => value,
+        Err(message) => {
+            return classify(verr("system_genesis_intent_unreadable", message));
+        }
+    };
+    let wallet_receipt = match consume_wallet_grant_for_intent(&reconstructed).await {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    if std::env::var("IOI_TEST_FORCE_SYSTEM_GENESIS_AFTER_WALLET_CONSUME")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        return classify(verr(
+            "system_genesis_pending_convergence",
+            "test-forced interruption after wallet authority consumption",
+        ));
+    }
+
+    let completion = {
+        let _plane = SYSTEM_GENESIS_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let stored_intent = match load_intent(&state.data_dir, &intent_tail) {
+            Ok(Some(value)) if value == intent => value,
+            Ok(Some(_)) => {
+                return classify(verr(
+                    "system_genesis_intent_unreadable",
+                    "durable prepared intent differs from the authorized request",
+                ))
+            }
+            Ok(None) => {
+                return classify(verr(
+                    "system_genesis_pending_convergence",
+                    "durable prepared intent vanished before completion",
+                ))
+            }
+            Err(message) => {
+                return classify(verr("system_genesis_intent_unreadable", message));
+            }
+        };
+        if let Err(error) = persist_wallet_consumption_evidence(
+            &state.data_dir,
+            &reconstructed.wallet_consumption_tail,
+            &wallet_receipt,
+        ) {
+            return classify(error);
+        }
+        complete_intent_locked(&state.data_dir, &intent_tail, &stored_intent)
+    };
+    match completion {
         Ok(()) => (
             StatusCode::CREATED,
             Json(json!({
                 "autonomous_system_genesis_admission": final_record,
                 "autonomous_system_genesis_receipt": receipt,
+                "wallet_grant_consumption_receipt": wallet_receipt,
                 "nonclaims": {
                     "active_profile_materialization": false,
                     "activation": false,
@@ -1167,28 +1864,54 @@ fn handle_get_tail(data_dir: &str, tail: &str) -> (StatusCode, Json<Value>) {
             format!("genesis admission at key '{tail}' has not crossed every durable boundary"),
         ));
     }
-    match load_record(data_dir, tail) {
-        Ok(Some(record)) => (
-            StatusCode::OK,
-            Json(json!({
-                "autonomous_system_genesis_admission": record,
-                "authority": governed::decision_authority_posture(AUTHORITY),
-                "nonclaims": {
-                    "active_profile_materialization": false,
-                    "activation": false,
-                    "node_membership": false,
-                    "network_enrollment_effect": false,
-                    "runtime_effect": false,
-                    "systems_product_surface": false
-                }
-            })),
-        ),
-        Ok(None) => classify(verr(
-            "system_genesis_not_found",
-            format!("no admitted genesis exists at key '{tail}'"),
-        )),
-        Err(message) => classify(verr("system_genesis_registry_unreadable", message)),
-    }
+    let record = match load_record(data_dir, tail) {
+        Ok(Some(record)) => record,
+        Ok(None) => {
+            return match super::substrate_store::read_required_exact(
+                data_dir, RECORD_DIR, tail,
+            ) {
+                Ok(None) => classify(verr(
+                    "system_genesis_not_found",
+                    format!("no admitted genesis exists at key '{tail}'"),
+                )),
+                Ok(Some(_)) => classify(verr(
+                    "system_genesis_agentgres_evidence_mismatch",
+                    format!(
+                        "Agentgres contains '{RECORD_DIR}/{tail}' while the required local aggregate is absent"
+                    ),
+                )),
+                Err(error) => classify(verr(
+                    "system_genesis_agentgres_evidence_unreadable",
+                    format!("Agentgres cannot prove absence for '{RECORD_DIR}/{tail}' ({error})"),
+                )),
+            }
+        }
+        Err(message) => {
+            return classify(verr("system_genesis_registry_unreadable", message));
+        }
+    };
+    let (receipt, wallet_receipt) =
+        match verify_converged_admission(data_dir, tail, &record) {
+            Ok(value) => value,
+            Err(error) => return classify(error),
+        };
+    (
+        StatusCode::OK,
+        Json(json!({
+            "autonomous_system_genesis_admission": record,
+            "autonomous_system_genesis_receipt": receipt,
+            "wallet_grant_consumption_receipt": wallet_receipt,
+            "authority": governed::decision_authority_posture(AUTHORITY),
+            "nonclaims": {
+                "active_profile_materialization": false,
+                "activation": false,
+                "node_membership": false,
+                "network_enrollment_effect": false,
+                "runtime_effect": false,
+                "systems_product_surface": false
+            }
+        })),
+    )
 }
 
 pub(crate) async fn complete_governed_system_genesis_intents(data_dir: &str, max_intents: usize) {
@@ -1207,28 +1930,55 @@ pub(crate) async fn complete_governed_system_genesis_intents(data_dir: &str, max
                 continue;
             }
         };
-        if let Err(message) = governed::reauthorize_sealed_receipt_with_context(
-            AUTHORITY,
-            &reconstructed.receipt,
-            Governance::Host,
-            AuthorityPolicyContext::SystemGenesis {
-                system_id: &reconstructed.system_id,
-                genesis_id: &reconstructed.genesis_ref,
+        let wallet_receipt = match load_wallet_consumption_evidence(
+            data_dir,
+            &reconstructed.wallet_consumption_tail,
+        ) {
+            Ok(Some(value)) => {
+                if let Err((_, message)) =
+                    validate_wallet_consumption_receipt(
+                        &reconstructed.receipt,
+                        &reconstructed.wallet_consumption,
+                        &reconstructed.wallet_consumption_ref,
+                        &value,
+                    )
+                {
+                    eprintln!(
+                        "SystemGenesis completer: '{tail}' wallet evidence invalid ({message}); retained"
+                    );
+                    continue;
+                }
+                value
+            }
+            Ok(None) => match consume_wallet_grant_for_intent(&reconstructed).await {
+                Ok(value) => value,
+                Err((_, message)) => {
+                    eprintln!(
+                        "SystemGenesis completer: '{tail}' wallet consumption pending ({message}); retained"
+                    );
+                    continue;
+                }
             },
-            &reconstructed.required_authority_ref,
-            &reconstructed.subject_ref,
-            "admit",
-            0,
-            &reconstructed.effect,
-        )
-        .await
-        {
-            eprintln!("SystemGenesis completer: '{tail}' authority refused ({message}); retained");
-            continue;
-        }
+            Err(message) => {
+                eprintln!(
+                    "SystemGenesis completer: '{tail}' wallet evidence unreadable ({message}); retained"
+                );
+                continue;
+            }
+        };
         let _plane = SYSTEM_GENESIS_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Err((_, message)) = persist_wallet_consumption_evidence(
+            data_dir,
+            &reconstructed.wallet_consumption_tail,
+            &wallet_receipt,
+        ) {
+            eprintln!(
+                "SystemGenesis completer: '{tail}' wallet evidence persist failed ({message}); retained"
+            );
+            continue;
+        }
         if let Err((_, message)) = complete_intent_locked(data_dir, &tail, &intent) {
             eprintln!("SystemGenesis completer: '{tail}' convergence failed ({message}); retained");
         }
@@ -1297,16 +2047,46 @@ mod system_genesis_tests {
     }
 
     fn fake_authorized() -> AuthorizedDecision {
+        use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+        use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
+        use ioi_types::app::{account_id_from_key_material, SignatureSuite};
+
+        let request_hash = [0x11u8; 32];
+        let policy_hash = [0x22u8; 32];
+        let private_key = Ed25519PrivateKey::from_bytes(&[0x33u8; 32]).unwrap();
+        let keypair = Ed25519KeyPair::from_private_key(&private_key).unwrap();
+        let approver_public_key = keypair.public_key().to_bytes();
+        let authority_id =
+            account_id_from_key_material(SignatureSuite::ED25519, &approver_public_key).unwrap();
+        let mut grant = ApprovalGrant {
+            schema_version: 1,
+            authority_id,
+            request_hash,
+            policy_hash,
+            audience: [0x44u8; 32],
+            nonce: [0x55u8; 32],
+            counter: 1,
+            expires_at: 1_850_000_000_000,
+            max_usages: Some(1),
+            window_id: None,
+            pii_action: None,
+            scoped_exception: None,
+            review_request_hash: None,
+            approver_public_key,
+            approver_sig: Vec::new(),
+            approver_suite: SignatureSuite::ED25519,
+        };
+        grant.approver_sig = keypair.sign(&grant.signing_bytes().unwrap()).unwrap().to_bytes().to_vec();
         AuthorizedDecision {
             evidence: governed::DecisionEvidence {
-                acting_authority_id: json!([1, 2, 3]),
+                acting_authority_id: json!(authority_id),
                 grant_ref: "wallet.network://grant/approval/test".to_string(),
-                policy_hash: "sha256:policy".to_string(),
-                request_hash: "sha256:request".to_string(),
-                effect_hash: "sha256:effect".to_string(),
+                policy_hash: format!("sha256:{}", hex::encode(policy_hash)),
+                request_hash: format!("sha256:{}", hex::encode(request_hash)),
+                effect_hash: format!("sha256:{}", "66".repeat(32)),
                 authorized_effect: Value::Null,
-                wallet_approval_grant: Value::Null,
-                authority_binding: Value::Null,
+                wallet_approval_grant: serde_json::to_value(grant).unwrap(),
+                authority_binding: json!({"test_fixture": true}),
             },
             resolved_at_ms: 1_784_395_200_000,
         }
@@ -1527,21 +2307,38 @@ mod system_genesis_tests {
         let compiled = compile_or_error(&release, &proposed).unwrap();
         let authorized = fake_authorized();
         let admitted_at = "2026-07-18T12:00:00Z";
-        let receipt_tail = format!("asgr_{}", "b".repeat(64));
+        let (
+            receipt_tail,
+            intent_tail,
+            wallet_consumption_tail,
+            wallet_consumption,
+            wallet_consumption_ref,
+        ) = deterministic_evidence_tails(
+            &authorized,
+            compiled.proposed_genesis["system_id"].as_str().unwrap(),
+            compiled.proposed_genesis["genesis_id"].as_str().unwrap(),
+            &compiled.proposal_root,
+        )
+        .unwrap();
         let receipt_ref = format!("receipt://{receipt_tail}");
         let final_record = build_record(&compiled, &receipt_ref, &authorized, admitted_at).unwrap();
         let receipt = build_receipt(&receipt_tail, &final_record, &authorized, admitted_at);
-        let intent_tail = format!("asgi_{}", "c".repeat(64));
         let mut intent = seal_intent(
             json!({
                 "kind": "admit_genesis",
-                "op": "admit",
+                "op": "genesis_admit",
+                "phase": "prepared_for_authority_consumption",
                 "system_id": compiled.proposed_genesis["system_id"],
                 "genesis_ref": compiled.proposed_genesis["genesis_id"],
                 "proposal_root": compiled.proposal_root,
                 "required_authority_ref": governing_authority_ref(&compiled).unwrap(),
                 "record_tail": record_tail(compiled.proposed_genesis["system_id"].as_str().unwrap()),
                 "receipt_tail": receipt_tail,
+                "wallet_consumption_tail": wallet_consumption_tail,
+                "wallet_consumption_request_hash": format!("sha256:{}", hex::encode(wallet_consumption.request_hash)),
+                "wallet_consumption_grant_hash": format!("sha256:{}", hex::encode(wallet_consumption.grant_hash)),
+                "wallet_consumption_id": hex::encode(wallet_consumption.consumption_id),
+                "wallet_grant_consumption_ref": wallet_consumption_ref,
                 "release": release,
                 "proposed_instantiation": proposed,
                 "receipt": receipt,

@@ -66,6 +66,57 @@ pub struct ConsumeApprovalGrantParams {
     pub consumed_at_ms: u64,
 }
 
+/// Parameters for consuming one approval-grant usage for an exact durable effect intent.
+///
+/// Unlike the legacy counter-only method, this contract is idempotent only for the same
+/// `consumption_id`. A retry after a process crash can therefore recover the original wallet
+/// decision without granting a second effect or mistaking another consumer for itself.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct ConsumeApprovalGrantForEffectParams {
+    /// Approved request hash to consume.
+    pub request_hash: [u8; 32],
+    /// Canonical content hash of the exact signed grant being consumed.
+    pub grant_hash: [u8; 32],
+    /// Stable id of the caller's durable pre-effect intent.
+    pub consumption_id: [u8; 32],
+}
+
+/// Immutable receipt for one intent-bound approval-grant consumption.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct ApprovalGrantConsumptionReceipt {
+    pub schema_version: u16,
+    pub receipt_hash: [u8; 32],
+    pub request_hash: [u8; 32],
+    pub grant_hash: [u8; 32],
+    pub consumption_id: [u8; 32],
+    pub policy_hash: [u8; 32],
+    pub authority_id: [u8; 32],
+    pub target: ActionTarget,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<[u8; 32]>,
+    pub audience: [u8; 32],
+    pub issued_revocation_epoch: u64,
+    pub grant_nonce: [u8; 32],
+    pub grant_counter: u64,
+    pub consumed_at_ms: u64,
+    pub usage_ordinal: u32,
+    pub remaining_usages: u32,
+}
+
+/// Exact signed approval snapshot and mutable use counter, owned by the grant hash.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct ApprovalGrantState {
+    pub schema_version: u16,
+    pub grant_hash: [u8; 32],
+    pub approval: WalletApprovalDecision,
+    pub issued_revocation_epoch: u64,
+    pub max_usages: u32,
+    pub uses_consumed: u32,
+    pub remaining_usages: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_consumed_at_ms: Option<u64>,
+}
+
 /// Parameters for registering an approval authority.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct RegisterApprovalAuthorityParams {
@@ -402,6 +453,11 @@ impl BlockchainService for WalletNetworkService {
             "consume_approval_grant@v1" => {
                 let consume: ConsumeApprovalGrantParams = codec::from_bytes_canonical(params)?;
                 handlers::approval::consume_approval_grant(state, ctx, consume)
+            }
+            "consume_approval_grant_for_effect@v1" => {
+                let consume: ConsumeApprovalGrantForEffectParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::approval::consume_approval_grant_for_effect(state, ctx, consume)
             }
             "panic_stop@v1" => {
                 let params: BumpRevocationEpochParams = codec::from_bytes_canonical(params)?;

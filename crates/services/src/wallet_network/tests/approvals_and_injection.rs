@@ -131,6 +131,12 @@ fn record_approval_initializes_consumption_state_and_consumes_by_usage() {
         surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
         decided_at_ms: 1_750_000_000_500,
     };
+    let grant_hash = approval
+        .approval_grant
+        .as_ref()
+        .expect("grant")
+        .artifact_hash()
+        .expect("grant hash");
 
     with_ctx(|ctx| {
         let register = RegisterApprovalAuthorityParams {
@@ -203,6 +209,363 @@ fn record_approval_initializes_consumption_state_and_consumes_by_usage() {
     assert_eq!(consumption.uses_consumed, 2);
     assert_eq!(consumption.remaining_usages, 0);
     assert_eq!(consumption.bound_audience, Some([7u8; 32]));
+    let exact_grant: ApprovalGrantState =
+        load_typed(&state, &approval_grant_state_key(&grant_hash))
+            .expect("load")
+            .expect("exact grant state");
+    assert_eq!(exact_grant.grant_hash, grant_hash);
+    assert_eq!(exact_grant.uses_consumed, 0);
+}
+
+#[test]
+fn effect_consumption_is_idempotent_only_for_the_same_durable_intent() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let request_hash = [0x51u8; 32];
+    let consumption_id = [0x52u8; 32];
+    let approver = new_approval_signer();
+    let approval = WalletApprovalDecision {
+        interception: WalletInterceptionContext {
+            session_id: Some([0x53u8; 32]),
+            request_hash,
+            target: ActionTarget::NetFetch,
+            policy_hash: [0x54u8; 32],
+            value_usd_micros: None,
+            reason: "governed effect".to_string(),
+            intercepted_at_ms: 1_750_000_000_000,
+        },
+        decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
+        approval_grant: Some(signed_wallet_approval_grant(
+            &approver,
+            request_hash,
+            [0x54u8; 32],
+            [7u8; 32],
+            [0x55u8; 32],
+            11,
+            Some(1),
+            1_850_000_000_000,
+        )),
+        surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
+        decided_at_ms: 1_750_000_000_500,
+    };
+    let grant_hash = approval
+        .approval_grant
+        .as_ref()
+        .expect("grant")
+        .artifact_hash()
+        .expect("grant hash");
+
+    with_ctx(|ctx| {
+        let register = RegisterApprovalAuthorityParams {
+            authority: approver.authority.clone(),
+        };
+        run_async(service.handle_service_call(
+            &mut state,
+            "register_approval_authority@v1",
+            &codec::to_bytes_canonical(&register).expect("encode"),
+            ctx,
+        ))
+        .expect("register authority");
+        run_async(service.handle_service_call(
+            &mut state,
+            "record_approval@v1",
+            &codec::to_bytes_canonical(&approval).expect("encode"),
+            ctx,
+        ))
+        .expect("record approval");
+
+        let consume = ConsumeApprovalGrantForEffectParams {
+            request_hash,
+            grant_hash,
+            consumption_id,
+        };
+        let consume_bytes = codec::to_bytes_canonical(&consume).expect("encode");
+        run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v1",
+            &consume_bytes,
+            ctx,
+        ))
+        .expect("first intent consumption");
+        run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v1",
+            &consume_bytes,
+            ctx,
+        ))
+        .expect("same intent replay is idempotent");
+
+        let foreign_intent = ConsumeApprovalGrantForEffectParams {
+            request_hash,
+            grant_hash,
+            consumption_id: [0x56u8; 32],
+        };
+        let error = run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v1",
+            &codec::to_bytes_canonical(&foreign_intent).expect("encode"),
+            ctx,
+        ))
+        .expect_err("a different intent cannot reuse the exhausted grant");
+        assert!(error.to_string().contains("remaining usages"));
+
+        run_async(service.handle_service_call(
+            &mut state,
+            "record_approval@v1",
+            &codec::to_bytes_canonical(&approval).expect("encode"),
+            ctx,
+        ))
+        .expect("re-recording the exact grant is idempotent");
+        let panic_params = codec::to_bytes_canonical(&BumpRevocationEpochParams {
+            reason: "prove consumed-receipt replay".to_string(),
+        })
+        .expect("encode");
+        run_async(service.handle_service_call(&mut state, "panic_stop@v1", &panic_params, ctx))
+            .expect("bump revocation epoch");
+        run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v1",
+            &consume_bytes,
+            ctx,
+        ))
+        .expect("exact consumed intent remains replayable after revocation");
+        let conflicting_tuple = ConsumeApprovalGrantForEffectParams {
+            request_hash,
+            grant_hash: [0x57u8; 32],
+            consumption_id,
+        };
+        let error = run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v1",
+            &codec::to_bytes_canonical(&conflicting_tuple).expect("encode"),
+            ctx,
+        ))
+        .expect_err("the same consumption id cannot name a different grant");
+        assert!(error.to_string().contains("different request or grant"));
+    });
+
+    let consumption: ApprovalGrantState =
+        load_typed(&state, &approval_grant_state_key(&grant_hash))
+            .expect("load")
+            .expect("consumption state");
+    assert_eq!(consumption.uses_consumed, 1);
+    assert_eq!(consumption.remaining_usages, 0);
+
+    let receipt: ApprovalGrantConsumptionReceipt = load_typed(
+        &state,
+        &approval_effect_consumption_receipt_key(&consumption_id),
+    )
+    .expect("load")
+    .expect("effect receipt");
+    assert_eq!(receipt.request_hash, request_hash);
+    assert_eq!(receipt.consumption_id, consumption_id);
+    assert_eq!(receipt.usage_ordinal, 1);
+    assert_eq!(receipt.remaining_usages, 0);
+    assert_ne!(receipt.receipt_hash, [0u8; 32]);
+    assert_eq!(receipt.grant_hash, grant_hash);
+    assert!(state
+        .get(&approval_effect_consumption_receipt_key(&[0x56u8; 32]))
+        .expect("state")
+        .is_none());
+}
+
+#[test]
+fn distinct_grants_for_one_request_keep_independent_usage_state() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let request_hash = [0x58u8; 32];
+    let policy_hash = [0x59u8; 32];
+    let approver = new_approval_signer();
+    let approval_for = |nonce: [u8; 32], counter: u64| WalletApprovalDecision {
+        interception: WalletInterceptionContext {
+            session_id: Some([0x5au8; 32]),
+            request_hash,
+            target: ActionTarget::NetFetch,
+            policy_hash,
+            value_usd_micros: None,
+            reason: "independent governed effect grant".to_string(),
+            intercepted_at_ms: 1_750_000_000_000,
+        },
+        decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
+        approval_grant: Some(signed_wallet_approval_grant(
+            &approver,
+            request_hash,
+            policy_hash,
+            [7u8; 32],
+            nonce,
+            counter,
+            Some(1),
+            1_850_000_000_000,
+        )),
+        surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
+        decided_at_ms: 1_750_000_000_500,
+    };
+    let first = approval_for([0x5bu8; 32], 21);
+    let second = approval_for([0x5cu8; 32], 22);
+    let first_hash = first
+        .approval_grant
+        .as_ref()
+        .expect("first grant")
+        .artifact_hash()
+        .expect("first grant hash");
+    let second_hash = second
+        .approval_grant
+        .as_ref()
+        .expect("second grant")
+        .artifact_hash()
+        .expect("second grant hash");
+    assert_ne!(first_hash, second_hash);
+
+    with_ctx(|ctx| {
+        run_async(service.handle_service_call(
+            &mut state,
+            "register_approval_authority@v1",
+            &codec::to_bytes_canonical(&RegisterApprovalAuthorityParams {
+                authority: approver.authority.clone(),
+            })
+            .expect("encode"),
+            ctx,
+        ))
+        .expect("register authority");
+
+        for (approval, grant_hash, consumption_id) in [
+            (&first, first_hash, [0x5du8; 32]),
+            (&second, second_hash, [0x5eu8; 32]),
+        ] {
+            run_async(service.handle_service_call(
+                &mut state,
+                "record_approval@v1",
+                &codec::to_bytes_canonical(approval).expect("encode"),
+                ctx,
+            ))
+            .expect("record distinct grant");
+            run_async(service.handle_service_call(
+                &mut state,
+                "consume_approval_grant_for_effect@v1",
+                &codec::to_bytes_canonical(&ConsumeApprovalGrantForEffectParams {
+                    request_hash,
+                    grant_hash,
+                    consumption_id,
+                })
+                .expect("encode"),
+                ctx,
+            ))
+            .expect("consume distinct grant");
+        }
+
+        run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v1",
+            &codec::to_bytes_canonical(&ConsumeApprovalGrantForEffectParams {
+                request_hash,
+                grant_hash: first_hash,
+                consumption_id: [0x5du8; 32],
+            })
+            .expect("encode"),
+            ctx,
+        ))
+        .expect("first grant's exact receipt remains replayable after recording the second");
+    });
+
+    for hash in [first_hash, second_hash] {
+        let grant_state: ApprovalGrantState =
+            load_typed(&state, &approval_grant_state_key(&hash))
+                .expect("load")
+                .expect("grant state");
+        assert_eq!(grant_state.uses_consumed, 1);
+        assert_eq!(grant_state.remaining_usages, 0);
+    }
+}
+
+#[test]
+fn effect_consumption_rejects_a_conflicting_occupied_receipt_slot() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let request_hash = [0x61u8; 32];
+    let consumption_id = [0x62u8; 32];
+    let approver = new_approval_signer();
+    let approval = WalletApprovalDecision {
+        interception: WalletInterceptionContext {
+            session_id: None,
+            request_hash,
+            target: ActionTarget::WebRetrieve,
+            policy_hash: [0x63u8; 32],
+            value_usd_micros: None,
+            reason: "governed effect".to_string(),
+            intercepted_at_ms: 1_750_000_000_000,
+        },
+        decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
+        approval_grant: Some(signed_wallet_approval_grant(
+            &approver,
+            request_hash,
+            [0x63u8; 32],
+            [7u8; 32],
+            [0x64u8; 32],
+            12,
+            Some(1),
+            1_850_000_000_000,
+        )),
+        surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
+        decided_at_ms: 1_750_000_000_500,
+    };
+    let grant_hash = approval
+        .approval_grant
+        .as_ref()
+        .expect("grant")
+        .artifact_hash()
+        .expect("grant hash");
+
+    with_ctx(|ctx| {
+        let register = RegisterApprovalAuthorityParams {
+            authority: approver.authority.clone(),
+        };
+        run_async(service.handle_service_call(
+            &mut state,
+            "register_approval_authority@v1",
+            &codec::to_bytes_canonical(&register).expect("encode"),
+            ctx,
+        ))
+        .expect("register authority");
+        run_async(service.handle_service_call(
+            &mut state,
+            "record_approval@v1",
+            &codec::to_bytes_canonical(&approval).expect("encode"),
+            ctx,
+        ))
+        .expect("record approval");
+    });
+
+    let receipt_key = approval_effect_consumption_receipt_key(&consumption_id);
+    state
+        .insert(&receipt_key, b"foreign occupant")
+        .expect("plant conflicting slot");
+
+    with_ctx(|ctx| {
+        let consume = ConsumeApprovalGrantForEffectParams {
+            request_hash,
+            grant_hash,
+            consumption_id,
+        };
+        let error = run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v1",
+            &codec::to_bytes_canonical(&consume).expect("encode"),
+            ctx,
+        ))
+        .expect_err("foreign occupied receipt slot must refuse");
+        assert!(error.to_string().contains("receipt is unreadable"));
+    });
+
+    let consumption: ApprovalGrantState =
+        load_typed(&state, &approval_grant_state_key(&grant_hash))
+            .expect("load")
+            .expect("consumption state");
+    assert_eq!(consumption.uses_consumed, 0);
+    assert_eq!(consumption.remaining_usages, 1);
+    assert_eq!(
+        state.get(&receipt_key).expect("state"),
+        Some(b"foreign occupant".to_vec())
+    );
 }
 
 #[test]

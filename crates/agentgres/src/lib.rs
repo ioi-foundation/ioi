@@ -34,17 +34,26 @@ pub const GENESIS_ROOT: &str = "sha256:genesis";
 
 /// A proposed operation. `recorded_at_ms` is an input recorded by the caller
 /// (harness, route layer, wallet gate) — the engine never reads a clock.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Operation {
     pub domain: String,
     pub object_ref: String,
     pub op_kind: String,
     /// Expected head for optimistic-concurrency admission. `None` admits
-    /// unconditionally (create / first write).
+    /// unconditionally unless `expected_absent` is set.
     pub expected_head: Option<Head>,
+    /// Require this object key to have no committed or earlier in-batch
+    /// head. Omitted/false preserves the legacy unconditional `None`
+    /// semantics and its serialized operation bytes.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub expected_absent: bool,
     pub payload: serde_json::Value,
     pub recorded_at_ms: u64,
     pub idem_key: String,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -89,6 +98,13 @@ pub enum Refusal {
         expected: Option<Head>,
         actual: Option<Head>,
     },
+    ExpectedAbsentConflict {
+        object_ref: String,
+        actual: Head,
+    },
+    ConflictingHeadConditions {
+        object_ref: String,
+    },
     EmptyObjectRef,
 }
 
@@ -103,8 +119,44 @@ impl std::fmt::Display for Refusal {
                 f,
                 "expected_head_conflict object={object_ref} expected={expected:?} actual={actual:?}"
             ),
+            Refusal::ExpectedAbsentConflict { object_ref, actual } => write!(
+                f,
+                "expected_absent_conflict object={object_ref} actual={actual}"
+            ),
+            Refusal::ConflictingHeadConditions { object_ref } => {
+                write!(f, "conflicting_head_conditions object={object_ref}")
+            }
             Refusal::EmptyObjectRef => write!(f, "empty_object_ref"),
         }
+    }
+}
+
+pub(crate) fn validate_head_condition(
+    op: &Operation,
+    actual: Option<&Head>,
+) -> Result<(), Refusal> {
+    if op.expected_absent {
+        if op.expected_head.is_some() {
+            return Err(Refusal::ConflictingHeadConditions {
+                object_ref: op.object_ref.clone(),
+            });
+        }
+        return match actual {
+            None => Ok(()),
+            Some(actual) => Err(Refusal::ExpectedAbsentConflict {
+                object_ref: op.object_ref.clone(),
+                actual: actual.clone(),
+            }),
+        };
+    }
+    match (&op.expected_head, actual) {
+        (None, _) => Ok(()),
+        (Some(expected), Some(actual)) if expected == actual => Ok(()),
+        (Some(expected), actual) => Err(Refusal::ExpectedHeadConflict {
+            object_ref: op.object_ref.clone(),
+            expected: Some(expected.clone()),
+            actual: actual.cloned(),
+        }),
     }
 }
 
@@ -346,16 +398,7 @@ impl AgentgresSubstrate for SubstrateEngine {
         if op.object_ref.is_empty() {
             return Err(Refusal::EmptyObjectRef);
         }
-        let actual = self.heads.get(&op.object_ref);
-        match (&op.expected_head, actual) {
-            (None, _) => Ok(()),
-            (Some(exp), Some(act)) if exp == act => Ok(()),
-            (Some(exp), act) => Err(Refusal::ExpectedHeadConflict {
-                object_ref: op.object_ref.clone(),
-                expected: Some(exp.clone()),
-                actual: act.cloned(),
-            }),
-        }
+        validate_head_condition(op, self.heads.get(&op.object_ref))
     }
 
     fn admit_batch(
@@ -379,15 +422,7 @@ impl AgentgresSubstrate for SubstrateEngine {
             let ok = if op.object_ref.is_empty() {
                 Err(Refusal::EmptyObjectRef)
             } else {
-                match (&op.expected_head, effective_head) {
-                    (None, _) => Ok(()),
-                    (Some(exp), Some(act)) if exp == act => Ok(()),
-                    (Some(exp), act) => Err(Refusal::ExpectedHeadConflict {
-                        object_ref: op.object_ref.clone(),
-                        expected: Some(exp.clone()),
-                        actual: act.cloned(),
-                    }),
-                }
+                validate_head_condition(&op, effective_head)
             };
             if let Err(refusal) = ok {
                 results[i] = Some(Err(refusal));
@@ -617,10 +652,27 @@ mod tests {
             object_ref: obj.into(),
             op_kind: kind.into(),
             expected_head: expected.map(|s| s.to_string()),
+            expected_absent: false,
             payload: serde_json::json!({ "n": n }),
             recorded_at_ms: 1_000 + n,
             idem_key: format!("idem-{n}"),
         }
+    }
+
+    #[test]
+    fn expected_absent_is_backward_compatible_on_the_wire() {
+        let legacy = serde_json::json!({
+            "domain": "bench",
+            "object_ref": "obj://a",
+            "op_kind": "create",
+            "expected_head": null,
+            "payload": {"n": 1},
+            "recorded_at_ms": 1001,
+            "idem_key": "idem-1"
+        });
+        let decoded: Operation = serde_json::from_value(legacy.clone()).unwrap();
+        assert_eq!(decoded, op("obj://a", "create", None, 1));
+        assert_eq!(serde_json::to_value(decoded).unwrap(), legacy);
     }
 
     fn tmp(name: &str) -> PathBuf {

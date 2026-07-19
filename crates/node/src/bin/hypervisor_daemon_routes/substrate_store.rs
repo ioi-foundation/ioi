@@ -17,9 +17,9 @@
 //! `IOI_SUBSTRATE_DUAL_WRITE_DOMAINS`), which is the pre-promotion
 //! evidence lane proven by `substrate-parity`.
 
-use agentgres::mux::{spawn_mux_writer_cfg, MuxEngine, MuxHandle, WriterConfig};
+use agentgres::mux::{spawn_mux_writer_cfg, ExactProjection, MuxEngine, MuxHandle, WriterConfig};
 use agentgres::replica::ReplicaLink;
-use agentgres::{parse_rfc3339_ms, Operation};
+use agentgres::{parse_rfc3339_ms, AdmitAck, Operation, Refusal};
 use axum::{extract::State, Json};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -87,6 +87,7 @@ fn build_op(record_dir: &str, record_id: &str, record: &Value) -> Operation {
         object_ref: format!("agentgres://{record_dir}/{record_id}"),
         op_kind: format!("{record_dir}.persist"),
         expected_head: None,
+        expected_absent: false,
         payload: record.clone(),
         recorded_at_ms: record
             .get("at")
@@ -95,6 +96,127 @@ fn build_op(record_dir: &str, record_id: &str, record: &Value) -> Operation {
             .unwrap_or(0),
         idem_key: record_id.to_string(),
     }
+}
+
+fn required_object_ref(record_dir: &str, record_id: &str) -> String {
+    format!("agentgres://{record_dir}/{record_id}")
+}
+
+fn validate_required_domain(record_dir: &str) -> std::io::Result<()> {
+    if REQUIRED_ADMISSION_DOMAINS.contains(&record_dir) {
+        return Ok(());
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
+        format!("'{record_dir}' is not a declared required-admission domain"),
+    ))
+}
+
+fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String) {
+    match record_dir {
+        "autonomous-system-genesis-registry" => (
+            "admission_id",
+            format!("system-genesis-admission://{record_id}"),
+        ),
+        "autonomous-system-genesis-receipts" => ("receipt_ref", format!("receipt://{record_id}")),
+        _ => unreachable!("required-admission domains are exhaustively matched"),
+    }
+}
+
+fn validate_required_identity(
+    record_dir: &str,
+    record_id: &str,
+    record: &Value,
+) -> std::io::Result<()> {
+    let (identity_field, expected_identity) = required_identity(record_dir, record_id);
+    if record.get(identity_field).and_then(Value::as_str) == Some(expected_identity.as_str()) {
+        return Ok(());
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
+        format!(
+            "required Agentgres record '{record_dir}/{record_id}' has a mismatched '{identity_field}' identity"
+        ),
+    ))
+}
+
+fn build_required_op(record_dir: &str, record_id: &str, record: &Value) -> Operation {
+    let mut operation = build_op(record_dir, record_id, record);
+    operation.expected_absent = true;
+    operation
+}
+
+fn required_operations_match(existing: &Operation, proposed: &Operation) -> std::io::Result<bool> {
+    if existing != proposed {
+        return Ok(false);
+    }
+    let existing = serde_json::to_vec(existing).map_err(std::io::Error::other)?;
+    let proposed = serde_json::to_vec(proposed).map_err(std::io::Error::other)?;
+    Ok(existing == proposed)
+}
+
+fn classify_required_existing(
+    record_dir: &str,
+    record_id: &str,
+    proposed: &Operation,
+    existing: &ExactProjection,
+) -> std::io::Result<()> {
+    if existing.operation.object_ref != required_object_ref(record_dir, record_id) {
+        return Err(std::io::Error::other(format!(
+            "Agentgres exact projection returned mismatched key '{}' for '{record_dir}/{record_id}'",
+            existing.operation.object_ref
+        )));
+    }
+    if required_operations_match(&existing.operation, proposed)? {
+        return Ok(());
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        format!(
+            "Agentgres key '{record_dir}/{record_id}' already holds different immutable evidence"
+        ),
+    ))
+}
+
+fn verify_required_projection(
+    record_dir: &str,
+    record_id: &str,
+    record: &Value,
+    exact: Option<ExactProjection>,
+) -> std::io::Result<ExactProjection> {
+    validate_required_domain(record_dir)?;
+    validate_required_identity(record_dir, record_id, record)?;
+    let exact = exact.ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Agentgres required key '{record_dir}/{record_id}' has no exact projection"),
+        )
+    })?;
+    classify_required_existing(
+        record_dir,
+        record_id,
+        &build_required_op(record_dir, record_id, record),
+        &exact,
+    )?;
+    Ok(exact)
+}
+
+fn verify_required_ack(
+    record_dir: &str,
+    record_id: &str,
+    ack: &AdmitAck,
+    exact: &ExactProjection,
+) -> std::io::Result<()> {
+    if exact.seq != ack.seq
+        || exact.head != ack.new_head
+        || exact.admission_batch_seq != ack.batch_seq
+        || exact.admission_root != ack.root
+    {
+        return Err(std::io::Error::other(format!(
+            "Agentgres exact projection disagrees with fresh admission ack for '{record_dir}/{record_id}'"
+        )));
+    }
+    Ok(())
 }
 
 /// One-time idempotent backfill of a promoted family's legacy JSON dir into
@@ -285,37 +407,52 @@ pub(crate) fn admit_required(
     record_id: &str,
     record: &Value,
 ) -> std::io::Result<()> {
-    if !REQUIRED_ADMISSION_DOMAINS.contains(&record_dir) {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("'{record_dir}' is not a declared required-admission domain"),
-        ));
-    }
+    validate_required_domain(record_dir)?;
+    validate_required_identity(record_dir, record_id, record)?;
     let Some(h) = handle(data_dir) else {
         ERRORS.fetch_add(1, Ordering::Relaxed);
         return Err(std::io::Error::other("substrate engine unavailable"));
     };
-    let expected_ref = match record_dir {
-        "autonomous-system-genesis-registry" => {
-            format!("system-genesis-admission://{record_id}")
-        }
-        "autonomous-system-genesis-receipts" => format!("receipt://{record_id}"),
-        _ => unreachable!("required-admission domains are exhaustively matched"),
-    };
-    let identity_field = match record_dir {
-        "autonomous-system-genesis-registry" => "admission_id",
-        "autonomous-system-genesis-receipts" => "receipt_ref",
-        _ => unreachable!("required-admission domains are exhaustively matched"),
-    };
-    let existing_records = h.project_latest(record_dir).map_err(|error| {
+    let object_ref = required_object_ref(record_dir, record_id);
+    let operation = build_required_op(record_dir, record_id, record);
+    let existing = h.project_exact(record_dir, &object_ref).map_err(|error| {
         ERRORS.fetch_add(1, Ordering::Relaxed);
         error
     })?;
-    for existing in existing_records {
-        if existing.get(identity_field).and_then(Value::as_str) != Some(expected_ref.as_str()) {
-            continue;
-        }
-        if &existing == record {
+    if let Some(existing) = existing {
+        classify_required_existing(record_dir, record_id, &operation, &existing).map_err(
+            |error| {
+                ERRORS.fetch_add(1, Ordering::Relaxed);
+                error
+            },
+        )?;
+        confirm_required_admission_durability(data_dir).map_err(|error| {
+            ERRORS.fetch_add(1, Ordering::Relaxed);
+            std::io::Error::other(format!(
+                "required Agentgres admission durability is unconfirmed: {error}"
+            ))
+        })?;
+        return Ok(());
+    }
+    let ack = match h.admit(operation.clone()) {
+        Ok(ack) => ack,
+        Err(Refusal::ExpectedAbsentConflict { .. }) => {
+            let existing = h.project_exact(record_dir, &object_ref).map_err(|error| {
+                ERRORS.fetch_add(1, Ordering::Relaxed);
+                error
+            })?;
+            let Some(existing) = existing else {
+                ERRORS.fetch_add(1, Ordering::Relaxed);
+                return Err(std::io::Error::other(format!(
+                    "Agentgres expected-absent admission for '{record_dir}/{record_id}' lost a conflict but no exact occupant is visible"
+                )));
+            };
+            classify_required_existing(record_dir, record_id, &operation, &existing).map_err(
+                |error| {
+                    ERRORS.fetch_add(1, Ordering::Relaxed);
+                    error
+                },
+            )?;
             confirm_required_admission_durability(data_dir).map_err(|error| {
                 ERRORS.fetch_add(1, Ordering::Relaxed);
                 std::io::Error::other(format!(
@@ -324,23 +461,16 @@ pub(crate) fn admit_required(
             })?;
             return Ok(());
         }
-        ERRORS.fetch_add(1, Ordering::Relaxed);
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::AlreadyExists,
-            format!(
-                "Agentgres key '{record_dir}/{record_id}' already holds different immutable evidence"
-            ),
-        ));
-    }
-    let ack = h
-        .admit(build_op(record_dir, record_id, record))
-        .map_err(|refusal| {
+        Err(refusal) => {
             ERRORS.fetch_add(1, Ordering::Relaxed);
             eprintln!(
                 "substrate-store: admission refused ({refusal}) record={record_dir}/{record_id}"
             );
-            std::io::Error::other(format!("substrate admission refused: {refusal}"))
-        })?;
+            return Err(std::io::Error::other(format!(
+                "substrate admission refused: {refusal}"
+            )));
+        }
+    };
     confirm_required_admission_durability(data_dir).map_err(|error| {
         ERRORS.fetch_add(1, Ordering::Relaxed);
         std::io::Error::other(format!(
@@ -348,8 +478,49 @@ pub(crate) fn admit_required(
             ack.durability
         ))
     })?;
+    let exact =
+        verify_required_exact(data_dir, record_dir, record_id, record).map_err(|error| {
+            ERRORS.fetch_add(1, Ordering::Relaxed);
+            error
+        })?;
+    verify_required_ack(record_dir, record_id, &ack, &exact).map_err(|error| {
+        ERRORS.fetch_add(1, Ordering::Relaxed);
+        error
+    })?;
     ADMITTED.fetch_add(1, Ordering::Relaxed);
     Ok(())
+}
+
+/// Strict writer-thread projection for a required-admission key. Callers use
+/// the complete operation, admission sequence/head/batch/root, and terminal
+/// domain root to verify local evidence before serving it.
+pub(crate) fn read_required_exact(
+    data_dir: &str,
+    record_dir: &str,
+    record_id: &str,
+) -> std::io::Result<Option<ExactProjection>> {
+    validate_required_domain(record_dir)?;
+    let Some(handle) = handle(data_dir) else {
+        return Err(std::io::Error::other("substrate engine unavailable"));
+    };
+    handle.project_exact(record_dir, &required_object_ref(record_dir, record_id))
+}
+
+/// Verify that a required-admission key contains this exact record and return
+/// its strict mux-log proof. Missing keys and foreign same-key occupants are
+/// errors; callers never need to reconstruct the private Agentgres operation.
+pub(crate) fn verify_required_exact(
+    data_dir: &str,
+    record_dir: &str,
+    record_id: &str,
+    record: &Value,
+) -> std::io::Result<ExactProjection> {
+    verify_required_projection(
+        record_dir,
+        record_id,
+        record,
+        read_required_exact(data_dir, record_dir, record_id)?,
+    )
 }
 
 /// Read path for promoted families: last-write-wins projection served by
@@ -454,4 +625,74 @@ pub(crate) async fn handle_substrate_status(
             "posture": "default device_flush sync; replicated-ack + async flush is opt-in and fail-safes to per-batch sync when no replica connects; quorum_replicated requires declared failure-independent peers (never same-host)",
         },
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const REQUIRED_DOMAIN: &str = "autonomous-system-genesis-registry";
+    const REQUIRED_ID: &str = "sga_0123456789abcdef";
+
+    fn required_record() -> Value {
+        json!({
+            "admission_id": format!("system-genesis-admission://{REQUIRED_ID}"),
+            "at": "2026-07-19T12:00:00Z",
+            "payload": {"kind": "genesis"}
+        })
+    }
+
+    fn exact_projection(operation: Operation) -> ExactProjection {
+        ExactProjection {
+            operation,
+            seq: 7,
+            head: "sha256:head".to_string(),
+            admission_batch_seq: 3,
+            admission_root: "sha256:admission-root".to_string(),
+            terminal_root: "sha256:terminal-root".to_string(),
+        }
+    }
+
+    #[test]
+    fn required_projection_verifier_owns_complete_expected_absent_operation() {
+        let record = required_record();
+        let operation = build_required_op(REQUIRED_DOMAIN, REQUIRED_ID, &record);
+        assert!(operation.expected_absent);
+        assert_eq!(operation.expected_head, None);
+        assert_eq!(
+            operation.object_ref,
+            format!("agentgres://{REQUIRED_DOMAIN}/{REQUIRED_ID}")
+        );
+        assert_eq!(operation.op_kind, format!("{REQUIRED_DOMAIN}.persist"));
+        assert_eq!(operation.idem_key, REQUIRED_ID);
+        assert_eq!(operation.payload, record);
+
+        let exact = exact_projection(operation);
+        assert_eq!(
+            verify_required_projection(
+                REQUIRED_DOMAIN,
+                REQUIRED_ID,
+                &required_record(),
+                Some(exact.clone())
+            )
+            .unwrap(),
+            exact
+        );
+
+        let missing =
+            verify_required_projection(REQUIRED_DOMAIN, REQUIRED_ID, &required_record(), None)
+                .unwrap_err();
+        assert_eq!(missing.kind(), std::io::ErrorKind::NotFound);
+
+        let mut foreign = exact;
+        foreign.operation.expected_absent = false;
+        let conflict = verify_required_projection(
+            REQUIRED_DOMAIN,
+            REQUIRED_ID,
+            &required_record(),
+            Some(foreign),
+        )
+        .unwrap_err();
+        assert_eq!(conflict.kind(), std::io::ErrorKind::AlreadyExists);
+    }
 }

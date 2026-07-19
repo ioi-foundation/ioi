@@ -29,6 +29,7 @@ export function mintApprovalGrant(options = {}) {
   // policyHash / requestHash may be bare hex or "sha256:<hex>" (the lease form).
   if (options.policyHash) args.push("--policy-hash", options.policyHash);
   if (options.requestHash) args.push("--request-hash", options.requestHash);
+  if (options.audience) args.push("--audience", options.audience);
   const result = spawnSync(binary, args, { cwd: repoRoot, encoding: "utf8" });
   if (result.status !== 0) {
     throw new Error(`mint-approval-grant failed:\n${result.stdout}\n${result.stderr}`);

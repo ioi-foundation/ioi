@@ -87,6 +87,7 @@ fn ingest(
                 object_ref: format!("agentgres://provider-receipt/{}", r.receipt_id),
                 op_kind: "provider_receipt.persist".into(),
                 expected_head: None,
+                expected_absent: false,
                 payload: r.payload.clone(),
                 recorded_at_ms: r.recorded_at_ms,
                 idem_key: r.receipt_id.clone(),
