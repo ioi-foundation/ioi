@@ -54,23 +54,44 @@ fn intent_downstream_op(intent: &str) -> Option<&'static str> {
 /// The still-missing contract downstream of this rung.
 const MISSING_CONTRACTS: &[&str] = &["OntologyProjection"];
 /// Body keys that would be a plaintext secret — rejected outright.
-const PLAINTEXT_SECRET_KEYS: &[&str] = &["secret", "password", "api_key", "apikey", "token", "credential"];
+const PLAINTEXT_SECRET_KEYS: &[&str] = &[
+    "secret",
+    "password",
+    "api_key",
+    "apikey",
+    "token",
+    "credential",
+];
 /// Body keys that would smuggle a raw source query into a plan — rejected outright.
 const RAW_QUERY_KEYS: &[&str] = &["query", "sql", "raw_query", "statement", "command"];
 
 fn nanos() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
 }
 fn s(v: &Value, k: &str, d: &str) -> String {
     v.get(k).and_then(|x| x.as_str()).unwrap_or(d).to_string()
 }
 fn opt_s(v: &Value, k: &str) -> Option<String> {
-    v.get(k).and_then(|x| x.as_str()).map(str::trim).filter(|x| !x.is_empty()).map(str::to_string)
+    v.get(k)
+        .and_then(|x| x.as_str())
+        .map(str::trim)
+        .filter(|x| !x.is_empty())
+        .map(str::to_string)
 }
 fn str_list(v: &Value, k: &str) -> Vec<String> {
     v.get(k)
         .and_then(|x| x.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_str()).map(str::trim).filter(|x| !x.is_empty()).map(str::to_string).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str())
+                .map(str::trim)
+                .filter(|x| !x.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
         .unwrap_or_default()
 }
 type VErr = (String, String);
@@ -89,15 +110,25 @@ fn load_view(data_dir: &str, id: &str) -> Option<Value> {
         .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(id))
 }
 fn load_run(data_dir: &str, id: &str) -> Option<Value> {
-    read_record_dir(data_dir, RECORD_DIR).into_iter().find(|r| r.get("id").and_then(|v| v.as_str()) == Some(id))
+    read_record_dir(data_dir, RECORD_DIR)
+        .into_iter()
+        .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(id))
 }
 fn health_status(rec: &Value) -> String {
-    rec.pointer("/health/status").and_then(|v| v.as_str()).unwrap_or("incomplete").to_string()
+    rec.pointer("/health/status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("incomplete")
+        .to_string()
 }
 fn view_scope(view: &Value) -> Vec<String> {
     view.get("property_scope")
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_str()).map(str::to_string).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str())
+                .map(str::to_string)
+                .collect()
+        })
         .unwrap_or_default()
 }
 /// Find the mapping binding (source_field, source_type) for a property id, across key/title/fields.
@@ -114,7 +145,11 @@ fn mapping_binding(mapping: &Value, property_id: &str) -> Option<(String, String
             return Some(found);
         }
     }
-    mapping.get("field_mappings")?.as_array()?.iter().find_map(pick)
+    mapping
+        .get("field_mappings")?
+        .as_array()?
+        .iter()
+        .find_map(pick)
 }
 
 /// The validated inputs a run needs, resolved from the current daemon state.
@@ -130,32 +165,57 @@ struct RunInputs {
 /// dry-run — the same gate every time, never a cached approval. NO source contact anywhere.
 fn validate_inputs(data_dir: &str, body: &Value) -> Result<RunInputs, VErr> {
     if let Some(obj) = body.as_object() {
-        if PLAINTEXT_SECRET_KEYS.iter().any(|k| obj.contains_key(*k) && !obj[*k].is_null()) {
+        if PLAINTEXT_SECRET_KEYS
+            .iter()
+            .any(|k| obj.contains_key(*k) && !obj[*k].is_null())
+        {
             return Err(verr("transformation_run_plaintext_secret_rejected", "A run plan never carries credentials — credential crossing is a future connector-adapter cut.".into()));
         }
-        if RAW_QUERY_KEYS.iter().any(|k| obj.contains_key(*k) && !obj[*k].is_null()) {
+        if RAW_QUERY_KEYS
+            .iter()
+            .any(|k| obj.contains_key(*k) && !obj[*k].is_null())
+        {
             return Err(verr("transformation_run_raw_query_rejected", "A run plan never carries a raw source query — extraction semantics live behind the declared mapping, not ad-hoc query bodies.".into()));
         }
     }
     if opt_s(body, "name").is_none() {
-        return Err(verr("transformation_run_name_required", "A transformation run requires a name.".into()));
+        return Err(verr(
+            "transformation_run_name_required",
+            "A transformation run requires a name.".into(),
+        ));
     }
     // Ready mapping.
     let mapping_id = opt_s(body, "connector_mapping_id").unwrap_or_default();
-    let mapping = load_mapping(data_dir, &mapping_id)
-        .ok_or_else(|| verr("transformation_run_mapping_unknown", format!("connector_mapping_id '{mapping_id}' does not resolve to a declared mapping")))?;
+    let mapping = load_mapping(data_dir, &mapping_id).ok_or_else(|| {
+        verr(
+            "transformation_run_mapping_unknown",
+            format!("connector_mapping_id '{mapping_id}' does not resolve to a declared mapping"),
+        )
+    })?;
     if health_status(&mapping) != "ready" {
-        return Err(verr("transformation_run_mapping_not_ready", format!("mapping '{mapping_id}' is not ready — a run plans only over validated shape")));
+        return Err(verr(
+            "transformation_run_mapping_not_ready",
+            format!("mapping '{mapping_id}' is not ready — a run plans only over validated shape"),
+        ));
     }
     // Ready view, binding the SAME mapping, allowing transform.
     let view_id = opt_s(body, "policy_view_id").unwrap_or_default();
-    let view = load_view(data_dir, &view_id)
-        .ok_or_else(|| verr("transformation_run_policy_view_unknown", format!("policy_view_id '{view_id}' does not resolve to a declared policy-bound data view")))?;
+    let view = load_view(data_dir, &view_id).ok_or_else(|| {
+        verr(
+            "transformation_run_policy_view_unknown",
+            format!(
+                "policy_view_id '{view_id}' does not resolve to a declared policy-bound data view"
+            ),
+        )
+    })?;
     if health_status(&view) != "ready" {
         return Err(verr("transformation_run_policy_view_not_ready", format!("policy view '{view_id}' is not ready — a run is gated on a ready capability envelope")));
     }
     if view.get("connector_mapping_id").and_then(|v| v.as_str()) != Some(mapping_id.as_str()) {
-        return Err(verr("transformation_run_policy_view_mapping_mismatch", "the policy view does not bind the referenced mapping — a run cannot mix gates".into()));
+        return Err(verr(
+            "transformation_run_policy_view_mapping_mismatch",
+            "the policy view does not bind the referenced mapping — a run cannot mix gates".into(),
+        ));
     }
     let ops: Vec<String> = str_list(&view, "allowed_operations");
     // v1 supports only `transform` — and the view must authorize it.
@@ -164,7 +224,10 @@ fn validate_inputs(data_dir: &str, body: &Value) -> Result<RunInputs, VErr> {
         return Err(verr("transformation_run_operation_unsupported", format!("operation '{operation}' is not supported in v1 — only 'transform' plans exist (execution kinds are a future cut)")));
     }
     if !ops.iter().any(|o| o == "transform") {
-        return Err(verr("transformation_run_operation_not_authorized", "the policy view does not authorize 'transform' over this mapping".into()));
+        return Err(verr(
+            "transformation_run_operation_not_authorized",
+            "the policy view does not authorize 'transform' over this mapping".into(),
+        ));
     }
     // Requested fields ⊆ policy scope (which is itself ⊆ mapped properties). Empty → the full scope.
     let scope = view_scope(&view);
@@ -181,13 +244,21 @@ fn validate_inputs(data_dir: &str, body: &Value) -> Result<RunInputs, VErr> {
     let view_purpose = s(&view, "purpose", "");
     let purpose = opt_s(body, "purpose").unwrap_or_else(|| view_purpose.clone());
     if purpose != view_purpose {
-        return Err(verr("transformation_run_purpose_mismatch", format!("run purpose '{purpose}' does not match the policy view's purpose '{view_purpose}'")));
+        return Err(verr(
+            "transformation_run_purpose_mismatch",
+            format!(
+                "run purpose '{purpose}' does not match the policy view's purpose '{view_purpose}'"
+            ),
+        ));
     }
     // Output intent: enum only; a high-risk intent needs the view to authorize its downstream op
     // WITH a named receipt obligation (checked against the gate — belt and braces).
     let output_intent = opt_s(body, "output_intent").unwrap_or_else(|| "ontology_objects".into());
     if !OUTPUT_INTENTS.contains(&output_intent.as_str()) {
-        return Err(verr("transformation_run_output_intent_invalid", format!("output_intent '{output_intent}' must be one of {OUTPUT_INTENTS:?}")));
+        return Err(verr(
+            "transformation_run_output_intent_invalid",
+            format!("output_intent '{output_intent}' must be one of {OUTPUT_INTENTS:?}"),
+        ));
     }
     if let Some(op) = intent_downstream_op(&output_intent) {
         if !ops.iter().any(|o| o == op) {
@@ -198,7 +269,13 @@ fn validate_inputs(data_dir: &str, body: &Value) -> Result<RunInputs, VErr> {
             return Err(verr("transformation_run_receipt_obligation_required", format!("output intent '{output_intent}' is high-risk and the policy view carries no receipt obligation naming '{op}'")));
         }
     }
-    Ok(RunInputs { mapping, view, requested_fields, purpose, output_intent })
+    Ok(RunInputs {
+        mapping,
+        view,
+        requested_fields,
+        purpose,
+        output_intent,
+    })
 }
 
 fn run_receipt(data_dir: &str, run_ref: &str, op: &str, outcome: &str, summary: &str) -> Value {
@@ -214,34 +291,58 @@ fn run_receipt(data_dir: &str, run_ref: &str, op: &str, outcome: &str, summary: 
 /// Append a history entry + receipt ref to a run record (bounded history).
 fn push_history(record: &mut Value, op: &str, summary: &str, receipt_ref: Value) {
     let rev = record.get("revision").and_then(|v| v.as_u64()).unwrap_or(1);
-    let mut hist = record.get("history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut hist = record
+        .get("history")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     hist.push(json!({ "revision": rev, "op": op, "at": iso_now(), "summary": summary, "receipt_ref": receipt_ref.clone() }));
     let len = hist.len();
     if len > 20 {
         hist = hist[len - 20..].to_vec();
     }
     record["history"] = json!(hist);
-    let mut refs = record.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut refs = record
+        .get("receipt_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     refs.push(receipt_ref);
     record["receipt_refs"] = json!(refs);
 }
 fn bad(data_dir: &str, op: &str, err: VErr) -> (StatusCode, Json<Value>) {
     // Failed validation is itself receipted (the audit trail records what was refused and why).
-    let _ = run_receipt(data_dir, "transformation-run://unadmitted", op, &err.0, &err.1);
-    (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": { "code": err.0, "message": err.1 } })))
+    let _ = run_receipt(
+        data_dir,
+        "transformation-run://unadmitted",
+        op,
+        &err.0,
+        &err.1,
+    );
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({ "ok": false, "error": { "code": err.0, "message": err.1 } })),
+    )
 }
 
 /// GET /v1/hypervisor/odk/transformation-runs — declared run plans (newest first).
 pub(crate) async fn handle_runs_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let mut items = read_record_dir(&st.data_dir, RECORD_DIR);
     items.sort_by(|a, b| s(b, "updated_at", "").cmp(&s(a, "updated_at", "")));
-    Json(json!({ "ok": true, "schema_version": RUN_SCHEMA, "transformation_runs": items, "runtimeTruthSource": "daemon-runtime" }))
+    Json(
+        json!({ "ok": true, "schema_version": RUN_SCHEMA, "transformation_runs": items, "runtimeTruthSource": "daemon-runtime" }),
+    )
 }
 
 /// GET /v1/hypervisor/odk/transformation-runs/overview — lifecycle vocab + counts + honest gaps.
 pub(crate) async fn handle_runs_overview(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let items = read_record_dir(&st.data_dir, RECORD_DIR);
-    let by = |status: &str| items.iter().filter(|r| s(r, "status", "") == status).count();
+    let by = |status: &str| {
+        items
+            .iter()
+            .filter(|r| s(r, "status", "") == status)
+            .count()
+    };
     Json(json!({
         "ok": true,
         "schema_version": OVERVIEW_SCHEMA,
@@ -262,27 +363,56 @@ pub(crate) async fn handle_runs_overview(State(st): State<Arc<DaemonState>>) -> 
 }
 
 /// GET /v1/hypervisor/odk/transformation-runs/:id.
-pub(crate) async fn handle_run_get(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_run_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
     match load_run(&st.data_dir, &id) {
-        Some(r) => (StatusCode::OK, Json(json!({ "ok": true, "transformation_run": r }))),
-        None => (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "transformation run not found" }))),
+        Some(r) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "transformation_run": r })),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "transformation run not found" })),
+        ),
     }
 }
 
 /// GET /v1/hypervisor/odk/transformation-runs/:id/history — embedded history + persisted receipts.
-pub(crate) async fn handle_run_history(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_run_history(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
     let Some(r) = load_run(&st.data_dir, &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "transformation run not found" })));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "transformation run not found" })),
+        );
     };
-    let rref = r.get("ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let rref = r
+        .get("ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let mut receipts = read_record_dir(&st.data_dir, RECEIPT_DIR);
-    receipts.retain(|x| x.get("transformation_run_ref").and_then(|v| v.as_str()) == Some(rref.as_str()));
+    receipts.retain(|x| {
+        x.get("transformation_run_ref").and_then(|v| v.as_str()) == Some(rref.as_str())
+    });
     receipts.sort_by(|a, b| s(b, "at", "").cmp(&s(a, "at", "")));
-    (StatusCode::OK, Json(json!({ "ok": true, "transformation_run_ref": rref, "revision": r.get("revision"), "status": r.get("status"), "history": r.get("history").cloned().unwrap_or(json!([])), "receipts": receipts })))
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "transformation_run_ref": rref, "revision": r.get("revision"), "status": r.get("status"), "history": r.get("history").cloned().unwrap_or(json!([])), "receipts": receipts }),
+        ),
+    )
 }
 
 /// POST /v1/hypervisor/odk/transformation-runs — admit a run PLAN (fail-closed, receipted, inert).
-pub(crate) async fn handle_run_create(State(st): State<Arc<DaemonState>>, Json(body): Json<Value>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_run_create(
+    State(st): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
     let inputs = match validate_inputs(&st.data_dir, &body) {
         Ok(i) => i,
         Err(e) => return bad(&st.data_dir, "create_rejected", e),
@@ -290,7 +420,13 @@ pub(crate) async fn handle_run_create(State(st): State<Arc<DaemonState>>, Json(b
     let id = format!("trun_{:x}", nanos());
     let now = iso_now();
     let rref = format!("transformation-run://{id}");
-    let receipt = run_receipt(&st.data_dir, &rref, "created", "ok", "TransformationRun plan admitted");
+    let receipt = run_receipt(
+        &st.data_dir,
+        &rref,
+        "created",
+        "ok",
+        "TransformationRun plan admitted",
+    );
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     let record = json!({
         "schema_version": RUN_SCHEMA,
@@ -320,18 +456,32 @@ pub(crate) async fn handle_run_create(State(st): State<Arc<DaemonState>>, Json(b
         "updated_at": now
     });
     let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "transformation_run": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "transformation_run": record })),
+    )
 }
 
 /// POST /v1/hypervisor/odk/transformation-runs/:id/dry-run — recompute the gate against CURRENT
 /// state and produce the auditable plan. Receipt is written BEFORE the plan is registered. If the
 /// referenced truth drifted (mapping/view gone or degraded), the run is BLOCKED with named reasons.
-pub(crate) async fn handle_run_dry_run(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_run_dry_run(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
     let Some(mut record) = load_run(&st.data_dir, &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "transformation run not found" })));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "transformation run not found" })),
+        );
     };
     if s(&record, "status", "") == "cancelled" {
-        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": { "code": "transformation_run_cancelled_immutable", "message": "a cancelled run is immutable" } })));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "error": { "code": "transformation_run_cancelled_immutable", "message": "a cancelled run is immutable" } }),
+            ),
+        );
     }
     let rref = s(&record, "ref", "");
     // Re-validate against the CURRENT mapping/view — the gate is checked every time, never cached.
@@ -350,9 +500,17 @@ pub(crate) async fn handle_run_dry_run(State(st): State<Arc<DaemonState>>, AxumP
             record["status"] = json!("blocked");
             record["blocked_reasons"] = json!([{ "code": code, "message": msg }]);
             record["updated_at"] = json!(iso_now());
-            push_history(&mut record, "dry_run_blocked", &summary, receipt.get("receipt_ref").cloned().unwrap_or(Value::Null));
+            push_history(
+                &mut record,
+                "dry_run_blocked",
+                &summary,
+                receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
+            );
             let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
-            (StatusCode::OK, Json(json!({ "ok": true, "transformation_run": record })))
+            (
+                StatusCode::OK,
+                Json(json!({ "ok": true, "transformation_run": record })),
+            )
         }
         Ok(inputs) => {
             // Build the auditable plan from DECLARED truth only (no source contact anywhere).
@@ -381,49 +539,110 @@ pub(crate) async fn handle_run_dry_run(State(st): State<Arc<DaemonState>>, AxumP
                 "receipts_before_output": true
             });
             // Receipt FIRST, then the plan lands on the record — output is never registered unreceipted.
-            let receipt = run_receipt(&st.data_dir, &rref, "dry_run", "ok", "dry-run plan validated against the current gate");
+            let receipt = run_receipt(
+                &st.data_dir,
+                &rref,
+                "dry_run",
+                "ok",
+                "dry-run plan validated against the current gate",
+            );
             record["status"] = json!("dry_run_ready");
             record["plan"] = plan;
             record["blocked_reasons"] = json!([]);
             record["updated_at"] = json!(iso_now());
-            push_history(&mut record, "dry_run", "dry-run plan validated against the current gate", receipt.get("receipt_ref").cloned().unwrap_or(Value::Null));
+            push_history(
+                &mut record,
+                "dry_run",
+                "dry-run plan validated against the current gate",
+                receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
+            );
             let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
-            (StatusCode::OK, Json(json!({ "ok": true, "transformation_run": record })))
+            (
+                StatusCode::OK,
+                Json(json!({ "ok": true, "transformation_run": record })),
+            )
         }
     }
 }
 
 /// POST /v1/hypervisor/odk/transformation-runs/:id/cancel — terminal, receipted.
-pub(crate) async fn handle_run_cancel(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> (StatusCode, Json<Value>) {
+pub(crate) async fn handle_run_cancel(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> (StatusCode, Json<Value>) {
     let Some(mut record) = load_run(&st.data_dir, &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "transformation run not found" })));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "reason": "transformation run not found" })),
+        );
     };
     if s(&record, "status", "") == "cancelled" {
-        return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": { "code": "transformation_run_cancelled_immutable", "message": "the run is already cancelled" } })));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "error": { "code": "transformation_run_cancelled_immutable", "message": "the run is already cancelled" } }),
+            ),
+        );
     }
     let rref = s(&record, "ref", "");
-    let receipt = run_receipt(&st.data_dir, &rref, "cancelled", "ok", "TransformationRun plan cancelled");
+    let receipt = run_receipt(
+        &st.data_dir,
+        &rref,
+        "cancelled",
+        "ok",
+        "TransformationRun plan cancelled",
+    );
     record["status"] = json!("cancelled");
     record["updated_at"] = json!(iso_now());
-    push_history(&mut record, "cancelled", "TransformationRun plan cancelled", receipt.get("receipt_ref").cloned().unwrap_or(Value::Null));
+    push_history(
+        &mut record,
+        "cancelled",
+        "TransformationRun plan cancelled",
+        receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
+    );
     let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
-    (StatusCode::OK, Json(json!({ "ok": true, "transformation_run": record })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "transformation_run": record })),
+    )
 }
 
 /// PATCH — plan-affecting changes re-validate against the CURRENT gate and reset the plan to
 /// `planned` (a stale plan never survives an edit). Malformed patch changes nothing.
-pub(crate) async fn handle_run_patch(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>, Json(patch): Json<Value>) -> Json<Value> {
+pub(crate) async fn handle_run_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(patch): Json<Value>,
+) -> Json<Value> {
     let Some(existing) = load_run(&st.data_dir, &id) else {
         return Json(json!({ "ok": false, "reason": "transformation run not found" }));
     };
     if s(&existing, "status", "") == "cancelled" {
-        return Json(json!({ "ok": false, "error": { "code": "transformation_run_cancelled_immutable", "message": "a cancelled run is immutable" } }));
+        return Json(
+            json!({ "ok": false, "error": { "code": "transformation_run_cancelled_immutable", "message": "a cancelled run is immutable" } }),
+        );
     }
-    let plan_keys = ["connector_mapping_id", "policy_view_id", "requested_fields", "purpose", "output_intent", "operation"];
+    let plan_keys = [
+        "connector_mapping_id",
+        "policy_view_id",
+        "requested_fields",
+        "purpose",
+        "output_intent",
+        "operation",
+    ];
     let plan_affecting = plan_keys.iter().any(|k| patch.get(*k).is_some());
     let mut merged = json!({});
     let mo = merged.as_object_mut().unwrap();
-    for k in ["name", "description", "connector_mapping_id", "policy_view_id", "requested_fields", "purpose", "output_intent", "operation"] {
+    for k in [
+        "name",
+        "description",
+        "connector_mapping_id",
+        "policy_view_id",
+        "requested_fields",
+        "purpose",
+        "output_intent",
+        "operation",
+    ] {
         if let Some(v) = patch.get(k).or_else(|| existing.get(k)) {
             mo.insert(k.to_string(), v.clone());
         }
@@ -431,20 +650,38 @@ pub(crate) async fn handle_run_patch(State(st): State<Arc<DaemonState>>, AxumPat
     let inputs = match validate_inputs(&st.data_dir, &merged) {
         Ok(i) => i,
         Err(e) => {
-            let _ = run_receipt(&st.data_dir, &s(&existing, "ref", ""), "patch_rejected", &e.0, &e.1);
+            let _ = run_receipt(
+                &st.data_dir,
+                &s(&existing, "ref", ""),
+                "patch_rejected",
+                &e.0,
+                &e.1,
+            );
             return Json(json!({ "ok": false, "error": { "code": e.0, "message": e.1 } }));
         }
     };
     let mut record = existing;
-    if let Some(v) = patch.get("name") { record["name"] = v.clone(); }
-    if let Some(v) = patch.get("description") { record["description"] = v.clone(); }
+    if let Some(v) = patch.get("name") {
+        record["name"] = v.clone();
+    }
+    if let Some(v) = patch.get("description") {
+        record["description"] = v.clone();
+    }
     if plan_affecting {
         record["connector_mapping_id"] = inputs.mapping.get("id").cloned().unwrap_or(Value::Null);
         record["connector_mapping_ref"] = inputs.mapping.get("ref").cloned().unwrap_or(Value::Null);
         record["policy_view_id"] = inputs.view.get("id").cloned().unwrap_or(Value::Null);
         record["policy_view_ref"] = inputs.view.get("ref").cloned().unwrap_or(Value::Null);
-        record["ontology_ref"] = inputs.mapping.get("ontology_ref").cloned().unwrap_or(Value::Null);
-        record["object_type_id"] = inputs.mapping.get("object_type_id").cloned().unwrap_or(Value::Null);
+        record["ontology_ref"] = inputs
+            .mapping
+            .get("ontology_ref")
+            .cloned()
+            .unwrap_or(Value::Null);
+        record["object_type_id"] = inputs
+            .mapping
+            .get("object_type_id")
+            .cloned()
+            .unwrap_or(Value::Null);
         record["requested_fields"] = json!(inputs.requested_fields);
         record["purpose"] = json!(inputs.purpose);
         record["output_intent"] = json!(inputs.output_intent);
@@ -455,20 +692,48 @@ pub(crate) async fn handle_run_patch(State(st): State<Arc<DaemonState>>, AxumPat
     let rev = record.get("revision").and_then(|v| v.as_u64()).unwrap_or(1) + 1;
     record["revision"] = json!(rev);
     record["updated_at"] = json!(iso_now());
-    let receipt = run_receipt(&st.data_dir, &s(&record, "ref", ""), "patched", "ok", if plan_affecting { "plan-affecting edit — plan reset to planned" } else { "metadata edit" });
-    push_history(&mut record, "patched", if plan_affecting { "plan-affecting edit — plan reset to planned" } else { "metadata edit" }, receipt.get("receipt_ref").cloned().unwrap_or(Value::Null));
+    let receipt = run_receipt(
+        &st.data_dir,
+        &s(&record, "ref", ""),
+        "patched",
+        "ok",
+        if plan_affecting {
+            "plan-affecting edit — plan reset to planned"
+        } else {
+            "metadata edit"
+        },
+    );
+    push_history(
+        &mut record,
+        "patched",
+        if plan_affecting {
+            "plan-affecting edit — plan reset to planned"
+        } else {
+            "metadata edit"
+        },
+        receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
+    );
     let _ = persist_record(&st.data_dir, RECORD_DIR, &id, &record);
     Json(json!({ "ok": true, "transformation_run": record }))
 }
 
 /// DELETE — receipted removal of the plan record.
-pub(crate) async fn handle_run_delete(State(st): State<Arc<DaemonState>>, AxumPath(id): AxumPath<String>) -> Json<Value> {
+pub(crate) async fn handle_run_delete(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Json<Value> {
     let rref = load_run(&st.data_dir, &id)
         .and_then(|r| r.get("ref").and_then(|v| v.as_str()).map(str::to_string))
         .unwrap_or_else(|| format!("transformation-run://{id}"));
     let removed = remove_record(&st.data_dir, RECORD_DIR, &id);
     if removed {
-        let _ = run_receipt(&st.data_dir, &rref, "deleted", "ok", "TransformationRun plan removed");
+        let _ = run_receipt(
+            &st.data_dir,
+            &rref,
+            "deleted",
+            "ok",
+            "TransformationRun plan removed",
+        );
     }
     Json(json!({ "ok": removed, "removed": removed, "id": id }))
 }
@@ -479,7 +744,10 @@ mod transformation_run_tests {
 
     #[test]
     fn lifecycle_states_and_reserved_are_explicit() {
-        assert_eq!(LIFECYCLE_STATES, &["planned", "dry_run_ready", "blocked", "cancelled"]);
+        assert_eq!(
+            LIFECYCLE_STATES,
+            &["planned", "dry_run_ready", "blocked", "cancelled"]
+        );
         assert_eq!(RESERVED_STATES, &["executed", "materialized"]);
         assert_eq!(MISSING_CONTRACTS, &["OntologyProjection"]);
     }

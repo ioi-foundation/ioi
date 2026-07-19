@@ -104,7 +104,12 @@ impl ReplicaLink {
                 )));
             }
         }
-        Ok(Self { stream, next_batch_id: 0, epoch, failure_independent })
+        Ok(Self {
+            stream,
+            next_batch_id: 0,
+            epoch,
+            failure_independent,
+        })
     }
 
     /// Ship one batch's appended bytes; returns when the replica holds them.
@@ -140,7 +145,11 @@ pub struct ReplicaServer {
 }
 
 impl ReplicaServer {
-    pub fn bind<A: ToSocketAddrs>(addr: A, dir: &Path, flush_interval_ms: u64) -> std::io::Result<Self> {
+    pub fn bind<A: ToSocketAddrs>(
+        addr: A,
+        dir: &Path,
+        flush_interval_ms: u64,
+    ) -> std::io::Result<Self> {
         std::fs::create_dir_all(dir)?;
         Ok(Self {
             listener: TcpListener::bind(addr)?,
@@ -199,7 +208,10 @@ impl ReplicaServer {
             )));
         }
         let log_path = self.dir.join("muxlog.bin");
-        let mut log = std::fs::OpenOptions::new().create(true).append(true).open(&log_path)?;
+        let mut log = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)?;
         if my_len < primary_len {
             // Catch-up: receive exactly the gap bytes, then confirm.
             let mut remaining = primary_len - my_len;
@@ -221,7 +233,9 @@ impl ReplicaServer {
             let path = log_path.clone();
             let interval = std::time::Duration::from_millis(self.flush_interval_ms);
             std::thread::spawn(move || {
-                let Ok(fd) = std::fs::File::open(&path) else { return };
+                let Ok(fd) = std::fs::File::open(&path) else {
+                    return;
+                };
                 while !stop.load(std::sync::atomic::Ordering::Relaxed) {
                     std::thread::sleep(interval);
                     let _ = fd.sync_data();

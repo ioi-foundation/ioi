@@ -99,7 +99,12 @@ fn route_receipt(
 /// Post an agent-run-transcript for an effectful registry op so the transcript plane computes a
 /// tamper-evident state_root and the op surfaces in Run Timeline / Work Ledger. Best-effort; the
 /// outcome (`transcript_recorded`) is reported honestly on the response.
-async fn post_op_transcript(base: &str, op: &str, route_ref: &str, detail: &Value) -> Option<String> {
+async fn post_op_transcript(
+    base: &str,
+    op: &str,
+    route_ref: &str,
+    detail: &Value,
+) -> Option<String> {
     let run_id = format!("mro_{:x}", nanos());
     let at = iso_now();
     let transcript = json!({
@@ -662,7 +667,9 @@ pub(crate) fn ensure_seed(data_dir: &str) {
                 Err((_, body)) => {
                     record["admission"]["gaps"] = json!([format!(
                         "seed enable_route admission rejected: {}",
-                        body.pointer("/error/code").and_then(|v| v.as_str()).unwrap_or("unknown")
+                        body.pointer("/error/code")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("unknown")
                     )]);
                 }
             }
@@ -670,7 +677,9 @@ pub(crate) fn ensure_seed(data_dir: &str) {
         Err((_, body)) => {
             record["admission"]["gaps"] = json!([format!(
                 "seed custody admission rejected: {}",
-                body.pointer("/error/code").and_then(|v| v.as_str()).unwrap_or("unknown")
+                body.pointer("/error/code")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
             )]);
         }
     }
@@ -770,7 +779,9 @@ pub(crate) async fn handle_model_routes_list(
 
 /// GET /v1/hypervisor/model-routes/overview — read projection: registry counts, the live env
 /// execution posture (named plainly as `source: env`), model-mount substrate counts, honest gaps.
-pub(crate) async fn handle_model_routes_overview(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_model_routes_overview(
+    State(st): State<Arc<DaemonState>>,
+) -> Json<Value> {
     ensure_seed(&st.data_dir);
     let routes = read_record_dir(&st.data_dir, RECORD_DIR);
     let mut by_availability = serde_json::Map::new();
@@ -786,8 +797,13 @@ pub(crate) async fn handle_model_routes_overview(State(st): State<Arc<DaemonStat
             .and_then(|v| v.as_str())
             .unwrap_or("declared")
             .to_string();
-        *by_availability.entry(a).or_insert(json!(0)) =
-            json!(by_availability.get(&a).and_then(|v| v.as_u64()).unwrap_or(0) + 1);
+        *by_availability.entry(a).or_insert(json!(0)) = json!(
+            by_availability
+                .get(&a)
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0)
+                + 1
+        );
         let count = by_lifecycle.get(&l).and_then(|v| v.as_u64()).unwrap_or(0) + 1;
         by_lifecycle.insert(l, json!(count));
     }
@@ -814,9 +830,10 @@ pub(crate) async fn handle_model_routes_overview(State(st): State<Arc<DaemonStat
     let mount_routes = as_list(&get_json(&st.base_url, "/v1/model-mount/routes").await).len();
 
     let mut gaps: Vec<String> = Vec::new();
-    if !routes.iter().any(|r| {
-        r.pointer("/availability/state").and_then(|v| v.as_str()) == Some("available")
-    }) {
+    if !routes
+        .iter()
+        .any(|r| r.pointer("/availability/state").and_then(|v| v.as_str()) == Some("available"))
+    {
         gaps.push("no registry route has a successful availability probe yet (run POST /v1/hypervisor/model-routes/:id/probe)".into());
     }
     gaps.push("sealed BYOK credential bindings are not implemented; credentialed routes report env-key posture only".into());
@@ -851,21 +868,27 @@ pub(crate) async fn handle_model_route_create(
     if model_id.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "error": { "code": "model_route_model_id_required", "message": "model_id is required." } })),
+            Json(
+                json!({ "error": { "code": "model_route_model_id_required", "message": "model_id is required." } }),
+            ),
         );
     }
     let transport = s(&body, "transport", "ollama");
     if !matches!(transport.as_str(), "ollama" | "openai_compatible") {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "error": { "code": "model_route_transport_invalid", "message": "transport must be 'ollama' or 'openai_compatible'.", "details": { "transport": transport } } })),
+            Json(
+                json!({ "error": { "code": "model_route_transport_invalid", "message": "transport must be 'ollama' or 'openai_compatible'.", "details": { "transport": transport } } }),
+            ),
         );
     }
     let base_url_raw = s(&body, "base_url", "");
     if base_url_raw.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "error": { "code": "model_route_base_url_required", "message": "base_url is required." } })),
+            Json(
+                json!({ "error": { "code": "model_route_base_url_required", "message": "base_url is required." } }),
+            ),
         );
     }
     if body
@@ -876,7 +899,9 @@ pub(crate) async fn handle_model_route_create(
     {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "error": { "code": "model_route_plaintext_secret_rejected", "message": "Plaintext credentials are never accepted. Declare credential posture + env_key_name; the key stays in the daemon's environment." } })),
+            Json(
+                json!({ "error": { "code": "model_route_plaintext_secret_rejected", "message": "Plaintext credentials are never accepted. Declare credential posture + env_key_name; the key stays in the daemon's environment." } }),
+            ),
         );
     }
     let provider_ref = opt_s(&body, "provider_ref");
@@ -898,7 +923,11 @@ pub(crate) async fn handle_model_route_create(
     let provider_kind = s(
         &body,
         "provider_kind",
-        if transport == "ollama" { "local" } else { "hosted_api" },
+        if transport == "ollama" {
+            "local"
+        } else {
+            "hosted_api"
+        },
     );
     let credential_posture = s(
         &body,
@@ -974,7 +1003,12 @@ pub(crate) async fn handle_model_route_create(
             .and_then(|v| v.as_str()),
     );
     record["receipt_refs"] = json!([receipt]);
-    let _ = persist_record(&st.data_dir, RECORD_DIR, &s(&record, "route_id", ""), &record);
+    let _ = persist_record(
+        &st.data_dir,
+        RECORD_DIR,
+        &s(&record, "route_id", ""),
+        &record,
+    );
     (StatusCode::CREATED, Json(json!({ "route": record })))
 }
 
@@ -1031,7 +1065,9 @@ pub(crate) async fn handle_model_route_patch(
     {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "error": { "code": "model_route_plaintext_secret_rejected", "message": "Plaintext credentials are never accepted." } })),
+            Json(
+                json!({ "error": { "code": "model_route_plaintext_secret_rejected", "message": "Plaintext credentials are never accepted." } }),
+            ),
         );
     }
     let credential_change =
@@ -1067,14 +1103,22 @@ pub(crate) async fn handle_model_route_patch(
     }
     if let Some(base) = opt_s(&body, "base_url") {
         let normalized = normalize_base_url(&base);
-        if route.pointer("/provider_binding/base_url").and_then(|v| v.as_str())
+        if route
+            .pointer("/provider_binding/base_url")
+            .and_then(|v| v.as_str())
             != Some(normalized.as_str())
         {
             route["provider_binding"]["base_url"] = json!(normalized);
             route["availability"] = json!({ "state": "declared", "probe": Value::Null });
         }
     }
-    let receipt = route_receipt(&st.data_dir, &s(&route, "route_ref", ""), "patched", "ok", None);
+    let receipt = route_receipt(
+        &st.data_dir,
+        &s(&route, "route_ref", ""),
+        "patched",
+        "ok",
+        None,
+    );
     if let Some(refs) = route["receipt_refs"].as_array_mut() {
         refs.push(json!(receipt));
     }
@@ -1098,13 +1142,17 @@ pub(crate) async fn handle_model_route_delete(
     if s(&route, "origin", "") == "seeded" {
         return (
             StatusCode::CONFLICT,
-            Json(json!({ "error": { "code": "model_route_seed_undeletable", "message": "The seeded env-default route represents live execution reality; it cannot be deleted." } })),
+            Json(
+                json!({ "error": { "code": "model_route_seed_undeletable", "message": "The seeded env-default route represents live execution reality; it cannot be deleted." } }),
+            ),
         );
     }
     if route.get("default_route").and_then(|v| v.as_bool()) == Some(true) {
         return (
             StatusCode::CONFLICT,
-            Json(json!({ "error": { "code": "model_route_default_undeletable", "message": "Select a different default route before deleting this one." } })),
+            Json(
+                json!({ "error": { "code": "model_route_default_undeletable", "message": "Select a different default route before deleting this one." } }),
+            ),
         );
     }
     let bound = read_record_dir(&st.data_dir, BINDING_DIR)
@@ -1113,7 +1161,9 @@ pub(crate) async fn handle_model_route_delete(
     if bound {
         return (
             StatusCode::CONFLICT,
-            Json(json!({ "error": { "code": "model_route_has_session_bindings", "message": "Route has session bindings; it cannot be deleted." } })),
+            Json(
+                json!({ "error": { "code": "model_route_has_session_bindings", "message": "Route has session bindings; it cannot be deleted." } }),
+            ),
         );
     }
     let removed = remove_record(&st.data_dir, RECORD_DIR, &id);
@@ -1325,7 +1375,9 @@ pub(crate) async fn handle_model_route_bind_session(
     if session_ref.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "error": { "code": "model_route_session_ref_required", "message": "session_ref is required." } })),
+            Json(
+                json!({ "error": { "code": "model_route_session_ref_required", "message": "session_ref is required." } }),
+            ),
         );
     }
     let transport = route

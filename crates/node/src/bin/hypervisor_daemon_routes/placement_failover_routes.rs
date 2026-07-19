@@ -104,7 +104,11 @@ fn rank_candidates(
         let labels: Vec<String> = c
             .get("eligibility_labels")
             .and_then(|l| l.as_array())
-            .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(str::to_string))
+                    .collect()
+            })
             .unwrap_or_default();
         let reject = |reason: &str, detail: String| {
             json!({
@@ -115,11 +119,17 @@ fn rank_candidates(
             })
         };
         if status == "expired" {
-            rejected.push(reject("expired_requires_requote", "candidate expired; requote via refresh".into()));
+            rejected.push(reject(
+                "expired_requires_requote",
+                "candidate expired; requote via refresh".into(),
+            ));
             continue;
         }
         if status == "superseded" {
-            rejected.push(reject("superseded_by_newer_batch", "superseded candidate retained as evidence".into()));
+            rejected.push(reject(
+                "superseded_by_newer_batch",
+                "superseded candidate retained as evidence".into(),
+            ));
             continue;
         }
         let sim_harness = labels.iter().any(|l| l == "simulated_control_plane");
@@ -149,7 +159,9 @@ fn rank_candidates(
             }
         }
         if require_full_lifecycle
-            && !labels.iter().any(|l| l == "full_lifecycle" || l == "lifecycle_harness_only")
+            && !labels
+                .iter()
+                .any(|l| l == "full_lifecycle" || l == "lifecycle_harness_only")
         {
             rejected.push(reject(
                 "lifecycle_unproven_for_failover_target",
@@ -158,7 +170,10 @@ fn rank_candidates(
             continue;
         }
         let mut score: i64 = 0;
-        if labels.iter().any(|l| l == "full_lifecycle" || l == "lifecycle_harness_only") {
+        if labels
+            .iter()
+            .any(|l| l == "full_lifecycle" || l == "lifecycle_harness_only")
+        {
             score += 20;
         }
         if labels.iter().any(|l| l == "conformance_reference") {
@@ -175,7 +190,10 @@ fn rank_candidates(
         eligible.push((score, cref, c));
     }
     eligible.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-    Ranked { eligible: eligible.into_iter().map(|(_, _, c)| c).collect(), rejected }
+    Ranked {
+        eligible: eligible.into_iter().map(|(_, _, c)| c).collect(),
+        rejected,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +219,11 @@ fn mint_decision(
             })
         })
         .collect();
-    let fee_eligibility = if ranked.eligible.len() >= 2 { "eligible_future" } else { "not_applicable" };
+    let fee_eligibility = if ranked.eligible.len() >= 2 {
+        "eligible_future"
+    } else {
+        "not_applicable"
+    };
     let id = format!("pld_{:x}", nanos());
     let decision_ref = format!("placement-decision://{id}");
     let mut decision = json!({
@@ -300,7 +322,10 @@ pub(crate) async fn handle_placement_decide(
         .cloned()
         .unwrap_or(json!({ "mode": "manual", "replacement_rule": "different_provider_class_with_full_lifecycle" }));
     let (decision, receipt) = mint_decision(&data_dir, &intent, &ranked, "decision", None, policy);
-    (StatusCode::OK, Json(json!({ "ok": true, "decision": decision, "receipt": receipt })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "decision": decision, "receipt": receipt })),
+    )
 }
 
 pub(crate) async fn handle_placement_decisions_list(
@@ -324,7 +349,10 @@ pub(crate) async fn handle_placement_decision_get(
         .find(|d| text(d, "decision_id") == id || text(d, "decision_ref").ends_with(&id))
     {
         Some(d) => (StatusCode::OK, Json(d)),
-        None => (StatusCode::NOT_FOUND, Json(json!({"reason": "placement_decision_unknown"}))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"reason": "placement_decision_unknown"})),
+        ),
     }
 }
 
@@ -370,7 +398,10 @@ pub(crate) async fn handle_failover_plan_create(
     let data_dir = st.data_dir.clone();
     let env_ref = text(&body, "environment_ref");
     if env_ref.is_empty() {
-        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"reason": "environment_ref_required"})));
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"reason": "environment_ref_required"})),
+        );
     }
     let source_account_ref = text(&body, "source_account_ref");
     let material = latest_admitted_material(&data_dir, &env_ref);
@@ -445,7 +476,10 @@ fn persist_run(data_dir: &str, run: &Value) {
 fn phase_done(run: &Value, phase: &str) -> bool {
     run.get("events")
         .and_then(|e| e.as_array())
-        .map(|evs| evs.iter().any(|ev| text(ev, "phase") == phase && text(ev, "status") == "ok"))
+        .map(|evs| {
+            evs.iter()
+                .any(|ev| text(ev, "phase") == phase && text(ev, "status") == "ok")
+        })
         .unwrap_or(false)
 }
 
@@ -467,11 +501,15 @@ fn refuse(run: &mut Value, data_dir: &str, reason: &str, detail: String) -> (Sta
     run["refusal"] = json!({ "reason": reason, "detail": detail, "at": super::iso_now() });
     push_event(run, "refused", reason, json!({ "detail": detail }));
     persist_run(data_dir, run);
-    (StatusCode::CONFLICT, json!({"ok": false, "reason": reason, "run": run.clone()}))
+    (
+        StatusCode::CONFLICT,
+        json!({"ok": false, "reason": reason, "run": run.clone()}),
+    )
 }
 
 async fn provider_op(st: &Arc<DaemonState>, body: Value) -> (StatusCode, Value) {
-    let (code, Json(resp)) = super::provider_routes::handle_provider_op(State(st.clone()), Json(body)).await;
+    let (code, Json(resp)) =
+        super::provider_routes::handle_provider_op(State(st.clone()), Json(body)).await;
     (code, resp)
 }
 
@@ -498,7 +536,12 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
             .find(|r| text(r, "run_ref") == rref || text(r, "run_id") == rref)
         {
             Some(r) => r,
-            None => return (StatusCode::NOT_FOUND, json!({"reason": "failover_run_unknown"})),
+            None => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    json!({"reason": "failover_run_unknown"}),
+                )
+            }
         }
     } else {
         let condition = text(&body, "failure_condition");
@@ -529,10 +572,16 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                 plans.into_iter().next()
             });
         let Some(plan) = plan else {
-            return (StatusCode::CONFLICT, json!({"reason": "failover_plan_required"}));
+            return (
+                StatusCode::CONFLICT,
+                json!({"reason": "failover_plan_required"}),
+            );
         };
         let old_account = load_account_by_ref(&data_dir, &text(&plan, "source_account_ref"));
-        let old_kind = old_account.as_ref().map(|a| text(a, "kind")).unwrap_or_default();
+        let old_kind = old_account
+            .as_ref()
+            .map(|a| text(a, "kind"))
+            .unwrap_or_default();
         let id = format!("for_{:x}", nanos());
         let env_ref = text(&plan, "environment_ref");
         let mut r = json!({
@@ -562,17 +611,25 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
         if let Some(tb) = body.get("triggered_by") {
             r["triggered_by"] = tb.clone();
         }
-        push_event(&mut r, "detected", "ok", json!({
-            "failure_condition": condition,
-            "mode": if body.get("triggered_by").is_some() { "auto_policy_evidence" } else { "accepted_named_condition" },
-            "note": "failure conditions may be detected or accepted by name; injection is only supported where safe (ssh/loopback/akash simulator)",
-        }));
+        push_event(
+            &mut r,
+            "detected",
+            "ok",
+            json!({
+                "failure_condition": condition,
+                "mode": if body.get("triggered_by").is_some() { "auto_policy_evidence" } else { "accepted_named_condition" },
+                "note": "failure conditions may be detected or accepted by name; injection is only supported where safe (ssh/loopback/akash simulator)",
+            }),
+        );
         persist_run(&data_dir, &r);
         r
     };
 
     if text(&run, "status") == "refused" {
-        return (StatusCode::CONFLICT, json!({"ok": false, "reason": "failover_run_already_refused", "run": run}));
+        return (
+            StatusCode::CONFLICT,
+            json!({"ok": false, "reason": "failover_run_already_refused", "run": run}),
+        );
     }
     run["next_required"] = Value::Null;
 
@@ -587,19 +644,32 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
             .into_iter()
             .find(|m| text(m, "material_ref") == mref);
         let Some(material) = material else {
-            return refuse(&mut run, &data_dir, "failover_refused_no_restore_material",
-                format!("material record {mref} absent — fail closed"));
+            return refuse(
+                &mut run,
+                &data_dir,
+                "failover_refused_no_restore_material",
+                format!("material record {mref} absent — fail closed"),
+            );
         };
         match validate_custody(&material) {
             Ok(root) => {
-                push_event(&mut run, "material_secured", "ok", json!({
-                    "restore_material_ref": mref, "state_root": root, "via": "daemon_custody",
-                }));
+                push_event(
+                    &mut run,
+                    "material_secured",
+                    "ok",
+                    json!({
+                        "restore_material_ref": mref, "state_root": root, "via": "daemon_custody",
+                    }),
+                );
             }
             Err(custody_err) => {
                 // Daemon custody damaged → storage archive ladder (or refuse).
                 let condition = text(&run, "failure_condition");
-                let archives = run.get("archive_refs").and_then(|a| a.as_array()).cloned().unwrap_or_default();
+                let archives = run
+                    .get("archive_refs")
+                    .and_then(|a| a.as_array())
+                    .cloned()
+                    .unwrap_or_default();
                 if condition == "storage_unavailable" || archives.is_empty() {
                     return refuse(&mut run, &data_dir, "snapshot_invalid",
                         format!("daemon custody invalid ({custody_err}) and no storage archive available — fail closed"));
@@ -612,27 +682,53 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                     "wallet_approval_grant": body.get("wallet_approval_grant_archive_restore").cloned().unwrap_or(Value::Null),
                 });
                 let (code, Json(resp)) = super::storage_backend_routes::handle_storage_archive_op(
-                    State(st.clone()), Json(sbody)).await;
+                    State(st.clone()),
+                    Json(sbody),
+                )
+                .await;
                 if code == StatusCode::FORBIDDEN {
                     return awaiting(&mut run, &data_dir, "archive_restore", &resp);
                 }
                 if code != StatusCode::OK {
-                    return refuse(&mut run, &data_dir, "archive_invalid",
-                        format!("storage archive restore failed ({}): {}", code, text(&resp, "reason")));
+                    return refuse(
+                        &mut run,
+                        &data_dir,
+                        "archive_invalid",
+                        format!(
+                            "storage archive restore failed ({}): {}",
+                            code,
+                            text(&resp, "reason")
+                        ),
+                    );
                 }
                 match validate_custody(&material) {
                     Ok(root) => {
                         if let Some(rr) = resp.get("receipt_ref") {
-                            if let Some(arr) = run.get_mut("receipt_refs").and_then(|a| a.as_array_mut()) { arr.push(rr.clone()); }
+                            if let Some(arr) =
+                                run.get_mut("receipt_refs").and_then(|a| a.as_array_mut())
+                            {
+                                arr.push(rr.clone());
+                            }
                         }
-                        push_event(&mut run, "material_secured", "ok", json!({
-                            "restore_material_ref": mref, "state_root": root,
-                            "via": "storage_archive_5_gate_ladder", "archive_ref": archive_ref,
-                        }));
+                        push_event(
+                            &mut run,
+                            "material_secured",
+                            "ok",
+                            json!({
+                                "restore_material_ref": mref, "state_root": root,
+                                "via": "storage_archive_5_gate_ladder", "archive_ref": archive_ref,
+                            }),
+                        );
                     }
                     Err(e) => {
-                        return refuse(&mut run, &data_dir, "archive_invalid",
-                            format!("custody still invalid after archive restore ({e}) — fail closed"));
+                        return refuse(
+                            &mut run,
+                            &data_dir,
+                            "archive_invalid",
+                            format!(
+                                "custody still invalid after archive restore ({e}) — fail closed"
+                            ),
+                        );
                     }
                 }
             }
@@ -644,19 +740,40 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
     if !phase_done(&run, "replacement_selected") {
         let intent = {
             let iref = text(&run, "intent_ref");
-            if iref.is_empty() { None } else { dcr::load_intent(&data_dir, &iref) }
+            if iref.is_empty() {
+                None
+            } else {
+                dcr::load_intent(&data_dir, &iref)
+            }
         }
         .unwrap_or_else(|| dcr::ensure_default_intent(&data_dir));
-        let old_kind = run.get("old_provider").map(|o| text(o, "provider_kind")).unwrap_or_default();
-        let ranked = rank_candidates(&data_dir, &text(&intent, "intent_ref"),
-            if old_kind.is_empty() { None } else { Some(old_kind.as_str()) }, true);
+        let old_kind = run
+            .get("old_provider")
+            .map(|o| text(o, "provider_kind"))
+            .unwrap_or_default();
+        let ranked = rank_candidates(
+            &data_dir,
+            &text(&intent, "intent_ref"),
+            if old_kind.is_empty() {
+                None
+            } else {
+                Some(old_kind.as_str())
+            },
+            true,
+        );
         if ranked.eligible.is_empty() {
             return refuse(&mut run, &data_dir, "failover_no_replacement_candidate",
                 format!("no placement-eligible full_lifecycle candidate outside class '{old_kind}' ({} rejected with reasons)", ranked.rejected.len()));
         }
         let policy = json!({ "mode": "failover", "replacement_rule": "different_provider_class_with_full_lifecycle", "excluded_class": old_kind });
-        let (decision, receipt) = mint_decision(&data_dir, &intent, &ranked, "failover_replacement",
-            Some(&text(&run, "run_ref")), policy);
+        let (decision, receipt) = mint_decision(
+            &data_dir,
+            &intent,
+            &ranked,
+            "failover_replacement",
+            Some(&text(&run, "run_ref")),
+            policy,
+        );
         run["decision_ref"] = decision["decision_ref"].clone();
         run["replacement"] = json!({
             "candidate_ref": decision["selected_candidate_ref"],
@@ -667,13 +784,18 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
         if let Some(arr) = run.get_mut("receipt_refs").and_then(|a| a.as_array_mut()) {
             arr.push(receipt["receipt_ref"].clone());
         }
-        push_event(&mut run, "replacement_selected", "ok", json!({
-            "decision_ref": decision["decision_ref"],
-            "candidate_ref": decision["selected_candidate_ref"],
-            "provider_kind": decision["selected"]["provider_kind"],
-            "alternatives_considered": decision["alternatives_considered"].as_array().map(|a| a.len()).unwrap_or(0),
-            "rejected": decision["rejected_candidates"].as_array().map(|a| a.len()).unwrap_or(0),
-        }));
+        push_event(
+            &mut run,
+            "replacement_selected",
+            "ok",
+            json!({
+                "decision_ref": decision["decision_ref"],
+                "candidate_ref": decision["selected_candidate_ref"],
+                "provider_kind": decision["selected"]["provider_kind"],
+                "alternatives_considered": decision["alternatives_considered"].as_array().map(|a| a.len()).unwrap_or(0),
+                "rejected": decision["rejected_candidates"].as_array().map(|a| a.len()).unwrap_or(0),
+            }),
+        );
         persist_run(&data_dir, &run);
     }
 
@@ -695,16 +817,27 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
             return awaiting(&mut run, &data_dir, "create", &resp);
         }
         if code != StatusCode::OK {
-            return refuse(&mut run, &data_dir, "failover_replacement_create_failed",
-                format!("{}: {}", code, text(&resp, "reason")));
+            return refuse(
+                &mut run,
+                &data_dir,
+                "failover_replacement_create_failed",
+                format!("{}: {}", code, text(&resp, "reason")),
+            );
         }
         if let Some(rr) = resp.get("receipt_ref") {
-            if let Some(arr) = run.get_mut("receipt_refs").and_then(|a| a.as_array_mut()) { arr.push(rr.clone()); }
+            if let Some(arr) = run.get_mut("receipt_refs").and_then(|a| a.as_array_mut()) {
+                arr.push(rr.clone());
+            }
         }
-        push_event(&mut run, "replacement_created", "ok", json!({
-            "receipt_ref": resp.get("receipt_ref").cloned().unwrap_or(Value::Null),
-            "provider_native_evidence": resp.get("evidence").cloned().unwrap_or(Value::Null),
-        }));
+        push_event(
+            &mut run,
+            "replacement_created",
+            "ok",
+            json!({
+                "receipt_ref": resp.get("receipt_ref").cloned().unwrap_or(Value::Null),
+                "provider_native_evidence": resp.get("evidence").cloned().unwrap_or(Value::Null),
+            }),
+        );
         persist_run(&data_dir, &run);
     }
 
@@ -723,15 +856,26 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
             return awaiting(&mut run, &data_dir, "start", &resp);
         }
         if code != StatusCode::OK {
-            return refuse(&mut run, &data_dir, "failover_replacement_start_failed",
-                format!("{}: {}", code, text(&resp, "reason")));
+            return refuse(
+                &mut run,
+                &data_dir,
+                "failover_replacement_start_failed",
+                format!("{}: {}", code, text(&resp, "reason")),
+            );
         }
         if let Some(rr) = resp.get("receipt_ref") {
-            if let Some(arr) = run.get_mut("receipt_refs").and_then(|a| a.as_array_mut()) { arr.push(rr.clone()); }
+            if let Some(arr) = run.get_mut("receipt_refs").and_then(|a| a.as_array_mut()) {
+                arr.push(rr.clone());
+            }
         }
-        push_event(&mut run, "started", "ok", json!({
-            "endpoint_evidence": resp.get("evidence").and_then(|e| e.get("endpoint")).cloned().unwrap_or(Value::Null),
-        }));
+        push_event(
+            &mut run,
+            "started",
+            "ok",
+            json!({
+                "endpoint_evidence": resp.get("evidence").and_then(|e| e.get("endpoint")).cloned().unwrap_or(Value::Null),
+            }),
+        );
         persist_run(&data_dir, &run);
     }
 
@@ -759,28 +903,50 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
             return awaiting(&mut run, &data_dir, "restore", &resp);
         }
         if code != StatusCode::OK || text(&resp, "outcome") == "restore_refused" {
-            return refuse(&mut run, &data_dir, "restore_refused",
-                format!("state_root validation is mandatory; provider restore refused: {}", text(&resp, "reason")));
+            return refuse(
+                &mut run,
+                &data_dir,
+                "restore_refused",
+                format!(
+                    "state_root validation is mandatory; provider restore refused: {}",
+                    text(&resp, "reason")
+                ),
+            );
         }
         if let Some(rr) = resp.get("receipt_ref") {
-            if let Some(arr) = run.get_mut("receipt_refs").and_then(|a| a.as_array_mut()) { arr.push(rr.clone()); }
+            if let Some(arr) = run.get_mut("receipt_refs").and_then(|a| a.as_array_mut()) {
+                arr.push(rr.clone());
+            }
         }
         let root = text(&run, "state_root");
-        push_event(&mut run, "restored", "ok", json!({
-            "state_root": root,
-            "receipt_ref": resp.get("receipt_ref").cloned().unwrap_or(Value::Null),
-        }));
+        push_event(
+            &mut run,
+            "restored",
+            "ok",
+            json!({
+                "state_root": root,
+                "receipt_ref": resp.get("receipt_ref").cloned().unwrap_or(Value::Null),
+            }),
+        );
         persist_run(&data_dir, &run);
     }
 
     // ---- phase: old_closed -------------------------------------------------
     if !phase_done(&run, "old_closed") {
         let condition = text(&run, "failure_condition");
-        let old_ref = run.get("old_provider").map(|o| text(o, "account_ref")).unwrap_or_default();
+        let old_ref = run
+            .get("old_provider")
+            .map(|o| text(o, "account_ref"))
+            .unwrap_or_default();
         if condition == "credential_revoked" || old_ref.is_empty() {
             run["old_teardown"] = json!({ "state": "closed_with_warning",
                 "warning": format!("teardown impossible ({condition}) — any open spend exposure stays visible with a standing warning") });
-            push_event(&mut run, "old_closed", "ok", json!({ "state": "closed_with_warning", "condition": condition }));
+            push_event(
+                &mut run,
+                "old_closed",
+                "ok",
+                json!({ "state": "closed_with_warning", "condition": condition }),
+            );
         } else {
             let op_body = json!({
                 "provider_id": old_ref,
@@ -794,7 +960,9 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
                 return awaiting(&mut run, &data_dir, "teardown", &resp);
             }
             if let Some(rr) = resp.get("receipt_ref") {
-                if let Some(arr) = run.get_mut("receipt_refs").and_then(|a| a.as_array_mut()) { arr.push(rr.clone()); }
+                if let Some(arr) = run.get_mut("receipt_refs").and_then(|a| a.as_array_mut()) {
+                    arr.push(rr.clone());
+                }
             }
             if code == StatusCode::OK {
                 run["old_teardown"] = json!({ "state": "closed", "receipt_ref": resp.get("receipt_ref").cloned().unwrap_or(Value::Null) });
@@ -802,14 +970,26 @@ pub(crate) async fn failover_run_core(st: &Arc<DaemonState>, body: Value) -> (St
             } else {
                 run["old_teardown"] = json!({ "state": "closed_with_warning",
                     "warning": format!("old provider teardown failed ({}): {} — spend exposure remains visible", code, text(&resp, "reason")) });
-                push_event(&mut run, "old_closed", "ok", json!({ "state": "closed_with_warning" }));
+                push_event(
+                    &mut run,
+                    "old_closed",
+                    "ok",
+                    json!({ "state": "closed_with_warning" }),
+                );
             }
         }
         persist_run(&data_dir, &run);
     }
 
-    let warned = run.get("old_teardown").map(|t| text(t, "state") == "closed_with_warning").unwrap_or(false);
-    run["status"] = json!(if warned { "restored_with_warning" } else { "restored" });
+    let warned = run
+        .get("old_teardown")
+        .map(|t| text(t, "state") == "closed_with_warning")
+        .unwrap_or(false);
+    run["status"] = json!(if warned {
+        "restored_with_warning"
+    } else {
+        "restored"
+    });
     run["completed_at"] = json!(super::iso_now());
     persist_run(&data_dir, &run);
     (StatusCode::OK, json!({"ok": true, "run": run}))
@@ -838,7 +1018,11 @@ pub(crate) const DETECTOR_COVERAGE: &[&str] = &[
 fn load_plan(data_dir: &str, id_or_ref: &str) -> Option<Value> {
     super::read_record_dir(data_dir, FAILOVER_PLAN_KIND)
         .into_iter()
-        .find(|p| text(p, "plan_id") == id_or_ref || text(p, "plan_ref") == id_or_ref || text(p, "plan_ref").ends_with(id_or_ref))
+        .find(|p| {
+            text(p, "plan_id") == id_or_ref
+                || text(p, "plan_ref") == id_or_ref
+                || text(p, "plan_ref").ends_with(id_or_ref)
+        })
 }
 
 fn persist_plan(data_dir: &str, plan: &Value) {
@@ -906,7 +1090,9 @@ fn detect_failure_evidence(
             if text(&r, "environment_ref") == env_ref
                 && text(&r, "outcome") == "error"
                 && text(&r, "at").as_str() > since
-                && (detail.contains("unreachable") || detail.contains("connect") || detail.contains("ssh"))
+                && (detail.contains("unreachable")
+                    || detail.contains("connect")
+                    || detail.contains("ssh"))
             {
                 return Some((
                     "host_unreachable".into(),
@@ -922,7 +1108,11 @@ fn detect_failure_evidence(
         let archives: Vec<String> = plan
             .get("archive_refs")
             .and_then(|a| a.as_array())
-            .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(str::to_string))
+                    .collect()
+            })
             .unwrap_or_default();
         for i in super::read_record_dir(data_dir, "artifact-availability-incidents") {
             if text(&i, "status") == "open"
@@ -948,7 +1138,10 @@ pub(crate) async fn handle_failover_plan_arm(
 ) -> (StatusCode, Json<Value>) {
     let data_dir = st.data_dir.clone();
     let Some(mut plan) = load_plan(&data_dir, &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({"reason": "failover_plan_unknown"})));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({"reason": "failover_plan_unknown"})),
+        );
     };
     if text(&plan, "readiness") == "no_restore_material" {
         return (
@@ -962,15 +1155,26 @@ pub(crate) async fn handle_failover_plan_arm(
     let conditions: Vec<String> = body
         .get("conditions")
         .and_then(|c| c.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default();
-    if conditions.is_empty() || conditions.iter().any(|c| !FAILURE_CONDITIONS.contains(&c.as_str())) {
+    if conditions.is_empty()
+        || conditions
+            .iter()
+            .any(|c| !FAILURE_CONDITIONS.contains(&c.as_str()))
+    {
         return (
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({"reason": "failover_condition_unknown", "supported": FAILURE_CONDITIONS})),
         );
     }
-    let uncovered: Vec<&String> = conditions.iter().filter(|c| !DETECTOR_COVERAGE.contains(&c.as_str())).collect();
+    let uncovered: Vec<&String> = conditions
+        .iter()
+        .filter(|c| !DETECTOR_COVERAGE.contains(&c.as_str()))
+        .collect();
     plan["auto_trigger"] = json!({
         "enabled": true,
         "conditions": conditions,
@@ -996,7 +1200,10 @@ pub(crate) async fn handle_failover_plan_disarm(
 ) -> (StatusCode, Json<Value>) {
     let data_dir = st.data_dir.clone();
     let Some(mut plan) = load_plan(&data_dir, &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({"reason": "failover_plan_unknown"})));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({"reason": "failover_plan_unknown"})),
+        );
     };
     plan["trigger_state"] = json!("disarmed");
     if let Some(t) = plan.get_mut("auto_trigger") {
@@ -1015,10 +1222,13 @@ async fn evaluate_plan(st: &Arc<DaemonState>, plan: &Value) -> Value {
         return json!({ "plan_ref": plan_ref, "outcome": if state.is_empty() { "disarmed" } else { state.as_str() } });
     }
     // one active run per plan — a second trigger can never stack
-    let active = super::read_record_dir(&data_dir, FAILOVER_RUN_KIND).into_iter().any(|r| {
-        text(&r, "plan_ref") == plan_ref
-            && (text(&r, "status") == "running" || text(&r, "status").starts_with("awaiting_authority"))
-    });
+    let active = super::read_record_dir(&data_dir, FAILOVER_RUN_KIND)
+        .into_iter()
+        .any(|r| {
+            text(&r, "plan_ref") == plan_ref
+                && (text(&r, "status") == "running"
+                    || text(&r, "status").starts_with("awaiting_authority"))
+        });
     if active {
         return json!({ "plan_ref": plan_ref, "outcome": "active_run_exists" });
     }
@@ -1026,10 +1236,16 @@ async fn evaluate_plan(st: &Arc<DaemonState>, plan: &Value) -> Value {
     let conditions: Vec<String> = trigger
         .get("conditions")
         .and_then(|c| c.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default();
     let since = text(&trigger, "armed_at");
-    let Some((condition, evidence_refs, detail)) = detect_failure_evidence(&data_dir, plan, &conditions, &since) else {
+    let Some((condition, evidence_refs, detail)) =
+        detect_failure_evidence(&data_dir, plan, &conditions, &since)
+    else {
         let mut p = plan.clone();
         p["last_evaluated_at"] = json!(super::iso_now());
         persist_plan(&data_dir, &p);
@@ -1054,8 +1270,14 @@ async fn evaluate_plan(st: &Arc<DaemonState>, plan: &Value) -> Value {
         "triggered_by": triggered_by,
     });
     let (_code, resp) = failover_run_core(st, body).await;
-    let run_ref = resp.get("run").map(|r| text(r, "run_ref")).unwrap_or_default();
-    let run_status = resp.get("run").map(|r| text(r, "status")).unwrap_or_default();
+    let run_ref = resp
+        .get("run")
+        .map(|r| text(r, "run_ref"))
+        .unwrap_or_default();
+    let run_status = resp
+        .get("run")
+        .map(|r| text(r, "status"))
+        .unwrap_or_default();
     let mut p = plan.clone();
     p["trigger_state"] = json!("triggered");
     p["last_evaluated_at"] = json!(super::iso_now());
@@ -1124,6 +1346,9 @@ pub(crate) async fn handle_failover_run_get(
         .find(|r| text(r, "run_id") == id || text(r, "run_ref").ends_with(&id))
     {
         Some(r) => (StatusCode::OK, Json(r)),
-        None => (StatusCode::NOT_FOUND, Json(json!({"reason": "failover_run_unknown"}))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"reason": "failover_run_unknown"})),
+        ),
     }
 }

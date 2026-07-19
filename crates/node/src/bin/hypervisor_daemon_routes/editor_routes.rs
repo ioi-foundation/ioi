@@ -191,7 +191,10 @@ pub(crate) fn editor_target_openable(target_id: &str) -> bool {
         return true;
     }
     let (_m, profiles) = load_registry();
-    if !profiles.iter().any(|p| p.get("target_id").and_then(|v| v.as_str()) == Some(target_id)) {
+    if !profiles
+        .iter()
+        .any(|p| p.get("target_id").and_then(|v| v.as_str()) == Some(target_id))
+    {
         return false;
     }
     target_open_posture(target_id)
@@ -240,7 +243,11 @@ pub(crate) async fn handle_editor_targets_list(State(_st): State<Arc<DaemonState
         .collect();
     let openable: Vec<String> = targets
         .iter()
-        .filter(|p| p.pointer("/open_posture/openable").and_then(|v| v.as_bool()) == Some(true))
+        .filter(|p| {
+            p.pointer("/open_posture/openable")
+                .and_then(|v| v.as_bool())
+                == Some(true)
+        })
         .filter_map(|p| {
             p.get("target_id")
                 .and_then(|v| v.as_str())

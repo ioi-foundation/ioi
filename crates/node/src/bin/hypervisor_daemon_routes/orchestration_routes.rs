@@ -154,10 +154,13 @@ pub(crate) async fn handle_automation_create(
         .unwrap_or("manual")
         .to_string();
     // Validate the schedule (cron expression / timezone) up front with a useful error.
-    if let Err(e) = super::validate_schedule_spec(body.get("schedule_spec").unwrap_or(&Value::Null)) {
+    if let Err(e) = super::validate_schedule_spec(body.get("schedule_spec").unwrap_or(&Value::Null))
+    {
         return (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } })),
+            Json(
+                json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }),
+            ),
         );
     }
     let mut record = json!({
@@ -268,15 +271,35 @@ pub(crate) async fn handle_automation_patch(
     };
     if let Some(spec) = body.get("schedule_spec") {
         if let Err(e) = super::validate_schedule_spec(spec) {
-            return Json(json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }));
+            return Json(
+                json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }),
+            );
         }
     }
     for key in [
-        "name", "description", "trigger", "trigger_kind", "enabled", "steps", "workflow_graph_ref",
-        "limits", "executor_identity", "recipe_ref", "agent_ref", "harness_profile_ref", "model",
-        "reasoning", "connector_refs", "memory_profile_ref", "default_runtime_policy_ref",
-        "authority_policy_ref", "schedule_spec", "catch_up_policy", "misfire_policy",
-        "max_concurrency", "failure_policy",
+        "name",
+        "description",
+        "trigger",
+        "trigger_kind",
+        "enabled",
+        "steps",
+        "workflow_graph_ref",
+        "limits",
+        "executor_identity",
+        "recipe_ref",
+        "agent_ref",
+        "harness_profile_ref",
+        "model",
+        "reasoning",
+        "connector_refs",
+        "memory_profile_ref",
+        "default_runtime_policy_ref",
+        "authority_policy_ref",
+        "schedule_spec",
+        "catch_up_policy",
+        "misfire_policy",
+        "max_concurrency",
+        "failure_policy",
     ] {
         if let Some(v) = body.get(key) {
             a[key] = v.clone();
@@ -298,8 +321,11 @@ pub(crate) async fn handle_automation_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
-    let project_id = load(&st.data_dir, "automations", &id)
-        .and_then(|a| a.get("project_id").and_then(|v| v.as_str()).map(str::to_string));
+    let project_id = load(&st.data_dir, "automations", &id).and_then(|a| {
+        a.get("project_id")
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+    });
     let removed = remove_record(&st.data_dir, "automations", &id);
     if let Some(pid) = project_id {
         link_project_automation(&st.data_dir, &pid, &id, false);
@@ -366,7 +392,11 @@ pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Jso
     // Scheduler: automations carrying a schedule_spec (enabled/paused, trigger, next/last, policy).
     let mut scheduled: Vec<Value> = Vec::new();
     for a in &automations {
-        if !a.get("schedule_spec").map(|s| s.is_object()).unwrap_or(false) {
+        if !a
+            .get("schedule_spec")
+            .map(|s| s.is_object())
+            .unwrap_or(false)
+        {
             continue;
         }
         scheduled.push(json!({
@@ -389,15 +419,28 @@ pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Jso
             _ => {}
         }
         let exec_id = e.get("execution_id").and_then(|v| v.as_str()).unwrap_or("");
-        let aid = e.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
+        let aid = e
+            .get("automation_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let t = by_run.get(exec_id);
         let name = t
-            .and_then(|t| t.get("automation_name")).and_then(|v| v.as_str())
-            .or_else(|| amap.get(aid).and_then(|a| a.get("name")).and_then(|v| v.as_str()))
+            .and_then(|t| t.get("automation_name"))
+            .and_then(|v| v.as_str())
+            .or_else(|| {
+                amap.get(aid)
+                    .and_then(|a| a.get("name"))
+                    .and_then(|v| v.as_str())
+            })
             .unwrap_or("automation");
         let project = t
-            .and_then(|t| t.get("project_id")).and_then(|v| v.as_str())
-            .or_else(|| amap.get(aid).and_then(|a| a.get("project_id")).and_then(|v| v.as_str()))
+            .and_then(|t| t.get("project_id"))
+            .and_then(|v| v.as_str())
+            .or_else(|| {
+                amap.get(aid)
+                    .and_then(|a| a.get("project_id"))
+                    .and_then(|v| v.as_str())
+            })
             .unwrap_or("");
         runs.push(json!({
             "execution_id": exec_id, "automation_id": aid, "name": name, "project_id": project,
@@ -406,10 +449,17 @@ pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Jso
         }));
     }
     runs.sort_by(|a, b| {
-        b.get("started_at").and_then(|v| v.as_str()).unwrap_or("")
+        b.get("started_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
             .cmp(a.get("started_at").and_then(|v| v.as_str()).unwrap_or(""))
     });
-    let failures: Vec<Value> = runs.iter().filter(|r| r.get("status").and_then(|v| v.as_str()) == Some("failed")).take(10).cloned().collect();
+    let failures: Vec<Value> = runs
+        .iter()
+        .filter(|r| r.get("status").and_then(|v| v.as_str()) == Some("failed"))
+        .take(10)
+        .cloned()
+        .collect();
     let recent: Vec<Value> = runs.iter().take(10).cloned().collect();
     // Webhook health.
     let mut events = read_record_dir(&st.data_dir, "webhook-trigger-events");
@@ -420,11 +470,20 @@ pub(crate) async fn handle_operations(State(st): State<Arc<DaemonState>>) -> Jso
             accepted += 1;
         } else {
             rejected += 1;
-            *reasons.entry(ev.get("reason").and_then(|v| v.as_str()).unwrap_or("rejected").to_string()).or_insert(0) += 1;
+            *reasons
+                .entry(
+                    ev.get("reason")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("rejected")
+                        .to_string(),
+                )
+                .or_insert(0) += 1;
         }
     }
     events.sort_by(|a, b| {
-        b.get("received_at").and_then(|v| v.as_str()).unwrap_or("")
+        b.get("received_at")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
             .cmp(a.get("received_at").and_then(|v| v.as_str()).unwrap_or(""))
     });
     let recent_ev: Vec<Value> = events.into_iter().take(10).map(|ev| json!({
@@ -465,20 +524,35 @@ pub(crate) async fn handle_work_ledger(
     let mut entries: Vec<Value> = Vec::new();
     // Runs (the canonical execution records).
     for e in read_record_dir(&st.data_dir, "automation-executions") {
-        let exec_id = e.get("execution_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let aid = e.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
+        let exec_id = e
+            .get("execution_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let aid = e
+            .get("automation_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let t = by_run.get(&exec_id);
         let a = amap.get(aid);
         let name = t
-            .and_then(|t| t.get("automation_name")).and_then(|v| v.as_str())
+            .and_then(|t| t.get("automation_name"))
+            .and_then(|v| v.as_str())
             .or_else(|| a.and_then(|a| a.get("name")).and_then(|v| v.as_str()))
             .unwrap_or("automation");
         let project = t
-            .and_then(|t| t.get("project_id")).and_then(|v| v.as_str())
+            .and_then(|t| t.get("project_id"))
+            .and_then(|v| v.as_str())
             .or_else(|| a.and_then(|a| a.get("project_id")).and_then(|v| v.as_str()))
             .unwrap_or("");
-        let trigger = a.and_then(|a| a.get("trigger_kind")).and_then(|v| v.as_str()).unwrap_or("manual");
-        let state_root = t.and_then(|t| t.get("state_root")).and_then(|v| v.as_str()).unwrap_or("");
+        let trigger = a
+            .and_then(|a| a.get("trigger_kind"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("manual");
+        let state_root = t
+            .and_then(|t| t.get("state_root"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         entries.push(json!({
             "id": exec_id, "kind": "run", "timestamp": g(&e, "started_at"),
             "automation_id": aid, "automation_name": name, "project_id": project,
@@ -569,14 +643,32 @@ pub(crate) async fn handle_work_ledger(
     }
     // Webhook trigger receipts (accepted/rejected proofs).
     for ev in read_record_dir(&st.data_dir, "webhook-trigger-events") {
-        let aid = ev.get("automation_id").and_then(|v| v.as_str()).unwrap_or("");
+        let aid = ev
+            .get("automation_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let a = amap.get(aid);
-        let name = a.and_then(|a| a.get("name")).and_then(|v| v.as_str()).unwrap_or("automation");
-        let project = a.and_then(|a| a.get("project_id")).and_then(|v| v.as_str()).unwrap_or("");
+        let name = a
+            .and_then(|a| a.get("name"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("automation");
+        let project = a
+            .and_then(|a| a.get("project_id"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let accepted = ev.get("accepted").and_then(|v| v.as_bool()) == Some(true);
-        let run_ref = ev.get("run_ref").and_then(|v| v.as_str()).filter(|s| !s.is_empty());
-        let run_ref_v = match run_ref { Some(s) => json!(s), None => Value::Null };
-        let timeline_v = match run_ref { Some(r) => json!(format!("/__ioi/run-timeline/{r}")), None => Value::Null };
+        let run_ref = ev
+            .get("run_ref")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty());
+        let run_ref_v = match run_ref {
+            Some(s) => json!(s),
+            None => Value::Null,
+        };
+        let timeline_v = match run_ref {
+            Some(r) => json!(format!("/__ioi/run-timeline/{r}")),
+            None => Value::Null,
+        };
         entries.push(json!({
             "id": g(&ev, "receipt_id"), "kind": "trigger", "timestamp": g(&ev, "received_at"),
             "automation_id": aid, "automation_name": name, "project_id": project,
@@ -799,7 +891,9 @@ pub(crate) async fn handle_work_ledger(
         }));
     }
     entries.sort_by(|a, b| {
-        b.get("timestamp").and_then(|v| v.as_str()).unwrap_or("")
+        b.get("timestamp")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
             .cmp(a.get("timestamp").and_then(|v| v.as_str()).unwrap_or(""))
     });
     if let Some(pid) = q.get("project").map(|s| s.trim()).filter(|s| !s.is_empty()) {
@@ -857,7 +951,9 @@ pub(crate) async fn handle_automation_webhook_events(
         .filter(|e| e.get("accepted").and_then(|v| v.as_bool()) == Some(true))
         .count();
     let rejected = events.len() - accepted;
-    Json(json!({ "ok": true, "events": events, "accepted_count": accepted, "rejected_count": rejected }))
+    Json(
+        json!({ "ok": true, "events": events, "accepted_count": accepted, "rejected_count": rejected }),
+    )
 }
 
 /// POST /v1/hypervisor/automations/:id/webhook — authenticated inbound trigger. Verifies the opaque
@@ -907,14 +1003,25 @@ pub(crate) async fn handle_automation_webhook(
     };
     let reject = |status: StatusCode, reason: &str| {
         record_event(false, reason, Value::Null);
-        (status, Json(json!({ "ok": false, "reason": reason, "request_id": request_id })))
+        (
+            status,
+            Json(json!({ "ok": false, "reason": reason, "request_id": request_id })),
+        )
     };
 
     let Some(a) = load(&st.data_dir, "automations", &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "automation_not_found", "request_id": request_id })));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "reason": "automation_not_found", "request_id": request_id }),
+            ),
+        );
     };
     // Token: compare hashes (reject if no token configured or mismatch).
-    let want = a.get("webhook_token_hash").and_then(|v| v.as_str()).unwrap_or("");
+    let want = a
+        .get("webhook_token_hash")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     if want.is_empty() || token.is_empty() || sha256_hex_str(&token) != want {
         return reject(StatusCode::UNAUTHORIZED, "invalid_token");
     }
@@ -973,7 +1080,9 @@ pub(crate) async fn handle_automation_webhook(
     });
     (
         StatusCode::ACCEPTED,
-        Json(json!({ "ok": true, "accepted": true, "request_id": request_id, "receipt_id": receipt_id })),
+        Json(
+            json!({ "ok": true, "accepted": true, "request_id": request_id, "receipt_id": receipt_id }),
+        ),
     )
 }
 
@@ -1365,23 +1474,87 @@ pub(crate) async fn handle_placement_metrics(State(st): State<Arc<DaemonState>>)
 // decentralized.cloud candidate plane exists — venue selection is never hidden behind auto.
 
 const VENUE_POLICY_KIND: &str = "placement-venue-policy";
-const VENUE_IDS: &[&str] = &["run_local", "use_my_infrastructure", "pick_provider", "hypervisor_choose"];
-const CLOUD_KINDS: &[&str] = &["aws", "gcp", "azure", "k8s", "vast", "runpod", "lambda_cloud", "akash"];
+const VENUE_IDS: &[&str] = &[
+    "run_local",
+    "use_my_infrastructure",
+    "pick_provider",
+    "hypervisor_choose",
+];
+const CLOUD_KINDS: &[&str] = &[
+    "aws",
+    "gcp",
+    "azure",
+    "k8s",
+    "vast",
+    "runpod",
+    "lambda_cloud",
+    "akash",
+];
 
 /// Kind-level capability hints (GPU / storage / IP / snapshot) — labeled hints, never probed
 /// claims. Per-provider semantics preserved; nothing flattened into a fake generic cloud.
 fn venue_capability_hints(kind: &str) -> Value {
     let (gpu, storage, ip, snapshot) = match kind {
-        "local" => ("host-dependent", "host disk", "loopback / local", "daemon snapshots + sha256 state roots (real)"),
-        "baremetal_ssh" => ("host-dependent (your node's hardware)", "node disk", "node endpoint (you own it)", "daemon-custody tar + admitted sha256 (real)"),
-        "aws" => ("EC2 instances — enterprise customer-cloud (guarded adapter)", "EBS root volumes (native ids evidence-only)", "VPC/security-group posture; public or Elastic IPs (evidence)", "daemon custody via the ssh lane; EBS snapshots evidence-only"),
-        "gcp" => ("Compute Engine machine types — enterprise customer-cloud (guarded adapter)", "Persistent Disk boot volumes (native ids evidence-only)", "VPC network/firewall posture; external or static IPs (evidence)", "daemon custody via the ssh lane; PD snapshots evidence-only"),
-        "azure" => ("Azure VM sizes — enterprise customer-cloud (guarded adapter)", "managed OS disks (native ids evidence-only)", "VNet/NSG posture; public or static IPs (evidence)", "daemon custody via the ssh lane; managed-disk snapshots evidence-only"),
-        "k8s" => ("GPU device-plugin scheduling per namespace quota (guarded adapter)", "PVCs per storage class — cluster posture, never restore truth", "ClusterIP/LoadBalancer/ingress per cluster posture (evidence)", "daemon custody from the workload fs; VolumeSnapshots evidence-only"),
-        "vast" => ("marketplace GPUs (adapter pending)", "container-scoped storage", "host-dependent, often shared", "daemon custody when the adapter lands"),
-        "runpod" => ("GPU runtime pods — secure (on-demand) + community (interruptible)", "container disk + network volumes", "proxy ssh / public ip when exposed", "daemon custody via the ssh lane"),
-        "lambda_cloud" => ("GPU VMs — ordinary Linux + ssh (Lambda-class)", "instance-lifetime persistent local NVMe", "public ip + ssh (user ubuntu)", "daemon custody via the ssh lane; native snapshots evidence-only"),
-        "akash" => ("DePIN deployment-lease GPUs — SDL → bids → lease (guarded adapter)", "deployment-scoped persistent storage (SDL posture — never restore truth)", "lease-assigned IP/ports (evidence, not authority)", "daemon custody via the SDL-declared ssh service; archive via the storage plane"),
+        "local" => (
+            "host-dependent",
+            "host disk",
+            "loopback / local",
+            "daemon snapshots + sha256 state roots (real)",
+        ),
+        "baremetal_ssh" => (
+            "host-dependent (your node's hardware)",
+            "node disk",
+            "node endpoint (you own it)",
+            "daemon-custody tar + admitted sha256 (real)",
+        ),
+        "aws" => (
+            "EC2 instances — enterprise customer-cloud (guarded adapter)",
+            "EBS root volumes (native ids evidence-only)",
+            "VPC/security-group posture; public or Elastic IPs (evidence)",
+            "daemon custody via the ssh lane; EBS snapshots evidence-only",
+        ),
+        "gcp" => (
+            "Compute Engine machine types — enterprise customer-cloud (guarded adapter)",
+            "Persistent Disk boot volumes (native ids evidence-only)",
+            "VPC network/firewall posture; external or static IPs (evidence)",
+            "daemon custody via the ssh lane; PD snapshots evidence-only",
+        ),
+        "azure" => (
+            "Azure VM sizes — enterprise customer-cloud (guarded adapter)",
+            "managed OS disks (native ids evidence-only)",
+            "VNet/NSG posture; public or static IPs (evidence)",
+            "daemon custody via the ssh lane; managed-disk snapshots evidence-only",
+        ),
+        "k8s" => (
+            "GPU device-plugin scheduling per namespace quota (guarded adapter)",
+            "PVCs per storage class — cluster posture, never restore truth",
+            "ClusterIP/LoadBalancer/ingress per cluster posture (evidence)",
+            "daemon custody from the workload fs; VolumeSnapshots evidence-only",
+        ),
+        "vast" => (
+            "marketplace GPUs (adapter pending)",
+            "container-scoped storage",
+            "host-dependent, often shared",
+            "daemon custody when the adapter lands",
+        ),
+        "runpod" => (
+            "GPU runtime pods — secure (on-demand) + community (interruptible)",
+            "container disk + network volumes",
+            "proxy ssh / public ip when exposed",
+            "daemon custody via the ssh lane",
+        ),
+        "lambda_cloud" => (
+            "GPU VMs — ordinary Linux + ssh (Lambda-class)",
+            "instance-lifetime persistent local NVMe",
+            "public ip + ssh (user ubuntu)",
+            "daemon custody via the ssh lane; native snapshots evidence-only",
+        ),
+        "akash" => (
+            "DePIN deployment-lease GPUs — SDL → bids → lease (guarded adapter)",
+            "deployment-scoped persistent storage (SDL posture — never restore truth)",
+            "lease-assigned IP/ports (evidence, not authority)",
+            "daemon custody via the SDL-declared ssh service; archive via the storage plane",
+        ),
         _ => ("unknown", "unknown", "unknown", "unknown"),
     };
     json!({ "gpu": gpu, "persistent_storage": storage, "ip": ip, "snapshot": snapshot,
@@ -1421,7 +1594,10 @@ fn provider_card(account: &Value, venue: &str, classes: &[Value]) -> Value {
         _ if preflight.is_null() => "unverified — bind a credential and run preflight".to_string(),
         _ => format!(
             "unverified — preflight refused: {}",
-            preflight.pointer("/evidence/reason").and_then(Value::as_str).unwrap_or("see preflight evidence")
+            preflight
+                .pointer("/evidence/reason")
+                .and_then(Value::as_str)
+                .unwrap_or("see preflight evidence")
         ),
     };
     let eligible_classes: Vec<&str> = classes
@@ -1454,16 +1630,29 @@ fn provider_card(account: &Value, venue: &str, classes: &[Value]) -> Value {
 /// Compose the four venue cards from live daemon truth (accounts + environment classes).
 fn compose_venues(data_dir: &str, classes: &[Value]) -> Vec<Value> {
     let accounts = read_record_dir(data_dir, "provider-accounts");
-    let ssh_accounts: Vec<&Value> = accounts.iter().filter(|a| a["kind"].as_str() == Some("baremetal_ssh")).collect();
-    let cloud_accounts: Vec<&Value> = accounts.iter().filter(|a| CLOUD_KINDS.contains(&a["kind"].as_str().unwrap_or(""))).collect();
+    let ssh_accounts: Vec<&Value> = accounts
+        .iter()
+        .filter(|a| a["kind"].as_str() == Some("baremetal_ssh"))
+        .collect();
+    let cloud_accounts: Vec<&Value> = accounts
+        .iter()
+        .filter(|a| CLOUD_KINDS.contains(&a["kind"].as_str().unwrap_or("")))
+        .collect();
     let class_ids_for = |kind: &str| -> Vec<String> {
-        classes.iter()
-            .filter(|c| c.pointer("/provider_eligibility/provider_kinds").and_then(Value::as_array)
-                .map(|ks| ks.iter().any(|k| k.as_str() == Some(kind))).unwrap_or(false))
+        classes
+            .iter()
+            .filter(|c| {
+                c.pointer("/provider_eligibility/provider_kinds")
+                    .and_then(Value::as_array)
+                    .map(|ks| ks.iter().any(|k| k.as_str() == Some(kind)))
+                    .unwrap_or(false)
+            })
             .filter_map(|c| c.get("id").and_then(Value::as_str).map(str::to_string))
             .collect()
     };
-    let verified_ssh = ssh_accounts.iter().any(|a| a["status"].as_str() == Some("verified"));
+    let verified_ssh = ssh_accounts
+        .iter()
+        .any(|a| a["status"].as_str() == Some("verified"));
 
     let local = json!({
         "venue": "run_local", "display_name": "Run local",
@@ -1486,9 +1675,15 @@ fn compose_venues(data_dir: &str, classes: &[Value]) -> Vec<Value> {
     });
     // Pick a cloud: connected accounts as cards + a not-connected stub per remaining kind, so
     // the choice is visible even before any account exists (never hidden).
-    let mut cloud_cards: Vec<Value> = cloud_accounts.iter().map(|a| provider_card(a, "pick_provider", classes)).collect();
+    let mut cloud_cards: Vec<Value> = cloud_accounts
+        .iter()
+        .map(|a| provider_card(a, "pick_provider", classes))
+        .collect();
     for kind in CLOUD_KINDS {
-        if !cloud_accounts.iter().any(|a| a["kind"].as_str() == Some(*kind)) {
+        if !cloud_accounts
+            .iter()
+            .any(|a| a["kind"].as_str() == Some(*kind))
+        {
             cloud_cards.push(json!({
                 "kind": kind, "connected": false, "status": "not_connected",
                 "reason": "no ProviderAccount for this kind yet",
@@ -1524,14 +1719,29 @@ fn compose_venues(data_dir: &str, classes: &[Value]) -> Vec<Value> {
 
 /// Fold the live advisory into the hypervisor_choose venue card (candidates + availability).
 pub(crate) fn attach_choose_advisory(venues: &mut [Value], advisory: &Value) {
-    if let Some(card) = venues.iter_mut().find(|v| v["venue"] == "hypervisor_choose") {
-        let eligible = advisory.get("eligible").and_then(Value::as_u64).unwrap_or(0);
+    if let Some(card) = venues
+        .iter_mut()
+        .find(|v| v["venue"] == "hypervisor_choose")
+    {
+        let eligible = advisory
+            .get("eligible")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
         card["available"] = json!(eligible > 0);
         card["advisory_ref"] = advisory.get("advisory_ref").cloned().unwrap_or(Value::Null);
         card["candidates"] = advisory.get("candidates").cloned().unwrap_or(json!([]));
-        card["recommendation"] = advisory.get("recommendation").cloned().unwrap_or(Value::Null);
-        card["no_eligible_candidate"] = advisory.get("no_eligible_candidate").cloned().unwrap_or(Value::Null);
-        card["routing_fee_basis"] = advisory.get("routing_fee_basis").cloned().unwrap_or(Value::Null);
+        card["recommendation"] = advisory
+            .get("recommendation")
+            .cloned()
+            .unwrap_or(Value::Null);
+        card["no_eligible_candidate"] = advisory
+            .get("no_eligible_candidate")
+            .cloned()
+            .unwrap_or(Value::Null);
+        card["routing_fee_basis"] = advisory
+            .get("routing_fee_basis")
+            .cloned()
+            .unwrap_or(Value::Null);
         card["fee_object_minted"] = json!(false);
     }
 }
@@ -1540,7 +1750,11 @@ pub(crate) async fn live_environment_classes(base: &str) -> Vec<Value> {
     call(base, "GET", "/v1/hypervisor/environment-classes", None)
         .await
         .ok()
-        .and_then(|v| v.get("environmentClasses").and_then(Value::as_array).cloned())
+        .and_then(|v| {
+            v.get("environmentClasses")
+                .and_then(Value::as_array)
+                .cloned()
+        })
         .unwrap_or_default()
 }
 
@@ -1565,11 +1779,13 @@ pub(crate) fn load_venue_policy(data_dir: &str) -> Value {
     read_record_dir(data_dir, VENUE_POLICY_KIND)
         .into_iter()
         .find(|r| r["policy_id"].as_str() == Some("current"))
-        .unwrap_or_else(|| json!({
-            "schema_version": "ioi.hypervisor.placement-venue-policy.v1",
-            "policy_id": "current", "venue": "run_local", "default": true,
-            "note": "no venue chosen yet — local is the conformance default, not a hidden auto",
-        }))
+        .unwrap_or_else(|| {
+            json!({
+                "schema_version": "ioi.hypervisor.placement-venue-policy.v1",
+                "policy_id": "current", "venue": "run_local", "default": true,
+                "note": "no venue chosen yet — local is the conformance default, not a hidden auto",
+            })
+        })
 }
 
 /// GET /v1/hypervisor/placement/venue-policy — the durable chosen venue.
@@ -1588,21 +1804,44 @@ pub(crate) async fn handle_venue_policy_put(
 ) -> (StatusCode, Json<Value>) {
     let venue = body.get("venue").and_then(Value::as_str).unwrap_or("");
     if !VENUE_IDS.contains(&venue) {
-        return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "placement_venue_invalid", "message": format!("venue must be one of {VENUE_IDS:?}") } })));
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(
+                json!({ "ok": false, "error": { "code": "placement_venue_invalid", "message": format!("venue must be one of {VENUE_IDS:?}") } }),
+            ),
+        );
     }
-    let account_ref = body.get("provider_account_ref").and_then(Value::as_str).unwrap_or("");
+    let account_ref = body
+        .get("provider_account_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("");
     let mut provider_snapshot = Value::Null;
     if venue == "use_my_infrastructure" || venue == "pick_provider" {
         let accounts = read_record_dir(&st.data_dir, "provider-accounts");
         let Some(account) = accounts.iter().find(|a| {
-            a["account_ref"].as_str() == Some(account_ref) || a["account_id"].as_str() == Some(account_ref)
+            a["account_ref"].as_str() == Some(account_ref)
+                || a["account_id"].as_str() == Some(account_ref)
         }) else {
-            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "placement_provider_account_required", "message": "this venue pins a ProviderAccount — pass provider_account_ref for an existing account" } })));
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(
+                    json!({ "ok": false, "error": { "code": "placement_provider_account_required", "message": "this venue pins a ProviderAccount — pass provider_account_ref for an existing account" } }),
+                ),
+            );
         };
         let kind = account["kind"].as_str().unwrap_or("");
-        let family_ok = if venue == "use_my_infrastructure" { kind == "baremetal_ssh" } else { CLOUD_KINDS.contains(&kind) };
+        let family_ok = if venue == "use_my_infrastructure" {
+            kind == "baremetal_ssh"
+        } else {
+            CLOUD_KINDS.contains(&kind)
+        };
         if !family_ok {
-            return (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "ok": false, "error": { "code": "placement_provider_kind_mismatch", "message": format!("'{kind}' accounts do not belong to venue '{venue}'") } })));
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(
+                    json!({ "ok": false, "error": { "code": "placement_provider_kind_mismatch", "message": format!("'{kind}' accounts do not belong to venue '{venue}'") } }),
+                ),
+            );
         }
         // Snapshot posture at choice time — the preview re-reads LIVE state, this is provenance.
         provider_snapshot = json!({
@@ -1617,7 +1856,11 @@ pub(crate) async fn handle_venue_policy_put(
         advisory_block = super::decentralized_cloud_routes::advisory_for(&st, &intent, true).await;
     }
     let prior = load_venue_policy(&st.data_dir);
-    let mut history = prior.get("history").and_then(Value::as_array).cloned().unwrap_or_default();
+    let mut history = prior
+        .get("history")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     if prior.get("default").and_then(Value::as_bool) != Some(true) {
         history.push(json!({ "venue": prior["venue"], "provider_account_ref": prior["provider_account_ref"], "chosen_at": prior["chosen_at"] }));
     }
@@ -1640,7 +1883,12 @@ pub(crate) async fn handle_venue_policy_put(
         "history": history,
     });
     let _ = persist_record(&st.data_dir, VENUE_POLICY_KIND, "current", &record);
-    (StatusCode::OK, Json(json!({ "ok": true, "policy": record, "fee": venue_fee(venue), "advisory": advisory_block })))
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "policy": record, "fee": venue_fee(venue), "advisory": advisory_block }),
+        ),
+    )
 }
 
 /// The receipt kinds a launch/lifecycle at this venue will mint — NAMED BEFORE LAUNCH.
@@ -1660,13 +1908,17 @@ pub(crate) fn venue_receipts_expected(venue: &str, data_dir: &str) -> Value {
         "use_my_infrastructure" => {
             let mut r = base;
             r.extend(provider_set);
-            r.push(json!("budget discovery note (local_free — customer-borne, no metered spend)"));
+            r.push(json!(
+                "budget discovery note (local_free — customer-borne, no metered spend)"
+            ));
             json!(r)
         }
         "pick_provider" => {
             let mut r = base;
             r.extend(provider_set);
-            let has_budget = read_record_dir(data_dir, "resource-budgets").iter().any(|b| b["scope"].as_str() == Some("external_spend"));
+            let has_budget = read_record_dir(data_dir, "resource-budgets")
+                .iter()
+                .any(|b| b["scope"].as_str() == Some("external_spend"));
             r.push(json!("external_spend budget discovery BEFORE any mutation (409 budget_blocked without headroom)"));
             if !has_budget {
                 r.push(json!("⚠ no external_spend budget exists yet — metered mutations will be budget_blocked until one is created"));
@@ -1693,23 +1945,43 @@ pub(crate) async fn handle_placement_preview(
     Query(q): Query<HashMap<String, String>>,
 ) -> Json<Value> {
     let policy = load_venue_policy(&st.data_dir);
-    let venue = q.get("venue").map(String::as_str)
+    let venue = q
+        .get("venue")
+        .map(String::as_str)
         .filter(|v| VENUE_IDS.contains(v))
         .unwrap_or_else(|| policy["venue"].as_str().unwrap_or("run_local"))
         .to_string();
-    let account_ref = q.get("provider_account_ref").cloned()
-        .or_else(|| policy.get("provider_account_ref").and_then(Value::as_str).map(str::to_string))
+    let account_ref = q
+        .get("provider_account_ref")
+        .cloned()
+        .or_else(|| {
+            policy
+                .get("provider_account_ref")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
         .unwrap_or_default();
     let classes = live_environment_classes(&st.base_url).await;
     let venues = compose_venues(&st.data_dir, &classes);
-    let venue_card = venues.iter().find(|v| v["venue"].as_str() == Some(venue.as_str())).cloned().unwrap_or(Value::Null);
-    let provider_card = venue_card.get("providers").and_then(Value::as_array).and_then(|ps| {
-        ps.iter().find(|p| p["account_ref"].as_str() == Some(account_ref.as_str())).cloned()
-    });
+    let venue_card = venues
+        .iter()
+        .find(|v| v["venue"].as_str() == Some(venue.as_str()))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let provider_card = venue_card
+        .get("providers")
+        .and_then(Value::as_array)
+        .and_then(|ps| {
+            ps.iter()
+                .find(|p| p["account_ref"].as_str() == Some(account_ref.as_str()))
+                .cloned()
+        });
     let advisory = if venue == "hypervisor_choose" {
         let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
         super::decentralized_cloud_routes::advisory_for(&st, &intent, false).await
-    } else { Value::Null };
+    } else {
+        Value::Null
+    };
     Json(json!({
         "schema_version": "ioi.hypervisor.placement-preview.v1",
         "policy": policy,

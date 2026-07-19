@@ -26,7 +26,10 @@ fn text<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
 }
 fn nanos() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
 }
 
 fn engaged_account(data_dir: &str) -> Option<(Value, Option<String>)> {
@@ -99,7 +102,10 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
         return json!({ "engaged": false });
     };
     let account_ref = text(&account, "account_ref").to_string();
-    let ep = account.get("endpoint").cloned().unwrap_or_else(|| json!({}));
+    let ep = account
+        .get("endpoint")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     let fetched_at = iso_now();
     if text(&ep, "mode") == "fixture" || text(&ep, "mode") == "simulator" {
         let simulator = text(&ep, "mode") == "simulator";
@@ -109,7 +115,8 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
             ("fixture_evidence", "fixture_facts_source")
         };
         let path = text(&ep, "fixture_file");
-        let outcome = match std::fs::read_to_string(path).map_err(|e| e.to_string())
+        let outcome = match std::fs::read_to_string(path)
+            .map_err(|e| e.to_string())
             .and_then(|raw| serde_json::from_str::<Value>(&raw).map_err(|e| e.to_string()))
         {
             Ok(doc) => {
@@ -164,16 +171,20 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
                                       "note": "API server reachable — cluster-facts discovery (namespaces/quotas/classes) lands with the live harness; no candidates are invented from a bare version probe" },
                         "at": fetched_at })
                 }
-                Ok(doc) => json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
+                Ok(doc) => {
+                    json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
                     "state": "degraded_unreachable", "facts": Value::Null,
                     "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status,
                                   "error": format!("API server rejected the probe (body keys: {:?})", doc.as_object().map(|o| o.keys().take(4).cloned().collect::<Vec<_>>()).unwrap_or_default()),
                                   "note": "no fake cluster facts on failure" },
-                    "at": fetched_at }),
-                Err(e) => json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
+                    "at": fetched_at })
+                }
+                Err(e) => {
+                    json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
                     "state": "degraded_unreachable", "facts": Value::Null,
                     "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status, "error": format!("non-JSON response: {e}") },
-                    "at": fetched_at }),
+                    "at": fetched_at })
+                }
             }
         }
         Err(e) => json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
@@ -211,11 +222,22 @@ pub(crate) fn normalize_offers(
     }
     let cluster = facts.get("cluster").cloned().unwrap_or(json!({}));
     let gpu = facts.get("gpu").cloned().unwrap_or(json!({}));
-    let storage_classes = facts.get("storage_classes").and_then(Value::as_array).cloned().unwrap_or_default();
+    let storage_classes = facts
+        .get("storage_classes")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     let services = facts.get("services").cloned().unwrap_or(json!({}));
     let kubevirt = facts.get("kubevirt").cloned().unwrap_or(json!({}));
-    let kubevirt_installed = kubevirt.get("installed").and_then(Value::as_bool).unwrap_or(false);
-    let namespaces = facts.get("namespaces").and_then(Value::as_array).cloned().unwrap_or_default();
+    let kubevirt_installed = kubevirt
+        .get("installed")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let namespaces = facts
+        .get("namespaces")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     let candidates: Vec<Value> = namespaces.iter().enumerate().filter_map(|(i, ns)| {
         let name = text(ns, "name");
         if name.is_empty() { return None; }

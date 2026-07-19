@@ -30,40 +30,34 @@
 // subdirectory submodule so cargo autobin does not treat it as its own binary target.
 #[path = "hypervisor_daemon_routes/agentops_routes.rs"]
 mod agentops_routes;
-#[path = "hypervisor_daemon_routes/authority_routes.rs"]
-mod authority_routes;
-#[path = "hypervisor_daemon_routes/binding_routes.rs"]
-mod binding_routes;
-#[path = "hypervisor_daemon_routes/domain_apps_routes.rs"]
-mod domain_apps_routes;
-#[path = "hypervisor_daemon_routes/feedback_routes.rs"]
-mod feedback_routes;
-#[path = "hypervisor_daemon_routes/eval_suite_routes.rs"]
-mod eval_suite_routes;
-#[path = "hypervisor_daemon_routes/state_machine_routes.rs"]
-mod state_machine_routes;
-#[path = "hypervisor_daemon_routes/durable_fs.rs"]
-mod durable_fs;
-#[path = "hypervisor_daemon_routes/room_participation_routes.rs"]
-mod room_participation_routes;
-#[path = "hypervisor_daemon_routes/governed_authority.rs"]
-mod governed_authority;
-#[path = "hypervisor_daemon_routes/work_frontier_claim_routes.rs"]
-mod work_frontier_claim_routes;
-#[path = "hypervisor_daemon_routes/resource_capability_offer_routes.rs"]
-mod resource_capability_offer_routes;
+#[path = "hypervisor_daemon_routes/akash_candidate_source.rs"]
+mod akash_candidate_source;
 #[path = "hypervisor_daemon_routes/attempt_finding_routes.rs"]
 mod attempt_finding_routes;
-#[path = "hypervisor_daemon_routes/verifier_challenge_routes.rs"]
-mod verifier_challenge_routes;
-#[path = "hypervisor_daemon_routes/wallet_network_capability_client.rs"]
-mod wallet_network_capability_client;
-#[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
-mod goalrun_routes;
-#[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
-mod ioi_agent_routes;
-#[path = "hypervisor_daemon_routes/ioi_intelligence_routes.rs"]
-mod ioi_intelligence_routes;
+#[path = "hypervisor_daemon_routes/authority_routes.rs"]
+mod authority_routes;
+#[path = "hypervisor_daemon_routes/aws_candidate_source.rs"]
+mod aws_candidate_source;
+#[path = "hypervisor_daemon_routes/azure_candidate_source.rs"]
+mod azure_candidate_source;
+#[path = "hypervisor_daemon_routes/binding_routes.rs"]
+mod binding_routes;
+#[path = "hypervisor_daemon_routes/capability_lease_plan_routes.rs"]
+mod capability_lease_plan_routes;
+#[path = "hypervisor_daemon_routes/connector_execution_routes.rs"]
+mod connector_execution_routes;
+#[path = "hypervisor_daemon_routes/connector_mapping_routes.rs"]
+mod connector_mapping_routes;
+#[path = "hypervisor_daemon_routes/connector_session_routes.rs"]
+mod connector_session_routes;
+#[path = "hypervisor_daemon_routes/data_source_routes.rs"]
+mod data_source_routes;
+#[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
+mod decentralized_cloud_routes;
+#[path = "hypervisor_daemon_routes/domain_apps_routes.rs"]
+mod domain_apps_routes;
+#[path = "hypervisor_daemon_routes/durable_fs.rs"]
+mod durable_fs;
 #[path = "hypervisor_daemon_routes/editor_host.rs"]
 mod editor_host;
 #[path = "hypervisor_daemon_routes/editor_proxy.rs"]
@@ -72,82 +66,88 @@ mod editor_proxy;
 mod editor_routes;
 #[path = "hypervisor_daemon_routes/endgame_routes.rs"]
 mod endgame_routes;
-#[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
-mod decentralized_cloud_routes;
-#[path = "hypervisor_daemon_routes/placement_failover_routes.rs"]
-mod placement_failover_routes;
-#[path = "hypervisor_daemon_routes/substrate_store.rs"]
-mod substrate_store;
-#[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
-mod vast_candidate_source;
-#[path = "hypervisor_daemon_routes/runpod_candidate_source.rs"]
-mod runpod_candidate_source;
-#[path = "hypervisor_daemon_routes/lambda_candidate_source.rs"]
-mod lambda_candidate_source;
-#[path = "hypervisor_daemon_routes/akash_candidate_source.rs"]
-mod akash_candidate_source;
-#[path = "hypervisor_daemon_routes/aws_candidate_source.rs"]
-mod aws_candidate_source;
-#[path = "hypervisor_daemon_routes/gcp_candidate_source.rs"]
-mod gcp_candidate_source;
-#[path = "hypervisor_daemon_routes/azure_candidate_source.rs"]
-mod azure_candidate_source;
-#[path = "hypervisor_daemon_routes/k8s_candidate_source.rs"]
-mod k8s_candidate_source;
-#[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
-mod storage_backend_routes;
 #[path = "hypervisor_daemon_routes/environment_routes.rs"]
 mod environment_routes;
+#[path = "hypervisor_daemon_routes/eval_suite_routes.rs"]
+mod eval_suite_routes;
+#[path = "hypervisor_daemon_routes/feedback_routes.rs"]
+mod feedback_routes;
 #[path = "hypervisor_daemon_routes/foundry_routes.rs"]
 mod foundry_routes;
+#[path = "hypervisor_daemon_routes/gcp_candidate_source.rs"]
+mod gcp_candidate_source;
+#[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
+mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/governance_routes.rs"]
 mod governance_routes;
+#[path = "hypervisor_daemon_routes/governed_authority.rs"]
+mod governed_authority;
+#[path = "hypervisor_daemon_routes/harness_routes.rs"]
+mod harness_routes;
+#[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
+mod ioi_agent_routes;
+#[path = "hypervisor_daemon_routes/ioi_intelligence_routes.rs"]
+mod ioi_intelligence_routes;
+#[path = "hypervisor_daemon_routes/k8s_candidate_source.rs"]
+mod k8s_candidate_source;
+#[path = "hypervisor_daemon_routes/lambda_candidate_source.rs"]
+mod lambda_candidate_source;
 #[path = "hypervisor_daemon_routes/lifecycle_routes.rs"]
 mod lifecycle_routes;
 #[path = "hypervisor_daemon_routes/marketplace_routes.rs"]
 mod marketplace_routes;
-#[path = "hypervisor_daemon_routes/microvm.rs"]
-mod microvm;
-#[path = "hypervisor_daemon_routes/data_source_routes.rs"]
-mod data_source_routes;
-#[path = "hypervisor_daemon_routes/work_result_routes.rs"]
-mod work_result_routes;
-#[path = "hypervisor_daemon_routes/outcome_room_routes.rs"]
-mod outcome_room_routes;
-#[path = "hypervisor_daemon_routes/connector_mapping_routes.rs"]
-mod connector_mapping_routes;
-#[path = "hypervisor_daemon_routes/policy_bound_data_view_routes.rs"]
-mod policy_bound_data_view_routes;
-#[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
-mod transformation_run_routes;
-#[path = "hypervisor_daemon_routes/ontology_projection_routes.rs"]
-mod ontology_projection_routes;
-#[path = "hypervisor_daemon_routes/capability_lease_plan_routes.rs"]
-mod capability_lease_plan_routes;
 #[path = "hypervisor_daemon_routes/materializing_run_routes.rs"]
 mod materializing_run_routes;
-#[path = "hypervisor_daemon_routes/connector_session_routes.rs"]
-mod connector_session_routes;
-#[path = "hypervisor_daemon_routes/connector_execution_routes.rs"]
-mod connector_execution_routes;
-#[path = "hypervisor_daemon_routes/harness_routes.rs"]
-mod harness_routes;
+#[path = "hypervisor_daemon_routes/microvm.rs"]
+mod microvm;
 #[path = "hypervisor_daemon_routes/model_routes.rs"]
 mod model_routes;
 #[path = "hypervisor_daemon_routes/odk_routes.rs"]
 mod odk_routes;
+#[path = "hypervisor_daemon_routes/ontology_projection_routes.rs"]
+mod ontology_projection_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
 mod operability_routes;
 #[path = "hypervisor_daemon_routes/orchestration_routes.rs"]
 mod orchestration_routes;
+#[path = "hypervisor_daemon_routes/outcome_room_routes.rs"]
+mod outcome_room_routes;
+#[path = "hypervisor_daemon_routes/placement_failover_routes.rs"]
+mod placement_failover_routes;
+#[path = "hypervisor_daemon_routes/policy_bound_data_view_routes.rs"]
+mod policy_bound_data_view_routes;
 #[path = "hypervisor_daemon_routes/provider_routes.rs"]
 mod provider_routes;
 #[path = "hypervisor_daemon_routes/recipe_routes.rs"]
 mod recipe_routes;
+#[path = "hypervisor_daemon_routes/resource_capability_offer_routes.rs"]
+mod resource_capability_offer_routes;
 #[path = "hypervisor_daemon_routes/resource_routes.rs"]
 mod resource_routes;
+#[path = "hypervisor_daemon_routes/room_participation_routes.rs"]
+mod room_participation_routes;
+#[path = "hypervisor_daemon_routes/runpod_candidate_source.rs"]
+mod runpod_candidate_source;
+#[path = "hypervisor_daemon_routes/state_machine_routes.rs"]
+mod state_machine_routes;
+#[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
+mod storage_backend_routes;
+#[path = "hypervisor_daemon_routes/substrate_store.rs"]
+mod substrate_store;
 #[path = "hypervisor_daemon_routes/supervisor_routes.rs"]
 mod supervisor_routes;
+#[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
+mod transformation_run_routes;
+#[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
+mod vast_candidate_source;
+#[path = "hypervisor_daemon_routes/verifier_challenge_routes.rs"]
+mod verifier_challenge_routes;
+#[path = "hypervisor_daemon_routes/wallet_network_capability_client.rs"]
+mod wallet_network_capability_client;
+#[path = "hypervisor_daemon_routes/work_frontier_claim_routes.rs"]
+mod work_frontier_claim_routes;
+#[path = "hypervisor_daemon_routes/work_result_routes.rs"]
+mod work_result_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -1669,7 +1669,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/feedback-entries",
-            get(feedback_routes::handle_feedback_list).post(feedback_routes::handle_feedback_create),
+            get(feedback_routes::handle_feedback_list)
+                .post(feedback_routes::handle_feedback_create),
         )
         .route(
             "/v1/hypervisor/feedback-entries/:id",
@@ -1687,7 +1688,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/eval-suites",
-            get(eval_suite_routes::handle_eval_suite_list).post(eval_suite_routes::handle_eval_suite_create),
+            get(eval_suite_routes::handle_eval_suite_list)
+                .post(eval_suite_routes::handle_eval_suite_create),
         )
         .route(
             "/v1/hypervisor/eval-suites/:id",
@@ -1705,7 +1707,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/state-machines",
-            get(state_machine_routes::handle_state_machine_list).post(state_machine_routes::handle_state_machine_create),
+            get(state_machine_routes::handle_state_machine_list)
+                .post(state_machine_routes::handle_state_machine_create),
         )
         .route(
             "/v1/hypervisor/state-machines/:id",
@@ -1724,7 +1727,8 @@ async fn async_main() -> anyhow::Result<()> {
         // ImprovementGate.
         .route(
             "/v1/hypervisor/governance/approval-requests",
-            get(governance_routes::handle_approval_list).post(governance_routes::handle_approval_create),
+            get(governance_routes::handle_approval_list)
+                .post(governance_routes::handle_approval_create),
         )
         .route(
             "/v1/hypervisor/governance/approval-requests/:id",
@@ -1734,7 +1738,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/governance/cohorts",
-            get(governance_routes::handle_cohort_list).post(governance_routes::handle_cohort_create),
+            get(governance_routes::handle_cohort_list)
+                .post(governance_routes::handle_cohort_create),
         )
         .route(
             "/v1/hypervisor/governance/cohorts/:id",
@@ -1744,7 +1749,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/governance/release-controls",
-            get(governance_routes::handle_release_list).post(governance_routes::handle_release_create),
+            get(governance_routes::handle_release_list)
+                .post(governance_routes::handle_release_create),
         )
         .route(
             "/v1/hypervisor/governance/release-controls/:id",
@@ -1786,7 +1792,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/marketplace/listings",
-            get(marketplace_routes::handle_listing_list).post(marketplace_routes::handle_listing_create),
+            get(marketplace_routes::handle_listing_list)
+                .post(marketplace_routes::handle_listing_create),
         )
         .route(
             "/v1/hypervisor/marketplace/listings/:id",
@@ -1796,7 +1803,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/marketplace/publish-candidates",
-            get(marketplace_routes::handle_candidate_list).post(marketplace_routes::handle_candidate_create),
+            get(marketplace_routes::handle_candidate_list)
+                .post(marketplace_routes::handle_candidate_create),
         )
         .route(
             "/v1/hypervisor/marketplace/publish-candidates/:id",
@@ -1810,7 +1818,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/marketplace/admission-reviews",
-            get(marketplace_routes::handle_review_list).post(marketplace_routes::handle_review_create),
+            get(marketplace_routes::handle_review_list)
+                .post(marketplace_routes::handle_review_create),
         )
         .route(
             "/v1/hypervisor/marketplace/admission-reviews/:id",
@@ -1820,7 +1829,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/marketplace/instance-offers",
-            get(marketplace_routes::handle_offer_list).post(marketplace_routes::handle_offer_create),
+            get(marketplace_routes::handle_offer_list)
+                .post(marketplace_routes::handle_offer_create),
         )
         .route(
             "/v1/hypervisor/marketplace/instance-offers/:id",
@@ -3077,7 +3087,8 @@ async fn async_main() -> anyhow::Result<()> {
             if secs > 0 {
                 let st_eval = state.clone();
                 tokio::spawn(async move {
-                    let mut tick = tokio::time::interval(std::time::Duration::from_secs(secs.max(5)));
+                    let mut tick =
+                        tokio::time::interval(std::time::Duration::from_secs(secs.max(5)));
                     loop {
                         tick.tick().await;
                         let _ = placement_failover_routes::evaluate_all(&st_eval, None).await;
@@ -3685,13 +3696,23 @@ fn parse_cron_field(spec: &str, min: u8, max: u8) -> Result<(Vec<bool>, bool), S
             (min, max)
         } else if let Some((a, b)) = range_part.split_once('-') {
             (
-                a.trim().parse::<u8>().map_err(|_| format!("bad range '{part}'"))?,
-                b.trim().parse::<u8>().map_err(|_| format!("bad range '{part}'"))?,
+                a.trim()
+                    .parse::<u8>()
+                    .map_err(|_| format!("bad range '{part}'"))?,
+                b.trim()
+                    .parse::<u8>()
+                    .map_err(|_| format!("bad range '{part}'"))?,
             )
         } else {
-            let a = range_part.parse::<u8>().map_err(|_| format!("bad value '{part}'"))?;
+            let a = range_part
+                .parse::<u8>()
+                .map_err(|_| format!("bad value '{part}'"))?;
             // A bare value with a step means "from a through max, step n".
-            if step > 1 { (a, max) } else { (a, a) }
+            if step > 1 {
+                (a, max)
+            } else {
+                (a, a)
+            }
         };
         if lo < min || hi > max || lo > hi {
             return Err(format!("value out of range [{min},{max}] in '{part}'"));
@@ -3713,7 +3734,9 @@ fn parse_utc_offset(tz: &str) -> Result<time::UtcOffset, String> {
         return Ok(time::UtcOffset::UTC);
     }
     if t.contains('/') {
-        return Err(format!("named timezone '{t}' not supported yet — use a UTC offset like +02:00"));
+        return Err(format!(
+            "named timezone '{t}' not supported yet — use a UTC offset like +02:00"
+        ));
     }
     let sign: i8 = match t.chars().next() {
         Some('+') => 1,
@@ -3791,7 +3814,10 @@ fn schedule_is_active(spec: &Value) -> bool {
 fn schedule_next_run(spec: &Value, from_iso: &str) -> Option<String> {
     if is_cron_spec(spec) {
         let cron = spec.get("cron").and_then(|v| v.as_str()).unwrap_or("");
-        let tz = spec.get("timezone").and_then(|v| v.as_str()).unwrap_or("UTC");
+        let tz = spec
+            .get("timezone")
+            .and_then(|v| v.as_str())
+            .unwrap_or("UTC");
         return cron_next_run(cron, tz, from_iso).ok();
     }
     schedule_interval_secs(spec).map(|s| iso_add_secs(from_iso, s))
@@ -3806,7 +3832,10 @@ pub(crate) fn validate_schedule_spec(spec: &Value) -> Result<(), String> {
             .get("cron")
             .and_then(|v| v.as_str())
             .ok_or("cron schedule requires a 'cron' expression")?;
-        let tz = spec.get("timezone").and_then(|v| v.as_str()).unwrap_or("UTC");
+        let tz = spec
+            .get("timezone")
+            .and_then(|v| v.as_str())
+            .unwrap_or("UTC");
         cron_next_run(cron, tz, &iso_now())?; // parse + validate + ensure a next run exists
     }
     Ok(())
@@ -3858,7 +3887,11 @@ async fn scheduler_tick(data_dir: &str, base_url: &str, client: &reqwest::Client
         let next_target =
             || schedule_next_run(&spec, &now).unwrap_or_else(|| iso_add_secs(&now, 3600));
         // First sight (or after reschedule/resume) → initialize the next fire; never fire on create.
-        let Some(next_ts) = a.get("next_run_at").and_then(|v| v.as_str()).and_then(epoch_of) else {
+        let Some(next_ts) = a
+            .get("next_run_at")
+            .and_then(|v| v.as_str())
+            .and_then(epoch_of)
+        else {
             let mut up = a.clone();
             up["next_run_at"] = json!(next_target());
             let _ = persist_record(data_dir, "automations", id, &up);
@@ -7438,40 +7471,65 @@ mod cron_tests {
     #[test]
     fn daily_same_day_then_next_day() {
         // 09:00 daily: from 08:00 → today 09:00; from 10:00 (past it) → tomorrow 09:00.
-        assert_eq!(cron_next_run("0 9 * * *", "UTC", "2026-06-29T08:00:00Z").unwrap(), "2026-06-29T09:00:00Z");
-        assert_eq!(cron_next_run("0 9 * * *", "UTC", "2026-06-29T10:00:00Z").unwrap(), "2026-06-30T09:00:00Z");
+        assert_eq!(
+            cron_next_run("0 9 * * *", "UTC", "2026-06-29T08:00:00Z").unwrap(),
+            "2026-06-29T09:00:00Z"
+        );
+        assert_eq!(
+            cron_next_run("0 9 * * *", "UTC", "2026-06-29T10:00:00Z").unwrap(),
+            "2026-06-30T09:00:00Z"
+        );
     }
     #[test]
     fn timezone_shifts_the_utc_instant() {
         // 12:00 local in +05:00 == 07:00Z.
-        assert_eq!(cron_next_run("0 12 * * *", "+05:00", "2026-06-29T00:00:00Z").unwrap(), "2026-06-29T07:00:00Z");
+        assert_eq!(
+            cron_next_run("0 12 * * *", "+05:00", "2026-06-29T00:00:00Z").unwrap(),
+            "2026-06-29T07:00:00Z"
+        );
     }
     #[test]
     fn step_minutes() {
-        assert_eq!(cron_next_run("*/15 0 * * *", "UTC", "2026-06-29T00:02:00Z").unwrap(), "2026-06-29T00:15:00Z");
+        assert_eq!(
+            cron_next_run("*/15 0 * * *", "UTC", "2026-06-29T00:02:00Z").unwrap(),
+            "2026-06-29T00:15:00Z"
+        );
     }
     #[test]
     fn weekday_list_skips_to_saturday() {
         // 2026-06-29 is a Monday; Sat(6)/Sun(0) at 09:00 → next Saturday 2026-07-04.
-        assert_eq!(cron_next_run("0 9 * * 6,0", "UTC", "2026-06-29T00:00:00Z").unwrap(), "2026-07-04T09:00:00Z");
+        assert_eq!(
+            cron_next_run("0 9 * * 6,0", "UTC", "2026-06-29T00:00:00Z").unwrap(),
+            "2026-07-04T09:00:00Z"
+        );
     }
     #[test]
     fn invalid_expressions_rejected() {
         assert!(cron_next_run("99 9 * * *", "UTC", "2026-06-29T00:00:00Z").is_err()); // minute out of range
-        assert!(cron_next_run("0 9 * *", "UTC", "2026-06-29T00:00:00Z").is_err());    // only 4 fields
-        assert!(cron_next_run("0 9 * * 8", "UTC", "2026-06-29T00:00:00Z").is_err());  // dow > 7
-        assert!(cron_next_run("0 9 * * 7", "UTC", "2026-06-29T00:00:00Z").is_ok());   // 7 == Sunday
+        assert!(cron_next_run("0 9 * *", "UTC", "2026-06-29T00:00:00Z").is_err()); // only 4 fields
+        assert!(cron_next_run("0 9 * * 8", "UTC", "2026-06-29T00:00:00Z").is_err()); // dow > 7
+        assert!(cron_next_run("0 9 * * 7", "UTC", "2026-06-29T00:00:00Z").is_ok());
+        // 7 == Sunday
     }
     #[test]
     fn offset_parsing() {
         assert_eq!(parse_utc_offset("UTC").unwrap(), time::UtcOffset::UTC);
-        assert_eq!(parse_utc_offset("+05:30").unwrap(), time::UtcOffset::from_hms(5, 30, 0).unwrap());
-        assert_eq!(parse_utc_offset("-08:00").unwrap(), time::UtcOffset::from_hms(-8, 0, 0).unwrap());
+        assert_eq!(
+            parse_utc_offset("+05:30").unwrap(),
+            time::UtcOffset::from_hms(5, 30, 0).unwrap()
+        );
+        assert_eq!(
+            parse_utc_offset("-08:00").unwrap(),
+            time::UtcOffset::from_hms(-8, 0, 0).unwrap()
+        );
         assert!(parse_utc_offset("America/New_York").is_err()); // named zones unsupported
     }
     #[test]
     fn validate_and_dispatch() {
-        assert!(validate_schedule_spec(&json!({"type":"cron","cron":"0 9 * * *","timezone":"UTC"})).is_ok());
+        assert!(validate_schedule_spec(
+            &json!({"type":"cron","cron":"0 9 * * *","timezone":"UTC"})
+        )
+        .is_ok());
         assert!(validate_schedule_spec(&json!({"type":"cron","cron":"0 9 * * 8"})).is_err());
         assert!(schedule_next_run(&json!({"every_minutes": 5}), "2026-06-29T00:00:00Z").is_some());
         assert!(schedule_next_run(&Value::Null, "2026-06-29T00:00:00Z").is_none());

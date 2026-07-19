@@ -12,7 +12,10 @@
 //! Same determinism rule as the base engine: no clock, no randomness;
 //! a domain's roots depend only on that domain's operation order.
 
-use crate::{sha_hex_pub as sha_hex, AdmitAck, AdmittedRecord, BatchRootRecord, CheckpointRecord, Durability, Head, Operation, Refusal, Root, GENESIS_ROOT};
+use crate::{
+    sha_hex_pub as sha_hex, AdmitAck, AdmittedRecord, BatchRootRecord, CheckpointRecord,
+    Durability, Head, Operation, Refusal, Root, GENESIS_ROOT,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -25,13 +28,19 @@ use std::sync::mpsc;
 #[serde(tag = "frame")]
 pub enum MuxLogFrame {
     Admitted(AdmittedRecord),
-    DomainRoot { domain: String, rec: BatchRootRecord },
+    DomainRoot {
+        domain: String,
+        rec: BatchRootRecord,
+    },
     /// Writer-epoch bump: the fencing primitive. A promoted engine appends
     /// `epoch+1`; replicas reject stream traffic from lower epochs, so a
     /// deposed primary cannot split the brain. Epoch frames ride the same
     /// log (and therefore ship to replicas byte-identically); they do not
     /// participate in domain root chains.
-    EpochBump { epoch: u64, recorded_at_ms: u64 },
+    EpochBump {
+        epoch: u64,
+        recorded_at_ms: u64,
+    },
 }
 
 #[derive(Clone, Debug, Default)]
@@ -91,7 +100,8 @@ impl MuxEngine {
                         let st = domains
                             .entry(rec.op.domain.clone())
                             .or_insert_with(DomainState::new);
-                        st.heads.insert(rec.op.object_ref.clone(), rec.new_head.clone());
+                        st.heads
+                            .insert(rec.op.object_ref.clone(), rec.new_head.clone());
                         st.next_seq = rec.seq + 1;
                     }
                     MuxLogFrame::DomainRoot { domain, rec } => {
@@ -106,10 +116,16 @@ impl MuxEngine {
                 valid += 4 + len as u64;
             }
             if valid < file_len {
-                OpenOptions::new().write(true).open(&log_path)?.set_len(valid)?;
+                OpenOptions::new()
+                    .write(true)
+                    .open(&log_path)?
+                    .set_len(valid)?;
             }
         }
-        let log = OpenOptions::new().create(true).append(true).open(&log_path)?;
+        let log = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)?;
         Ok(Self {
             dir: dir.to_path_buf(),
             log,
@@ -126,7 +142,9 @@ impl MuxEngine {
     /// Current log length in bytes (frame-boundary aligned after open()'s
     /// torn-tail truncation) — the catch-up handshake offset.
     pub fn log_len(&self) -> std::io::Result<u64> {
-        Ok(std::fs::metadata(self.dir.join("muxlog.bin")).map(|m| m.len()).unwrap_or(0))
+        Ok(std::fs::metadata(self.dir.join("muxlog.bin"))
+            .map(|m| m.len())
+            .unwrap_or(0))
     }
 
     /// Append an epoch bump (durable per sync mode) and adopt it.
@@ -137,7 +155,10 @@ impl MuxEngine {
                 self.current_epoch
             )));
         }
-        let frame = Self::encode(&MuxLogFrame::EpochBump { epoch, recorded_at_ms })?;
+        let frame = Self::encode(&MuxLogFrame::EpochBump {
+            epoch,
+            recorded_at_ms,
+        })?;
         self.log.write_all(&frame)?;
         if self.sync_on_commit {
             self.log.sync_data()?;
@@ -167,7 +188,9 @@ impl MuxEngine {
             "recorded_at_ms": recorded_at_ms,
         });
         std::fs::write(
-            self.dir.join("checkpoints").join(format!("promotion-epoch-{new_epoch:06}.json")),
+            self.dir
+                .join("checkpoints")
+                .join(format!("promotion-epoch-{new_epoch:06}.json")),
             serde_json::to_vec_pretty(&record).map_err(std::io::Error::other)?,
         )?;
         Ok(record)
@@ -189,7 +212,9 @@ impl MuxEngine {
         self.domains.get(domain).map(|d| &d.root)
     }
     pub fn domain_head(&self, domain: &str, object_ref: &str) -> Option<&Head> {
-        self.domains.get(domain).and_then(|d| d.heads.get(object_ref))
+        self.domains
+            .get(domain)
+            .and_then(|d| d.heads.get(object_ref))
     }
     pub fn domain_next_seq(&self, domain: &str) -> u64 {
         self.domains.get(domain).map(|d| d.next_seq).unwrap_or(0)
@@ -274,17 +299,26 @@ impl MuxEngine {
                 .entry(rec.op.domain.clone())
                 .or_default()
                 .extend_from_slice(&fh.finalize());
-            admitted_idx.entry(rec.op.domain.clone()).or_default().push(i);
+            admitted_idx
+                .entry(rec.op.domain.clone())
+                .or_default()
+                .push(i);
             buf.extend_from_slice(&frame);
             recs[i] = Some(rec);
         }
         if admitted_idx.is_empty() {
-            return Ok((results.into_iter().map(|r| r.unwrap()).collect(), Vec::new()));
+            return Ok((
+                results.into_iter().map(|r| r.unwrap()).collect(),
+                Vec::new(),
+            ));
         }
         // Per-domain root frames, deterministic domain order.
         let mut domain_roots: BTreeMap<String, BatchRootRecord> = BTreeMap::new();
         for (domain, hashes) in &frame_hashes {
-            let st = self.domains.entry(domain.clone()).or_insert_with(DomainState::new);
+            let st = self
+                .domains
+                .entry(domain.clone())
+                .or_insert_with(DomainState::new);
             let count = staged_count[domain];
             let fs = from_seq[domain];
             let root = sha_hex(&[b"root|", st.root.as_bytes(), b"|", hashes]);
@@ -317,7 +351,8 @@ impl MuxEngine {
             let st = self.domains.get_mut(domain).expect("domain staged");
             for i in &admitted_idx[domain] {
                 let rec = recs[*i].as_ref().expect("staged rec");
-                st.heads.insert(rec.op.object_ref.clone(), rec.new_head.clone());
+                st.heads
+                    .insert(rec.op.object_ref.clone(), rec.new_head.clone());
                 results[*i] = Some(Ok(AdmitAck {
                     seq: rec.seq,
                     new_head: rec.new_head.clone(),
@@ -420,7 +455,10 @@ pub enum MuxWriterMsg {
     Admit(Operation, mpsc::Sender<Result<AdmitAck, Refusal>>),
     /// Consistent read: served by the writer thread between batches, so
     /// projections never observe a mid-write torn tail.
-    ProjectLatest(String, mpsc::Sender<std::io::Result<Vec<serde_json::Value>>>),
+    ProjectLatest(
+        String,
+        mpsc::Sender<std::io::Result<Vec<serde_json::Value>>>,
+    ),
     Shutdown(mpsc::Sender<()>),
 }
 
@@ -432,7 +470,9 @@ pub struct MuxHandle {
 impl MuxHandle {
     pub fn admit(&self, op: Operation) -> Result<AdmitAck, Refusal> {
         let (ack_tx, ack_rx) = mpsc::channel();
-        self.tx.send(MuxWriterMsg::Admit(op, ack_tx)).expect("mux writer alive");
+        self.tx
+            .send(MuxWriterMsg::Admit(op, ack_tx))
+            .expect("mux writer alive");
         ack_rx.recv().expect("mux writer ack")
     }
     pub fn project_latest(&self, domain: &str) -> std::io::Result<Vec<serde_json::Value>> {
@@ -440,7 +480,8 @@ impl MuxHandle {
         self.tx
             .send(MuxWriterMsg::ProjectLatest(domain.to_string(), tx))
             .map_err(|_| std::io::Error::other("mux writer gone"))?;
-        rx.recv().map_err(|_| std::io::Error::other("mux writer ack lost"))?
+        rx.recv()
+            .map_err(|_| std::io::Error::other("mux writer ack lost"))?
     }
     pub fn shutdown(&self) {
         let (tx, rx) = mpsc::channel();
@@ -488,16 +529,31 @@ pub struct WriterConfig {
 
 impl Default for WriterConfig {
     fn default() -> Self {
-        Self { max_batch: 4096, replicas: Vec::new(), ack_quorum: 0, flush_every_batches: 0, background_flush_ms: 0 }
+        Self {
+            max_batch: 4096,
+            replicas: Vec::new(),
+            ack_quorum: 0,
+            flush_every_batches: 0,
+            background_flush_ms: 0,
+        }
     }
 }
 
 pub fn spawn_mux_writer(engine: MuxEngine, max_batch: usize) -> (MuxHandle, MuxWriter) {
-    spawn_mux_writer_cfg(engine, WriterConfig { max_batch, ..Default::default() })
+    spawn_mux_writer_cfg(
+        engine,
+        WriterConfig {
+            max_batch,
+            ..Default::default()
+        },
+    )
 }
 
 /// Spawn the single-writer group-commit loop with an explicit ack policy.
-pub fn spawn_mux_writer_cfg(mut engine: MuxEngine, mut cfg: WriterConfig) -> (MuxHandle, MuxWriter) {
+pub fn spawn_mux_writer_cfg(
+    mut engine: MuxEngine,
+    mut cfg: WriterConfig,
+) -> (MuxHandle, MuxWriter) {
     let max_batch = cfg.max_batch.max(1);
     // Background flusher: fsync via an independent fd so device flush never
     // rides the ack critical path. POSIX fsync flushes file data regardless
@@ -508,7 +564,9 @@ pub fn spawn_mux_writer_cfg(mut engine: MuxEngine, mut cfg: WriterConfig) -> (Mu
         let interval = std::time::Duration::from_millis(cfg.background_flush_ms);
         let stop = stop_flusher.clone();
         std::thread::spawn(move || {
-            let Ok(fd) = File::open(&log_path) else { return };
+            let Ok(fd) = File::open(&log_path) else {
+                return;
+            };
             while !stop.load(std::sync::atomic::Ordering::Relaxed) {
                 std::thread::sleep(interval);
                 let _ = fd.sync_data();
@@ -533,7 +591,10 @@ pub fn spawn_mux_writer_cfg(mut engine: MuxEngine, mut cfg: WriterConfig) -> (Mu
             let mut ops = Vec::new();
             let mut acks = Vec::new();
             let mut shutdown: Option<mpsc::Sender<()>> = None;
-            let mut projections: Vec<(String, mpsc::Sender<std::io::Result<Vec<serde_json::Value>>>)> = Vec::new();
+            let mut projections: Vec<(
+                String,
+                mpsc::Sender<std::io::Result<Vec<serde_json::Value>>>,
+            )> = Vec::new();
             match first {
                 MuxWriterMsg::Admit(op, ack) => {
                     ops.push(op);
@@ -563,7 +624,11 @@ pub fn spawn_mux_writer_cfg(mut engine: MuxEngine, mut cfg: WriterConfig) -> (Mu
                 // Replicate-then-ack: the batch's durability class rises to
                 // a replicated tier only after enough peers hold the bytes.
                 if !cfg.replicas.is_empty() && !bytes.is_empty() {
-                    let quorum = if cfg.ack_quorum == 0 { cfg.replicas.len() } else { cfg.ack_quorum };
+                    let quorum = if cfg.ack_quorum == 0 {
+                        cfg.replicas.len()
+                    } else {
+                        cfg.ack_quorum
+                    };
                     let mut acked = 0usize;
                     let mut all_independent = true;
                     let mut failed: Vec<usize> = Vec::new();
@@ -645,7 +710,8 @@ mod tests {
     }
 
     fn tmp(name: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("agentgres-mux-test-{name}-{}", std::process::id()));
+        let d =
+            std::env::temp_dir().join(format!("agentgres-mux-test-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         d
     }
@@ -656,9 +722,17 @@ mod tests {
         let (d1, d2) = (tmp("il1"), tmp("il2"));
         let mut e1 = MuxEngine::open(&d1, false).unwrap();
         let mut e2 = MuxEngine::open(&d2, false).unwrap();
-        e1.admit_batch(vec![op("a", "o://1", 1), op("b", "o://1", 2), op("a", "o://2", 3), op("b", "o://2", 4)]).unwrap();
-        e2.admit_batch(vec![op("a", "o://1", 1), op("a", "o://2", 3)]).unwrap();
-        e2.admit_batch(vec![op("b", "o://1", 2), op("b", "o://2", 4)]).unwrap();
+        e1.admit_batch(vec![
+            op("a", "o://1", 1),
+            op("b", "o://1", 2),
+            op("a", "o://2", 3),
+            op("b", "o://2", 4),
+        ])
+        .unwrap();
+        e2.admit_batch(vec![op("a", "o://1", 1), op("a", "o://2", 3)])
+            .unwrap();
+        e2.admit_batch(vec![op("b", "o://1", 2), op("b", "o://2", 4)])
+            .unwrap();
         // Domain 'a' saw identical op sequences in both engines...
         assert_eq!(
             e1.domain_head("a", "o://1"),
@@ -678,13 +752,20 @@ mod tests {
             let mut e = MuxEngine::open(&d, false).unwrap();
             for i in 0..40u64 {
                 let dom = format!("d{}", i % 5);
-                e.admit_batch(vec![op(&dom, &format!("o://{}", i % 3), i)]).unwrap();
+                e.admit_batch(vec![op(&dom, &format!("o://{}", i % 3), i)])
+                    .unwrap();
             }
-            roots_before = e.domains().map(|k| e.domain_root(k).unwrap().clone()).collect();
+            roots_before = e
+                .domains()
+                .map(|k| e.domain_root(k).unwrap().clone())
+                .collect();
             seqs_before = e.domains().map(|k| e.domain_next_seq(k)).collect();
         }
         let e2 = MuxEngine::open(&d, false).unwrap();
-        let roots_after: Vec<Root> = e2.domains().map(|k| e2.domain_root(k).unwrap().clone()).collect();
+        let roots_after: Vec<Root> = e2
+            .domains()
+            .map(|k| e2.domain_root(k).unwrap().clone())
+            .collect();
         let seqs_after: Vec<u64> = e2.domains().map(|k| e2.domain_next_seq(k)).collect();
         assert_eq!(roots_before, roots_after);
         assert_eq!(seqs_before, seqs_after);
@@ -699,7 +780,12 @@ mod tests {
         let dp = tmp("mfork-parent");
         let df = tmp("mfork-child");
         let mut e = MuxEngine::open(&dp, false).unwrap();
-        e.admit_batch(vec![op("a", "o://1", 1), op("b", "o://1", 2), op("a", "o://2", 3)]).unwrap();
+        e.admit_batch(vec![
+            op("a", "o://1", 1),
+            op("b", "o://1", 2),
+            op("a", "o://2", 3),
+        ])
+        .unwrap();
         let ck = e.checkpoint_domain("a", 9_000).unwrap();
         SubstrateEngine::fork_from(&ck, &dp, &df).unwrap();
         let mut fork = SubstrateEngine::open(&df, false).unwrap();
@@ -707,14 +793,23 @@ mod tests {
         assert_eq!(fork.head("o://2"), e.domain_head("a", "o://2"));
         fork.admit_batch(vec![op("a", "o://2", 4)]).unwrap();
         assert_ne!(fork.current_root(), e.domain_root("a").unwrap());
-        assert_eq!(e.domain_next_seq("a"), 2, "mux parent untouched by fork writes");
+        assert_eq!(
+            e.domain_next_seq("a"),
+            2,
+            "mux parent untouched by fork writes"
+        );
     }
 
     #[test]
     fn mux_project_domain_filters_frames() {
         let d = tmp("mproj");
         let mut e = MuxEngine::open(&d, false).unwrap();
-        e.admit_batch(vec![op("a", "o://1", 1), op("b", "o://1", 2), op("a", "o://2", 3)]).unwrap();
+        e.admit_batch(vec![
+            op("a", "o://1", 1),
+            op("b", "o://1", 2),
+            op("a", "o://2", 3),
+        ])
+        .unwrap();
         let mut a_ops = 0u64;
         let mut a_roots = 0u64;
         e.project_domain("a", 0, &mut |f| match f {
@@ -750,7 +845,12 @@ mod tests {
         let link = ReplicaLink::connect(addr, false, epoch, &dp.join("muxlog.bin"), len).unwrap();
         let (h, w) = spawn_mux_writer_cfg(
             engine,
-            WriterConfig { max_batch: 1024, replicas: vec![link], flush_every_batches: 4, ..Default::default() },
+            WriterConfig {
+                max_batch: 1024,
+                replicas: vec![link],
+                flush_every_batches: 4,
+                ..Default::default()
+            },
         );
         let mut last = None;
         for i in 0..100u64 {
@@ -780,7 +880,8 @@ mod tests {
         let dr = tmp("cu-r");
         let mut e = MuxEngine::open(&dp, false).unwrap();
         for i in 0..30u64 {
-            e.admit_batch(vec![op("a", &format!("o://{}", i % 5), i)]).unwrap();
+            e.admit_batch(vec![op("a", &format!("o://{}", i % 5), i)])
+                .unwrap();
         }
         let server = ReplicaServer::bind("127.0.0.1:0", &dr, 8).unwrap();
         let addr = server.local_addr().unwrap();
@@ -792,7 +893,11 @@ mod tests {
         let link = ReplicaLink::connect(addr, false, epoch, &dp.join("muxlog.bin"), len).unwrap();
         let (h, w) = spawn_mux_writer_cfg(
             e,
-            WriterConfig { max_batch: 256, replicas: vec![link], ..Default::default() },
+            WriterConfig {
+                max_batch: 256,
+                replicas: vec![link],
+                ..Default::default()
+            },
         );
         for i in 30..60u64 {
             let ack = h.admit(op("a", &format!("o://{}", i % 5), i)).unwrap();
@@ -815,18 +920,30 @@ mod tests {
         let da = tmp("fence-a");
         let dr = tmp("fence-r");
         let mut a = MuxEngine::open(&da, false).unwrap();
-        a.admit_batch(vec![op("a", "o://1", 1), op("a", "o://2", 2)]).unwrap();
+        a.admit_batch(vec![op("a", "o://1", 1), op("a", "o://2", 2)])
+            .unwrap();
         let server = ReplicaServer::bind("127.0.0.1:0", &dr, 8).unwrap();
         let addr = server.local_addr().unwrap();
         let srv = std::thread::spawn(move || {
             let (s, _) = server.listener_accept_for_test().unwrap();
             let _ = server.serve_one(s);
         });
-        let link = ReplicaLink::connect(addr, false, a.current_epoch(), &da.join("muxlog.bin"), a.log_len().unwrap()).unwrap();
+        let link = ReplicaLink::connect(
+            addr,
+            false,
+            a.current_epoch(),
+            &da.join("muxlog.bin"),
+            a.log_len().unwrap(),
+        )
+        .unwrap();
         drop(link);
         srv.join().unwrap();
         let mut promoted = MuxEngine::open(&dr, false).unwrap();
-        assert_eq!(promoted.domain_root("a"), a.domain_root("a"), "caught up before promotion");
+        assert_eq!(
+            promoted.domain_root("a"),
+            a.domain_root("a"),
+            "caught up before promotion"
+        );
         let record = promoted.promote(9_000).unwrap();
         assert_eq!(record["new_epoch"], 1);
         assert_eq!(promoted.current_epoch(), 1);
@@ -837,7 +954,13 @@ mod tests {
             let (s, _) = server2.listener_accept_for_test().unwrap();
             let _ = server2.serve_one(s); // errors: fenced
         });
-        let res = ReplicaLink::connect(addr2, false, a.current_epoch(), &da.join("muxlog.bin"), a.log_len().unwrap());
+        let res = ReplicaLink::connect(
+            addr2,
+            false,
+            a.current_epoch(),
+            &da.join("muxlog.bin"),
+            a.log_len().unwrap(),
+        );
         assert!(res.is_err(), "deposed primary must be fenced at handshake");
         assert!(format!("{}", res.err().unwrap()).contains("FENCED"));
         srv2.join().unwrap();
@@ -871,11 +994,19 @@ mod tests {
                     let (s, _) = server.listener_accept_for_test().unwrap();
                     let _ = server.serve_one(s);
                 }));
-                links.push(ReplicaLink::connect(addr, independent, epoch, &dp.join("muxlog.bin"), len).unwrap());
+                links.push(
+                    ReplicaLink::connect(addr, independent, epoch, &dp.join("muxlog.bin"), len)
+                        .unwrap(),
+                );
             }
             let (h, w) = spawn_mux_writer_cfg(
                 e,
-                WriterConfig { max_batch: 256, replicas: links, ack_quorum: 2, ..Default::default() },
+                WriterConfig {
+                    max_batch: 256,
+                    replicas: links,
+                    ack_quorum: 2,
+                    ..Default::default()
+                },
             );
             let ack = h.admit(op("a", "o://1", 1)).unwrap();
             assert_eq!(ack.durability, expect);
@@ -892,11 +1023,17 @@ mod tests {
         let d = tmp("dur-sync");
         let mut e = MuxEngine::open(&d, true).unwrap();
         let r = e.admit_batch(vec![op("a", "o://1", 1)]).unwrap();
-        assert_eq!(r[0].as_ref().unwrap().durability, crate::Durability::DeviceFlush);
+        assert_eq!(
+            r[0].as_ref().unwrap().durability,
+            crate::Durability::DeviceFlush
+        );
         let d2 = tmp("dur-async");
         let mut e2 = MuxEngine::open(&d2, false).unwrap();
         let r2 = e2.admit_batch(vec![op("a", "o://1", 1)]).unwrap();
-        assert_eq!(r2[0].as_ref().unwrap().durability, crate::Durability::Buffered);
+        assert_eq!(
+            r2[0].as_ref().unwrap().durability,
+            crate::Durability::Buffered
+        );
     }
 
     #[test]
@@ -906,12 +1043,16 @@ mod tests {
         let (root_before, seq_before);
         {
             let mut e = MuxEngine::open(&d, false).unwrap();
-            e.admit_batch(vec![op("a", "o://1", 1), op("a", "o://2", 2)]).unwrap();
+            e.admit_batch(vec![op("a", "o://1", 1), op("a", "o://2", 2)])
+                .unwrap();
             root_before = e.domain_root("a").unwrap().clone();
             seq_before = e.domain_next_seq("a");
         }
         // Simulate a crash mid-write: garbage partial frame at the tail.
-        let mut f = OpenOptions::new().append(true).open(d.join("muxlog.bin")).unwrap();
+        let mut f = OpenOptions::new()
+            .append(true)
+            .open(d.join("muxlog.bin"))
+            .unwrap();
         f.write_all(&999u32.to_le_bytes()).unwrap();
         f.write_all(b"torn-partial-frame").unwrap();
         drop(f);
@@ -920,7 +1061,10 @@ mod tests {
         assert_eq!(e2.domain_root("a").unwrap(), &root_before);
         assert_eq!(e2.domain_next_seq("a"), seq_before);
         let len_after = std::fs::metadata(d.join("muxlog.bin")).unwrap().len();
-        assert!(len_after < len_with_garbage, "unacked tail must be truncated");
+        assert!(
+            len_after < len_with_garbage,
+            "unacked tail must be truncated"
+        );
         // And the log stays appendable after truncation.
         let mut e3 = MuxEngine::open(&d, false).unwrap();
         e3.admit_batch(vec![op("a", "o://3", 3)]).unwrap();
@@ -939,7 +1083,10 @@ mod tests {
         let latest = h.project_latest("a").unwrap();
         assert_eq!(latest.len(), 2, "last-write-wins per object");
         let ns: Vec<i64> = latest.iter().map(|v| v["n"].as_i64().unwrap()).collect();
-        assert!(ns.contains(&3) && ns.contains(&2), "o://1 must be its latest write: {ns:?}");
+        assert!(
+            ns.contains(&3) && ns.contains(&2),
+            "o://1 must be its latest write: {ns:?}"
+        );
         h.shutdown();
         w.join.join().unwrap().unwrap();
     }
@@ -954,7 +1101,12 @@ mod tests {
             let h = h.clone();
             joins.push(std::thread::spawn(move || {
                 for i in 0..200u64 {
-                    h.admit(op(&format!("d{}", c % 3), &format!("o://c{c}"), c * 1000 + i)).unwrap();
+                    h.admit(op(
+                        &format!("d{}", c % 3),
+                        &format!("o://c{c}"),
+                        c * 1000 + i,
+                    ))
+                    .unwrap();
                 }
             }));
         }

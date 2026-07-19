@@ -411,7 +411,10 @@ mod tests {
             .as_array()
             .unwrap()
             .iter()
-            .any(|r| r.as_str().unwrap().starts_with("receipt://harness-profile-mutation/")));
+            .any(|r| r
+                .as_str()
+                .unwrap()
+                .starts_with("receipt://harness-profile-mutation/")));
     }
 
     #[test]
@@ -422,7 +425,10 @@ mod tests {
             .admit(&request, "2026-07-02T00:00:00Z")
             .unwrap_err();
         assert_eq!(error.status, 403);
-        assert_eq!(error.code, "harness_profile_mutation_required_scope_missing");
+        assert_eq!(
+            error.code,
+            "harness_profile_mutation_required_scope_missing"
+        );
     }
 
     #[test]
@@ -437,8 +443,7 @@ mod tests {
             error.code,
             "harness_profile_mutation_provider_trust_acceptance_required"
         );
-        request["provider_trust_acceptance_ref"] =
-            json!("approval://provider-trust/claude_code");
+        request["provider_trust_acceptance_ref"] = json!("approval://provider-trust/claude_code");
         RuntimeHarnessProfileMutationAdmissionCore
             .admit(&request, "2026-07-02T00:00:00Z")
             .expect("remote enable admits with trust acceptance");
@@ -465,7 +470,10 @@ mod tests {
         let error = RuntimeHarnessProfileMutationAdmissionCore
             .admit(&request, "2026-07-02T00:00:00Z")
             .unwrap_err();
-        assert_eq!(error.code, "harness_profile_mutation_model_route_ref_required");
+        assert_eq!(
+            error.code,
+            "harness_profile_mutation_model_route_ref_required"
+        );
 
         request["model_route_ref"] = json!("model-route:mrt_local_default");
         request["execution_wiring"] = json!("adapter_slot_unwired");

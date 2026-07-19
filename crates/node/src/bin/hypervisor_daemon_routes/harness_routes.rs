@@ -31,9 +31,7 @@ use serde_json::{json, Value};
 
 use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 
-use super::lifecycle_routes::{
-    binary_on_path, generic_cli_local_shim_path, model_route_reachable,
-};
+use super::lifecycle_routes::{binary_on_path, generic_cli_local_shim_path, model_route_reachable};
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
 const PROFILE_SCHEMA: &str = "ioi.hypervisor.harness-profile.v1";
@@ -160,16 +158,18 @@ fn probe_profile(profile: &Value) -> Value {
                 )
             }
         }
-        "terminal_shell" => match binary_on_path(if binary.is_empty() { "bash" } else { &binary }) {
-            Some(path) => (
-                "runnable",
-                json!({ "binary_path": path, "tmux_present": binary_on_path("tmux").is_some() }),
-            ),
-            None => (
-                "binary_missing",
-                json!({ "required_binary": if binary.is_empty() { "bash".to_string() } else { binary.clone() } }),
-            ),
-        },
+        "terminal_shell" => {
+            match binary_on_path(if binary.is_empty() { "bash" } else { &binary }) {
+                Some(path) => (
+                    "runnable",
+                    json!({ "binary_path": path, "tmux_present": binary_on_path("tmux").is_some() }),
+                ),
+                None => (
+                    "binary_missing",
+                    json!({ "required_binary": if binary.is_empty() { "bash".to_string() } else { binary.clone() } }),
+                ),
+            }
+        }
         _ => {
             let wiring = ps(profile, "/adapter/execution_wiring", "adapter_slot_unwired");
             match binary_on_path(&binary) {
@@ -184,13 +184,22 @@ fn probe_profile(profile: &Value) -> Value {
                             .map(|cwd| cwd.join(&shim_rel).is_file())
                             .unwrap_or(false);
                     if binary_on_path("node").is_none() {
-                        ("binary_missing", json!({ "required_binary": "node", "note": "the driver shim runs through node" }))
+                        (
+                            "binary_missing",
+                            json!({ "required_binary": "node", "note": "the driver shim runs through node" }),
+                        )
                     } else if binary_on_path("bwrap").is_none() {
-                        ("binary_missing", json!({ "required_binary": "bwrap", "note": "adapter drivers refuse to spawn unconfined" }))
+                        (
+                            "binary_missing",
+                            json!({ "required_binary": "bwrap", "note": "adapter drivers refuse to spawn unconfined" }),
+                        )
                     } else if !shim_ok {
                         ("shim_missing", json!({ "required_shim": shim_rel }))
                     } else if !model_route_reachable() {
-                        ("model_route_unreachable", json!({ "note": "adapter binary + driver resolve but the configured model upstream did not accept a TCP connection" }))
+                        (
+                            "model_route_unreachable",
+                            json!({ "note": "adapter binary + driver resolve but the configured model upstream did not accept a TCP connection" }),
+                        )
                     } else {
                         (
                             "runnable",
@@ -480,7 +489,8 @@ pub(crate) fn ensure_seed(data_dir: &str) {
                 existing["adapter"] = record["adapter"].clone();
                 existing["summary"] = record["summary"].clone();
                 let profile_ref = s(&existing, "profile_ref", "");
-                let receipt = profile_receipt(data_dir, &profile_ref, "seed_reconciled", "ok", None);
+                let receipt =
+                    profile_receipt(data_dir, &profile_ref, "seed_reconciled", "ok", None);
                 if let Some(refs) = existing["receipt_refs"].as_array_mut() {
                     refs.push(json!(receipt));
                 }
@@ -498,7 +508,9 @@ pub(crate) fn ensure_seed(data_dir: &str) {
                 Err((_, body)) => {
                     record["admission"]["gaps"] = json!([format!(
                         "seed enable_profile admission rejected: {}",
-                        body.pointer("/error/code").and_then(|v| v.as_str()).unwrap_or("unknown")
+                        body.pointer("/error/code")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("unknown")
                     )]);
                 }
             }
@@ -597,7 +609,10 @@ pub(crate) async fn handle_harness_profiles_list(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Json<Value> {
     ensure_seed(&st.data_dir);
-    let live = params.get("live").map(|v| v == "1" || v == "true").unwrap_or(false);
+    let live = params
+        .get("live")
+        .map(|v| v == "1" || v == "true")
+        .unwrap_or(false);
     let mut profiles = sorted_profiles(&st.data_dir);
     if live {
         let mut refreshed = Vec::with_capacity(profiles.len());
@@ -696,7 +711,8 @@ pub(crate) async fn handle_harness_profile_probe(
     let state = ps(&runnability, "/state", "not_probed");
     let receipt = profile_receipt(&st.data_dir, &profile_ref, "probed", &state, None);
     persist_runnability_locked(&st, &id, runnability.clone(), Some(&receipt));
-    let transcript_run = post_op_transcript(&st.base_url, "probe", &profile_ref, &runnability).await;
+    let transcript_run =
+        post_op_transcript(&st.base_url, "probe", &profile_ref, &runnability).await;
     (
         StatusCode::OK,
         Json(json!({
@@ -912,7 +928,11 @@ pub(crate) async fn bind_profile_for_session(
             } }),
         ));
     }
-    let wiring = ps(&profile, "/adapter/execution_wiring", "adapter_slot_unwired");
+    let wiring = ps(
+        &profile,
+        "/adapter/execution_wiring",
+        "adapter_slot_unwired",
+    );
     if wiring != "lane_a_host_spawn" {
         return Err((
             StatusCode::CONFLICT,
@@ -939,16 +959,14 @@ pub(crate) async fn bind_profile_for_session(
         ));
     }
     // Cross-registry truth: the model route must be an active+available registry record.
-    let route_ref = model_route_ref
-        .map(str::to_string)
-        .unwrap_or_else(|| {
-            super::model_routes::ensure_seed(&st.data_dir);
-            read_record_dir(&st.data_dir, super::model_routes::RECORD_DIR)
-                .into_iter()
-                .find(|r| r.get("default_route").and_then(|v| v.as_bool()) == Some(true))
-                .map(|r| s(&r, "route_ref", ""))
-                .unwrap_or_default()
-        });
+    let route_ref = model_route_ref.map(str::to_string).unwrap_or_else(|| {
+        super::model_routes::ensure_seed(&st.data_dir);
+        read_record_dir(&st.data_dir, super::model_routes::RECORD_DIR)
+            .into_iter()
+            .find(|r| r.get("default_route").and_then(|v| v.as_bool()) == Some(true))
+            .map(|r| s(&r, "route_ref", ""))
+            .unwrap_or_default()
+    });
     let route_id = route_ref.strip_prefix("model-route:").unwrap_or(&route_ref);
     let Some(route) = super::model_routes::load_route_record(&st.data_dir, route_id) else {
         return Err((
@@ -1111,7 +1129,10 @@ mod harness_profile_tests {
         }
         for key in ["claude_code", "codex"] {
             let p = seeds.iter().find(|p| s(p, "harness", "") == key).unwrap();
-            assert_eq!(ps(p, "/adapter/execution_wiring", ""), "adapter_slot_unwired");
+            assert_eq!(
+                ps(p, "/adapter/execution_wiring", ""),
+                "adapter_slot_unwired"
+            );
             assert_eq!(ps(p, "/lifecycle/status", ""), "declared");
         }
         let claude = seeds
@@ -1136,7 +1157,10 @@ mod harness_profile_tests {
     #[test]
     fn remote_trust_enable_without_acceptance_is_planner_rejected() {
         let seeds = seed_profiles();
-        let codex = seeds.iter().find(|p| s(p, "harness", "") == "codex").unwrap();
+        let codex = seeds
+            .iter()
+            .find(|p| s(p, "harness", "") == "codex")
+            .unwrap();
         let err = compose_mutation_admission(codex, "enable_profile", None, None, None)
             .expect_err("remote enable without acceptance rejects");
         assert_eq!(err.0, 403);

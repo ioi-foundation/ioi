@@ -39,7 +39,9 @@ pub(crate) fn is_promoted(record_dir: &str) -> bool {
 }
 
 fn soak_enabled() -> bool {
-    std::env::var("IOI_SUBSTRATE_DUAL_WRITE").map(|v| v == "1").unwrap_or(false)
+    std::env::var("IOI_SUBSTRATE_DUAL_WRITE")
+        .map(|v| v == "1")
+        .unwrap_or(false)
 }
 
 fn soak_domains() -> Vec<String> {
@@ -76,28 +78,41 @@ fn build_op(record_dir: &str, record_id: &str, record: &Value) -> Operation {
 /// on disk as inert history; the engine is truth from here on.
 fn backfill_domain(engine: &mut MuxEngine, data_dir: &str, domain: &str) {
     let legacy = std::path::Path::new(data_dir).join(domain);
-    let Ok(entries) = std::fs::read_dir(&legacy) else { return };
+    let Ok(entries) = std::fs::read_dir(&legacy) else {
+        return;
+    };
     let mut pending: Vec<(String, String, Value)> = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("json") {
             continue;
         }
-        let Ok(bytes) = std::fs::read(&path) else { continue };
-        let Ok(v) = serde_json::from_slice::<Value>(&bytes) else { continue };
+        let Ok(bytes) = std::fs::read(&path) else {
+            continue;
+        };
+        let Ok(v) = serde_json::from_slice::<Value>(&bytes) else {
+            continue;
+        };
         let id = v
             .get("receipt_id")
             .or_else(|| v.get("id"))
             .and_then(|x| x.as_str())
             .map(str::to_string)
             .unwrap_or_else(|| {
-                path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string()
+                path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("unknown")
+                    .to_string()
             });
         let object_ref = format!("agentgres://{domain}/{id}");
         if engine.domain_head(domain, &object_ref).is_some() {
             continue; // already admitted — idempotent re-run
         }
-        let at = v.get("at").and_then(|x| x.as_str()).unwrap_or("").to_string();
+        let at = v
+            .get("at")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
         pending.push((at, id, v));
     }
     if pending.is_empty() {
@@ -106,7 +121,10 @@ fn backfill_domain(engine: &mut MuxEngine, data_dir: &str, domain: &str) {
     pending.sort_by(|a, b| (a.0.as_str(), a.1.as_str()).cmp(&(b.0.as_str(), b.1.as_str())));
     let mut done = 0u64;
     for chunk in pending.chunks(512) {
-        let ops: Vec<Operation> = chunk.iter().map(|(_, id, v)| build_op(domain, id, v)).collect();
+        let ops: Vec<Operation> = chunk
+            .iter()
+            .map(|(_, id, v)| build_op(domain, id, v))
+            .collect();
         match engine.admit_batch(ops) {
             Ok(results) => done += results.iter().filter(|r| r.is_ok()).count() as u64,
             Err(e) => {
@@ -116,7 +134,9 @@ fn backfill_domain(engine: &mut MuxEngine, data_dir: &str, domain: &str) {
         }
     }
     BACKFILLED.fetch_add(done, Ordering::Relaxed);
-    eprintln!("substrate-store: backfilled {done} legacy {domain} records into the substrate engine");
+    eprintln!(
+        "substrate-store: backfilled {done} legacy {domain} records into the substrate engine"
+    );
 }
 
 fn replica_addrs() -> Vec<String> {
@@ -212,8 +232,12 @@ pub(crate) fn persist_promoted(
         }
         Err(refusal) => {
             ERRORS.fetch_add(1, Ordering::Relaxed);
-            eprintln!("substrate-store: admission refused ({refusal}) record={record_dir}/{record_id}");
-            Err(std::io::Error::other(format!("substrate admission refused: {refusal}")))
+            eprintln!(
+                "substrate-store: admission refused ({refusal}) record={record_dir}/{record_id}"
+            );
+            Err(std::io::Error::other(format!(
+                "substrate admission refused: {refusal}"
+            )))
         }
     }
 }

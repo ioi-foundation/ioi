@@ -96,8 +96,11 @@ impl RuntimeGoalRunAdmissionCore {
         }
         let authority_scope_refs = prefixed_refs(request, "authority_scope_refs", "scope:", false)?;
         require_scope(&authority_scope_refs, "scope:goal.run.orchestrate")?;
-        let state_root_ref =
-            prefixed_string(request, "state_root_ref", "agentgres://state-root/goal-run/")?;
+        let state_root_ref = prefixed_string(
+            request,
+            "state_root_ref",
+            "agentgres://state-root/goal-run/",
+        )?;
 
         let admission_id = format!("goal-run-admission:{}:create", safe_id(&goal_ref));
         let receipt_ref = format!("receipt://goal-run/{}/create", safe_id(&goal_ref));
@@ -446,7 +449,10 @@ impl RuntimeGoalRunAdmissionCore {
             // routes BEFORE ordinary eligibility (an acceptance ref cannot opt remote trust in).
             let mut reason: Option<String> = None;
             if privacy_posture == "private_local" {
-                let trust = candidate.get("provider_trust").and_then(Value::as_str).unwrap_or("");
+                let trust = candidate
+                    .get("provider_trust")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 let route_local = candidate.get("model_route_local").and_then(Value::as_bool);
                 if trust != "local" {
                     reason = Some("private_local_excludes_remote_trust".to_string());
@@ -455,9 +461,9 @@ impl RuntimeGoalRunAdmissionCore {
                 }
             }
             if reason.is_none()
-                && policy_excluded
-                    .iter()
-                    .any(|x| Some(x.as_str()) == candidate.get("profile_ref").and_then(Value::as_str))
+                && policy_excluded.iter().any(|x| {
+                    Some(x.as_str()) == candidate.get("profile_ref").and_then(Value::as_str)
+                })
             {
                 reason = Some("policy_excluded".to_string());
             }
@@ -486,7 +492,10 @@ impl RuntimeGoalRunAdmissionCore {
         // steer), unlike request-level preferred which is a hard filter the caller asked for.
         if !policy_preferred.is_empty() && !eligible.is_empty() {
             eligible.sort_by_key(|candidate| {
-                let profile = candidate.get("profile_ref").and_then(Value::as_str).unwrap_or("");
+                let profile = candidate
+                    .get("profile_ref")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
                 policy_preferred
                     .iter()
                     .position(|p| p == profile)
@@ -498,9 +507,17 @@ impl RuntimeGoalRunAdmissionCore {
             constraints_applied.push("policy_excluded_harnesses".to_string());
         }
         let compare_shaped = goal.len() >= 120
-            || ["compare", "review", "refactor", "migrate", "audit", "redesign", "multiple approaches"]
-                .iter()
-                .any(|kw| goal.to_lowercase().contains(kw));
+            || [
+                "compare",
+                "review",
+                "refactor",
+                "migrate",
+                "audit",
+                "redesign",
+                "multiple approaches",
+            ]
+            .iter()
+            .any(|kw| goal.to_lowercase().contains(kw));
         let compare_forced = strategy == "compare" || require_compare;
         if require_compare {
             constraints_applied.push("assurance_require_compare".to_string());
@@ -761,7 +778,9 @@ mod tests {
     #[test]
     fn goal_run_admit_shape_and_budget() {
         let core = RuntimeGoalRunAdmissionCore;
-        let admitted = core.admit_goal_run(&goal_request(), "2026-01-01T00:00:00Z").unwrap();
+        let admitted = core
+            .admit_goal_run(&goal_request(), "2026-01-01T00:00:00Z")
+            .unwrap();
         assert_eq!(
             admitted["admission_id"],
             json!("goal-run-admission:goal___gr_test:create")
@@ -786,7 +805,10 @@ mod tests {
             ],
         });
         let selected = core.select_role_topology(&request).unwrap();
-        assert_eq!(selected["implementer_refs"], json!(["harness-profile:hp_opencode"]));
+        assert_eq!(
+            selected["implementer_refs"],
+            json!(["harness-profile:hp_opencode"])
+        );
         assert_eq!(
             selected["excluded_implementers"][0]["reason_code"],
             json!("profile_not_active")
@@ -828,23 +850,35 @@ mod tests {
     #[test]
     fn ioi_agent_strategy_selection_is_deterministic() {
         let core = RuntimeGoalRunAdmissionCore;
-        let base = |strategy: &str, goal: &str| json!({
-            "strategy": strategy,
-            "normalized_goal": goal,
-            "conductor_ref": "harness-profile:hp_hypervisor_worker",
-            "implementer_candidates": [
-                implementer("opencode", "active", "runnable"),
-                implementer("deepseek_tui", "active", "runnable"),
-            ],
-        });
-        let auto_small = core.select_ioi_agent_execution(&base("auto", "Create a status file")).unwrap();
+        let base = |strategy: &str, goal: &str| {
+            json!({
+                "strategy": strategy,
+                "normalized_goal": goal,
+                "conductor_ref": "harness-profile:hp_hypervisor_worker",
+                "implementer_candidates": [
+                    implementer("opencode", "active", "runnable"),
+                    implementer("deepseek_tui", "active", "runnable"),
+                ],
+            })
+        };
+        let auto_small = core
+            .select_ioi_agent_execution(&base("auto", "Create a status file"))
+            .unwrap();
         assert_eq!(auto_small["planned_execution_kind"], json!("direct"));
-        assert_eq!(auto_small["selected_harness_ref"], json!("harness-profile:hp_opencode"));
+        assert_eq!(
+            auto_small["selected_harness_ref"],
+            json!("harness-profile:hp_opencode")
+        );
         let auto_big = core
-            .select_ioi_agent_execution(&base("auto", "Compare two approaches to the retry loop and pick the safer one"))
+            .select_ioi_agent_execution(&base(
+                "auto",
+                "Compare two approaches to the retry loop and pick the safer one",
+            ))
             .unwrap();
         assert_eq!(auto_big["planned_execution_kind"], json!("goal_run"));
-        let compare = core.select_ioi_agent_execution(&base("compare", "Small goal")).unwrap();
+        let compare = core
+            .select_ioi_agent_execution(&base("compare", "Small goal"))
+            .unwrap();
         assert_eq!(compare["planned_execution_kind"], json!("goal_run"));
         // compare fails closed with one implementer
         let mut one = base("compare", "Small goal");
@@ -867,16 +901,18 @@ mod tests {
     #[test]
     fn launch_policy_envelope_composes_deterministically() {
         let core = RuntimeGoalRunAdmissionCore;
-        let base = |policy: Value| json!({
-            "strategy": "auto",
-            "normalized_goal": "Create a status file",
-            "conductor_ref": "harness-profile:hp_hypervisor_worker",
-            "implementer_candidates": [
-                implementer("opencode", "active", "runnable"),
-                implementer("deepseek_tui", "active", "runnable"),
-            ],
-            "policy": policy,
-        });
+        let base = |policy: Value| {
+            json!({
+                "strategy": "auto",
+                "normalized_goal": "Create a status file",
+                "conductor_ref": "harness-profile:hp_hypervisor_worker",
+                "implementer_candidates": [
+                    implementer("opencode", "active", "runnable"),
+                    implementer("deepseek_tui", "active", "runnable"),
+                ],
+                "policy": policy,
+            })
+        };
         // require_compare forces goal_run and records the applied constraint.
         let assured = core
             .select_ioi_agent_execution(&base(json!({
@@ -927,8 +963,14 @@ mod tests {
                 "harness_preferences": { "preferred_harness_refs": ["harness-profile:hp_deepseek_tui"] },
             })))
             .unwrap();
-        assert_eq!(steered["selected_harness_ref"], json!("harness-profile:hp_deepseek_tui"));
-        assert_eq!(steered["eligible_harness_refs"][0], json!("harness-profile:hp_deepseek_tui"));
+        assert_eq!(
+            steered["selected_harness_ref"],
+            json!("harness-profile:hp_deepseek_tui")
+        );
+        assert_eq!(
+            steered["eligible_harness_refs"][0],
+            json!("harness-profile:hp_deepseek_tui")
+        );
         // policy privacy composes the categorical private-local boundary.
         let mut private = base(json!({
             "policy_ref": "ioi-agent-policy://pol_priv",

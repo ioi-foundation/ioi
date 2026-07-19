@@ -76,7 +76,12 @@ const BASE_VALUE_TYPES: &[&str] = &[
 /// Relation cardinalities a link_type may declare.
 const LINK_CARDINALITIES: &[&str] = &["one_to_one", "one_to_many", "many_to_many"];
 /// Action/function kinds an action_type may declare (non-`function` kinds require an object target).
-const ACTION_KINDS: &[&str] = &["create_object", "modify_object", "delete_object", "function"];
+const ACTION_KINDS: &[&str] = &[
+    "create_object",
+    "modify_object",
+    "delete_object",
+    "function",
+];
 /// Receipts for ontology create/patch land here (history is also embedded on the record).
 const KIND_ONT_RECEIPT: &str = "odk-ontology-receipts";
 
@@ -390,33 +395,59 @@ const COM_NAME_MAX: usize = 200;
 /// Validate ids (shape + uniqueness) and names (present + unique, case-insensitive) for a collection.
 fn check_ids_and_names(entries: &[&Value], label: &str) -> Result<Vec<String>, VErr> {
     if entries.len() > COM_COLLECTION_MAX {
-        return Err(verr("ontology_collection_bounds", format!("{label} collection exceeds the bound ({COM_COLLECTION_MAX} entries)")));
+        return Err(verr(
+            "ontology_collection_bounds",
+            format!("{label} collection exceeds the bound ({COM_COLLECTION_MAX} entries)"),
+        ));
     }
     let mut ids: Vec<String> = Vec::new();
     let mut names_lc: Vec<String> = Vec::new();
     for e in entries {
         if !e.is_object() {
-            return Err(verr("ontology_entry_invalid", format!("every {label} entry must be a typed object")));
+            return Err(verr(
+                "ontology_entry_invalid",
+                format!("every {label} entry must be a typed object"),
+            ));
         }
         if let Some(n) = e.get("name") {
             if !n.is_null() && !n.is_string() {
-                return Err(verr("ontology_field_type_invalid", format!("{label} `name` must be a string when present")));
+                return Err(verr(
+                    "ontology_field_type_invalid",
+                    format!("{label} `name` must be a string when present"),
+                ));
             }
         }
         if let Some(d) = e.get("description") {
             if !d.is_null() && !d.is_string() {
-                return Err(verr("ontology_field_type_invalid", format!("{label} `description` must be a string when present")));
+                return Err(verr(
+                    "ontology_field_type_invalid",
+                    format!("{label} `description` must be a string when present"),
+                ));
             }
-            if d.as_str().map(|s| s.chars().count() > COM_TEXT_MAX).unwrap_or(false) {
-                return Err(verr("odk_field_too_long", format!("{label} `description` exceeds the bounded length ({COM_TEXT_MAX} chars)")));
+            if d.as_str()
+                .map(|s| s.chars().count() > COM_TEXT_MAX)
+                .unwrap_or(false)
+            {
+                return Err(verr(
+                    "odk_field_too_long",
+                    format!(
+                        "{label} `description` exceeds the bounded length ({COM_TEXT_MAX} chars)"
+                    ),
+                ));
             }
         }
         let id = entry_id(e);
         if id.len() > COM_ID_MAX {
-            return Err(verr("odk_field_too_long", format!("{label} id exceeds the bounded length ({COM_ID_MAX} chars)")));
+            return Err(verr(
+                "odk_field_too_long",
+                format!("{label} id exceeds the bounded length ({COM_ID_MAX} chars)"),
+            ));
         }
         if entry_name(e).chars().count() > COM_NAME_MAX {
-            return Err(verr("odk_field_too_long", format!("{label} name exceeds the bounded length ({COM_NAME_MAX} chars)")));
+            return Err(verr(
+                "odk_field_too_long",
+                format!("{label} name exceeds the bounded length ({COM_NAME_MAX} chars)"),
+            ));
         }
         if !valid_type_id(id) {
             return Err(verr(
@@ -476,19 +507,45 @@ fn validate_object_model(com: &Value) -> Result<Value, VErr> {
         if !BASE_VALUE_TYPES.contains(&base) {
             return Err(verr(
                 "ontology_value_base_invalid",
-                format!("value_type '{}' base '{base}' is not a known base type", entry_id(vt)),
+                format!(
+                    "value_type '{}' base '{base}' is not a known base type",
+                    entry_id(vt)
+                ),
             ));
         }
         if let Some(ev) = vt.get("enum_values") {
             if !ev.is_null() {
                 let Some(arr) = ev.as_array() else {
-                    return Err(verr("ontology_field_type_invalid", format!("value_type '{}' enum_values must be an array of strings", entry_id(vt))));
+                    return Err(verr(
+                        "ontology_field_type_invalid",
+                        format!(
+                            "value_type '{}' enum_values must be an array of strings",
+                            entry_id(vt)
+                        ),
+                    ));
                 };
                 if arr.len() > COM_COLLECTION_MAX {
-                    return Err(verr("ontology_collection_bounds", format!("value_type '{}' enum_values exceeds the bound ({COM_COLLECTION_MAX})", entry_id(vt))));
+                    return Err(verr(
+                        "ontology_collection_bounds",
+                        format!(
+                            "value_type '{}' enum_values exceeds the bound ({COM_COLLECTION_MAX})",
+                            entry_id(vt)
+                        ),
+                    ));
                 }
-                if arr.iter().any(|x| !x.is_string() || x.as_str().map(|s| s.is_empty() || s.chars().count() > COM_NAME_MAX).unwrap_or(true)) {
-                    return Err(verr("ontology_field_type_invalid", format!("value_type '{}' enum_values must be non-empty bounded strings", entry_id(vt))));
+                if arr.iter().any(|x| {
+                    !x.is_string()
+                        || x.as_str()
+                            .map(|s| s.is_empty() || s.chars().count() > COM_NAME_MAX)
+                            .unwrap_or(true)
+                }) {
+                    return Err(verr(
+                        "ontology_field_type_invalid",
+                        format!(
+                            "value_type '{}' enum_values must be non-empty bounded strings",
+                            entry_id(vt)
+                        ),
+                    ));
                 }
             }
         }
@@ -501,18 +558,26 @@ fn validate_object_model(com: &Value) -> Result<Value, VErr> {
         {
             return Err(verr(
                 "ontology_enum_values_required",
-                format!("enum value_type '{}' must declare non-empty enum_values", entry_id(vt)),
+                format!(
+                    "enum value_type '{}' must declare non-empty enum_values",
+                    entry_id(vt)
+                ),
             ));
         }
     }
-    let resolves_value = |vt: &str| BASE_VALUE_TYPES.contains(&vt) || value_ids.iter().any(|x| x == vt);
+    let resolves_value =
+        |vt: &str| BASE_VALUE_TYPES.contains(&vt) || value_ids.iter().any(|x| x == vt);
 
     // Object types: typed properties resolve to a value type; title_property resolves to a property.
     let mut gaps: Vec<String> = Vec::new();
     for obj in &object_types {
         let oid = entry_id(obj);
         let oname = entry_name(obj);
-        let disp = if oname.is_empty() { oid.to_string() } else { oname };
+        let disp = if oname.is_empty() {
+            oid.to_string()
+        } else {
+            oname
+        };
         let props = com_arr(obj, "properties")?;
         let prop_ids = check_ids_and_names(&props, &format!("property (object '{oid}')"))?;
         for p in &props {
@@ -525,19 +590,28 @@ fn validate_object_model(com: &Value) -> Result<Value, VErr> {
             if pvt.is_empty() {
                 return Err(verr(
                     "ontology_property_value_type_required",
-                    format!("property '{}' on object '{oid}' requires a value_type", entry_id(p)),
+                    format!(
+                        "property '{}' on object '{oid}' requires a value_type",
+                        entry_id(p)
+                    ),
                 ));
             }
             if !resolves_value(pvt) {
                 return Err(verr(
                     "ontology_ref_unresolved",
-                    format!("property '{}' on object '{oid}' references unknown value_type '{pvt}'", entry_id(p)),
+                    format!(
+                        "property '{}' on object '{oid}' references unknown value_type '{pvt}'",
+                        entry_id(p)
+                    ),
                 ));
             }
         }
         if let Some(tpv) = obj.get("title_property") {
             if !tpv.is_null() && !tpv.is_string() {
-                return Err(verr("ontology_field_type_invalid", format!("object '{oid}' `title_property` must be a string when present")));
+                return Err(verr(
+                    "ontology_field_type_invalid",
+                    format!("object '{oid}' `title_property` must be a string when present"),
+                ));
             }
         }
         match obj
@@ -566,7 +640,9 @@ fn validate_object_model(com: &Value) -> Result<Value, VErr> {
         if !LINK_CARDINALITIES.contains(&card) {
             return Err(verr(
                 "ontology_cardinality_invalid",
-                format!("link_type '{lid}' cardinality '{card}' must be one of {LINK_CARDINALITIES:?}"),
+                format!(
+                    "link_type '{lid}' cardinality '{card}' must be one of {LINK_CARDINALITIES:?}"
+                ),
             ));
         }
         for end in ["from", "to"] {
@@ -574,7 +650,9 @@ fn validate_object_model(com: &Value) -> Result<Value, VErr> {
             if !object_ids.iter().any(|x| x == t) {
                 return Err(verr(
                     "ontology_ref_unresolved",
-                    format!("link_type '{lid}' {end} '{t}' does not resolve to a declared object_type"),
+                    format!(
+                        "link_type '{lid}' {end} '{t}' does not resolve to a declared object_type"
+                    ),
                 ));
             }
         }
@@ -609,11 +687,17 @@ fn validate_object_model(com: &Value) -> Result<Value, VErr> {
     // semantic pieces exist (≥1 typed object with properties + a title, and ≥1 relation or action).
     let (n_obj, n_link, n_act) = (object_types.len(), link_types.len(), action_types.len());
     let status = if n_obj == 0 {
-        gaps.insert(0, "no object_types declared — the model is an empty draft".into());
+        gaps.insert(
+            0,
+            "no object_types declared — the model is an empty draft".into(),
+        );
         "empty"
     } else {
         if n_link == 0 && n_act == 0 {
-            gaps.push("no link_types or action_types — the model declares no relations or behaviors".into());
+            gaps.push(
+                "no link_types or action_types — the model declares no relations or behaviors"
+                    .into(),
+            );
         }
         if gaps.is_empty() {
             "ready"
@@ -621,9 +705,17 @@ fn validate_object_model(com: &Value) -> Result<Value, VErr> {
             "incomplete"
         }
     };
-    let legacy = |k: &str| com.get(k).and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
-    let legacy_untyped =
-        legacy("objects") + legacy("actions") + legacy("events") + legacy("states") + legacy("roles");
+    let legacy = |k: &str| {
+        com.get(k)
+            .and_then(|v| v.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0)
+    };
+    let legacy_untyped = legacy("objects")
+        + legacy("actions")
+        + legacy("events")
+        + legacy("states")
+        + legacy("roles");
 
     Ok(json!({
         "status": status,
@@ -642,7 +734,12 @@ fn validate_object_model(com: &Value) -> Result<Value, VErr> {
 
 /// Build an ontology receipt (PURE — nothing persists here; #62 proof discipline). The receipt
 /// carries only record-derived fields + the op/summary — never request material.
-fn build_ontology_receipt(ontology_ref: &str, op: &str, summary: &str, now: &str) -> (String, Value) {
+fn build_ontology_receipt(
+    ontology_ref: &str,
+    op: &str,
+    summary: &str,
+    now: &str,
+) -> (String, Value) {
     let id = format!("ontr_{:x}", nanos());
     let receipt_ref = format!("agentgres://odk-ontology-receipt/{id}");
     let rec = json!({
@@ -697,11 +794,17 @@ fn str_opt_bounded(body: &Value, key: &str, max: usize) -> Result<Option<String>
         None | Some(Value::Null) => Ok(None),
         Some(Value::String(s)) => {
             if s.chars().count() > max {
-                return Err(verr("odk_field_too_long", format!("`{key}` exceeds the bounded length ({max} chars)")));
+                return Err(verr(
+                    "odk_field_too_long",
+                    format!("`{key}` exceeds the bounded length ({max} chars)"),
+                ));
             }
             Ok(Some(s.clone()))
         }
-        Some(_) => Err(verr("odk_field_type_invalid", format!("`{key}` must be a string when present"))),
+        Some(_) => Err(verr(
+            "odk_field_type_invalid",
+            format!("`{key}` must be a string when present"),
+        )),
     }
 }
 
@@ -751,11 +854,14 @@ pub(crate) async fn handle_odk_ontology_create(
             "A DomainOntology must declare a non-empty domain.",
         );
     };
-    let com = body.get("canonical_object_model").cloned().unwrap_or_else(|| {
-        json!({ "value_types": [], "object_types": [], "link_types": [], "action_types": [] })
-    });
+    let com = body.get("canonical_object_model").cloned().unwrap_or_else(
+        || json!({ "value_types": [], "object_types": [], "link_types": [], "action_types": [] }),
+    );
     if domain.chars().count() > 120 {
-        return bad("odk_field_too_long", "`domain` exceeds the bounded length (120 chars)");
+        return bad(
+            "odk_field_too_long",
+            "`domain` exceeds the bounded length (120 chars)",
+        );
     }
     // Hardened (#63): present-but-wrong-type or oversized editable fields are rejected typed.
     let version = match str_opt_bounded(&body, "version", 60) {
@@ -774,7 +880,8 @@ pub(crate) async fn handle_odk_ontology_create(
     let now = iso_now();
     let oref = format!("ontology://{id}");
     // #62 proof discipline: build record + receipt PURE, then finalize atomically-with-rollback.
-    let (receipt_id, receipt) = build_ontology_receipt(&oref, "created", "DomainOntology draft created", &now);
+    let (receipt_id, receipt) =
+        build_ontology_receipt(&oref, "created", "DomainOntology draft created", &now);
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     let record = json!({
         "schema_version": "ioi.hypervisor.odk.domain-ontology.v1",
@@ -794,10 +901,18 @@ pub(crate) async fn handle_odk_ontology_create(
         "created_at": now.clone(),
         "updated_at": now
     });
-    if let Err(m) = finalize_ontology_persist(&st.data_dir, &id, None, &record, &receipt_id, &receipt) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "odk_persist_failed", "message": m } })));
+    if let Err(m) =
+        finalize_ontology_persist(&st.data_dir, &id, None, &record, &receipt_id, &receipt)
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": { "code": "odk_persist_failed", "message": m } })),
+        );
     }
-    (StatusCode::CREATED, Json(json!({ "ok": true, "ontology": record, "ontology_receipt": receipt })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "ontology": record, "ontology_receipt": receipt })),
+    )
 }
 
 pub(crate) async fn handle_odk_ontology_get(
@@ -818,11 +933,21 @@ pub(crate) async fn handle_odk_ontology_patch(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(prev) = load(&st.data_dir, KIND_ONT, &id) else {
-        return (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "reason": "ontology not found", "error": { "code": "odk_ontology_not_found", "message": "ontology not found" } })));
+        return (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "ok": false, "reason": "ontology not found", "error": { "code": "odk_ontology_not_found", "message": "ontology not found" } }),
+            ),
+        );
     };
     let current_rev = prev.get("revision").and_then(|v| v.as_u64()).unwrap_or(1);
     if let Err((status, code, msg)) = check_expected_revision(&body, current_rev) {
-        return (status, Json(json!({ "ok": false, "error": { "code": code, "message": msg, "current_revision": current_rev } })));
+        return (
+            status,
+            Json(
+                json!({ "ok": false, "error": { "code": code, "message": msg, "current_revision": current_rev } }),
+            ),
+        );
     }
     // Hardened (#63): editable fields present-but-wrong-type/oversized are rejected typed.
     let mut typed_fields: Vec<(&str, Value)> = Vec::new();
@@ -830,21 +955,39 @@ pub(crate) async fn handle_odk_ontology_patch(
         match str_opt_bounded(&body, key, max) {
             Ok(Some(v)) => {
                 if key == "domain" && v.trim().is_empty() {
-                    return (StatusCode::OK, Json(json!({ "ok": false, "error": { "code": "odk_domain_required", "message": "`domain` must stay non-empty" } })));
+                    return (
+                        StatusCode::OK,
+                        Json(
+                            json!({ "ok": false, "error": { "code": "odk_domain_required", "message": "`domain` must stay non-empty" } }),
+                        ),
+                    );
                 }
                 typed_fields.push((key, json!(v)));
             }
             Ok(None) => {}
-            Err((code, msg)) => return (StatusCode::OK, Json(json!({ "ok": false, "error": { "code": code, "message": msg } }))),
+            Err((code, msg)) => {
+                return (
+                    StatusCode::OK,
+                    Json(json!({ "ok": false, "error": { "code": code, "message": msg } })),
+                )
+            }
         }
     }
     if let Some(new_com) = body.get("canonical_object_model") {
         if !new_com.is_object() {
-            return (StatusCode::OK, Json(json!({ "ok": false, "error": { "code": "odk_field_type_invalid", "message": "`canonical_object_model` must be an object" } })));
+            return (
+                StatusCode::OK,
+                Json(
+                    json!({ "ok": false, "error": { "code": "odk_field_type_invalid", "message": "`canonical_object_model` must be an object" } }),
+                ),
+            );
         }
         // Validate the replacement model BEFORE mutating anything — a bad patch changes nothing.
         if let Err((code, msg)) = validate_object_model(new_com) {
-            return (StatusCode::OK, Json(json!({ "ok": false, "error": { "code": code, "message": msg } })));
+            return (
+                StatusCode::OK,
+                Json(json!({ "ok": false, "error": { "code": code, "message": msg } })),
+            );
         }
     }
     let mut o = prev.clone();
@@ -858,7 +1001,10 @@ pub(crate) async fn handle_odk_ontology_patch(
         changed.push("canonical_object_model".to_string());
     }
     // Recompute health from the resulting model (guaranteed valid — checked above or unchanged).
-    let com = o.get("canonical_object_model").cloned().unwrap_or_else(|| json!({}));
+    let com = o
+        .get("canonical_object_model")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     if let Ok(health) = validate_object_model(&com) {
         o["health"] = health;
     }
@@ -868,26 +1014,50 @@ pub(crate) async fn handle_odk_ontology_patch(
     o["updated_at"] = json!(now.clone());
     let summary = format!(
         "patched: {}",
-        if changed.is_empty() { "no-op".to_string() } else { changed.join(", ") }
+        if changed.is_empty() {
+            "no-op".to_string()
+        } else {
+            changed.join(", ")
+        }
     );
-    let oref = o.get("ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let oref = o
+        .get("ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let (receipt_id, receipt) = build_ontology_receipt(&oref, "patched", &summary, &now);
     let receipt_ref = receipt.get("receipt_ref").cloned().unwrap_or(Value::Null);
     // Append a bounded history entry + carry the receipt ref.
-    let mut hist = o.get("history").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut hist = o
+        .get("history")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     hist.push(json!({ "revision": rev, "op": "patched", "at": now, "summary": summary, "receipt_ref": receipt_ref.clone() }));
     let len = hist.len();
     if len > 20 {
         hist = hist[len - 20..].to_vec();
     }
     o["history"] = json!(hist);
-    let mut refs = o.get("receipt_refs").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut refs = o
+        .get("receipt_refs")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
     refs.push(receipt_ref);
     o["receipt_refs"] = json!(refs);
-    if let Err(m) = finalize_ontology_persist(&st.data_dir, &id, Some(&prev), &o, &receipt_id, &receipt) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "ok": false, "error": { "code": "odk_persist_failed", "message": m } })));
+    if let Err(m) =
+        finalize_ontology_persist(&st.data_dir, &id, Some(&prev), &o, &receipt_id, &receipt)
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": { "code": "odk_persist_failed", "message": m } })),
+        );
     }
-    (StatusCode::OK, Json(json!({ "ok": true, "ontology": o, "ontology_receipt": receipt })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "ontology": o, "ontology_receipt": receipt })),
+    )
 }
 
 pub(crate) async fn handle_odk_ontology_delete(
@@ -930,7 +1100,11 @@ pub(crate) async fn handle_odk_ontology_history(
             Json(json!({ "ok": false, "reason": "ontology not found" })),
         );
     };
-    let oref = o.get("ref").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let oref = o
+        .get("ref")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let mut receipts = read_record_dir(&st.data_dir, KIND_ONT_RECEIPT);
     receipts.retain(|r| r.get("ontology_ref").and_then(|v| v.as_str()) == Some(oref.as_str()));
     receipts.sort_by(|a, b| {
@@ -1056,7 +1230,9 @@ pub(crate) async fn handle_odk_recipe_patch(
     };
     if let Some(ok) = body.get("output_kind").and_then(|v| v.as_str()) {
         if !RECIPE_OUTPUT_KINDS.contains(&ok) {
-            return Json(json!({ "ok": false, "error": { "code": "odk_output_kind_invalid", "message": format!("output_kind must be one of {RECIPE_OUTPUT_KINDS:?}") } }));
+            return Json(
+                json!({ "ok": false, "error": { "code": "odk_output_kind_invalid", "message": format!("output_kind must be one of {RECIPE_OUTPUT_KINDS:?}") } }),
+            );
         }
     }
     if let Some(oref) = body.get("ontology_ref").and_then(|v| v.as_str()) {
@@ -1108,9 +1284,7 @@ pub(crate) async fn handle_odk_recipe_delete(
 
 // ============================ ODK MANIFEST (builder/conformance) ================================
 
-pub(crate) async fn handle_odk_manifest_list(
-    State(st): State<Arc<DaemonState>>,
-) -> Json<Value> {
+pub(crate) async fn handle_odk_manifest_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let mut items = read_record_dir(&st.data_dir, KIND_MANIFEST);
     sort_by_updated(&mut items);
     Json(json!({ "ok": true, "manifests": items }))
@@ -1123,9 +1297,13 @@ pub(crate) async fn handle_odk_manifest_create(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let ontology_refs = str_refs(&body, "ontology_refs");
-    if let Err((c, m)) =
-        require_local_ref_list(&st.data_dir, &ontology_refs, "ontology", "ontology_ref", true)
-    {
+    if let Err((c, m)) = require_local_ref_list(
+        &st.data_dir,
+        &ontology_refs,
+        "ontology",
+        "ontology_ref",
+        true,
+    ) {
         return bad(&c, &m);
     }
     let recipe_refs = str_refs(&body, "recipe_refs");
@@ -1172,7 +1350,10 @@ pub(crate) async fn handle_odk_manifest_create(
         "updated_at": now
     });
     let _ = persist_record(&st.data_dir, KIND_MANIFEST, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "manifest": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "manifest": record })),
+    )
 }
 
 pub(crate) async fn handle_odk_manifest_get(
@@ -1357,7 +1538,9 @@ pub(crate) async fn handle_odk_descriptor_patch(
     };
     if let Some(cp) = body.get("composition_pattern").and_then(|v| v.as_str()) {
         if !COMPOSITION_PATTERNS.contains(&cp) {
-            return Json(json!({ "ok": false, "error": { "code": "odk_composition_pattern_invalid", "message": format!("composition_pattern must be one of {COMPOSITION_PATTERNS:?}") } }));
+            return Json(
+                json!({ "ok": false, "error": { "code": "odk_composition_pattern_invalid", "message": format!("composition_pattern must be one of {COMPOSITION_PATTERNS:?}") } }),
+            );
         }
     }
     if let Some(oref) = body.get("ontology_ref").and_then(|v| v.as_str()) {
@@ -1411,12 +1594,14 @@ mod odk_tests {
         assert!(check_expected_revision(&json!({ "expected_revision": null }), 3).is_ok());
         assert!(check_expected_revision(&json!({ "expected_revision": 3 }), 3).is_ok());
         // Mismatch → typed conflict with the CONFLICT status.
-        let (st, code, _m) = check_expected_revision(&json!({ "expected_revision": 2 }), 3).unwrap_err();
+        let (st, code, _m) =
+            check_expected_revision(&json!({ "expected_revision": 2 }), 3).unwrap_err();
         assert_eq!(st, StatusCode::CONFLICT);
         assert_eq!(code, "odk_revision_conflict");
         // Malformed (string / float / negative) → typed invalid with BAD_REQUEST.
         for bad in [json!("3"), json!(3.5), json!(-1)] {
-            let (st2, code2, _m2) = check_expected_revision(&json!({ "expected_revision": bad }), 3).unwrap_err();
+            let (st2, code2, _m2) =
+                check_expected_revision(&json!({ "expected_revision": bad }), 3).unwrap_err();
             assert_eq!(st2, StatusCode::BAD_REQUEST);
             assert_eq!(code2, "odk_expected_revision_invalid");
         }
@@ -1425,15 +1610,33 @@ mod odk_tests {
     #[test]
     fn hardened_fields_reject_wrong_types_and_oversize() {
         assert_eq!(str_opt_bounded(&json!({}), "version", 60).unwrap(), None);
-        assert_eq!(str_opt_bounded(&json!({ "version": "1.0" }), "version", 60).unwrap(), Some("1.0".into()));
-        assert_eq!(str_opt_bounded(&json!({ "version": 7 }), "version", 60).unwrap_err().0, "odk_field_type_invalid");
-        assert_eq!(str_opt_bounded(&json!({ "version": "x".repeat(61) }), "version", 60).unwrap_err().0, "odk_field_too_long");
+        assert_eq!(
+            str_opt_bounded(&json!({ "version": "1.0" }), "version", 60).unwrap(),
+            Some("1.0".into())
+        );
+        assert_eq!(
+            str_opt_bounded(&json!({ "version": 7 }), "version", 60)
+                .unwrap_err()
+                .0,
+            "odk_field_type_invalid"
+        );
+        assert_eq!(
+            str_opt_bounded(&json!({ "version": "x".repeat(61) }), "version", 60)
+                .unwrap_err()
+                .0,
+            "odk_field_too_long"
+        );
     }
 
     #[test]
     fn validator_rejects_untyped_entries_bad_enums_and_bad_required() {
         // Non-object entry.
-        assert_eq!(validate_object_model(&json!({ "object_types": ["loan"] })).unwrap_err().0, "ontology_entry_invalid");
+        assert_eq!(
+            validate_object_model(&json!({ "object_types": ["loan"] }))
+                .unwrap_err()
+                .0,
+            "ontology_entry_invalid"
+        );
         // enum_values wrong type / non-string members.
         assert_eq!(validate_object_model(&json!({ "value_types": [{ "id": "e", "name": "E", "base": "enum", "enum_values": "a,b" }] })).unwrap_err().0, "ontology_field_type_invalid");
         assert_eq!(validate_object_model(&json!({ "value_types": [{ "id": "e", "name": "E", "base": "enum", "enum_values": [1, 2] }] })).unwrap_err().0, "ontology_field_type_invalid");
@@ -1442,8 +1645,15 @@ mod odk_tests {
         // title_property must be a string when present.
         assert_eq!(validate_object_model(&json!({ "object_types": [{ "id": "a", "name": "A", "title_property": 4, "properties": [{ "id": "t", "name": "T", "value_type": "string" }] }] })).unwrap_err().0, "ontology_field_type_invalid");
         // Oversized collection.
-        let big: Vec<Value> = (0..COM_COLLECTION_MAX + 1).map(|i| json!({ "id": format!("v{i}"), "name": format!("V{i}") })).collect();
-        assert_eq!(validate_object_model(&json!({ "value_types": big })).unwrap_err().0, "ontology_collection_bounds");
+        let big: Vec<Value> = (0..COM_COLLECTION_MAX + 1)
+            .map(|i| json!({ "id": format!("v{i}"), "name": format!("V{i}") }))
+            .collect();
+        assert_eq!(
+            validate_object_model(&json!({ "value_types": big }))
+                .unwrap_err()
+                .0,
+            "ontology_collection_bounds"
+        );
         // Legacy untyped string-array builders stay tolerated (untyped/empty health, never typed).
         let h = validate_object_model(&json!({ "objects": ["a", "b"] })).unwrap();
         assert_eq!(h["legacy_untyped_names"], json!(2));
@@ -1456,31 +1666,53 @@ mod odk_tests {
         let data_dir = dir.to_str().unwrap();
         let now = "2026-01-01T00:00:00Z";
         let (rid, receipt) = build_ontology_receipt("ontology://ont_x", "created", "s", now);
-        let record = json!({ "id": "ont_x", "ref": "ontology://ont_x", "revision": 1, "status": "draft" });
+        let record =
+            json!({ "id": "ont_x", "ref": "ontology://ont_x", "revision": 1, "status": "draft" });
         // Block the receipts dir with a plain file → receipt persist fails.
         std::fs::write(dir.join(KIND_ONT_RECEIPT), b"blocker").unwrap();
         // CREATE lane: the created record must be ROLLED BACK (removed).
-        let err = finalize_ontology_persist(data_dir, "ont_x", None, &record, &rid, &receipt).unwrap_err();
+        let err = finalize_ontology_persist(data_dir, "ont_x", None, &record, &rid, &receipt)
+            .unwrap_err();
         assert!(err.contains("rolled back"), "{err}");
-        assert!(load(data_dir, KIND_ONT, "ont_x").is_none(), "no unproven ontology survives");
+        assert!(
+            load(data_dir, KIND_ONT, "ont_x").is_none(),
+            "no unproven ontology survives"
+        );
         // PATCH lane: the PRIOR record must be RESTORED.
         persist_record(data_dir, KIND_ONT, "ont_x", &record).unwrap();
-        let updated = json!({ "id": "ont_x", "ref": "ontology://ont_x", "revision": 2, "status": "draft" });
-        let err2 = finalize_ontology_persist(data_dir, "ont_x", Some(&record), &updated, &rid, &receipt).unwrap_err();
+        let updated =
+            json!({ "id": "ont_x", "ref": "ontology://ont_x", "revision": 2, "status": "draft" });
+        let err2 =
+            finalize_ontology_persist(data_dir, "ont_x", Some(&record), &updated, &rid, &receipt)
+                .unwrap_err();
         assert!(err2.contains("restored"), "{err2}");
-        assert_eq!(load(data_dir, KIND_ONT, "ont_x").unwrap()["revision"], json!(1), "the stale patch did not survive");
+        assert_eq!(
+            load(data_dir, KIND_ONT, "ont_x").unwrap()["revision"],
+            json!(1),
+            "the stale patch did not survive"
+        );
         // Happy path once unblocked: record + receipt both persist.
         std::fs::remove_file(dir.join(KIND_ONT_RECEIPT)).unwrap();
-        finalize_ontology_persist(data_dir, "ont_x", Some(&record), &updated, &rid, &receipt).unwrap();
-        assert_eq!(load(data_dir, KIND_ONT, "ont_x").unwrap()["revision"], json!(2));
-        assert_eq!(load(data_dir, KIND_ONT_RECEIPT, &rid).unwrap()["op"], json!("created"));
+        finalize_ontology_persist(data_dir, "ont_x", Some(&record), &updated, &rid, &receipt)
+            .unwrap();
+        assert_eq!(
+            load(data_dir, KIND_ONT, "ont_x").unwrap()["revision"],
+            json!(2)
+        );
+        assert_eq!(
+            load(data_dir, KIND_ONT_RECEIPT, &rid).unwrap()["op"],
+            json!("created")
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn split_ref_parses_scheme_and_rest() {
         assert_eq!(split_ref("ontology://ont_1"), Some(("ontology", "ont_1")));
-        assert_eq!(split_ref("surface-descriptor://sd_9"), Some(("surface-descriptor", "sd_9")));
+        assert_eq!(
+            split_ref("surface-descriptor://sd_9"),
+            Some(("surface-descriptor", "sd_9"))
+        );
         assert_eq!(split_ref("no-scheme"), None);
         assert_eq!(split_ref("ontology://"), None);
         assert_eq!(split_ref("://x"), None);
@@ -1506,17 +1738,28 @@ mod odk_tests {
     #[test]
     fn require_local_ref_rejects_wrong_prefix() {
         // wrong scheme -> prefix invalid (no data access needed for the prefix branch)
-        let err = require_local_ref("/nonexistent", "recipe://r1", "ontology", "ontology_ref").unwrap_err();
+        let err = require_local_ref("/nonexistent", "recipe://r1", "ontology", "ontology_ref")
+            .unwrap_err();
         assert_eq!(err.0, "odk_ref_prefix_invalid");
         // right scheme but unresolvable (empty data dir) -> unresolved
-        let err = require_local_ref("/nonexistent", "ontology://ont_x", "ontology", "ontology_ref").unwrap_err();
+        let err = require_local_ref(
+            "/nonexistent",
+            "ontology://ont_x",
+            "ontology",
+            "ontology_ref",
+        )
+        .unwrap_err();
         assert_eq!(err.0, "odk_ref_unresolved");
     }
 
     #[test]
     fn check_named_refs_ignores_external_but_flags_local_missing() {
         // external named refs (non-ODK scheme or no scheme) are always allowed
-        assert!(check_named_refs("/nonexistent", &["s3://bucket/x".into(), "trace-123".into()]).is_ok());
+        assert!(check_named_refs(
+            "/nonexistent",
+            &["s3://bucket/x".into(), "trace-123".into()]
+        )
+        .is_ok());
         // an ODK-local scheme that cannot resolve in an empty dir is flagged
         let err = check_named_refs("/nonexistent", &["ontology://ont_missing".into()]).unwrap_err();
         assert_eq!(err.0, "odk_ref_unresolved");
@@ -1591,50 +1834,75 @@ mod odk_tests {
         });
         let h = validate_object_model(&m).expect("valid but incomplete");
         assert_eq!(h["status"], "incomplete");
-        assert!(h["gaps"].as_array().unwrap().iter().any(|g| g.as_str().unwrap().contains("relations or behaviors")));
+        assert!(h["gaps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|g| g.as_str().unwrap().contains("relations or behaviors")));
     }
 
     #[test]
     fn invalid_type_id_is_rejected() {
         let mut m = ready_model();
         m["object_types"][0]["id"] = json!("Loan Type!");
-        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_type_id_invalid");
+        assert_eq!(
+            validate_object_model(&m).unwrap_err().0,
+            "ontology_type_id_invalid"
+        );
     }
 
     #[test]
     fn duplicate_object_name_is_rejected() {
         let mut m = ready_model();
         m["object_types"][1]["name"] = json!("loan"); // dup of "Loan" (case-insensitive)
-        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_duplicate_name");
+        assert_eq!(
+            validate_object_model(&m).unwrap_err().0,
+            "ontology_duplicate_name"
+        );
     }
 
     #[test]
     fn unresolved_link_end_is_rejected() {
         let mut m = ready_model();
         m["link_types"][0]["to"] = json!("nonexistent");
-        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_ref_unresolved");
+        assert_eq!(
+            validate_object_model(&m).unwrap_err().0,
+            "ontology_ref_unresolved"
+        );
     }
 
     #[test]
     fn unresolved_property_value_type_is_rejected() {
         let mut m = ready_model();
         m["object_types"][0]["properties"][1]["value_type"] = json!("currency"); // not a base nor declared
-        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_ref_unresolved");
+        assert_eq!(
+            validate_object_model(&m).unwrap_err().0,
+            "ontology_ref_unresolved"
+        );
     }
 
     #[test]
     fn bad_cardinality_and_action_kind_are_rejected() {
         let mut m = ready_model();
         m["link_types"][0]["cardinality"] = json!("some_to_many");
-        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_cardinality_invalid");
+        assert_eq!(
+            validate_object_model(&m).unwrap_err().0,
+            "ontology_cardinality_invalid"
+        );
         let mut m2 = ready_model();
         m2["action_types"][0]["kind"] = json!("teleport");
-        assert_eq!(validate_object_model(&m2).unwrap_err().0, "ontology_action_kind_invalid");
+        assert_eq!(
+            validate_object_model(&m2).unwrap_err().0,
+            "ontology_action_kind_invalid"
+        );
     }
 
     #[test]
     fn enum_value_type_requires_values() {
         let m = json!({ "value_types": [{ "id": "grade", "name": "Grade", "base": "enum" }] });
-        assert_eq!(validate_object_model(&m).unwrap_err().0, "ontology_enum_values_required");
+        assert_eq!(
+            validate_object_model(&m).unwrap_err().0,
+            "ontology_enum_values_required"
+        );
     }
 }

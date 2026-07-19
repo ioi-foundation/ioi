@@ -190,12 +190,12 @@ const DECISION_RECEIPT_SCHEMA: &str = "ioi.hypervisor.room-participation-decisio
 //     self-state lease transitions sleep/wake/wait/activate/retire.
 // The request hash binds the exact {subject, op, revision, required authority}; without a valid
 // resolver result no decision receipt is emitted and every governed operation refuses with ZERO mutation.
+use super::governed_authority::{self as governed, AuthorityContract, Governance};
 #[cfg(test)]
 use ioi_types::app::{
-    ApprovalAuthority, ApprovalGrant, PrincipalAuthorityBindingCoordinates,
-    PrincipalAuthorityKind, PrincipalAuthorityResolutionV1,
+    ApprovalAuthority, ApprovalGrant, PrincipalAuthorityBindingCoordinates, PrincipalAuthorityKind,
+    PrincipalAuthorityResolutionV1,
 };
-use super::governed_authority::{self as governed, AuthorityContract, Governance};
 
 const ROOM_AUTHORITY: AuthorityContract = AuthorityContract {
     scope_prefix: "room_participation",
@@ -242,13 +242,7 @@ fn lease_op_gov(op: &str) -> Gov {
 }
 
 fn decision_policy_hash(gov: Gov, room_ref: &str, required_authority: &str, op: &str) -> String {
-    governed::decision_policy_hash(
-        ROOM_AUTHORITY,
-        gov.into(),
-        room_ref,
-        required_authority,
-        op,
-    )
+    governed::decision_policy_hash(ROOM_AUTHORITY, gov.into(), room_ref, required_authority, op)
 }
 fn decision_request_hash(
     gov: Gov,
@@ -1014,7 +1008,11 @@ pub(crate) fn participant_current_claim_successor(
             .unwrap_or_default();
         trail.push(json!(receipt_ref));
         object.insert("admission_and_replay_refs".into(), Value::Array(trail));
-        let op = if bind { "bind_current_claim" } else { "release_current_claim" };
+        let op = if bind {
+            "bind_current_claim"
+        } else {
+            "release_current_claim"
+        };
         let mut history = object
             .get("status_history")
             .and_then(Value::as_array)
@@ -1055,10 +1053,20 @@ pub(crate) fn persist_participant_claim_successor_locked(
 ) -> Result<(), VErr> {
     let tail = lease_ref
         .strip_prefix("participant-lease://")
-        .ok_or_else(|| verr("participant_lease_ref_invalid", "lease ref must be canonical"))?;
+        .ok_or_else(|| {
+            verr(
+                "participant_lease_ref_invalid",
+                "lease ref must be canonical",
+            )
+        })?;
     let current = load_lease(data_dir, tail)
         .map_err(|message| verr("participant_lease_registry_unreadable", message))?
-        .ok_or_else(|| verr("participant_lease_not_found", format!("no participant lease '{lease_ref}'")))?;
+        .ok_or_else(|| {
+            verr(
+                "participant_lease_not_found",
+                format!("no participant lease '{lease_ref}'"),
+            )
+        })?;
     if current == *final_lease {
         return Ok(());
     }
@@ -1075,7 +1083,10 @@ pub(crate) fn persist_participant_claim_successor_locked(
                 failure.detail(),
             )
         } else {
-            verr("participant_lease_claim_stamp_persist_failed", failure.detail())
+            verr(
+                "participant_lease_claim_stamp_persist_failed",
+                failure.detail(),
+            )
         }
     })
 }
@@ -2934,7 +2945,11 @@ async fn complete_live_transition_intent(
         {
             Some((work_tail.to_string(), work_intent.clone()))
         }
-        _ => return Err("transition intent carries an incomplete or mismatched work-claim intent".into()),
+        _ => {
+            return Err(
+                "transition intent carries an incomplete or mismatched work-claim intent".into(),
+            )
+        }
     };
     let is_request = family == REQUEST_DIR;
     let (final_record, receipt_id, receipt) = validate_transition_intent(
@@ -2997,9 +3012,7 @@ async fn complete_live_transition_intent(
         &subject_ref,
         op,
         revision,
-        receipt
-            .get("authorized_effect")
-            .unwrap_or(&Value::Null),
+        receipt.get("authorized_effect").unwrap_or(&Value::Null),
     )
     .await?;
 
@@ -4130,13 +4143,11 @@ pub(crate) async fn handle_participant_lease_transition(
     let gov = lease_op_gov(&transition);
     let room_ref = s(&prior, "outcome_room_ref", "");
     let subject_ref = s(&prior, "participant_lease_id", "");
-    if let Err(error) =
-        super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
-            &st.data_dir,
-            &subject_ref,
-            "participant_lease_mutation_in_flight",
-        )
-    {
+    if let Err(error) = super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+        &st.data_dir,
+        &subject_ref,
+        "participant_lease_mutation_in_flight",
+    ) {
         return classify(error);
     }
     if let Err(error) = super::attempt_finding_routes::refuse_external_mutation_if_reserved(
@@ -4197,13 +4208,11 @@ pub(crate) async fn handle_participant_lease_transition(
         None
     };
     let _guard = PARTICIPATION_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    if let Err(error) =
-        super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
-            &st.data_dir,
-            &subject_ref,
-            "participant_lease_mutation_in_flight",
-        )
-    {
+    if let Err(error) = super::work_frontier_claim_routes::refuse_external_mutation_if_reserved(
+        &st.data_dir,
+        &subject_ref,
+        "participant_lease_mutation_in_flight",
+    ) {
         return classify(error);
     }
     if let Err(error) = super::attempt_finding_routes::refuse_external_mutation_if_reserved(
@@ -4263,13 +4272,11 @@ pub(crate) async fn handle_participant_lease_transition(
         ) {
             return classify(error);
         }
-        if let Err(error) =
-            super::work_frontier_claim_routes::complete_embedded_intent_locked(
-                &st.data_dir,
-                &work_intent_tail,
-                &work_intent,
-            )
-        {
+        if let Err(error) = super::work_frontier_claim_routes::complete_embedded_intent_locked(
+            &st.data_dir,
+            &work_intent_tail,
+            &work_intent,
+        ) {
             return classify(error);
         }
         return (
@@ -6498,18 +6505,21 @@ mod participation_tests {
         )
         .is_ok());
         let swapped_effect = json!({ "admit_params": { "admitted_role": "verifier" }, "expected_revision": 1, "transition": "admit" });
-        assert!(authorize_decision_for_resolution(
-            &json!({ "wallet_approval_grant": bound_grant }),
-            Gov::Host,
-            "outcome-room://or_z1",
-            "domain://acme-host",
-            &verified_resolution,
-            "participation-request://rpr_z1",
-            "admit",
-            1,
-            &swapped_effect,
-        )
-        .is_err(), "an admit grant cannot authorize different normalized admit parameters");
+        assert!(
+            authorize_decision_for_resolution(
+                &json!({ "wallet_approval_grant": bound_grant }),
+                Gov::Host,
+                "outcome-room://or_z1",
+                "domain://acme-host",
+                &verified_resolution,
+                "participation-request://rpr_z1",
+                "admit",
+                1,
+                &swapped_effect,
+            )
+            .is_err(),
+            "an admit grant cannot authorize different normalized admit parameters"
+        );
         let (foreign_status, foreign_body) = authorize_decision_for_resolution(
             &json!({ "wallet_approval_grant": foreign_grant.clone() }),
             Gov::Host,

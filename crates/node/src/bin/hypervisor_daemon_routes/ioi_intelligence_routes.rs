@@ -39,8 +39,17 @@ pub(crate) const AFFINITY_KIND: &str = "automation-affinities";
 pub(crate) const PROJECTION_KIND: &str = "memory-projections";
 
 const ENTRY_KINDS: &[&str] = &[
-    "preference", "instruction", "fact", "concept", "entity", "workstream",
-    "note", "correction", "tool_affordance", "blocker", "connector_derived",
+    "preference",
+    "instruction",
+    "fact",
+    "concept",
+    "entity",
+    "workstream",
+    "note",
+    "correction",
+    "tool_affordance",
+    "blocker",
+    "connector_derived",
 ];
 const SENSITIVITIES: &[&str] = &["normal", "private", "secret"];
 const STATUSES: &[&str] = &["active", "archived", "revoked"];
@@ -66,14 +75,23 @@ fn bad(status: StatusCode, code: &str, message: &str) -> (StatusCode, Json<Value
 fn refs(value: Option<&Value>) -> Vec<String> {
     value
         .and_then(Value::as_array)
-        .map(|items| items.iter().filter_map(Value::as_str).map(str::to_string).collect())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
         .unwrap_or_default()
 }
 
 /// The default portable workspace space — created on first read, never a fixture.
 pub(crate) fn ensure_default_space(st: &DaemonState) -> Value {
     let spaces = read_record_dir(&st.data_dir, SPACE_KIND);
-    if let Some(space) = spaces.iter().find(|s| text(s, "space_id") == "ms_workspace_default") {
+    if let Some(space) = spaces
+        .iter()
+        .find(|s| text(s, "space_id") == "ms_workspace_default")
+    {
         return space.clone();
     }
     let record = json!({
@@ -107,13 +125,21 @@ fn load(st: &DaemonState, kind: &str, id_key: &str, id: &str) -> Option<Value> {
 fn validate_entry(body: &Value, record: &mut Value) -> Result<(), (StatusCode, Json<Value>)> {
     if let Some(kind) = body.get("entry_kind").and_then(Value::as_str) {
         if !ENTRY_KINDS.contains(&kind) {
-            return Err(bad(StatusCode::BAD_REQUEST, "memory_entry_kind_invalid", &format!("entry_kind must be one of {ENTRY_KINDS:?}")));
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "memory_entry_kind_invalid",
+                &format!("entry_kind must be one of {ENTRY_KINDS:?}"),
+            ));
         }
         record["entry_kind"] = json!(kind);
     }
     if let Some(sens) = body.get("sensitivity").and_then(Value::as_str) {
         if !SENSITIVITIES.contains(&sens) {
-            return Err(bad(StatusCode::BAD_REQUEST, "memory_entry_sensitivity_invalid", "sensitivity must be normal|private|secret"));
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "memory_entry_sensitivity_invalid",
+                "sensitivity must be normal|private|secret",
+            ));
         }
         record["sensitivity"] = json!(sens);
     }
@@ -121,19 +147,33 @@ fn validate_entry(body: &Value, record: &mut Value) -> Result<(), (StatusCode, J
     // smells like a sealed secret in the payload (defense in depth; the vault never leaves D&I).
     let blob = serde_json::to_string(body).unwrap_or_default();
     if blob.contains("sealed_client_secret") || blob.contains("IOI_WALLET_SECRET") {
-        return Err(bad(StatusCode::FORBIDDEN, "memory_entry_credential_material_forbidden", "Memory entries must not contain credential material."));
+        return Err(bad(
+            StatusCode::FORBIDDEN,
+            "memory_entry_credential_material_forbidden",
+            "Memory entries must not contain credential material.",
+        ));
     }
     if text(record, "entry_kind") == "connector_derived"
         && refs(body.get("connector_refs").or(record.get("connector_refs"))).is_empty()
     {
-        return Err(bad(StatusCode::BAD_REQUEST, "memory_entry_connector_refs_required", "connector_derived entries must name their connector refs."));
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "memory_entry_connector_refs_required",
+            "connector_derived entries must name their connector refs.",
+        ));
     }
     for key in ["title", "body"] {
         if let Some(v) = body.get(key).and_then(Value::as_str) {
             record[key] = json!(v.trim());
         }
     }
-    for key in ["tags", "source_refs", "connector_refs", "compatible_harness_refs", "compatible_model_route_refs"] {
+    for key in [
+        "tags",
+        "source_refs",
+        "connector_refs",
+        "compatible_harness_refs",
+        "compatible_model_route_refs",
+    ] {
         if let Some(v) = body.get(key) {
             record[key] = v.clone();
         }
@@ -149,20 +189,39 @@ fn validate_entry(body: &Value, record: &mut Value) -> Result<(), (StatusCode, J
     }
     if let Some(state) = body.get("quality_state").and_then(Value::as_str) {
         if !QUALITY_STATES.contains(&state) {
-            return Err(bad(StatusCode::BAD_REQUEST, "memory_quality_state_invalid", "quality_state must be candidate|accepted|stale|disputed|superseded"));
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "memory_quality_state_invalid",
+                "quality_state must be candidate|accepted|stale|disputed|superseded",
+            ));
         }
         record["quality_state"] = json!(state);
     }
     // Self-describing records: the vault format serializes these explicitly, so defaults are
     // stored rather than implied. Operator-authored entries are ACCEPTED; model/run claims
     // arrive as proposals and become candidates.
-    if record.get("entry_kind").and_then(Value::as_str).unwrap_or("").is_empty() {
+    if record
+        .get("entry_kind")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .is_empty()
+    {
         record["entry_kind"] = json!("note");
     }
-    if record.get("sensitivity").and_then(Value::as_str).unwrap_or("").is_empty() {
+    if record
+        .get("sensitivity")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .is_empty()
+    {
         record["sensitivity"] = json!("normal");
     }
-    if record.get("quality_state").and_then(Value::as_str).unwrap_or("").is_empty() {
+    if record
+        .get("quality_state")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .is_empty()
+    {
         record["quality_state"] = json!("accepted");
     }
     Ok(())
@@ -174,18 +233,35 @@ fn validate_skill(body: &Value, record: &mut Value) -> Result<(), (StatusCode, J
             record[key] = json!(v.trim());
         }
     }
-    for key in ["trigger_conditions", "tool_requirements", "connector_requirements", "compatible_harness_refs", "compatible_model_route_refs", "source_refs", "memory_refs"] {
+    for key in [
+        "trigger_conditions",
+        "tool_requirements",
+        "connector_requirements",
+        "compatible_harness_refs",
+        "compatible_model_route_refs",
+        "source_refs",
+        "memory_refs",
+    ] {
         if let Some(v) = body.get(key) {
             record[key] = v.clone();
         }
     }
     if let Some(state) = body.get("quality_state").and_then(Value::as_str) {
         if !QUALITY_STATES.contains(&state) {
-            return Err(bad(StatusCode::BAD_REQUEST, "memory_quality_state_invalid", "quality_state must be candidate|accepted|stale|disputed|superseded"));
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "memory_quality_state_invalid",
+                "quality_state must be candidate|accepted|stale|disputed|superseded",
+            ));
         }
         record["quality_state"] = json!(state);
     }
-    if record.get("quality_state").and_then(Value::as_str).unwrap_or("").is_empty() {
+    if record
+        .get("quality_state")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .is_empty()
+    {
         record["quality_state"] = json!("accepted");
     }
     if let Some(v) = body.get("confidence").and_then(Value::as_f64) {
@@ -195,17 +271,31 @@ fn validate_skill(body: &Value, record: &mut Value) -> Result<(), (StatusCode, J
 }
 
 fn validate_affinity(body: &Value, record: &mut Value) -> Result<(), (StatusCode, Json<Value>)> {
-    for key in ["title", "goal_pattern", "preferred_policy_ref", "failure_policy"] {
+    for key in [
+        "title",
+        "goal_pattern",
+        "preferred_policy_ref",
+        "failure_policy",
+    ] {
         if let Some(v) = body.get(key).and_then(Value::as_str) {
             record[key] = json!(v.trim());
         }
     }
     if let Some(policy) = record.get("preferred_policy_ref").and_then(Value::as_str) {
         if !policy.is_empty() && !policy.starts_with("ioi-agent-policy://") {
-            return Err(bad(StatusCode::BAD_REQUEST, "automation_affinity_policy_ref_invalid", "preferred_policy_ref must be an ioi-agent-policy:// ref"));
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "automation_affinity_policy_ref_invalid",
+                "preferred_policy_ref must be an ioi-agent-policy:// ref",
+            ));
         }
     }
-    for key in ["preferred_automation_refs", "preferred_harness_refs", "preferred_model_route_refs", "required_connector_refs"] {
+    for key in [
+        "preferred_automation_refs",
+        "preferred_harness_refs",
+        "preferred_model_route_refs",
+        "required_connector_refs",
+    ] {
         if let Some(v) = body.get(key) {
             record[key] = v.clone();
         }
@@ -227,9 +317,33 @@ struct Family {
     plural: &'static str,
 }
 
-const ENTRY_FAMILY: Family = Family { kind: ENTRY_KIND, id_prefix: "mem", id_key: "entry_id", ref_key: "entry_ref", ref_scheme: "memory-entry://", schema: "ioi.hypervisor.memory-entry.v1", plural: "entries" };
-const SKILL_FAMILY: Family = Family { kind: SKILL_KIND, id_prefix: "skl", id_key: "skill_id", ref_key: "skill_ref", ref_scheme: "skill-entry://", schema: "ioi.hypervisor.skill-entry.v1", plural: "skills" };
-const AFFINITY_FAMILY: Family = Family { kind: AFFINITY_KIND, id_prefix: "aff", id_key: "affinity_id", ref_key: "affinity_ref", ref_scheme: "automation-affinity://", schema: "ioi.hypervisor.automation-affinity.v1", plural: "affinities" };
+const ENTRY_FAMILY: Family = Family {
+    kind: ENTRY_KIND,
+    id_prefix: "mem",
+    id_key: "entry_id",
+    ref_key: "entry_ref",
+    ref_scheme: "memory-entry://",
+    schema: "ioi.hypervisor.memory-entry.v1",
+    plural: "entries",
+};
+const SKILL_FAMILY: Family = Family {
+    kind: SKILL_KIND,
+    id_prefix: "skl",
+    id_key: "skill_id",
+    ref_key: "skill_ref",
+    ref_scheme: "skill-entry://",
+    schema: "ioi.hypervisor.skill-entry.v1",
+    plural: "skills",
+};
+const AFFINITY_FAMILY: Family = Family {
+    kind: AFFINITY_KIND,
+    id_prefix: "aff",
+    id_key: "affinity_id",
+    ref_key: "affinity_ref",
+    ref_scheme: "automation-affinity://",
+    schema: "ioi.hypervisor.automation-affinity.v1",
+    plural: "affinities",
+};
 
 fn family_list(st: &DaemonState, family: &Family, query: &HashMap<String, String>) -> Value {
     ensure_default_space(st);
@@ -242,7 +356,12 @@ fn family_list(st: &DaemonState, family: &Family, query: &HashMap<String, String
     }
     if let Some(q) = query.get("q") {
         let needle = q.to_lowercase();
-        records.retain(|r| serde_json::to_string(r).unwrap_or_default().to_lowercase().contains(&needle));
+        records.retain(|r| {
+            serde_json::to_string(r)
+                .unwrap_or_default()
+                .to_lowercase()
+                .contains(&needle)
+        });
     }
     records.sort_by(|a, b| text(b, "updated_at").cmp(text(a, "updated_at")));
     json!({ "ok": true, family.plural: records })
@@ -256,13 +375,30 @@ fn family_create(
 ) -> (StatusCode, Json<Value>) {
     let space = ensure_default_space(st);
     if text(body, "title").trim().is_empty() {
-        return bad(StatusCode::UNPROCESSABLE_ENTITY, "intelligence_title_required", "A title is required.");
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "intelligence_title_required",
+            "A title is required.",
+        );
     }
     let space_ref = {
         let requested = text(body, "memory_space_ref");
-        if requested.is_empty() { text(&space, "space_ref").to_string() } else {
-            if load(st, SPACE_KIND, "space_id", requested.trim_start_matches("memory-space://")).is_none() {
-                return bad(StatusCode::UNPROCESSABLE_ENTITY, "memory_space_unresolved", "Unknown memory space.");
+        if requested.is_empty() {
+            text(&space, "space_ref").to_string()
+        } else {
+            if load(
+                st,
+                SPACE_KIND,
+                "space_id",
+                requested.trim_start_matches("memory-space://"),
+            )
+            .is_none()
+            {
+                return bad(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "memory_space_unresolved",
+                    "Unknown memory space.",
+                );
             }
             requested.to_string()
         }
@@ -282,7 +418,10 @@ fn family_create(
         return rejection;
     }
     let _ = persist_record(&st.data_dir, family.kind, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "record": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "record": record })),
+    )
 }
 
 fn family_patch(
@@ -293,21 +432,32 @@ fn family_patch(
     validate: fn(&Value, &mut Value) -> Result<(), (StatusCode, Json<Value>)>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut record) = load(st, family.kind, family.id_key, id) else {
-        return bad(StatusCode::NOT_FOUND, "intelligence_record_not_found", "Unknown record.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "intelligence_record_not_found",
+            "Unknown record.",
+        );
     };
     if let Err(rejection) = validate(body, &mut record) {
         return rejection;
     }
     if let Some(status) = body.get("status").and_then(Value::as_str) {
         if !STATUSES.contains(&status) {
-            return bad(StatusCode::BAD_REQUEST, "intelligence_status_invalid", "status must be active|archived|revoked");
+            return bad(
+                StatusCode::BAD_REQUEST,
+                "intelligence_status_invalid",
+                "status must be active|archived|revoked",
+            );
         }
         record["status"] = json!(status);
     }
     record["updated_at"] = json!(iso_now());
     let rid = text(&record, family.id_key).to_string();
     let _ = persist_record(&st.data_dir, family.kind, &rid, &record);
-    (StatusCode::OK, Json(json!({ "ok": true, "record": record })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "record": record })),
+    )
 }
 
 macro_rules! family_handlers {
@@ -330,9 +480,30 @@ macro_rules! family_handlers {
     };
 }
 
-family_handlers!(handle_entries_list, handle_entries_create, handle_entries_get, handle_entries_patch, ENTRY_FAMILY, validate_entry);
-family_handlers!(handle_skills_list, handle_skills_create, handle_skills_get, handle_skills_patch, SKILL_FAMILY, validate_skill);
-family_handlers!(handle_affinities_list, handle_affinities_create, handle_affinities_get, handle_affinities_patch, AFFINITY_FAMILY, validate_affinity);
+family_handlers!(
+    handle_entries_list,
+    handle_entries_create,
+    handle_entries_get,
+    handle_entries_patch,
+    ENTRY_FAMILY,
+    validate_entry
+);
+family_handlers!(
+    handle_skills_list,
+    handle_skills_create,
+    handle_skills_get,
+    handle_skills_patch,
+    SKILL_FAMILY,
+    validate_skill
+);
+family_handlers!(
+    handle_affinities_list,
+    handle_affinities_create,
+    handle_affinities_get,
+    handle_affinities_patch,
+    AFFINITY_FAMILY,
+    validate_affinity
+);
 
 pub(crate) async fn handle_spaces_list(
     State(st): State<Arc<DaemonState>>,
@@ -340,7 +511,10 @@ pub(crate) async fn handle_spaces_list(
 ) -> (StatusCode, Json<Value>) {
     ensure_default_space(&st);
     let spaces = read_record_dir(&st.data_dir, SPACE_KIND);
-    (StatusCode::OK, Json(json!({ "ok": true, "spaces": spaces })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "spaces": spaces })),
+    )
 }
 
 pub(crate) async fn handle_spaces_create(
@@ -349,11 +523,19 @@ pub(crate) async fn handle_spaces_create(
 ) -> (StatusCode, Json<Value>) {
     ensure_default_space(&st);
     if text(&body, "display_name").trim().is_empty() {
-        return bad(StatusCode::UNPROCESSABLE_ENTITY, "memory_space_name_required", "display_name required");
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "memory_space_name_required",
+            "display_name required",
+        );
     }
     let scope = text(&body, "scope");
     if !["personal", "project", "workspace", "domain"].contains(&scope) {
-        return bad(StatusCode::BAD_REQUEST, "memory_space_scope_invalid", "scope must be personal|project|workspace|domain");
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "memory_space_scope_invalid",
+            "scope must be personal|project|workspace|domain",
+        );
     }
     let id = format!("ms_{:x}", nanos());
     let record = json!({
@@ -370,7 +552,10 @@ pub(crate) async fn handle_spaces_create(
         "runtimeTruthSource": "daemon-runtime",
     });
     let _ = persist_record(&st.data_dir, SPACE_KIND, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "space": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "space": record })),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -380,8 +565,8 @@ pub(crate) async fn handle_spaces_create(
 pub(crate) struct ProjectionContext {
     pub harness_profile_ref: String,
     pub model_route_ref: String,
-    pub privacy_posture: String,       // standard | private_local
-    pub allow_sensitive: bool,         // launch policy permits private-sensitivity inclusion
+    pub privacy_posture: String,         // standard | private_local
+    pub allow_sensitive: bool,           // launch policy permits private-sensitivity inclusion
     pub live_connector_ids: Vec<String>, // connectors with a usable auth posture (lease-backed)
     pub goal: String,
     // Memory quality posture (policy-bound; private mode is stricter by default; no
@@ -439,7 +624,9 @@ fn exclusion_reason(record: &Value, ctx: &ProjectionContext, now: &str) -> Optio
         }
         let connectors = refs(record.get("connector_refs"));
         let allowed = connectors.iter().any(|c| {
-            ctx.live_connector_ids.iter().any(|live| c.contains(live.as_str()))
+            ctx.live_connector_ids
+                .iter()
+                .any(|live| c.contains(live.as_str()))
         });
         if !allowed {
             return Some("connector_lease_unavailable");
@@ -460,7 +647,9 @@ pub(crate) fn plan_projection(
     let mut excluded: Vec<Value> = Vec::new();
     for entry in entries {
         match exclusion_reason(entry, ctx, &now) {
-            Some(reason) => excluded.push(json!({ "ref": text(entry, "entry_ref"), "reason_code": reason })),
+            Some(reason) => {
+                excluded.push(json!({ "ref": text(entry, "entry_ref"), "reason_code": reason }))
+            }
             None => {
                 let sensitivity = text(entry, "sensitivity");
                 // secret NEVER projects; private projects only when the policy allows —
@@ -483,7 +672,9 @@ pub(crate) fn plan_projection(
     let mut included_skills: Vec<&Value> = Vec::new();
     for skill in skills {
         match exclusion_reason(skill, ctx, &now) {
-            Some(reason) => excluded.push(json!({ "ref": text(skill, "skill_ref"), "reason_code": reason })),
+            Some(reason) => {
+                excluded.push(json!({ "ref": text(skill, "skill_ref"), "reason_code": reason }))
+            }
             None => included_skills.push(skill),
         }
     }
@@ -505,21 +696,42 @@ pub(crate) fn plan_projection(
         }
     }
     // Accepted memory leads the rendered summary; candidates follow, labeled.
-    included_entries.sort_by_key(|entry| if quality_of(entry) == "accepted" { 0 } else { 1 });
+    included_entries.sort_by_key(|entry| {
+        if quality_of(entry) == "accepted" {
+            0
+        } else {
+            1
+        }
+    });
     // Rendered summary: titles + non-private bodies only — the harness-facing artifact.
     let mut lines: Vec<String> = Vec::new();
     for entry in &included_entries {
         let body = text(entry, "body");
         lines.push(format!(
             "[{}{}] {}{}",
-            if quality_of(entry) == "candidate" { "candidate " } else { "" },
+            if quality_of(entry) == "candidate" {
+                "candidate "
+            } else {
+                ""
+            },
             text(entry, "entry_kind"),
             text(entry, "title"),
-            if body.is_empty() { String::new() } else { format!(": {}", body.chars().take(240).collect::<String>()) }
+            if body.is_empty() {
+                String::new()
+            } else {
+                format!(": {}", body.chars().take(240).collect::<String>())
+            }
         ));
     }
     for skill in &included_skills {
-        lines.push(format!("[skill] {}: {}", text(skill, "title"), text(skill, "description").chars().take(200).collect::<String>()));
+        lines.push(format!(
+            "[skill] {}: {}",
+            text(skill, "title"),
+            text(skill, "description")
+                .chars()
+                .take(200)
+                .collect::<String>()
+        ));
     }
     json!({
         "included_entry_refs": included_entries.iter().map(|e| text(e, "entry_ref")).collect::<Vec<_>>(),
@@ -548,7 +760,9 @@ pub(crate) fn plan_projection(
     })
 }
 
-pub(crate) async fn gather_projection_inputs(st: &DaemonState) -> (Vec<Value>, Vec<Value>, Vec<Value>) {
+pub(crate) async fn gather_projection_inputs(
+    st: &DaemonState,
+) -> (Vec<Value>, Vec<Value>, Vec<Value>) {
     ensure_default_space(st);
     (
         read_record_dir(&st.data_dir, ENTRY_KIND),
@@ -572,21 +786,33 @@ pub(crate) async fn build_projection_context(st: &DaemonState, body: &Value) -> 
             .and_then(|b| b.get("connectors").and_then(Value::as_array).cloned())
             .map(|cs| {
                 cs.iter()
-                    .filter(|c| matches!(text(c, "auth_posture"), "token-lease:bound" | "open" | "local-none"))
+                    .filter(|c| {
+                        matches!(
+                            text(c, "auth_posture"),
+                            "token-lease:bound" | "open" | "local-none"
+                        )
+                    })
                     .map(|c| text(c, "connector_id").to_string())
                     .collect()
             })
             .unwrap_or_default(),
         None => Vec::new(),
     };
-    let privacy = if text(body, "privacy_posture").is_empty() { "standard".to_string() } else { text(body, "privacy_posture").to_string() };
+    let privacy = if text(body, "privacy_posture").is_empty() {
+        "standard".to_string()
+    } else {
+        text(body, "privacy_posture").to_string()
+    };
     let posture = body.get("memory_posture").cloned().unwrap_or(Value::Null);
     let private_mode = privacy == "private_local";
     ProjectionContext {
         harness_profile_ref: text(body, "harness_profile_ref").to_string(),
         model_route_ref: text(body, "model_route_ref").to_string(),
         privacy_posture: privacy,
-        allow_sensitive: body.get("allow_sensitive").and_then(Value::as_bool).unwrap_or(false),
+        allow_sensitive: body
+            .get("allow_sensitive")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
         live_connector_ids: live_ids,
         goal: text(body, "goal").to_string(),
         // Private mode is stricter by default: candidates excluded, accepted required for
@@ -685,7 +911,10 @@ pub(crate) async fn handle_projections_create(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let record = create_projection(&st, &body).await;
-    (StatusCode::CREATED, Json(json!({ "ok": true, "projection": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "projection": record })),
+    )
 }
 
 pub(crate) async fn handle_projections_list(
@@ -700,7 +929,10 @@ pub(crate) async fn handle_projections_list(
         projections.retain(|p| text(p, "session_ref") == session);
     }
     projections.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
-    (StatusCode::OK, Json(json!({ "ok": true, "projections": projections })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "projections": projections })),
+    )
 }
 
 pub(crate) async fn handle_projections_get(
@@ -708,8 +940,15 @@ pub(crate) async fn handle_projections_get(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     match load(&st, PROJECTION_KIND, "projection_id", &id) {
-        Some(record) => (StatusCode::OK, Json(json!({ "ok": true, "projection": record }))),
-        None => bad(StatusCode::NOT_FOUND, "memory_projection_not_found", "Unknown projection."),
+        Some(record) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "projection": record })),
+        ),
+        None => bad(
+            StatusCode::NOT_FOUND,
+            "memory_projection_not_found",
+            "Unknown projection.",
+        ),
     }
 }
 
@@ -727,37 +966,86 @@ const CREDENTIAL_MARKERS: &[&str] = &["sealed_client_secret", "IOI_WALLET_SECRET
 
 fn record_has_credential_material(record: &Value) -> bool {
     let blob = serde_json::to_string(record).unwrap_or_default();
-    CREDENTIAL_MARKERS.iter().any(|marker| blob.contains(marker))
+    CREDENTIAL_MARKERS
+        .iter()
+        .any(|marker| blob.contains(marker))
 }
 
 /// Frontmatter keys per family (order is the document contract).
 const ENTRY_FM_KEYS: &[&str] = &[
-    "entry_id", "entry_ref", "memory_space_ref", "entry_kind", "sensitivity", "status",
-    "quality_state", "supersedes_ref", "superseded_by_ref", "marked_stale_at", "lifecycle_history",
-    "tags", "source_refs", "connector_refs", "compatible_harness_refs",
-    "compatible_model_route_refs", "confidence", "expires_at", "created_at", "updated_at",
+    "entry_id",
+    "entry_ref",
+    "memory_space_ref",
+    "entry_kind",
+    "sensitivity",
+    "status",
+    "quality_state",
+    "supersedes_ref",
+    "superseded_by_ref",
+    "marked_stale_at",
+    "lifecycle_history",
+    "tags",
+    "source_refs",
+    "connector_refs",
+    "compatible_harness_refs",
+    "compatible_model_route_refs",
+    "confidence",
+    "expires_at",
+    "created_at",
+    "updated_at",
 ];
 const SKILL_FM_KEYS: &[&str] = &[
-    "skill_id", "skill_ref", "memory_space_ref", "status", "description", "procedure_ref",
-    "quality_state", "supersedes_ref", "superseded_by_ref", "marked_stale_at", "lifecycle_history",
-    "source_refs", "memory_refs", "confidence",
-    "trigger_conditions", "tool_requirements", "connector_requirements",
-    "compatible_harness_refs", "compatible_model_route_refs", "created_at", "updated_at",
+    "skill_id",
+    "skill_ref",
+    "memory_space_ref",
+    "status",
+    "description",
+    "procedure_ref",
+    "quality_state",
+    "supersedes_ref",
+    "superseded_by_ref",
+    "marked_stale_at",
+    "lifecycle_history",
+    "source_refs",
+    "memory_refs",
+    "confidence",
+    "trigger_conditions",
+    "tool_requirements",
+    "connector_requirements",
+    "compatible_harness_refs",
+    "compatible_model_route_refs",
+    "created_at",
+    "updated_at",
 ];
 const AFFINITY_FM_KEYS: &[&str] = &[
-    "affinity_id", "affinity_ref", "memory_space_ref", "status", "goal_pattern",
-    "preferred_policy_ref", "preferred_automation_refs", "preferred_harness_refs",
-    "preferred_model_route_refs", "required_connector_refs", "failure_policy",
-    "created_at", "updated_at",
+    "affinity_id",
+    "affinity_ref",
+    "memory_space_ref",
+    "status",
+    "goal_pattern",
+    "preferred_policy_ref",
+    "preferred_automation_refs",
+    "preferred_harness_refs",
+    "preferred_model_route_refs",
+    "required_connector_refs",
+    "failure_policy",
+    "created_at",
+    "updated_at",
 ];
 
 fn md_document(record: &Value, keys: &[&str], title_key: &str, body_key: &str) -> String {
     let mut out = String::from("---\n");
-    out.push_str(&format!("title: {}\n", serde_json::to_string(text(record, title_key)).unwrap_or_default()));
+    out.push_str(&format!(
+        "title: {}\n",
+        serde_json::to_string(text(record, title_key)).unwrap_or_default()
+    ));
     for key in keys {
         if let Some(value) = record.get(*key) {
             if !value.is_null() {
-                out.push_str(&format!("{key}: {}\n", serde_json::to_string(value).unwrap_or_default()));
+                out.push_str(&format!(
+                    "{key}: {}\n",
+                    serde_json::to_string(value).unwrap_or_default()
+                ));
             }
         }
     }
@@ -791,7 +1079,11 @@ pub(crate) async fn handle_vault_export(
 ) -> (StatusCode, Json<Value>) {
     ensure_default_space(&st);
     let Some(space) = load(&st, SPACE_KIND, "space_id", &id) else {
-        return bad(StatusCode::NOT_FOUND, "memory_space_not_found", "Unknown memory space.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "memory_space_not_found",
+            "Unknown memory space.",
+        );
     };
     let space_ref = text(&space, "space_ref").to_string();
     let in_space = |r: &Value| text(r, "memory_space_ref") == space_ref;
@@ -801,7 +1093,10 @@ pub(crate) async fn handle_vault_export(
     })];
     let mut structured_payloads = serde_json::Map::new();
     let mut scrubbed: Vec<Value> = Vec::new();
-    for entry in read_record_dir(&st.data_dir, ENTRY_KIND).iter().filter(|r| in_space(r)) {
+    for entry in read_record_dir(&st.data_dir, ENTRY_KIND)
+        .iter()
+        .filter(|r| in_space(r))
+    {
         // Belt + braces: the create lane already refuses credential material; a record that
         // somehow carries it is SCRUBBED from the vault and reported, never exported.
         if record_has_credential_material(entry) {
@@ -818,7 +1113,10 @@ pub(crate) async fn handle_vault_export(
             }
         }
     }
-    for skill in read_record_dir(&st.data_dir, SKILL_KIND).iter().filter(|r| in_space(r)) {
+    for skill in read_record_dir(&st.data_dir, SKILL_KIND)
+        .iter()
+        .filter(|r| in_space(r))
+    {
         if record_has_credential_material(skill) {
             scrubbed.push(json!({ "ref": text(skill, "skill_ref"), "reason_code": "credential_material_scrubbed" }));
             continue;
@@ -828,7 +1126,10 @@ pub(crate) async fn handle_vault_export(
             "content": md_document(skill, SKILL_FM_KEYS, "title", "body"),
         }));
     }
-    for affinity in read_record_dir(&st.data_dir, AFFINITY_KIND).iter().filter(|r| in_space(r)) {
+    for affinity in read_record_dir(&st.data_dir, AFFINITY_KIND)
+        .iter()
+        .filter(|r| in_space(r))
+    {
         if record_has_credential_material(affinity) {
             scrubbed.push(json!({ "ref": text(affinity, "affinity_ref"), "reason_code": "credential_material_scrubbed" }));
             continue;
@@ -852,7 +1153,9 @@ pub(crate) async fn handle_vault_export(
     });
     (
         StatusCode::OK,
-        Json(json!({ "ok": true, "vault": { "format": VAULT_SCHEMA_VERSION, "manifest": manifest, "files": files } })),
+        Json(
+            json!({ "ok": true, "vault": { "format": VAULT_SCHEMA_VERSION, "manifest": manifest, "files": files } }),
+        ),
     )
 }
 
@@ -862,13 +1165,25 @@ pub(crate) async fn handle_vault_import(
 ) -> (StatusCode, Json<Value>) {
     ensure_default_space(&st);
     let vault = body.get("vault").cloned().unwrap_or(body.clone());
-    let files = vault.get("files").and_then(Value::as_array).cloned().unwrap_or_default();
+    let files = vault
+        .get("files")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     if files.is_empty() {
-        return bad(StatusCode::UNPROCESSABLE_ENTITY, "memory_vault_empty", "The vault bundle carries no files.");
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "memory_vault_empty",
+            "The vault bundle carries no files.",
+        );
     }
     // Whole-bundle credential scan FIRST — nothing imports if any file smells like a secret.
     if record_has_credential_material(&vault) {
-        return bad(StatusCode::FORBIDDEN, "memory_vault_credential_material_forbidden", "Vault bundles must not contain credential material.");
+        return bad(
+            StatusCode::FORBIDDEN,
+            "memory_vault_credential_material_forbidden",
+            "Vault bundles must not contain credential material.",
+        );
     }
     let sidecars = vault
         .pointer("/manifest/sidecars/structured_payloads")
@@ -936,7 +1251,13 @@ pub(crate) async fn handle_vault_import(
             // Idempotence: identical content → unchanged; differing → explicit conflict, skip.
             let mut a = existing.clone();
             let mut b = normalized.clone();
-            for volatile in ["updated_at", "created_at", "imported_at", "runtimeTruthSource", "schema_version"] {
+            for volatile in [
+                "updated_at",
+                "created_at",
+                "imported_at",
+                "runtimeTruthSource",
+                "schema_version",
+            ] {
                 a.as_object_mut().map(|o| o.remove(volatile));
                 b.as_object_mut().map(|o| o.remove(volatile));
             }
@@ -944,16 +1265,31 @@ pub(crate) async fn handle_vault_import(
             // equal to their default-filled vault form (a real content edit still conflicts).
             if family == "entries" {
                 for side in [&mut a, &mut b] {
-                    if side.get("entry_kind").and_then(Value::as_str).unwrap_or("").is_empty() {
+                    if side
+                        .get("entry_kind")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .is_empty()
+                    {
                         side["entry_kind"] = json!("note");
                     }
-                    if side.get("sensitivity").and_then(Value::as_str).unwrap_or("").is_empty() {
+                    if side
+                        .get("sensitivity")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .is_empty()
+                    {
                         side["sensitivity"] = json!("normal");
                     }
                 }
             }
             for side in [&mut a, &mut b] {
-                if side.get("quality_state").and_then(Value::as_str).unwrap_or("").is_empty() {
+                if side
+                    .get("quality_state")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .is_empty()
+                {
                     side["quality_state"] = json!("accepted");
                 }
             }
@@ -998,10 +1334,26 @@ pub(crate) async fn handle_vault_import(
 const PROPOSAL_KIND: &str = "memory-mutation-proposals";
 const PROPOSAL_OPERATIONS: &[&str] = &["add", "supersede", "archive"];
 const MUTATION_TYPES: &[&str] = &[
-    "fact", "preference", "doctrine", "route", "procedure", "eval", "failure",
-    "tool_affordance", "game_lesson", "project_convention", "connector_observation",
+    "fact",
+    "preference",
+    "doctrine",
+    "route",
+    "procedure",
+    "eval",
+    "failure",
+    "tool_affordance",
+    "game_lesson",
+    "project_convention",
+    "connector_observation",
 ];
-const SOURCE_AUTHORITIES: &[&str] = &["user", "worker", "verifier", "benchmark", "service_delivery", "admin"];
+const SOURCE_AUTHORITIES: &[&str] = &[
+    "user",
+    "worker",
+    "verifier",
+    "benchmark",
+    "service_delivery",
+    "admin",
+];
 
 pub(crate) async fn handle_proposals_list(
     State(st): State<Arc<DaemonState>>,
@@ -1012,7 +1364,10 @@ pub(crate) async fn handle_proposals_list(
         proposals.retain(|p| text(p, "review_state") == state);
     }
     proposals.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
-    (StatusCode::OK, Json(json!({ "ok": true, "proposals": proposals })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "proposals": proposals })),
+    )
 }
 
 pub(crate) async fn handle_proposals_create(
@@ -1022,30 +1377,68 @@ pub(crate) async fn handle_proposals_create(
     ensure_default_space(&st);
     let operation = text(&body, "operation");
     if !PROPOSAL_OPERATIONS.contains(&operation) {
-        return bad(StatusCode::BAD_REQUEST, "memory_mutation_operation_invalid", "operation must be add|supersede|archive");
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "memory_mutation_operation_invalid",
+            "operation must be add|supersede|archive",
+        );
     }
     let mutation_type = text(&body, "mutation_type");
     if !MUTATION_TYPES.contains(&mutation_type) {
-        return bad(StatusCode::BAD_REQUEST, "memory_mutation_type_invalid", &format!("mutation_type must be one of {MUTATION_TYPES:?}"));
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "memory_mutation_type_invalid",
+            &format!("mutation_type must be one of {MUTATION_TYPES:?}"),
+        );
     }
-    let source_authority = { let v = text(&body, "source_authority"); if v.is_empty() { "worker" } else { v } };
+    let source_authority = {
+        let v = text(&body, "source_authority");
+        if v.is_empty() {
+            "worker"
+        } else {
+            v
+        }
+    };
     if !SOURCE_AUTHORITIES.contains(&source_authority) {
-        return bad(StatusCode::BAD_REQUEST, "memory_mutation_source_authority_invalid", "invalid source_authority");
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "memory_mutation_source_authority_invalid",
+            "invalid source_authority",
+        );
     }
     if record_has_credential_material(&body) {
-        return bad(StatusCode::FORBIDDEN, "memory_entry_credential_material_forbidden", "Proposals must not contain credential material.");
+        return bad(
+            StatusCode::FORBIDDEN,
+            "memory_entry_credential_material_forbidden",
+            "Proposals must not contain credential material.",
+        );
     }
     let suggested = body.get("suggested").cloned().unwrap_or(json!({}));
     if operation != "archive" && text(&suggested, "title").trim().is_empty() {
-        return bad(StatusCode::UNPROCESSABLE_ENTITY, "memory_mutation_suggested_title_required", "add/supersede proposals need suggested.title");
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "memory_mutation_suggested_title_required",
+            "add/supersede proposals need suggested.title",
+        );
     }
-    if operation != "add" && !text(&body, "target_ref").starts_with("memory-entry://") && !text(&body, "target_ref").starts_with("skill-entry://") {
-        return bad(StatusCode::UNPROCESSABLE_ENTITY, "memory_mutation_target_required", "supersede/archive proposals need a memory-entry:// or skill-entry:// target_ref");
+    if operation != "add"
+        && !text(&body, "target_ref").starts_with("memory-entry://")
+        && !text(&body, "target_ref").starts_with("skill-entry://")
+    {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "memory_mutation_target_required",
+            "supersede/archive proposals need a memory-entry:// or skill-entry:// target_ref",
+        );
     }
     let id = format!("ctxmut_{:x}", nanos());
     let space_ref = {
         let requested = text(&body, "memory_space_ref");
-        if requested.is_empty() { "memory-space://ms_workspace_default".to_string() } else { requested.to_string() }
+        if requested.is_empty() {
+            "memory-space://ms_workspace_default".to_string()
+        } else {
+            requested.to_string()
+        }
     };
     let record = json!({
         "schema_version": "ioi.hypervisor.memory-mutation-proposal.v1",
@@ -1067,7 +1460,10 @@ pub(crate) async fn handle_proposals_create(
         "runtimeTruthSource": "daemon-runtime",
     });
     let _ = persist_record(&st.data_dir, PROPOSAL_KIND, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "proposal": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "proposal": record })),
+    )
 }
 
 pub(crate) async fn handle_proposal_approve(
@@ -1075,15 +1471,31 @@ pub(crate) async fn handle_proposal_approve(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut proposal) = load(&st, PROPOSAL_KIND, "mutation_id", &id) else {
-        return bad(StatusCode::NOT_FOUND, "memory_mutation_not_found", "Unknown proposal.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "memory_mutation_not_found",
+            "Unknown proposal.",
+        );
     };
     if text(&proposal, "review_state") != "proposed" {
-        return bad(StatusCode::CONFLICT, "memory_mutation_already_reviewed", "This proposal has already been reviewed.");
+        return bad(
+            StatusCode::CONFLICT,
+            "memory_mutation_already_reviewed",
+            "This proposal has already been reviewed.",
+        );
     }
     let operation = text(&proposal, "operation").to_string();
-    let family = if text(&proposal, "target_family") == "skill" { &SKILL_FAMILY } else { &ENTRY_FAMILY };
+    let family = if text(&proposal, "target_family") == "skill" {
+        &SKILL_FAMILY
+    } else {
+        &ENTRY_FAMILY
+    };
     let validate: fn(&Value, &mut Value) -> Result<(), (StatusCode, Json<Value>)> =
-        if text(&proposal, "target_family") == "skill" { validate_skill } else { validate_entry };
+        if text(&proposal, "target_family") == "skill" {
+            validate_skill
+        } else {
+            validate_entry
+        };
     let mut suggested = proposal.get("suggested").cloned().unwrap_or(json!({}));
     // Model/run claims never auto-promote: approval yields a CANDIDATE entry unless the
     // reviewer explicitly promotes to accepted at approval time.
@@ -1104,7 +1516,11 @@ pub(crate) async fn handle_proposal_approve(
                 .to_string();
         }
         "supersede" => {
-            let target = text(&proposal, "target_ref").rsplit('/').next().unwrap_or("").to_string();
+            let target = text(&proposal, "target_ref")
+                .rsplit('/')
+                .next()
+                .unwrap_or("")
+                .to_string();
             let (status, Json(response)) = family_patch(&st, family, &target, &suggested, validate);
             if status != StatusCode::OK {
                 return (status, Json(response));
@@ -1112,8 +1528,18 @@ pub(crate) async fn handle_proposal_approve(
             applied_ref = text(&proposal, "target_ref").to_string();
         }
         _ => {
-            let target = text(&proposal, "target_ref").rsplit('/').next().unwrap_or("").to_string();
-            let (status, Json(response)) = family_patch(&st, family, &target, &json!({ "status": "archived" }), validate);
+            let target = text(&proposal, "target_ref")
+                .rsplit('/')
+                .next()
+                .unwrap_or("")
+                .to_string();
+            let (status, Json(response)) = family_patch(
+                &st,
+                family,
+                &target,
+                &json!({ "status": "archived" }),
+                validate,
+            );
             if status != StatusCode::OK {
                 return (status, Json(response));
             }
@@ -1144,7 +1570,10 @@ pub(crate) async fn handle_proposal_approve(
         object.insert("reviewed_at".into(), json!(iso_now()));
     }
     let _ = persist_record(&st.data_dir, PROPOSAL_KIND, &id, &proposal);
-    (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "proposal": proposal })),
+    )
 }
 
 pub(crate) async fn handle_proposal_reject(
@@ -1153,10 +1582,18 @@ pub(crate) async fn handle_proposal_reject(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut proposal) = load(&st, PROPOSAL_KIND, "mutation_id", &id) else {
-        return bad(StatusCode::NOT_FOUND, "memory_mutation_not_found", "Unknown proposal.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "memory_mutation_not_found",
+            "Unknown proposal.",
+        );
     };
     if text(&proposal, "review_state") != "proposed" {
-        return bad(StatusCode::CONFLICT, "memory_mutation_already_reviewed", "This proposal has already been reviewed.");
+        return bad(
+            StatusCode::CONFLICT,
+            "memory_mutation_already_reviewed",
+            "This proposal has already been reviewed.",
+        );
     }
     if let Some(object) = proposal.as_object_mut() {
         object.insert("review_state".into(), json!("rejected"));
@@ -1164,7 +1601,10 @@ pub(crate) async fn handle_proposal_reject(
         object.insert("reviewed_at".into(), json!(iso_now()));
     }
     let _ = persist_record(&st.data_dir, PROPOSAL_KIND, &id, &proposal);
-    (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "proposal": proposal })),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -1173,7 +1613,14 @@ pub(crate) async fn handle_proposal_reject(
 // graph store exists or is created; deleting this handler deletes the graph.
 // ---------------------------------------------------------------------------
 
-fn push_node(nodes: &mut Vec<Value>, seen: &mut std::collections::HashSet<String>, id: &str, kind: &str, label: &str, status: &str) {
+fn push_node(
+    nodes: &mut Vec<Value>,
+    seen: &mut std::collections::HashSet<String>,
+    id: &str,
+    kind: &str,
+    label: &str,
+    status: &str,
+) {
     if id.is_empty() || !seen.insert(id.to_string()) {
         return;
     }
@@ -1203,43 +1650,69 @@ pub(crate) async fn handle_intelligence_graph(
     projections.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
     projections.truncate(25); // recent proof, not an unbounded graph
 
-    let mut record_edges = |record: &Value, self_ref: &str, nodes: &mut Vec<Value>, edges: &mut Vec<Value>, seen: &mut std::collections::HashSet<String>| {
-        for source in refs(record.get("source_refs")) {
-            push_node(nodes, seen, &source, "source_run", &source, "");
-            push_edge(edges, self_ref, &source, "cites");
-        }
-        for connector in refs(record.get("connector_refs")) {
-            push_node(nodes, seen, &connector, "connector", &connector, "");
-            push_edge(edges, self_ref, &connector, "derives_from");
-        }
-        for harness in refs(record.get("compatible_harness_refs")) {
-            push_node(nodes, seen, &harness, "harness_profile", &harness, "");
-            push_edge(edges, self_ref, &harness, "compatible_with");
-        }
-        for route in refs(record.get("compatible_model_route_refs")) {
-            push_node(nodes, seen, &route, "model_route", &route, "");
-            push_edge(edges, self_ref, &route, "compatible_with");
-        }
-        for tag in refs(record.get("tags")) {
-            let tag_id = format!("tag://{tag}");
-            push_node(nodes, seen, &tag_id, "tag", &tag, "");
-            push_edge(edges, self_ref, &tag_id, "tagged");
-        }
-    };
+    let mut record_edges =
+        |record: &Value,
+         self_ref: &str,
+         nodes: &mut Vec<Value>,
+         edges: &mut Vec<Value>,
+         seen: &mut std::collections::HashSet<String>| {
+            for source in refs(record.get("source_refs")) {
+                push_node(nodes, seen, &source, "source_run", &source, "");
+                push_edge(edges, self_ref, &source, "cites");
+            }
+            for connector in refs(record.get("connector_refs")) {
+                push_node(nodes, seen, &connector, "connector", &connector, "");
+                push_edge(edges, self_ref, &connector, "derives_from");
+            }
+            for harness in refs(record.get("compatible_harness_refs")) {
+                push_node(nodes, seen, &harness, "harness_profile", &harness, "");
+                push_edge(edges, self_ref, &harness, "compatible_with");
+            }
+            for route in refs(record.get("compatible_model_route_refs")) {
+                push_node(nodes, seen, &route, "model_route", &route, "");
+                push_edge(edges, self_ref, &route, "compatible_with");
+            }
+            for tag in refs(record.get("tags")) {
+                let tag_id = format!("tag://{tag}");
+                push_node(nodes, seen, &tag_id, "tag", &tag, "");
+                push_edge(edges, self_ref, &tag_id, "tagged");
+            }
+        };
 
     for entry in &entries {
         let self_ref = text(entry, "entry_ref");
-        push_node(&mut nodes, &mut seen, self_ref, "memory_entry", text(entry, "title"), text(entry, "status"));
+        push_node(
+            &mut nodes,
+            &mut seen,
+            self_ref,
+            "memory_entry",
+            text(entry, "title"),
+            text(entry, "status"),
+        );
         record_edges(entry, self_ref, &mut nodes, &mut edges, &mut seen);
     }
     for skill in &skills {
         let self_ref = text(skill, "skill_ref");
-        push_node(&mut nodes, &mut seen, self_ref, "skill_entry", text(skill, "title"), text(skill, "status"));
+        push_node(
+            &mut nodes,
+            &mut seen,
+            self_ref,
+            "skill_entry",
+            text(skill, "title"),
+            text(skill, "status"),
+        );
         record_edges(skill, self_ref, &mut nodes, &mut edges, &mut seen);
     }
     for affinity in &affinities {
         let self_ref = text(affinity, "affinity_ref");
-        push_node(&mut nodes, &mut seen, self_ref, "automation_affinity", text(affinity, "title"), text(affinity, "status"));
+        push_node(
+            &mut nodes,
+            &mut seen,
+            self_ref,
+            "automation_affinity",
+            text(affinity, "title"),
+            text(affinity, "status"),
+        );
         record_edges(affinity, self_ref, &mut nodes, &mut edges, &mut seen);
         let policy = text(affinity, "preferred_policy_ref");
         if !policy.is_empty() {
@@ -1247,14 +1720,31 @@ pub(crate) async fn handle_intelligence_graph(
             push_edge(&mut edges, self_ref, policy, "affinity_to");
         }
         for automation in refs(affinity.get("preferred_automation_refs")) {
-            push_node(&mut nodes, &mut seen, &automation, "automation", &automation, "");
+            push_node(
+                &mut nodes,
+                &mut seen,
+                &automation,
+                "automation",
+                &automation,
+                "",
+            );
             push_edge(&mut edges, self_ref, &automation, "affinity_to");
         }
     }
     for projection in &projections {
         let self_ref = text(projection, "projection_ref");
-        push_node(&mut nodes, &mut seen, self_ref, "memory_projection", &format!("projection · {}", text(projection, "harness_profile_ref")), "");
-        for included in refs(projection.get("included_entry_refs")).iter().chain(refs(projection.get("included_skill_refs")).iter()) {
+        push_node(
+            &mut nodes,
+            &mut seen,
+            self_ref,
+            "memory_projection",
+            &format!("projection · {}", text(projection, "harness_profile_ref")),
+            "",
+        );
+        for included in refs(projection.get("included_entry_refs"))
+            .iter()
+            .chain(refs(projection.get("included_skill_refs")).iter())
+        {
             push_edge(&mut edges, included, self_ref, "projects_to");
         }
         for receipt in refs(projection.get("receipt_refs")) {
@@ -1269,26 +1759,56 @@ pub(crate) async fn handle_intelligence_graph(
             .and_then(Value::as_str)
             .filter(|t| !t.trim().is_empty())
             .unwrap_or_else(|| text(proposal, "operation"));
-        push_node(&mut nodes, &mut seen, self_ref, "mutation_proposal", label, text(proposal, "review_state"));
+        push_node(
+            &mut nodes,
+            &mut seen,
+            self_ref,
+            "mutation_proposal",
+            label,
+            text(proposal, "review_state"),
+        );
         let applied = text(proposal, "applied_ref");
         if !applied.is_empty() {
             push_edge(&mut edges, applied, self_ref, "proposed_by");
         }
         for receipt in refs(proposal.get("receipt_refs")) {
             push_node(&mut nodes, &mut seen, &receipt, "receipt", &receipt, "");
-            push_edge(&mut edges, self_ref, &receipt, if text(proposal, "review_state") == "approved" { "approved_by" } else { "rejected_by" });
+            push_edge(
+                &mut edges,
+                self_ref,
+                &receipt,
+                if text(proposal, "review_state") == "approved" {
+                    "approved_by"
+                } else {
+                    "rejected_by"
+                },
+            );
         }
         let source_run = text(proposal, "source_run_ref");
         if !source_run.is_empty() {
-            push_node(&mut nodes, &mut seen, source_run, "source_run", source_run, "");
+            push_node(
+                &mut nodes,
+                &mut seen,
+                source_run,
+                "source_run",
+                source_run,
+                "",
+            );
             push_edge(&mut edges, self_ref, source_run, "cites");
         }
     }
 
-    if let Some(q) = query.get("q").map(|q| q.to_lowercase()).filter(|q| !q.is_empty()) {
+    if let Some(q) = query
+        .get("q")
+        .map(|q| q.to_lowercase())
+        .filter(|q| !q.is_empty())
+    {
         let matching: std::collections::HashSet<String> = nodes
             .iter()
-            .filter(|n| text(n, "label").to_lowercase().contains(&q) || text(n, "id").to_lowercase().contains(&q))
+            .filter(|n| {
+                text(n, "label").to_lowercase().contains(&q)
+                    || text(n, "id").to_lowercase().contains(&q)
+            })
             .map(|n| text(n, "id").to_string())
             .collect();
         edges.retain(|e| matching.contains(text(e, "from")) || matching.contains(text(e, "to")));
@@ -1324,7 +1844,11 @@ pub(crate) async fn handle_projection_explain(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     let Some(projection) = load(&st, PROJECTION_KIND, "projection_id", &id) else {
-        return bad(StatusCode::NOT_FOUND, "memory_projection_not_found", "Unknown projection.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "memory_projection_not_found",
+            "Unknown projection.",
+        );
     };
     let entries = read_record_dir(&st.data_dir, ENTRY_KIND);
     let skills = read_record_dir(&st.data_dir, SKILL_KIND);
@@ -1434,7 +1958,11 @@ pub(crate) const QUALITY_STATES: &[&str] =
 /// (operator-authored) read as accepted.
 pub(crate) fn quality_of(record: &Value) -> &str {
     let state = text(record, "quality_state");
-    if state.is_empty() { "accepted" } else { state }
+    if state.is_empty() {
+        "accepted"
+    } else {
+        state
+    }
 }
 
 const TRANSITIONS: &[(&str, &str)] = &[
@@ -1452,7 +1980,11 @@ async fn lifecycle_transition(
     body: &Value,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut record) = load(st, family.kind, family.id_key, id) else {
-        return bad(StatusCode::NOT_FOUND, "intelligence_record_not_found", "Unknown record.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "intelligence_record_not_found",
+            "Unknown record.",
+        );
     };
     let transition = text(body, "transition");
     let Some((_, to_state)) = TRANSITIONS.iter().find(|(t, _)| *t == transition) else {
@@ -1490,7 +2022,11 @@ async fn lifecycle_transition(
         }
         let new_id = new_ref.trim_start_matches(family.ref_scheme).to_string();
         let Some(mut successor) = load(st, family.kind, family.id_key, &new_id) else {
-            return bad(StatusCode::UNPROCESSABLE_ENTITY, "memory_lifecycle_successor_unresolved", "The superseding record does not exist.");
+            return bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "memory_lifecycle_successor_unresolved",
+                "The superseding record does not exist.",
+            );
         };
         successor["supersedes_ref"] = json!(text(&record, family.ref_key));
         successor["updated_at"] = json!(iso_now());
@@ -1518,7 +2054,11 @@ async fn lifecycle_transition(
         "runtimeTruthSource": "daemon-runtime",
     });
     let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
-    let mut history = record.get("lifecycle_history").and_then(Value::as_array).cloned().unwrap_or_default();
+    let mut history = record
+        .get("lifecycle_history")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     history.push(json!({
         "transition": transition, "from": from_state, "to": to_state,
         "reason": reason, "receipt_ref": receipt_ref, "at": iso_now(),
@@ -1536,7 +2076,10 @@ async fn lifecycle_transition(
     }
     let rid = text(&record, family.id_key).to_string();
     let _ = persist_record(&st.data_dir, family.kind, &rid, &record);
-    (StatusCode::OK, Json(json!({ "ok": true, "record": record, "receipt_ref": receipt_ref })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "record": record, "receipt_ref": receipt_ref })),
+    )
 }
 
 pub(crate) async fn handle_entry_lifecycle(
@@ -1585,7 +2128,10 @@ pub(crate) async fn handle_review_queue(
     };
     let mut items: Vec<Value> = Vec::new();
     // proposal signals
-    for proposal in proposals.iter().filter(|p| text(p, "review_state") == "proposed") {
+    for proposal in proposals
+        .iter()
+        .filter(|p| text(p, "review_state") == "proposed")
+    {
         items.push(json!({
             "ref": text(proposal, "proposal_ref"),
             "title": proposal.pointer("/suggested/title").and_then(Value::as_str).unwrap_or(text(proposal, "operation")),
@@ -1597,16 +2143,29 @@ pub(crate) async fn handle_review_queue(
     let lower_titles: Vec<(String, String)> = entries
         .iter()
         .filter(|e| text(e, "status") == "active")
-        .map(|e| (text(e, "title").to_lowercase(), text(e, "entry_ref").to_string()))
+        .map(|e| {
+            (
+                text(e, "title").to_lowercase(),
+                text(e, "entry_ref").to_string(),
+            )
+        })
         .collect();
     for entry in entries.iter().filter(|e| text(e, "status") == "active") {
         let self_ref = text(entry, "entry_ref");
         let mut signals: Vec<&str> = Vec::new();
         let title = text(entry, "title").to_lowercase();
-        if lower_titles.iter().any(|(t, r)| *t == title && r != self_ref) {
+        if lower_titles
+            .iter()
+            .any(|(t, r)| *t == title && r != self_ref)
+        {
             signals.push("conflict_with_existing");
         }
-        if entry.get("confidence").and_then(Value::as_f64).map(|c| c < 0.5).unwrap_or(false) {
+        if entry
+            .get("confidence")
+            .and_then(Value::as_f64)
+            .map(|c| c < 0.5)
+            .unwrap_or(false)
+        {
             signals.push("low_confidence");
         }
         let expires = text(entry, "expires_at");
@@ -1615,7 +2174,11 @@ pub(crate) async fn handle_review_queue(
         }
         let uses = projections
             .iter()
-            .filter(|p| refs(p.get("included_entry_refs")).iter().any(|r| r == self_ref))
+            .filter(|p| {
+                refs(p.get("included_entry_refs"))
+                    .iter()
+                    .any(|r| r == self_ref)
+            })
             .count();
         if uses >= 3 {
             signals.push("repeated_projection_use");
@@ -1654,7 +2217,14 @@ pub(crate) async fn handle_review_queue(
             }));
         }
     }
-    items.sort_by_key(|item| std::cmp::Reverse(item.get("signals").and_then(Value::as_array).map(Vec::len).unwrap_or(0)));
+    items.sort_by_key(|item| {
+        std::cmp::Reverse(
+            item.get("signals")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0),
+        )
+    });
     (
         StatusCode::OK,
         Json(json!({
@@ -1680,8 +2250,11 @@ pub(crate) async fn handle_review_queue(
 // ---------------------------------------------------------------------------
 
 const IMPROVEMENT_KIND: &str = "improvement-proposals";
-const IMPROVEMENT_KINDS: &[&str] =
-    &["skill_improvement", "launch_policy_suggestion", "automation_readiness"];
+const IMPROVEMENT_KINDS: &[&str] = &[
+    "skill_improvement",
+    "launch_policy_suggestion",
+    "automation_readiness",
+];
 const IMPROVEMENT_STATES: &[&str] = &["pending", "approved", "rejected", "applied", "superseded"];
 
 /// Normalize a goal to a deterministic pattern key: first four significant lowercase tokens.
@@ -1721,17 +2294,26 @@ pub(crate) async fn handle_outcome_mining(
             .map(|b| b.is_empty())
             .unwrap_or(true);
         if succeeded && !text(launch, "goal").is_empty() {
-            by_pattern.entry(goal_pattern_key(text(launch, "goal"))).or_default().push(launch);
+            by_pattern
+                .entry(goal_pattern_key(text(launch, "goal")))
+                .or_default()
+                .push(launch);
         }
     }
     let mut harness_counts: HashMap<String, Vec<&Value>> = HashMap::new();
     for launch in launches.iter().filter(|l| text(l, "state") == "executed") {
         let harness = text(launch, "harness_profile_ref");
         if !harness.is_empty() {
-            harness_counts.entry(harness.to_string()).or_default().push(launch);
+            harness_counts
+                .entry(harness.to_string())
+                .or_default()
+                .push(launch);
         }
     }
-    for (pattern, group) in by_pattern.iter().filter(|(p, g)| !p.is_empty() && g.len() >= 2) {
+    for (pattern, group) in by_pattern
+        .iter()
+        .filter(|(p, g)| !p.is_empty() && g.len() >= 2)
+    {
         let evidence: Vec<String> = group
             .iter()
             .map(|l| format!("ioi-agent-launch://{}", text(l, "launch_id")))
@@ -1798,7 +2380,11 @@ pub(crate) async fn handle_outcome_mining(
         let self_ref = text(entry, "entry_ref");
         let uses = projections
             .iter()
-            .filter(|p| refs(p.get("included_entry_refs")).iter().any(|r| r == self_ref))
+            .filter(|p| {
+                refs(p.get("included_entry_refs"))
+                    .iter()
+                    .any(|r| r == self_ref)
+            })
             .count();
         if uses >= 5 && text(entry, "entry_kind") != "connector_derived" {
             candidates.push(json!({
@@ -1848,7 +2434,9 @@ pub(crate) async fn handle_outcome_mining(
         }));
     }
     candidates.sort_by(|a, b| {
-        b.get("occurrences").and_then(Value::as_u64).unwrap_or(0)
+        b.get("occurrences")
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
             .cmp(&a.get("occurrences").and_then(Value::as_u64).unwrap_or(0))
     });
     (
@@ -1884,7 +2472,10 @@ pub(crate) async fn handle_improvements_list(
             p
         })
         .collect();
-    (StatusCode::OK, Json(json!({ "ok": true, "proposals": proposals })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "proposals": proposals })),
+    )
 }
 
 pub(crate) async fn handle_improvements_create(
@@ -1893,14 +2484,26 @@ pub(crate) async fn handle_improvements_create(
 ) -> (StatusCode, Json<Value>) {
     let kind = text(&body, "proposal_kind");
     if !IMPROVEMENT_KINDS.contains(&kind) {
-        return bad(StatusCode::BAD_REQUEST, "improvement_kind_invalid", "proposal_kind must be skill_improvement|launch_policy_suggestion|automation_readiness");
+        return bad(
+            StatusCode::BAD_REQUEST,
+            "improvement_kind_invalid",
+            "proposal_kind must be skill_improvement|launch_policy_suggestion|automation_readiness",
+        );
     }
     let evidence = refs(body.get("evidence_refs"));
     if evidence.is_empty() {
-        return bad(StatusCode::UNPROCESSABLE_ENTITY, "improvement_evidence_required", "An improvement proposal binds to evidence refs (runs, projections, receipts, memory).");
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "improvement_evidence_required",
+            "An improvement proposal binds to evidence refs (runs, projections, receipts, memory).",
+        );
     }
     if record_has_credential_material(&body) {
-        return bad(StatusCode::FORBIDDEN, "memory_entry_credential_material_forbidden", "Proposals must not contain credential material.");
+        return bad(
+            StatusCode::FORBIDDEN,
+            "memory_entry_credential_material_forbidden",
+            "Proposals must not contain credential material.",
+        );
     }
     let id = format!("imp_{:x}", nanos());
     let record = json!({
@@ -1919,7 +2522,10 @@ pub(crate) async fn handle_improvements_create(
         "runtimeTruthSource": "daemon-runtime",
     });
     let _ = persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "proposal": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "proposal": record })),
+    )
 }
 
 async fn improvement_state_change(
@@ -1933,7 +2539,11 @@ async fn improvement_state_change(
         .into_iter()
         .find(|p| text(p, "improvement_id") == id)
     else {
-        return Err(bad(StatusCode::NOT_FOUND, "improvement_not_found", "Unknown improvement proposal."));
+        return Err(bad(
+            StatusCode::NOT_FOUND,
+            "improvement_not_found",
+            "Unknown improvement proposal.",
+        ));
     };
     if !from.contains(&text(&proposal, "state")) {
         return Err(bad(
@@ -1960,7 +2570,10 @@ pub(crate) async fn handle_improvement_approve(
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
     match improvement_state_change(&st, &id, &["pending"], "approved", json!({})).await {
-        Ok(proposal) => (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal }))),
+        Ok(proposal) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "proposal": proposal })),
+        ),
         Err(rejection) => rejection,
     }
 }
@@ -1970,8 +2583,19 @@ pub(crate) async fn handle_improvement_reject(
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match improvement_state_change(&st, &id, &["pending", "approved"], "rejected", json!({ "review_reason": text(&body, "reason") })).await {
-        Ok(proposal) => (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal }))),
+    match improvement_state_change(
+        &st,
+        &id,
+        &["pending", "approved"],
+        "rejected",
+        json!({ "review_reason": text(&body, "reason") }),
+    )
+    .await
+    {
+        Ok(proposal) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "proposal": proposal })),
+        ),
         Err(rejection) => rejection,
     }
 }
@@ -1994,7 +2618,10 @@ pub(crate) fn proposal_fingerprint(proposal: &Value) -> String {
         "suggested": proposal.get("suggested").cloned().unwrap_or(json!({})),
         "evidence_refs": proposal.get("evidence_refs").cloned().unwrap_or(json!([])),
     });
-    format!("sha256:{}", sha256_hex_str(&serde_json::to_string(&basis).unwrap_or_default()))
+    format!(
+        "sha256:{}",
+        sha256_hex_str(&serde_json::to_string(&basis).unwrap_or_default())
+    )
 }
 
 fn load_by_ref(st: &DaemonState, kind: &str, reference: &str, scheme: &str) -> Option<Value> {
@@ -2014,7 +2641,11 @@ fn gate_inputs_from(
 ) -> (Option<Value>, Option<Value>, Option<Value>) {
     let report = text(proposal, "latest_simulation_ref")
         .strip_prefix("simulation-report://")
-        .and_then(|id| sims.iter().find(|r| text(r, "simulation_id") == id).cloned());
+        .and_then(|id| {
+            sims.iter()
+                .find(|r| text(r, "simulation_id") == id)
+                .cloned()
+        });
     let approval = text(proposal, "approval_request_ref")
         .strip_prefix("approval-request://")
         .and_then(|id| approvals.iter().find(|r| text(r, "id") == id).cloned());
@@ -2032,7 +2663,10 @@ fn gate_record_sets(st: &DaemonState) -> (Vec<Value>, Vec<Value>, Vec<Value>) {
     )
 }
 
-fn gate_inputs(st: &DaemonState, proposal: &Value) -> (Option<Value>, Option<Value>, Option<Value>) {
+fn gate_inputs(
+    st: &DaemonState,
+    proposal: &Value,
+) -> (Option<Value>, Option<Value>, Option<Value>) {
     let (sims, approvals, releases) = gate_record_sets(st);
     gate_inputs_from(proposal, &sims, &approvals, &releases)
 }
@@ -2057,7 +2691,10 @@ pub(crate) fn evaluate_improvement_gate(
                 block: Some(("simulation_required", "Launch-policy improvements must carry a saved what-if simulation before apply.")),
             };
         }
-        return GateDecision { posture: "no_simulation", block: None };
+        return GateDecision {
+            posture: "no_simulation",
+            block: None,
+        };
     }
     let Some(report) = report else {
         return GateDecision {
@@ -2071,10 +2708,18 @@ pub(crate) fn evaluate_improvement_gate(
             block: Some(("simulation_stale", "The proposal changed after its last simulation — the report no longer previews THIS change. Re-simulate.")),
         };
     }
-    if report.pointer("/governance/high_impact").and_then(Value::as_bool) != Some(true) {
-        return GateDecision { posture: "low_impact", block: None };
+    if report
+        .pointer("/governance/high_impact")
+        .and_then(Value::as_bool)
+        != Some(true)
+    {
+        return GateDecision {
+            posture: "low_impact",
+            block: None,
+        };
     }
-    let subject_ok = |candidate: &str| candidate == text(proposal, "proposal_ref") || candidate == sim_ref;
+    let subject_ok =
+        |candidate: &str| candidate == text(proposal, "proposal_ref") || candidate == sim_ref;
     let Some(approval) = approval else {
         return GateDecision {
             posture: "awaiting_approval",
@@ -2084,13 +2729,19 @@ pub(crate) fn evaluate_improvement_gate(
     if !subject_ok(text(approval, "subject_ref")) {
         return GateDecision {
             posture: "awaiting_approval",
-            block: Some(("approval_required", "The bound ApprovalRequest does not target this proposal or its simulation report.")),
+            block: Some((
+                "approval_required",
+                "The bound ApprovalRequest does not target this proposal or its simulation report.",
+            )),
         };
     }
     if text(approval, "status") != "approved" {
         return GateDecision {
             posture: "awaiting_approval",
-            block: Some(("approval_not_approved", "The bound ApprovalRequest is not APPROVED.")),
+            block: Some((
+                "approval_not_approved",
+                "The bound ApprovalRequest is not APPROVED.",
+            )),
         };
     }
     let Some(release) = release else {
@@ -2102,16 +2753,25 @@ pub(crate) fn evaluate_improvement_gate(
     if !subject_ok(text(release, "release_target_ref")) {
         return GateDecision {
             posture: "awaiting_release",
-            block: Some(("release_control_required", "The bound ReleaseControl does not target this proposal or its simulation report.")),
+            block: Some((
+                "release_control_required",
+                "The bound ReleaseControl does not target this proposal or its simulation report.",
+            )),
         };
     }
     if text(release, "state") != "open" {
         return GateDecision {
             posture: "awaiting_release",
-            block: Some(("release_control_not_open", "The bound ReleaseControl gate is not OPEN.")),
+            block: Some((
+                "release_control_not_open",
+                "The bound ReleaseControl gate is not OPEN.",
+            )),
         };
     }
-    GateDecision { posture: "ready", block: None }
+    GateDecision {
+        posture: "ready",
+        block: None,
+    }
 }
 
 fn gate_projection(st: &DaemonState, proposal: &Value) -> Value {
@@ -2119,9 +2779,19 @@ fn gate_projection(st: &DaemonState, proposal: &Value) -> Value {
     gate_projection_from(proposal, &sims, &approvals, &releases)
 }
 
-fn gate_projection_from(proposal: &Value, sims: &[Value], approvals: &[Value], releases: &[Value]) -> Value {
+fn gate_projection_from(
+    proposal: &Value,
+    sims: &[Value],
+    approvals: &[Value],
+    releases: &[Value],
+) -> Value {
     let (report, approval, release) = gate_inputs_from(proposal, sims, approvals, releases);
-    let gate = evaluate_improvement_gate(proposal, report.as_ref(), approval.as_ref(), release.as_ref());
+    let gate = evaluate_improvement_gate(
+        proposal,
+        report.as_ref(),
+        approval.as_ref(),
+        release.as_ref(),
+    );
     json!({
         "posture": gate.posture,
         "block_code": gate.block.map(|(code, _)| code),
@@ -2140,13 +2810,20 @@ pub(crate) async fn handle_improvement_get(
         .into_iter()
         .find(|p| text(p, "improvement_id") == id)
     else {
-        return bad(StatusCode::NOT_FOUND, "improvement_not_found", "Unknown improvement proposal.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "improvement_not_found",
+            "Unknown improvement proposal.",
+        );
     };
     let gate = gate_projection(&st, &proposal);
     if let Some(object) = proposal.as_object_mut() {
         object.insert("gate".into(), gate);
     }
-    (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "proposal": proposal })),
+    )
 }
 
 pub(crate) async fn handle_improvement_patch(
@@ -2158,13 +2835,25 @@ pub(crate) async fn handle_improvement_patch(
         .into_iter()
         .find(|p| text(p, "improvement_id") == id)
     else {
-        return bad(StatusCode::NOT_FOUND, "improvement_not_found", "Unknown improvement proposal.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "improvement_not_found",
+            "Unknown improvement proposal.",
+        );
     };
     if !["pending", "approved"].contains(&text(&proposal, "state")) {
-        return bad(StatusCode::CONFLICT, "improvement_not_editable", "Only pending/approved proposals can be edited or bound to governance controls.");
+        return bad(
+            StatusCode::CONFLICT,
+            "improvement_not_editable",
+            "Only pending/approved proposals can be edited or bound to governance controls.",
+        );
     }
     if record_has_credential_material(&body) {
-        return bad(StatusCode::FORBIDDEN, "memory_entry_credential_material_forbidden", "Proposals must not contain credential material.");
+        return bad(
+            StatusCode::FORBIDDEN,
+            "memory_entry_credential_material_forbidden",
+            "Proposals must not contain credential material.",
+        );
     }
     // Governance binding: the control must exist NOW and target the proposal or its simulation.
     let subjects = [
@@ -2172,26 +2861,49 @@ pub(crate) async fn handle_improvement_patch(
         text(&proposal, "latest_simulation_ref").to_string(),
     ];
     if let Some(reference) = body.get("approval_request_ref").and_then(Value::as_str) {
-        let Some(record) = load_by_ref(&st, GOV_APPROVAL_KIND, reference, "approval-request") else {
-            return bad(StatusCode::UNPROCESSABLE_ENTITY, "governance_ref_unresolved", "approval_request_ref does not resolve to a recorded ApprovalRequest.");
+        let Some(record) = load_by_ref(&st, GOV_APPROVAL_KIND, reference, "approval-request")
+        else {
+            return bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "governance_ref_unresolved",
+                "approval_request_ref does not resolve to a recorded ApprovalRequest.",
+            );
         };
         if !subjects.contains(&text(&record, "subject_ref").to_string()) {
-            return bad(StatusCode::UNPROCESSABLE_ENTITY, "governance_subject_mismatch", "The ApprovalRequest must target this proposal or its simulation report.");
+            return bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "governance_subject_mismatch",
+                "The ApprovalRequest must target this proposal or its simulation report.",
+            );
         }
         proposal["approval_request_ref"] = json!(reference);
     }
     if let Some(reference) = body.get("release_control_ref").and_then(Value::as_str) {
         let Some(record) = load_by_ref(&st, GOV_RELEASE_KIND, reference, "release-control") else {
-            return bad(StatusCode::UNPROCESSABLE_ENTITY, "governance_ref_unresolved", "release_control_ref does not resolve to a recorded ReleaseControl.");
+            return bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "governance_ref_unresolved",
+                "release_control_ref does not resolve to a recorded ReleaseControl.",
+            );
         };
         if !subjects.contains(&text(&record, "release_target_ref").to_string()) {
-            return bad(StatusCode::UNPROCESSABLE_ENTITY, "governance_subject_mismatch", "The ReleaseControl must target this proposal or its simulation report.");
+            return bad(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "governance_subject_mismatch",
+                "The ReleaseControl must target this proposal or its simulation report.",
+            );
         }
         proposal["release_control_ref"] = json!(reference);
     }
     // Content mutation — freshness is NOT reset here; the fingerprint check at apply time
     // makes any previously saved simulation stale automatically.
-    for key in ["suggested", "evidence_refs", "target_ref", "reason", "confidence"] {
+    for key in [
+        "suggested",
+        "evidence_refs",
+        "target_ref",
+        "reason",
+        "confidence",
+    ] {
         if let Some(value) = body.get(key) {
             proposal[key] = value.clone();
         }
@@ -2202,7 +2914,10 @@ pub(crate) async fn handle_improvement_patch(
     if let Some(object) = proposal.as_object_mut() {
         object.insert("gate".into(), gate);
     }
-    (StatusCode::OK, Json(json!({ "ok": true, "proposal": proposal })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "proposal": proposal })),
+    )
 }
 
 pub(crate) async fn handle_improvement_apply(
@@ -2213,13 +2928,22 @@ pub(crate) async fn handle_improvement_apply(
         .into_iter()
         .find(|p| text(p, "improvement_id") == id)
     else {
-        return bad(StatusCode::NOT_FOUND, "improvement_not_found", "Unknown improvement proposal.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "improvement_not_found",
+            "Unknown improvement proposal.",
+        );
     };
     if text(&proposal, "state") != "approved" {
         return bad(StatusCode::CONFLICT, "improvement_not_approved", "Apply requires an APPROVED proposal (creation changes nothing; approval is the review).");
     }
     let (report, approval, release) = gate_inputs(&st, &proposal);
-    let decision = evaluate_improvement_gate(&proposal, report.as_ref(), approval.as_ref(), release.as_ref());
+    let decision = evaluate_improvement_gate(
+        &proposal,
+        report.as_ref(),
+        approval.as_ref(),
+        release.as_ref(),
+    );
     if let Some((code, message)) = decision.block {
         return bad(StatusCode::CONFLICT, code, message);
     }
@@ -2232,40 +2956,62 @@ pub(crate) async fn handle_improvement_apply(
             let mut payload = suggested.clone();
             payload["quality_state"] = json!("accepted");
             payload["source_refs"] = proposal.get("evidence_refs").cloned().unwrap_or(json!([]));
-            let (status, Json(response)) = family_create(&st, &SKILL_FAMILY, &payload, validate_skill);
+            let (status, Json(response)) =
+                family_create(&st, &SKILL_FAMILY, &payload, validate_skill);
             if status != StatusCode::CREATED {
                 return (status, Json(response));
             }
-            applied_ref = response.pointer("/record/skill_ref").and_then(Value::as_str).unwrap_or("").to_string();
+            applied_ref = response
+                .pointer("/record/skill_ref")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
         }
         "automation_readiness" => {
             let target = text(&proposal, "target_ref");
             if target.starts_with("automation-affinity://") {
-                let tid = target.trim_start_matches("automation-affinity://").to_string();
-                let (status, Json(response)) = family_patch(&st, &AFFINITY_FAMILY, &tid, &suggested, validate_affinity);
+                let tid = target
+                    .trim_start_matches("automation-affinity://")
+                    .to_string();
+                let (status, Json(response)) =
+                    family_patch(&st, &AFFINITY_FAMILY, &tid, &suggested, validate_affinity);
                 if status != StatusCode::OK {
                     return (status, Json(response));
                 }
                 applied_ref = target.to_string();
             } else {
-                let (status, Json(response)) = family_create(&st, &AFFINITY_FAMILY, &suggested, validate_affinity);
+                let (status, Json(response)) =
+                    family_create(&st, &AFFINITY_FAMILY, &suggested, validate_affinity);
                 if status != StatusCode::CREATED {
                     return (status, Json(response));
                 }
-                applied_ref = response.pointer("/record/affinity_ref").and_then(Value::as_str).unwrap_or("").to_string();
+                applied_ref = response
+                    .pointer("/record/affinity_ref")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
             }
         }
         _ => {
             // launch_policy_suggestion: NEVER mutates a protected seed — clone it, patch the clone;
             // a non-protected target patches in place. Both through the ordinary policy lanes.
-            let target = text(&proposal, "target_ref").trim_start_matches("ioi-agent-policy://").to_string();
+            let target = text(&proposal, "target_ref")
+                .trim_start_matches("ioi-agent-policy://")
+                .to_string();
             let client = reqwest::Client::new();
             // A canary/cohort ReleaseControl bounds the audience: apply creates a rollout-bound
             // VARIANT (clone + patch + rollout provenance) — the base policy is never replaced.
-            let rollout_mode = release.as_ref().map(|r| text(r, "rollout_mode").to_string()).unwrap_or_default();
+            let rollout_mode = release
+                .as_ref()
+                .map(|r| text(r, "rollout_mode").to_string())
+                .unwrap_or_default();
             if rollout_mode == "canary" || rollout_mode == "cohort" {
                 if target.is_empty() {
-                    return bad(StatusCode::UNPROCESSABLE_ENTITY, "improvement_rollout_target_required", "A canary/cohort rollout needs a target base policy to bound against.");
+                    return bad(
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        "improvement_rollout_target_required",
+                        "A canary/cohort rollout needs a target base policy to bound against.",
+                    );
                 }
                 let base = load_policy_record(&st, &target).unwrap_or(Value::Null);
                 let cloned = client
@@ -2276,29 +3022,54 @@ pub(crate) async fn handle_improvement_apply(
                     Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
                     None => Value::Null,
                 };
-                let variant_id = clone_body.pointer("/policy/policy_id").and_then(Value::as_str).unwrap_or("").to_string();
+                let variant_id = clone_body
+                    .pointer("/policy/policy_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
                 if variant_id.is_empty() {
-                    return bad(StatusCode::BAD_GATEWAY, "improvement_policy_clone_failed", "Could not clone the base policy for the rollout variant.");
+                    return bad(
+                        StatusCode::BAD_GATEWAY,
+                        "improvement_policy_clone_failed",
+                        "Could not clone the base policy for the rollout variant.",
+                    );
                 }
                 let patched = client
-                    .patch(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{variant_id}", st.base_url))
+                    .patch(format!(
+                        "{}/v1/hypervisor/ioi-agent/launch-policies/{variant_id}",
+                        st.base_url
+                    ))
                     .json(&suggested)
-                    .send().await.ok();
+                    .send()
+                    .await
+                    .ok();
                 if !patched.map(|r| r.status().is_success()).unwrap_or(false) {
-                    return bad(StatusCode::BAD_GATEWAY, "improvement_policy_patch_failed", "Rollout variant patch was rejected.");
+                    return bad(
+                        StatusCode::BAD_GATEWAY,
+                        "improvement_policy_patch_failed",
+                        "Rollout variant patch was rejected.",
+                    );
                 }
-                let bound = super::ioi_agent_routes::bind_policy_rollout(&st, &variant_id, json!({
-                    "base_policy_ref": format!("ioi-agent-policy://{target}"),
-                    "release_control_ref": proposal.get("release_control_ref").cloned().unwrap_or(Value::Null),
-                    "proposal_ref": text(&proposal, "proposal_ref"),
-                    "simulation_ref": proposal.get("latest_simulation_ref").cloned().unwrap_or(Value::Null),
-                    "approval_request_ref": proposal.get("approval_request_ref").cloned().unwrap_or(Value::Null),
-                    "mode": rollout_mode,
-                    "state": "active",
-                    "applied_at": iso_now(),
-                }));
+                let bound = super::ioi_agent_routes::bind_policy_rollout(
+                    &st,
+                    &variant_id,
+                    json!({
+                        "base_policy_ref": format!("ioi-agent-policy://{target}"),
+                        "release_control_ref": proposal.get("release_control_ref").cloned().unwrap_or(Value::Null),
+                        "proposal_ref": text(&proposal, "proposal_ref"),
+                        "simulation_ref": proposal.get("latest_simulation_ref").cloned().unwrap_or(Value::Null),
+                        "approval_request_ref": proposal.get("approval_request_ref").cloned().unwrap_or(Value::Null),
+                        "mode": rollout_mode,
+                        "state": "active",
+                        "applied_at": iso_now(),
+                    }),
+                );
                 if bound.is_none() {
-                    return bad(StatusCode::BAD_GATEWAY, "improvement_rollout_bind_failed", "Could not bind rollout provenance to the variant.");
+                    return bad(
+                        StatusCode::BAD_GATEWAY,
+                        "improvement_rollout_bind_failed",
+                        "Could not bind rollout provenance to the variant.",
+                    );
                 }
                 applied_ref = format!("ioi-agent-policy://{variant_id}");
                 return finish_apply(&st, proposal, applied_ref).await;
@@ -2306,13 +3077,19 @@ pub(crate) async fn handle_improvement_apply(
             let patch_target: String;
             if !target.is_empty() {
                 let existing = client
-                    .get(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{target}", st.base_url))
-                    .send().await.ok();
+                    .get(format!(
+                        "{}/v1/hypervisor/ioi-agent/launch-policies/{target}",
+                        st.base_url
+                    ))
+                    .send()
+                    .await
+                    .ok();
                 let policy = match existing {
                     Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
                     None => Value::Null,
                 };
-                let protected = policy.pointer("/policy/protected").and_then(Value::as_bool) == Some(true);
+                let protected =
+                    policy.pointer("/policy/protected").and_then(Value::as_bool) == Some(true);
                 if protected {
                     let cloned = client
                         .post(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{target}/clone", st.base_url))
@@ -2322,9 +3099,17 @@ pub(crate) async fn handle_improvement_apply(
                         Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
                         None => Value::Null,
                     };
-                    patch_target = clone_body.pointer("/policy/policy_id").and_then(Value::as_str).unwrap_or("").to_string();
+                    patch_target = clone_body
+                        .pointer("/policy/policy_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string();
                     if patch_target.is_empty() {
-                        return bad(StatusCode::BAD_GATEWAY, "improvement_policy_clone_failed", "Could not clone the protected seed policy.");
+                        return bad(
+                            StatusCode::BAD_GATEWAY,
+                            "improvement_policy_clone_failed",
+                            "Could not clone the protected seed policy.",
+                        );
                     }
                 } else {
                     patch_target = target;
@@ -2332,27 +3117,49 @@ pub(crate) async fn handle_improvement_apply(
             } else {
                 // No target: create a fresh policy from the suggestion.
                 let created = client
-                    .post(format!("{}/v1/hypervisor/ioi-agent/launch-policies", st.base_url))
+                    .post(format!(
+                        "{}/v1/hypervisor/ioi-agent/launch-policies",
+                        st.base_url
+                    ))
                     .json(&suggested)
-                    .send().await.ok();
+                    .send()
+                    .await
+                    .ok();
                 let created_body = match created {
                     Some(resp) => resp.json::<Value>().await.unwrap_or(Value::Null),
                     None => Value::Null,
                 };
-                let pid = created_body.pointer("/policy/policy_id").and_then(Value::as_str).unwrap_or("").to_string();
+                let pid = created_body
+                    .pointer("/policy/policy_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
                 if pid.is_empty() {
-                    return bad(StatusCode::BAD_GATEWAY, "improvement_policy_create_failed", "Could not create the suggested policy.");
+                    return bad(
+                        StatusCode::BAD_GATEWAY,
+                        "improvement_policy_create_failed",
+                        "Could not create the suggested policy.",
+                    );
                 }
                 applied_ref = format!("ioi-agent-policy://{pid}");
                 return finish_apply(&st, proposal, applied_ref).await;
             }
             let patched = client
-                .patch(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{patch_target}", st.base_url))
+                .patch(format!(
+                    "{}/v1/hypervisor/ioi-agent/launch-policies/{patch_target}",
+                    st.base_url
+                ))
                 .json(&suggested)
-                .send().await.ok();
+                .send()
+                .await
+                .ok();
             let ok_patch = patched.map(|r| r.status().is_success()).unwrap_or(false);
             if !ok_patch {
-                return bad(StatusCode::BAD_GATEWAY, "improvement_policy_patch_failed", "Policy patch was rejected.");
+                return bad(
+                    StatusCode::BAD_GATEWAY,
+                    "improvement_policy_patch_failed",
+                    "Policy patch was rejected.",
+                );
             }
             applied_ref = format!("ioi-agent-policy://{patch_target}");
         }
@@ -2360,7 +3167,11 @@ pub(crate) async fn handle_improvement_apply(
     finish_apply(&st, proposal, applied_ref).await
 }
 
-async fn finish_apply(st: &DaemonState, proposal: Value, applied_ref: String) -> (StatusCode, Json<Value>) {
+async fn finish_apply(
+    st: &DaemonState,
+    proposal: Value,
+    applied_ref: String,
+) -> (StatusCode, Json<Value>) {
     let id = text(&proposal, "improvement_id").to_string();
     let receipt_ref = format!("receipt://hypervisor/improvement/{id}");
     let receipt = json!({
@@ -2379,8 +3190,19 @@ async fn finish_apply(st: &DaemonState, proposal: Value, applied_ref: String) ->
         "runtimeTruthSource": "daemon-runtime",
     });
     let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
-    match improvement_state_change(st, &id, &["approved"], "applied", json!({ "applied_ref": applied_ref, "receipt_refs": [receipt_ref] })).await {
-        Ok(updated) => (StatusCode::OK, Json(json!({ "ok": true, "proposal": updated }))),
+    match improvement_state_change(
+        st,
+        &id,
+        &["approved"],
+        "applied",
+        json!({ "applied_ref": applied_ref, "receipt_refs": [receipt_ref] }),
+    )
+    .await
+    {
+        Ok(updated) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "proposal": updated })),
+        ),
         Err(rejection) => rejection,
     }
 }
@@ -2398,15 +3220,19 @@ const SIMULATION_KIND: &str = "simulation-reports";
 
 /// The counterfactual overlay a proposal represents.
 struct Overlay {
-    policy_patch: Value,      // launch-policy fields (harness prefs / memory_posture / privacy / failure)
-    virtual_skill: Value,     // suggested SkillEntry (active+accepted) or Null
-    virtual_affinity: Value,  // suggested AutomationAffinity or Null
+    policy_patch: Value, // launch-policy fields (harness prefs / memory_posture / privacy / failure)
+    virtual_skill: Value, // suggested SkillEntry (active+accepted) or Null
+    virtual_affinity: Value, // suggested AutomationAffinity or Null
 }
 
 fn overlay_of(proposal: &Value) -> Overlay {
     let suggested = proposal.get("suggested").cloned().unwrap_or(json!({}));
     match text(proposal, "proposal_kind") {
-        "launch_policy_suggestion" => Overlay { policy_patch: suggested, virtual_skill: Value::Null, virtual_affinity: Value::Null },
+        "launch_policy_suggestion" => Overlay {
+            policy_patch: suggested,
+            virtual_skill: Value::Null,
+            virtual_affinity: Value::Null,
+        },
         "skill_improvement" => Overlay {
             policy_patch: json!({}),
             virtual_skill: json!({
@@ -2437,7 +3263,11 @@ fn overlay_of(proposal: &Value) -> Overlay {
 
 /// Merge the overlay policy patch over a base policy record (target or defaults).
 fn overlaid_policy(base: &Value, patch: &Value) -> Value {
-    let mut merged = if base.is_object() { base.clone() } else { json!({}) };
+    let mut merged = if base.is_object() {
+        base.clone()
+    } else {
+        json!({})
+    };
     if let (Some(target), Some(fields)) = (merged.as_object_mut(), patch.as_object()) {
         for (key, value) in fields {
             target.insert(key.clone(), value.clone());
@@ -2446,20 +3276,43 @@ fn overlaid_policy(base: &Value, patch: &Value) -> Value {
     merged
 }
 
-fn projection_ctx_for(policy: &Value, harness: &str, route: &str, goal: &str, privacy: &str, live: Vec<String>) -> ProjectionContext {
+fn projection_ctx_for(
+    policy: &Value,
+    harness: &str,
+    route: &str,
+    goal: &str,
+    privacy: &str,
+    live: Vec<String>,
+) -> ProjectionContext {
     let posture = policy.get("memory_posture").cloned().unwrap_or(Value::Null);
     let private_mode = privacy == "private_local";
     ProjectionContext {
         harness_profile_ref: harness.to_string(),
         model_route_ref: route.to_string(),
         privacy_posture: privacy.to_string(),
-        allow_sensitive: policy.pointer("/privacy/allow_private_projection").and_then(Value::as_bool).unwrap_or(false),
+        allow_sensitive: policy
+            .pointer("/privacy/allow_private_projection")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
         live_connector_ids: live,
         goal: goal.to_string(),
-        allow_candidate: posture.get("allow_candidate_memory_projection").and_then(Value::as_bool).unwrap_or(!private_mode),
-        include_disputed: posture.get("include_disputed_memory").and_then(Value::as_bool).unwrap_or(false),
-        max_stale_age_days: posture.get("max_stale_age").or_else(|| posture.get("max_stale_age_days")).and_then(Value::as_u64).unwrap_or(0),
-        require_accepted_for_private: posture.get("require_accepted_memory_for_private").and_then(Value::as_bool).unwrap_or(private_mode),
+        allow_candidate: posture
+            .get("allow_candidate_memory_projection")
+            .and_then(Value::as_bool)
+            .unwrap_or(!private_mode),
+        include_disputed: posture
+            .get("include_disputed_memory")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+        max_stale_age_days: posture
+            .get("max_stale_age")
+            .or_else(|| posture.get("max_stale_age_days"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        require_accepted_for_private: posture
+            .get("require_accepted_memory_for_private")
+            .and_then(Value::as_bool)
+            .unwrap_or(private_mode),
     }
 }
 
@@ -2472,7 +3325,11 @@ pub(crate) async fn handle_improvement_simulate(
         .into_iter()
         .find(|p| text(p, "improvement_id") == id)
     else {
-        return bad(StatusCode::NOT_FOUND, "improvement_not_found", "Unknown improvement proposal.");
+        return bad(
+            StatusCode::NOT_FOUND,
+            "improvement_not_found",
+            "Unknown improvement proposal.",
+        );
     };
     let overlay = overlay_of(&proposal);
 
@@ -2520,7 +3377,10 @@ pub(crate) async fn handle_improvement_simulate(
     };
 
     // Scenario subjects: explicit refs or the recent record windows.
-    let window = body.get("replay_window").and_then(Value::as_u64).unwrap_or(6) as usize;
+    let window = body
+        .get("replay_window")
+        .and_then(Value::as_u64)
+        .unwrap_or(6) as usize;
     let mut launches = read_record_dir(&st.data_dir, "ioi-agent-launches");
     launches.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
     launches.retain(|l| text(l, "state") == "executed");
@@ -2537,7 +3397,9 @@ pub(crate) async fn handle_improvement_simulate(
     if !overlay.virtual_affinity.is_null() {
         overlaid_affinities.push(overlay.virtual_affinity.clone());
     }
-    let live_ids = build_projection_context(&st, &json!({})).await.live_connector_ids;
+    let live_ids = build_projection_context(&st, &json!({}))
+        .await
+        .live_connector_ids;
 
     let mut scenarios: Vec<Value> = Vec::new();
     let mut changed_count = 0u64;
@@ -2547,15 +3409,28 @@ pub(crate) async fn handle_improvement_simulate(
     // 1+4+6: launch replay — route/strategy selection + failure/blocker deltas.
     for launch_record in &launches {
         let goal = text(launch_record, "goal");
-        let strategy = { let s = text(launch_record, "strategy"); if s.is_empty() { "auto" } else { s } };
+        let strategy = {
+            let s = text(launch_record, "strategy");
+            if s.is_empty() {
+                "auto"
+            } else {
+                s
+            }
+        };
         let before = select(&base_policy, goal, strategy);
         let after = select(&after_policy, goal, strategy);
         let before_blocked = before.get("blocked").is_some();
         let after_blocked = after.get("blocked").is_some();
-        if !before_blocked && after_blocked { blockers_introduced += 1; }
-        if before_blocked && !after_blocked { blockers_removed += 1; }
+        if !before_blocked && after_blocked {
+            blockers_introduced += 1;
+        }
+        if before_blocked && !after_blocked {
+            blockers_removed += 1;
+        }
         let changed = before != after;
-        if changed { changed_count += 1; }
+        if changed {
+            changed_count += 1;
+        }
         scenarios.push(json!({
             "scenario_kind": "launch_replay",
             "subject_ref": format!("ioi-agent-launch://{}", text(launch_record, "launch_id")),
@@ -2613,17 +3488,33 @@ pub(crate) async fn handle_improvement_simulate(
         let goal = text(projection, "launch_ref");
         let privacy = text(projection, "privacy_posture");
         let recorded_counts = projection.get("counts").cloned().unwrap_or(json!({}));
-        let base_ctx = projection_ctx_for(&base_policy, harness, &route_ref, goal, privacy, live_ids.clone());
+        let base_ctx = projection_ctx_for(
+            &base_policy,
+            harness,
+            &route_ref,
+            goal,
+            privacy,
+            live_ids.clone(),
+        );
         let before_plan = plan_projection(&entries, &base_skills, &affinities, &base_ctx);
         let before_counts = before_plan.get("counts").cloned().unwrap_or(json!({}));
-        let ctx = projection_ctx_for(&after_policy, harness, &route_ref, goal, privacy, live_ids.clone());
+        let ctx = projection_ctx_for(
+            &after_policy,
+            harness,
+            &route_ref,
+            goal,
+            privacy,
+            live_ids.clone(),
+        );
         let after_plan = plan_projection(&entries, &overlaid_skills, &overlaid_affinities, &ctx);
         let after_counts = after_plan.get("counts").cloned().unwrap_or(json!({}));
         let skill_eligible = refs(after_plan.get("included_skill_refs"))
             .iter()
             .any(|r| r == "skill-entry://simulated");
         let changed = before_counts != after_counts || skill_eligible;
-        if changed { changed_count += 1; }
+        if changed {
+            changed_count += 1;
+        }
         scenarios.push(json!({
             "scenario_kind": "memory_projection_replay",
             "subject_ref": text(projection, "projection_ref"),
@@ -2642,8 +3533,16 @@ pub(crate) async fn handle_improvement_simulate(
     // Deterministic report hash over the scenario content (no timestamps inside).
     let canonical = serde_json::to_string(&scenarios).unwrap_or_default();
     let report_hash = format!("sha256:{}", sha256_hex_str(&canonical));
-    let privacy_loosened = overlay.policy_patch.pointer("/privacy/allow_private_projection").and_then(Value::as_bool) == Some(true)
-        || overlay.policy_patch.pointer("/memory_posture/include_disputed_memory").and_then(Value::as_bool) == Some(true);
+    let privacy_loosened = overlay
+        .policy_patch
+        .pointer("/privacy/allow_private_projection")
+        .and_then(Value::as_bool)
+        == Some(true)
+        || overlay
+            .policy_patch
+            .pointer("/memory_posture/include_disputed_memory")
+            .and_then(Value::as_bool)
+            == Some(true);
     let high_impact = changed_count >= 3 || blockers_introduced > 0 || privacy_loosened;
     let mut report = json!({
         "schema_version": "ioi.hypervisor.simulation-report.v1",
@@ -2682,7 +3581,10 @@ pub(crate) async fn handle_improvement_simulate(
         let receipt_ref = format!("receipt://hypervisor/simulation/{sim_id}");
         if let Some(object) = report.as_object_mut() {
             object.insert("simulation_id".into(), json!(sim_id));
-            object.insert("simulation_ref".into(), json!(format!("simulation-report://{sim_id}")));
+            object.insert(
+                "simulation_ref".into(),
+                json!(format!("simulation-report://{sim_id}")),
+            );
             object.insert("receipt_refs".into(), json!([receipt_ref]));
             object.insert("created_at".into(), json!(iso_now()));
         }
@@ -2706,13 +3608,22 @@ pub(crate) async fn handle_improvement_simulate(
         });
         let _ = persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt);
         if let Some(object) = proposal.as_object_mut() {
-            object.insert("latest_simulation_ref".into(), json!(format!("simulation-report://{sim_id}")));
-            object.insert("latest_simulation_hash".into(), report.get("report_hash").cloned().unwrap_or(Value::Null));
+            object.insert(
+                "latest_simulation_ref".into(),
+                json!(format!("simulation-report://{sim_id}")),
+            );
+            object.insert(
+                "latest_simulation_hash".into(),
+                report.get("report_hash").cloned().unwrap_or(Value::Null),
+            );
             object.insert("latest_simulation_high_impact".into(), json!(high_impact));
         }
         let _ = persist_record(&st.data_dir, IMPROVEMENT_KIND, &id, &proposal);
     }
-    (StatusCode::OK, Json(json!({ "ok": true, "report": report })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "report": report })),
+    )
 }
 
 fn load_policy_record(st: &DaemonState, id: &str) -> Option<Value> {
@@ -2729,8 +3640,15 @@ pub(crate) async fn handle_simulation_get(
         .into_iter()
         .find(|r| text(r, "simulation_id") == id)
     {
-        Some(report) => (StatusCode::OK, Json(json!({ "ok": true, "report": report }))),
-        None => bad(StatusCode::NOT_FOUND, "simulation_not_found", "Unknown simulation report."),
+        Some(report) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "report": report })),
+        ),
+        None => bad(
+            StatusCode::NOT_FOUND,
+            "simulation_not_found",
+            "Unknown simulation report.",
+        ),
     }
 }
 
@@ -2776,7 +3694,10 @@ mod improvement_gate_tests {
 
     #[test]
     fn mutated_proposal_makes_simulation_stale() {
-        let mut p = proposal("launch_policy_suggestion", Some("simulation-report://sim_t"));
+        let mut p = proposal(
+            "launch_policy_suggestion",
+            Some("simulation-report://sim_t"),
+        );
         let report = fresh_report(&p, true);
         p["suggested"] = json!({ "title": "changed after simulate" });
         let d = evaluate_improvement_gate(&p, Some(&report), None, None);
@@ -2793,7 +3714,10 @@ mod improvement_gate_tests {
 
     #[test]
     fn fresh_low_impact_applies_without_controls() {
-        let p = proposal("launch_policy_suggestion", Some("simulation-report://sim_t"));
+        let p = proposal(
+            "launch_policy_suggestion",
+            Some("simulation-report://sim_t"),
+        );
         let report = fresh_report(&p, false);
         let d = evaluate_improvement_gate(&p, Some(&report), None, None);
         assert_eq!(d.posture, "low_impact");
@@ -2802,22 +3726,41 @@ mod improvement_gate_tests {
 
     #[test]
     fn high_impact_requires_approval_then_release() {
-        let p = proposal("launch_policy_suggestion", Some("simulation-report://sim_t"));
+        let p = proposal(
+            "launch_policy_suggestion",
+            Some("simulation-report://sim_t"),
+        );
         let report = fresh_report(&p, true);
-        assert_eq!(evaluate_improvement_gate(&p, Some(&report), None, None).block.unwrap().0, "approval_required");
+        assert_eq!(
+            evaluate_improvement_gate(&p, Some(&report), None, None)
+                .block
+                .unwrap()
+                .0,
+            "approval_required"
+        );
         let pending = json!({ "subject_ref": "improvement-proposal://imp_t", "status": "pending" });
         assert_eq!(
-            evaluate_improvement_gate(&p, Some(&report), Some(&pending), None).block.unwrap().0,
+            evaluate_improvement_gate(&p, Some(&report), Some(&pending), None)
+                .block
+                .unwrap()
+                .0,
             "approval_not_approved"
         );
         let approved = json!({ "subject_ref": "simulation-report://sim_t", "status": "approved" });
         assert_eq!(
-            evaluate_improvement_gate(&p, Some(&report), Some(&approved), None).block.unwrap().0,
+            evaluate_improvement_gate(&p, Some(&report), Some(&approved), None)
+                .block
+                .unwrap()
+                .0,
             "release_control_required"
         );
-        let closed = json!({ "release_target_ref": "improvement-proposal://imp_t", "state": "closed" });
+        let closed =
+            json!({ "release_target_ref": "improvement-proposal://imp_t", "state": "closed" });
         assert_eq!(
-            evaluate_improvement_gate(&p, Some(&report), Some(&approved), Some(&closed)).block.unwrap().0,
+            evaluate_improvement_gate(&p, Some(&report), Some(&approved), Some(&closed))
+                .block
+                .unwrap()
+                .0,
             "release_control_not_open"
         );
         let open = json!({ "release_target_ref": "improvement-proposal://imp_t", "state": "open" });
@@ -2830,12 +3773,24 @@ mod improvement_gate_tests {
     fn wrong_subject_controls_do_not_satisfy_the_gate() {
         let p = proposal("skill_improvement", Some("simulation-report://sim_t"));
         let report = fresh_report(&p, true);
-        let foreign = json!({ "subject_ref": "improvement-proposal://imp_OTHER", "status": "approved" });
-        assert_eq!(evaluate_improvement_gate(&p, Some(&report), Some(&foreign), None).block.unwrap().0, "approval_required");
-        let approved = json!({ "subject_ref": "improvement-proposal://imp_t", "status": "approved" });
-        let foreign_rel = json!({ "release_target_ref": "simulation-report://sim_OTHER", "state": "open" });
+        let foreign =
+            json!({ "subject_ref": "improvement-proposal://imp_OTHER", "status": "approved" });
         assert_eq!(
-            evaluate_improvement_gate(&p, Some(&report), Some(&approved), Some(&foreign_rel)).block.unwrap().0,
+            evaluate_improvement_gate(&p, Some(&report), Some(&foreign), None)
+                .block
+                .unwrap()
+                .0,
+            "approval_required"
+        );
+        let approved =
+            json!({ "subject_ref": "improvement-proposal://imp_t", "status": "approved" });
+        let foreign_rel =
+            json!({ "release_target_ref": "simulation-report://sim_OTHER", "state": "open" });
+        assert_eq!(
+            evaluate_improvement_gate(&p, Some(&report), Some(&approved), Some(&foreign_rel))
+                .block
+                .unwrap()
+                .0,
             "release_control_required"
         );
     }

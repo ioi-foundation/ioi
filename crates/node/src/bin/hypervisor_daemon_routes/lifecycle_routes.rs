@@ -7707,7 +7707,11 @@ pub(crate) fn resolve_adapter_driver(
             ));
         }
     };
-    let adapter_binary = if harness == "opencode" { "opencode" } else { "deepseek" };
+    let adapter_binary = if harness == "opencode" {
+        "opencode"
+    } else {
+        "deepseek"
+    };
     if binary_on_path(adapter_binary).is_none() {
         return Err((
             "adapter_binary_missing",
@@ -7725,7 +7729,10 @@ pub(crate) fn resolve_adapter_driver(
     }
     let shim = std::env::current_dir().unwrap_or_default().join(shim_rel);
     if !shim.is_file() {
-        return Err(("adapter_driver_missing", format!("driver shim absent: {shim_rel}")));
+        return Err((
+            "adapter_driver_missing",
+            format!("driver shim absent: {shim_rel}"),
+        ));
     }
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     // Adapter state dirs must exist before bwrap binds them read-write.
@@ -7734,19 +7741,34 @@ pub(crate) fn resolve_adapter_driver(
     }
     let mut argv: Vec<String> = vec![
         "bwrap".into(),
-        "--ro-bind".into(), "/".into(), "/".into(),
-        "--dev".into(), "/dev".into(),
-        "--proc".into(), "/proc".into(),
-        "--tmpfs".into(), "/tmp".into(),
-        "--bind".into(), workspace_root.into(), workspace_root.into(),
-        "--bind".into(), format!("{home}/.local/share/opencode"), format!("{home}/.local/share/opencode"),
-        "--bind".into(), format!("{home}/.deepseek"), format!("{home}/.deepseek"),
-        "--bind".into(), format!("{home}/.cache"), format!("{home}/.cache"),
+        "--ro-bind".into(),
+        "/".into(),
+        "/".into(),
+        "--dev".into(),
+        "/dev".into(),
+        "--proc".into(),
+        "/proc".into(),
+        "--tmpfs".into(),
+        "/tmp".into(),
+        "--bind".into(),
+        workspace_root.into(),
+        workspace_root.into(),
+        "--bind".into(),
+        format!("{home}/.local/share/opencode"),
+        format!("{home}/.local/share/opencode"),
+        "--bind".into(),
+        format!("{home}/.deepseek"),
+        format!("{home}/.deepseek"),
+        "--bind".into(),
+        format!("{home}/.cache"),
+        format!("{home}/.cache"),
         "--die-with-parent".into(),
         node,
         shim.to_string_lossy().into_owned(),
-        "--model".into(), model.into(),
-        "--cd".into(), workspace_root.into(),
+        "--model".into(),
+        model.into(),
+        "--cd".into(),
+        workspace_root.into(),
     ];
     if let Some(endpoint) = endpoint {
         argv.push("--model-endpoint".into());
@@ -8452,7 +8474,12 @@ pub(crate) async fn handle_session_create(
     let editor_target_id = body
         .get("editor_target_ref")
         .and_then(Value::as_str)
-        .map(|v| v.strip_prefix("editor-target:").unwrap_or(v).trim().to_string())
+        .map(|v| {
+            v.strip_prefix("editor-target:")
+                .unwrap_or(v)
+                .trim()
+                .to_string()
+        })
         .filter(|v| !v.is_empty())
         .unwrap_or_else(|| "workbench-native".to_string());
     if !super::editor_routes::editor_target_openable(&editor_target_id) {
@@ -11158,8 +11185,9 @@ pub(crate) async fn auth_gate(
     // in the handler), so it bypasses the session/principal gate — external senders have no session.
     let is_webhook_trigger =
         path.starts_with("/v1/hypervisor/automations/") && path.ends_with("/webhook");
-    let exempt =
-        !path.starts_with("/v1/hypervisor/") || EXEMPT.contains(&path.as_str()) || is_webhook_trigger;
+    let exempt = !path.starts_with("/v1/hypervisor/")
+        || EXEMPT.contains(&path.as_str())
+        || is_webhook_trigger;
     if !exempt && auth_enforced(&st.data_dir, req.headers()) {
         if resolve_principal(&st.data_dir, req.headers()).is_none() {
             let needs_bootstrap = !login_possible(&st.data_dir);
@@ -14647,7 +14675,12 @@ pub(crate) async fn handle_session_execute(
     // Adapter driver lane: a session whose ADMITTED harness binding names a wired adapter
     // (opencode / deepseek_tui) executes through that driver — bwrap-confined, event-streaming.
     // Substrate gaps fail closed BEFORE any spawn; no binding keeps the legacy path byte-identical.
-    let driver = match resolve_adapter_driver(&record, &model, &workspace_root, model_endpoint.as_deref()) {
+    let driver = match resolve_adapter_driver(
+        &record,
+        &model,
+        &workspace_root,
+        model_endpoint.as_deref(),
+    ) {
         Ok(driver) => driver,
         Err((reason, message)) => {
             return (
@@ -15012,9 +15045,7 @@ pub(crate) async fn handle_session_ports_revoke(
 /// GET /v1/hypervisor/sessions — slim list projection of the persisted session records (newest
 /// first): refs, lifecycle, workspace, and the admitted harness binding when one was recorded.
 /// Read-only daemon truth for the Workbench sessions panel / session-details consumers.
-pub(crate) async fn handle_sessions_list(
-    State(st): State<Arc<DaemonState>>,
-) -> Json<Value> {
+pub(crate) async fn handle_sessions_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
     let mut sessions: Vec<Value> = read_record_dir(&st.data_dir, "sessions")
         .into_iter()
         .map(|r| {

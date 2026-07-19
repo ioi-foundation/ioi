@@ -29,7 +29,10 @@ fn text<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
 }
 fn nanos() -> u128 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
 }
 
 /// The Vast account this source engages: kind == vast, preflight-verified, sealed bearer
@@ -96,7 +99,10 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
         return json!({ "engaged": false });
     };
     let account_ref = text(&account, "account_ref").to_string();
-    let ep = account.get("endpoint").cloned().unwrap_or_else(|| json!({}));
+    let ep = account
+        .get("endpoint")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     let fetched_at = iso_now();
     if text(&ep, "mode") == "fixture" || text(&ep, "mode") == "simulator" {
         let simulator = text(&ep, "mode") == "simulator";
@@ -109,7 +115,11 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
         let outcome = match std::fs::read_to_string(path) {
             Ok(raw) => match serde_json::from_str::<Value>(&raw) {
                 Ok(doc) => {
-                    let offers = doc.get("offers").and_then(Value::as_array).cloned().unwrap_or_default();
+                    let offers = doc
+                        .get("offers")
+                        .and_then(Value::as_array)
+                        .cloned()
+                        .unwrap_or_default();
                     json!({ "engaged": true, "mode": mode_label, "account_ref": account_ref,
                         "state": state_label, "offers": offers,
                         "evidence": { "mode": mode_label, "fixture_file": path,
@@ -133,7 +143,11 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
     // ── live mode: the real Vast offer search. Read-only; the bearer is used in-daemon only. ──
     let base = {
         let configured = text(&ep, "endpoint");
-        if configured.is_empty() { DEFAULT_ENDPOINT.to_string() } else { configured.trim_end_matches('/').to_string() }
+        if configured.is_empty() {
+            DEFAULT_ENDPOINT.to_string()
+        } else {
+            configured.trim_end_matches('/').to_string()
+        }
     };
     let url = format!("{base}/bundles/");
     let client = reqwest::Client::new();
@@ -150,23 +164,31 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
             let status = r.status().as_u16();
             match r.json::<Value>().await {
                 Ok(doc) if (200..300).contains(&status) => {
-                    let offers = doc.get("offers").and_then(Value::as_array).cloned().unwrap_or_default();
+                    let offers = doc
+                        .get("offers")
+                        .and_then(Value::as_array)
+                        .cloned()
+                        .unwrap_or_default();
                     json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
                         "state": "live_quote_source", "offers": offers,
                         "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status,
                                       "offers_seen": doc.get("offers").and_then(Value::as_array).map(|a| a.len()).unwrap_or(0) },
                         "at": fetched_at })
                 }
-                Ok(doc) => json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
+                Ok(doc) => {
+                    json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
                     "state": "degraded_unreachable", "offers": [],
                     "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status,
                                   "error": format!("vast API rejected the request (body keys: {:?})", doc.as_object().map(|o| o.keys().take(4).cloned().collect::<Vec<_>>()).unwrap_or_default()),
                                   "note": "no fake quotes on failure" },
-                    "at": fetched_at }),
-                Err(e) => json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
+                    "at": fetched_at })
+                }
+                Err(e) => {
+                    json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
                     "state": "degraded_unreachable", "offers": [],
                     "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status, "error": format!("non-JSON response: {e}") },
-                    "at": fetched_at }),
+                    "at": fetched_at })
+                }
             }
         }
         Err(e) => json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
@@ -208,7 +230,11 @@ pub(crate) fn normalize_offers(
     let fixture = mode == "fixture_evidence";
     let simulator = mode == "simulator_evidence";
     let live = mode == "live_evidence";
-    let offers = outcome.get("offers").and_then(Value::as_array).cloned().unwrap_or_default();
+    let offers = outcome
+        .get("offers")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     offers.iter().take(24).enumerate().filter_map(|(i, offer)| {
         // No invented quotes: an offer without a real price is skipped, not estimated.
         let dph = offer.get("dph_total").and_then(Value::as_f64)?;

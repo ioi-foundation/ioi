@@ -76,8 +76,12 @@ pub(crate) async fn handle_feedback_overview(State(st): State<Arc<DaemonState>>)
     let mut by_consent: HashMap<String, i64> = HashMap::new();
     for e in &items {
         *by_status.entry(text(e, "status").to_string()).or_insert(0) += 1;
-        *by_kind.entry(text(e, "entry_kind").to_string()).or_insert(0) += 1;
-        *by_consent.entry(text(e, "consent").to_string()).or_insert(0) += 1;
+        *by_kind
+            .entry(text(e, "entry_kind").to_string())
+            .or_insert(0) += 1;
+        *by_consent
+            .entry(text(e, "consent").to_string())
+            .or_insert(0) += 1;
     }
     Json(json!({
         "ok": true,
@@ -115,18 +119,32 @@ pub(crate) async fn handle_feedback_create(
     }
     let entry_kind = {
         let k = text(&body, "entry_kind");
-        if k.is_empty() { "feedback" } else { k }
+        if k.is_empty() {
+            "feedback"
+        } else {
+            k
+        }
     };
     if !ENTRY_KINDS.contains(&entry_kind) {
-        return bad("feedback_kind_invalid", "entry_kind must be feedback | annotation");
+        return bad(
+            "feedback_kind_invalid",
+            "entry_kind must be feedback | annotation",
+        );
     }
     let fb_body = text(&body, "body");
     if fb_body.trim().is_empty() {
-        return bad("feedback_body_required", "an empty entry records nothing — body is required");
+        return bad(
+            "feedback_body_required",
+            "an empty entry records nothing — body is required",
+        );
     }
     let consent = {
         let c = text(&body, "consent");
-        if c.is_empty() { "never_train" } else { c }
+        if c.is_empty() {
+            "never_train"
+        } else {
+            c
+        }
     };
     if !CONSENT_LADDER.contains(&consent) {
         return bad(
@@ -150,7 +168,10 @@ pub(crate) async fn handle_feedback_create(
         "created_at": now, "updated_at": now
     });
     let _ = persist_record(&st.data_dir, KIND_FEEDBACK, &id, &record);
-    (StatusCode::CREATED, Json(json!({ "ok": true, "feedback_entry": record })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "feedback_entry": record })),
+    )
 }
 
 pub(crate) async fn handle_feedback_get(
@@ -185,7 +206,10 @@ pub(crate) async fn handle_feedback_patch(
                     }
                     let target = text(&body, "converted_to_ref");
                     if target.trim().is_empty() {
-                        return bad("feedback_convert_ref_required", "convert requires converted_to_ref (the named eval/training candidate)");
+                        return bad(
+                            "feedback_convert_ref_required",
+                            "convert requires converted_to_ref (the named eval/training candidate)",
+                        );
                     }
                     e["converted_to_ref"] = json!(target);
                 }
@@ -199,7 +223,10 @@ pub(crate) async fn handle_feedback_patch(
     for key in ["body", "consent", "author_ref"] {
         if let Some(v) = body.get(key) {
             if terminal && body.get("transition").is_none() {
-                return bad("feedback_terminal_immutable", "converted/dismissed entries are receipts — create a new entry instead");
+                return bad(
+                    "feedback_terminal_immutable",
+                    "converted/dismissed entries are receipts — create a new entry instead",
+                );
             }
             if key == "consent" {
                 let c = v.as_str().unwrap_or("");
@@ -212,7 +239,10 @@ pub(crate) async fn handle_feedback_patch(
     }
     e["updated_at"] = json!(iso_now());
     let _ = persist_record(&st.data_dir, KIND_FEEDBACK, &id, &e);
-    (StatusCode::OK, Json(json!({ "ok": true, "feedback_entry": e })))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "feedback_entry": e })),
+    )
 }
 
 pub(crate) async fn handle_feedback_delete(
@@ -230,8 +260,14 @@ mod tests {
     #[test]
     fn feedback_status_machine() {
         assert_eq!(next_feedback_status("open", "triage").unwrap(), "triaged");
-        assert_eq!(next_feedback_status("open", "dismiss").unwrap(), "dismissed");
-        assert_eq!(next_feedback_status("triaged", "convert").unwrap(), "converted");
+        assert_eq!(
+            next_feedback_status("open", "dismiss").unwrap(),
+            "dismissed"
+        );
+        assert_eq!(
+            next_feedback_status("triaged", "convert").unwrap(),
+            "converted"
+        );
         assert!(next_feedback_status("converted", "triage").is_err());
         assert!(next_feedback_status("dismissed", "convert").is_err());
         assert!(next_feedback_status("open", "bogus").is_err());

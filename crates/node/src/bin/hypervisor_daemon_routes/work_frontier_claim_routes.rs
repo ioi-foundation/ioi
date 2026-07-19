@@ -594,9 +594,9 @@ fn validate_record_identity(family: &str, tail: &str, record: &Value) -> Result<
                                 .strip_prefix("receipt://wem_")
                                 .is_some_and(|tail| {
                                     tail.len() == 64
-                                        && tail.chars().all(|c| {
-                                            c.is_ascii_digit() || matches!(c, 'a'..='f')
-                                        })
+                                        && tail
+                                            .chars()
+                                            .all(|c| c.is_ascii_digit() || matches!(c, 'a'..='f'))
                                 })
                         })
                 }))
@@ -686,10 +686,7 @@ fn load_claim(data_dir: &str, id_or_tail: &str) -> Result<Option<Value>, String>
 
 /// Strict WorkClaim resolver for downstream provenance planes. The claim owner retains storage
 /// key, schema, and identity validation; callers never read claim files directly.
-pub(crate) fn load_claim_strict(
-    data_dir: &str,
-    id_or_tail: &str,
-) -> Result<Option<Value>, String> {
+pub(crate) fn load_claim_strict(data_dir: &str, id_or_tail: &str) -> Result<Option<Value>, String> {
     load_claim(data_dir, id_or_tail)
 }
 
@@ -2451,14 +2448,10 @@ fn refuse_mutations_if_reserved(
     }
     for reference in refs {
         super::resource_capability_offer_routes::refuse_external_mutation_if_reserved(
-            data_dir,
-            reference,
-            code,
+            data_dir, reference, code,
         )?;
         super::attempt_finding_routes::refuse_external_mutation_if_reserved(
-            data_dir,
-            reference,
-            code,
+            data_dir, reference, code,
         )?;
     }
     Ok(())
@@ -3230,14 +3223,16 @@ pub(crate) async fn handle_claim_acquire(
     ) {
         return classify(error);
     }
-    if let Err(error) = super::resource_capability_offer_routes::validate_eligibility_for_claim_locked(
-        &state.data_dir,
-        eligibility_receipt_ref,
-        &current_frontier,
-        &current_participant,
-        &declaration,
-        Some(claim_check_at_ms),
-    ) {
+    if let Err(error) =
+        super::resource_capability_offer_routes::validate_eligibility_for_claim_locked(
+            &state.data_dir,
+            eligibility_receipt_ref,
+            &current_frontier,
+            &current_participant,
+            &declaration,
+            Some(claim_check_at_ms),
+        )
+    {
         return classify(error);
     }
     if !matches!(
@@ -5006,9 +5001,21 @@ mod frontier_claim_tests {
             "coordination_topology": "hosted_admission"
         });
         let declaration = validate_claim_acquire(&body).unwrap();
-        assert_eq!(declaration["eligibility_match_receipt_ref"], body["eligibility_match_receipt_ref"]);
-        let record = seal_claim(&declaration, &format!("wcl_{}", "ef".repeat(32)), &format!("receipt://wcr_{}", "01".repeat(32)), 1_800_000_000_000).unwrap();
-        assert_eq!(claim_declaration_from_record(&record)["eligibility_match_receipt_ref"], body["eligibility_match_receipt_ref"]);
+        assert_eq!(
+            declaration["eligibility_match_receipt_ref"],
+            body["eligibility_match_receipt_ref"]
+        );
+        let record = seal_claim(
+            &declaration,
+            &format!("wcl_{}", "ef".repeat(32)),
+            &format!("receipt://wcr_{}", "01".repeat(32)),
+            1_800_000_000_000,
+        )
+        .unwrap();
+        assert_eq!(
+            claim_declaration_from_record(&record)["eligibility_match_receipt_ref"],
+            body["eligibility_match_receipt_ref"]
+        );
     }
 
     #[test]
