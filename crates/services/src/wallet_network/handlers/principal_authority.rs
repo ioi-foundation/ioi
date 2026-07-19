@@ -15,6 +15,7 @@ use crate::wallet_network::support::{
 use crate::wallet_network::validation::{
     load_registered_approval_authority, verify_wallet_signature_proof,
 };
+use crate::wallet_network::ExpectedPrincipalAuthorityBinding;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_types::app::action::ApprovalAuthority;
@@ -679,6 +680,100 @@ fn validate_proof(
     load_current_authority(state, proof, now_ms, require_active_authority)
 }
 
+struct ValidatedCurrentPrincipalAuthority {
+    head: PrincipalAuthorityBindingHeadV1,
+    proof: PrincipalAuthorityBindingProofV1,
+    authority: ApprovalAuthority,
+    matched_scope: String,
+    resolved_at_ms: u64,
+}
+
+fn validate_current_principal_authority(
+    state: &dyn StateAccess,
+    ctx: &TxContext<'_>,
+    principal_ref: &str,
+    required_scope: &str,
+    expected_coordinates: Option<&PrincipalAuthorityBindingCoordinates>,
+) -> Result<ValidatedCurrentPrincipalAuthority, TransactionError> {
+    validate_principal_authority_ref(principal_ref).map_err(|error| {
+        invalid(
+            "principal_authority_principal_ref_invalid",
+            error.to_string(),
+        )
+    })?;
+    validate_required_scope(required_scope)?;
+    let head = load_head(state, principal_ref)?.ok_or_else(|| {
+        invalid(
+            "principal_authority_binding_not_found",
+            "no binding exists for the exact principal_ref",
+        )
+    })?;
+    if expected_coordinates.is_some_and(|expected| expected != &head.coordinates) {
+        return Err(invalid(
+            "principal_authority_binding_coordinates_stale",
+            "expected binding ref/version/hash do not match the current head",
+        ));
+    }
+    if head.status != PrincipalAuthorityBindingStatus::Active {
+        return Err(invalid(
+            "principal_authority_binding_revoked",
+            "current principal-authority binding is revoked",
+        ));
+    }
+    let proof = load_head_proof(state, &head)?;
+    let now_ms = block_timestamp_ms(ctx);
+    let root = load_control_root(state)?.ok_or(TransactionError::UnauthorizedByCredentials)?;
+    validate_binding_chain(state, &proof, &root)?;
+    let authority = validate_proof(state, &proof, now_ms, true)?;
+    let scope_context = ApprovalScopeContext::new(required_scope.to_string());
+    let scope_decision = AuthorityScopeMatcher::evaluate(&authority, &scope_context);
+    if !scope_decision.allowed {
+        return Err(invalid(
+            "principal_authority_scope_denied",
+            scope_decision
+                .reason
+                .unwrap_or_else(|| "approval authority does not allow required_scope".to_string()),
+        ));
+    }
+    let matched_scope = scope_decision.matched_scope.ok_or_else(|| {
+        invalid(
+            "principal_authority_scope_match_invalid",
+            "canonical scope matcher allowed resolution without a matched allowlist entry",
+        )
+    })?;
+    Ok(ValidatedCurrentPrincipalAuthority {
+        head,
+        proof,
+        authority,
+        matched_scope,
+        resolved_at_ms: now_ms,
+    })
+}
+
+pub(crate) fn validate_expected_principal_authority_binding(
+    state: &dyn StateAccess,
+    ctx: &TxContext<'_>,
+    expected: &ExpectedPrincipalAuthorityBinding,
+) -> Result<ApprovalAuthority, TransactionError> {
+    let validated = validate_current_principal_authority(
+        state,
+        ctx,
+        &expected.principal_ref,
+        &expected.required_scope,
+        Some(&expected.coordinates),
+    )?;
+    if validated.authority != expected.approval_authority
+        || validated.proof.statement.approval_authority_snapshot_hash
+            != expected.approval_authority_snapshot_hash
+    {
+        return Err(invalid(
+            "principal_authority_snapshot_stale",
+            "expected approval-authority snapshot does not match the current root-signed binding",
+        ));
+    }
+    Ok(validated.authority)
+}
+
 fn validate_next_version(
     proof: &PrincipalAuthorityBindingProofV1,
     prior: Option<&PrincipalAuthorityBindingProofV1>,
@@ -988,19 +1083,12 @@ pub(crate) fn resolve_principal_authority(
 ) -> Result<(), TransactionError> {
     ensure_initialized_wallet_client_role(state, ctx, WalletAuthRole::Capability)?;
     ensure_nonzero_request_id(&params.request_id)?;
-    validate_principal_authority_ref(&params.principal_ref).map_err(|error| {
-        invalid(
-            "principal_authority_principal_ref_invalid",
-            error.to_string(),
-        )
-    })?;
     if params.authority_kind != PrincipalAuthorityKind::Approval {
         return Err(invalid(
             "principal_authority_kind_unsupported",
             "only approval authority bindings are supported in v1",
         ));
     }
-    validate_required_scope(&params.required_scope)?;
     let receipt_key = principal_authority_resolution_receipt_key(&params.request_id);
     if state.get(&receipt_key)?.is_some() {
         return Err(invalid(
@@ -1008,67 +1096,36 @@ pub(crate) fn resolve_principal_authority(
             "resolution request_id has already been used",
         ));
     }
-    let head = load_head(state, &params.principal_ref)?.ok_or_else(|| {
-        invalid(
-            "principal_authority_binding_not_found",
-            "no binding exists for the exact principal_ref",
-        )
-    })?;
-    if let Some(expected) = params.expected_coordinates.as_ref() {
-        if expected != &head.coordinates {
-            return Err(invalid(
-                "principal_authority_binding_coordinates_stale",
-                "expected binding ref/version/hash do not match the current head",
-            ));
-        }
-    }
-    if head.status != PrincipalAuthorityBindingStatus::Active {
-        return Err(invalid(
-            "principal_authority_binding_revoked",
-            "current principal-authority binding is revoked",
-        ));
-    }
-    let proof = load_head_proof(state, &head)?;
-    let now_ms = block_timestamp_ms(ctx);
-    let root = load_control_root(state)?.ok_or(TransactionError::UnauthorizedByCredentials)?;
-    validate_binding_chain(state, &proof, &root)?;
-    let authority = validate_proof(state, &proof, now_ms, true)?;
-    let scope_context = ApprovalScopeContext::new(params.required_scope.clone());
-    let scope_decision = AuthorityScopeMatcher::evaluate(&authority, &scope_context);
-    if !scope_decision.allowed {
-        return Err(invalid(
-            "principal_authority_scope_denied",
-            scope_decision
-                .reason
-                .unwrap_or_else(|| "approval authority does not allow required_scope".to_string()),
-        ));
-    }
-    let matched_scope = scope_decision.matched_scope.ok_or_else(|| {
-        invalid(
-            "principal_authority_scope_match_invalid",
-            "canonical scope matcher allowed resolution without a matched allowlist entry",
-        )
-    })?;
+    let validated = validate_current_principal_authority(
+        state,
+        ctx,
+        &params.principal_ref,
+        &params.required_scope,
+        params.expected_coordinates.as_ref(),
+    )?;
+    let head = validated.head;
+    let proof = validated.proof;
+    let authority = validated.authority;
     let resolution = PrincipalAuthorityResolutionV1 {
         schema_version: PRINCIPAL_AUTHORITY_BINDING_SCHEMA_VERSION,
         principal_ref: head.principal_ref.clone(),
         authority_kind: head.authority_kind,
         coordinates: head.coordinates.clone(),
         required_scope: params.required_scope.clone(),
-        matched_scope,
+        matched_scope: validated.matched_scope,
         approval_authority: authority.clone(),
         authority_id: authority.authority_id,
         authority_public_key: authority.public_key,
         authority_signature_suite: authority.signature_suite,
         approval_authority_snapshot_hash: proof.statement.approval_authority_snapshot_hash,
-        resolved_at_ms: now_ms,
+        resolved_at_ms: validated.resolved_at_ms,
         mutation_audit_event_id: head.mutation_audit_event_id,
         mutation_audit_event_hash: head.mutation_audit_event_hash,
     };
     let matched_scope = resolution.matched_scope.clone();
     let receipt = PrincipalAuthorityResolutionReceipt {
         request_id: params.request_id,
-        resolved_at_ms: now_ms,
+        resolved_at_ms: validated.resolved_at_ms,
         resolution,
     };
     let mut metadata = base_audit_metadata(ctx);

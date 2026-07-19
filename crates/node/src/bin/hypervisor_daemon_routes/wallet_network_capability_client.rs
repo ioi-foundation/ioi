@@ -497,6 +497,7 @@ async fn consume_for_effect_inner(
         || receipt.request_hash != params.request_hash
         || receipt.grant_hash != params.grant_hash
         || receipt.consumption_id != params.consumption_id
+        || receipt.principal_authority != params.expected_principal_authority
         || receipt.receipt_hash == [0u8; 32]
     {
         return Err(ResolveError::Invalid(

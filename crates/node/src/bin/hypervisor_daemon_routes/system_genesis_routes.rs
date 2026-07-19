@@ -14,6 +14,7 @@ use axum::{
 };
 use ioi_services::wallet_network::{
     ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectParams,
+    ExpectedPrincipalAuthorityBinding,
 };
 use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
 use ioi_types::app::{
@@ -52,8 +53,7 @@ const AUTHORITY: AuthorityContract = AuthorityContract {
 };
 
 pub(crate) static SYSTEM_GENESIS_LOCK: Mutex<()> = Mutex::new(());
-static SYSTEM_GENESIS_ADMISSION_GATE: tokio::sync::Mutex<()> =
-    tokio::sync::Mutex::const_new(());
+static SYSTEM_GENESIS_ADMISSION_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[derive(Clone)]
 struct CompiledAdmission {
@@ -228,6 +228,15 @@ fn wallet_consumption_coordinates(
             format!("wallet approval grant cannot be hashed ({error})"),
         )
     })?;
+    let expected_principal_authority: ExpectedPrincipalAuthorityBinding =
+        serde_json::from_value(authorized.evidence.authority_binding.clone()).map_err(|error| {
+            verr(
+                "system_genesis_authority_evidence_invalid",
+                format!(
+                "principal authority binding cannot be projected into wallet consumption ({error})"
+            ),
+            )
+        })?;
     let consumption_material = json!({
         "domain": "ioi.hypervisor.system-genesis.authority-use.v1",
         "system_id": system_id,
@@ -236,7 +245,8 @@ fn wallet_consumption_coordinates(
         "policy_hash": authorized.evidence.policy_hash,
         "request_hash": authorized.evidence.request_hash,
         "effect_hash": authorized.evidence.effect_hash,
-        "grant_hash": format!("sha256:{}", hex::encode(grant_hash))
+        "grant_hash": format!("sha256:{}", hex::encode(grant_hash)),
+        "principal_authority": expected_principal_authority
     });
     let consumption_hash =
         super::outcome_room_routes::record_output_hash(&consumption_material, &[]);
@@ -251,6 +261,7 @@ fn wallet_consumption_coordinates(
             request_hash,
             grant_hash,
             consumption_id,
+            expected_principal_authority,
         },
         consumption_ref,
     ))
@@ -816,7 +827,9 @@ fn load_record(data_dir: &str, tail: &str) -> Result<Option<Value>, String> {
 
 fn load_receipt(data_dir: &str, tail: &str) -> Result<Option<Value>, String> {
     if !canonical_receipt_tail(tail) {
-        return Err(format!("noncanonical autonomous-System receipt key '{tail}'"));
+        return Err(format!(
+            "noncanonical autonomous-System receipt key '{tail}'"
+        ));
     }
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, RECEIPT_DIR) {
         Ok(value) => value,
@@ -877,8 +890,7 @@ fn reconstruct_converged_local_evidence(
         &admitted_at,
     )
     .map_err(|(_, message)| message)?;
-    let expected_receipt =
-        build_receipt(receipt_tail, &expected_record, &authorized, &admitted_at);
+    let expected_receipt = build_receipt(receipt_tail, &expected_record, &authorized, &admitted_at);
     if record != &expected_record || receipt != &expected_receipt {
         return Err(
             "record and receipt do not reconstruct byte-exactly from canonical inputs and sealed authority evidence"
@@ -894,10 +906,8 @@ fn reconstruct_converged_local_evidence(
         &compiled.proposal_root,
     )
     .map_err(|(_, message)| message)?;
-    let wallet_consumption_tail = format!(
-        "asgc_{}",
-        hex::encode(wallet_consumption.consumption_id)
-    );
+    let wallet_consumption_tail =
+        format!("asgc_{}", hex::encode(wallet_consumption.consumption_id));
     Ok((
         wallet_consumption,
         wallet_consumption_ref,
@@ -967,6 +977,26 @@ fn verify_converged_admission(
                 ),
             )
         })?;
+    let wallet_receipt_value = serde_json::to_value(&wallet_receipt).map_err(|error| {
+        verr(
+            "system_genesis_wallet_consumption_invalid",
+            format!("wallet consumption receipt cannot be projected ({error})"),
+        )
+    })?;
+    super::substrate_store::verify_required_exact(
+        data_dir,
+        CONSUMPTION_DIR,
+        &wallet_consumption_tail,
+        &wallet_receipt_value,
+    )
+    .map_err(|error| {
+        verr(
+            "system_genesis_agentgres_evidence_mismatch",
+            format!(
+                "Agentgres wallet-consumption proof for '{CONSUMPTION_DIR}/{wallet_consumption_tail}' is absent, unreadable, or foreign ({error})"
+            ),
+        )
+    })?;
     Ok((receipt, wallet_receipt))
 }
 
@@ -1050,8 +1080,7 @@ fn persist_wallet_consumption_evidence(
             format!("wallet consumption receipt cannot be projected ({error})"),
         )
     })?;
-    super::durable_fs::persist_receipt_no_clobber(data_dir, CONSUMPTION_DIR, tail, &value)
-        .map_err(map_commit_failure)
+    persist_immutable(data_dir, CONSUMPTION_DIR, tail, &value)
 }
 
 fn load_wallet_consumption_evidence(
@@ -1469,6 +1498,7 @@ fn validate_wallet_consumption_receipt(
         || wallet_receipt.request_hash != wallet_consumption.request_hash
         || wallet_receipt.grant_hash != wallet_consumption.grant_hash
         || wallet_receipt.consumption_id != wallet_consumption.consumption_id
+        || wallet_receipt.principal_authority != wallet_consumption.expected_principal_authority
         || wallet_receipt.receipt_hash != expected_receipt_hash
         || wallet_receipt.policy_hash != grant.policy_hash
         || wallet_receipt.authority_id != grant.authority_id
@@ -1890,11 +1920,10 @@ fn handle_get_tail(data_dir: &str, tail: &str) -> (StatusCode, Json<Value>) {
             return classify(verr("system_genesis_registry_unreadable", message));
         }
     };
-    let (receipt, wallet_receipt) =
-        match verify_converged_admission(data_dir, tail, &record) {
-            Ok(value) => value,
-            Err(error) => return classify(error),
-        };
+    let (receipt, wallet_receipt) = match verify_converged_admission(data_dir, tail, &record) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
     (
         StatusCode::OK,
         Json(json!({
@@ -1915,6 +1944,15 @@ fn handle_get_tail(data_dir: &str, tail: &str) -> (StatusCode, Json<Value>) {
 }
 
 pub(crate) async fn complete_governed_system_genesis_intents(data_dir: &str, max_intents: usize) {
+    // Startup replay and online admission share one owner. Otherwise the boot completer can
+    // consume a newly prepared online intent between that request's wallet crossing and its
+    // local completion check, returning a false 500 for a fully committed admission.
+    let _admission_gate = SYSTEM_GENESIS_ADMISSION_GATE.lock().await;
+    if let Ok(raw) = std::env::var("IOI_TEST_SYSTEM_GENESIS_COMPLETER_PRE_SCAN_PAUSE_MS") {
+        if let Ok(ms) = raw.parse::<u64>() {
+            tokio::time::sleep(std::time::Duration::from_millis(ms.min(5_000))).await;
+        }
+    }
     let intents = match scan_intents(data_dir) {
         Ok(value) => value,
         Err(message) => {
@@ -1935,14 +1973,12 @@ pub(crate) async fn complete_governed_system_genesis_intents(data_dir: &str, max
             &reconstructed.wallet_consumption_tail,
         ) {
             Ok(Some(value)) => {
-                if let Err((_, message)) =
-                    validate_wallet_consumption_receipt(
-                        &reconstructed.receipt,
-                        &reconstructed.wallet_consumption,
-                        &reconstructed.wallet_consumption_ref,
-                        &value,
-                    )
-                {
+                if let Err((_, message)) = validate_wallet_consumption_receipt(
+                    &reconstructed.receipt,
+                    &reconstructed.wallet_consumption,
+                    &reconstructed.wallet_consumption_ref,
+                    &value,
+                ) {
                     eprintln!(
                         "SystemGenesis completer: '{tail}' wallet evidence invalid ({message}); retained"
                     );
@@ -2049,7 +2085,10 @@ mod system_genesis_tests {
     fn fake_authorized() -> AuthorizedDecision {
         use ioi_api::crypto::{SerializableKey, SigningKeyPair};
         use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
-        use ioi_types::app::{account_id_from_key_material, SignatureSuite};
+        use ioi_types::app::{
+            account_id_from_key_material, action::ApprovalAuthority,
+            PrincipalAuthorityBindingCoordinates, SignatureSuite,
+        };
 
         let request_hash = [0x11u8; 32];
         let policy_hash = [0x22u8; 32];
@@ -2072,11 +2111,38 @@ mod system_genesis_tests {
             pii_action: None,
             scoped_exception: None,
             review_request_hash: None,
-            approver_public_key,
+            approver_public_key: approver_public_key.clone(),
             approver_sig: Vec::new(),
             approver_suite: SignatureSuite::ED25519,
         };
-        grant.approver_sig = keypair.sign(&grant.signing_bytes().unwrap()).unwrap().to_bytes().to_vec();
+        grant.approver_sig = keypair
+            .sign(&grant.signing_bytes().unwrap())
+            .unwrap()
+            .to_bytes()
+            .to_vec();
+        let approval_authority = ApprovalAuthority {
+            schema_version: 1,
+            authority_id,
+            public_key: approver_public_key,
+            signature_suite: SignatureSuite::ED25519,
+            expires_at: 1_850_000_000_000,
+            revoked: false,
+            scope_allowlist: vec![AUTHORITY.operation_scope("genesis_admit")],
+        };
+        let expected_principal_authority = ExpectedPrincipalAuthorityBinding {
+            principal_ref: "org://acme/research".to_string(),
+            required_scope: AUTHORITY.operation_scope("genesis_admit"),
+            coordinates: PrincipalAuthorityBindingCoordinates {
+                binding_ref: format!(
+                    "wallet.network://principal-authority-binding/{}",
+                    "77".repeat(32)
+                ),
+                binding_version: 1,
+                binding_hash: [0x77; 32],
+            },
+            approval_authority_snapshot_hash: approval_authority.artifact_hash().unwrap(),
+            approval_authority,
+        };
         AuthorizedDecision {
             evidence: governed::DecisionEvidence {
                 acting_authority_id: json!(authority_id),
@@ -2086,7 +2152,7 @@ mod system_genesis_tests {
                 effect_hash: format!("sha256:{}", "66".repeat(32)),
                 authorized_effect: Value::Null,
                 wallet_approval_grant: serde_json::to_value(grant).unwrap(),
-                authority_binding: json!({"test_fixture": true}),
+                authority_binding: serde_json::to_value(expected_principal_authority).unwrap(),
             },
             resolved_at_ms: 1_784_395_200_000,
         }

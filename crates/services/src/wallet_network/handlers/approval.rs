@@ -1,4 +1,5 @@
 use crate::agentic::runtime::kernel::approval::ApprovalScopeContext;
+use crate::wallet_network::handlers::principal_authority::validate_expected_principal_authority_binding;
 use crate::wallet_network::keys::{
     approval_authority_key, approval_consumption_key, approval_effect_consumption_receipt_key,
     approval_grant_state_key, approval_key, interception_key, PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
@@ -382,10 +383,10 @@ pub(crate) fn consume_approval_grant_for_effect(
         if existing.request_hash != params.request_hash
             || existing.grant_hash != params.grant_hash
             || existing.consumption_id != params.consumption_id
+            || existing.principal_authority != params.expected_principal_authority
         {
             return Err(TransactionError::Invalid(
-                "approval effect consumption id is bound to a different request or grant"
-                    .to_string(),
+                "approval effect consumption id is bound to a different request or grant, or a different principal authority".to_string(),
             ));
         }
         let grant_state: ApprovalGrantState =
@@ -431,6 +432,20 @@ pub(crate) fn consume_approval_grant_for_effect(
         Some(&scope_context),
     )?;
     validate_live_grant_state(ctx, &grant_state, now_ms, load_revocation_epoch(state)?)?;
+    let principal_authority = validate_expected_principal_authority_binding(
+        state,
+        ctx,
+        &params.expected_principal_authority,
+    )?;
+    if principal_authority.authority_id != grant.authority_id
+        || principal_authority.public_key != grant.approver_public_key
+        || principal_authority.signature_suite != grant.approver_suite
+    {
+        return Err(TransactionError::Invalid(
+            "approval grant signer does not match the exact current principal authority"
+                .to_string(),
+        ));
+    }
     if grant_state.remaining_usages == 0 {
         return Err(TransactionError::Invalid(
             "approval grant has no remaining usages".to_string(),
@@ -447,6 +462,7 @@ pub(crate) fn consume_approval_grant_for_effect(
         request_hash: params.request_hash,
         grant_hash: params.grant_hash,
         consumption_id: params.consumption_id,
+        principal_authority: params.expected_principal_authority.clone(),
         policy_hash: grant_state.approval.interception.policy_hash,
         authority_id: grant.authority_id,
         target: grant_state.approval.interception.target.clone(),
@@ -575,6 +591,23 @@ fn validate_effect_receipt(
         && receipt.issued_revocation_epoch == grant_state.issued_revocation_epoch
         && receipt.grant_nonce == grant.nonce
         && receipt.grant_counter == grant.counter
+        && receipt.principal_authority.approval_authority.authority_id == grant.authority_id
+        && receipt.principal_authority.approval_authority.public_key == grant.approver_public_key
+        && receipt
+            .principal_authority
+            .approval_authority
+            .signature_suite
+            == grant.approver_suite
+        && receipt.principal_authority.approval_authority_snapshot_hash
+            == receipt
+                .principal_authority
+                .approval_authority
+                .artifact_hash()
+                .map_err(|error| {
+                    TransactionError::Invalid(format!(
+                        "approval effect consumption authority snapshot cannot be hashed: {error}"
+                    ))
+                })?
         && receipt.usage_ordinal > 0
         && receipt.usage_ordinal <= grant_state.uses_consumed
         && receipt

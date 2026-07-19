@@ -10,14 +10,15 @@ use ioi_types::app::wallet_network::{
     LookupPrincipalAuthorityBindingParams, MailConnectorEnsureBindingParams,
     MailConnectorGetParams, MailConnectorUpsertParams, MailDeleteSpamParams, MailListRecentParams,
     MailReadLatestParams, MailReplyParams, MailboxTotalCountParams, OwnerAnchor,
-    ResolvePrincipalAuthorityParams, RevokePrincipalAuthorityBindingParams, SecretInjectionGrant,
-    SecretInjectionRequestRecord, SessionChannelClose, SessionChannelDelegationRules,
-    SessionChannelOpenAck, SessionChannelOpenConfirm, SessionChannelOpenInit,
-    SessionChannelOpenTry, SessionChannelOrdering, SessionGrant, SessionLease, SessionLeaseMode,
-    SessionReceiptCommit, SessionReceiptCommitDirection, VaultIdentity, VaultPolicyRule,
-    VaultSecretRecord, WalletApprovalDecision, WalletConfigureControlRootParams,
-    WalletGetClientParams, WalletInterceptionContext, WalletListClientsParams,
-    WalletRegisterClientParams, WalletRevokeClientParams,
+    PrincipalAuthorityBindingCoordinates, ResolvePrincipalAuthorityParams,
+    RevokePrincipalAuthorityBindingParams, SecretInjectionGrant, SecretInjectionRequestRecord,
+    SessionChannelClose, SessionChannelDelegationRules, SessionChannelOpenAck,
+    SessionChannelOpenConfirm, SessionChannelOpenInit, SessionChannelOpenTry,
+    SessionChannelOrdering, SessionGrant, SessionLease, SessionLeaseMode, SessionReceiptCommit,
+    SessionReceiptCommitDirection, VaultIdentity, VaultPolicyRule, VaultSecretRecord,
+    WalletApprovalDecision, WalletConfigureControlRootParams, WalletGetClientParams,
+    WalletInterceptionContext, WalletListClientsParams, WalletRegisterClientParams,
+    WalletRevokeClientParams,
 };
 use ioi_types::app::{action::ApprovalAuthority, ActionTarget};
 use ioi_types::codec;
@@ -66,6 +67,21 @@ pub struct ConsumeApprovalGrantParams {
     pub consumed_at_ms: u64,
 }
 
+/// Exact principal-authority resolution retained by a durable effect intent.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+pub struct ExpectedPrincipalAuthorityBinding {
+    /// Exact portable principal whose current binding authorized the effect.
+    pub principal_ref: String,
+    /// Exact operation scope required by the effect.
+    pub required_scope: String,
+    /// Immutable binding coordinates resolved before durable prepare.
+    pub coordinates: PrincipalAuthorityBindingCoordinates,
+    /// Complete approval-authority registry snapshot resolved for the binding.
+    pub approval_authority: ApprovalAuthority,
+    /// Root-signed hash of the exact approval-authority snapshot.
+    pub approval_authority_snapshot_hash: [u8; 32],
+}
+
 /// Parameters for consuming one approval-grant usage for an exact durable effect intent.
 ///
 /// Unlike the legacy counter-only method, this contract is idempotent only for the same
@@ -79,6 +95,8 @@ pub struct ConsumeApprovalGrantForEffectParams {
     pub grant_hash: [u8; 32],
     /// Stable id of the caller's durable pre-effect intent.
     pub consumption_id: [u8; 32],
+    /// Principal authority that must still resolve exactly on first consumption.
+    pub expected_principal_authority: ExpectedPrincipalAuthorityBinding,
 }
 
 /// Immutable receipt for one intent-bound approval-grant consumption.
@@ -89,6 +107,7 @@ pub struct ApprovalGrantConsumptionReceipt {
     pub request_hash: [u8; 32],
     pub grant_hash: [u8; 32],
     pub consumption_id: [u8; 32],
+    pub principal_authority: ExpectedPrincipalAuthorityBinding,
     pub policy_hash: [u8; 32],
     pub authority_id: [u8; 32],
     pub target: ActionTarget,

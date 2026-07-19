@@ -225,7 +225,7 @@ fn run_mux_all(
         e.1 += refused;
     }
     let wall_s = started.elapsed().as_secs_f64();
-    handle.shutdown();
+    handle.shutdown().expect("mux writer final flush");
     writer
         .join
         .join()
