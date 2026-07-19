@@ -1,0 +1,15 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-manifest/release-shape/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_manifest.worker.responsibility.required",
+      "description": "A package release names a bounded worker responsibility.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.worker.responsibility"
+      }
+    }
+  ]
+}

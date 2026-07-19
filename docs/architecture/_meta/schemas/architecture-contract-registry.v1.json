@@ -710,6 +710,441 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+      "canonical_name": "AutonomousSystemManifest",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemmanifestenvelope",
+      "schema_version": "ioi.autonomous-system-manifest.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "autonomous-system-manifest.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-manifest/release-shape/v1",
+          "path": "invariants/autonomous-system-manifest.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemManifestV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemManifestV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-manifest-v1/positive-reusable-release.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+      "canonical_name": "AutonomousSystemGenesis",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemgenesisenvelope",
+      "schema_version": "ioi.autonomous-system-genesis.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "autonomous-system-genesis.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-genesis/proposal-origin/v1",
+          "path": "invariants/autonomous-system-genesis.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemGenesisV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemGenesisV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-genesis-v1/positive-proposed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+      "canonical_name": "AutonomousSystemConstitution",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemconstitutionenvelope",
+      "schema_version": "ioi.autonomous-system-constitution.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "autonomous-system-constitution.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-constitution/accountable-governance/v1",
+          "path": "invariants/autonomous-system-constitution.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemConstitutionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemConstitutionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-constitution-v1/positive-draft.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-constitution-v1/negative-self-authorize.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+      "canonical_name": "AutonomousSystemConstitutionAmendment",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemconstitutionamendmentenvelope",
+      "schema_version": "ioi.autonomous-system-constitution-amendment.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "autonomous-system-constitution-amendment.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-constitution-amendment/exact-change-set/v1",
+          "path": "invariants/autonomous-system-constitution-amendment.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemConstitutionAmendmentV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemConstitutionAmendmentV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+      "canonical_name": "OrderingAdmissionFinalityProfile",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#orderingadmissionfinalityprofileenvelope",
+      "schema_version": "ioi.ordering-admission-finality-profile.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "ordering-admission-finality-profile.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/ordering-admission-finality-profile/threshold/v1",
+          "path": "invariants/ordering-admission-finality-profile.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OrderingAdmissionFinalityProfileV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OrderingAdmissionFinalityProfileV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ordering_admission_finality.threshold.required_lte_eligible"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/oracle-evidence-profile/v1",
+      "canonical_name": "OracleEvidenceProfile",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#oracleevidenceprofileenvelope",
+      "schema_version": "ioi.oracle-evidence-profile.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "oracle-evidence-profile.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/oracle-evidence-profile/escalation/v1",
+          "path": "invariants/oracle-evidence-profile.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OracleEvidenceProfileV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OracleEvidenceProfileV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/oracle-evidence-profile-v1/positive-fail-closed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "oracle_evidence.contradiction.escalation_adjudicator.required"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+      "canonical_name": "LifecycleContinuityProfile",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#lifecyclecontinuityprofileenvelope",
+      "schema_version": "ioi.lifecycle-continuity-profile.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "lifecycle-continuity-profile.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/lifecycle-continuity-profile/succession/v1",
+          "path": "invariants/lifecycle-continuity-profile.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "LifecycleContinuityProfileV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "LifecycleContinuityProfileV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "lifecycle_continuity.succession.trigger.required_when_enabled"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+      "canonical_name": "LifecycleTransition",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#lifecycletransitionenvelope",
+      "schema_version": "ioi.lifecycle-transition.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "lifecycle-transition.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/lifecycle-transition/evidence/v1",
+          "path": "invariants/lifecycle-transition.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "LifecycleTransitionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "LifecycleTransitionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/lifecycle-transition-v1/positive-initialize-proposal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
+      "canonical_name": "IOINetworkEnrollment",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#ioinetworkenrollmentenvelope",
+      "schema_version": "ioi.network-enrollment.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "ioi-network-enrollment.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/ioi-network-enrollment/active-service/v1",
+          "path": "invariants/ioi-network-enrollment.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "IOINetworkEnrollmentV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "IOINetworkEnrollmentV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/ioi-network-enrollment-v1/positive-local-only.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

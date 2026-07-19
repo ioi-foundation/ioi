@@ -1,0 +1,328 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/oracle-evidence-profile/v1",
+  "title": "OracleEvidenceProfile",
+  "description": "Qualified, defeasible, scope-bound evidence admission profile for one System.",
+  "x-ioi-schema-version": "ioi.oracle-evidence-profile.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "oracle_evidence_profile_id",
+    "system_id",
+    "version",
+    "fact_class_refs",
+    "source_requirements",
+    "aggregation",
+    "contradiction",
+    "challenge",
+    "admission",
+    "missing_or_stale_evidence_mode",
+    "source_replacement_policy_ref",
+    "privacy_policy_ref",
+    "retention_policy_ref",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.oracle-evidence-profile.v1"
+    },
+    "oracle_evidence_profile_id": {
+      "type": "string",
+      "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "version": {
+      "$ref": "#/$defs/version"
+    },
+    "fact_class_refs": {
+      "$ref": "#/$defs/canonicalRefs"
+    },
+    "source_requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_class",
+          "source_refs",
+          "evidence_schema_ref",
+          "signer_or_principal_refs",
+          "freshness_and_finality_policy_ref",
+          "independence_group_ref",
+          "required"
+        ],
+        "properties": {
+          "source_class": {
+            "enum": [
+              "official_record",
+              "institutional_attestation",
+              "signed_sensor",
+              "contractual_notice",
+              "human_attestation",
+              "network_commitment",
+              "other"
+            ]
+          },
+          "source_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "evidence_schema_ref": {
+            "$ref": "#/$defs/schemaRef"
+          },
+          "signer_or_principal_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "freshness_and_finality_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "independence_group_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/canonicalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "required": {
+                  "type": "boolean",
+                  "const": true
+                }
+              },
+              "required": ["required"]
+            },
+            "then": {
+              "properties": {
+                "source_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "aggregation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule",
+        "minimum_sources",
+        "minimum_independent_principals",
+        "threshold_policy_ref",
+        "correlated_failure_policy_ref",
+        "uncertainty_policy_ref"
+      ],
+      "properties": {
+        "rule": {
+          "enum": ["single_source", "threshold", "weighted", "adjudicated"]
+        },
+        "minimum_sources": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "minimum_independent_principals": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "threshold_policy_ref": {
+          "$ref": "#/$defs/nullablePolicyRef"
+        },
+        "correlated_failure_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "uncertainty_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "rule": {
+                "enum": ["threshold", "weighted"]
+              }
+            },
+            "required": ["rule"]
+          },
+          "then": {
+            "properties": {
+              "threshold_policy_ref": {
+                "$ref": "#/$defs/policyRef"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "contradiction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "adjudicator_refs", "dispute_policy_ref"],
+      "properties": {
+        "policy": {
+          "enum": ["fail_closed", "hold_pending", "escalate"]
+        },
+        "adjudicator_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "dispute_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        }
+      }
+    },
+    "challenge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "challenge_window_ref",
+        "verifier_refs",
+        "appeal_policy_ref"
+      ],
+      "properties": {
+        "challenge_window_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "verifier_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "appeal_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        }
+      }
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_semantics",
+        "ontology_assertion_schema_refs",
+        "required_verifier_path_refs",
+        "ontology_action_contract_refs",
+        "permitted_applicability_scope_refs",
+        "permitted_consequence_scope_refs",
+        "maximum_assertion_validity_policy_ref",
+        "required_authority_refs",
+        "policy_ref",
+        "receipt_obligations"
+      ],
+      "properties": {
+        "decision_semantics": {
+          "const": "qualified_scope_bound_operational_determination"
+        },
+        "ontology_assertion_schema_refs": {
+          "$ref": "#/$defs/schemaRefs"
+        },
+        "required_verifier_path_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "ontology_action_contract_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "permitted_applicability_scope_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "permitted_consequence_scope_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "maximum_assertion_validity_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "required_authority_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "receipt_obligations": {
+          "type": "array",
+          "items": {
+            "const": "oracle_evidence_admission"
+          },
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "missing_or_stale_evidence_mode": {
+      "enum": ["unknown", "read_only", "pause", "escalate"]
+    },
+    "source_replacement_policy_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "privacy_policy_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "retention_policy_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "status": {
+      "enum": ["draft", "active", "superseded", "revoked"]
+    }
+  },
+  "$defs": {
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+    },
+    "canonicalRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "nullablePolicyRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/policyRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "schemaRef": {
+      "type": "string",
+      "pattern": "^schema://[^\\s]{1,248}$"
+    },
+    "schemaRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/schemaRef"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    }
+  }
+}

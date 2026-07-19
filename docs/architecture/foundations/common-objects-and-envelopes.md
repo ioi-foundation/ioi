@@ -6,7 +6,7 @@ Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
 Last alignment pass: 2026-07-18.
 Doctrine status: canonical
-Implementation status: mixed (the registered architecture-contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for `ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, `AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, `AuthorityRevocationSnapshot` v1, `InformationFlowLabel` v1, `DeclassificationApproval` v1, `ManagedWorkBillingLedgerBundle` v1, `DisputeRailBundle` v1, and `PhysicalActionExecutionReceipt` v1; production portable-authority and receipt-proof cryptographic verifiers/CLIs, information-flow enforcement, managed-work billing and dispute kernels, shared work-lifecycle persistence/routes, physical execution, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned; other core runtime envelopes and IDs are built or partial only where their owner routes exist; bounded-autonomous-system profile/control families, bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine, conditional-cooperation terms, local-agent pairing, AIIP transport/bindings and collaborative-pursuit, optional federated ontology/action, Institutional Learning Boundary, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families remain planned or speculative)
+Implementation status: mixed (the registered architecture-contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for `ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, `AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, `AuthorityRevocationSnapshot` v1, `InformationFlowLabel` v1, `DeclassificationApproval` v1, `ManagedWorkBillingLedgerBundle` v1, `DisputeRailBundle` v1, `PhysicalActionExecutionReceipt` v1, and the bounded-System manifest/genesis/constitution/amendment/ordering/oracle/lifecycle/enrollment family listed below; a pure bounded-System genesis proposal compiler is built, but System admission, persistence, authority verification, activation, amendment/lifecycle execution, network-enrollment effects, and product surfaces are not started; production portable-authority and receipt-proof cryptographic verifiers/CLIs, information-flow enforcement, managed-work billing and dispute kernels, shared work-lifecycle persistence/routes, physical execution, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned; other core runtime envelopes and IDs are built or partial only where their owner routes exist; bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine, conditional-cooperation terms, local-agent pairing, AIIP transport/bindings and collaborative-pursuit, optional federated ontology/action, Institutional Learning Boundary, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families remain planned or speculative)
 Last implementation audit: 2026-07-18
 
 ## Purpose
@@ -234,6 +234,7 @@ review://...            authority, delivery, or policy review identity
 transition://...        accepted local state-transition namespace
 state://...             referenced operational, environment, world, or domain state identity
 constitution://...      autonomous-system constitutional boundary and amendment lineage
+constitution-amendment://... immutable constitutional amendment proposal identity
 improvement-governance-profile://... immutable bounded-improvement admission and promotion policy profile
 deployment-profile://... desired autonomous-system topology and continuity profile
 node-membership://...   observed governed node membership in one logical system
@@ -1173,7 +1174,7 @@ grant, RuntimeAssignment, ActiveSkillSetSnapshot, or other admission-bound
 live object. The `mcp_gateway_requirements` tuples name exact immutable
 requirements that constrain later resolution. Only an admitted GoalRun, Session,
 AutomationRun, worker invocation, or live System binding may reference the
-resulting `mcp_gateway://...` profile. Capability descriptors and connector
+resulting `mcp-gateway://...` profile. Capability descriptors and connector
 requirements are semantic or dependency constraints; they are not admitted
 RuntimeToolContracts, connector account bindings, credentials, or provider
 invocation permission.
@@ -1195,6 +1196,18 @@ workers. They do not describe the system's member-node topology, ordering,
 failover, authority distribution, or finality; those belong to the deployment
 and ordering templates above and become live only through genesis or a governed
 upgrade.
+
+The portable hash profile is exact. `component_set_hash` is SHA-256 over RFC
+8785 JCS for `{domain, value}`, where `domain` is
+`ioi.autonomous-system-component-set-jcs-sha256.v1` and `value` is the complete
+`typed_components` object with only `component_set_hash` removed.
+`release_root` uses the same wrapper with domain
+`ioi.autonomous-system-manifest-release-root-jcs-sha256.v1` and the complete
+manifest with `release_root`, `registry_status`,
+`receipts.package_readiness_receipt_ref`,
+`release.publisher_signature_ref`, and
+`release.registry_published_at` removed. No implementation may substitute
+route-local object ordering or omit fixed release material from either hash.
 
 ### AutonomousSystemGenesisEnvelope
 
@@ -1247,7 +1260,7 @@ AutonomousSystemGenesisEnvelope:
       - revision_ref: tool://.../revision/...
         content_hash: hash
     mcp_gateway_profiles:
-      - profile_revision_ref: mcp_gateway://.../revision/...
+      - profile_revision_ref: mcp-gateway://.../revision/...
         profile_content_hash: hash
   instantiation:
     proposed_by: system://... | wallet://... | org://... | project://...
@@ -1261,7 +1274,7 @@ AutonomousSystemGenesisEnvelope:
     genesis_transition_commitment_ref: commitment://...
     initial_state_root: hash
     initial_receipt_root: hash
-    admission_proof_ref: evidence://... | receipt://...
+    admission_proof_ref: evidence://... | receipt://... | null
   activation_receipt_ref: receipt://... | null
   lifecycle_transition_refs: []
   status_source_receipt_refs: []
@@ -1288,6 +1301,25 @@ does not activate a component. Each initially enabled AutomationSpec also
 requires an exact System/owner-scoped AutomationInstallationBinding
 revision/hash and its admission receipt in this set; the package remains
 definition-only.
+
+For `status: proposed`, `admission_proof_ref`, `activation_receipt_ref`,
+authority-grant refs, conformance-receipt refs, lifecycle-transition refs, and
+status-source receipt refs are absent or empty as typed above. The pure proposal
+compiler accepts an immutable release plus explicitly supplied candidate
+coordinates and timestamps, recomputes the component-set hash and release root,
+derives domain-separated operation/proposal commitments with RFC 8785 JCS, and
+returns bytes, a root, or a bounded blocker report. It does not mint identity,
+read a current head, verify authority, admit or activate a System, persist a
+record, or perform file, daemon, network, wallet, Agentgres, clock, random, or
+environment effects. Supplied evidence, grant, decision, or receipt refs are
+inputs to later governance only and never prove admission or activation.
+The operation commitment uses domain
+`ioi.autonomous-system-genesis-operation-jcs-sha256.v1` over the proposed
+genesis after inserting `admitted_manifest_root` and before inserting either
+operation or transition commitment. The final proposal root uses domain
+`ioi.autonomous-system-genesis-proposal-root-jcs-sha256.v1` over the complete
+compiled genesis. Both use the same `{domain, value}` JCS wrapper as the
+manifest hashes.
 
 ## Governed Autonomous-System Chain Envelopes
 
@@ -1395,6 +1427,43 @@ A null improvement-governance profile disables ImprovementCampaign admission
 and unattended target-generation for that System; it does not disable ordinary
 owner-governed one-shot UpgradeProposals. Enabling the profile follows the
 constitution's protected amendment/change path rather than an implicit default.
+
+### AutonomousSystemConstitutionAmendmentEnvelope
+
+```yaml
+AutonomousSystemConstitutionAmendmentEnvelope:
+  schema_version: ioi.autonomous-system-constitution-amendment.v1
+  amendment_id: constitution-amendment://...
+  system_id: system://...
+  predecessor_constitution_ref: constitution://...
+  predecessor_constitution_root: hash
+  proposed_successor_constitution_ref: constitution://...
+  proposed_successor_constitution_root: hash
+  changed_field_paths: []
+  protected_field_paths: []
+  governing_decision_profile_ref: policy://...
+  proposal_ref: proposal://...
+  evidence_refs: []
+  authority_requirement_refs: []
+  proposed_by_ref: user://... | wallet://... | org://... | project://... | system://... | governance://...
+  decision_ref: decision://... | null
+  status: proposed | evidence_pending | approved | rejected
+```
+
+This envelope is immutable proposal and decision evidence. It binds the exact
+predecessor and proposed successor constitution identities and roots, declares
+every changed path and every protected path touched by the proposal, and names
+the governing decision profile, evidence, and authority requirements. A System
+may propose an amendment only when its active constitution permits that
+proposal posture; the proposal cannot satisfy its own authority requirements.
+
+`approved` means only that the referenced decision approved this exact
+proposal. It does not mutate, supersede, admit, or activate either constitution,
+and it grants no authority. A separately verified constitutional transition
+must bind the same roots and decision under the active predecessor's external
+governance path before any successor can become live. Amendment execution,
+admission, activation, and transition effects are not implemented by this
+contract.
 
 ### ImprovementGovernanceProfileEnvelope
 
@@ -2177,9 +2246,9 @@ IOINetworkEnrollmentEnvelope:
       fee_basis_ref: fee-basis://... | null
       bond_or_stake_ref: optional
       slashing_or_claim_policy_ref: policy://... | null
-      assurance_profile_ref: assurance_profile://... | null
+      assurance_profile_ref: assurance-profile://... | null
   assurance_claim: none | connected_services_only | secured_profile
-  standard_das_conformance_profile_ref: conformance_profile://... | null
+  standard_das_conformance_profile_ref: conformance-profile://... | null
   exit:
     exit_policy_ref: policy://...
     outstanding_obligation_refs: []

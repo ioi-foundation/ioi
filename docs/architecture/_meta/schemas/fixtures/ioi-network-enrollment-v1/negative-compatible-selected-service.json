@@ -1,0 +1,52 @@
+{
+  "schema_version": "ioi.network-enrollment.v1",
+  "network_enrollment_id": "network-enrollment://acme/system-alpha/local",
+  "system_id": "system://acme/system-alpha",
+  "constitution_ref": "constitution://acme/system-alpha/v1",
+  "manifest_ref": "package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "version": "1.0.0",
+  "predecessor_enrollment_ref": null,
+  "profile": "ioi_compatible",
+  "governing_decision_ref": "decision://acme/system-alpha/local-enrollment",
+  "authority_grant_refs": [],
+  "effective_at": "2026-07-18T12:00:00Z",
+  "expires_at": null,
+  "renewal_policy_ref": "policy://acme/network/renewal",
+  "conformance": {
+    "kernel_release_root": "sha256:e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+    "conformance_profile_refs": [],
+    "conformance_receipt_refs": [],
+    "ecosystem_assurance_profile_refs": []
+  },
+  "connection": {
+    "network_ref": null,
+    "system_registration_ref": null,
+    "constitution_commitment_ref": null,
+    "release_commitment_ref": null,
+    "endpoint_commitment_refs": [],
+    "aiip_profile_refs": [],
+    "aiip_channel_refs": []
+  },
+  "selected_network_services": [
+    {
+      "service_kind": "registry",
+      "service_ref": "service://ioi/registry",
+      "terms_ref": "terms://ioi/registry/v1",
+      "fee_basis_ref": null,
+      "bond_or_stake_ref": null,
+      "slashing_or_claim_policy_ref": null,
+      "assurance_profile_ref": null
+    }
+  ],
+  "assurance_claim": "none",
+  "standard_das_conformance_profile_ref": null,
+  "exit": {
+    "exit_policy_ref": "policy://acme/network/exit",
+    "outstanding_obligation_refs": [],
+    "dispute_refs": [],
+    "final_commitment_ref": null
+  },
+  "suspension_reason_code": null,
+  "transition_receipt_refs": [],
+  "status": "local_only"
+}

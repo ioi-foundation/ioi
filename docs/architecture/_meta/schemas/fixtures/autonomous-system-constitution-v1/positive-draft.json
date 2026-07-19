@@ -1,0 +1,71 @@
+{
+  "schema_version": "ioi.autonomous-system-constitution.v1",
+  "constitution_id": "constitution://acme/system-alpha/v1",
+  "system_id": "system://acme/system-alpha",
+  "version": "1.0.0",
+  "predecessor_constitution_ref": null,
+  "constitution_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "declared_purpose": {
+    "statement": "Pursue bounded research outcomes for accountable project stakeholders.",
+    "ontology_refs": ["ontology://acme/research/v1"],
+    "beneficiary_or_stakeholder_refs": ["org://acme/research"],
+    "acceptance_policy_refs": ["policy://acme/acceptance/research"]
+  },
+  "normative_constraints": {
+    "invariant_refs": ["invariant://acme/no-unreceipted-effects/v1"],
+    "permitted_objective_policy_refs": ["policy://acme/objectives/permitted"],
+    "prohibited_objective_policy_refs": ["policy://acme/objectives/prohibited"],
+    "permitted_ontology_action_contract_refs": [],
+    "prohibited_effect_policy_refs": ["policy://acme/effects/prohibited"]
+  },
+  "agency_boundary": {
+    "authority_ceiling_scope_refs": ["scope:network.read"],
+    "delegable_scope_refs": [],
+    "non_delegable_scope_refs": ["scope:governance.amend"],
+    "resource_and_budget_ceiling_policy_refs": ["policy://acme/budget/ceiling"],
+    "time_and_duration_ceiling_policy_refs": ["policy://acme/time/ceiling"],
+    "data_and_privacy_ceiling_policy_refs": ["policy://acme/privacy/default"],
+    "effect_and_externality_ceiling_policy_refs": [
+      "policy://acme/effects/ceiling"
+    ],
+    "egress_policy_ref": "policy://acme/egress/default",
+    "node_expansion": "governed_membership_only",
+    "code_propagation": "admitted_deployment_only",
+    "self_authority_widening": "forbidden"
+  },
+  "governance": {
+    "governance_owner_refs": ["org://acme/research"],
+    "accountable_principal_refs": ["wallet://acme/governance"],
+    "affected_party_policy_ref": "policy://acme/governance/affected-parties",
+    "ordinary_upgrade_policy_ref": "policy://acme/governance/upgrades",
+    "amendment_mode": "external_governance_only",
+    "amendment_decision_profile_ref": "policy://acme/governance/amendments",
+    "protected_clause_refs": ["constitution-clause://acme/purpose"],
+    "agent_may_propose_amendment": true,
+    "agent_may_commit_amendment": false,
+    "emergency_pause_authority_refs": ["wallet://acme/governance"],
+    "revocation_authority_refs": ["wallet://acme/governance"]
+  },
+  "protected_profile_governance": {
+    "improvement_governance_profile_ref": null,
+    "improvement_governance_profile_change_decision_profile_ref": null,
+    "deployment_constraint_ref": "policy://acme/deployment/constraint",
+    "deployment_change_decision_profile_ref": "policy://acme/deployment/change",
+    "ordering_admission_finality_constraint_ref": "policy://acme/ordering/constraint",
+    "ordering_profile_change_decision_profile_ref": "policy://acme/ordering/change",
+    "oracle_evidence_constraint_ref": "policy://acme/oracle/constraint",
+    "oracle_profile_change_decision_profile_ref": "policy://acme/oracle/change",
+    "lifecycle_continuity_constraint_ref": "policy://acme/lifecycle/constraint",
+    "lifecycle_profile_change_decision_profile_ref": "policy://acme/lifecycle/change",
+    "network_enrollment_constraint_ref": "policy://acme/network/local-only",
+    "network_enrollment_change_decision_profile_ref": "policy://acme/network/change"
+  },
+  "shutdown": {
+    "kill_switch_ref": "policy://acme/shutdown/kill-switch",
+    "decommission_policy_ref": "policy://acme/shutdown/decommission",
+    "minimum_archive_policy_ref": "policy://acme/archive/minimum"
+  },
+  "activation_receipt_ref": null,
+  "public_commitment_ref": null,
+  "status": "draft"
+}

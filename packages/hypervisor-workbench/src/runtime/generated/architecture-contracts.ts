@@ -632,6 +632,582 @@ export type DeclassificationApprovalV1 = {
   approval_receipt_ref: string;
 };
 
+export type AutonomousSystemManifestV1 = {
+  schema_version: "ioi.autonomous-system-manifest.v1";
+  package_id: string;
+  manifest_id: string;
+  display_name: string;
+  description: string;
+  version: string;
+  predecessor_manifest_ref: string | null;
+  release_root: string;
+  registry_status: "draft" | "evaluable" | "package_ready" | "released" | "promoted" | "deprecated" | "revoked";
+  constitution_template_ref: string;
+  required_profile_templates: {
+      deployment_template_ref: string;
+      ordering_admission_finality_template_ref: string;
+      oracle_evidence_template_refs: Array<string>;
+      lifecycle_continuity_template_ref: string;
+      network_enrollment_constraint_ref: string;
+    };
+  system_binding: {
+      allowed_use: "instantiate_new" | "upgrade_existing" | "either";
+      compatible_constitution_constraint_ref: string;
+      compatible_predecessor_release_roots: Array<string>;
+    };
+  worker: {
+      worker_revision_ref: string;
+      worker_content_hash: string;
+      responsibility: string;
+      owner_ref: string;
+    };
+  typed_components: {
+      component_set_snapshot_ref: string;
+      component_set_hash: string;
+      goal_run_profiles: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      workflow_templates: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      automation_specs: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      harness_profiles: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      agent_harness_adapters: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      skill_manifests: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      data_recipes: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      runtime_tool_contracts: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      mcp_gateway_requirements: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+    };
+  workflow_compatibility: {
+      default_workflow_template_revision_ref: string | null;
+      default_workflow_template_content_hash: string | null;
+      compatible_harness_profile_revision_refs: Array<string>;
+      topology_hash: string | null;
+    };
+  source_project: {
+      project_ref: string | null;
+      repository_refs: Array<string>;
+      default_branch_or_ref: string | null;
+      development_environment_recipe_ref: string | null;
+      development_environment_recipe_content_hash: string | null;
+      issue_tracker_refs: Array<string>;
+      code_owner_refs: Array<string>;
+    };
+  interfaces: {
+      operator_console_descriptor_ref: string | null;
+      generated_domain_app_descriptor_ref: string | null;
+      api_contract_refs: Array<string>;
+      aiip_binding_requirement_refs: Array<string>;
+      publication_endpoint_contract_refs: Array<string>;
+    };
+  capabilities: {
+      model_capability_requirement_refs: Array<string>;
+      model_deployment_profile_refs: Array<string>;
+      capability_descriptor_refs: Array<string>;
+      connector_requirement_refs: Array<string>;
+      primitive_capabilities_required: Array<string>;
+    };
+  authority: {
+      authority_scope_requirements: Array<string>;
+      grant_requirements: Array<string>;
+      approval_profile_ref: string | null;
+      policy_profile_ref: string | null;
+      revocation_posture: "fail_closed" | "pause" | "degrade_read_only";
+    };
+  runtime_profiles: Array<{
+        profile_id: string;
+        kind: "local_daemon" | "task_browser" | "local_container" | "hosted_daemon" | "cloud_vm" | "tee" | "depin" | "customer_vpc";
+        compatibility_requirement_ref: string;
+        cleanup_policy_ref: string | null;
+      }>;
+  session_state_memory_artifacts: {
+      session_profile_ref: string | null;
+      state_profile_ref: string | null;
+      memory_profile_ref: string | null;
+      artifact_retention_profile_ref: string | null;
+      observation_retention_mode: "summary_only" | "local_redacted" | "local_raw" | "encrypted_local_raw" | "no_persistence";
+    };
+  evaluation: {
+      eval_profile_refs: Array<string>;
+      benchmark_refs: Array<string>;
+      quality_gate_refs: Array<string>;
+      replay_profile_ref: string | null;
+    };
+  promotion: {
+      promotion_profile_ref: string | null;
+      release_target_refs: Array<string>;
+      rollout_policy_ref: string | null;
+      rollback_policy_ref: string | null;
+      recall_policy_ref: string | null;
+      kill_switch_ref: string | null;
+      marketplace_exposure_eligibility: "none" | "internal" | "review_required" | "eligible";
+      foundry_lineage_refs: Array<string>;
+      worker_card_preview_ref: string | null;
+    };
+  receipts: {
+      package_readiness_receipt_ref: string | null;
+      release_evaluation_receipt_refs: Array<string>;
+    };
+  release: {
+      publisher_signature_ref: string;
+      registry_published_at: string | null;
+    };
+};
+
+export type AutonomousSystemGenesisV1 = {
+  schema_version: "ioi.autonomous-system-genesis.v1";
+  genesis_id: string;
+  system_id: string;
+  package_id: string;
+  manifest_ref: string;
+  admitted_manifest_root: string;
+  constitution_ref: string;
+  initial_profile_refs: {
+      deployment_profile_ref: string;
+      ordering_admission_finality_profile_ref: string;
+      oracle_evidence_profile_refs: Array<string>;
+      lifecycle_continuity_profile_ref: string;
+      network_enrollment_ref: string | null;
+    };
+  initial_component_bindings: {
+      admitted_component_set_snapshot_ref: string;
+      admitted_component_set_hash: string;
+      goal_run_profiles: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      workflow_templates: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      automation_specs: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      automation_installations: Array<{
+              binding_revision_ref: string;
+              binding_hash: string;
+              admission_receipt_ref: string;
+            }>;
+      harness_profiles: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      agent_harness_adapters: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      skill_entries: Array<{
+              binding_revision_ref: string;
+              binding_hash: string;
+              skill_manifest_revision_ref: string;
+              skill_manifest_content_hash: string;
+            }>;
+      data_recipes: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      runtime_tool_contracts: Array<{
+              revision_ref: string;
+              content_hash: string;
+            }>;
+      mcp_gateway_profiles: Array<{
+              profile_revision_ref: string;
+              profile_content_hash: string;
+            }>;
+    };
+  instantiation: {
+      proposed_by: string;
+      decision_ref: string;
+      authority_grant_refs: Array<string>;
+      conformance_receipt_refs: Array<string>;
+    };
+  cryptographic_origin: {
+      sequence: number;
+      predecessor_commitment_ref: null;
+      genesis_operation_commitment: string;
+      genesis_transition_commitment_ref: string;
+      initial_state_root: string;
+      initial_receipt_root: string;
+      admission_proof_ref: string | null;
+    };
+  activation_receipt_ref: string | null;
+  lifecycle_transition_refs: Array<string>;
+  status_source_receipt_refs: Array<string>;
+  created_at: string;
+  status: "proposed" | "authorized" | "activated" | "rejected" | "revoked";
+};
+
+export type AutonomousSystemConstitutionV1 = {
+  schema_version: "ioi.autonomous-system-constitution.v1";
+  constitution_id: string;
+  system_id: string;
+  version: string;
+  predecessor_constitution_ref: string | null;
+  constitution_root: string;
+  declared_purpose: {
+      statement: string;
+      ontology_refs: Array<string>;
+      beneficiary_or_stakeholder_refs: Array<string>;
+      acceptance_policy_refs: Array<string>;
+    };
+  normative_constraints: {
+      invariant_refs: Array<string>;
+      permitted_objective_policy_refs: Array<string>;
+      prohibited_objective_policy_refs: Array<string>;
+      permitted_ontology_action_contract_refs: Array<string>;
+      prohibited_effect_policy_refs: Array<string>;
+    };
+  agency_boundary: {
+      authority_ceiling_scope_refs: Array<string>;
+      delegable_scope_refs: Array<string>;
+      non_delegable_scope_refs: Array<string>;
+      resource_and_budget_ceiling_policy_refs: Array<string>;
+      time_and_duration_ceiling_policy_refs: Array<string>;
+      data_and_privacy_ceiling_policy_refs: Array<string>;
+      effect_and_externality_ceiling_policy_refs: Array<string>;
+      egress_policy_ref: string;
+      node_expansion: "governed_membership_only";
+      code_propagation: "admitted_deployment_only";
+      self_authority_widening: "forbidden";
+    };
+  governance: {
+      governance_owner_refs: Array<string>;
+      accountable_principal_refs: Array<string>;
+      affected_party_policy_ref: string;
+      ordinary_upgrade_policy_ref: string;
+      amendment_mode: "immutable" | "external_governance_only";
+      amendment_decision_profile_ref: string | null;
+      protected_clause_refs: Array<string>;
+      agent_may_propose_amendment: boolean;
+      agent_may_commit_amendment: false;
+      emergency_pause_authority_refs: Array<string>;
+      revocation_authority_refs: Array<string>;
+    };
+  protected_profile_governance: {
+      improvement_governance_profile_ref: string | null;
+      improvement_governance_profile_change_decision_profile_ref: string | null;
+      deployment_constraint_ref: string;
+      deployment_change_decision_profile_ref: string;
+      ordering_admission_finality_constraint_ref: string;
+      ordering_profile_change_decision_profile_ref: string;
+      oracle_evidence_constraint_ref: string;
+      oracle_profile_change_decision_profile_ref: string;
+      lifecycle_continuity_constraint_ref: string;
+      lifecycle_profile_change_decision_profile_ref: string;
+      network_enrollment_constraint_ref: string;
+      network_enrollment_change_decision_profile_ref: string;
+    };
+  shutdown: {
+      kill_switch_ref: string | null;
+      decommission_policy_ref: string;
+      minimum_archive_policy_ref: string;
+    };
+  activation_receipt_ref: string | null;
+  public_commitment_ref: string | null;
+  status: "draft" | "active" | "superseded" | "revoked";
+};
+
+export type AutonomousSystemConstitutionAmendmentV1 = {
+  schema_version: "ioi.autonomous-system-constitution-amendment.v1";
+  amendment_id: string;
+  system_id: string;
+  predecessor_constitution_ref: string;
+  predecessor_constitution_root: string;
+  proposed_successor_constitution_ref: string;
+  proposed_successor_constitution_root: string;
+  changed_field_paths: Array<string>;
+  protected_field_paths: Array<string>;
+  governing_decision_profile_ref: string;
+  proposal_ref: string;
+  evidence_refs: Array<string>;
+  authority_requirement_refs: Array<string>;
+  proposed_by_ref: string;
+  decision_ref: string | null;
+  status: "proposed" | "evidence_pending" | "approved" | "rejected";
+};
+
+export type OrderingAdmissionFinalityProfileV1 = {
+  schema_version: "ioi.ordering-admission-finality-profile.v1";
+  ordering_profile_id: string;
+  system_id: string;
+  constitution_ref: string;
+  version: string;
+  profile: "single_authority" | "replicated_single_authority" | "threshold_authority" | "bft_consensus" | "external_chain_finality";
+  authority_distribution: {
+      posture: "single_principal" | "declared_multi_principal" | "external_network";
+      principal_refs: Array<string>;
+      independence_evidence_refs: Array<string>;
+    };
+  ordering: {
+      rule_ref: string;
+      member_node_membership_refs: Array<string>;
+      writer_epoch_required: boolean;
+      fencing_required: boolean;
+      leader_or_sequencer_selection_ref: string | null;
+      conflict_rule_ref: string;
+    };
+  admission: {
+      deterministic_transition_function_ref: string;
+      schema_root: string;
+      policy_root: string;
+      authority_rule_ref: string;
+      threshold: {
+            required: number;
+            eligible: number;
+          };
+      require_expected_predecessor_root: true;
+      receipt_obligations: Array<string>;
+    };
+  cryptographic_continuity: {
+      hash_and_signature_suite_ref: string;
+      sequence_rule_ref: string;
+      require_monotonic_sequence: true;
+      require_expected_predecessor_commitment: true;
+      operation_or_batch_commitment_schema_ref: string;
+      admission_proof_schema_ref: string;
+      require_resulting_state_root: true;
+      require_receipt_root: true;
+      checkpoint_and_compaction_policy_ref: string;
+    };
+  finality: {
+      scope: "local_operational" | "cross_domain" | "public_economic";
+      rule_ref: string;
+      proof_schema_ref: string;
+      rollback_posture: "recoverable_before_final" | "compensation_only_after_final" | "irreversible_after_final";
+      external_network_ref: string | null;
+      external_contract_ref: string | null;
+      external_confirmation_policy_ref: string | null;
+    };
+  fault_model_ref: string;
+  liveness_policy_ref: string;
+  membership_and_profile_change_policy_ref: string;
+  conformance_receipt_refs: Array<string>;
+  status: "draft" | "active" | "superseded" | "revoked";
+};
+
+export type OracleEvidenceProfileV1 = {
+  schema_version: "ioi.oracle-evidence-profile.v1";
+  oracle_evidence_profile_id: string;
+  system_id: string;
+  version: string;
+  fact_class_refs: Array<string>;
+  source_requirements: Array<{
+        source_class: "official_record" | "institutional_attestation" | "signed_sensor" | "contractual_notice" | "human_attestation" | "network_commitment" | "other";
+        source_refs: Array<string>;
+        evidence_schema_ref: string;
+        signer_or_principal_refs: Array<string>;
+        freshness_and_finality_policy_ref: string;
+        independence_group_ref: string | null;
+        required: boolean;
+      }>;
+  aggregation: {
+      rule: "single_source" | "threshold" | "weighted" | "adjudicated";
+      minimum_sources: number;
+      minimum_independent_principals: number;
+      threshold_policy_ref: string | null;
+      correlated_failure_policy_ref: string;
+      uncertainty_policy_ref: string;
+    };
+  contradiction: {
+      policy: "fail_closed" | "hold_pending" | "escalate";
+      adjudicator_refs: Array<string>;
+      dispute_policy_ref: string;
+    };
+  challenge: {
+      challenge_window_ref: string;
+      verifier_refs: Array<string>;
+      appeal_policy_ref: string;
+    };
+  admission: {
+      decision_semantics: "qualified_scope_bound_operational_determination";
+      ontology_assertion_schema_refs: Array<string>;
+      required_verifier_path_refs: Array<string>;
+      ontology_action_contract_refs: Array<string>;
+      permitted_applicability_scope_refs: Array<string>;
+      permitted_consequence_scope_refs: Array<string>;
+      maximum_assertion_validity_policy_ref: string;
+      required_authority_refs: Array<string>;
+      policy_ref: string;
+      receipt_obligations: Array<"oracle_evidence_admission">;
+    };
+  missing_or_stale_evidence_mode: "unknown" | "read_only" | "pause" | "escalate";
+  source_replacement_policy_ref: string;
+  privacy_policy_ref: string;
+  retention_policy_ref: string;
+  status: "draft" | "active" | "superseded" | "revoked";
+};
+
+export type LifecycleContinuityProfileV1 = {
+  schema_version: "ioi.lifecycle-continuity-profile.v1";
+  lifecycle_profile_id: string;
+  system_id: string;
+  constitution_ref: string;
+  version: string;
+  continuity_class: "operator_bound" | "successor_governed" | "durable_purpose" | "finite_term";
+  continuity: {
+      operating_budget_policy_ref: string;
+      dependency_replacement_policy_ref: string;
+      minimum_archive_policy_ref: string;
+      degraded_mode: "pause" | "read_only" | "bounded_continuation";
+    };
+  recovery_and_suspension: {
+      recovery_policy_ref: string;
+      pause_and_resume_policy_ref: string;
+      suspension_and_reinstatement_policy_ref: string;
+      quarantine_and_release_policy_ref: string;
+      retirement_policy_ref: string;
+    };
+  succession: {
+      enabled: boolean;
+      trigger_classes: Array<"creator_death" | "creator_incapacity" | "organization_dissolution" | "authority_loss" | "governance_deadlock" | "term_expiry">;
+      oracle_evidence_profile_refs: Array<string>;
+      successor_candidate_refs: Array<string>;
+      selection_policy_ref: string;
+      required_legal_or_governance_authority_refs: Array<string>;
+      challenge_window_ref: string;
+      authority_handoff: "rotate_and_reissue";
+      constitution_must_be_preserved: true;
+    };
+  dissolution: {
+      trigger_policy_refs: Array<string>;
+      approval_policy_ref: string;
+      active_work_disposition_policy_ref: string;
+      asset_disposition_contract_refs: Array<string>;
+      outstanding_obligation_policy_ref: string;
+      authority_revocation_policy_ref: string;
+      worker_and_node_shutdown_policy_ref: string;
+      data_export_retention_and_erasure_policy_ref: string;
+      network_exit_policy_ref: string;
+      tombstone_policy_ref: string;
+    };
+  migration: {
+      allowed: boolean;
+      migration_policy_ref: string;
+      identity_continuity_required: true;
+      state_root_verification_required: true;
+    };
+  fork: {
+      allowed: boolean;
+      fork_policy_ref: string;
+      new_system_id_required: true;
+      source_identity_inheritance: "forbidden";
+      state_root_and_lineage_proof_required: true;
+    };
+  adoption: {
+      allowed: boolean;
+      adoption_policy_ref: string;
+      identity_continuity_decision_profile_ref: string;
+      explicit_identity_decision_required: true;
+      state_root_and_lineage_proof_required: true;
+    };
+  status: "draft" | "active" | "superseded" | "revoked";
+};
+
+export type LifecycleTransitionV1 = {
+  schema_version: "ioi.lifecycle-transition.v1";
+  lifecycle_transition_id: string;
+  system_id: string;
+  resulting_or_related_system_id: string | null;
+  lifecycle_profile_ref: string;
+  transition_kind: "initialize" | "activate" | "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "initiate_succession" | "complete_succession" | "initiate_dissolution" | "complete_dissolution" | "migrate" | "fork" | "adopt" | "retire" | "archive" | "revoke" | "decommission";
+  genesis_ref: string | null;
+  manifest_ref: string | null;
+  admitted_manifest_root: string | null;
+  previous_state: "draft" | "initialized" | "active" | "degraded" | "paused" | "suspended" | "dormant" | "recovering" | "quarantined" | "succession_pending" | "successor_governed" | "dissolution_pending" | "dissolving" | "dissolved" | "retired" | "archived" | "decommissioned" | "revoked";
+  proposed_state: "draft" | "initialized" | "active" | "degraded" | "paused" | "suspended" | "dormant" | "recovering" | "quarantined" | "succession_pending" | "successor_governed" | "dissolution_pending" | "dissolving" | "dissolved" | "retired" | "archived" | "decommissioned" | "revoked";
+  trigger_evidence_refs: Array<string>;
+  oracle_evidence_profile_refs: Array<string>;
+  proposal_ref: string;
+  decision_ref: string | null;
+  authority_grant_refs: Array<string>;
+  challenge_opened_at: string | null;
+  challenge_closes_at: string | null;
+  predecessor_state_root: string;
+  resulting_state_root: string | null;
+  state_transition_commitment_ref: string | null;
+  lineage_ref: string | null;
+  identity_continuity_decision_ref: string | null;
+  disposition_receipt_refs: Array<string>;
+  receipt_refs: Array<string>;
+  public_commitment_ref: string | null;
+  status: "proposed" | "evidence_pending" | "challenge_open" | "approved" | "executing" | "committed" | "rejected" | "rolled_back" | "failed_closed";
+};
+
+export type IOINetworkEnrollmentV1 = {
+  schema_version: "ioi.network-enrollment.v1";
+  network_enrollment_id: string;
+  system_id: string;
+  constitution_ref: string;
+  manifest_ref: string;
+  version: string;
+  predecessor_enrollment_ref: string | null;
+  profile: "ioi_compatible" | "ioi_connected" | "ioi_secured";
+  governing_decision_ref: string;
+  authority_grant_refs: Array<string>;
+  effective_at: string;
+  expires_at: string | null;
+  renewal_policy_ref: string;
+  conformance: {
+      kernel_release_root: string;
+      conformance_profile_refs: Array<string>;
+      conformance_receipt_refs: Array<string>;
+      ecosystem_assurance_profile_refs: Array<string>;
+    };
+  connection: {
+      network_ref: "network://ioi-l1" | null;
+      system_registration_ref: string | null;
+      constitution_commitment_ref: string | null;
+      release_commitment_ref: string | null;
+      endpoint_commitment_refs: Array<string>;
+      aiip_profile_refs: Array<string>;
+      aiip_channel_refs: Array<string>;
+    };
+  selected_network_services: Array<{
+        service_kind: "registry" | "rights" | "reputation" | "escrow" | "dispute" | "settlement" | "validator" | "verifier" | "guardian" | "availability" | "relayer" | "arbitrator" | "ordering" | "finality";
+        service_ref: string;
+        terms_ref: string;
+        fee_basis_ref: string | null;
+        bond_or_stake_ref: string | null;
+        slashing_or_claim_policy_ref: string | null;
+        assurance_profile_ref: string | null;
+      }>;
+  assurance_claim: "none" | "connected_services_only" | "secured_profile";
+  standard_das_conformance_profile_ref: string | null;
+  exit: {
+      exit_policy_ref: string;
+      outstanding_obligation_refs: Array<string>;
+      dispute_refs: Array<string>;
+      final_commitment_ref: string | null;
+    };
+  suspension_reason_code: string | null;
+  transition_receipt_refs: Array<string>;
+  status: "local_only" | "pending" | "active" | "suspended" | "exiting" | "exited" | "revoked";
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -1023,6 +1599,150 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ordering_admission_finality.threshold.required_lte_eligible"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/oracle-evidence-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/oracle-evidence-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "oracle_evidence.contradiction.escalation_adjudicator.required"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "lifecycle_continuity.succession.trigger.required_when_enabled"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -1383,6 +2103,38 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
         "dispute_remedy_execution"
       ]
     }
+  },
+  {
+    "id": "type-less-if-else-required-hash-violated",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "else"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/workflow_compatibility/default_workflow_template_content_hash",
+      "value": null
+    }
+  },
+  {
+    "id": "boolean-const-self-authority-violated",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    "covered_keywords": [
+      "const"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/governance/agent_may_commit_amendment",
+      "value": true
+    }
   }
 ];
 
@@ -1732,6 +2484,132 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
+    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json",
+    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json",
+    "contract_id": "schema://ioi/foundations/oracle-evidence-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json",
+    "contract_id": "schema://ioi/foundations/oracle-evidence-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json",
+    "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json",
+    "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:type-number-for-string",
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
     "source_fixture_path": null,
@@ -1879,6 +2757,20 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "mutation:type-less-if-else-required-hash-violated",
+    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "source_fixture_path": null,
+    "mutation_id": "type-less-if-else-required-hash-violated",
+    "value_json": null
+  },
+  {
+    "id": "mutation:boolean-const-self-authority-violated",
+    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "source_fixture_path": null,
+    "mutation_id": "boolean-const-self-authority-violated",
+    "value_json": null
+  },
+  {
     "id": "differential:authority-timestamp-integral-decimal",
     "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
     "source_fixture_path": null,
@@ -1985,6 +2877,7 @@ export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = [
   "anyOf",
   "const",
   "contains",
+  "else",
   "enum",
   "format",
   "if",
@@ -2004,9 +2897,17 @@ export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = [
 ] as const;
 
 export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
+  "^(?:artifact|cid)://[^\\s]{1,248}$",
   "^(?:commitment|settlement|tx)://[^\\s]+$",
+  "^(?:commitment|settlement|tx)://[^\\s]{1,248}$",
   "^(?:decision|dispute)://[^\\s]+$",
+  "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$",
   "^(?:evidence|assurance-evidence|artifact)://[^\\s]+$",
+  "^(?:evidence|receipt)://[^\\s]{1,248}$",
+  "^(?:network|chain|domain)://[^\\s]{1,248}$",
+  "^(?:policy|profile)://[^\\s]{1,248}$",
+  "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$",
+  "^(?:receipt|evidence)://[^\\s]{1,248}$",
   "^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$",
   "^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$",
   "^(?:schema|policy)://[^\\s]+$",
@@ -2014,16 +2915,26 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$",
   "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$",
   "^(?:system|wallet|org|policy)://[^\\s]+$",
+  "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
+  "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
+  "^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$",
+  "^[ -~]{1,2048}$",
+  "^[ -~]{1,256}$",
+  "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$",
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
   "^[A-Z]{3}$",
   "^[A-Za-z0-9_-]{43}$",
   "^[A-Za-z0-9_-]{86}$",
   "^[A-Za-z0-9_.-]+$",
+  "^[^\\s][ -~]{0,2047}$",
   "^[a-z][a-z0-9+.-]*://\\S+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
+  "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9-]*://[^\\s]+$",
+  "^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^[a-z][a-z0-9._-]*$",
+  "^[a-z][a-z0-9._-]{0,127}$",
   "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
   "^[a-z][a-z0-9_]*$",
   "^acceptance://[^\\s]+$",
@@ -2032,45 +2943,85 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agentgres://operation/[^\\s]+$",
   "^approval://[A-Za-z0-9._~:/-]+$",
   "^artifact://[^\\s]+$",
+  "^artifact://[^\\s]{1,248}$",
   "^assurance-evidence://[^\\s]+$",
+  "^assurance-profile://[^\\s]{1,248}$",
   "^authority-request://[^\\s]+$",
   "^build://[^\\s]+$",
   "^caveat://[^\\s]+$",
+  "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
+  "^conformance-profile://[^\\s]{1,248}$",
+  "^constitution-amendment://[^\\s]{1,248}$",
+  "^constitution://[^\\s]{1,248}$",
   "^controller-binding://[^\\s]+$",
+  "^decision://[^\\s]{1,248}$",
+  "^deployment-profile://[^\\s]{1,248}$",
+  "^development-environment-recipe://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^effect://[^\\s]+$",
   "^embodied-resource-group-revision://[^\\s]+$",
   "^embodied-runtime-graph-manifest://[^\\s]+$",
   "^estop://[^\\s]+$",
+  "^fee-basis://[^\\s]{1,248}$",
+  "^genesis://[^\\s]{1,248}$",
   "^grant://[A-Za-z0-9._~:/-]+$",
   "^grant://[^\\s]+$",
+  "^grant://[^\\s]{1,248}$",
   "^ifc-label://[A-Za-z0-9._~:/-]+$",
+  "^improvement-governance-profile://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^incident://[^\\s]+$",
+  "^install://automation/[^\\s]{1,140}/revision/sha256:[0-9a-f]{64}$",
+  "^ioi://publisher/[^\\s]{1,224}$",
   "^key://[^\\s]+$",
   "^keyset://[^\\s]+$",
+  "^lifecycle-profile://[^\\s]{1,248}$",
+  "^lifecycle-transition://[^\\s]{1,248}$",
+  "^mcp-gateway://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^network-enrollment://[^\\s]{1,248}$",
+  "^node-membership://[^\\s]{1,248}$",
+  "^oracle-evidence-profile://[^\\s]{1,248}$",
+  "^ordering-profile://[^\\s]{1,248}$",
+  "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$",
+  "^package://[^\\s]{1,248}$",
   "^physical-action-admission:[^\\s]+$",
   "^policy://[A-Za-z0-9._~:/-]+$",
   "^policy://[^\\s]+$",
+  "^policy://[^\\s]{1,248}$",
   "^prim:[a-z0-9._-]+$",
   "^prim:[a-z][a-z0-9._-]*$",
+  "^prim:[a-z][a-z0-9._-]{0,127}$",
+  "^profile://[^\\s]{1,248}$",
   "^proof://[^\\s]+$",
+  "^proposal://[^\\s]{1,248}$",
+  "^provenance://[^\\s]{1,248}$",
   "^receipt-checkpoint://[^\\s]+$",
   "^receipt-log://[^\\s]+$",
   "^receipt://[A-Za-z0-9._~:/-]+$",
   "^receipt://[^\\s]+$",
+  "^receipt://[^\\s]{1,248}$",
   "^resource-lease://[^\\s]+$",
   "^run://[^\\s]+$",
   "^safety://[^\\s]+$",
   "^schema://[^\\s]+$",
+  "^schema://[^\\s]{1,248}$",
   "^scope:[a-z0-9._-]+$",
   "^scope:[a-z][a-z0-9._-]*$",
+  "^scope:[a-z][a-z0-9._-]{0,127}$",
   "^sensor://[^\\s]+$",
+  "^service://[^\\s]{1,248}$",
   "^settlement://[^\\s]+$",
   "^sha256:[0-9a-f]{64}$",
   "^sha256:[a-f0-9]{64}$",
+  "^skill-entry://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^skill://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^snapshot://[^\\s]+$",
+  "^system://[^\\s]{1,248}$",
   "^task://[^\\s]+$",
+  "^terms://[^\\s]{1,248}$",
   "^tool://[A-Za-z0-9._~:/-]+$",
   "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$",
+  "^transition://[^\\s]{1,248}$",
+  "^worker://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^workflow-template://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^zone://[^\\s]+$"
 ] as const;
 
@@ -2087,7 +3038,16 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/connectors-tools/runtime-tool-contract/v1": "sha256:ac6c0e6bb9b6ec06a1162e4d84b676b2c96bbc9527e50836c04162d788b5f924",
   "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1": "sha256:deea4ddad84b377612579947f8c7fecca276962ccbba1cc1fd9232ab3d58d5f2",
   "schema://ioi/foundations/dispute-rail-bundle/v1": "sha256:9397106bbed6d24ce8c9c7c1a8123160102aae677d024636b89ace67d25ae340",
-  "schema://ioi/foundations/declassification-approval/v1": "sha256:6b94c87e2891c4389886ad9f8d2f0492ca18e699fb57db5af83c2a21e9817efe"
+  "schema://ioi/foundations/declassification-approval/v1": "sha256:6b94c87e2891c4389886ad9f8d2f0492ca18e699fb57db5af83c2a21e9817efe",
+  "schema://ioi/foundations/autonomous-system-manifest/v1": "sha256:34ff27418865a0a71864f0039df3286966f6b6dec4bb94134b72b3846fd6c79d",
+  "schema://ioi/foundations/autonomous-system-genesis/v1": "sha256:2da92e599b2339fb1422e048ef9cb25cdc614f2abd14b93f2f8da8271aec747e",
+  "schema://ioi/foundations/autonomous-system-constitution/v1": "sha256:b9df3fe23b867d6e1fa22a61ec88bdd7859fbbcc4283aaa8431c7f92acefe274",
+  "schema://ioi/foundations/autonomous-system-constitution-amendment/v1": "sha256:226af49494e76d61c1a89270647fe5284d926df6669d47179f227e3a9329b54a",
+  "schema://ioi/foundations/ordering-admission-finality-profile/v1": "sha256:a80163005c8225d4ba6cc733741ec0b47ccfbb2d7832ca1546f9518f6cc7cebb",
+  "schema://ioi/foundations/oracle-evidence-profile/v1": "sha256:2407e5eafa3515d1f55629182b802590e40e93c59b6766d8e4b1170fa6acf5f1",
+  "schema://ioi/foundations/lifecycle-continuity-profile/v1": "sha256:ed62bc37de918a3e7c271ba26420b7973eca5d2aaddd276a7450253e63fec475",
+  "schema://ioi/foundations/lifecycle-transition/v1": "sha256:1a5374e05ee33412ffa79bab205143b37f400bf4ad32af9097960b3959660b40",
+  "schema://ioi/foundations/ioi-network-enrollment/v1": "sha256:f418987a1feb67e3b81efd847d4ba07136d132776221262234a5b0bdf4085273"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -6052,6 +7012,3952 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^sha256:[0-9a-f]{64}$"
       }
     }
+  },
+  "schema://ioi/foundations/autonomous-system-manifest/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-manifest/v1",
+    "title": "AutonomousSystemManifest",
+    "description": "Immutable reusable Autonomous System Package release; never live System state.",
+    "x-ioi-schema-version": "ioi.autonomous-system-manifest.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "package_id",
+      "manifest_id",
+      "display_name",
+      "description",
+      "version",
+      "predecessor_manifest_ref",
+      "release_root",
+      "registry_status",
+      "constitution_template_ref",
+      "required_profile_templates",
+      "system_binding",
+      "worker",
+      "typed_components",
+      "workflow_compatibility",
+      "source_project",
+      "interfaces",
+      "capabilities",
+      "authority",
+      "runtime_profiles",
+      "session_state_memory_artifacts",
+      "evaluation",
+      "promotion",
+      "receipts",
+      "release"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-manifest.v1"
+      },
+      "package_id": {
+        "$ref": "#/$defs/packageRef"
+      },
+      "manifest_id": {
+        "$ref": "#/$defs/packageReleaseRef"
+      },
+      "display_name": {
+        "$ref": "#/$defs/shortText"
+      },
+      "description": {
+        "$ref": "#/$defs/longText"
+      },
+      "version": {
+        "$ref": "#/$defs/version"
+      },
+      "predecessor_manifest_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/packageReleaseRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "release_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "registry_status": {
+        "enum": [
+          "draft",
+          "evaluable",
+          "package_ready",
+          "released",
+          "promoted",
+          "deprecated",
+          "revoked"
+        ]
+      },
+      "constitution_template_ref": {
+        "$ref": "#/$defs/artifactOrCidRef"
+      },
+      "required_profile_templates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deployment_template_ref",
+          "ordering_admission_finality_template_ref",
+          "oracle_evidence_template_refs",
+          "lifecycle_continuity_template_ref",
+          "network_enrollment_constraint_ref"
+        ],
+        "properties": {
+          "deployment_template_ref": {
+            "$ref": "#/$defs/artifactOrCidRef"
+          },
+          "ordering_admission_finality_template_ref": {
+            "$ref": "#/$defs/artifactOrCidRef"
+          },
+          "oracle_evidence_template_refs": {
+            "$ref": "#/$defs/artifactOrCidRefs"
+          },
+          "lifecycle_continuity_template_ref": {
+            "$ref": "#/$defs/artifactOrCidRef"
+          },
+          "network_enrollment_constraint_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      },
+      "system_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "allowed_use",
+          "compatible_constitution_constraint_ref",
+          "compatible_predecessor_release_roots"
+        ],
+        "properties": {
+          "allowed_use": {
+            "enum": [
+              "instantiate_new",
+              "upgrade_existing",
+              "either"
+            ]
+          },
+          "compatible_constitution_constraint_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "compatible_predecessor_release_roots": {
+            "$ref": "#/$defs/hashes"
+          }
+        }
+      },
+      "worker": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "worker_revision_ref",
+          "worker_content_hash",
+          "responsibility",
+          "owner_ref"
+        ],
+        "properties": {
+          "worker_revision_ref": {
+            "$ref": "#/$defs/workerRevisionRef"
+          },
+          "worker_content_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "responsibility": {
+            "$ref": "#/$defs/longText"
+          },
+          "owner_ref": {
+            "$ref": "#/$defs/publisherRef"
+          }
+        }
+      },
+      "typed_components": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "component_set_snapshot_ref",
+          "component_set_hash",
+          "goal_run_profiles",
+          "workflow_templates",
+          "automation_specs",
+          "harness_profiles",
+          "agent_harness_adapters",
+          "skill_manifests",
+          "data_recipes",
+          "runtime_tool_contracts",
+          "mcp_gateway_requirements"
+        ],
+        "properties": {
+          "component_set_snapshot_ref": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "component_set_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "goal_run_profiles": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "workflow_templates": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "automation_specs": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "harness_profiles": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "agent_harness_adapters": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "skill_manifests": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "data_recipes": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "runtime_tool_contracts": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "mcp_gateway_requirements": {
+            "$ref": "#/$defs/revisionHashTuples"
+          }
+        }
+      },
+      "workflow_compatibility": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "default_workflow_template_revision_ref",
+          "default_workflow_template_content_hash",
+          "compatible_harness_profile_revision_refs",
+          "topology_hash"
+        ],
+        "properties": {
+          "default_workflow_template_revision_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/workflowRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "default_workflow_template_content_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "compatible_harness_profile_revision_refs": {
+            "$ref": "#/$defs/immutableRevisionRefs"
+          },
+          "topology_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "default_workflow_template_revision_ref": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "default_workflow_template_revision_ref"
+              ]
+            },
+            "then": {
+              "properties": {
+                "default_workflow_template_content_hash": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "default_workflow_template_content_hash": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "source_project": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project_ref",
+          "repository_refs",
+          "default_branch_or_ref",
+          "development_environment_recipe_ref",
+          "development_environment_recipe_content_hash",
+          "issue_tracker_refs",
+          "code_owner_refs"
+        ],
+        "properties": {
+          "project_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "repository_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "default_branch_or_ref": {
+            "$ref": "#/$defs/nullableShortText"
+          },
+          "development_environment_recipe_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/developmentRecipeRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "development_environment_recipe_content_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "issue_tracker_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "code_owner_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "development_environment_recipe_ref": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "development_environment_recipe_ref"
+              ]
+            },
+            "then": {
+              "properties": {
+                "development_environment_recipe_content_hash": {
+                  "type": "null"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "development_environment_recipe_content_hash": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "interfaces": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operator_console_descriptor_ref",
+          "generated_domain_app_descriptor_ref",
+          "api_contract_refs",
+          "aiip_binding_requirement_refs",
+          "publication_endpoint_contract_refs"
+        ],
+        "properties": {
+          "operator_console_descriptor_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "generated_domain_app_descriptor_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "api_contract_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "aiip_binding_requirement_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "publication_endpoint_contract_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          }
+        }
+      },
+      "capabilities": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_capability_requirement_refs",
+          "model_deployment_profile_refs",
+          "capability_descriptor_refs",
+          "connector_requirement_refs",
+          "primitive_capabilities_required"
+        ],
+        "properties": {
+          "model_capability_requirement_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "model_deployment_profile_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "capability_descriptor_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "connector_requirement_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "primitive_capabilities_required": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^prim:[a-z][a-z0-9._-]{0,127}$"
+            },
+            "maxItems": 128,
+            "uniqueItems": true
+          }
+        }
+      },
+      "authority": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_scope_requirements",
+          "grant_requirements",
+          "approval_profile_ref",
+          "policy_profile_ref",
+          "revocation_posture"
+        ],
+        "properties": {
+          "authority_scope_requirements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^scope:[a-z][a-z0-9._-]{0,127}$"
+            },
+            "maxItems": 128,
+            "uniqueItems": true
+          },
+          "grant_requirements": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "approval_profile_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "policy_profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/policyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revocation_posture": {
+            "enum": [
+              "fail_closed",
+              "pause",
+              "degrade_read_only"
+            ]
+          }
+        }
+      },
+      "runtime_profiles": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "profile_id",
+            "kind",
+            "compatibility_requirement_ref",
+            "cleanup_policy_ref"
+          ],
+          "properties": {
+            "profile_id": {
+              "type": "string",
+              "pattern": "^profile://[^\\s]{1,248}$"
+            },
+            "kind": {
+              "enum": [
+                "local_daemon",
+                "task_browser",
+                "local_container",
+                "hosted_daemon",
+                "cloud_vm",
+                "tee",
+                "depin",
+                "customer_vpc"
+              ]
+            },
+            "compatibility_requirement_ref": {
+              "type": "string",
+              "pattern": "^(?:policy|profile)://[^\\s]{1,248}$"
+            },
+            "cleanup_policy_ref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/policyRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "session_state_memory_artifacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_profile_ref",
+          "state_profile_ref",
+          "memory_profile_ref",
+          "artifact_retention_profile_ref",
+          "observation_retention_mode"
+        ],
+        "properties": {
+          "session_profile_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "state_profile_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "memory_profile_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "artifact_retention_profile_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "observation_retention_mode": {
+            "enum": [
+              "summary_only",
+              "local_redacted",
+              "local_raw",
+              "encrypted_local_raw",
+              "no_persistence"
+            ]
+          }
+        }
+      },
+      "evaluation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "eval_profile_refs",
+          "benchmark_refs",
+          "quality_gate_refs",
+          "replay_profile_ref"
+        ],
+        "properties": {
+          "eval_profile_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "benchmark_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "quality_gate_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "replay_profile_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          }
+        }
+      },
+      "promotion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "promotion_profile_ref",
+          "release_target_refs",
+          "rollout_policy_ref",
+          "rollback_policy_ref",
+          "recall_policy_ref",
+          "kill_switch_ref",
+          "marketplace_exposure_eligibility",
+          "foundry_lineage_refs",
+          "worker_card_preview_ref"
+        ],
+        "properties": {
+          "promotion_profile_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "release_target_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "rollout_policy_ref": {
+            "$ref": "#/$defs/nullablePolicyRef"
+          },
+          "rollback_policy_ref": {
+            "$ref": "#/$defs/nullablePolicyRef"
+          },
+          "recall_policy_ref": {
+            "$ref": "#/$defs/nullablePolicyRef"
+          },
+          "kill_switch_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "marketplace_exposure_eligibility": {
+            "enum": [
+              "none",
+              "internal",
+              "review_required",
+              "eligible"
+            ]
+          },
+          "foundry_lineage_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "worker_card_preview_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          }
+        }
+      },
+      "receipts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "package_readiness_receipt_ref",
+          "release_evaluation_receipt_refs"
+        ],
+        "properties": {
+          "package_readiness_receipt_ref": {
+            "$ref": "#/$defs/nullableReceiptRef"
+          },
+          "release_evaluation_receipt_refs": {
+            "$ref": "#/$defs/receiptRefs"
+          }
+        }
+      },
+      "release": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "publisher_signature_ref",
+          "registry_published_at"
+        ],
+        "properties": {
+          "publisher_signature_ref": {
+            "type": "string",
+            "pattern": "^(?:receipt|evidence)://[^\\s]{1,248}$"
+          },
+          "registry_published_at": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/canonicalDateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "hashes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/hash"
+        },
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+      },
+      "shortText": {
+        "type": "string",
+        "pattern": "^[ -~]{1,256}$"
+      },
+      "nullableShortText": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/shortText"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "longText": {
+        "type": "string",
+        "pattern": "^[ -~]{1,2048}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "canonicalRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "nullableCanonicalRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "packageRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s]{1,248}$"
+      },
+      "packageReleaseRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "nullablePolicyRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,248}$"
+      },
+      "artifactOrCidRef": {
+        "type": "string",
+        "pattern": "^(?:artifact|cid)://[^\\s]{1,248}$"
+      },
+      "artifactOrCidRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/artifactOrCidRef"
+        },
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "publisherRef": {
+        "type": "string",
+        "pattern": "^ioi://publisher/[^\\s]{1,224}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "nullableReceiptRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/receiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "receiptRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "immutableRevisionRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "immutableRevisionRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/immutableRevisionRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "workerRevisionRef": {
+        "type": "string",
+        "pattern": "^worker://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "workflowRevisionRef": {
+        "type": "string",
+        "pattern": "^workflow-template://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "developmentRecipeRevisionRef": {
+        "type": "string",
+        "pattern": "^development-environment-recipe://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "revisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "$ref": "#/$defs/immutableRevisionRef"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "revisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/revisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-genesis/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+    "title": "AutonomousSystemGenesis",
+    "description": "One-time binding of one immutable package release to a proposed or admitted logical System origin.",
+    "x-ioi-schema-version": "ioi.autonomous-system-genesis.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "genesis_id",
+      "system_id",
+      "package_id",
+      "manifest_ref",
+      "admitted_manifest_root",
+      "constitution_ref",
+      "initial_profile_refs",
+      "initial_component_bindings",
+      "instantiation",
+      "cryptographic_origin",
+      "activation_receipt_ref",
+      "lifecycle_transition_refs",
+      "status_source_receipt_refs",
+      "created_at",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-genesis.v1"
+      },
+      "genesis_id": {
+        "$ref": "#/$defs/genesisRef"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "package_id": {
+        "$ref": "#/$defs/packageRef"
+      },
+      "manifest_ref": {
+        "$ref": "#/$defs/packageReleaseRef"
+      },
+      "admitted_manifest_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "constitution_ref": {
+        "$ref": "#/$defs/constitutionRef"
+      },
+      "initial_profile_refs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deployment_profile_ref",
+          "ordering_admission_finality_profile_ref",
+          "oracle_evidence_profile_refs",
+          "lifecycle_continuity_profile_ref",
+          "network_enrollment_ref"
+        ],
+        "properties": {
+          "deployment_profile_ref": {
+            "$ref": "#/$defs/deploymentProfileRef"
+          },
+          "ordering_admission_finality_profile_ref": {
+            "$ref": "#/$defs/orderingProfileRef"
+          },
+          "oracle_evidence_profile_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/oracleProfileRef"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "lifecycle_continuity_profile_ref": {
+            "$ref": "#/$defs/lifecycleProfileRef"
+          },
+          "network_enrollment_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/networkEnrollmentRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "initial_component_bindings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "admitted_component_set_snapshot_ref",
+          "admitted_component_set_hash",
+          "goal_run_profiles",
+          "workflow_templates",
+          "automation_specs",
+          "automation_installations",
+          "harness_profiles",
+          "agent_harness_adapters",
+          "skill_entries",
+          "data_recipes",
+          "runtime_tool_contracts",
+          "mcp_gateway_profiles"
+        ],
+        "properties": {
+          "admitted_component_set_snapshot_ref": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "admitted_component_set_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "goal_run_profiles": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "workflow_templates": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "automation_specs": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "automation_installations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "binding_revision_ref",
+                "binding_hash",
+                "admission_receipt_ref"
+              ],
+              "properties": {
+                "binding_revision_ref": {
+                  "type": "string",
+                  "pattern": "^install://automation/[^\\s]{1,140}/revision/sha256:[0-9a-f]{64}$"
+                },
+                "binding_hash": {
+                  "$ref": "#/$defs/hash"
+                },
+                "admission_receipt_ref": {
+                  "$ref": "#/$defs/receiptRef"
+                }
+              }
+            },
+            "maxItems": 128,
+            "uniqueItems": true
+          },
+          "harness_profiles": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "agent_harness_adapters": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "skill_entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "binding_revision_ref",
+                "binding_hash",
+                "skill_manifest_revision_ref",
+                "skill_manifest_content_hash"
+              ],
+              "properties": {
+                "binding_revision_ref": {
+                  "type": "string",
+                  "pattern": "^skill-entry://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+                },
+                "binding_hash": {
+                  "$ref": "#/$defs/hash"
+                },
+                "skill_manifest_revision_ref": {
+                  "type": "string",
+                  "pattern": "^skill://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+                },
+                "skill_manifest_content_hash": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            },
+            "maxItems": 128,
+            "uniqueItems": true
+          },
+          "data_recipes": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "runtime_tool_contracts": {
+            "$ref": "#/$defs/revisionHashTuples"
+          },
+          "mcp_gateway_profiles": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "profile_revision_ref",
+                "profile_content_hash"
+              ],
+              "properties": {
+                "profile_revision_ref": {
+                  "type": "string",
+                  "pattern": "^mcp-gateway://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+                },
+                "profile_content_hash": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            },
+            "maxItems": 64,
+            "uniqueItems": true
+          }
+        }
+      },
+      "instantiation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposed_by",
+          "decision_ref",
+          "authority_grant_refs",
+          "conformance_receipt_refs"
+        ],
+        "properties": {
+          "proposed_by": {
+            "type": "string",
+            "pattern": "^(?:system|wallet|org|project)://[^\\s]{1,248}$"
+          },
+          "decision_ref": {
+            "type": "string",
+            "pattern": "^decision://[^\\s]{1,248}$"
+          },
+          "authority_grant_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^grant://[^\\s]{1,248}$"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "conformance_receipt_refs": {
+            "$ref": "#/$defs/receiptRefs"
+          }
+        }
+      },
+      "cryptographic_origin": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence",
+          "predecessor_commitment_ref",
+          "genesis_operation_commitment",
+          "genesis_transition_commitment_ref",
+          "initial_state_root",
+          "initial_receipt_root",
+          "admission_proof_ref"
+        ],
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 0
+          },
+          "predecessor_commitment_ref": {
+            "type": "null"
+          },
+          "genesis_operation_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "genesis_transition_commitment_ref": {
+            "type": "string",
+            "pattern": "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"
+          },
+          "initial_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "initial_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admission_proof_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:evidence|receipt)://[^\\s]{1,248}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "activation_receipt_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/receiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "lifecycle_transition_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "status_source_receipt_refs": {
+        "$ref": "#/$defs/receiptRefs"
+      },
+      "created_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "authorized",
+          "activated",
+          "rejected",
+          "revoked"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "proposed"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "activation_receipt_ref": {
+              "type": "null"
+            },
+            "lifecycle_transition_refs": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "status_source_receipt_refs": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "cryptographic_origin": {
+              "type": "object",
+              "properties": {
+                "admission_proof_ref": {
+                  "type": "null"
+                }
+              },
+              "required": [
+                "admission_proof_ref"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "activated"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "activation_receipt_ref": {
+              "$ref": "#/$defs/receiptRef"
+            },
+            "lifecycle_transition_refs": {
+              "type": "array",
+              "minItems": 1
+            },
+            "status_source_receipt_refs": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "packageRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s]{1,248}$"
+      },
+      "packageReleaseRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "deploymentProfileRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s]{1,248}$"
+      },
+      "orderingProfileRef": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "oracleProfileRef": {
+        "type": "string",
+        "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+      },
+      "lifecycleProfileRef": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "networkEnrollmentRef": {
+        "type": "string",
+        "pattern": "^network-enrollment://[^\\s]{1,248}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "receiptRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "immutableRevisionRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "revisionHashTuple": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision_ref",
+          "content_hash"
+        ],
+        "properties": {
+          "revision_ref": {
+            "$ref": "#/$defs/immutableRevisionRef"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "revisionHashTuples": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/revisionHashTuple"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-constitution/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+    "title": "AutonomousSystemConstitution",
+    "description": "Protected purpose, agency, governance, profile-change, and shutdown constraints for one logical System.",
+    "x-ioi-schema-version": "ioi.autonomous-system-constitution.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "constitution_id",
+      "system_id",
+      "version",
+      "predecessor_constitution_ref",
+      "constitution_root",
+      "declared_purpose",
+      "normative_constraints",
+      "agency_boundary",
+      "governance",
+      "protected_profile_governance",
+      "shutdown",
+      "activation_receipt_ref",
+      "public_commitment_ref",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-constitution.v1"
+      },
+      "constitution_id": {
+        "$ref": "#/$defs/constitutionRef"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "version": {
+        "$ref": "#/$defs/version"
+      },
+      "predecessor_constitution_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/constitutionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "constitution_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "declared_purpose": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "statement",
+          "ontology_refs",
+          "beneficiary_or_stakeholder_refs",
+          "acceptance_policy_refs"
+        ],
+        "properties": {
+          "statement": {
+            "type": "string",
+            "pattern": "^[^\\s][ -~]{0,2047}$"
+          },
+          "ontology_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "beneficiary_or_stakeholder_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "acceptance_policy_refs": {
+            "$ref": "#/$defs/policyRefs"
+          }
+        }
+      },
+      "normative_constraints": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "invariant_refs",
+          "permitted_objective_policy_refs",
+          "prohibited_objective_policy_refs",
+          "permitted_ontology_action_contract_refs",
+          "prohibited_effect_policy_refs"
+        ],
+        "properties": {
+          "invariant_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "permitted_objective_policy_refs": {
+            "$ref": "#/$defs/policyRefs"
+          },
+          "prohibited_objective_policy_refs": {
+            "$ref": "#/$defs/policyRefs"
+          },
+          "permitted_ontology_action_contract_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "prohibited_effect_policy_refs": {
+            "$ref": "#/$defs/policyRefs"
+          }
+        }
+      },
+      "agency_boundary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_ceiling_scope_refs",
+          "delegable_scope_refs",
+          "non_delegable_scope_refs",
+          "resource_and_budget_ceiling_policy_refs",
+          "time_and_duration_ceiling_policy_refs",
+          "data_and_privacy_ceiling_policy_refs",
+          "effect_and_externality_ceiling_policy_refs",
+          "egress_policy_ref",
+          "node_expansion",
+          "code_propagation",
+          "self_authority_widening"
+        ],
+        "properties": {
+          "authority_ceiling_scope_refs": {
+            "$ref": "#/$defs/scopeRefs"
+          },
+          "delegable_scope_refs": {
+            "$ref": "#/$defs/scopeRefs"
+          },
+          "non_delegable_scope_refs": {
+            "$ref": "#/$defs/scopeRefs"
+          },
+          "resource_and_budget_ceiling_policy_refs": {
+            "$ref": "#/$defs/policyRefs"
+          },
+          "time_and_duration_ceiling_policy_refs": {
+            "$ref": "#/$defs/policyRefs"
+          },
+          "data_and_privacy_ceiling_policy_refs": {
+            "$ref": "#/$defs/policyRefs"
+          },
+          "effect_and_externality_ceiling_policy_refs": {
+            "$ref": "#/$defs/policyRefs"
+          },
+          "egress_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "node_expansion": {
+            "const": "governed_membership_only"
+          },
+          "code_propagation": {
+            "const": "admitted_deployment_only"
+          },
+          "self_authority_widening": {
+            "const": "forbidden"
+          }
+        }
+      },
+      "governance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "governance_owner_refs",
+          "accountable_principal_refs",
+          "affected_party_policy_ref",
+          "ordinary_upgrade_policy_ref",
+          "amendment_mode",
+          "amendment_decision_profile_ref",
+          "protected_clause_refs",
+          "agent_may_propose_amendment",
+          "agent_may_commit_amendment",
+          "emergency_pause_authority_refs",
+          "revocation_authority_refs"
+        ],
+        "properties": {
+          "governance_owner_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "accountable_principal_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "affected_party_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "ordinary_upgrade_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "amendment_mode": {
+            "enum": [
+              "immutable",
+              "external_governance_only"
+            ]
+          },
+          "amendment_decision_profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/policyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "protected_clause_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "agent_may_propose_amendment": {
+            "type": "boolean"
+          },
+          "agent_may_commit_amendment": {
+            "type": "boolean",
+            "const": false
+          },
+          "emergency_pause_authority_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "revocation_authority_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "amendment_mode": {
+                  "const": "immutable"
+                }
+              },
+              "required": [
+                "amendment_mode"
+              ]
+            },
+            "then": {
+              "properties": {
+                "amendment_decision_profile_ref": {
+                  "type": "null"
+                },
+                "agent_may_propose_amendment": {
+                  "type": "boolean",
+                  "const": false
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "amendment_decision_profile_ref": {
+                  "$ref": "#/$defs/policyRef"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "protected_profile_governance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "improvement_governance_profile_ref",
+          "improvement_governance_profile_change_decision_profile_ref",
+          "deployment_constraint_ref",
+          "deployment_change_decision_profile_ref",
+          "ordering_admission_finality_constraint_ref",
+          "ordering_profile_change_decision_profile_ref",
+          "oracle_evidence_constraint_ref",
+          "oracle_profile_change_decision_profile_ref",
+          "lifecycle_continuity_constraint_ref",
+          "lifecycle_profile_change_decision_profile_ref",
+          "network_enrollment_constraint_ref",
+          "network_enrollment_change_decision_profile_ref"
+        ],
+        "properties": {
+          "improvement_governance_profile_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^improvement-governance-profile://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "improvement_governance_profile_change_decision_profile_ref": {
+            "$ref": "#/$defs/nullablePolicyRef"
+          },
+          "deployment_constraint_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "deployment_change_decision_profile_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "ordering_admission_finality_constraint_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "ordering_profile_change_decision_profile_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "oracle_evidence_constraint_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "oracle_profile_change_decision_profile_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "lifecycle_continuity_constraint_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "lifecycle_profile_change_decision_profile_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "network_enrollment_constraint_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "network_enrollment_change_decision_profile_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      },
+      "shutdown": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kill_switch_ref",
+          "decommission_policy_ref",
+          "minimum_archive_policy_ref"
+        ],
+        "properties": {
+          "kill_switch_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/canonicalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decommission_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "minimum_archive_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      },
+      "activation_receipt_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^receipt://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "public_commitment_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:commitment|settlement|tx)://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "superseded",
+          "revoked"
+        ]
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "canonicalRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "nullablePolicyRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policyRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "scopeRefs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[a-z][a-z0-9._-]{0,127}$"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-constitution-amendment/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+    "title": "AutonomousSystemConstitutionAmendment",
+    "description": "Non-effecting proposal that binds an exact constitution predecessor and proposed successor; approval never mutates either constitution.",
+    "x-ioi-schema-version": "ioi.autonomous-system-constitution-amendment.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "amendment_id",
+      "system_id",
+      "predecessor_constitution_ref",
+      "predecessor_constitution_root",
+      "proposed_successor_constitution_ref",
+      "proposed_successor_constitution_root",
+      "changed_field_paths",
+      "protected_field_paths",
+      "governing_decision_profile_ref",
+      "proposal_ref",
+      "evidence_refs",
+      "authority_requirement_refs",
+      "proposed_by_ref",
+      "decision_ref",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-constitution-amendment.v1"
+      },
+      "amendment_id": {
+        "type": "string",
+        "pattern": "^constitution-amendment://[^\\s]{1,248}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "predecessor_constitution_ref": {
+        "$ref": "#/$defs/constitutionRef"
+      },
+      "predecessor_constitution_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "proposed_successor_constitution_ref": {
+        "$ref": "#/$defs/constitutionRef"
+      },
+      "proposed_successor_constitution_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "changed_field_paths": {
+        "$ref": "#/$defs/jsonPointers"
+      },
+      "protected_field_paths": {
+        "$ref": "#/$defs/jsonPointers"
+      },
+      "governing_decision_profile_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "proposal_ref": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "evidence_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "authority_requirement_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$"
+        },
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "proposed_by_ref": {
+        "type": "string",
+        "pattern": "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$"
+      },
+      "decision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^decision://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "evidence_pending",
+          "approved",
+          "rejected"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "approved"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "decision_ref": {
+              "type": "string",
+              "pattern": "^decision://[^\\s]{1,248}$"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "jsonPointer": {
+        "type": "string",
+        "pattern": "^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$"
+      },
+      "jsonPointers": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/jsonPointer"
+        },
+        "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true
+      }
+    }
+  },
+  "schema://ioi/foundations/ordering-admission-finality-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+    "title": "OrderingAdmissionFinalityProfile",
+    "description": "Ordering, admission, cryptographic continuity, finality, and fault-model profile for one System.",
+    "x-ioi-schema-version": "ioi.ordering-admission-finality-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "ordering_profile_id",
+      "system_id",
+      "constitution_ref",
+      "version",
+      "profile",
+      "authority_distribution",
+      "ordering",
+      "admission",
+      "cryptographic_continuity",
+      "finality",
+      "fault_model_ref",
+      "liveness_policy_ref",
+      "membership_and_profile_change_policy_ref",
+      "conformance_receipt_refs",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.ordering-admission-finality-profile.v1"
+      },
+      "ordering_profile_id": {
+        "$ref": "#/$defs/orderingProfileRef"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "constitution_ref": {
+        "$ref": "#/$defs/constitutionRef"
+      },
+      "version": {
+        "$ref": "#/$defs/version"
+      },
+      "profile": {
+        "enum": [
+          "single_authority",
+          "replicated_single_authority",
+          "threshold_authority",
+          "bft_consensus",
+          "external_chain_finality"
+        ]
+      },
+      "authority_distribution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "posture",
+          "principal_refs",
+          "independence_evidence_refs"
+        ],
+        "properties": {
+          "posture": {
+            "enum": [
+              "single_principal",
+              "declared_multi_principal",
+              "external_network"
+            ]
+          },
+          "principal_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "independence_evidence_refs": {
+            "$ref": "#/$defs/evidenceRefs"
+          }
+        }
+      },
+      "ordering": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule_ref",
+          "member_node_membership_refs",
+          "writer_epoch_required",
+          "fencing_required",
+          "leader_or_sequencer_selection_ref",
+          "conflict_rule_ref"
+        ],
+        "properties": {
+          "rule_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "member_node_membership_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^node-membership://[^\\s]{1,248}$"
+            },
+            "maxItems": 256,
+            "uniqueItems": true
+          },
+          "writer_epoch_required": {
+            "type": "boolean"
+          },
+          "fencing_required": {
+            "type": "boolean"
+          },
+          "leader_or_sequencer_selection_ref": {
+            "$ref": "#/$defs/nullablePolicyRef"
+          },
+          "conflict_rule_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      },
+      "admission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deterministic_transition_function_ref",
+          "schema_root",
+          "policy_root",
+          "authority_rule_ref",
+          "threshold",
+          "require_expected_predecessor_root",
+          "receipt_obligations"
+        ],
+        "properties": {
+          "deterministic_transition_function_ref": {
+            "type": "string",
+            "pattern": "^(?:artifact|cid)://[^\\s]{1,248}$"
+          },
+          "schema_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "policy_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "authority_rule_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "threshold": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "required",
+              "eligible"
+            ],
+            "properties": {
+              "required": {
+                "$ref": "#/$defs/portableInteger"
+              },
+              "eligible": {
+                "$ref": "#/$defs/portableInteger"
+              }
+            }
+          },
+          "require_expected_predecessor_root": {
+            "type": "boolean",
+            "const": true
+          },
+          "receipt_obligations": {
+            "$ref": "#/$defs/canonicalRefs"
+          }
+        }
+      },
+      "cryptographic_continuity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hash_and_signature_suite_ref",
+          "sequence_rule_ref",
+          "require_monotonic_sequence",
+          "require_expected_predecessor_commitment",
+          "operation_or_batch_commitment_schema_ref",
+          "admission_proof_schema_ref",
+          "require_resulting_state_root",
+          "require_receipt_root",
+          "checkpoint_and_compaction_policy_ref"
+        ],
+        "properties": {
+          "hash_and_signature_suite_ref": {
+            "$ref": "#/$defs/schemaRef"
+          },
+          "sequence_rule_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "require_monotonic_sequence": {
+            "type": "boolean",
+            "const": true
+          },
+          "require_expected_predecessor_commitment": {
+            "type": "boolean",
+            "const": true
+          },
+          "operation_or_batch_commitment_schema_ref": {
+            "$ref": "#/$defs/schemaRef"
+          },
+          "admission_proof_schema_ref": {
+            "$ref": "#/$defs/schemaRef"
+          },
+          "require_resulting_state_root": {
+            "type": "boolean",
+            "const": true
+          },
+          "require_receipt_root": {
+            "type": "boolean",
+            "const": true
+          },
+          "checkpoint_and_compaction_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      },
+      "finality": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scope",
+          "rule_ref",
+          "proof_schema_ref",
+          "rollback_posture",
+          "external_network_ref",
+          "external_contract_ref",
+          "external_confirmation_policy_ref"
+        ],
+        "properties": {
+          "scope": {
+            "enum": [
+              "local_operational",
+              "cross_domain",
+              "public_economic"
+            ]
+          },
+          "rule_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "proof_schema_ref": {
+            "$ref": "#/$defs/schemaRef"
+          },
+          "rollback_posture": {
+            "enum": [
+              "recoverable_before_final",
+              "compensation_only_after_final",
+              "irreversible_after_final"
+            ]
+          },
+          "external_network_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:network|chain|domain)://[^\\s]{1,248}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "external_contract_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/canonicalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "external_confirmation_policy_ref": {
+            "$ref": "#/$defs/nullablePolicyRef"
+          }
+        }
+      },
+      "fault_model_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "liveness_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "membership_and_profile_change_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "conformance_receipt_refs": {
+        "$ref": "#/$defs/receiptRefs"
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "superseded",
+          "revoked"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "profile": {
+              "const": "external_chain_finality"
+            }
+          },
+          "required": [
+            "profile"
+          ]
+        },
+        "then": {
+          "properties": {
+            "authority_distribution": {
+              "type": "object",
+              "properties": {
+                "posture": {
+                  "const": "external_network"
+                }
+              }
+            },
+            "finality": {
+              "type": "object",
+              "properties": {
+                "external_network_ref": {
+                  "type": "string",
+                  "pattern": "^(?:network|chain|domain)://[^\\s]{1,248}$"
+                },
+                "external_confirmation_policy_ref": {
+                  "$ref": "#/$defs/policyRef"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "profile": {
+              "enum": [
+                "single_authority",
+                "replicated_single_authority"
+              ]
+            }
+          },
+          "required": [
+            "profile"
+          ]
+        },
+        "then": {
+          "properties": {
+            "authority_distribution": {
+              "type": "object",
+              "properties": {
+                "posture": {
+                  "const": "single_principal"
+                },
+                "principal_refs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "portableInteger": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+      },
+      "orderingProfileRef": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "canonicalRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "nullablePolicyRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "schemaRef": {
+        "type": "string",
+        "pattern": "^schema://[^\\s]{1,248}$"
+      },
+      "evidenceRefs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "receiptRefs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,248}$"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      }
+    }
+  },
+  "schema://ioi/foundations/oracle-evidence-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/oracle-evidence-profile/v1",
+    "title": "OracleEvidenceProfile",
+    "description": "Qualified, defeasible, scope-bound evidence admission profile for one System.",
+    "x-ioi-schema-version": "ioi.oracle-evidence-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "oracle_evidence_profile_id",
+      "system_id",
+      "version",
+      "fact_class_refs",
+      "source_requirements",
+      "aggregation",
+      "contradiction",
+      "challenge",
+      "admission",
+      "missing_or_stale_evidence_mode",
+      "source_replacement_policy_ref",
+      "privacy_policy_ref",
+      "retention_policy_ref",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.oracle-evidence-profile.v1"
+      },
+      "oracle_evidence_profile_id": {
+        "type": "string",
+        "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "version": {
+        "$ref": "#/$defs/version"
+      },
+      "fact_class_refs": {
+        "$ref": "#/$defs/canonicalRefs"
+      },
+      "source_requirements": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_class",
+            "source_refs",
+            "evidence_schema_ref",
+            "signer_or_principal_refs",
+            "freshness_and_finality_policy_ref",
+            "independence_group_ref",
+            "required"
+          ],
+          "properties": {
+            "source_class": {
+              "enum": [
+                "official_record",
+                "institutional_attestation",
+                "signed_sensor",
+                "contractual_notice",
+                "human_attestation",
+                "network_commitment",
+                "other"
+              ]
+            },
+            "source_refs": {
+              "$ref": "#/$defs/canonicalRefs"
+            },
+            "evidence_schema_ref": {
+              "$ref": "#/$defs/schemaRef"
+            },
+            "signer_or_principal_refs": {
+              "$ref": "#/$defs/canonicalRefs"
+            },
+            "freshness_and_finality_policy_ref": {
+              "$ref": "#/$defs/policyRef"
+            },
+            "independence_group_ref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/canonicalRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "required": {
+              "type": "boolean"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "required": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "required"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "source_refs": {
+                    "type": "array",
+                    "minItems": 1
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "aggregation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule",
+          "minimum_sources",
+          "minimum_independent_principals",
+          "threshold_policy_ref",
+          "correlated_failure_policy_ref",
+          "uncertainty_policy_ref"
+        ],
+        "properties": {
+          "rule": {
+            "enum": [
+              "single_source",
+              "threshold",
+              "weighted",
+              "adjudicated"
+            ]
+          },
+          "minimum_sources": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "minimum_independent_principals": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "threshold_policy_ref": {
+            "$ref": "#/$defs/nullablePolicyRef"
+          },
+          "correlated_failure_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "uncertainty_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "rule": {
+                  "enum": [
+                    "threshold",
+                    "weighted"
+                  ]
+                }
+              },
+              "required": [
+                "rule"
+              ]
+            },
+            "then": {
+              "properties": {
+                "threshold_policy_ref": {
+                  "$ref": "#/$defs/policyRef"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "contradiction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "policy",
+          "adjudicator_refs",
+          "dispute_policy_ref"
+        ],
+        "properties": {
+          "policy": {
+            "enum": [
+              "fail_closed",
+              "hold_pending",
+              "escalate"
+            ]
+          },
+          "adjudicator_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "dispute_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      },
+      "challenge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "challenge_window_ref",
+          "verifier_refs",
+          "appeal_policy_ref"
+        ],
+        "properties": {
+          "challenge_window_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "verifier_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "appeal_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      },
+      "admission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision_semantics",
+          "ontology_assertion_schema_refs",
+          "required_verifier_path_refs",
+          "ontology_action_contract_refs",
+          "permitted_applicability_scope_refs",
+          "permitted_consequence_scope_refs",
+          "maximum_assertion_validity_policy_ref",
+          "required_authority_refs",
+          "policy_ref",
+          "receipt_obligations"
+        ],
+        "properties": {
+          "decision_semantics": {
+            "const": "qualified_scope_bound_operational_determination"
+          },
+          "ontology_assertion_schema_refs": {
+            "$ref": "#/$defs/schemaRefs"
+          },
+          "required_verifier_path_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "ontology_action_contract_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "permitted_applicability_scope_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "permitted_consequence_scope_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "maximum_assertion_validity_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "required_authority_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "receipt_obligations": {
+            "type": "array",
+            "items": {
+              "const": "oracle_evidence_admission"
+            },
+            "minItems": 1,
+            "maxItems": 1,
+            "uniqueItems": true
+          }
+        }
+      },
+      "missing_or_stale_evidence_mode": {
+        "enum": [
+          "unknown",
+          "read_only",
+          "pause",
+          "escalate"
+        ]
+      },
+      "source_replacement_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "privacy_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "retention_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "superseded",
+          "revoked"
+        ]
+      }
+    },
+    "$defs": {
+      "positiveInteger": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "canonicalRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "nullablePolicyRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "schemaRef": {
+        "type": "string",
+        "pattern": "^schema://[^\\s]{1,248}$"
+      },
+      "schemaRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/schemaRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      }
+    }
+  },
+  "schema://ioi/foundations/lifecycle-continuity-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+    "title": "LifecycleContinuityProfile",
+    "description": "Continuity, recovery, succession, dissolution, migration, fork, and adoption constraints for one System.",
+    "x-ioi-schema-version": "ioi.lifecycle-continuity-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "lifecycle_profile_id",
+      "system_id",
+      "constitution_ref",
+      "version",
+      "continuity_class",
+      "continuity",
+      "recovery_and_suspension",
+      "succession",
+      "dissolution",
+      "migration",
+      "fork",
+      "adoption",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.lifecycle-continuity-profile.v1"
+      },
+      "lifecycle_profile_id": {
+        "$ref": "#/$defs/lifecycleProfileRef"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "constitution_ref": {
+        "$ref": "#/$defs/constitutionRef"
+      },
+      "version": {
+        "$ref": "#/$defs/version"
+      },
+      "continuity_class": {
+        "enum": [
+          "operator_bound",
+          "successor_governed",
+          "durable_purpose",
+          "finite_term"
+        ]
+      },
+      "continuity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operating_budget_policy_ref",
+          "dependency_replacement_policy_ref",
+          "minimum_archive_policy_ref",
+          "degraded_mode"
+        ],
+        "properties": {
+          "operating_budget_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "dependency_replacement_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "minimum_archive_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "degraded_mode": {
+            "enum": [
+              "pause",
+              "read_only",
+              "bounded_continuation"
+            ]
+          }
+        }
+      },
+      "recovery_and_suspension": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recovery_policy_ref",
+          "pause_and_resume_policy_ref",
+          "suspension_and_reinstatement_policy_ref",
+          "quarantine_and_release_policy_ref",
+          "retirement_policy_ref"
+        ],
+        "properties": {
+          "recovery_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "pause_and_resume_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "suspension_and_reinstatement_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "quarantine_and_release_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "retirement_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      },
+      "succession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "trigger_classes",
+          "oracle_evidence_profile_refs",
+          "successor_candidate_refs",
+          "selection_policy_ref",
+          "required_legal_or_governance_authority_refs",
+          "challenge_window_ref",
+          "authority_handoff",
+          "constitution_must_be_preserved"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "trigger_classes": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "creator_death",
+                "creator_incapacity",
+                "organization_dissolution",
+                "authority_loss",
+                "governance_deadlock",
+                "term_expiry"
+              ]
+            },
+            "maxItems": 6,
+            "uniqueItems": true
+          },
+          "oracle_evidence_profile_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "successor_candidate_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "selection_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "required_legal_or_governance_authority_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "challenge_window_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "authority_handoff": {
+            "const": "rotate_and_reissue"
+          },
+          "constitution_must_be_preserved": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "dissolution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trigger_policy_refs",
+          "approval_policy_ref",
+          "active_work_disposition_policy_ref",
+          "asset_disposition_contract_refs",
+          "outstanding_obligation_policy_ref",
+          "authority_revocation_policy_ref",
+          "worker_and_node_shutdown_policy_ref",
+          "data_export_retention_and_erasure_policy_ref",
+          "network_exit_policy_ref",
+          "tombstone_policy_ref"
+        ],
+        "properties": {
+          "trigger_policy_refs": {
+            "$ref": "#/$defs/policyRefs"
+          },
+          "approval_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "active_work_disposition_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "asset_disposition_contract_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "outstanding_obligation_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "authority_revocation_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "worker_and_node_shutdown_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "data_export_retention_and_erasure_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "network_exit_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "tombstone_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          }
+        }
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "allowed",
+          "migration_policy_ref",
+          "identity_continuity_required",
+          "state_root_verification_required"
+        ],
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "migration_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "identity_continuity_required": {
+            "type": "boolean",
+            "const": true
+          },
+          "state_root_verification_required": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "fork": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "allowed",
+          "fork_policy_ref",
+          "new_system_id_required",
+          "source_identity_inheritance",
+          "state_root_and_lineage_proof_required"
+        ],
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "fork_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "new_system_id_required": {
+            "type": "boolean",
+            "const": true
+          },
+          "source_identity_inheritance": {
+            "const": "forbidden"
+          },
+          "state_root_and_lineage_proof_required": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "adoption": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "allowed",
+          "adoption_policy_ref",
+          "identity_continuity_decision_profile_ref",
+          "explicit_identity_decision_required",
+          "state_root_and_lineage_proof_required"
+        ],
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "adoption_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "identity_continuity_decision_profile_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "explicit_identity_decision_required": {
+            "type": "boolean",
+            "const": true
+          },
+          "state_root_and_lineage_proof_required": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "superseded",
+          "revoked"
+        ]
+      }
+    },
+    "$defs": {
+      "version": {
+        "type": "string",
+        "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+      },
+      "lifecycleProfileRef": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "canonicalRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "policyRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      }
+    }
+  },
+  "schema://ioi/foundations/lifecycle-transition/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "title": "LifecycleTransition",
+    "description": "Evidence-, decision-, authority-, and root-bound proposal or record for one System lifecycle transition.",
+    "x-ioi-schema-version": "ioi.lifecycle-transition.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "lifecycle_transition_id",
+      "system_id",
+      "resulting_or_related_system_id",
+      "lifecycle_profile_ref",
+      "transition_kind",
+      "genesis_ref",
+      "manifest_ref",
+      "admitted_manifest_root",
+      "previous_state",
+      "proposed_state",
+      "trigger_evidence_refs",
+      "oracle_evidence_profile_refs",
+      "proposal_ref",
+      "decision_ref",
+      "authority_grant_refs",
+      "challenge_opened_at",
+      "challenge_closes_at",
+      "predecessor_state_root",
+      "resulting_state_root",
+      "state_transition_commitment_ref",
+      "lineage_ref",
+      "identity_continuity_decision_ref",
+      "disposition_receipt_refs",
+      "receipt_refs",
+      "public_commitment_ref",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.lifecycle-transition.v1"
+      },
+      "lifecycle_transition_id": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "resulting_or_related_system_id": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/systemRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "lifecycle_profile_ref": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "transition_kind": {
+        "enum": [
+          "initialize",
+          "activate",
+          "pause",
+          "resume",
+          "suspend",
+          "reinstate",
+          "enter_dormancy",
+          "wake",
+          "begin_recovery",
+          "complete_recovery",
+          "quarantine",
+          "release_quarantine",
+          "initiate_succession",
+          "complete_succession",
+          "initiate_dissolution",
+          "complete_dissolution",
+          "migrate",
+          "fork",
+          "adopt",
+          "retire",
+          "archive",
+          "revoke",
+          "decommission"
+        ]
+      },
+      "genesis_ref": {
+        "$ref": "#/$defs/nullableGenesisRef"
+      },
+      "manifest_ref": {
+        "$ref": "#/$defs/nullablePackageReleaseRef"
+      },
+      "admitted_manifest_root": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "previous_state": {
+        "$ref": "#/$defs/lifecycleState"
+      },
+      "proposed_state": {
+        "$ref": "#/$defs/lifecycleState"
+      },
+      "trigger_evidence_refs": {
+        "$ref": "#/$defs/evidenceRefs"
+      },
+      "oracle_evidence_profile_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "proposal_ref": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "decision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^decision://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^grant://[^\\s]{1,248}$"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "challenge_opened_at": {
+        "$ref": "#/$defs/nullableCanonicalDateTime"
+      },
+      "challenge_closes_at": {
+        "$ref": "#/$defs/nullableCanonicalDateTime"
+      },
+      "predecessor_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "resulting_state_root": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "state_transition_commitment_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^transition://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "lineage_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^provenance://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "identity_continuity_decision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^decision://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "disposition_receipt_refs": {
+        "$ref": "#/$defs/receiptRefs"
+      },
+      "receipt_refs": {
+        "$ref": "#/$defs/receiptRefs"
+      },
+      "public_commitment_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:commitment|settlement|tx)://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "evidence_pending",
+          "challenge_open",
+          "approved",
+          "executing",
+          "committed",
+          "rejected",
+          "rolled_back",
+          "failed_closed"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "transition_kind": {
+              "enum": [
+                "initialize",
+                "activate"
+              ]
+            }
+          },
+          "required": [
+            "transition_kind"
+          ]
+        },
+        "then": {
+          "properties": {
+            "genesis_ref": {
+              "$ref": "#/$defs/genesisRef"
+            },
+            "manifest_ref": {
+              "$ref": "#/$defs/packageReleaseRef"
+            },
+            "admitted_manifest_root": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "genesis_ref": {
+              "type": "null"
+            },
+            "manifest_ref": {
+              "type": "null"
+            },
+            "admitted_manifest_root": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "challenge_open"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "challenge_opened_at": {
+              "$ref": "#/$defs/canonicalDateTime"
+            },
+            "challenge_closes_at": {
+              "$ref": "#/$defs/canonicalDateTime"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "nullableGenesisRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/genesisRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "packageReleaseRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+      },
+      "nullablePackageReleaseRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/packageReleaseRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "lifecycleState": {
+        "enum": [
+          "draft",
+          "initialized",
+          "active",
+          "degraded",
+          "paused",
+          "suspended",
+          "dormant",
+          "recovering",
+          "quarantined",
+          "succession_pending",
+          "successor_governed",
+          "dissolution_pending",
+          "dissolving",
+          "dissolved",
+          "retired",
+          "archived",
+          "decommissioned",
+          "revoked"
+        ]
+      },
+      "evidenceRefs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "receiptRefs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,248}$"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "nullableCanonicalDateTime": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalDateTime"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/ioi-network-enrollment/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/ioi-network-enrollment/v1",
+    "title": "IOINetworkEnrollment",
+    "description": "Explicit compatible, connected, or secured IOI Network relationship for one System.",
+    "x-ioi-schema-version": "ioi.network-enrollment.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "network_enrollment_id",
+      "system_id",
+      "constitution_ref",
+      "manifest_ref",
+      "version",
+      "predecessor_enrollment_ref",
+      "profile",
+      "governing_decision_ref",
+      "authority_grant_refs",
+      "effective_at",
+      "expires_at",
+      "renewal_policy_ref",
+      "conformance",
+      "connection",
+      "selected_network_services",
+      "assurance_claim",
+      "standard_das_conformance_profile_ref",
+      "exit",
+      "suspension_reason_code",
+      "transition_receipt_refs",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.network-enrollment.v1"
+      },
+      "network_enrollment_id": {
+        "$ref": "#/$defs/networkEnrollmentRef"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "constitution_ref": {
+        "$ref": "#/$defs/constitutionRef"
+      },
+      "manifest_ref": {
+        "$ref": "#/$defs/packageReleaseRef"
+      },
+      "version": {
+        "$ref": "#/$defs/version"
+      },
+      "predecessor_enrollment_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/networkEnrollmentRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "profile": {
+        "enum": [
+          "ioi_compatible",
+          "ioi_connected",
+          "ioi_secured"
+        ]
+      },
+      "governing_decision_ref": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^grant://[^\\s]{1,248}$"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "effective_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "expires_at": {
+        "$ref": "#/$defs/nullableCanonicalDateTime"
+      },
+      "renewal_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "conformance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kernel_release_root",
+          "conformance_profile_refs",
+          "conformance_receipt_refs",
+          "ecosystem_assurance_profile_refs"
+        ],
+        "properties": {
+          "kernel_release_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "conformance_profile_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "conformance_receipt_refs": {
+            "$ref": "#/$defs/receiptRefs"
+          },
+          "ecosystem_assurance_profile_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          }
+        }
+      },
+      "connection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "network_ref",
+          "system_registration_ref",
+          "constitution_commitment_ref",
+          "release_commitment_ref",
+          "endpoint_commitment_refs",
+          "aiip_profile_refs",
+          "aiip_channel_refs"
+        ],
+        "properties": {
+          "network_ref": {
+            "anyOf": [
+              {
+                "const": "network://ioi-l1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "system_registration_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "constitution_commitment_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "release_commitment_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "endpoint_commitment_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "aiip_profile_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "aiip_channel_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          }
+        }
+      },
+      "selected_network_services": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "service_kind",
+            "service_ref",
+            "terms_ref",
+            "fee_basis_ref",
+            "bond_or_stake_ref",
+            "slashing_or_claim_policy_ref",
+            "assurance_profile_ref"
+          ],
+          "properties": {
+            "service_kind": {
+              "enum": [
+                "registry",
+                "rights",
+                "reputation",
+                "escrow",
+                "dispute",
+                "settlement",
+                "validator",
+                "verifier",
+                "guardian",
+                "availability",
+                "relayer",
+                "arbitrator",
+                "ordering",
+                "finality"
+              ]
+            },
+            "service_ref": {
+              "type": "string",
+              "pattern": "^service://[^\\s]{1,248}$"
+            },
+            "terms_ref": {
+              "type": "string",
+              "pattern": "^terms://[^\\s]{1,248}$"
+            },
+            "fee_basis_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^fee-basis://[^\\s]{1,248}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "bond_or_stake_ref": {
+              "$ref": "#/$defs/nullableCanonicalRef"
+            },
+            "slashing_or_claim_policy_ref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/policyRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "assurance_profile_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^assurance-profile://[^\\s]{1,248}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "assurance_claim": {
+        "enum": [
+          "none",
+          "connected_services_only",
+          "secured_profile"
+        ]
+      },
+      "standard_das_conformance_profile_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^conformance-profile://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "exit": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "exit_policy_ref",
+          "outstanding_obligation_refs",
+          "dispute_refs",
+          "final_commitment_ref"
+        ],
+        "properties": {
+          "exit_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "outstanding_obligation_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "dispute_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "final_commitment_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          }
+        }
+      },
+      "suspension_reason_code": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "transition_receipt_refs": {
+        "$ref": "#/$defs/receiptRefs"
+      },
+      "status": {
+        "enum": [
+          "local_only",
+          "pending",
+          "active",
+          "suspended",
+          "exiting",
+          "exited",
+          "revoked"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "profile": {
+              "const": "ioi_compatible"
+            }
+          },
+          "required": [
+            "profile"
+          ]
+        },
+        "then": {
+          "properties": {
+            "status": {
+              "const": "local_only"
+            },
+            "selected_network_services": {
+              "type": "array",
+              "maxItems": 0
+            },
+            "assurance_claim": {
+              "const": "none"
+            },
+            "standard_das_conformance_profile_ref": {
+              "type": "null"
+            },
+            "connection": {
+              "type": "object",
+              "properties": {
+                "network_ref": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "profile": {
+              "const": "ioi_connected"
+            },
+            "status": {
+              "const": "active"
+            }
+          },
+          "required": [
+            "profile",
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "selected_network_services": {
+              "type": "array",
+              "minItems": 1
+            },
+            "assurance_claim": {
+              "const": "connected_services_only"
+            },
+            "connection": {
+              "type": "object",
+              "properties": {
+                "network_ref": {
+                  "const": "network://ioi-l1"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "profile": {
+              "const": "ioi_secured"
+            }
+          },
+          "required": [
+            "profile"
+          ]
+        },
+        "then": {
+          "properties": {
+            "selected_network_services": {
+              "type": "array",
+              "minItems": 1
+            },
+            "assurance_claim": {
+              "const": "secured_profile"
+            },
+            "standard_das_conformance_profile_ref": {
+              "type": "string",
+              "pattern": "^conformance-profile://[^\\s]{1,248}$"
+            },
+            "connection": {
+              "type": "object",
+              "properties": {
+                "network_ref": {
+                  "const": "network://ioi-l1"
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+      },
+      "networkEnrollmentRef": {
+        "type": "string",
+        "pattern": "^network-enrollment://[^\\s]{1,248}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "packageReleaseRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "nullableCanonicalRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "receiptRefs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,248}$"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "nullableCanonicalDateTime": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalDateTime"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -6574,6 +11480,122 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "path": "$.reviewed_representation_hash"
       }
     }
+  ],
+  "schema://ioi/foundations/autonomous-system-manifest/v1": [
+    {
+      "rule_id": "autonomous_system_manifest.worker.responsibility.required",
+      "description": "A package release names a bounded worker responsibility.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.worker.responsibility"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-genesis/v1": [],
+  "schema://ioi/foundations/autonomous-system-constitution/v1": [
+    {
+      "rule_id": "autonomous_system_constitution.governance.owner.required",
+      "description": "A constitution names at least one governance owner.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.governance.governance_owner_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_constitution.accountable_principal.required",
+      "description": "A constitution names at least one accountable principal.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.governance.accountable_principal_refs"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-constitution-amendment/v1": [
+    {
+      "rule_id": "autonomous_system_constitution_amendment.changed_fields.required",
+      "description": "An amendment proposal binds at least one changed field path.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.changed_field_paths"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_constitution_amendment.protected_fields.required",
+      "description": "An amendment proposal identifies the protected field paths implicated by its change set.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.protected_field_paths"
+      }
+    }
+  ],
+  "schema://ioi/foundations/ordering-admission-finality-profile/v1": [
+    {
+      "rule_id": "ordering_admission_finality.threshold.required_lte_eligible",
+      "description": "The required admission threshold cannot exceed the eligible principal count.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.admission.threshold.required",
+          "$.admission.threshold.eligible"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/oracle-evidence-profile/v1": [
+    {
+      "rule_id": "oracle_evidence.contradiction.escalation_adjudicator.required",
+      "description": "Escalation names at least one adjudicator.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.contradiction.adjudicator_refs",
+        "when_path": "$.contradiction.policy",
+        "values": [
+          "escalate"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/lifecycle-continuity-profile/v1": [
+    {
+      "rule_id": "lifecycle_continuity.succession.trigger.required_when_enabled",
+      "description": "Enabled succession names at least one governed trigger class.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.trigger_classes",
+        "when_path": "$.succession.enabled",
+        "values": [
+          true
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/lifecycle-transition/v1": [
+    {
+      "rule_id": "lifecycle_transition.evidence.required_when_pending",
+      "description": "An evidence-pending transition binds at least one trigger evidence ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.trigger_evidence_refs",
+        "when_path": "$.status",
+        "values": [
+          "evidence_pending"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/ioi-network-enrollment/v1": [
+    {
+      "rule_id": "ioi_network_enrollment.active.selected_service.required",
+      "description": "An active network enrollment names at least one selected service.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.selected_network_services",
+        "when_path": "$.status",
+        "values": [
+          "active"
+        ]
+      }
+    }
   ]
 };
 
@@ -6972,4 +11994,58 @@ export function validateDeclassificationApprovalV1(
   value: unknown,
 ): value is DeclassificationApprovalV1 {
   return validateArchitectureContract("schema://ioi/foundations/declassification-approval/v1", value).ok;
+}
+
+export function validateAutonomousSystemManifestV1(
+  value: unknown,
+): value is AutonomousSystemManifestV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-manifest/v1", value).ok;
+}
+
+export function validateAutonomousSystemGenesisV1(
+  value: unknown,
+): value is AutonomousSystemGenesisV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-genesis/v1", value).ok;
+}
+
+export function validateAutonomousSystemConstitutionV1(
+  value: unknown,
+): value is AutonomousSystemConstitutionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-constitution/v1", value).ok;
+}
+
+export function validateAutonomousSystemConstitutionAmendmentV1(
+  value: unknown,
+): value is AutonomousSystemConstitutionAmendmentV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-constitution-amendment/v1", value).ok;
+}
+
+export function validateOrderingAdmissionFinalityProfileV1(
+  value: unknown,
+): value is OrderingAdmissionFinalityProfileV1 {
+  return validateArchitectureContract("schema://ioi/foundations/ordering-admission-finality-profile/v1", value).ok;
+}
+
+export function validateOracleEvidenceProfileV1(
+  value: unknown,
+): value is OracleEvidenceProfileV1 {
+  return validateArchitectureContract("schema://ioi/foundations/oracle-evidence-profile/v1", value).ok;
+}
+
+export function validateLifecycleContinuityProfileV1(
+  value: unknown,
+): value is LifecycleContinuityProfileV1 {
+  return validateArchitectureContract("schema://ioi/foundations/lifecycle-continuity-profile/v1", value).ok;
+}
+
+export function validateLifecycleTransitionV1(
+  value: unknown,
+): value is LifecycleTransitionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/lifecycle-transition/v1", value).ok;
+}
+
+export function validateIOINetworkEnrollmentV1(
+  value: unknown,
+): value is IOINetworkEnrollmentV1 {
+  return validateArchitectureContract("schema://ioi/foundations/ioi-network-enrollment/v1", value).ok;
 }

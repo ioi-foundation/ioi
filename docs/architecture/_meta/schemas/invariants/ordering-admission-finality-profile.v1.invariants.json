@@ -1,0 +1,18 @@
+{
+  "$id": "invariant://ioi/foundations/ordering-admission-finality-profile/threshold/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+  "rules": [
+    {
+      "rule_id": "ordering_admission_finality.threshold.required_lte_eligible",
+      "description": "The required admission threshold cannot exceed the eligible principal count.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.admission.threshold.required",
+          "$.admission.threshold.eligible"
+        ]
+      }
+    }
+  ]
+}

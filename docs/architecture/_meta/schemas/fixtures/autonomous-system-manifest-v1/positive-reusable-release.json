@@ -1,0 +1,146 @@
+{
+  "schema_version": "ioi.autonomous-system-manifest.v1",
+  "package_id": "package://acme/outcome-operator",
+  "manifest_id": "package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "display_name": "Outcome Operator",
+  "description": "Reusable bounded outcome-operator package release.",
+  "version": "1.0.0",
+  "predecessor_manifest_ref": null,
+  "release_root": "sha256:79c72f3793f04d127eb723fc5ca9e7b51148d7b9f48e1ea97623ae03a7dc98a4",
+  "registry_status": "released",
+  "constitution_template_ref": "artifact://sha256/constitution-template",
+  "required_profile_templates": {
+    "deployment_template_ref": "artifact://sha256/deployment-template",
+    "ordering_admission_finality_template_ref": "artifact://sha256/ordering-template",
+    "oracle_evidence_template_refs": ["artifact://sha256/oracle-template"],
+    "lifecycle_continuity_template_ref": "artifact://sha256/lifecycle-template",
+    "network_enrollment_constraint_ref": "policy://acme/network/local-only"
+  },
+  "system_binding": {
+    "allowed_use": "instantiate_new",
+    "compatible_constitution_constraint_ref": "policy://acme/constitution/v1",
+    "compatible_predecessor_release_roots": []
+  },
+  "worker": {
+    "worker_revision_ref": "worker://acme/outcome-operator/revision/sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "worker_content_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "responsibility": "Pursue one bounded outcome under declared authority and receipt obligations.",
+    "owner_ref": "ioi://publisher/acme"
+  },
+  "typed_components": {
+    "component_set_snapshot_ref": "artifact://sha256/component-set-v1",
+    "component_set_hash": "sha256:8cd8d649b1ae06bb99cf6cbe9fa671ef47b48ca523cbdce8b943224c279340fc",
+    "goal_run_profiles": [
+      {
+        "revision_ref": "goal-run-profile://acme/default/revision/sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "content_hash": "sha256:6767676767676767676767676767676767676767676767676767676767676767"
+      }
+    ],
+    "workflow_templates": [
+      {
+        "revision_ref": "workflow-template://acme/default/revision/sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "content_hash": "sha256:7878787878787878787878787878787878787878787878787878787878787878"
+      }
+    ],
+    "automation_specs": [],
+    "harness_profiles": [
+      {
+        "revision_ref": "harness-profile://acme/default/revision/sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "content_hash": "sha256:8989898989898989898989898989898989898989898989898989898989898989"
+      }
+    ],
+    "agent_harness_adapters": [],
+    "skill_manifests": [
+      {
+        "revision_ref": "skill://acme/research/revision/sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "content_hash": "sha256:9090909090909090909090909090909090909090909090909090909090909090"
+      }
+    ],
+    "data_recipes": [],
+    "runtime_tool_contracts": [
+      {
+        "revision_ref": "tool://acme/search/revision/sha256:abababababababababababababababababababababababababababababababab",
+        "content_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "mcp_gateway_requirements": []
+  },
+  "workflow_compatibility": {
+    "default_workflow_template_revision_ref": "workflow-template://acme/default/revision/sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "default_workflow_template_content_hash": "sha256:7878787878787878787878787878787878787878787878787878787878787878",
+    "compatible_harness_profile_revision_refs": [
+      "harness-profile://acme/default/revision/sha256:8888888888888888888888888888888888888888888888888888888888888888"
+    ],
+    "topology_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "source_project": {
+    "project_ref": "project://acme/outcome-operator",
+    "repository_refs": ["repository://acme/outcome-operator"],
+    "default_branch_or_ref": "main",
+    "development_environment_recipe_ref": null,
+    "development_environment_recipe_content_hash": null,
+    "issue_tracker_refs": [],
+    "code_owner_refs": ["org://acme/platform"]
+  },
+  "interfaces": {
+    "operator_console_descriptor_ref": null,
+    "generated_domain_app_descriptor_ref": null,
+    "api_contract_refs": ["schema://acme/outcome-api/v1"],
+    "aiip_binding_requirement_refs": [],
+    "publication_endpoint_contract_refs": []
+  },
+  "capabilities": {
+    "model_capability_requirement_refs": ["capability://model/reasoning"],
+    "model_deployment_profile_refs": [],
+    "capability_descriptor_refs": [],
+    "connector_requirement_refs": [],
+    "primitive_capabilities_required": ["prim:network.fetch"]
+  },
+  "authority": {
+    "authority_scope_requirements": ["scope:network.read"],
+    "grant_requirements": ["schema://acme/grants/network-read/v1"],
+    "approval_profile_ref": "policy://acme/approval/network",
+    "policy_profile_ref": "policy://acme/runtime/default",
+    "revocation_posture": "fail_closed"
+  },
+  "runtime_profiles": [
+    {
+      "profile_id": "profile://acme/runtime/local",
+      "kind": "local_daemon",
+      "compatibility_requirement_ref": "policy://acme/runtime/local",
+      "cleanup_policy_ref": "policy://acme/runtime/cleanup"
+    }
+  ],
+  "session_state_memory_artifacts": {
+    "session_profile_ref": null,
+    "state_profile_ref": "policy://acme/state/default",
+    "memory_profile_ref": "policy://acme/memory/default",
+    "artifact_retention_profile_ref": "policy://acme/artifacts/default",
+    "observation_retention_mode": "local_redacted"
+  },
+  "evaluation": {
+    "eval_profile_refs": ["evaluation-profile://acme/outcome-v1"],
+    "benchmark_refs": [],
+    "quality_gate_refs": ["policy://acme/quality/release"],
+    "replay_profile_ref": null
+  },
+  "promotion": {
+    "promotion_profile_ref": "policy://acme/promotion/default",
+    "release_target_refs": [],
+    "rollout_policy_ref": null,
+    "rollback_policy_ref": null,
+    "recall_policy_ref": "policy://acme/recall/default",
+    "kill_switch_ref": null,
+    "marketplace_exposure_eligibility": "internal",
+    "foundry_lineage_refs": [],
+    "worker_card_preview_ref": null
+  },
+  "receipts": {
+    "package_readiness_receipt_ref": "receipt://acme/package-ready/v1",
+    "release_evaluation_receipt_refs": ["receipt://acme/release-eval/v1"]
+  },
+  "release": {
+    "publisher_signature_ref": "evidence://acme/package-signature/v1",
+    "registry_published_at": "2026-07-18T12:00:00Z"
+  }
+}

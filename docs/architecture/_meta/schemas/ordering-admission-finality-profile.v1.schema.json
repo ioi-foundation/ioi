@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+  "title": "OrderingAdmissionFinalityProfile",
+  "description": "Ordering, admission, cryptographic continuity, finality, and fault-model profile for one System.",
+  "x-ioi-schema-version": "ioi.ordering-admission-finality-profile.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ordering_profile_id",
+    "system_id",
+    "constitution_ref",
+    "version",
+    "profile",
+    "authority_distribution",
+    "ordering",
+    "admission",
+    "cryptographic_continuity",
+    "finality",
+    "fault_model_ref",
+    "liveness_policy_ref",
+    "membership_and_profile_change_policy_ref",
+    "conformance_receipt_refs",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.ordering-admission-finality-profile.v1"
+    },
+    "ordering_profile_id": {
+      "$ref": "#/$defs/orderingProfileRef"
+    },
+    "system_id": {
+      "$ref": "#/$defs/systemRef"
+    },
+    "constitution_ref": {
+      "$ref": "#/$defs/constitutionRef"
+    },
+    "version": {
+      "$ref": "#/$defs/version"
+    },
+    "profile": {
+      "enum": [
+        "single_authority",
+        "replicated_single_authority",
+        "threshold_authority",
+        "bft_consensus",
+        "external_chain_finality"
+      ]
+    },
+    "authority_distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["posture", "principal_refs", "independence_evidence_refs"],
+      "properties": {
+        "posture": {
+          "enum": [
+            "single_principal",
+            "declared_multi_principal",
+            "external_network"
+          ]
+        },
+        "principal_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "independence_evidence_refs": {
+          "$ref": "#/$defs/evidenceRefs"
+        }
+      }
+    },
+    "ordering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule_ref",
+        "member_node_membership_refs",
+        "writer_epoch_required",
+        "fencing_required",
+        "leader_or_sequencer_selection_ref",
+        "conflict_rule_ref"
+      ],
+      "properties": {
+        "rule_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "member_node_membership_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^node-membership://[^\\s]{1,248}$"
+          },
+          "maxItems": 256,
+          "uniqueItems": true
+        },
+        "writer_epoch_required": {
+          "type": "boolean"
+        },
+        "fencing_required": {
+          "type": "boolean"
+        },
+        "leader_or_sequencer_selection_ref": {
+          "$ref": "#/$defs/nullablePolicyRef"
+        },
+        "conflict_rule_ref": {
+          "$ref": "#/$defs/policyRef"
+        }
+      }
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deterministic_transition_function_ref",
+        "schema_root",
+        "policy_root",
+        "authority_rule_ref",
+        "threshold",
+        "require_expected_predecessor_root",
+        "receipt_obligations"
+      ],
+      "properties": {
+        "deterministic_transition_function_ref": {
+          "type": "string",
+          "pattern": "^(?:artifact|cid)://[^\\s]{1,248}$"
+        },
+        "schema_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "policy_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "authority_rule_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "threshold": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "eligible"],
+          "properties": {
+            "required": {
+              "$ref": "#/$defs/portableInteger"
+            },
+            "eligible": {
+              "$ref": "#/$defs/portableInteger"
+            }
+          }
+        },
+        "require_expected_predecessor_root": {
+          "type": "boolean",
+          "const": true
+        },
+        "receipt_obligations": {
+          "$ref": "#/$defs/canonicalRefs"
+        }
+      }
+    },
+    "cryptographic_continuity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash_and_signature_suite_ref",
+        "sequence_rule_ref",
+        "require_monotonic_sequence",
+        "require_expected_predecessor_commitment",
+        "operation_or_batch_commitment_schema_ref",
+        "admission_proof_schema_ref",
+        "require_resulting_state_root",
+        "require_receipt_root",
+        "checkpoint_and_compaction_policy_ref"
+      ],
+      "properties": {
+        "hash_and_signature_suite_ref": {
+          "$ref": "#/$defs/schemaRef"
+        },
+        "sequence_rule_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "require_monotonic_sequence": {
+          "type": "boolean",
+          "const": true
+        },
+        "require_expected_predecessor_commitment": {
+          "type": "boolean",
+          "const": true
+        },
+        "operation_or_batch_commitment_schema_ref": {
+          "$ref": "#/$defs/schemaRef"
+        },
+        "admission_proof_schema_ref": {
+          "$ref": "#/$defs/schemaRef"
+        },
+        "require_resulting_state_root": {
+          "type": "boolean",
+          "const": true
+        },
+        "require_receipt_root": {
+          "type": "boolean",
+          "const": true
+        },
+        "checkpoint_and_compaction_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        }
+      }
+    },
+    "finality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "rule_ref",
+        "proof_schema_ref",
+        "rollback_posture",
+        "external_network_ref",
+        "external_contract_ref",
+        "external_confirmation_policy_ref"
+      ],
+      "properties": {
+        "scope": {
+          "enum": ["local_operational", "cross_domain", "public_economic"]
+        },
+        "rule_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "proof_schema_ref": {
+          "$ref": "#/$defs/schemaRef"
+        },
+        "rollback_posture": {
+          "enum": [
+            "recoverable_before_final",
+            "compensation_only_after_final",
+            "irreversible_after_final"
+          ]
+        },
+        "external_network_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:network|chain|domain)://[^\\s]{1,248}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "external_contract_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/canonicalRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "external_confirmation_policy_ref": {
+          "$ref": "#/$defs/nullablePolicyRef"
+        }
+      }
+    },
+    "fault_model_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "liveness_policy_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "membership_and_profile_change_policy_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "conformance_receipt_refs": {
+      "$ref": "#/$defs/receiptRefs"
+    },
+    "status": {
+      "enum": ["draft", "active", "superseded", "revoked"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "profile": {
+            "const": "external_chain_finality"
+          }
+        },
+        "required": ["profile"]
+      },
+      "then": {
+        "properties": {
+          "authority_distribution": {
+            "type": "object",
+            "properties": {
+              "posture": {
+                "const": "external_network"
+              }
+            }
+          },
+          "finality": {
+            "type": "object",
+            "properties": {
+              "external_network_ref": {
+                "type": "string",
+                "pattern": "^(?:network|chain|domain)://[^\\s]{1,248}$"
+              },
+              "external_confirmation_policy_ref": {
+                "$ref": "#/$defs/policyRef"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "profile": {
+            "enum": ["single_authority", "replicated_single_authority"]
+          }
+        },
+        "required": ["profile"]
+      },
+      "then": {
+        "properties": {
+          "authority_distribution": {
+            "type": "object",
+            "properties": {
+              "posture": {
+                "const": "single_principal"
+              },
+              "principal_refs": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "portableInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+    },
+    "orderingProfileRef": {
+      "type": "string",
+      "pattern": "^ordering-profile://[^\\s]{1,248}$"
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "constitutionRef": {
+      "type": "string",
+      "pattern": "^constitution://[^\\s]{1,248}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+    },
+    "canonicalRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "nullablePolicyRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/policyRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "schemaRef": {
+      "type": "string",
+      "pattern": "^schema://[^\\s]{1,248}$"
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "receiptRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    }
+  }
+}

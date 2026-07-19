@@ -1,0 +1,65 @@
+{
+  "schema_version": "ioi.lifecycle-continuity-profile.v1",
+  "lifecycle_profile_id": "lifecycle-profile://acme/system-alpha/default",
+  "system_id": "system://acme/system-alpha",
+  "constitution_ref": "constitution://acme/system-alpha/v1",
+  "version": "1.0.0",
+  "continuity_class": "successor_governed",
+  "continuity": {
+    "operating_budget_policy_ref": "policy://acme/lifecycle/budget",
+    "dependency_replacement_policy_ref": "policy://acme/lifecycle/dependencies",
+    "minimum_archive_policy_ref": "policy://acme/lifecycle/archive",
+    "degraded_mode": "read_only"
+  },
+  "recovery_and_suspension": {
+    "recovery_policy_ref": "policy://acme/lifecycle/recovery",
+    "pause_and_resume_policy_ref": "policy://acme/lifecycle/pause-resume",
+    "suspension_and_reinstatement_policy_ref": "policy://acme/lifecycle/suspend-reinstate",
+    "quarantine_and_release_policy_ref": "policy://acme/lifecycle/quarantine",
+    "retirement_policy_ref": "policy://acme/lifecycle/retire"
+  },
+  "succession": {
+    "enabled": true,
+    "trigger_classes": [],
+    "oracle_evidence_profile_refs": [],
+    "successor_candidate_refs": [],
+    "selection_policy_ref": "policy://acme/lifecycle/successor-selection",
+    "required_legal_or_governance_authority_refs": [],
+    "challenge_window_ref": "policy://acme/lifecycle/succession-challenge",
+    "authority_handoff": "rotate_and_reissue",
+    "constitution_must_be_preserved": true
+  },
+  "dissolution": {
+    "trigger_policy_refs": [],
+    "approval_policy_ref": "policy://acme/lifecycle/dissolution-approval",
+    "active_work_disposition_policy_ref": "policy://acme/lifecycle/work-disposition",
+    "asset_disposition_contract_refs": [],
+    "outstanding_obligation_policy_ref": "policy://acme/lifecycle/obligations",
+    "authority_revocation_policy_ref": "policy://acme/lifecycle/revoke-authority",
+    "worker_and_node_shutdown_policy_ref": "policy://acme/lifecycle/shutdown",
+    "data_export_retention_and_erasure_policy_ref": "policy://acme/lifecycle/data-disposition",
+    "network_exit_policy_ref": "policy://acme/lifecycle/network-exit",
+    "tombstone_policy_ref": "policy://acme/lifecycle/tombstone"
+  },
+  "migration": {
+    "allowed": true,
+    "migration_policy_ref": "policy://acme/lifecycle/migration",
+    "identity_continuity_required": true,
+    "state_root_verification_required": true
+  },
+  "fork": {
+    "allowed": false,
+    "fork_policy_ref": "policy://acme/lifecycle/fork",
+    "new_system_id_required": true,
+    "source_identity_inheritance": "forbidden",
+    "state_root_and_lineage_proof_required": true
+  },
+  "adoption": {
+    "allowed": false,
+    "adoption_policy_ref": "policy://acme/lifecycle/adoption",
+    "identity_continuity_decision_profile_ref": "policy://acme/lifecycle/identity-continuity",
+    "explicit_identity_decision_required": true,
+    "state_root_and_lineage_proof_required": true
+  },
+  "status": "draft"
+}

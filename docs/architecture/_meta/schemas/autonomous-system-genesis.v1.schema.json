@@ -1,0 +1,473 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+  "title": "AutonomousSystemGenesis",
+  "description": "One-time binding of one immutable package release to a proposed or admitted logical System origin.",
+  "x-ioi-schema-version": "ioi.autonomous-system-genesis.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "genesis_id",
+    "system_id",
+    "package_id",
+    "manifest_ref",
+    "admitted_manifest_root",
+    "constitution_ref",
+    "initial_profile_refs",
+    "initial_component_bindings",
+    "instantiation",
+    "cryptographic_origin",
+    "activation_receipt_ref",
+    "lifecycle_transition_refs",
+    "status_source_receipt_refs",
+    "created_at",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-genesis.v1"
+    },
+    "genesis_id": {
+      "$ref": "#/$defs/genesisRef"
+    },
+    "system_id": {
+      "$ref": "#/$defs/systemRef"
+    },
+    "package_id": {
+      "$ref": "#/$defs/packageRef"
+    },
+    "manifest_ref": {
+      "$ref": "#/$defs/packageReleaseRef"
+    },
+    "admitted_manifest_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "constitution_ref": {
+      "$ref": "#/$defs/constitutionRef"
+    },
+    "initial_profile_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deployment_profile_ref",
+        "ordering_admission_finality_profile_ref",
+        "oracle_evidence_profile_refs",
+        "lifecycle_continuity_profile_ref",
+        "network_enrollment_ref"
+      ],
+      "properties": {
+        "deployment_profile_ref": {
+          "$ref": "#/$defs/deploymentProfileRef"
+        },
+        "ordering_admission_finality_profile_ref": {
+          "$ref": "#/$defs/orderingProfileRef"
+        },
+        "oracle_evidence_profile_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/oracleProfileRef"
+          },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "lifecycle_continuity_profile_ref": {
+          "$ref": "#/$defs/lifecycleProfileRef"
+        },
+        "network_enrollment_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/networkEnrollmentRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "initial_component_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "admitted_component_set_snapshot_ref",
+        "admitted_component_set_hash",
+        "goal_run_profiles",
+        "workflow_templates",
+        "automation_specs",
+        "automation_installations",
+        "harness_profiles",
+        "agent_harness_adapters",
+        "skill_entries",
+        "data_recipes",
+        "runtime_tool_contracts",
+        "mcp_gateway_profiles"
+      ],
+      "properties": {
+        "admitted_component_set_snapshot_ref": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "admitted_component_set_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "goal_run_profiles": {
+          "$ref": "#/$defs/revisionHashTuples"
+        },
+        "workflow_templates": {
+          "$ref": "#/$defs/revisionHashTuples"
+        },
+        "automation_specs": {
+          "$ref": "#/$defs/revisionHashTuples"
+        },
+        "automation_installations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "binding_revision_ref",
+              "binding_hash",
+              "admission_receipt_ref"
+            ],
+            "properties": {
+              "binding_revision_ref": {
+                "type": "string",
+                "pattern": "^install://automation/[^\\s]{1,140}/revision/sha256:[0-9a-f]{64}$"
+              },
+              "binding_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "admission_receipt_ref": {
+                "$ref": "#/$defs/receiptRef"
+              }
+            }
+          },
+          "maxItems": 128,
+          "uniqueItems": true
+        },
+        "harness_profiles": {
+          "$ref": "#/$defs/revisionHashTuples"
+        },
+        "agent_harness_adapters": {
+          "$ref": "#/$defs/revisionHashTuples"
+        },
+        "skill_entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "binding_revision_ref",
+              "binding_hash",
+              "skill_manifest_revision_ref",
+              "skill_manifest_content_hash"
+            ],
+            "properties": {
+              "binding_revision_ref": {
+                "type": "string",
+                "pattern": "^skill-entry://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+              },
+              "binding_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "skill_manifest_revision_ref": {
+                "type": "string",
+                "pattern": "^skill://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+              },
+              "skill_manifest_content_hash": {
+                "$ref": "#/$defs/hash"
+              }
+            }
+          },
+          "maxItems": 128,
+          "uniqueItems": true
+        },
+        "data_recipes": {
+          "$ref": "#/$defs/revisionHashTuples"
+        },
+        "runtime_tool_contracts": {
+          "$ref": "#/$defs/revisionHashTuples"
+        },
+        "mcp_gateway_profiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["profile_revision_ref", "profile_content_hash"],
+            "properties": {
+              "profile_revision_ref": {
+                "type": "string",
+                "pattern": "^mcp-gateway://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+              },
+              "profile_content_hash": {
+                "$ref": "#/$defs/hash"
+              }
+            }
+          },
+          "maxItems": 64,
+          "uniqueItems": true
+        }
+      }
+    },
+    "instantiation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposed_by",
+        "decision_ref",
+        "authority_grant_refs",
+        "conformance_receipt_refs"
+      ],
+      "properties": {
+        "proposed_by": {
+          "type": "string",
+          "pattern": "^(?:system|wallet|org|project)://[^\\s]{1,248}$"
+        },
+        "decision_ref": {
+          "type": "string",
+          "pattern": "^decision://[^\\s]{1,248}$"
+        },
+        "authority_grant_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^grant://[^\\s]{1,248}$"
+          },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "conformance_receipt_refs": {
+          "$ref": "#/$defs/receiptRefs"
+        }
+      }
+    },
+    "cryptographic_origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "predecessor_commitment_ref",
+        "genesis_operation_commitment",
+        "genesis_transition_commitment_ref",
+        "initial_state_root",
+        "initial_receipt_root",
+        "admission_proof_ref"
+      ],
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 0
+        },
+        "predecessor_commitment_ref": {
+          "type": "null"
+        },
+        "genesis_operation_commitment": {
+          "$ref": "#/$defs/hash"
+        },
+        "genesis_transition_commitment_ref": {
+          "type": "string",
+          "pattern": "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"
+        },
+        "initial_state_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "initial_receipt_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "admission_proof_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:evidence|receipt)://[^\\s]{1,248}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "activation_receipt_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/receiptRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lifecycle_transition_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "status_source_receipt_refs": {
+      "$ref": "#/$defs/receiptRefs"
+    },
+    "created_at": {
+      "$ref": "#/$defs/canonicalDateTime"
+    },
+    "status": {
+      "enum": ["proposed", "authorized", "activated", "rejected", "revoked"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "proposed"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "activation_receipt_ref": {
+            "type": "null"
+          },
+          "lifecycle_transition_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "status_source_receipt_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "cryptographic_origin": {
+            "type": "object",
+            "properties": {
+              "admission_proof_ref": {
+                "type": "null"
+              }
+            },
+            "required": ["admission_proof_ref"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "activated"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "activation_receipt_ref": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "lifecycle_transition_refs": {
+            "type": "array",
+            "minItems": 1
+          },
+          "status_source_receipt_refs": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "genesisRef": {
+      "type": "string",
+      "pattern": "^genesis://[^\\s]{1,248}$"
+    },
+    "packageRef": {
+      "type": "string",
+      "pattern": "^package://[^\\s]{1,248}$"
+    },
+    "packageReleaseRef": {
+      "type": "string",
+      "pattern": "^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"
+    },
+    "constitutionRef": {
+      "type": "string",
+      "pattern": "^constitution://[^\\s]{1,248}$"
+    },
+    "deploymentProfileRef": {
+      "type": "string",
+      "pattern": "^deployment-profile://[^\\s]{1,248}$"
+    },
+    "orderingProfileRef": {
+      "type": "string",
+      "pattern": "^ordering-profile://[^\\s]{1,248}$"
+    },
+    "oracleProfileRef": {
+      "type": "string",
+      "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+    },
+    "lifecycleProfileRef": {
+      "type": "string",
+      "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+    },
+    "networkEnrollmentRef": {
+      "type": "string",
+      "pattern": "^network-enrollment://[^\\s]{1,248}$"
+    },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,248}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "receiptRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "immutableRevisionRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "revisionHashTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision_ref", "content_hash"],
+      "properties": {
+        "revision_ref": {
+          "$ref": "#/$defs/immutableRevisionRef"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "revisionHashTuples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/revisionHashTuple"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "canonicalDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

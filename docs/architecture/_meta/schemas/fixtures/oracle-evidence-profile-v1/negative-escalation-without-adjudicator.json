@@ -1,0 +1,53 @@
+{
+  "schema_version": "ioi.oracle-evidence-profile.v1",
+  "oracle_evidence_profile_id": "oracle-evidence-profile://acme/system-alpha/public-records",
+  "system_id": "system://acme/system-alpha",
+  "version": "1.0.0",
+  "fact_class_refs": ["ontology://acme/facts/public-record"],
+  "source_requirements": [
+    {
+      "source_class": "official_record",
+      "source_refs": ["source://acme/public-records"],
+      "evidence_schema_ref": "schema://acme/evidence/public-record/v1",
+      "signer_or_principal_refs": ["org://acme/records-office"],
+      "freshness_and_finality_policy_ref": "policy://acme/evidence/freshness",
+      "independence_group_ref": "independence-group://acme/public-records",
+      "required": true
+    }
+  ],
+  "aggregation": {
+    "rule": "single_source",
+    "minimum_sources": 1,
+    "minimum_independent_principals": 1,
+    "threshold_policy_ref": null,
+    "correlated_failure_policy_ref": "policy://acme/evidence/correlation",
+    "uncertainty_policy_ref": "policy://acme/evidence/uncertainty"
+  },
+  "contradiction": {
+    "policy": "escalate",
+    "adjudicator_refs": [],
+    "dispute_policy_ref": "policy://acme/evidence/dispute"
+  },
+  "challenge": {
+    "challenge_window_ref": "policy://acme/evidence/challenge-window",
+    "verifier_refs": ["verifier-path://acme/public-record"],
+    "appeal_policy_ref": "policy://acme/evidence/appeal"
+  },
+  "admission": {
+    "decision_semantics": "qualified_scope_bound_operational_determination",
+    "ontology_assertion_schema_refs": ["schema://acme/ontology/assertion/v1"],
+    "required_verifier_path_refs": ["verifier-path://acme/public-record"],
+    "ontology_action_contract_refs": [],
+    "permitted_applicability_scope_refs": ["scope:ontology.assert"],
+    "permitted_consequence_scope_refs": ["scope:workflow.read"],
+    "maximum_assertion_validity_policy_ref": "policy://acme/evidence/assertion-validity",
+    "required_authority_refs": [],
+    "policy_ref": "policy://acme/evidence/admission",
+    "receipt_obligations": ["oracle_evidence_admission"]
+  },
+  "missing_or_stale_evidence_mode": "unknown",
+  "source_replacement_policy_ref": "policy://acme/evidence/source-replacement",
+  "privacy_policy_ref": "policy://acme/evidence/privacy",
+  "retention_policy_ref": "policy://acme/evidence/retention",
+  "status": "draft"
+}

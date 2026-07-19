@@ -1,0 +1,344 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+  "title": "LifecycleContinuityProfile",
+  "description": "Continuity, recovery, succession, dissolution, migration, fork, and adoption constraints for one System.",
+  "x-ioi-schema-version": "ioi.lifecycle-continuity-profile.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lifecycle_profile_id",
+    "system_id",
+    "constitution_ref",
+    "version",
+    "continuity_class",
+    "continuity",
+    "recovery_and_suspension",
+    "succession",
+    "dissolution",
+    "migration",
+    "fork",
+    "adoption",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.lifecycle-continuity-profile.v1"
+    },
+    "lifecycle_profile_id": {
+      "$ref": "#/$defs/lifecycleProfileRef"
+    },
+    "system_id": {
+      "$ref": "#/$defs/systemRef"
+    },
+    "constitution_ref": {
+      "$ref": "#/$defs/constitutionRef"
+    },
+    "version": {
+      "$ref": "#/$defs/version"
+    },
+    "continuity_class": {
+      "enum": [
+        "operator_bound",
+        "successor_governed",
+        "durable_purpose",
+        "finite_term"
+      ]
+    },
+    "continuity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operating_budget_policy_ref",
+        "dependency_replacement_policy_ref",
+        "minimum_archive_policy_ref",
+        "degraded_mode"
+      ],
+      "properties": {
+        "operating_budget_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "dependency_replacement_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "minimum_archive_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "degraded_mode": {
+          "enum": ["pause", "read_only", "bounded_continuation"]
+        }
+      }
+    },
+    "recovery_and_suspension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recovery_policy_ref",
+        "pause_and_resume_policy_ref",
+        "suspension_and_reinstatement_policy_ref",
+        "quarantine_and_release_policy_ref",
+        "retirement_policy_ref"
+      ],
+      "properties": {
+        "recovery_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "pause_and_resume_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "suspension_and_reinstatement_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "quarantine_and_release_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "retirement_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        }
+      }
+    },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "trigger_classes",
+        "oracle_evidence_profile_refs",
+        "successor_candidate_refs",
+        "selection_policy_ref",
+        "required_legal_or_governance_authority_refs",
+        "challenge_window_ref",
+        "authority_handoff",
+        "constitution_must_be_preserved"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "trigger_classes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "creator_death",
+              "creator_incapacity",
+              "organization_dissolution",
+              "authority_loss",
+              "governance_deadlock",
+              "term_expiry"
+            ]
+          },
+          "maxItems": 6,
+          "uniqueItems": true
+        },
+        "oracle_evidence_profile_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+          },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "successor_candidate_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "selection_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "required_legal_or_governance_authority_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "challenge_window_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "authority_handoff": {
+          "const": "rotate_and_reissue"
+        },
+        "constitution_must_be_preserved": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "dissolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trigger_policy_refs",
+        "approval_policy_ref",
+        "active_work_disposition_policy_ref",
+        "asset_disposition_contract_refs",
+        "outstanding_obligation_policy_ref",
+        "authority_revocation_policy_ref",
+        "worker_and_node_shutdown_policy_ref",
+        "data_export_retention_and_erasure_policy_ref",
+        "network_exit_policy_ref",
+        "tombstone_policy_ref"
+      ],
+      "properties": {
+        "trigger_policy_refs": {
+          "$ref": "#/$defs/policyRefs"
+        },
+        "approval_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "active_work_disposition_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "asset_disposition_contract_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "outstanding_obligation_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "authority_revocation_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "worker_and_node_shutdown_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "data_export_retention_and_erasure_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "network_exit_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "tombstone_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "migration_policy_ref",
+        "identity_continuity_required",
+        "state_root_verification_required"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "migration_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "identity_continuity_required": {
+          "type": "boolean",
+          "const": true
+        },
+        "state_root_verification_required": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "fork": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "fork_policy_ref",
+        "new_system_id_required",
+        "source_identity_inheritance",
+        "state_root_and_lineage_proof_required"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "fork_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "new_system_id_required": {
+          "type": "boolean",
+          "const": true
+        },
+        "source_identity_inheritance": {
+          "const": "forbidden"
+        },
+        "state_root_and_lineage_proof_required": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "adoption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "adoption_policy_ref",
+        "identity_continuity_decision_profile_ref",
+        "explicit_identity_decision_required",
+        "state_root_and_lineage_proof_required"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "adoption_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "identity_continuity_decision_profile_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "explicit_identity_decision_required": {
+          "type": "boolean",
+          "const": true
+        },
+        "state_root_and_lineage_proof_required": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "status": {
+      "enum": ["draft", "active", "superseded", "revoked"]
+    }
+  },
+  "$defs": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+    },
+    "lifecycleProfileRef": {
+      "type": "string",
+      "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "constitutionRef": {
+      "type": "string",
+      "pattern": "^constitution://[^\\s]{1,248}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+    },
+    "canonicalRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "policyRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    }
+  }
+}

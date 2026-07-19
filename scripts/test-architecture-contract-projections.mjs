@@ -178,6 +178,8 @@ for (const requiredRegression of [
   "deep-unique-items-key-order-duplicate",
   "impossible-rfc3339-calendar-date",
   "type-less-if-then-max-items-violated",
+  "type-less-if-else-required-hash-violated",
+  "boolean-const-self-authority-violated",
   "ecma-whitespace-byte-order-mark-rejected",
   "ecma-non-whitespace-next-line-accepted",
   "required-nullable-claim-scope-missing",

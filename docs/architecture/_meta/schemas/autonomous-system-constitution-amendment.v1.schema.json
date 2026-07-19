@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+  "title": "AutonomousSystemConstitutionAmendment",
+  "description": "Non-effecting proposal that binds an exact constitution predecessor and proposed successor; approval never mutates either constitution.",
+  "x-ioi-schema-version": "ioi.autonomous-system-constitution-amendment.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "amendment_id",
+    "system_id",
+    "predecessor_constitution_ref",
+    "predecessor_constitution_root",
+    "proposed_successor_constitution_ref",
+    "proposed_successor_constitution_root",
+    "changed_field_paths",
+    "protected_field_paths",
+    "governing_decision_profile_ref",
+    "proposal_ref",
+    "evidence_refs",
+    "authority_requirement_refs",
+    "proposed_by_ref",
+    "decision_ref",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-constitution-amendment.v1"
+    },
+    "amendment_id": {
+      "type": "string",
+      "pattern": "^constitution-amendment://[^\\s]{1,248}$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "predecessor_constitution_ref": {
+      "$ref": "#/$defs/constitutionRef"
+    },
+    "predecessor_constitution_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "proposed_successor_constitution_ref": {
+      "$ref": "#/$defs/constitutionRef"
+    },
+    "proposed_successor_constitution_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "changed_field_paths": {
+      "$ref": "#/$defs/jsonPointers"
+    },
+    "protected_field_paths": {
+      "$ref": "#/$defs/jsonPointers"
+    },
+    "governing_decision_profile_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "proposal_ref": {
+      "type": "string",
+      "pattern": "^proposal://[^\\s]{1,248}$"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "authority_requirement_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$"
+      },
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "proposed_by_ref": {
+      "type": "string",
+      "pattern": "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$"
+    },
+    "decision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^decision://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": ["proposed", "evidence_pending", "approved", "rejected"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "approved"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "decision_ref": {
+            "type": "string",
+            "pattern": "^decision://[^\\s]{1,248}$"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "constitutionRef": {
+      "type": "string",
+      "pattern": "^constitution://[^\\s]{1,248}$"
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "jsonPointer": {
+      "type": "string",
+      "pattern": "^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$"
+    },
+    "jsonPointers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/jsonPointer"
+      },
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true
+    }
+  }
+}

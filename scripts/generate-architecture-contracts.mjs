@@ -440,9 +440,12 @@ function inventorySchemaKeywords(schema, at) {
       throw new Error(
         `${at}.enum: architecture projections currently require a non-empty string enum`,
       );
-    } else if (keyword === "const" && typeof value !== "string") {
+    } else if (
+      keyword === "const" &&
+      !(typeof value === "string" || typeof value === "boolean")
+    ) {
       throw new Error(
-        `${at}.const: architecture projections currently require a string const`,
+        `${at}.const: architecture projections require a string or boolean literal`,
       );
     } else if (keyword === "pattern") {
       const translated = rustEcmaPattern(value, `${at}.pattern`);
@@ -838,6 +841,32 @@ const mutationDefinitions = [
         "dispute_resolution",
         "dispute_remedy_execution",
       ],
+    },
+  },
+  {
+    id: "type-less-if-else-required-hash-violated",
+    contractId: "schema://ioi/foundations/autonomous-system-manifest/v1",
+    fixture:
+      "fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+    keywords: ["allOf", "if", "else"],
+    patch: {
+      operation: "set",
+      pointer: "/workflow_compatibility/default_workflow_template_content_hash",
+      value: null,
+    },
+  },
+  {
+    id: "boolean-const-self-authority-violated",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-constitution/v1",
+    fixture:
+      "fixtures/autonomous-system-constitution-v1/positive-draft.json",
+    keywords: ["const"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/governance/agent_may_commit_amendment",
+      value: true,
     },
   },
 ];
@@ -2585,8 +2614,8 @@ ${roundTripArms},
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            48,
-            "the registered golden corpus must remain the explicit 48-fixture bar",
+            66,
+            "the registered golden corpus must remain the explicit 66-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

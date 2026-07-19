@@ -1,0 +1,72 @@
+{
+  "schema_version": "ioi.autonomous-system-genesis.v1",
+  "genesis_id": "genesis://acme/system-alpha/zero",
+  "system_id": "system://acme/system-alpha",
+  "package_id": "package://acme/outcome-operator",
+  "manifest_ref": "package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "admitted_manifest_root": "sha256:79c72f3793f04d127eb723fc5ca9e7b51148d7b9f48e1ea97623ae03a7dc98a4",
+  "constitution_ref": "constitution://acme/system-alpha/v1",
+  "initial_profile_refs": {
+    "deployment_profile_ref": "deployment-profile://acme/system-alpha/local",
+    "ordering_admission_finality_profile_ref": "ordering-profile://acme/system-alpha/poa1",
+    "oracle_evidence_profile_refs": [
+      "oracle-evidence-profile://acme/system-alpha/public-records"
+    ],
+    "lifecycle_continuity_profile_ref": "lifecycle-profile://acme/system-alpha/default",
+    "network_enrollment_ref": null
+  },
+  "initial_component_bindings": {
+    "admitted_component_set_snapshot_ref": "artifact://sha256/component-set-v1",
+    "admitted_component_set_hash": "sha256:8cd8d649b1ae06bb99cf6cbe9fa671ef47b48ca523cbdce8b943224c279340fc",
+    "goal_run_profiles": [
+      {
+        "revision_ref": "goal-run-profile://acme/default/revision/sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "content_hash": "sha256:6767676767676767676767676767676767676767676767676767676767676767"
+      }
+    ],
+    "workflow_templates": [
+      {
+        "revision_ref": "workflow-template://acme/default/revision/sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "content_hash": "sha256:7878787878787878787878787878787878787878787878787878787878787878"
+      }
+    ],
+    "automation_specs": [],
+    "automation_installations": [],
+    "harness_profiles": [
+      {
+        "revision_ref": "harness-profile://acme/default/revision/sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "content_hash": "sha256:8989898989898989898989898989898989898989898989898989898989898989"
+      }
+    ],
+    "agent_harness_adapters": [],
+    "skill_entries": [],
+    "data_recipes": [],
+    "runtime_tool_contracts": [
+      {
+        "revision_ref": "tool://acme/search/revision/sha256:abababababababababababababababababababababababababababababababab",
+        "content_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "mcp_gateway_profiles": []
+  },
+  "instantiation": {
+    "proposed_by": "project://acme/outcome-operator",
+    "decision_ref": "decision://acme/system-alpha/genesis-proposal",
+    "authority_grant_refs": [],
+    "conformance_receipt_refs": []
+  },
+  "cryptographic_origin": {
+    "sequence": 0,
+    "predecessor_commitment_ref": null,
+    "genesis_operation_commitment": "sha256:0290b7210a9038c75db3d62e9aee75056e536e2c129062b6728b75fdba405671",
+    "genesis_transition_commitment_ref": "commitment://ioi/system-genesis/sha256:0290b7210a9038c75db3d62e9aee75056e536e2c129062b6728b75fdba405671",
+    "initial_state_root": "sha256:f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
+    "initial_receipt_root": "sha256:f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3",
+    "admission_proof_ref": null
+  },
+  "activation_receipt_ref": null,
+  "lifecycle_transition_refs": [],
+  "status_source_receipt_refs": [],
+  "created_at": "2026-07-18T12:00:00Z",
+  "status": "proposed"
+}

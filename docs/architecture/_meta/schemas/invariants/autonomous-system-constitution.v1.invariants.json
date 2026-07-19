@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-constitution/accountable-governance/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_constitution.governance.owner.required",
+      "description": "A constitution names at least one governance owner.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.governance.governance_owner_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_constitution.accountable_principal.required",
+      "description": "A constitution names at least one accountable principal.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.governance.accountable_principal_refs"
+      }
+    }
+  ]
+}

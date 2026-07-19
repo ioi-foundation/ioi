@@ -1,0 +1,17 @@
+{
+  "$id": "invariant://ioi/foundations/ioi-network-enrollment/active-service/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
+  "rules": [
+    {
+      "rule_id": "ioi_network_enrollment.active.selected_service.required",
+      "description": "An active network enrollment names at least one selected service.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.selected_network_services",
+        "when_path": "$.status",
+        "values": ["active"]
+      }
+    }
+  ]
+}

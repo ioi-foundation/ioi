@@ -1,0 +1,425 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-constitution/v1",
+  "title": "AutonomousSystemConstitution",
+  "description": "Protected purpose, agency, governance, profile-change, and shutdown constraints for one logical System.",
+  "x-ioi-schema-version": "ioi.autonomous-system-constitution.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "constitution_id",
+    "system_id",
+    "version",
+    "predecessor_constitution_ref",
+    "constitution_root",
+    "declared_purpose",
+    "normative_constraints",
+    "agency_boundary",
+    "governance",
+    "protected_profile_governance",
+    "shutdown",
+    "activation_receipt_ref",
+    "public_commitment_ref",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-constitution.v1"
+    },
+    "constitution_id": {
+      "$ref": "#/$defs/constitutionRef"
+    },
+    "system_id": {
+      "$ref": "#/$defs/systemRef"
+    },
+    "version": {
+      "$ref": "#/$defs/version"
+    },
+    "predecessor_constitution_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/constitutionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "constitution_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "declared_purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "ontology_refs",
+        "beneficiary_or_stakeholder_refs",
+        "acceptance_policy_refs"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "pattern": "^[^\\s][ -~]{0,2047}$"
+        },
+        "ontology_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "beneficiary_or_stakeholder_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "acceptance_policy_refs": {
+          "$ref": "#/$defs/policyRefs"
+        }
+      }
+    },
+    "normative_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invariant_refs",
+        "permitted_objective_policy_refs",
+        "prohibited_objective_policy_refs",
+        "permitted_ontology_action_contract_refs",
+        "prohibited_effect_policy_refs"
+      ],
+      "properties": {
+        "invariant_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "permitted_objective_policy_refs": {
+          "$ref": "#/$defs/policyRefs"
+        },
+        "prohibited_objective_policy_refs": {
+          "$ref": "#/$defs/policyRefs"
+        },
+        "permitted_ontology_action_contract_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "prohibited_effect_policy_refs": {
+          "$ref": "#/$defs/policyRefs"
+        }
+      }
+    },
+    "agency_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_ceiling_scope_refs",
+        "delegable_scope_refs",
+        "non_delegable_scope_refs",
+        "resource_and_budget_ceiling_policy_refs",
+        "time_and_duration_ceiling_policy_refs",
+        "data_and_privacy_ceiling_policy_refs",
+        "effect_and_externality_ceiling_policy_refs",
+        "egress_policy_ref",
+        "node_expansion",
+        "code_propagation",
+        "self_authority_widening"
+      ],
+      "properties": {
+        "authority_ceiling_scope_refs": {
+          "$ref": "#/$defs/scopeRefs"
+        },
+        "delegable_scope_refs": {
+          "$ref": "#/$defs/scopeRefs"
+        },
+        "non_delegable_scope_refs": {
+          "$ref": "#/$defs/scopeRefs"
+        },
+        "resource_and_budget_ceiling_policy_refs": {
+          "$ref": "#/$defs/policyRefs"
+        },
+        "time_and_duration_ceiling_policy_refs": {
+          "$ref": "#/$defs/policyRefs"
+        },
+        "data_and_privacy_ceiling_policy_refs": {
+          "$ref": "#/$defs/policyRefs"
+        },
+        "effect_and_externality_ceiling_policy_refs": {
+          "$ref": "#/$defs/policyRefs"
+        },
+        "egress_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "node_expansion": {
+          "const": "governed_membership_only"
+        },
+        "code_propagation": {
+          "const": "admitted_deployment_only"
+        },
+        "self_authority_widening": {
+          "const": "forbidden"
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "governance_owner_refs",
+        "accountable_principal_refs",
+        "affected_party_policy_ref",
+        "ordinary_upgrade_policy_ref",
+        "amendment_mode",
+        "amendment_decision_profile_ref",
+        "protected_clause_refs",
+        "agent_may_propose_amendment",
+        "agent_may_commit_amendment",
+        "emergency_pause_authority_refs",
+        "revocation_authority_refs"
+      ],
+      "properties": {
+        "governance_owner_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "accountable_principal_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "affected_party_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "ordinary_upgrade_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "amendment_mode": {
+          "enum": ["immutable", "external_governance_only"]
+        },
+        "amendment_decision_profile_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/policyRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "protected_clause_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "agent_may_propose_amendment": {
+          "type": "boolean"
+        },
+        "agent_may_commit_amendment": {
+          "type": "boolean",
+          "const": false
+        },
+        "emergency_pause_authority_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        },
+        "revocation_authority_refs": {
+          "$ref": "#/$defs/canonicalRefs"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "amendment_mode": {
+                "const": "immutable"
+              }
+            },
+            "required": ["amendment_mode"]
+          },
+          "then": {
+            "properties": {
+              "amendment_decision_profile_ref": {
+                "type": "null"
+              },
+              "agent_may_propose_amendment": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "amendment_decision_profile_ref": {
+                "$ref": "#/$defs/policyRef"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "protected_profile_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "improvement_governance_profile_ref",
+        "improvement_governance_profile_change_decision_profile_ref",
+        "deployment_constraint_ref",
+        "deployment_change_decision_profile_ref",
+        "ordering_admission_finality_constraint_ref",
+        "ordering_profile_change_decision_profile_ref",
+        "oracle_evidence_constraint_ref",
+        "oracle_profile_change_decision_profile_ref",
+        "lifecycle_continuity_constraint_ref",
+        "lifecycle_profile_change_decision_profile_ref",
+        "network_enrollment_constraint_ref",
+        "network_enrollment_change_decision_profile_ref"
+      ],
+      "properties": {
+        "improvement_governance_profile_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^improvement-governance-profile://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "improvement_governance_profile_change_decision_profile_ref": {
+          "$ref": "#/$defs/nullablePolicyRef"
+        },
+        "deployment_constraint_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "deployment_change_decision_profile_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "ordering_admission_finality_constraint_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "ordering_profile_change_decision_profile_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "oracle_evidence_constraint_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "oracle_profile_change_decision_profile_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "lifecycle_continuity_constraint_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "lifecycle_profile_change_decision_profile_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "network_enrollment_constraint_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "network_enrollment_change_decision_profile_ref": {
+          "$ref": "#/$defs/policyRef"
+        }
+      }
+    },
+    "shutdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kill_switch_ref",
+        "decommission_policy_ref",
+        "minimum_archive_policy_ref"
+      ],
+      "properties": {
+        "kill_switch_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/canonicalRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decommission_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "minimum_archive_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        }
+      }
+    },
+    "activation_receipt_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "public_commitment_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:commitment|settlement|tx)://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": ["draft", "active", "superseded", "revoked"]
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+    },
+    "constitutionRef": {
+      "type": "string",
+      "pattern": "^constitution://[^\\s]{1,248}$"
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+    },
+    "canonicalRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "nullablePolicyRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/policyRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policyRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "scopeRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^scope:[a-z][a-z0-9._-]{0,127}$"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    }
+  }
+}

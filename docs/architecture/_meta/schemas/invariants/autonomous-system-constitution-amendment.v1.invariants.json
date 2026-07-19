@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-constitution-amendment/exact-change-set/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_constitution_amendment.changed_fields.required",
+      "description": "An amendment proposal binds at least one changed field path.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.changed_field_paths"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_constitution_amendment.protected_fields.required",
+      "description": "An amendment proposal identifies the protected field paths implicated by its change set.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.protected_field_paths"
+      }
+    }
+  ]
+}

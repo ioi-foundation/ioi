@@ -1,0 +1,17 @@
+{
+  "$id": "invariant://ioi/foundations/lifecycle-transition/evidence/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+  "rules": [
+    {
+      "rule_id": "lifecycle_transition.evidence.required_when_pending",
+      "description": "An evidence-pending transition binds at least one trigger evidence ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.trigger_evidence_refs",
+        "when_path": "$.status",
+        "values": ["evidence_pending"]
+      }
+    }
+  ]
+}

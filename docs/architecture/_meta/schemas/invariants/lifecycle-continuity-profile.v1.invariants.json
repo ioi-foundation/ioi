@@ -1,0 +1,17 @@
+{
+  "$id": "invariant://ioi/foundations/lifecycle-continuity-profile/succession/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+  "rules": [
+    {
+      "rule_id": "lifecycle_continuity.succession.trigger.required_when_enabled",
+      "description": "Enabled succession names at least one governed trigger class.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.trigger_classes",
+        "when_path": "$.succession.enabled",
+        "values": [true]
+      }
+    }
+  ]
+}

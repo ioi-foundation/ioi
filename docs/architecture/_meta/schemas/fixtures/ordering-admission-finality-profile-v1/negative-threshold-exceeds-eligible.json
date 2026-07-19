@@ -1,0 +1,58 @@
+{
+  "schema_version": "ioi.ordering-admission-finality-profile.v1",
+  "ordering_profile_id": "ordering-profile://acme/system-alpha/poa1",
+  "system_id": "system://acme/system-alpha",
+  "constitution_ref": "constitution://acme/system-alpha/v1",
+  "version": "1.0.0",
+  "profile": "single_authority",
+  "authority_distribution": {
+    "posture": "single_principal",
+    "principal_refs": ["wallet://acme/system-alpha-writer"],
+    "independence_evidence_refs": []
+  },
+  "ordering": {
+    "rule_ref": "policy://acme/ordering/strict-sequence",
+    "member_node_membership_refs": [],
+    "writer_epoch_required": true,
+    "fencing_required": true,
+    "leader_or_sequencer_selection_ref": null,
+    "conflict_rule_ref": "policy://acme/ordering/fail-closed-conflict"
+  },
+  "admission": {
+    "deterministic_transition_function_ref": "artifact://sha256/system-transition-v1",
+    "schema_root": "sha256:c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+    "policy_root": "sha256:c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2",
+    "authority_rule_ref": "policy://acme/ordering/writer-authority",
+    "threshold": {
+      "required": 2,
+      "eligible": 1
+    },
+    "require_expected_predecessor_root": true,
+    "receipt_obligations": ["schema://acme/receipts/system-admission/v1"]
+  },
+  "cryptographic_continuity": {
+    "hash_and_signature_suite_ref": "schema://acme/crypto/sha256-ed25519/v1",
+    "sequence_rule_ref": "policy://acme/sequence/monotonic",
+    "require_monotonic_sequence": true,
+    "require_expected_predecessor_commitment": true,
+    "operation_or_batch_commitment_schema_ref": "schema://acme/commitment/system-operation/v1",
+    "admission_proof_schema_ref": "schema://acme/proof/system-admission/v1",
+    "require_resulting_state_root": true,
+    "require_receipt_root": true,
+    "checkpoint_and_compaction_policy_ref": "policy://acme/checkpoint/default"
+  },
+  "finality": {
+    "scope": "local_operational",
+    "rule_ref": "policy://acme/finality/local",
+    "proof_schema_ref": "schema://acme/proof/local-finality/v1",
+    "rollback_posture": "recoverable_before_final",
+    "external_network_ref": null,
+    "external_contract_ref": null,
+    "external_confirmation_policy_ref": null
+  },
+  "fault_model_ref": "policy://acme/fault-model/poa1",
+  "liveness_policy_ref": "policy://acme/liveness/poa1",
+  "membership_and_profile_change_policy_ref": "policy://acme/ordering/profile-change",
+  "conformance_receipt_refs": [],
+  "status": "draft"
+}

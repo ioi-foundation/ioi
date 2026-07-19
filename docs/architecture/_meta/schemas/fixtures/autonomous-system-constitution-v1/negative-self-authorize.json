@@ -1,0 +1,6 @@
+{
+  "schema_version": "ioi.autonomous-system-constitution.v1",
+  "governance": {
+    "agent_may_commit_amendment": true
+  }
+}

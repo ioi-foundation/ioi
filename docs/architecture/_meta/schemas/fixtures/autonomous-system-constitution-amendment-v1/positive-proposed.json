@@ -1,0 +1,20 @@
+{
+  "schema_version": "ioi.autonomous-system-constitution-amendment.v1",
+  "amendment_id": "constitution-amendment://acme/system-alpha/2",
+  "system_id": "system://acme/system-alpha",
+  "predecessor_constitution_ref": "constitution://acme/system-alpha/v1",
+  "predecessor_constitution_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "proposed_successor_constitution_ref": "constitution://acme/system-alpha/v2",
+  "proposed_successor_constitution_root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "changed_field_paths": ["/declared_purpose/acceptance_policy_refs"],
+  "protected_field_paths": ["/declared_purpose"],
+  "governing_decision_profile_ref": "policy://acme/governance/amendments",
+  "proposal_ref": "proposal://acme/constitution-amendment/2",
+  "evidence_refs": ["evidence://acme/amendment/2"],
+  "authority_requirement_refs": [
+    "authority-requirement://acme/governance/amend"
+  ],
+  "proposed_by_ref": "system://acme/system-alpha",
+  "decision_ref": null,
+  "status": "proposed"
+}

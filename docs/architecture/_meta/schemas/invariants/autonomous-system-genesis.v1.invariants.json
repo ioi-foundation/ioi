@@ -1,0 +1,6 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-genesis/proposal-origin/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
+  "rules": []
+}

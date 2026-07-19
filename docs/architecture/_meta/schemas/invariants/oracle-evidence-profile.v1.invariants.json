@@ -1,0 +1,17 @@
+{
+  "$id": "invariant://ioi/foundations/oracle-evidence-profile/escalation/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/oracle-evidence-profile/v1",
+  "rules": [
+    {
+      "rule_id": "oracle_evidence.contradiction.escalation_adjudicator.required",
+      "description": "Escalation names at least one adjudicator.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.contradiction.adjudicator_refs",
+        "when_path": "$.contradiction.policy",
+        "values": ["escalate"]
+      }
+    }
+  ]
+}

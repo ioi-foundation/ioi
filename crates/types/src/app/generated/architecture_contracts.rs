@@ -19,6 +19,7 @@ pub const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS: &[&str] = &[
     r#"anyOf"#,
     r#"const"#,
     r#"contains"#,
+    r#"else"#,
     r#"enum"#,
     r#"format"#,
     r#"if"#,
@@ -89,6 +90,42 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     (
         "schema://ioi/foundations/declassification-approval/v1",
         "sha256:6b94c87e2891c4389886ad9f8d2f0492ca18e699fb57db5af83c2a21e9817efe",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-manifest/v1",
+        "sha256:34ff27418865a0a71864f0039df3286966f6b6dec4bb94134b72b3846fd6c79d",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-genesis/v1",
+        "sha256:2da92e599b2339fb1422e048ef9cb25cdc614f2abd14b93f2f8da8271aec747e",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-constitution/v1",
+        "sha256:b9df3fe23b867d6e1fa22a61ec88bdd7859fbbcc4283aaa8431c7f92acefe274",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+        "sha256:226af49494e76d61c1a89270647fe5284d926df6669d47179f227e3a9329b54a",
+    ),
+    (
+        "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+        "sha256:a80163005c8225d4ba6cc733741ec0b47ccfbb2d7832ca1546f9518f6cc7cebb",
+    ),
+    (
+        "schema://ioi/foundations/oracle-evidence-profile/v1",
+        "sha256:2407e5eafa3515d1f55629182b802590e40e93c59b6766d8e4b1170fa6acf5f1",
+    ),
+    (
+        "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+        "sha256:ed62bc37de918a3e7c271ba26420b7973eca5d2aaddd276a7450253e63fec475",
+    ),
+    (
+        "schema://ioi/foundations/lifecycle-transition/v1",
+        "sha256:1a5374e05ee33412ffa79bab205143b37f400bf4ad32af9097960b3959660b40",
+    ),
+    (
+        "schema://ioi/foundations/ioi-network-enrollment/v1",
+        "sha256:f418987a1feb67e3b81efd847d4ba07136d132776221262234a5b0bdf4085273",
     ),
 ];
 
@@ -6661,6 +6698,6388 @@ pub enum DeclassificationApprovalV1Status {
     Expired,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1 {
+    pub schema_version: AutonomousSystemManifestV1SchemaVersion,
+    pub package_id: String,
+    pub manifest_id: String,
+    pub display_name: String,
+    pub description: String,
+    pub version: String,
+    pub predecessor_manifest_ref: Option<String>,
+    pub release_root: String,
+    pub registry_status: AutonomousSystemManifestV1RegistryStatus,
+    pub constitution_template_ref: String,
+    pub required_profile_templates: AutonomousSystemManifestV1RequiredProfileTemplates,
+    pub system_binding: AutonomousSystemManifestV1SystemBinding,
+    pub worker: AutonomousSystemManifestV1Worker,
+    pub typed_components: AutonomousSystemManifestV1TypedComponents,
+    pub workflow_compatibility: AutonomousSystemManifestV1WorkflowCompatibility,
+    pub source_project: AutonomousSystemManifestV1SourceProject,
+    pub interfaces: AutonomousSystemManifestV1Interfaces,
+    pub capabilities: AutonomousSystemManifestV1Capabilities,
+    pub authority: AutonomousSystemManifestV1Authority,
+    pub runtime_profiles: Vec<AutonomousSystemManifestV1RuntimeProfilesItem>,
+    pub session_state_memory_artifacts: AutonomousSystemManifestV1SessionStateMemoryArtifacts,
+    pub evaluation: AutonomousSystemManifestV1Evaluation,
+    pub promotion: AutonomousSystemManifestV1Promotion,
+    pub receipts: AutonomousSystemManifestV1Receipts,
+    pub release: AutonomousSystemManifestV1Release,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-manifest/v1","title":"AutonomousSystemManifest","description":"Immutable reusable Autonomous System Package release; never live System state.","x-ioi-schema-version":"ioi.autonomous-system-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","package_id","manifest_id","display_name","description","version","predecessor_manifest_ref","release_root","registry_status","constitution_template_ref","required_profile_templates","system_binding","worker","typed_components","workflow_compatibility","source_project","interfaces","capabilities","authority","runtime_profiles","session_state_memory_artifacts","evaluation","promotion","receipts","release"],"properties":{"schema_version":{"const":"ioi.autonomous-system-manifest.v1"},"package_id":{"$ref":"#/$defs/packageRef"},"manifest_id":{"$ref":"#/$defs/packageReleaseRef"},"display_name":{"$ref":"#/$defs/shortText"},"description":{"$ref":"#/$defs/longText"},"version":{"$ref":"#/$defs/version"},"predecessor_manifest_ref":{"anyOf":[{"$ref":"#/$defs/packageReleaseRef"},{"type":"null"}]},"release_root":{"$ref":"#/$defs/hash"},"registry_status":{"enum":["draft","evaluable","package_ready","released","promoted","deprecated","revoked"]},"constitution_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"required_profile_templates":{"type":"object","additionalProperties":false,"required":["deployment_template_ref","ordering_admission_finality_template_ref","oracle_evidence_template_refs","lifecycle_continuity_template_ref","network_enrollment_constraint_ref"],"properties":{"deployment_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"ordering_admission_finality_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"oracle_evidence_template_refs":{"$ref":"#/$defs/artifactOrCidRefs"},"lifecycle_continuity_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"network_enrollment_constraint_ref":{"$ref":"#/$defs/policyRef"}}},"system_binding":{"type":"object","additionalProperties":false,"required":["allowed_use","compatible_constitution_constraint_ref","compatible_predecessor_release_roots"],"properties":{"allowed_use":{"enum":["instantiate_new","upgrade_existing","either"]},"compatible_constitution_constraint_ref":{"$ref":"#/$defs/policyRef"},"compatible_predecessor_release_roots":{"$ref":"#/$defs/hashes"}}},"worker":{"type":"object","additionalProperties":false,"required":["worker_revision_ref","worker_content_hash","responsibility","owner_ref"],"properties":{"worker_revision_ref":{"$ref":"#/$defs/workerRevisionRef"},"worker_content_hash":{"$ref":"#/$defs/hash"},"responsibility":{"$ref":"#/$defs/longText"},"owner_ref":{"$ref":"#/$defs/publisherRef"}}},"typed_components":{"type":"object","additionalProperties":false,"required":["component_set_snapshot_ref","component_set_hash","goal_run_profiles","workflow_templates","automation_specs","harness_profiles","agent_harness_adapters","skill_manifests","data_recipes","runtime_tool_contracts","mcp_gateway_requirements"],"properties":{"component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"component_set_hash":{"$ref":"#/$defs/hash"},"goal_run_profiles":{"$ref":"#/$defs/revisionHashTuples"},"workflow_templates":{"$ref":"#/$defs/revisionHashTuples"},"automation_specs":{"$ref":"#/$defs/revisionHashTuples"},"harness_profiles":{"$ref":"#/$defs/revisionHashTuples"},"agent_harness_adapters":{"$ref":"#/$defs/revisionHashTuples"},"skill_manifests":{"$ref":"#/$defs/revisionHashTuples"},"data_recipes":{"$ref":"#/$defs/revisionHashTuples"},"runtime_tool_contracts":{"$ref":"#/$defs/revisionHashTuples"},"mcp_gateway_requirements":{"$ref":"#/$defs/revisionHashTuples"}}},"workflow_compatibility":{"type":"object","additionalProperties":false,"required":["default_workflow_template_revision_ref","default_workflow_template_content_hash","compatible_harness_profile_revision_refs","topology_hash"],"properties":{"default_workflow_template_revision_ref":{"anyOf":[{"$ref":"#/$defs/workflowRevisionRef"},{"type":"null"}]},"default_workflow_template_content_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"compatible_harness_profile_revision_refs":{"$ref":"#/$defs/immutableRevisionRefs"},"topology_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"default_workflow_template_revision_ref":{"type":"null"}},"required":["default_workflow_template_revision_ref"]},"then":{"properties":{"default_workflow_template_content_hash":{"type":"null"}}},"else":{"properties":{"default_workflow_template_content_hash":{"$ref":"#/$defs/hash"}}}}]},"source_project":{"type":"object","additionalProperties":false,"required":["project_ref","repository_refs","default_branch_or_ref","development_environment_recipe_ref","development_environment_recipe_content_hash","issue_tracker_refs","code_owner_refs"],"properties":{"project_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"repository_refs":{"$ref":"#/$defs/canonicalRefs"},"default_branch_or_ref":{"$ref":"#/$defs/nullableShortText"},"development_environment_recipe_ref":{"anyOf":[{"$ref":"#/$defs/developmentRecipeRevisionRef"},{"type":"null"}]},"development_environment_recipe_content_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"issue_tracker_refs":{"$ref":"#/$defs/canonicalRefs"},"code_owner_refs":{"$ref":"#/$defs/canonicalRefs"}},"allOf":[{"if":{"properties":{"development_environment_recipe_ref":{"type":"null"}},"required":["development_environment_recipe_ref"]},"then":{"properties":{"development_environment_recipe_content_hash":{"type":"null"}}},"else":{"properties":{"development_environment_recipe_content_hash":{"$ref":"#/$defs/hash"}}}}]},"interfaces":{"type":"object","additionalProperties":false,"required":["operator_console_descriptor_ref","generated_domain_app_descriptor_ref","api_contract_refs","aiip_binding_requirement_refs","publication_endpoint_contract_refs"],"properties":{"operator_console_descriptor_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"generated_domain_app_descriptor_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"api_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_binding_requirement_refs":{"$ref":"#/$defs/canonicalRefs"},"publication_endpoint_contract_refs":{"$ref":"#/$defs/canonicalRefs"}}},"capabilities":{"type":"object","additionalProperties":false,"required":["model_capability_requirement_refs","model_deployment_profile_refs","capability_descriptor_refs","connector_requirement_refs","primitive_capabilities_required"],"properties":{"model_capability_requirement_refs":{"$ref":"#/$defs/canonicalRefs"},"model_deployment_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"capability_descriptor_refs":{"$ref":"#/$defs/canonicalRefs"},"connector_requirement_refs":{"$ref":"#/$defs/canonicalRefs"},"primitive_capabilities_required":{"type":"array","items":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]{0,127}$"},"maxItems":128,"uniqueItems":true}}},"authority":{"type":"object","additionalProperties":false,"required":["authority_scope_requirements","grant_requirements","approval_profile_ref","policy_profile_ref","revocation_posture"],"properties":{"authority_scope_requirements":{"type":"array","items":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]{0,127}$"},"maxItems":128,"uniqueItems":true},"grant_requirements":{"$ref":"#/$defs/canonicalRefs"},"approval_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"policy_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"revocation_posture":{"enum":["fail_closed","pause","degrade_read_only"]}}},"runtime_profiles":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["profile_id","kind","compatibility_requirement_ref","cleanup_policy_ref"],"properties":{"profile_id":{"type":"string","pattern":"^profile://[^\\s]{1,248}$"},"kind":{"enum":["local_daemon","task_browser","local_container","hosted_daemon","cloud_vm","tee","depin","customer_vpc"]},"compatibility_requirement_ref":{"type":"string","pattern":"^(?:policy|profile)://[^\\s]{1,248}$"},"cleanup_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]}}},"maxItems":32,"uniqueItems":true},"session_state_memory_artifacts":{"type":"object","additionalProperties":false,"required":["session_profile_ref","state_profile_ref","memory_profile_ref","artifact_retention_profile_ref","observation_retention_mode"],"properties":{"session_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"state_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"memory_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"artifact_retention_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"observation_retention_mode":{"enum":["summary_only","local_redacted","local_raw","encrypted_local_raw","no_persistence"]}}},"evaluation":{"type":"object","additionalProperties":false,"required":["eval_profile_refs","benchmark_refs","quality_gate_refs","replay_profile_ref"],"properties":{"eval_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"benchmark_refs":{"$ref":"#/$defs/canonicalRefs"},"quality_gate_refs":{"$ref":"#/$defs/canonicalRefs"},"replay_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"promotion":{"type":"object","additionalProperties":false,"required":["promotion_profile_ref","release_target_refs","rollout_policy_ref","rollback_policy_ref","recall_policy_ref","kill_switch_ref","marketplace_exposure_eligibility","foundry_lineage_refs","worker_card_preview_ref"],"properties":{"promotion_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"release_target_refs":{"$ref":"#/$defs/canonicalRefs"},"rollout_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"rollback_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"recall_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"kill_switch_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"marketplace_exposure_eligibility":{"enum":["none","internal","review_required","eligible"]},"foundry_lineage_refs":{"$ref":"#/$defs/canonicalRefs"},"worker_card_preview_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"receipts":{"type":"object","additionalProperties":false,"required":["package_readiness_receipt_ref","release_evaluation_receipt_refs"],"properties":{"package_readiness_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"release_evaluation_receipt_refs":{"$ref":"#/$defs/receiptRefs"}}},"release":{"type":"object","additionalProperties":false,"required":["publisher_signature_ref","registry_published_at"],"properties":{"publisher_signature_ref":{"type":"string","pattern":"^(?:receipt|evidence)://[^\\s]{1,248}$"},"registry_published_at":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"hashes":{"type":"array","items":{"$ref":"#/$defs/hash"},"maxItems":64,"uniqueItems":true},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"shortText":{"type":"string","pattern":"^[ -~]{1,256}$"},"nullableShortText":{"anyOf":[{"$ref":"#/$defs/shortText"},{"type":"null"}]},"longText":{"type":"string","pattern":"^[ -~]{1,2048}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"packageRef":{"type":"string","pattern":"^package://[^\\s]{1,248}$"},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"artifactOrCidRef":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,248}$"},"artifactOrCidRefs":{"type":"array","items":{"$ref":"#/$defs/artifactOrCidRef"},"maxItems":64,"uniqueItems":true},"publisherRef":{"type":"string","pattern":"^ioi://publisher/[^\\s]{1,224}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"nullableReceiptRef":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"receiptRefs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"maxItems":64,"uniqueItems":true},"immutableRevisionRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"immutableRevisionRefs":{"type":"array","items":{"$ref":"#/$defs/immutableRevisionRef"},"maxItems":128,"uniqueItems":true},"workerRevisionRef":{"type":"string","pattern":"^worker://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"workflowRevisionRef":{"type":"string","pattern":"^workflow-template://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"developmentRecipeRevisionRef":{"type":"string","pattern":"^development-environment-recipe://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"revisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}},"revisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/revisionHashTuple"},"maxItems":128,"uniqueItems":true},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AutonomousSystemManifestV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            package_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"package_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"package_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"display_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_manifest_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_manifest_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_manifest_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"release_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<AutonomousSystemManifestV1RegistryStatus>(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_template_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_template_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"constitution_template_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_profile_templates: serde_json::from_value::<
+                AutonomousSystemManifestV1RequiredProfileTemplates,
+            >(
+                object
+                    .remove(r#"required_profile_templates"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_profile_templates"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<AutonomousSystemManifestV1SystemBinding>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker: serde_json::from_value::<AutonomousSystemManifestV1Worker>(
+                object
+                    .remove(r#"worker"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            typed_components: serde_json::from_value::<AutonomousSystemManifestV1TypedComponents>(
+                object
+                    .remove(r#"typed_components"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"typed_components"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workflow_compatibility: serde_json::from_value::<
+                AutonomousSystemManifestV1WorkflowCompatibility,
+            >(
+                object
+                    .remove(r#"workflow_compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workflow_compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_project: serde_json::from_value::<AutonomousSystemManifestV1SourceProject>(
+                object
+                    .remove(r#"source_project"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_project"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            interfaces: serde_json::from_value::<AutonomousSystemManifestV1Interfaces>(
+                object
+                    .remove(r#"interfaces"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"interfaces"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capabilities: serde_json::from_value::<AutonomousSystemManifestV1Capabilities>(
+                object
+                    .remove(r#"capabilities"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capabilities"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority: serde_json::from_value::<AutonomousSystemManifestV1Authority>(
+                object
+                    .remove(r#"authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_profiles: serde_json::from_value::<
+                Vec<AutonomousSystemManifestV1RuntimeProfilesItem>,
+            >(
+                object
+                    .remove(r#"runtime_profiles"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_profiles"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            session_state_memory_artifacts: serde_json::from_value::<
+                AutonomousSystemManifestV1SessionStateMemoryArtifacts,
+            >(
+                object
+                    .remove(r#"session_state_memory_artifacts"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"session_state_memory_artifacts"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation: serde_json::from_value::<AutonomousSystemManifestV1Evaluation>(
+                object
+                    .remove(r#"evaluation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            promotion: serde_json::from_value::<AutonomousSystemManifestV1Promotion>(
+                object
+                    .remove(r#"promotion"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"promotion"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipts: serde_json::from_value::<AutonomousSystemManifestV1Receipts>(
+                object
+                    .remove(r#"receipts"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipts"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release: serde_json::from_value::<AutonomousSystemManifestV1Release>(
+                object
+                    .remove(r#"release"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemManifestV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-manifest.v1"#)]
+    IoiAutonomousSystemManifestV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemManifestV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"evaluable"#)]
+    Evaluable,
+    #[serde(rename = r#"package_ready"#)]
+    PackageReady,
+    #[serde(rename = r#"released"#)]
+    Released,
+    #[serde(rename = r#"promoted"#)]
+    Promoted,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1RequiredProfileTemplates {
+    pub deployment_template_ref: String,
+    pub ordering_admission_finality_template_ref: String,
+    pub oracle_evidence_template_refs: Vec<String>,
+    pub lifecycle_continuity_template_ref: String,
+    pub network_enrollment_constraint_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1RequiredProfileTemplates {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["deployment_template_ref","ordering_admission_finality_template_ref","oracle_evidence_template_refs","lifecycle_continuity_template_ref","network_enrollment_constraint_ref"],"properties":{"deployment_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"ordering_admission_finality_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"oracle_evidence_template_refs":{"$ref":"#/$defs/artifactOrCidRefs"},"lifecycle_continuity_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"network_enrollment_constraint_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            deployment_template_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_template_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_template_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_admission_finality_template_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ordering_admission_finality_template_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"ordering_admission_finality_template_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            oracle_evidence_template_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"oracle_evidence_template_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"oracle_evidence_template_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_continuity_template_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_continuity_template_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"lifecycle_continuity_template_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_enrollment_constraint_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"network_enrollment_constraint_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"network_enrollment_constraint_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1SystemBinding {
+    pub allowed_use: AutonomousSystemManifestV1SystemBindingAllowedUse,
+    pub compatible_constitution_constraint_ref: String,
+    pub compatible_predecessor_release_roots: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["allowed_use","compatible_constitution_constraint_ref","compatible_predecessor_release_roots"],"properties":{"allowed_use":{"enum":["instantiate_new","upgrade_existing","either"]},"compatible_constitution_constraint_ref":{"$ref":"#/$defs/policyRef"},"compatible_predecessor_release_roots":{"$ref":"#/$defs/hashes"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            allowed_use:
+                serde_json::from_value::<AutonomousSystemManifestV1SystemBindingAllowedUse>(
+                    object
+                        .remove(r#"allowed_use"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"allowed_use"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            compatible_constitution_constraint_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"compatible_constitution_constraint_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compatible_constitution_constraint_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatible_predecessor_release_roots: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"compatible_predecessor_release_roots"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compatible_predecessor_release_roots"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemManifestV1SystemBindingAllowedUse {
+    #[serde(rename = r#"instantiate_new"#)]
+    InstantiateNew,
+    #[serde(rename = r#"upgrade_existing"#)]
+    UpgradeExisting,
+    #[serde(rename = r#"either"#)]
+    Either,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1Worker {
+    pub worker_revision_ref: String,
+    pub worker_content_hash: String,
+    pub responsibility: String,
+    pub owner_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1Worker {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["worker_revision_ref","worker_content_hash","responsibility","owner_ref"],"properties":{"worker_revision_ref":{"$ref":"#/$defs/workerRevisionRef"},"worker_content_hash":{"$ref":"#/$defs/hash"},"responsibility":{"$ref":"#/$defs/longText"},"owner_ref":{"$ref":"#/$defs/publisherRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            worker_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"worker_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"worker_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            responsibility: serde_json::from_value::<String>(
+                object
+                    .remove(r#"responsibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"responsibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1TypedComponents {
+    pub component_set_snapshot_ref: String,
+    pub component_set_hash: String,
+    pub goal_run_profiles: Vec<AutonomousSystemManifestV1TypedComponentsGoalRunProfilesItem>,
+    pub workflow_templates: Vec<AutonomousSystemManifestV1TypedComponentsWorkflowTemplatesItem>,
+    pub automation_specs: Vec<AutonomousSystemManifestV1TypedComponentsAutomationSpecsItem>,
+    pub harness_profiles: Vec<AutonomousSystemManifestV1TypedComponentsHarnessProfilesItem>,
+    pub agent_harness_adapters:
+        Vec<AutonomousSystemManifestV1TypedComponentsAgentHarnessAdaptersItem>,
+    pub skill_manifests: Vec<AutonomousSystemManifestV1TypedComponentsSkillManifestsItem>,
+    pub data_recipes: Vec<AutonomousSystemManifestV1TypedComponentsDataRecipesItem>,
+    pub runtime_tool_contracts:
+        Vec<AutonomousSystemManifestV1TypedComponentsRuntimeToolContractsItem>,
+    pub mcp_gateway_requirements:
+        Vec<AutonomousSystemManifestV1TypedComponentsMcpGatewayRequirementsItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1TypedComponents {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["component_set_snapshot_ref","component_set_hash","goal_run_profiles","workflow_templates","automation_specs","harness_profiles","agent_harness_adapters","skill_manifests","data_recipes","runtime_tool_contracts","mcp_gateway_requirements"],"properties":{"component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"component_set_hash":{"$ref":"#/$defs/hash"},"goal_run_profiles":{"$ref":"#/$defs/revisionHashTuples"},"workflow_templates":{"$ref":"#/$defs/revisionHashTuples"},"automation_specs":{"$ref":"#/$defs/revisionHashTuples"},"harness_profiles":{"$ref":"#/$defs/revisionHashTuples"},"agent_harness_adapters":{"$ref":"#/$defs/revisionHashTuples"},"skill_manifests":{"$ref":"#/$defs/revisionHashTuples"},"data_recipes":{"$ref":"#/$defs/revisionHashTuples"},"runtime_tool_contracts":{"$ref":"#/$defs/revisionHashTuples"},"mcp_gateway_requirements":{"$ref":"#/$defs/revisionHashTuples"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            component_set_snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"component_set_snapshot_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"component_set_snapshot_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            component_set_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"component_set_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"component_set_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            goal_run_profiles: serde_json::from_value::<
+                Vec<AutonomousSystemManifestV1TypedComponentsGoalRunProfilesItem>,
+            >(
+                object
+                    .remove(r#"goal_run_profiles"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"goal_run_profiles"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workflow_templates: serde_json::from_value::<
+                Vec<AutonomousSystemManifestV1TypedComponentsWorkflowTemplatesItem>,
+            >(
+                object
+                    .remove(r#"workflow_templates"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workflow_templates"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            automation_specs: serde_json::from_value::<
+                Vec<AutonomousSystemManifestV1TypedComponentsAutomationSpecsItem>,
+            >(
+                object
+                    .remove(r#"automation_specs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"automation_specs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            harness_profiles: serde_json::from_value::<
+                Vec<AutonomousSystemManifestV1TypedComponentsHarnessProfilesItem>,
+            >(
+                object
+                    .remove(r#"harness_profiles"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"harness_profiles"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agent_harness_adapters: serde_json::from_value::<
+                Vec<AutonomousSystemManifestV1TypedComponentsAgentHarnessAdaptersItem>,
+            >(
+                object
+                    .remove(r#"agent_harness_adapters"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agent_harness_adapters"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            skill_manifests: serde_json::from_value::<
+                Vec<AutonomousSystemManifestV1TypedComponentsSkillManifestsItem>,
+            >(
+                object
+                    .remove(r#"skill_manifests"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"skill_manifests"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipes: serde_json::from_value::<
+                Vec<AutonomousSystemManifestV1TypedComponentsDataRecipesItem>,
+            >(
+                object
+                    .remove(r#"data_recipes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_recipes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_tool_contracts: serde_json::from_value::<
+                Vec<AutonomousSystemManifestV1TypedComponentsRuntimeToolContractsItem>,
+            >(
+                object
+                    .remove(r#"runtime_tool_contracts"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_tool_contracts"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mcp_gateway_requirements: serde_json::from_value::<
+                Vec<AutonomousSystemManifestV1TypedComponentsMcpGatewayRequirementsItem>,
+            >(
+                object
+                    .remove(r#"mcp_gateway_requirements"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"mcp_gateway_requirements"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1TypedComponentsGoalRunProfilesItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1TypedComponentsGoalRunProfilesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1TypedComponentsWorkflowTemplatesItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemManifestV1TypedComponentsWorkflowTemplatesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1TypedComponentsAutomationSpecsItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1TypedComponentsAutomationSpecsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1TypedComponentsHarnessProfilesItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1TypedComponentsHarnessProfilesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1TypedComponentsAgentHarnessAdaptersItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemManifestV1TypedComponentsAgentHarnessAdaptersItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1TypedComponentsSkillManifestsItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1TypedComponentsSkillManifestsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1TypedComponentsDataRecipesItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1TypedComponentsDataRecipesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1TypedComponentsRuntimeToolContractsItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemManifestV1TypedComponentsRuntimeToolContractsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1TypedComponentsMcpGatewayRequirementsItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemManifestV1TypedComponentsMcpGatewayRequirementsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1WorkflowCompatibility {
+    pub default_workflow_template_revision_ref: Option<String>,
+    pub default_workflow_template_content_hash: Option<String>,
+    pub compatible_harness_profile_revision_refs: Vec<String>,
+    pub topology_hash: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1WorkflowCompatibility {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["default_workflow_template_revision_ref","default_workflow_template_content_hash","compatible_harness_profile_revision_refs","topology_hash"],"properties":{"default_workflow_template_revision_ref":{"anyOf":[{"$ref":"#/$defs/workflowRevisionRef"},{"type":"null"}]},"default_workflow_template_content_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"compatible_harness_profile_revision_refs":{"$ref":"#/$defs/immutableRevisionRefs"},"topology_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"default_workflow_template_revision_ref":{"type":"null"}},"required":["default_workflow_template_revision_ref"]},"then":{"properties":{"default_workflow_template_content_hash":{"type":"null"}}},"else":{"properties":{"default_workflow_template_content_hash":{"$ref":"#/$defs/hash"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            default_workflow_template_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"default_workflow_template_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"default_workflow_template_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            default_workflow_template_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"default_workflow_template_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"default_workflow_template_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatible_harness_profile_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"compatible_harness_profile_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"compatible_harness_profile_revision_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            topology_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"topology_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"topology_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1SourceProject {
+    pub project_ref: Option<String>,
+    pub repository_refs: Vec<String>,
+    pub default_branch_or_ref: Option<String>,
+    pub development_environment_recipe_ref: Option<String>,
+    pub development_environment_recipe_content_hash: Option<String>,
+    pub issue_tracker_refs: Vec<String>,
+    pub code_owner_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1SourceProject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["project_ref","repository_refs","default_branch_or_ref","development_environment_recipe_ref","development_environment_recipe_content_hash","issue_tracker_refs","code_owner_refs"],"properties":{"project_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"repository_refs":{"$ref":"#/$defs/canonicalRefs"},"default_branch_or_ref":{"$ref":"#/$defs/nullableShortText"},"development_environment_recipe_ref":{"anyOf":[{"$ref":"#/$defs/developmentRecipeRevisionRef"},{"type":"null"}]},"development_environment_recipe_content_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"issue_tracker_refs":{"$ref":"#/$defs/canonicalRefs"},"code_owner_refs":{"$ref":"#/$defs/canonicalRefs"}},"allOf":[{"if":{"properties":{"development_environment_recipe_ref":{"type":"null"}},"required":["development_environment_recipe_ref"]},"then":{"properties":{"development_environment_recipe_content_hash":{"type":"null"}}},"else":{"properties":{"development_environment_recipe_content_hash":{"$ref":"#/$defs/hash"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            project_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"project_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"project_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            repository_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"repository_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"repository_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            default_branch_or_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"default_branch_or_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"default_branch_or_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            development_environment_recipe_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"development_environment_recipe_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"development_environment_recipe_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            development_environment_recipe_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"development_environment_recipe_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"development_environment_recipe_content_hash"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issue_tracker_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"issue_tracker_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issue_tracker_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            code_owner_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"code_owner_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"code_owner_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1Interfaces {
+    pub operator_console_descriptor_ref: Option<String>,
+    pub generated_domain_app_descriptor_ref: Option<String>,
+    pub api_contract_refs: Vec<String>,
+    pub aiip_binding_requirement_refs: Vec<String>,
+    pub publication_endpoint_contract_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1Interfaces {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["operator_console_descriptor_ref","generated_domain_app_descriptor_ref","api_contract_refs","aiip_binding_requirement_refs","publication_endpoint_contract_refs"],"properties":{"operator_console_descriptor_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"generated_domain_app_descriptor_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"api_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_binding_requirement_refs":{"$ref":"#/$defs/canonicalRefs"},"publication_endpoint_contract_refs":{"$ref":"#/$defs/canonicalRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            operator_console_descriptor_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"operator_console_descriptor_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"operator_console_descriptor_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            generated_domain_app_descriptor_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"generated_domain_app_descriptor_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"generated_domain_app_descriptor_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            api_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"api_contract_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"api_contract_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            aiip_binding_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"aiip_binding_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"aiip_binding_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            publication_endpoint_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"publication_endpoint_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"publication_endpoint_contract_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1Capabilities {
+    pub model_capability_requirement_refs: Vec<String>,
+    pub model_deployment_profile_refs: Vec<String>,
+    pub capability_descriptor_refs: Vec<String>,
+    pub connector_requirement_refs: Vec<String>,
+    pub primitive_capabilities_required: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1Capabilities {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["model_capability_requirement_refs","model_deployment_profile_refs","capability_descriptor_refs","connector_requirement_refs","primitive_capabilities_required"],"properties":{"model_capability_requirement_refs":{"$ref":"#/$defs/canonicalRefs"},"model_deployment_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"capability_descriptor_refs":{"$ref":"#/$defs/canonicalRefs"},"connector_requirement_refs":{"$ref":"#/$defs/canonicalRefs"},"primitive_capabilities_required":{"type":"array","items":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]{0,127}$"},"maxItems":128,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            model_capability_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"model_capability_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"model_capability_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_deployment_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"model_deployment_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"model_deployment_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_descriptor_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"capability_descriptor_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_descriptor_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"connector_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"connector_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive_capabilities_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"primitive_capabilities_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"primitive_capabilities_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1Authority {
+    pub authority_scope_requirements: Vec<String>,
+    pub grant_requirements: Vec<String>,
+    pub approval_profile_ref: Option<String>,
+    pub policy_profile_ref: Option<String>,
+    pub revocation_posture: AutonomousSystemManifestV1AuthorityRevocationPosture,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1Authority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["authority_scope_requirements","grant_requirements","approval_profile_ref","policy_profile_ref","revocation_posture"],"properties":{"authority_scope_requirements":{"type":"array","items":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]{0,127}$"},"maxItems":128,"uniqueItems":true},"grant_requirements":{"$ref":"#/$defs/canonicalRefs"},"approval_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"policy_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"revocation_posture":{"enum":["fail_closed","pause","degrade_read_only"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            authority_scope_requirements: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scope_requirements"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_scope_requirements"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            grant_requirements: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"grant_requirements"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"grant_requirements"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"approval_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"policy_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_posture: serde_json::from_value::<
+                AutonomousSystemManifestV1AuthorityRevocationPosture,
+            >(
+                object
+                    .remove(r#"revocation_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revocation_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemManifestV1AuthorityRevocationPosture {
+    #[serde(rename = r#"fail_closed"#)]
+    FailClosed,
+    #[serde(rename = r#"pause"#)]
+    Pause,
+    #[serde(rename = r#"degrade_read_only"#)]
+    DegradeReadOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1RuntimeProfilesItem {
+    pub profile_id: String,
+    pub kind: AutonomousSystemManifestV1RuntimeProfilesItemKind,
+    pub compatibility_requirement_ref: String,
+    pub cleanup_policy_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1RuntimeProfilesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["profile_id","kind","compatibility_requirement_ref","cleanup_policy_ref"],"properties":{"profile_id":{"type":"string","pattern":"^profile://[^\\s]{1,248}$"},"kind":{"enum":["local_daemon","task_browser","local_container","hosted_daemon","cloud_vm","tee","depin","customer_vpc"]},"compatibility_requirement_ref":{"type":"string","pattern":"^(?:policy|profile)://[^\\s]{1,248}$"},"cleanup_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            profile_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            kind: serde_json::from_value::<AutonomousSystemManifestV1RuntimeProfilesItemKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility_requirement_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"compatibility_requirement_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compatibility_requirement_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cleanup_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"cleanup_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cleanup_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemManifestV1RuntimeProfilesItemKind {
+    #[serde(rename = r#"local_daemon"#)]
+    LocalDaemon,
+    #[serde(rename = r#"task_browser"#)]
+    TaskBrowser,
+    #[serde(rename = r#"local_container"#)]
+    LocalContainer,
+    #[serde(rename = r#"hosted_daemon"#)]
+    HostedDaemon,
+    #[serde(rename = r#"cloud_vm"#)]
+    CloudVm,
+    #[serde(rename = r#"tee"#)]
+    Tee,
+    #[serde(rename = r#"depin"#)]
+    Depin,
+    #[serde(rename = r#"customer_vpc"#)]
+    CustomerVpc,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1SessionStateMemoryArtifacts {
+    pub session_profile_ref: Option<String>,
+    pub state_profile_ref: Option<String>,
+    pub memory_profile_ref: Option<String>,
+    pub artifact_retention_profile_ref: Option<String>,
+    pub observation_retention_mode:
+        AutonomousSystemManifestV1SessionStateMemoryArtifactsObservationRetentionMode,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1SessionStateMemoryArtifacts {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["session_profile_ref","state_profile_ref","memory_profile_ref","artifact_retention_profile_ref","observation_retention_mode"],"properties":{"session_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"state_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"memory_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"artifact_retention_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"observation_retention_mode":{"enum":["summary_only","local_redacted","local_raw","encrypted_local_raw","no_persistence"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            session_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"session_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"session_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"state_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            memory_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"memory_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"memory_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_retention_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"artifact_retention_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"artifact_retention_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observation_retention_mode: serde_json::from_value::<
+                AutonomousSystemManifestV1SessionStateMemoryArtifactsObservationRetentionMode,
+            >(
+                object
+                    .remove(r#"observation_retention_mode"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"observation_retention_mode"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemManifestV1SessionStateMemoryArtifactsObservationRetentionMode {
+    #[serde(rename = r#"summary_only"#)]
+    SummaryOnly,
+    #[serde(rename = r#"local_redacted"#)]
+    LocalRedacted,
+    #[serde(rename = r#"local_raw"#)]
+    LocalRaw,
+    #[serde(rename = r#"encrypted_local_raw"#)]
+    EncryptedLocalRaw,
+    #[serde(rename = r#"no_persistence"#)]
+    NoPersistence,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1Evaluation {
+    pub eval_profile_refs: Vec<String>,
+    pub benchmark_refs: Vec<String>,
+    pub quality_gate_refs: Vec<String>,
+    pub replay_profile_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1Evaluation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["eval_profile_refs","benchmark_refs","quality_gate_refs","replay_profile_ref"],"properties":{"eval_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"benchmark_refs":{"$ref":"#/$defs/canonicalRefs"},"quality_gate_refs":{"$ref":"#/$defs/canonicalRefs"},"replay_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            eval_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"eval_profile_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"eval_profile_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            benchmark_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"benchmark_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"benchmark_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quality_gate_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"quality_gate_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quality_gate_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            replay_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"replay_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"replay_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1Promotion {
+    pub promotion_profile_ref: Option<String>,
+    pub release_target_refs: Vec<String>,
+    pub rollout_policy_ref: Option<String>,
+    pub rollback_policy_ref: Option<String>,
+    pub recall_policy_ref: Option<String>,
+    pub kill_switch_ref: Option<String>,
+    pub marketplace_exposure_eligibility:
+        AutonomousSystemManifestV1PromotionMarketplaceExposureEligibility,
+    pub foundry_lineage_refs: Vec<String>,
+    pub worker_card_preview_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1Promotion {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["promotion_profile_ref","release_target_refs","rollout_policy_ref","rollback_policy_ref","recall_policy_ref","kill_switch_ref","marketplace_exposure_eligibility","foundry_lineage_refs","worker_card_preview_ref"],"properties":{"promotion_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"release_target_refs":{"$ref":"#/$defs/canonicalRefs"},"rollout_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"rollback_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"recall_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"kill_switch_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"marketplace_exposure_eligibility":{"enum":["none","internal","review_required","eligible"]},"foundry_lineage_refs":{"$ref":"#/$defs/canonicalRefs"},"worker_card_preview_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            promotion_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"promotion_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"promotion_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_target_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"release_target_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_target_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rollout_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"rollout_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rollout_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rollback_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"rollback_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rollback_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recall_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"recall_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recall_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            kill_switch_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"kill_switch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kill_switch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            marketplace_exposure_eligibility: serde_json::from_value::<
+                AutonomousSystemManifestV1PromotionMarketplaceExposureEligibility,
+            >(
+                object
+                    .remove(r#"marketplace_exposure_eligibility"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"marketplace_exposure_eligibility"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            foundry_lineage_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"foundry_lineage_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"foundry_lineage_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_card_preview_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"worker_card_preview_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_card_preview_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemManifestV1PromotionMarketplaceExposureEligibility {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"internal"#)]
+    Internal,
+    #[serde(rename = r#"review_required"#)]
+    ReviewRequired,
+    #[serde(rename = r#"eligible"#)]
+    Eligible,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1Receipts {
+    pub package_readiness_receipt_ref: Option<String>,
+    pub release_evaluation_receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1Receipts {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["package_readiness_receipt_ref","release_evaluation_receipt_refs"],"properties":{"package_readiness_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"release_evaluation_receipt_refs":{"$ref":"#/$defs/receiptRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            package_readiness_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"package_readiness_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"package_readiness_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_evaluation_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"release_evaluation_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"release_evaluation_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemManifestV1Release {
+    pub publisher_signature_ref: String,
+    pub registry_published_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemManifestV1Release {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["publisher_signature_ref","registry_published_at"],"properties":{"publisher_signature_ref":{"type":"string","pattern":"^(?:receipt|evidence)://[^\\s]{1,248}$"},"registry_published_at":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            publisher_signature_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"publisher_signature_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"publisher_signature_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_published_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"registry_published_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_published_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1 {
+    pub schema_version: AutonomousSystemGenesisV1SchemaVersion,
+    pub genesis_id: String,
+    pub system_id: String,
+    pub package_id: String,
+    pub manifest_ref: String,
+    pub admitted_manifest_root: String,
+    pub constitution_ref: String,
+    pub initial_profile_refs: AutonomousSystemGenesisV1InitialProfileRefs,
+    pub initial_component_bindings: AutonomousSystemGenesisV1InitialComponentBindings,
+    pub instantiation: AutonomousSystemGenesisV1Instantiation,
+    pub cryptographic_origin: AutonomousSystemGenesisV1CryptographicOrigin,
+    pub activation_receipt_ref: Option<String>,
+    pub lifecycle_transition_refs: Vec<String>,
+    pub status_source_receipt_refs: Vec<String>,
+    pub created_at: String,
+    pub status: AutonomousSystemGenesisV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemGenesisV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-genesis/v1","title":"AutonomousSystemGenesis","description":"One-time binding of one immutable package release to a proposed or admitted logical System origin.","x-ioi-schema-version":"ioi.autonomous-system-genesis.v1","type":"object","additionalProperties":false,"required":["schema_version","genesis_id","system_id","package_id","manifest_ref","admitted_manifest_root","constitution_ref","initial_profile_refs","initial_component_bindings","instantiation","cryptographic_origin","activation_receipt_ref","lifecycle_transition_refs","status_source_receipt_refs","created_at","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-genesis.v1"},"genesis_id":{"$ref":"#/$defs/genesisRef"},"system_id":{"$ref":"#/$defs/systemRef"},"package_id":{"$ref":"#/$defs/packageRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"initial_profile_refs":{"type":"object","additionalProperties":false,"required":["deployment_profile_ref","ordering_admission_finality_profile_ref","oracle_evidence_profile_refs","lifecycle_continuity_profile_ref","network_enrollment_ref"],"properties":{"deployment_profile_ref":{"$ref":"#/$defs/deploymentProfileRef"},"ordering_admission_finality_profile_ref":{"$ref":"#/$defs/orderingProfileRef"},"oracle_evidence_profile_refs":{"type":"array","items":{"$ref":"#/$defs/oracleProfileRef"},"maxItems":32,"uniqueItems":true},"lifecycle_continuity_profile_ref":{"$ref":"#/$defs/lifecycleProfileRef"},"network_enrollment_ref":{"anyOf":[{"$ref":"#/$defs/networkEnrollmentRef"},{"type":"null"}]}}},"initial_component_bindings":{"type":"object","additionalProperties":false,"required":["admitted_component_set_snapshot_ref","admitted_component_set_hash","goal_run_profiles","workflow_templates","automation_specs","automation_installations","harness_profiles","agent_harness_adapters","skill_entries","data_recipes","runtime_tool_contracts","mcp_gateway_profiles"],"properties":{"admitted_component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"admitted_component_set_hash":{"$ref":"#/$defs/hash"},"goal_run_profiles":{"$ref":"#/$defs/revisionHashTuples"},"workflow_templates":{"$ref":"#/$defs/revisionHashTuples"},"automation_specs":{"$ref":"#/$defs/revisionHashTuples"},"automation_installations":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["binding_revision_ref","binding_hash","admission_receipt_ref"],"properties":{"binding_revision_ref":{"type":"string","pattern":"^install://automation/[^\\s]{1,140}/revision/sha256:[0-9a-f]{64}$"},"binding_hash":{"$ref":"#/$defs/hash"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"maxItems":128,"uniqueItems":true},"harness_profiles":{"$ref":"#/$defs/revisionHashTuples"},"agent_harness_adapters":{"$ref":"#/$defs/revisionHashTuples"},"skill_entries":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["binding_revision_ref","binding_hash","skill_manifest_revision_ref","skill_manifest_content_hash"],"properties":{"binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"binding_hash":{"$ref":"#/$defs/hash"},"skill_manifest_revision_ref":{"type":"string","pattern":"^skill://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_manifest_content_hash":{"$ref":"#/$defs/hash"}}},"maxItems":128,"uniqueItems":true},"data_recipes":{"$ref":"#/$defs/revisionHashTuples"},"runtime_tool_contracts":{"$ref":"#/$defs/revisionHashTuples"},"mcp_gateway_profiles":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["profile_revision_ref","profile_content_hash"],"properties":{"profile_revision_ref":{"type":"string","pattern":"^mcp-gateway://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"profile_content_hash":{"$ref":"#/$defs/hash"}}},"maxItems":64,"uniqueItems":true}}},"instantiation":{"type":"object","additionalProperties":false,"required":["proposed_by","decision_ref","authority_grant_refs","conformance_receipt_refs"],"properties":{"proposed_by":{"type":"string","pattern":"^(?:system|wallet|org|project)://[^\\s]{1,248}$"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"}}},"cryptographic_origin":{"type":"object","additionalProperties":false,"required":["sequence","predecessor_commitment_ref","genesis_operation_commitment","genesis_transition_commitment_ref","initial_state_root","initial_receipt_root","admission_proof_ref"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":0},"predecessor_commitment_ref":{"type":"null"},"genesis_operation_commitment":{"$ref":"#/$defs/hash"},"genesis_transition_commitment_ref":{"type":"string","pattern":"^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"},"initial_state_root":{"$ref":"#/$defs/hash"},"initial_receipt_root":{"$ref":"#/$defs/hash"},"admission_proof_ref":{"anyOf":[{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"},{"type":"null"}]}}},"activation_receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"lifecycle_transition_refs":{"type":"array","items":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"status_source_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"created_at":{"$ref":"#/$defs/canonicalDateTime"},"status":{"enum":["proposed","authorized","activated","rejected","revoked"]}},"allOf":[{"if":{"properties":{"status":{"const":"proposed"}},"required":["status"]},"then":{"properties":{"activation_receipt_ref":{"type":"null"},"lifecycle_transition_refs":{"type":"array","maxItems":0},"status_source_receipt_refs":{"type":"array","maxItems":0},"cryptographic_origin":{"type":"object","properties":{"admission_proof_ref":{"type":"null"}},"required":["admission_proof_ref"]}}}},{"if":{"properties":{"status":{"const":"activated"}},"required":["status"]},"then":{"properties":{"activation_receipt_ref":{"$ref":"#/$defs/receiptRef"},"lifecycle_transition_refs":{"type":"array","minItems":1},"status_source_receipt_refs":{"type":"array","minItems":1}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"packageRef":{"type":"string","pattern":"^package://[^\\s]{1,248}$"},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"deploymentProfileRef":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"orderingProfileRef":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"oracleProfileRef":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"lifecycleProfileRef":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"networkEnrollmentRef":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"receiptRefs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"maxItems":128,"uniqueItems":true},"immutableRevisionRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"revisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}},"revisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/revisionHashTuple"},"maxItems":128,"uniqueItems":true},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AutonomousSystemGenesisV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            package_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"package_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"package_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_manifest_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_manifest_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_manifest_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initial_profile_refs: serde_json::from_value::<
+                AutonomousSystemGenesisV1InitialProfileRefs,
+            >(
+                object
+                    .remove(r#"initial_profile_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"initial_profile_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initial_component_bindings: serde_json::from_value::<
+                AutonomousSystemGenesisV1InitialComponentBindings,
+            >(
+                object
+                    .remove(r#"initial_component_bindings"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"initial_component_bindings"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            instantiation: serde_json::from_value::<AutonomousSystemGenesisV1Instantiation>(
+                object
+                    .remove(r#"instantiation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"instantiation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cryptographic_origin: serde_json::from_value::<
+                AutonomousSystemGenesisV1CryptographicOrigin,
+            >(
+                object
+                    .remove(r#"cryptographic_origin"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cryptographic_origin"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            activation_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"activation_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activation_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_transition_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"lifecycle_transition_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"lifecycle_transition_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status_source_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"status_source_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"status_source_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemGenesisV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemGenesisV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-genesis.v1"#)]
+    IoiAutonomousSystemGenesisV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialProfileRefs {
+    pub deployment_profile_ref: String,
+    pub ordering_admission_finality_profile_ref: String,
+    pub oracle_evidence_profile_refs: Vec<String>,
+    pub lifecycle_continuity_profile_ref: String,
+    pub network_enrollment_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemGenesisV1InitialProfileRefs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["deployment_profile_ref","ordering_admission_finality_profile_ref","oracle_evidence_profile_refs","lifecycle_continuity_profile_ref","network_enrollment_ref"],"properties":{"deployment_profile_ref":{"$ref":"#/$defs/deploymentProfileRef"},"ordering_admission_finality_profile_ref":{"$ref":"#/$defs/orderingProfileRef"},"oracle_evidence_profile_refs":{"type":"array","items":{"$ref":"#/$defs/oracleProfileRef"},"maxItems":32,"uniqueItems":true},"lifecycle_continuity_profile_ref":{"$ref":"#/$defs/lifecycleProfileRef"},"network_enrollment_ref":{"anyOf":[{"$ref":"#/$defs/networkEnrollmentRef"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_admission_finality_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ordering_admission_finality_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"ordering_admission_finality_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            oracle_evidence_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"oracle_evidence_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"oracle_evidence_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_continuity_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_continuity_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"lifecycle_continuity_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"network_enrollment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_enrollment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindings {
+    pub admitted_component_set_snapshot_ref: String,
+    pub admitted_component_set_hash: String,
+    pub goal_run_profiles:
+        Vec<AutonomousSystemGenesisV1InitialComponentBindingsGoalRunProfilesItem>,
+    pub workflow_templates:
+        Vec<AutonomousSystemGenesisV1InitialComponentBindingsWorkflowTemplatesItem>,
+    pub automation_specs: Vec<AutonomousSystemGenesisV1InitialComponentBindingsAutomationSpecsItem>,
+    pub automation_installations:
+        Vec<AutonomousSystemGenesisV1InitialComponentBindingsAutomationInstallationsItem>,
+    pub harness_profiles: Vec<AutonomousSystemGenesisV1InitialComponentBindingsHarnessProfilesItem>,
+    pub agent_harness_adapters:
+        Vec<AutonomousSystemGenesisV1InitialComponentBindingsAgentHarnessAdaptersItem>,
+    pub skill_entries: Vec<AutonomousSystemGenesisV1InitialComponentBindingsSkillEntriesItem>,
+    pub data_recipes: Vec<AutonomousSystemGenesisV1InitialComponentBindingsDataRecipesItem>,
+    pub runtime_tool_contracts:
+        Vec<AutonomousSystemGenesisV1InitialComponentBindingsRuntimeToolContractsItem>,
+    pub mcp_gateway_profiles:
+        Vec<AutonomousSystemGenesisV1InitialComponentBindingsMcpGatewayProfilesItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemGenesisV1InitialComponentBindings {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["admitted_component_set_snapshot_ref","admitted_component_set_hash","goal_run_profiles","workflow_templates","automation_specs","automation_installations","harness_profiles","agent_harness_adapters","skill_entries","data_recipes","runtime_tool_contracts","mcp_gateway_profiles"],"properties":{"admitted_component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"admitted_component_set_hash":{"$ref":"#/$defs/hash"},"goal_run_profiles":{"$ref":"#/$defs/revisionHashTuples"},"workflow_templates":{"$ref":"#/$defs/revisionHashTuples"},"automation_specs":{"$ref":"#/$defs/revisionHashTuples"},"automation_installations":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["binding_revision_ref","binding_hash","admission_receipt_ref"],"properties":{"binding_revision_ref":{"type":"string","pattern":"^install://automation/[^\\s]{1,140}/revision/sha256:[0-9a-f]{64}$"},"binding_hash":{"$ref":"#/$defs/hash"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"maxItems":128,"uniqueItems":true},"harness_profiles":{"$ref":"#/$defs/revisionHashTuples"},"agent_harness_adapters":{"$ref":"#/$defs/revisionHashTuples"},"skill_entries":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["binding_revision_ref","binding_hash","skill_manifest_revision_ref","skill_manifest_content_hash"],"properties":{"binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"binding_hash":{"$ref":"#/$defs/hash"},"skill_manifest_revision_ref":{"type":"string","pattern":"^skill://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_manifest_content_hash":{"$ref":"#/$defs/hash"}}},"maxItems":128,"uniqueItems":true},"data_recipes":{"$ref":"#/$defs/revisionHashTuples"},"runtime_tool_contracts":{"$ref":"#/$defs/revisionHashTuples"},"mcp_gateway_profiles":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["profile_revision_ref","profile_content_hash"],"properties":{"profile_revision_ref":{"type":"string","pattern":"^mcp-gateway://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"profile_content_hash":{"$ref":"#/$defs/hash"}}},"maxItems":64,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            admitted_component_set_snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_component_set_snapshot_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"admitted_component_set_snapshot_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_component_set_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_component_set_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"admitted_component_set_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            goal_run_profiles: serde_json::from_value::<
+                Vec<AutonomousSystemGenesisV1InitialComponentBindingsGoalRunProfilesItem>,
+            >(
+                object
+                    .remove(r#"goal_run_profiles"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"goal_run_profiles"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workflow_templates: serde_json::from_value::<
+                Vec<AutonomousSystemGenesisV1InitialComponentBindingsWorkflowTemplatesItem>,
+            >(
+                object
+                    .remove(r#"workflow_templates"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workflow_templates"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            automation_specs: serde_json::from_value::<
+                Vec<AutonomousSystemGenesisV1InitialComponentBindingsAutomationSpecsItem>,
+            >(
+                object
+                    .remove(r#"automation_specs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"automation_specs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            automation_installations: serde_json::from_value::<
+                Vec<AutonomousSystemGenesisV1InitialComponentBindingsAutomationInstallationsItem>,
+            >(
+                object
+                    .remove(r#"automation_installations"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"automation_installations"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            harness_profiles: serde_json::from_value::<
+                Vec<AutonomousSystemGenesisV1InitialComponentBindingsHarnessProfilesItem>,
+            >(
+                object
+                    .remove(r#"harness_profiles"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"harness_profiles"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agent_harness_adapters: serde_json::from_value::<
+                Vec<AutonomousSystemGenesisV1InitialComponentBindingsAgentHarnessAdaptersItem>,
+            >(
+                object
+                    .remove(r#"agent_harness_adapters"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agent_harness_adapters"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            skill_entries: serde_json::from_value::<
+                Vec<AutonomousSystemGenesisV1InitialComponentBindingsSkillEntriesItem>,
+            >(
+                object
+                    .remove(r#"skill_entries"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"skill_entries"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipes: serde_json::from_value::<
+                Vec<AutonomousSystemGenesisV1InitialComponentBindingsDataRecipesItem>,
+            >(
+                object
+                    .remove(r#"data_recipes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_recipes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_tool_contracts: serde_json::from_value::<
+                Vec<AutonomousSystemGenesisV1InitialComponentBindingsRuntimeToolContractsItem>,
+            >(
+                object
+                    .remove(r#"runtime_tool_contracts"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_tool_contracts"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mcp_gateway_profiles: serde_json::from_value::<
+                Vec<AutonomousSystemGenesisV1InitialComponentBindingsMcpGatewayProfilesItem>,
+            >(
+                object
+                    .remove(r#"mcp_gateway_profiles"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_gateway_profiles"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindingsGoalRunProfilesItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemGenesisV1InitialComponentBindingsGoalRunProfilesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindingsWorkflowTemplatesItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemGenesisV1InitialComponentBindingsWorkflowTemplatesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindingsAutomationSpecsItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemGenesisV1InitialComponentBindingsAutomationSpecsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindingsAutomationInstallationsItem {
+    pub binding_revision_ref: String,
+    pub binding_hash: String,
+    pub admission_receipt_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemGenesisV1InitialComponentBindingsAutomationInstallationsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["binding_revision_ref","binding_hash","admission_receipt_ref"],"properties":{"binding_revision_ref":{"type":"string","pattern":"^install://automation/[^\\s]{1,140}/revision/sha256:[0-9a-f]{64}$"},"binding_hash":{"$ref":"#/$defs/hash"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            binding_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"binding_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"binding_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            binding_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"binding_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"binding_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindingsHarnessProfilesItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemGenesisV1InitialComponentBindingsHarnessProfilesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindingsAgentHarnessAdaptersItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemGenesisV1InitialComponentBindingsAgentHarnessAdaptersItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindingsSkillEntriesItem {
+    pub binding_revision_ref: String,
+    pub binding_hash: String,
+    pub skill_manifest_revision_ref: String,
+    pub skill_manifest_content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemGenesisV1InitialComponentBindingsSkillEntriesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["binding_revision_ref","binding_hash","skill_manifest_revision_ref","skill_manifest_content_hash"],"properties":{"binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"binding_hash":{"$ref":"#/$defs/hash"},"skill_manifest_revision_ref":{"type":"string","pattern":"^skill://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_manifest_content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            binding_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"binding_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"binding_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            binding_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"binding_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"binding_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            skill_manifest_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"skill_manifest_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"skill_manifest_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            skill_manifest_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"skill_manifest_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"skill_manifest_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindingsDataRecipesItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemGenesisV1InitialComponentBindingsDataRecipesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindingsRuntimeToolContractsItem {
+    pub revision_ref: String,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemGenesisV1InitialComponentBindingsRuntimeToolContractsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1InitialComponentBindingsMcpGatewayProfilesItem {
+    pub profile_revision_ref: String,
+    pub profile_content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemGenesisV1InitialComponentBindingsMcpGatewayProfilesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["profile_revision_ref","profile_content_hash"],"properties":{"profile_revision_ref":{"type":"string","pattern":"^mcp-gateway://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"profile_content_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            profile_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1Instantiation {
+    pub proposed_by: String,
+    pub decision_ref: String,
+    pub authority_grant_refs: Vec<String>,
+    pub conformance_receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemGenesisV1Instantiation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["proposed_by","decision_ref","authority_grant_refs","conformance_receipt_refs"],"properties":{"proposed_by":{"type":"string","pattern":"^(?:system|wallet|org|project)://[^\\s]{1,248}$"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            proposed_by: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conformance_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"conformance_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"conformance_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemGenesisV1CryptographicOrigin {
+    pub sequence: ArchitectureContractInteger,
+    pub predecessor_commitment_ref: serde_json::Value,
+    pub genesis_operation_commitment: String,
+    pub genesis_transition_commitment_ref: String,
+    pub initial_state_root: String,
+    pub initial_receipt_root: String,
+    pub admission_proof_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemGenesisV1CryptographicOrigin {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["sequence","predecessor_commitment_ref","genesis_operation_commitment","genesis_transition_commitment_ref","initial_state_root","initial_receipt_root","admission_proof_ref"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":0},"predecessor_commitment_ref":{"type":"null"},"genesis_operation_commitment":{"$ref":"#/$defs/hash"},"genesis_transition_commitment_ref":{"type":"string","pattern":"^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"},"initial_state_root":{"$ref":"#/$defs/hash"},"initial_receipt_root":{"$ref":"#/$defs/hash"},"admission_proof_ref":{"anyOf":[{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_commitment_ref: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"predecessor_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_operation_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_operation_commitment"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"genesis_operation_commitment"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_transition_commitment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_transition_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"genesis_transition_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initial_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"initial_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"initial_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initial_receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"initial_receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"initial_receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_proof_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admission_proof_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_proof_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemGenesisV1Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"authorized"#)]
+    Authorized,
+    #[serde(rename = r#"activated"#)]
+    Activated,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemConstitutionV1 {
+    pub schema_version: AutonomousSystemConstitutionV1SchemaVersion,
+    pub constitution_id: String,
+    pub system_id: String,
+    pub version: String,
+    pub predecessor_constitution_ref: Option<String>,
+    pub constitution_root: String,
+    pub declared_purpose: AutonomousSystemConstitutionV1DeclaredPurpose,
+    pub normative_constraints: AutonomousSystemConstitutionV1NormativeConstraints,
+    pub agency_boundary: AutonomousSystemConstitutionV1AgencyBoundary,
+    pub governance: AutonomousSystemConstitutionV1Governance,
+    pub protected_profile_governance: AutonomousSystemConstitutionV1ProtectedProfileGovernance,
+    pub shutdown: AutonomousSystemConstitutionV1Shutdown,
+    pub activation_receipt_ref: Option<String>,
+    pub public_commitment_ref: Option<String>,
+    pub status: AutonomousSystemConstitutionV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemConstitutionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-constitution/v1","title":"AutonomousSystemConstitution","description":"Protected purpose, agency, governance, profile-change, and shutdown constraints for one logical System.","x-ioi-schema-version":"ioi.autonomous-system-constitution.v1","type":"object","additionalProperties":false,"required":["schema_version","constitution_id","system_id","version","predecessor_constitution_ref","constitution_root","declared_purpose","normative_constraints","agency_boundary","governance","protected_profile_governance","shutdown","activation_receipt_ref","public_commitment_ref","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-constitution.v1"},"constitution_id":{"$ref":"#/$defs/constitutionRef"},"system_id":{"$ref":"#/$defs/systemRef"},"version":{"$ref":"#/$defs/version"},"predecessor_constitution_ref":{"anyOf":[{"$ref":"#/$defs/constitutionRef"},{"type":"null"}]},"constitution_root":{"$ref":"#/$defs/hash"},"declared_purpose":{"type":"object","additionalProperties":false,"required":["statement","ontology_refs","beneficiary_or_stakeholder_refs","acceptance_policy_refs"],"properties":{"statement":{"type":"string","pattern":"^[^\\s][ -~]{0,2047}$"},"ontology_refs":{"$ref":"#/$defs/canonicalRefs"},"beneficiary_or_stakeholder_refs":{"$ref":"#/$defs/canonicalRefs"},"acceptance_policy_refs":{"$ref":"#/$defs/policyRefs"}}},"normative_constraints":{"type":"object","additionalProperties":false,"required":["invariant_refs","permitted_objective_policy_refs","prohibited_objective_policy_refs","permitted_ontology_action_contract_refs","prohibited_effect_policy_refs"],"properties":{"invariant_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_objective_policy_refs":{"$ref":"#/$defs/policyRefs"},"prohibited_objective_policy_refs":{"$ref":"#/$defs/policyRefs"},"permitted_ontology_action_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"prohibited_effect_policy_refs":{"$ref":"#/$defs/policyRefs"}}},"agency_boundary":{"type":"object","additionalProperties":false,"required":["authority_ceiling_scope_refs","delegable_scope_refs","non_delegable_scope_refs","resource_and_budget_ceiling_policy_refs","time_and_duration_ceiling_policy_refs","data_and_privacy_ceiling_policy_refs","effect_and_externality_ceiling_policy_refs","egress_policy_ref","node_expansion","code_propagation","self_authority_widening"],"properties":{"authority_ceiling_scope_refs":{"$ref":"#/$defs/scopeRefs"},"delegable_scope_refs":{"$ref":"#/$defs/scopeRefs"},"non_delegable_scope_refs":{"$ref":"#/$defs/scopeRefs"},"resource_and_budget_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"time_and_duration_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"data_and_privacy_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"effect_and_externality_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"egress_policy_ref":{"$ref":"#/$defs/policyRef"},"node_expansion":{"const":"governed_membership_only"},"code_propagation":{"const":"admitted_deployment_only"},"self_authority_widening":{"const":"forbidden"}}},"governance":{"type":"object","additionalProperties":false,"required":["governance_owner_refs","accountable_principal_refs","affected_party_policy_ref","ordinary_upgrade_policy_ref","amendment_mode","amendment_decision_profile_ref","protected_clause_refs","agent_may_propose_amendment","agent_may_commit_amendment","emergency_pause_authority_refs","revocation_authority_refs"],"properties":{"governance_owner_refs":{"$ref":"#/$defs/canonicalRefs"},"accountable_principal_refs":{"$ref":"#/$defs/canonicalRefs"},"affected_party_policy_ref":{"$ref":"#/$defs/policyRef"},"ordinary_upgrade_policy_ref":{"$ref":"#/$defs/policyRef"},"amendment_mode":{"enum":["immutable","external_governance_only"]},"amendment_decision_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"protected_clause_refs":{"$ref":"#/$defs/canonicalRefs"},"agent_may_propose_amendment":{"type":"boolean"},"agent_may_commit_amendment":{"type":"boolean","const":false},"emergency_pause_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"revocation_authority_refs":{"$ref":"#/$defs/canonicalRefs"}},"allOf":[{"if":{"properties":{"amendment_mode":{"const":"immutable"}},"required":["amendment_mode"]},"then":{"properties":{"amendment_decision_profile_ref":{"type":"null"},"agent_may_propose_amendment":{"type":"boolean","const":false}}},"else":{"properties":{"amendment_decision_profile_ref":{"$ref":"#/$defs/policyRef"}}}}]},"protected_profile_governance":{"type":"object","additionalProperties":false,"required":["improvement_governance_profile_ref","improvement_governance_profile_change_decision_profile_ref","deployment_constraint_ref","deployment_change_decision_profile_ref","ordering_admission_finality_constraint_ref","ordering_profile_change_decision_profile_ref","oracle_evidence_constraint_ref","oracle_profile_change_decision_profile_ref","lifecycle_continuity_constraint_ref","lifecycle_profile_change_decision_profile_ref","network_enrollment_constraint_ref","network_enrollment_change_decision_profile_ref"],"properties":{"improvement_governance_profile_ref":{"anyOf":[{"type":"string","pattern":"^improvement-governance-profile://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"improvement_governance_profile_change_decision_profile_ref":{"$ref":"#/$defs/nullablePolicyRef"},"deployment_constraint_ref":{"$ref":"#/$defs/policyRef"},"deployment_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"ordering_admission_finality_constraint_ref":{"$ref":"#/$defs/policyRef"},"ordering_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"oracle_evidence_constraint_ref":{"$ref":"#/$defs/policyRef"},"oracle_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"lifecycle_continuity_constraint_ref":{"$ref":"#/$defs/policyRef"},"lifecycle_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_constraint_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"}}},"shutdown":{"type":"object","additionalProperties":false,"required":["kill_switch_ref","decommission_policy_ref","minimum_archive_policy_ref"],"properties":{"kill_switch_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"decommission_policy_ref":{"$ref":"#/$defs/policyRef"},"minimum_archive_policy_ref":{"$ref":"#/$defs/policyRef"}}},"activation_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},{"type":"null"}]},"public_commitment_ref":{"anyOf":[{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["draft","active","superseded","revoked"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"policyRefs":{"type":"array","items":{"$ref":"#/$defs/policyRef"},"maxItems":128,"uniqueItems":true},"scopeRefs":{"type":"array","items":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]{0,127}$"},"maxItems":128,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AutonomousSystemConstitutionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_constitution_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_constitution_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_constitution_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_purpose:
+                serde_json::from_value::<AutonomousSystemConstitutionV1DeclaredPurpose>(
+                    object
+                        .remove(r#"declared_purpose"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"declared_purpose"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            normative_constraints: serde_json::from_value::<
+                AutonomousSystemConstitutionV1NormativeConstraints,
+            >(
+                object
+                    .remove(r#"normative_constraints"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"normative_constraints"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agency_boundary:
+                serde_json::from_value::<AutonomousSystemConstitutionV1AgencyBoundary>(
+                    object
+                        .remove(r#"agency_boundary"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"agency_boundary"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            governance: serde_json::from_value::<AutonomousSystemConstitutionV1Governance>(
+                object
+                    .remove(r#"governance"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governance"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protected_profile_governance: serde_json::from_value::<
+                AutonomousSystemConstitutionV1ProtectedProfileGovernance,
+            >(
+                object
+                    .remove(r#"protected_profile_governance"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"protected_profile_governance"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            shutdown: serde_json::from_value::<AutonomousSystemConstitutionV1Shutdown>(
+                object
+                    .remove(r#"shutdown"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"shutdown"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            activation_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"activation_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activation_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"public_commitment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_commitment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemConstitutionV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemConstitutionV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-constitution.v1"#)]
+    IoiAutonomousSystemConstitutionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemConstitutionV1DeclaredPurpose {
+    pub statement: String,
+    pub ontology_refs: Vec<String>,
+    pub beneficiary_or_stakeholder_refs: Vec<String>,
+    pub acceptance_policy_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemConstitutionV1DeclaredPurpose {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["statement","ontology_refs","beneficiary_or_stakeholder_refs","acceptance_policy_refs"],"properties":{"statement":{"type":"string","pattern":"^[^\\s][ -~]{0,2047}$"},"ontology_refs":{"$ref":"#/$defs/canonicalRefs"},"beneficiary_or_stakeholder_refs":{"$ref":"#/$defs/canonicalRefs"},"acceptance_policy_refs":{"$ref":"#/$defs/policyRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            statement: serde_json::from_value::<String>(
+                object
+                    .remove(r#"statement"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"statement"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            beneficiary_or_stakeholder_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"beneficiary_or_stakeholder_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"beneficiary_or_stakeholder_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acceptance_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"acceptance_policy_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acceptance_policy_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemConstitutionV1NormativeConstraints {
+    pub invariant_refs: Vec<String>,
+    pub permitted_objective_policy_refs: Vec<String>,
+    pub prohibited_objective_policy_refs: Vec<String>,
+    pub permitted_ontology_action_contract_refs: Vec<String>,
+    pub prohibited_effect_policy_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemConstitutionV1NormativeConstraints {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["invariant_refs","permitted_objective_policy_refs","prohibited_objective_policy_refs","permitted_ontology_action_contract_refs","prohibited_effect_policy_refs"],"properties":{"invariant_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_objective_policy_refs":{"$ref":"#/$defs/policyRefs"},"prohibited_objective_policy_refs":{"$ref":"#/$defs/policyRefs"},"permitted_ontology_action_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"prohibited_effect_policy_refs":{"$ref":"#/$defs/policyRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            invariant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"invariant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invariant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            permitted_objective_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"permitted_objective_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"permitted_objective_policy_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            prohibited_objective_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"prohibited_objective_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"prohibited_objective_policy_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            permitted_ontology_action_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"permitted_ontology_action_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"permitted_ontology_action_contract_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            prohibited_effect_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"prohibited_effect_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"prohibited_effect_policy_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemConstitutionV1AgencyBoundary {
+    pub authority_ceiling_scope_refs: Vec<String>,
+    pub delegable_scope_refs: Vec<String>,
+    pub non_delegable_scope_refs: Vec<String>,
+    pub resource_and_budget_ceiling_policy_refs: Vec<String>,
+    pub time_and_duration_ceiling_policy_refs: Vec<String>,
+    pub data_and_privacy_ceiling_policy_refs: Vec<String>,
+    pub effect_and_externality_ceiling_policy_refs: Vec<String>,
+    pub egress_policy_ref: String,
+    pub node_expansion: AutonomousSystemConstitutionV1AgencyBoundaryNodeExpansion,
+    pub code_propagation: AutonomousSystemConstitutionV1AgencyBoundaryCodePropagation,
+    pub self_authority_widening: AutonomousSystemConstitutionV1AgencyBoundarySelfAuthorityWidening,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemConstitutionV1AgencyBoundary {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["authority_ceiling_scope_refs","delegable_scope_refs","non_delegable_scope_refs","resource_and_budget_ceiling_policy_refs","time_and_duration_ceiling_policy_refs","data_and_privacy_ceiling_policy_refs","effect_and_externality_ceiling_policy_refs","egress_policy_ref","node_expansion","code_propagation","self_authority_widening"],"properties":{"authority_ceiling_scope_refs":{"$ref":"#/$defs/scopeRefs"},"delegable_scope_refs":{"$ref":"#/$defs/scopeRefs"},"non_delegable_scope_refs":{"$ref":"#/$defs/scopeRefs"},"resource_and_budget_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"time_and_duration_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"data_and_privacy_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"effect_and_externality_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"egress_policy_ref":{"$ref":"#/$defs/policyRef"},"node_expansion":{"const":"governed_membership_only"},"code_propagation":{"const":"admitted_deployment_only"},"self_authority_widening":{"const":"forbidden"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            authority_ceiling_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_ceiling_scope_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_ceiling_scope_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            delegable_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"delegable_scope_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"delegable_scope_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            non_delegable_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"non_delegable_scope_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"non_delegable_scope_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_and_budget_ceiling_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resource_and_budget_ceiling_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"resource_and_budget_ceiling_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            time_and_duration_ceiling_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"time_and_duration_ceiling_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"time_and_duration_ceiling_policy_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_and_privacy_ceiling_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"data_and_privacy_ceiling_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"data_and_privacy_ceiling_policy_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_and_externality_ceiling_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"effect_and_externality_ceiling_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"effect_and_externality_ceiling_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            egress_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"egress_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"egress_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_expansion: serde_json::from_value::<
+                AutonomousSystemConstitutionV1AgencyBoundaryNodeExpansion,
+            >(
+                object
+                    .remove(r#"node_expansion"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_expansion"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            code_propagation: serde_json::from_value::<
+                AutonomousSystemConstitutionV1AgencyBoundaryCodePropagation,
+            >(
+                object
+                    .remove(r#"code_propagation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"code_propagation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            self_authority_widening: serde_json::from_value::<
+                AutonomousSystemConstitutionV1AgencyBoundarySelfAuthorityWidening,
+            >(
+                object
+                    .remove(r#"self_authority_widening"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"self_authority_widening"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemConstitutionV1AgencyBoundaryNodeExpansion {
+    #[serde(rename = r#"governed_membership_only"#)]
+    GovernedMembershipOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemConstitutionV1AgencyBoundaryCodePropagation {
+    #[serde(rename = r#"admitted_deployment_only"#)]
+    AdmittedDeploymentOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemConstitutionV1AgencyBoundarySelfAuthorityWidening {
+    #[serde(rename = r#"forbidden"#)]
+    Forbidden,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemConstitutionV1Governance {
+    pub governance_owner_refs: Vec<String>,
+    pub accountable_principal_refs: Vec<String>,
+    pub affected_party_policy_ref: String,
+    pub ordinary_upgrade_policy_ref: String,
+    pub amendment_mode: AutonomousSystemConstitutionV1GovernanceAmendmentMode,
+    pub amendment_decision_profile_ref: Option<String>,
+    pub protected_clause_refs: Vec<String>,
+    pub agent_may_propose_amendment: bool,
+    pub agent_may_commit_amendment: bool,
+    pub emergency_pause_authority_refs: Vec<String>,
+    pub revocation_authority_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemConstitutionV1Governance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["governance_owner_refs","accountable_principal_refs","affected_party_policy_ref","ordinary_upgrade_policy_ref","amendment_mode","amendment_decision_profile_ref","protected_clause_refs","agent_may_propose_amendment","agent_may_commit_amendment","emergency_pause_authority_refs","revocation_authority_refs"],"properties":{"governance_owner_refs":{"$ref":"#/$defs/canonicalRefs"},"accountable_principal_refs":{"$ref":"#/$defs/canonicalRefs"},"affected_party_policy_ref":{"$ref":"#/$defs/policyRef"},"ordinary_upgrade_policy_ref":{"$ref":"#/$defs/policyRef"},"amendment_mode":{"enum":["immutable","external_governance_only"]},"amendment_decision_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"protected_clause_refs":{"$ref":"#/$defs/canonicalRefs"},"agent_may_propose_amendment":{"type":"boolean"},"agent_may_commit_amendment":{"type":"boolean","const":false},"emergency_pause_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"revocation_authority_refs":{"$ref":"#/$defs/canonicalRefs"}},"allOf":[{"if":{"properties":{"amendment_mode":{"const":"immutable"}},"required":["amendment_mode"]},"then":{"properties":{"amendment_decision_profile_ref":{"type":"null"},"agent_may_propose_amendment":{"type":"boolean","const":false}}},"else":{"properties":{"amendment_decision_profile_ref":{"$ref":"#/$defs/policyRef"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            governance_owner_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"governance_owner_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governance_owner_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accountable_principal_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"accountable_principal_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"accountable_principal_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected_party_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"affected_party_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"affected_party_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordinary_upgrade_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ordinary_upgrade_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ordinary_upgrade_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            amendment_mode: serde_json::from_value::<
+                AutonomousSystemConstitutionV1GovernanceAmendmentMode,
+            >(
+                object
+                    .remove(r#"amendment_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"amendment_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            amendment_decision_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"amendment_decision_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"amendment_decision_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protected_clause_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"protected_clause_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"protected_clause_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agent_may_propose_amendment: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"agent_may_propose_amendment"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"agent_may_propose_amendment"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agent_may_commit_amendment: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"agent_may_commit_amendment"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"agent_may_commit_amendment"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            emergency_pause_authority_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"emergency_pause_authority_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"emergency_pause_authority_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_authority_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"revocation_authority_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"revocation_authority_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemConstitutionV1GovernanceAmendmentMode {
+    #[serde(rename = r#"immutable"#)]
+    Immutable,
+    #[serde(rename = r#"external_governance_only"#)]
+    ExternalGovernanceOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemConstitutionV1ProtectedProfileGovernance {
+    pub improvement_governance_profile_ref: Option<String>,
+    pub improvement_governance_profile_change_decision_profile_ref: Option<String>,
+    pub deployment_constraint_ref: String,
+    pub deployment_change_decision_profile_ref: String,
+    pub ordering_admission_finality_constraint_ref: String,
+    pub ordering_profile_change_decision_profile_ref: String,
+    pub oracle_evidence_constraint_ref: String,
+    pub oracle_profile_change_decision_profile_ref: String,
+    pub lifecycle_continuity_constraint_ref: String,
+    pub lifecycle_profile_change_decision_profile_ref: String,
+    pub network_enrollment_constraint_ref: String,
+    pub network_enrollment_change_decision_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemConstitutionV1ProtectedProfileGovernance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["improvement_governance_profile_ref","improvement_governance_profile_change_decision_profile_ref","deployment_constraint_ref","deployment_change_decision_profile_ref","ordering_admission_finality_constraint_ref","ordering_profile_change_decision_profile_ref","oracle_evidence_constraint_ref","oracle_profile_change_decision_profile_ref","lifecycle_continuity_constraint_ref","lifecycle_profile_change_decision_profile_ref","network_enrollment_constraint_ref","network_enrollment_change_decision_profile_ref"],"properties":{"improvement_governance_profile_ref":{"anyOf":[{"type":"string","pattern":"^improvement-governance-profile://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"improvement_governance_profile_change_decision_profile_ref":{"$ref":"#/$defs/nullablePolicyRef"},"deployment_constraint_ref":{"$ref":"#/$defs/policyRef"},"deployment_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"ordering_admission_finality_constraint_ref":{"$ref":"#/$defs/policyRef"},"ordering_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"oracle_evidence_constraint_ref":{"$ref":"#/$defs/policyRef"},"oracle_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"lifecycle_continuity_constraint_ref":{"$ref":"#/$defs/policyRef"},"lifecycle_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_constraint_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            improvement_governance_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"improvement_governance_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"improvement_governance_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            improvement_governance_profile_change_decision_profile_ref: serde_json::from_value::<
+                Option<String>,
+            >(
+                object
+                    .remove(r#"improvement_governance_profile_change_decision_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"improvement_governance_profile_change_decision_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_constraint_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_constraint_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"deployment_constraint_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_change_decision_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_change_decision_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"deployment_change_decision_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_admission_finality_constraint_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ordering_admission_finality_constraint_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"ordering_admission_finality_constraint_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_profile_change_decision_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ordering_profile_change_decision_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"ordering_profile_change_decision_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            oracle_evidence_constraint_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"oracle_evidence_constraint_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"oracle_evidence_constraint_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            oracle_profile_change_decision_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"oracle_profile_change_decision_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"oracle_profile_change_decision_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_continuity_constraint_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_continuity_constraint_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"lifecycle_continuity_constraint_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_profile_change_decision_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_profile_change_decision_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"lifecycle_profile_change_decision_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_enrollment_constraint_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"network_enrollment_constraint_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"network_enrollment_constraint_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_enrollment_change_decision_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"network_enrollment_change_decision_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"network_enrollment_change_decision_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemConstitutionV1Shutdown {
+    pub kill_switch_ref: Option<String>,
+    pub decommission_policy_ref: String,
+    pub minimum_archive_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemConstitutionV1Shutdown {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kill_switch_ref","decommission_policy_ref","minimum_archive_policy_ref"],"properties":{"kill_switch_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"decommission_policy_ref":{"$ref":"#/$defs/policyRef"},"minimum_archive_policy_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kill_switch_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"kill_switch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kill_switch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decommission_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decommission_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decommission_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            minimum_archive_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"minimum_archive_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"minimum_archive_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemConstitutionV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemConstitutionAmendmentV1 {
+    pub schema_version: AutonomousSystemConstitutionAmendmentV1SchemaVersion,
+    pub amendment_id: String,
+    pub system_id: String,
+    pub predecessor_constitution_ref: String,
+    pub predecessor_constitution_root: String,
+    pub proposed_successor_constitution_ref: String,
+    pub proposed_successor_constitution_root: String,
+    pub changed_field_paths: Vec<String>,
+    pub protected_field_paths: Vec<String>,
+    pub governing_decision_profile_ref: String,
+    pub proposal_ref: String,
+    pub evidence_refs: Vec<String>,
+    pub authority_requirement_refs: Vec<String>,
+    pub proposed_by_ref: String,
+    pub decision_ref: Option<String>,
+    pub status: AutonomousSystemConstitutionAmendmentV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemConstitutionAmendmentV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-constitution-amendment/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-constitution-amendment/v1","title":"AutonomousSystemConstitutionAmendment","description":"Non-effecting proposal that binds an exact constitution predecessor and proposed successor; approval never mutates either constitution.","x-ioi-schema-version":"ioi.autonomous-system-constitution-amendment.v1","type":"object","additionalProperties":false,"required":["schema_version","amendment_id","system_id","predecessor_constitution_ref","predecessor_constitution_root","proposed_successor_constitution_ref","proposed_successor_constitution_root","changed_field_paths","protected_field_paths","governing_decision_profile_ref","proposal_ref","evidence_refs","authority_requirement_refs","proposed_by_ref","decision_ref","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-constitution-amendment.v1"},"amendment_id":{"type":"string","pattern":"^constitution-amendment://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"predecessor_constitution_ref":{"$ref":"#/$defs/constitutionRef"},"predecessor_constitution_root":{"$ref":"#/$defs/hash"},"proposed_successor_constitution_ref":{"$ref":"#/$defs/constitutionRef"},"proposed_successor_constitution_root":{"$ref":"#/$defs/hash"},"changed_field_paths":{"$ref":"#/$defs/jsonPointers"},"protected_field_paths":{"$ref":"#/$defs/jsonPointers"},"governing_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"evidence_refs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"authority_requirement_refs":{"type":"array","items":{"type":"string","pattern":"^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$"},"minItems":1,"maxItems":64,"uniqueItems":true},"proposed_by_ref":{"type":"string","pattern":"^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$"},"decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["proposed","evidence_pending","approved","rejected"]}},"allOf":[{"if":{"properties":{"status":{"const":"approved"}},"required":["status"]},"then":{"properties":{"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"jsonPointer":{"type":"string","pattern":"^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$"},"jsonPointers":{"type":"array","items":{"$ref":"#/$defs/jsonPointer"},"minItems":1,"maxItems":128,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemConstitutionAmendmentV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            amendment_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"amendment_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"amendment_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_constitution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_constitution_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_constitution_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_constitution_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_constitution_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_constitution_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_successor_constitution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_successor_constitution_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_successor_constitution_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_successor_constitution_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_successor_constitution_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_successor_constitution_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            changed_field_paths: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"changed_field_paths"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"changed_field_paths"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protected_field_paths: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"protected_field_paths"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"protected_field_paths"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_decision_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"governing_decision_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"governing_decision_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemConstitutionAmendmentV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemConstitutionAmendmentV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-constitution-amendment.v1"#)]
+    IoiAutonomousSystemConstitutionAmendmentV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemConstitutionAmendmentV1Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evidence_pending"#)]
+    EvidencePending,
+    #[serde(rename = r#"approved"#)]
+    Approved,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrderingAdmissionFinalityProfileV1 {
+    pub schema_version: OrderingAdmissionFinalityProfileV1SchemaVersion,
+    pub ordering_profile_id: String,
+    pub system_id: String,
+    pub constitution_ref: String,
+    pub version: String,
+    pub profile: OrderingAdmissionFinalityProfileV1Profile,
+    pub authority_distribution: OrderingAdmissionFinalityProfileV1AuthorityDistribution,
+    pub ordering: OrderingAdmissionFinalityProfileV1Ordering,
+    pub admission: OrderingAdmissionFinalityProfileV1Admission,
+    pub cryptographic_continuity: OrderingAdmissionFinalityProfileV1CryptographicContinuity,
+    pub finality: OrderingAdmissionFinalityProfileV1Finality,
+    pub fault_model_ref: String,
+    pub liveness_policy_ref: String,
+    pub membership_and_profile_change_policy_ref: String,
+    pub conformance_receipt_refs: Vec<String>,
+    pub status: OrderingAdmissionFinalityProfileV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OrderingAdmissionFinalityProfileV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ordering-admission-finality-profile/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ordering-admission-finality-profile/v1","title":"OrderingAdmissionFinalityProfile","description":"Ordering, admission, cryptographic continuity, finality, and fault-model profile for one System.","x-ioi-schema-version":"ioi.ordering-admission-finality-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","ordering_profile_id","system_id","constitution_ref","version","profile","authority_distribution","ordering","admission","cryptographic_continuity","finality","fault_model_ref","liveness_policy_ref","membership_and_profile_change_policy_ref","conformance_receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"ordering_profile_id":{"$ref":"#/$defs/orderingProfileRef"},"system_id":{"$ref":"#/$defs/systemRef"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"version":{"$ref":"#/$defs/version"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"authority_distribution":{"type":"object","additionalProperties":false,"required":["posture","principal_refs","independence_evidence_refs"],"properties":{"posture":{"enum":["single_principal","declared_multi_principal","external_network"]},"principal_refs":{"$ref":"#/$defs/canonicalRefs"},"independence_evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}},"ordering":{"type":"object","additionalProperties":false,"required":["rule_ref","member_node_membership_refs","writer_epoch_required","fencing_required","leader_or_sequencer_selection_ref","conflict_rule_ref"],"properties":{"rule_ref":{"$ref":"#/$defs/policyRef"},"member_node_membership_refs":{"type":"array","items":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"maxItems":256,"uniqueItems":true},"writer_epoch_required":{"type":"boolean"},"fencing_required":{"type":"boolean"},"leader_or_sequencer_selection_ref":{"$ref":"#/$defs/nullablePolicyRef"},"conflict_rule_ref":{"$ref":"#/$defs/policyRef"}}},"admission":{"type":"object","additionalProperties":false,"required":["deterministic_transition_function_ref","schema_root","policy_root","authority_rule_ref","threshold","require_expected_predecessor_root","receipt_obligations"],"properties":{"deterministic_transition_function_ref":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,248}$"},"schema_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"authority_rule_ref":{"$ref":"#/$defs/policyRef"},"threshold":{"type":"object","additionalProperties":false,"required":["required","eligible"],"properties":{"required":{"$ref":"#/$defs/portableInteger"},"eligible":{"$ref":"#/$defs/portableInteger"}}},"require_expected_predecessor_root":{"type":"boolean","const":true},"receipt_obligations":{"$ref":"#/$defs/canonicalRefs"}}},"cryptographic_continuity":{"type":"object","additionalProperties":false,"required":["hash_and_signature_suite_ref","sequence_rule_ref","require_monotonic_sequence","require_expected_predecessor_commitment","operation_or_batch_commitment_schema_ref","admission_proof_schema_ref","require_resulting_state_root","require_receipt_root","checkpoint_and_compaction_policy_ref"],"properties":{"hash_and_signature_suite_ref":{"$ref":"#/$defs/schemaRef"},"sequence_rule_ref":{"$ref":"#/$defs/policyRef"},"require_monotonic_sequence":{"type":"boolean","const":true},"require_expected_predecessor_commitment":{"type":"boolean","const":true},"operation_or_batch_commitment_schema_ref":{"$ref":"#/$defs/schemaRef"},"admission_proof_schema_ref":{"$ref":"#/$defs/schemaRef"},"require_resulting_state_root":{"type":"boolean","const":true},"require_receipt_root":{"type":"boolean","const":true},"checkpoint_and_compaction_policy_ref":{"$ref":"#/$defs/policyRef"}}},"finality":{"type":"object","additionalProperties":false,"required":["scope","rule_ref","proof_schema_ref","rollback_posture","external_network_ref","external_contract_ref","external_confirmation_policy_ref"],"properties":{"scope":{"enum":["local_operational","cross_domain","public_economic"]},"rule_ref":{"$ref":"#/$defs/policyRef"},"proof_schema_ref":{"$ref":"#/$defs/schemaRef"},"rollback_posture":{"enum":["recoverable_before_final","compensation_only_after_final","irreversible_after_final"]},"external_network_ref":{"anyOf":[{"type":"string","pattern":"^(?:network|chain|domain)://[^\\s]{1,248}$"},{"type":"null"}]},"external_contract_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"external_confirmation_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"}}},"fault_model_ref":{"$ref":"#/$defs/policyRef"},"liveness_policy_ref":{"$ref":"#/$defs/policyRef"},"membership_and_profile_change_policy_ref":{"$ref":"#/$defs/policyRef"},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"status":{"enum":["draft","active","superseded","revoked"]}},"allOf":[{"if":{"properties":{"profile":{"const":"external_chain_finality"}},"required":["profile"]},"then":{"properties":{"authority_distribution":{"type":"object","properties":{"posture":{"const":"external_network"}}},"finality":{"type":"object","properties":{"external_network_ref":{"type":"string","pattern":"^(?:network|chain|domain)://[^\\s]{1,248}$"},"external_confirmation_policy_ref":{"$ref":"#/$defs/policyRef"}}}}}},{"if":{"properties":{"profile":{"enum":["single_authority","replicated_single_authority"]}},"required":["profile"]},"then":{"properties":{"authority_distribution":{"type":"object","properties":{"posture":{"const":"single_principal"},"principal_refs":{"type":"array","minItems":1,"maxItems":1}}}}}}],"$defs":{"portableInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"orderingProfileRef":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"},"evidenceRefs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"receiptRefs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<OrderingAdmissionFinalityProfileV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            ordering_profile_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ordering_profile_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ordering_profile_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile: serde_json::from_value::<OrderingAdmissionFinalityProfileV1Profile>(
+                object
+                    .remove(r#"profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_distribution: serde_json::from_value::<
+                OrderingAdmissionFinalityProfileV1AuthorityDistribution,
+            >(
+                object
+                    .remove(r#"authority_distribution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_distribution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering: serde_json::from_value::<OrderingAdmissionFinalityProfileV1Ordering>(
+                object
+                    .remove(r#"ordering"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ordering"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission: serde_json::from_value::<OrderingAdmissionFinalityProfileV1Admission>(
+                object
+                    .remove(r#"admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cryptographic_continuity: serde_json::from_value::<
+                OrderingAdmissionFinalityProfileV1CryptographicContinuity,
+            >(
+                object
+                    .remove(r#"cryptographic_continuity"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"cryptographic_continuity"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            finality: serde_json::from_value::<OrderingAdmissionFinalityProfileV1Finality>(
+                object
+                    .remove(r#"finality"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"finality"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fault_model_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"fault_model_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fault_model_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            liveness_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"liveness_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"liveness_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_and_profile_change_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_and_profile_change_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"membership_and_profile_change_policy_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conformance_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"conformance_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"conformance_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OrderingAdmissionFinalityProfileV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrderingAdmissionFinalityProfileV1SchemaVersion {
+    #[serde(rename = r#"ioi.ordering-admission-finality-profile.v1"#)]
+    IoiOrderingAdmissionFinalityProfileV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrderingAdmissionFinalityProfileV1Profile {
+    #[serde(rename = r#"single_authority"#)]
+    SingleAuthority,
+    #[serde(rename = r#"replicated_single_authority"#)]
+    ReplicatedSingleAuthority,
+    #[serde(rename = r#"threshold_authority"#)]
+    ThresholdAuthority,
+    #[serde(rename = r#"bft_consensus"#)]
+    BftConsensus,
+    #[serde(rename = r#"external_chain_finality"#)]
+    ExternalChainFinality,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrderingAdmissionFinalityProfileV1AuthorityDistribution {
+    pub posture: OrderingAdmissionFinalityProfileV1AuthorityDistributionPosture,
+    pub principal_refs: Vec<String>,
+    pub independence_evidence_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OrderingAdmissionFinalityProfileV1AuthorityDistribution {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ordering-admission-finality-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["posture","principal_refs","independence_evidence_refs"],"properties":{"posture":{"enum":["single_principal","declared_multi_principal","external_network"]},"principal_refs":{"$ref":"#/$defs/canonicalRefs"},"independence_evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            posture: serde_json::from_value::<
+                OrderingAdmissionFinalityProfileV1AuthorityDistributionPosture,
+            >(
+                object
+                    .remove(r#"posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"principal_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            independence_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"independence_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"independence_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrderingAdmissionFinalityProfileV1AuthorityDistributionPosture {
+    #[serde(rename = r#"single_principal"#)]
+    SinglePrincipal,
+    #[serde(rename = r#"declared_multi_principal"#)]
+    DeclaredMultiPrincipal,
+    #[serde(rename = r#"external_network"#)]
+    ExternalNetwork,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrderingAdmissionFinalityProfileV1Ordering {
+    pub rule_ref: String,
+    pub member_node_membership_refs: Vec<String>,
+    pub writer_epoch_required: bool,
+    pub fencing_required: bool,
+    pub leader_or_sequencer_selection_ref: Option<String>,
+    pub conflict_rule_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OrderingAdmissionFinalityProfileV1Ordering {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ordering-admission-finality-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["rule_ref","member_node_membership_refs","writer_epoch_required","fencing_required","leader_or_sequencer_selection_ref","conflict_rule_ref"],"properties":{"rule_ref":{"$ref":"#/$defs/policyRef"},"member_node_membership_refs":{"type":"array","items":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"maxItems":256,"uniqueItems":true},"writer_epoch_required":{"type":"boolean"},"fencing_required":{"type":"boolean"},"leader_or_sequencer_selection_ref":{"$ref":"#/$defs/nullablePolicyRef"},"conflict_rule_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            rule_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rule_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rule_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            member_node_membership_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"member_node_membership_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"member_node_membership_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            writer_epoch_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"writer_epoch_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"writer_epoch_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fencing_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"fencing_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fencing_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            leader_or_sequencer_selection_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"leader_or_sequencer_selection_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"leader_or_sequencer_selection_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conflict_rule_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"conflict_rule_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"conflict_rule_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrderingAdmissionFinalityProfileV1Admission {
+    pub deterministic_transition_function_ref: String,
+    pub schema_root: String,
+    pub policy_root: String,
+    pub authority_rule_ref: String,
+    pub threshold: OrderingAdmissionFinalityProfileV1AdmissionThreshold,
+    pub require_expected_predecessor_root: bool,
+    pub receipt_obligations: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OrderingAdmissionFinalityProfileV1Admission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ordering-admission-finality-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["deterministic_transition_function_ref","schema_root","policy_root","authority_rule_ref","threshold","require_expected_predecessor_root","receipt_obligations"],"properties":{"deterministic_transition_function_ref":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,248}$"},"schema_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"authority_rule_ref":{"$ref":"#/$defs/policyRef"},"threshold":{"type":"object","additionalProperties":false,"required":["required","eligible"],"properties":{"required":{"$ref":"#/$defs/portableInteger"},"eligible":{"$ref":"#/$defs/portableInteger"}}},"require_expected_predecessor_root":{"type":"boolean","const":true},"receipt_obligations":{"$ref":"#/$defs/canonicalRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            deterministic_transition_function_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deterministic_transition_function_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"deterministic_transition_function_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            schema_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"schema_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_rule_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_rule_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_rule_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            threshold:
+                serde_json::from_value::<OrderingAdmissionFinalityProfileV1AdmissionThreshold>(
+                    object
+                        .remove(r#"threshold"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"threshold"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            require_expected_predecessor_root: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"require_expected_predecessor_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"require_expected_predecessor_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrderingAdmissionFinalityProfileV1AdmissionThreshold {
+    pub required: ArchitectureContractInteger,
+    pub eligible: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for OrderingAdmissionFinalityProfileV1AdmissionThreshold {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ordering-admission-finality-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["required","eligible"],"properties":{"required":{"$ref":"#/$defs/portableInteger"},"eligible":{"$ref":"#/$defs/portableInteger"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            required: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            eligible: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"eligible"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"eligible"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrderingAdmissionFinalityProfileV1CryptographicContinuity {
+    pub hash_and_signature_suite_ref: String,
+    pub sequence_rule_ref: String,
+    pub require_monotonic_sequence: bool,
+    pub require_expected_predecessor_commitment: bool,
+    pub operation_or_batch_commitment_schema_ref: String,
+    pub admission_proof_schema_ref: String,
+    pub require_resulting_state_root: bool,
+    pub require_receipt_root: bool,
+    pub checkpoint_and_compaction_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OrderingAdmissionFinalityProfileV1CryptographicContinuity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ordering-admission-finality-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["hash_and_signature_suite_ref","sequence_rule_ref","require_monotonic_sequence","require_expected_predecessor_commitment","operation_or_batch_commitment_schema_ref","admission_proof_schema_ref","require_resulting_state_root","require_receipt_root","checkpoint_and_compaction_policy_ref"],"properties":{"hash_and_signature_suite_ref":{"$ref":"#/$defs/schemaRef"},"sequence_rule_ref":{"$ref":"#/$defs/policyRef"},"require_monotonic_sequence":{"type":"boolean","const":true},"require_expected_predecessor_commitment":{"type":"boolean","const":true},"operation_or_batch_commitment_schema_ref":{"$ref":"#/$defs/schemaRef"},"admission_proof_schema_ref":{"$ref":"#/$defs/schemaRef"},"require_resulting_state_root":{"type":"boolean","const":true},"require_receipt_root":{"type":"boolean","const":true},"checkpoint_and_compaction_policy_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            hash_and_signature_suite_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"hash_and_signature_suite_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"hash_and_signature_suite_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence_rule_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"sequence_rule_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence_rule_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            require_monotonic_sequence: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"require_monotonic_sequence"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"require_monotonic_sequence"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            require_expected_predecessor_commitment: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"require_expected_predecessor_commitment"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"require_expected_predecessor_commitment"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_or_batch_commitment_schema_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_or_batch_commitment_schema_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"operation_or_batch_commitment_schema_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_proof_schema_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_proof_schema_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"admission_proof_schema_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            require_resulting_state_root: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"require_resulting_state_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"require_resulting_state_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            require_receipt_root: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"require_receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"require_receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint_and_compaction_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"checkpoint_and_compaction_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"checkpoint_and_compaction_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OrderingAdmissionFinalityProfileV1Finality {
+    pub scope: OrderingAdmissionFinalityProfileV1FinalityScope,
+    pub rule_ref: String,
+    pub proof_schema_ref: String,
+    pub rollback_posture: OrderingAdmissionFinalityProfileV1FinalityRollbackPosture,
+    pub external_network_ref: Option<String>,
+    pub external_contract_ref: Option<String>,
+    pub external_confirmation_policy_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for OrderingAdmissionFinalityProfileV1Finality {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ordering-admission-finality-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["scope","rule_ref","proof_schema_ref","rollback_posture","external_network_ref","external_contract_ref","external_confirmation_policy_ref"],"properties":{"scope":{"enum":["local_operational","cross_domain","public_economic"]},"rule_ref":{"$ref":"#/$defs/policyRef"},"proof_schema_ref":{"$ref":"#/$defs/schemaRef"},"rollback_posture":{"enum":["recoverable_before_final","compensation_only_after_final","irreversible_after_final"]},"external_network_ref":{"anyOf":[{"type":"string","pattern":"^(?:network|chain|domain)://[^\\s]{1,248}$"},{"type":"null"}]},"external_contract_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"external_confirmation_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            scope: serde_json::from_value::<OrderingAdmissionFinalityProfileV1FinalityScope>(
+                object
+                    .remove(r#"scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rule_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rule_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rule_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proof_schema_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proof_schema_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proof_schema_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rollback_posture: serde_json::from_value::<
+                OrderingAdmissionFinalityProfileV1FinalityRollbackPosture,
+            >(
+                object
+                    .remove(r#"rollback_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rollback_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            external_network_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"external_network_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"external_network_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            external_contract_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"external_contract_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"external_contract_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            external_confirmation_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"external_confirmation_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"external_confirmation_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrderingAdmissionFinalityProfileV1FinalityScope {
+    #[serde(rename = r#"local_operational"#)]
+    LocalOperational,
+    #[serde(rename = r#"cross_domain"#)]
+    CrossDomain,
+    #[serde(rename = r#"public_economic"#)]
+    PublicEconomic,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrderingAdmissionFinalityProfileV1FinalityRollbackPosture {
+    #[serde(rename = r#"recoverable_before_final"#)]
+    RecoverableBeforeFinal,
+    #[serde(rename = r#"compensation_only_after_final"#)]
+    CompensationOnlyAfterFinal,
+    #[serde(rename = r#"irreversible_after_final"#)]
+    IrreversibleAfterFinal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OrderingAdmissionFinalityProfileV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OracleEvidenceProfileV1 {
+    pub schema_version: OracleEvidenceProfileV1SchemaVersion,
+    pub oracle_evidence_profile_id: String,
+    pub system_id: String,
+    pub version: String,
+    pub fact_class_refs: Vec<String>,
+    pub source_requirements: Vec<OracleEvidenceProfileV1SourceRequirementsItem>,
+    pub aggregation: OracleEvidenceProfileV1Aggregation,
+    pub contradiction: OracleEvidenceProfileV1Contradiction,
+    pub challenge: OracleEvidenceProfileV1Challenge,
+    pub admission: OracleEvidenceProfileV1Admission,
+    pub missing_or_stale_evidence_mode: OracleEvidenceProfileV1MissingOrStaleEvidenceMode,
+    pub source_replacement_policy_ref: String,
+    pub privacy_policy_ref: String,
+    pub retention_policy_ref: String,
+    pub status: OracleEvidenceProfileV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for OracleEvidenceProfileV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/oracle-evidence-profile/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/oracle-evidence-profile/v1","title":"OracleEvidenceProfile","description":"Qualified, defeasible, scope-bound evidence admission profile for one System.","x-ioi-schema-version":"ioi.oracle-evidence-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","oracle_evidence_profile_id","system_id","version","fact_class_refs","source_requirements","aggregation","contradiction","challenge","admission","missing_or_stale_evidence_mode","source_replacement_policy_ref","privacy_policy_ref","retention_policy_ref","status"],"properties":{"schema_version":{"const":"ioi.oracle-evidence-profile.v1"},"oracle_evidence_profile_id":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"version":{"$ref":"#/$defs/version"},"fact_class_refs":{"$ref":"#/$defs/canonicalRefs"},"source_requirements":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["source_class","source_refs","evidence_schema_ref","signer_or_principal_refs","freshness_and_finality_policy_ref","independence_group_ref","required"],"properties":{"source_class":{"enum":["official_record","institutional_attestation","signed_sensor","contractual_notice","human_attestation","network_commitment","other"]},"source_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_schema_ref":{"$ref":"#/$defs/schemaRef"},"signer_or_principal_refs":{"$ref":"#/$defs/canonicalRefs"},"freshness_and_finality_policy_ref":{"$ref":"#/$defs/policyRef"},"independence_group_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"required":{"type":"boolean"}},"allOf":[{"if":{"properties":{"required":{"type":"boolean","const":true}},"required":["required"]},"then":{"properties":{"source_refs":{"type":"array","minItems":1}}}}]},"minItems":1,"maxItems":64,"uniqueItems":true},"aggregation":{"type":"object","additionalProperties":false,"required":["rule","minimum_sources","minimum_independent_principals","threshold_policy_ref","correlated_failure_policy_ref","uncertainty_policy_ref"],"properties":{"rule":{"enum":["single_source","threshold","weighted","adjudicated"]},"minimum_sources":{"$ref":"#/$defs/positiveInteger"},"minimum_independent_principals":{"$ref":"#/$defs/positiveInteger"},"threshold_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"correlated_failure_policy_ref":{"$ref":"#/$defs/policyRef"},"uncertainty_policy_ref":{"$ref":"#/$defs/policyRef"}},"allOf":[{"if":{"properties":{"rule":{"enum":["threshold","weighted"]}},"required":["rule"]},"then":{"properties":{"threshold_policy_ref":{"$ref":"#/$defs/policyRef"}}}}]},"contradiction":{"type":"object","additionalProperties":false,"required":["policy","adjudicator_refs","dispute_policy_ref"],"properties":{"policy":{"enum":["fail_closed","hold_pending","escalate"]},"adjudicator_refs":{"$ref":"#/$defs/canonicalRefs"},"dispute_policy_ref":{"$ref":"#/$defs/policyRef"}}},"challenge":{"type":"object","additionalProperties":false,"required":["challenge_window_ref","verifier_refs","appeal_policy_ref"],"properties":{"challenge_window_ref":{"$ref":"#/$defs/policyRef"},"verifier_refs":{"$ref":"#/$defs/canonicalRefs"},"appeal_policy_ref":{"$ref":"#/$defs/policyRef"}}},"admission":{"type":"object","additionalProperties":false,"required":["decision_semantics","ontology_assertion_schema_refs","required_verifier_path_refs","ontology_action_contract_refs","permitted_applicability_scope_refs","permitted_consequence_scope_refs","maximum_assertion_validity_policy_ref","required_authority_refs","policy_ref","receipt_obligations"],"properties":{"decision_semantics":{"const":"qualified_scope_bound_operational_determination"},"ontology_assertion_schema_refs":{"$ref":"#/$defs/schemaRefs"},"required_verifier_path_refs":{"$ref":"#/$defs/canonicalRefs"},"ontology_action_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_applicability_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_consequence_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"maximum_assertion_validity_policy_ref":{"$ref":"#/$defs/policyRef"},"required_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"policy_ref":{"$ref":"#/$defs/policyRef"},"receipt_obligations":{"type":"array","items":{"const":"oracle_evidence_admission"},"minItems":1,"maxItems":1,"uniqueItems":true}}},"missing_or_stale_evidence_mode":{"enum":["unknown","read_only","pause","escalate"]},"source_replacement_policy_ref":{"$ref":"#/$defs/policyRef"},"privacy_policy_ref":{"$ref":"#/$defs/policyRef"},"retention_policy_ref":{"$ref":"#/$defs/policyRef"},"status":{"enum":["draft","active","superseded","revoked"]}},"$defs":{"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"},"schemaRefs":{"type":"array","items":{"$ref":"#/$defs/schemaRef"},"maxItems":128,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<OracleEvidenceProfileV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            oracle_evidence_profile_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"oracle_evidence_profile_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"oracle_evidence_profile_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fact_class_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"fact_class_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fact_class_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_requirements: serde_json::from_value::<
+                Vec<OracleEvidenceProfileV1SourceRequirementsItem>,
+            >(
+                object
+                    .remove(r#"source_requirements"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_requirements"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            aggregation: serde_json::from_value::<OracleEvidenceProfileV1Aggregation>(
+                object
+                    .remove(r#"aggregation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"aggregation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contradiction: serde_json::from_value::<OracleEvidenceProfileV1Contradiction>(
+                object
+                    .remove(r#"contradiction"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contradiction"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge: serde_json::from_value::<OracleEvidenceProfileV1Challenge>(
+                object
+                    .remove(r#"challenge"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission: serde_json::from_value::<OracleEvidenceProfileV1Admission>(
+                object
+                    .remove(r#"admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            missing_or_stale_evidence_mode: serde_json::from_value::<
+                OracleEvidenceProfileV1MissingOrStaleEvidenceMode,
+            >(
+                object
+                    .remove(r#"missing_or_stale_evidence_mode"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"missing_or_stale_evidence_mode"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_replacement_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_replacement_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_replacement_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            privacy_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"privacy_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"privacy_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            retention_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"retention_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retention_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OracleEvidenceProfileV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OracleEvidenceProfileV1SchemaVersion {
+    #[serde(rename = r#"ioi.oracle-evidence-profile.v1"#)]
+    IoiOracleEvidenceProfileV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OracleEvidenceProfileV1SourceRequirementsItem {
+    pub source_class: OracleEvidenceProfileV1SourceRequirementsItemSourceClass,
+    pub source_refs: Vec<String>,
+    pub evidence_schema_ref: String,
+    pub signer_or_principal_refs: Vec<String>,
+    pub freshness_and_finality_policy_ref: String,
+    pub independence_group_ref: Option<String>,
+    pub required: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for OracleEvidenceProfileV1SourceRequirementsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/oracle-evidence-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_class","source_refs","evidence_schema_ref","signer_or_principal_refs","freshness_and_finality_policy_ref","independence_group_ref","required"],"properties":{"source_class":{"enum":["official_record","institutional_attestation","signed_sensor","contractual_notice","human_attestation","network_commitment","other"]},"source_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_schema_ref":{"$ref":"#/$defs/schemaRef"},"signer_or_principal_refs":{"$ref":"#/$defs/canonicalRefs"},"freshness_and_finality_policy_ref":{"$ref":"#/$defs/policyRef"},"independence_group_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"required":{"type":"boolean"}},"allOf":[{"if":{"properties":{"required":{"type":"boolean","const":true}},"required":["required"]},"then":{"properties":{"source_refs":{"type":"array","minItems":1}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_class: serde_json::from_value::<
+                OracleEvidenceProfileV1SourceRequirementsItemSourceClass,
+            >(
+                object
+                    .remove(r#"source_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_schema_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_schema_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_schema_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_or_principal_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"signer_or_principal_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"signer_or_principal_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            freshness_and_finality_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"freshness_and_finality_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"freshness_and_finality_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            independence_group_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"independence_group_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"independence_group_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OracleEvidenceProfileV1SourceRequirementsItemSourceClass {
+    #[serde(rename = r#"official_record"#)]
+    OfficialRecord,
+    #[serde(rename = r#"institutional_attestation"#)]
+    InstitutionalAttestation,
+    #[serde(rename = r#"signed_sensor"#)]
+    SignedSensor,
+    #[serde(rename = r#"contractual_notice"#)]
+    ContractualNotice,
+    #[serde(rename = r#"human_attestation"#)]
+    HumanAttestation,
+    #[serde(rename = r#"network_commitment"#)]
+    NetworkCommitment,
+    #[serde(rename = r#"other"#)]
+    Other,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OracleEvidenceProfileV1Aggregation {
+    pub rule: OracleEvidenceProfileV1AggregationRule,
+    pub minimum_sources: ArchitectureContractInteger,
+    pub minimum_independent_principals: ArchitectureContractInteger,
+    pub threshold_policy_ref: Option<String>,
+    pub correlated_failure_policy_ref: String,
+    pub uncertainty_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OracleEvidenceProfileV1Aggregation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/oracle-evidence-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["rule","minimum_sources","minimum_independent_principals","threshold_policy_ref","correlated_failure_policy_ref","uncertainty_policy_ref"],"properties":{"rule":{"enum":["single_source","threshold","weighted","adjudicated"]},"minimum_sources":{"$ref":"#/$defs/positiveInteger"},"minimum_independent_principals":{"$ref":"#/$defs/positiveInteger"},"threshold_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"correlated_failure_policy_ref":{"$ref":"#/$defs/policyRef"},"uncertainty_policy_ref":{"$ref":"#/$defs/policyRef"}},"allOf":[{"if":{"properties":{"rule":{"enum":["threshold","weighted"]}},"required":["rule"]},"then":{"properties":{"threshold_policy_ref":{"$ref":"#/$defs/policyRef"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            rule: serde_json::from_value::<OracleEvidenceProfileV1AggregationRule>(
+                object
+                    .remove(r#"rule"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rule"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            minimum_sources: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"minimum_sources"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"minimum_sources"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            minimum_independent_principals: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"minimum_independent_principals"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"minimum_independent_principals"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            threshold_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"threshold_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"threshold_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            correlated_failure_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"correlated_failure_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"correlated_failure_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            uncertainty_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"uncertainty_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"uncertainty_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OracleEvidenceProfileV1AggregationRule {
+    #[serde(rename = r#"single_source"#)]
+    SingleSource,
+    #[serde(rename = r#"threshold"#)]
+    Threshold,
+    #[serde(rename = r#"weighted"#)]
+    Weighted,
+    #[serde(rename = r#"adjudicated"#)]
+    Adjudicated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OracleEvidenceProfileV1Contradiction {
+    pub policy: OracleEvidenceProfileV1ContradictionPolicy,
+    pub adjudicator_refs: Vec<String>,
+    pub dispute_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OracleEvidenceProfileV1Contradiction {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/oracle-evidence-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["policy","adjudicator_refs","dispute_policy_ref"],"properties":{"policy":{"enum":["fail_closed","hold_pending","escalate"]},"adjudicator_refs":{"$ref":"#/$defs/canonicalRefs"},"dispute_policy_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy: serde_json::from_value::<OracleEvidenceProfileV1ContradictionPolicy>(
+                object
+                    .remove(r#"policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adjudicator_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"adjudicator_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adjudicator_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dispute_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dispute_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dispute_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OracleEvidenceProfileV1ContradictionPolicy {
+    #[serde(rename = r#"fail_closed"#)]
+    FailClosed,
+    #[serde(rename = r#"hold_pending"#)]
+    HoldPending,
+    #[serde(rename = r#"escalate"#)]
+    Escalate,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OracleEvidenceProfileV1Challenge {
+    pub challenge_window_ref: String,
+    pub verifier_refs: Vec<String>,
+    pub appeal_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OracleEvidenceProfileV1Challenge {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/oracle-evidence-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["challenge_window_ref","verifier_refs","appeal_policy_ref"],"properties":{"challenge_window_ref":{"$ref":"#/$defs/policyRef"},"verifier_refs":{"$ref":"#/$defs/canonicalRefs"},"appeal_policy_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            challenge_window_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"challenge_window_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_window_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"verifier_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            appeal_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"appeal_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"appeal_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OracleEvidenceProfileV1Admission {
+    pub decision_semantics: OracleEvidenceProfileV1AdmissionDecisionSemantics,
+    pub ontology_assertion_schema_refs: Vec<String>,
+    pub required_verifier_path_refs: Vec<String>,
+    pub ontology_action_contract_refs: Vec<String>,
+    pub permitted_applicability_scope_refs: Vec<String>,
+    pub permitted_consequence_scope_refs: Vec<String>,
+    pub maximum_assertion_validity_policy_ref: String,
+    pub required_authority_refs: Vec<String>,
+    pub policy_ref: String,
+    pub receipt_obligations: Vec<OracleEvidenceProfileV1AdmissionReceiptObligationsItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for OracleEvidenceProfileV1Admission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/oracle-evidence-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["decision_semantics","ontology_assertion_schema_refs","required_verifier_path_refs","ontology_action_contract_refs","permitted_applicability_scope_refs","permitted_consequence_scope_refs","maximum_assertion_validity_policy_ref","required_authority_refs","policy_ref","receipt_obligations"],"properties":{"decision_semantics":{"const":"qualified_scope_bound_operational_determination"},"ontology_assertion_schema_refs":{"$ref":"#/$defs/schemaRefs"},"required_verifier_path_refs":{"$ref":"#/$defs/canonicalRefs"},"ontology_action_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_applicability_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_consequence_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"maximum_assertion_validity_policy_ref":{"$ref":"#/$defs/policyRef"},"required_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"policy_ref":{"$ref":"#/$defs/policyRef"},"receipt_obligations":{"type":"array","items":{"const":"oracle_evidence_admission"},"minItems":1,"maxItems":1,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            decision_semantics: serde_json::from_value::<
+                OracleEvidenceProfileV1AdmissionDecisionSemantics,
+            >(
+                object
+                    .remove(r#"decision_semantics"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_semantics"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_assertion_schema_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_assertion_schema_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ontology_assertion_schema_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_verifier_path_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_verifier_path_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_verifier_path_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_action_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_action_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ontology_action_contract_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            permitted_applicability_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"permitted_applicability_scope_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"permitted_applicability_scope_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            permitted_consequence_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"permitted_consequence_scope_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"permitted_consequence_scope_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            maximum_assertion_validity_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"maximum_assertion_validity_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"maximum_assertion_validity_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_authority_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_authority_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_authority_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<
+                Vec<OracleEvidenceProfileV1AdmissionReceiptObligationsItem>,
+            >(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OracleEvidenceProfileV1AdmissionDecisionSemantics {
+    #[serde(rename = r#"qualified_scope_bound_operational_determination"#)]
+    QualifiedScopeBoundOperationalDetermination,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OracleEvidenceProfileV1AdmissionReceiptObligationsItem {
+    #[serde(rename = r#"oracle_evidence_admission"#)]
+    OracleEvidenceAdmission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OracleEvidenceProfileV1MissingOrStaleEvidenceMode {
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+    #[serde(rename = r#"read_only"#)]
+    ReadOnly,
+    #[serde(rename = r#"pause"#)]
+    Pause,
+    #[serde(rename = r#"escalate"#)]
+    Escalate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OracleEvidenceProfileV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LifecycleContinuityProfileV1 {
+    pub schema_version: LifecycleContinuityProfileV1SchemaVersion,
+    pub lifecycle_profile_id: String,
+    pub system_id: String,
+    pub constitution_ref: String,
+    pub version: String,
+    pub continuity_class: LifecycleContinuityProfileV1ContinuityClass,
+    pub continuity: LifecycleContinuityProfileV1Continuity,
+    pub recovery_and_suspension: LifecycleContinuityProfileV1RecoveryAndSuspension,
+    pub succession: LifecycleContinuityProfileV1Succession,
+    pub dissolution: LifecycleContinuityProfileV1Dissolution,
+    pub migration: LifecycleContinuityProfileV1Migration,
+    pub fork: LifecycleContinuityProfileV1Fork,
+    pub adoption: LifecycleContinuityProfileV1Adoption,
+    pub status: LifecycleContinuityProfileV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for LifecycleContinuityProfileV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/lifecycle-continuity-profile/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/lifecycle-continuity-profile/v1","title":"LifecycleContinuityProfile","description":"Continuity, recovery, succession, dissolution, migration, fork, and adoption constraints for one System.","x-ioi-schema-version":"ioi.lifecycle-continuity-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_profile_id","system_id","constitution_ref","version","continuity_class","continuity","recovery_and_suspension","succession","dissolution","migration","fork","adoption","status"],"properties":{"schema_version":{"const":"ioi.lifecycle-continuity-profile.v1"},"lifecycle_profile_id":{"$ref":"#/$defs/lifecycleProfileRef"},"system_id":{"$ref":"#/$defs/systemRef"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"version":{"$ref":"#/$defs/version"},"continuity_class":{"enum":["operator_bound","successor_governed","durable_purpose","finite_term"]},"continuity":{"type":"object","additionalProperties":false,"required":["operating_budget_policy_ref","dependency_replacement_policy_ref","minimum_archive_policy_ref","degraded_mode"],"properties":{"operating_budget_policy_ref":{"$ref":"#/$defs/policyRef"},"dependency_replacement_policy_ref":{"$ref":"#/$defs/policyRef"},"minimum_archive_policy_ref":{"$ref":"#/$defs/policyRef"},"degraded_mode":{"enum":["pause","read_only","bounded_continuation"]}}},"recovery_and_suspension":{"type":"object","additionalProperties":false,"required":["recovery_policy_ref","pause_and_resume_policy_ref","suspension_and_reinstatement_policy_ref","quarantine_and_release_policy_ref","retirement_policy_ref"],"properties":{"recovery_policy_ref":{"$ref":"#/$defs/policyRef"},"pause_and_resume_policy_ref":{"$ref":"#/$defs/policyRef"},"suspension_and_reinstatement_policy_ref":{"$ref":"#/$defs/policyRef"},"quarantine_and_release_policy_ref":{"$ref":"#/$defs/policyRef"},"retirement_policy_ref":{"$ref":"#/$defs/policyRef"}}},"succession":{"type":"object","additionalProperties":false,"required":["enabled","trigger_classes","oracle_evidence_profile_refs","successor_candidate_refs","selection_policy_ref","required_legal_or_governance_authority_refs","challenge_window_ref","authority_handoff","constitution_must_be_preserved"],"properties":{"enabled":{"type":"boolean"},"trigger_classes":{"type":"array","items":{"enum":["creator_death","creator_incapacity","organization_dissolution","authority_loss","governance_deadlock","term_expiry"]},"maxItems":6,"uniqueItems":true},"oracle_evidence_profile_refs":{"type":"array","items":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"successor_candidate_refs":{"$ref":"#/$defs/canonicalRefs"},"selection_policy_ref":{"$ref":"#/$defs/policyRef"},"required_legal_or_governance_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"challenge_window_ref":{"$ref":"#/$defs/policyRef"},"authority_handoff":{"const":"rotate_and_reissue"},"constitution_must_be_preserved":{"type":"boolean","const":true}}},"dissolution":{"type":"object","additionalProperties":false,"required":["trigger_policy_refs","approval_policy_ref","active_work_disposition_policy_ref","asset_disposition_contract_refs","outstanding_obligation_policy_ref","authority_revocation_policy_ref","worker_and_node_shutdown_policy_ref","data_export_retention_and_erasure_policy_ref","network_exit_policy_ref","tombstone_policy_ref"],"properties":{"trigger_policy_refs":{"$ref":"#/$defs/policyRefs"},"approval_policy_ref":{"$ref":"#/$defs/policyRef"},"active_work_disposition_policy_ref":{"$ref":"#/$defs/policyRef"},"asset_disposition_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"outstanding_obligation_policy_ref":{"$ref":"#/$defs/policyRef"},"authority_revocation_policy_ref":{"$ref":"#/$defs/policyRef"},"worker_and_node_shutdown_policy_ref":{"$ref":"#/$defs/policyRef"},"data_export_retention_and_erasure_policy_ref":{"$ref":"#/$defs/policyRef"},"network_exit_policy_ref":{"$ref":"#/$defs/policyRef"},"tombstone_policy_ref":{"$ref":"#/$defs/policyRef"}}},"migration":{"type":"object","additionalProperties":false,"required":["allowed","migration_policy_ref","identity_continuity_required","state_root_verification_required"],"properties":{"allowed":{"type":"boolean"},"migration_policy_ref":{"$ref":"#/$defs/policyRef"},"identity_continuity_required":{"type":"boolean","const":true},"state_root_verification_required":{"type":"boolean","const":true}}},"fork":{"type":"object","additionalProperties":false,"required":["allowed","fork_policy_ref","new_system_id_required","source_identity_inheritance","state_root_and_lineage_proof_required"],"properties":{"allowed":{"type":"boolean"},"fork_policy_ref":{"$ref":"#/$defs/policyRef"},"new_system_id_required":{"type":"boolean","const":true},"source_identity_inheritance":{"const":"forbidden"},"state_root_and_lineage_proof_required":{"type":"boolean","const":true}}},"adoption":{"type":"object","additionalProperties":false,"required":["allowed","adoption_policy_ref","identity_continuity_decision_profile_ref","explicit_identity_decision_required","state_root_and_lineage_proof_required"],"properties":{"allowed":{"type":"boolean"},"adoption_policy_ref":{"$ref":"#/$defs/policyRef"},"identity_continuity_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"explicit_identity_decision_required":{"type":"boolean","const":true},"state_root_and_lineage_proof_required":{"type":"boolean","const":true}}},"status":{"enum":["draft","active","superseded","revoked"]}},"$defs":{"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"lifecycleProfileRef":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"policyRefs":{"type":"array","items":{"$ref":"#/$defs/policyRef"},"maxItems":128,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<LifecycleContinuityProfileV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_profile_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_profile_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_profile_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            continuity_class:
+                serde_json::from_value::<LifecycleContinuityProfileV1ContinuityClass>(
+                    object
+                        .remove(r#"continuity_class"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"continuity_class"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            continuity: serde_json::from_value::<LifecycleContinuityProfileV1Continuity>(
+                object
+                    .remove(r#"continuity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"continuity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recovery_and_suspension: serde_json::from_value::<
+                LifecycleContinuityProfileV1RecoveryAndSuspension,
+            >(
+                object
+                    .remove(r#"recovery_and_suspension"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recovery_and_suspension"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            succession: serde_json::from_value::<LifecycleContinuityProfileV1Succession>(
+                object
+                    .remove(r#"succession"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dissolution: serde_json::from_value::<LifecycleContinuityProfileV1Dissolution>(
+                object
+                    .remove(r#"dissolution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dissolution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<LifecycleContinuityProfileV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fork: serde_json::from_value::<LifecycleContinuityProfileV1Fork>(
+                object
+                    .remove(r#"fork"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fork"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adoption: serde_json::from_value::<LifecycleContinuityProfileV1Adoption>(
+                object
+                    .remove(r#"adoption"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adoption"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<LifecycleContinuityProfileV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleContinuityProfileV1SchemaVersion {
+    #[serde(rename = r#"ioi.lifecycle-continuity-profile.v1"#)]
+    IoiLifecycleContinuityProfileV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleContinuityProfileV1ContinuityClass {
+    #[serde(rename = r#"operator_bound"#)]
+    OperatorBound,
+    #[serde(rename = r#"successor_governed"#)]
+    SuccessorGoverned,
+    #[serde(rename = r#"durable_purpose"#)]
+    DurablePurpose,
+    #[serde(rename = r#"finite_term"#)]
+    FiniteTerm,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LifecycleContinuityProfileV1Continuity {
+    pub operating_budget_policy_ref: String,
+    pub dependency_replacement_policy_ref: String,
+    pub minimum_archive_policy_ref: String,
+    pub degraded_mode: LifecycleContinuityProfileV1ContinuityDegradedMode,
+}
+
+impl<'de> serde::Deserialize<'de> for LifecycleContinuityProfileV1Continuity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/lifecycle-continuity-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["operating_budget_policy_ref","dependency_replacement_policy_ref","minimum_archive_policy_ref","degraded_mode"],"properties":{"operating_budget_policy_ref":{"$ref":"#/$defs/policyRef"},"dependency_replacement_policy_ref":{"$ref":"#/$defs/policyRef"},"minimum_archive_policy_ref":{"$ref":"#/$defs/policyRef"},"degraded_mode":{"enum":["pause","read_only","bounded_continuation"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            operating_budget_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operating_budget_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"operating_budget_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dependency_replacement_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dependency_replacement_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"dependency_replacement_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            minimum_archive_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"minimum_archive_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"minimum_archive_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            degraded_mode: serde_json::from_value::<
+                LifecycleContinuityProfileV1ContinuityDegradedMode,
+            >(
+                object
+                    .remove(r#"degraded_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"degraded_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleContinuityProfileV1ContinuityDegradedMode {
+    #[serde(rename = r#"pause"#)]
+    Pause,
+    #[serde(rename = r#"read_only"#)]
+    ReadOnly,
+    #[serde(rename = r#"bounded_continuation"#)]
+    BoundedContinuation,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LifecycleContinuityProfileV1RecoveryAndSuspension {
+    pub recovery_policy_ref: String,
+    pub pause_and_resume_policy_ref: String,
+    pub suspension_and_reinstatement_policy_ref: String,
+    pub quarantine_and_release_policy_ref: String,
+    pub retirement_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for LifecycleContinuityProfileV1RecoveryAndSuspension {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/lifecycle-continuity-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["recovery_policy_ref","pause_and_resume_policy_ref","suspension_and_reinstatement_policy_ref","quarantine_and_release_policy_ref","retirement_policy_ref"],"properties":{"recovery_policy_ref":{"$ref":"#/$defs/policyRef"},"pause_and_resume_policy_ref":{"$ref":"#/$defs/policyRef"},"suspension_and_reinstatement_policy_ref":{"$ref":"#/$defs/policyRef"},"quarantine_and_release_policy_ref":{"$ref":"#/$defs/policyRef"},"retirement_policy_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            recovery_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recovery_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recovery_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pause_and_resume_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pause_and_resume_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"pause_and_resume_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            suspension_and_reinstatement_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"suspension_and_reinstatement_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"suspension_and_reinstatement_policy_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quarantine_and_release_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quarantine_and_release_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"quarantine_and_release_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            retirement_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"retirement_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retirement_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LifecycleContinuityProfileV1Succession {
+    pub enabled: bool,
+    pub trigger_classes: Vec<LifecycleContinuityProfileV1SuccessionTriggerClassesItem>,
+    pub oracle_evidence_profile_refs: Vec<String>,
+    pub successor_candidate_refs: Vec<String>,
+    pub selection_policy_ref: String,
+    pub required_legal_or_governance_authority_refs: Vec<String>,
+    pub challenge_window_ref: String,
+    pub authority_handoff: LifecycleContinuityProfileV1SuccessionAuthorityHandoff,
+    pub constitution_must_be_preserved: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for LifecycleContinuityProfileV1Succession {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/lifecycle-continuity-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["enabled","trigger_classes","oracle_evidence_profile_refs","successor_candidate_refs","selection_policy_ref","required_legal_or_governance_authority_refs","challenge_window_ref","authority_handoff","constitution_must_be_preserved"],"properties":{"enabled":{"type":"boolean"},"trigger_classes":{"type":"array","items":{"enum":["creator_death","creator_incapacity","organization_dissolution","authority_loss","governance_deadlock","term_expiry"]},"maxItems":6,"uniqueItems":true},"oracle_evidence_profile_refs":{"type":"array","items":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"successor_candidate_refs":{"$ref":"#/$defs/canonicalRefs"},"selection_policy_ref":{"$ref":"#/$defs/policyRef"},"required_legal_or_governance_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"challenge_window_ref":{"$ref":"#/$defs/policyRef"},"authority_handoff":{"const":"rotate_and_reissue"},"constitution_must_be_preserved":{"type":"boolean","const":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            enabled: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"enabled"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"enabled"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trigger_classes: serde_json::from_value::<
+                Vec<LifecycleContinuityProfileV1SuccessionTriggerClassesItem>,
+            >(
+                object
+                    .remove(r#"trigger_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"trigger_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            oracle_evidence_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"oracle_evidence_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"oracle_evidence_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_candidate_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"successor_candidate_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"successor_candidate_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            selection_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"selection_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"selection_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_legal_or_governance_authority_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_legal_or_governance_authority_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"required_legal_or_governance_authority_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_window_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"challenge_window_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_window_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_handoff: serde_json::from_value::<
+                LifecycleContinuityProfileV1SuccessionAuthorityHandoff,
+            >(
+                object
+                    .remove(r#"authority_handoff"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_handoff"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_must_be_preserved: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"constitution_must_be_preserved"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"constitution_must_be_preserved"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleContinuityProfileV1SuccessionTriggerClassesItem {
+    #[serde(rename = r#"creator_death"#)]
+    CreatorDeath,
+    #[serde(rename = r#"creator_incapacity"#)]
+    CreatorIncapacity,
+    #[serde(rename = r#"organization_dissolution"#)]
+    OrganizationDissolution,
+    #[serde(rename = r#"authority_loss"#)]
+    AuthorityLoss,
+    #[serde(rename = r#"governance_deadlock"#)]
+    GovernanceDeadlock,
+    #[serde(rename = r#"term_expiry"#)]
+    TermExpiry,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleContinuityProfileV1SuccessionAuthorityHandoff {
+    #[serde(rename = r#"rotate_and_reissue"#)]
+    RotateAndReissue,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LifecycleContinuityProfileV1Dissolution {
+    pub trigger_policy_refs: Vec<String>,
+    pub approval_policy_ref: String,
+    pub active_work_disposition_policy_ref: String,
+    pub asset_disposition_contract_refs: Vec<String>,
+    pub outstanding_obligation_policy_ref: String,
+    pub authority_revocation_policy_ref: String,
+    pub worker_and_node_shutdown_policy_ref: String,
+    pub data_export_retention_and_erasure_policy_ref: String,
+    pub network_exit_policy_ref: String,
+    pub tombstone_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for LifecycleContinuityProfileV1Dissolution {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/lifecycle-continuity-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["trigger_policy_refs","approval_policy_ref","active_work_disposition_policy_ref","asset_disposition_contract_refs","outstanding_obligation_policy_ref","authority_revocation_policy_ref","worker_and_node_shutdown_policy_ref","data_export_retention_and_erasure_policy_ref","network_exit_policy_ref","tombstone_policy_ref"],"properties":{"trigger_policy_refs":{"$ref":"#/$defs/policyRefs"},"approval_policy_ref":{"$ref":"#/$defs/policyRef"},"active_work_disposition_policy_ref":{"$ref":"#/$defs/policyRef"},"asset_disposition_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"outstanding_obligation_policy_ref":{"$ref":"#/$defs/policyRef"},"authority_revocation_policy_ref":{"$ref":"#/$defs/policyRef"},"worker_and_node_shutdown_policy_ref":{"$ref":"#/$defs/policyRef"},"data_export_retention_and_erasure_policy_ref":{"$ref":"#/$defs/policyRef"},"network_exit_policy_ref":{"$ref":"#/$defs/policyRef"},"tombstone_policy_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            trigger_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"trigger_policy_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"trigger_policy_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_work_disposition_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_work_disposition_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"active_work_disposition_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            asset_disposition_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"asset_disposition_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"asset_disposition_contract_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outstanding_obligation_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outstanding_obligation_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"outstanding_obligation_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_revocation_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_revocation_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_revocation_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_and_node_shutdown_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"worker_and_node_shutdown_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"worker_and_node_shutdown_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_export_retention_and_erasure_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"data_export_retention_and_erasure_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"data_export_retention_and_erasure_policy_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_exit_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"network_exit_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_exit_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tombstone_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tombstone_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tombstone_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LifecycleContinuityProfileV1Migration {
+    pub allowed: bool,
+    pub migration_policy_ref: String,
+    pub identity_continuity_required: bool,
+    pub state_root_verification_required: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for LifecycleContinuityProfileV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/lifecycle-continuity-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["allowed","migration_policy_ref","identity_continuity_required","state_root_verification_required"],"properties":{"allowed":{"type":"boolean"},"migration_policy_ref":{"$ref":"#/$defs/policyRef"},"identity_continuity_required":{"type":"boolean","const":true},"state_root_verification_required":{"type":"boolean","const":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            allowed: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"allowed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"allowed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"migration_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_continuity_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"identity_continuity_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"identity_continuity_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_root_verification_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"state_root_verification_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"state_root_verification_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LifecycleContinuityProfileV1Fork {
+    pub allowed: bool,
+    pub fork_policy_ref: String,
+    pub new_system_id_required: bool,
+    pub source_identity_inheritance: LifecycleContinuityProfileV1ForkSourceIdentityInheritance,
+    pub state_root_and_lineage_proof_required: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for LifecycleContinuityProfileV1Fork {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/lifecycle-continuity-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["allowed","fork_policy_ref","new_system_id_required","source_identity_inheritance","state_root_and_lineage_proof_required"],"properties":{"allowed":{"type":"boolean"},"fork_policy_ref":{"$ref":"#/$defs/policyRef"},"new_system_id_required":{"type":"boolean","const":true},"source_identity_inheritance":{"const":"forbidden"},"state_root_and_lineage_proof_required":{"type":"boolean","const":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            allowed: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"allowed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"allowed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fork_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"fork_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fork_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            new_system_id_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"new_system_id_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"new_system_id_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_identity_inheritance: serde_json::from_value::<
+                LifecycleContinuityProfileV1ForkSourceIdentityInheritance,
+            >(
+                object
+                    .remove(r#"source_identity_inheritance"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_identity_inheritance"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_root_and_lineage_proof_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"state_root_and_lineage_proof_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"state_root_and_lineage_proof_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleContinuityProfileV1ForkSourceIdentityInheritance {
+    #[serde(rename = r#"forbidden"#)]
+    Forbidden,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LifecycleContinuityProfileV1Adoption {
+    pub allowed: bool,
+    pub adoption_policy_ref: String,
+    pub identity_continuity_decision_profile_ref: String,
+    pub explicit_identity_decision_required: bool,
+    pub state_root_and_lineage_proof_required: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for LifecycleContinuityProfileV1Adoption {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/lifecycle-continuity-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["allowed","adoption_policy_ref","identity_continuity_decision_profile_ref","explicit_identity_decision_required","state_root_and_lineage_proof_required"],"properties":{"allowed":{"type":"boolean"},"adoption_policy_ref":{"$ref":"#/$defs/policyRef"},"identity_continuity_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"explicit_identity_decision_required":{"type":"boolean","const":true},"state_root_and_lineage_proof_required":{"type":"boolean","const":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            allowed: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"allowed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"allowed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            adoption_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"adoption_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"adoption_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_continuity_decision_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"identity_continuity_decision_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"identity_continuity_decision_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            explicit_identity_decision_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"explicit_identity_decision_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"explicit_identity_decision_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_root_and_lineage_proof_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"state_root_and_lineage_proof_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"state_root_and_lineage_proof_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleContinuityProfileV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct LifecycleTransitionV1 {
+    pub schema_version: LifecycleTransitionV1SchemaVersion,
+    pub lifecycle_transition_id: String,
+    pub system_id: String,
+    pub resulting_or_related_system_id: Option<String>,
+    pub lifecycle_profile_ref: String,
+    pub transition_kind: LifecycleTransitionV1TransitionKind,
+    pub genesis_ref: Option<String>,
+    pub manifest_ref: Option<String>,
+    pub admitted_manifest_root: Option<String>,
+    pub previous_state: LifecycleTransitionV1PreviousState,
+    pub proposed_state: LifecycleTransitionV1ProposedState,
+    pub trigger_evidence_refs: Vec<String>,
+    pub oracle_evidence_profile_refs: Vec<String>,
+    pub proposal_ref: String,
+    pub decision_ref: Option<String>,
+    pub authority_grant_refs: Vec<String>,
+    pub challenge_opened_at: Option<String>,
+    pub challenge_closes_at: Option<String>,
+    pub predecessor_state_root: String,
+    pub resulting_state_root: Option<String>,
+    pub state_transition_commitment_ref: Option<String>,
+    pub lineage_ref: Option<String>,
+    pub identity_continuity_decision_ref: Option<String>,
+    pub disposition_receipt_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub public_commitment_ref: Option<String>,
+    pub status: LifecycleTransitionV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for LifecycleTransitionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/lifecycle-transition/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/lifecycle-transition/v1","title":"LifecycleTransition","description":"Evidence-, decision-, authority-, and root-bound proposal or record for one System lifecycle transition.","x-ioi-schema-version":"ioi.lifecycle-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_transition_id","system_id","resulting_or_related_system_id","lifecycle_profile_ref","transition_kind","genesis_ref","manifest_ref","admitted_manifest_root","previous_state","proposed_state","trigger_evidence_refs","oracle_evidence_profile_refs","proposal_ref","decision_ref","authority_grant_refs","challenge_opened_at","challenge_closes_at","predecessor_state_root","resulting_state_root","state_transition_commitment_ref","lineage_ref","identity_continuity_decision_ref","disposition_receipt_refs","receipt_refs","public_commitment_ref","status"],"properties":{"schema_version":{"const":"ioi.lifecycle-transition.v1"},"lifecycle_transition_id":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"system_id":{"$ref":"#/$defs/systemRef"},"resulting_or_related_system_id":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"transition_kind":{"enum":["initialize","activate","pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","initiate_succession","complete_succession","initiate_dissolution","complete_dissolution","migrate","fork","adopt","retire","archive","revoke","decommission"]},"genesis_ref":{"$ref":"#/$defs/nullableGenesisRef"},"manifest_ref":{"$ref":"#/$defs/nullablePackageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/nullableHash"},"previous_state":{"$ref":"#/$defs/lifecycleState"},"proposed_state":{"$ref":"#/$defs/lifecycleState"},"trigger_evidence_refs":{"$ref":"#/$defs/evidenceRefs"},"oracle_evidence_profile_refs":{"type":"array","items":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},{"type":"null"}]},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"challenge_opened_at":{"$ref":"#/$defs/nullableCanonicalDateTime"},"challenge_closes_at":{"$ref":"#/$defs/nullableCanonicalDateTime"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/nullableHash"},"state_transition_commitment_ref":{"anyOf":[{"type":"string","pattern":"^transition://[^\\s]{1,248}$"},{"type":"null"}]},"lineage_ref":{"anyOf":[{"type":"string","pattern":"^provenance://[^\\s]{1,248}$"},{"type":"null"}]},"identity_continuity_decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},{"type":"null"}]},"disposition_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"receipt_refs":{"$ref":"#/$defs/receiptRefs"},"public_commitment_ref":{"anyOf":[{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["proposed","evidence_pending","challenge_open","approved","executing","committed","rejected","rolled_back","failed_closed"]}},"allOf":[{"if":{"properties":{"transition_kind":{"enum":["initialize","activate"]}},"required":["transition_kind"]},"then":{"properties":{"genesis_ref":{"$ref":"#/$defs/genesisRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/hash"}}},"else":{"properties":{"genesis_ref":{"type":"null"},"manifest_ref":{"type":"null"},"admitted_manifest_root":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"challenge_open"}},"required":["status"]},"then":{"properties":{"challenge_opened_at":{"$ref":"#/$defs/canonicalDateTime"},"challenge_closes_at":{"$ref":"#/$defs/canonicalDateTime"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"nullableGenesisRef":{"anyOf":[{"$ref":"#/$defs/genesisRef"},{"type":"null"}]},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"},"nullablePackageReleaseRef":{"anyOf":[{"$ref":"#/$defs/packageReleaseRef"},{"type":"null"}]},"lifecycleState":{"enum":["draft","initialized","active","degraded","paused","suspended","dormant","recovering","quarantined","succession_pending","successor_governed","dissolution_pending","dissolving","dissolved","retired","archived","decommissioned","revoked"]},"evidenceRefs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"receiptRefs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableCanonicalDateTime":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<LifecycleTransitionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_transition_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_transition_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_transition_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_or_related_system_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_or_related_system_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resulting_or_related_system_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_kind: serde_json::from_value::<LifecycleTransitionV1TransitionKind>(
+                object
+                    .remove(r#"transition_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_manifest_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admitted_manifest_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_manifest_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            previous_state: serde_json::from_value::<LifecycleTransitionV1PreviousState>(
+                object
+                    .remove(r#"previous_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"previous_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_state: serde_json::from_value::<LifecycleTransitionV1ProposedState>(
+                object
+                    .remove(r#"proposed_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposed_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trigger_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"trigger_evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"trigger_evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            oracle_evidence_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"oracle_evidence_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"oracle_evidence_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_opened_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"challenge_opened_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_opened_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            challenge_closes_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"challenge_closes_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"challenge_closes_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_transition_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"state_transition_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"state_transition_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lineage_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"lineage_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lineage_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_continuity_decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"identity_continuity_decision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"identity_continuity_decision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disposition_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"disposition_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"disposition_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            public_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"public_commitment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"public_commitment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<LifecycleTransitionV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleTransitionV1SchemaVersion {
+    #[serde(rename = r#"ioi.lifecycle-transition.v1"#)]
+    IoiLifecycleTransitionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleTransitionV1TransitionKind {
+    #[serde(rename = r#"initialize"#)]
+    Initialize,
+    #[serde(rename = r#"activate"#)]
+    Activate,
+    #[serde(rename = r#"pause"#)]
+    Pause,
+    #[serde(rename = r#"resume"#)]
+    Resume,
+    #[serde(rename = r#"suspend"#)]
+    Suspend,
+    #[serde(rename = r#"reinstate"#)]
+    Reinstate,
+    #[serde(rename = r#"enter_dormancy"#)]
+    EnterDormancy,
+    #[serde(rename = r#"wake"#)]
+    Wake,
+    #[serde(rename = r#"begin_recovery"#)]
+    BeginRecovery,
+    #[serde(rename = r#"complete_recovery"#)]
+    CompleteRecovery,
+    #[serde(rename = r#"quarantine"#)]
+    Quarantine,
+    #[serde(rename = r#"release_quarantine"#)]
+    ReleaseQuarantine,
+    #[serde(rename = r#"initiate_succession"#)]
+    InitiateSuccession,
+    #[serde(rename = r#"complete_succession"#)]
+    CompleteSuccession,
+    #[serde(rename = r#"initiate_dissolution"#)]
+    InitiateDissolution,
+    #[serde(rename = r#"complete_dissolution"#)]
+    CompleteDissolution,
+    #[serde(rename = r#"migrate"#)]
+    Migrate,
+    #[serde(rename = r#"fork"#)]
+    Fork,
+    #[serde(rename = r#"adopt"#)]
+    Adopt,
+    #[serde(rename = r#"retire"#)]
+    Retire,
+    #[serde(rename = r#"archive"#)]
+    Archive,
+    #[serde(rename = r#"revoke"#)]
+    Revoke,
+    #[serde(rename = r#"decommission"#)]
+    Decommission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleTransitionV1PreviousState {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"initialized"#)]
+    Initialized,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"dormant"#)]
+    Dormant,
+    #[serde(rename = r#"recovering"#)]
+    Recovering,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"succession_pending"#)]
+    SuccessionPending,
+    #[serde(rename = r#"successor_governed"#)]
+    SuccessorGoverned,
+    #[serde(rename = r#"dissolution_pending"#)]
+    DissolutionPending,
+    #[serde(rename = r#"dissolving"#)]
+    Dissolving,
+    #[serde(rename = r#"dissolved"#)]
+    Dissolved,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+    #[serde(rename = r#"decommissioned"#)]
+    Decommissioned,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleTransitionV1ProposedState {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"initialized"#)]
+    Initialized,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"dormant"#)]
+    Dormant,
+    #[serde(rename = r#"recovering"#)]
+    Recovering,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"succession_pending"#)]
+    SuccessionPending,
+    #[serde(rename = r#"successor_governed"#)]
+    SuccessorGoverned,
+    #[serde(rename = r#"dissolution_pending"#)]
+    DissolutionPending,
+    #[serde(rename = r#"dissolving"#)]
+    Dissolving,
+    #[serde(rename = r#"dissolved"#)]
+    Dissolved,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+    #[serde(rename = r#"decommissioned"#)]
+    Decommissioned,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LifecycleTransitionV1Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+    #[serde(rename = r#"evidence_pending"#)]
+    EvidencePending,
+    #[serde(rename = r#"challenge_open"#)]
+    ChallengeOpen,
+    #[serde(rename = r#"approved"#)]
+    Approved,
+    #[serde(rename = r#"executing"#)]
+    Executing,
+    #[serde(rename = r#"committed"#)]
+    Committed,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"rolled_back"#)]
+    RolledBack,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct IOINetworkEnrollmentV1 {
+    pub schema_version: IOINetworkEnrollmentV1SchemaVersion,
+    pub network_enrollment_id: String,
+    pub system_id: String,
+    pub constitution_ref: String,
+    pub manifest_ref: String,
+    pub version: String,
+    pub predecessor_enrollment_ref: Option<String>,
+    pub profile: IOINetworkEnrollmentV1Profile,
+    pub governing_decision_ref: String,
+    pub authority_grant_refs: Vec<String>,
+    pub effective_at: String,
+    pub expires_at: Option<String>,
+    pub renewal_policy_ref: String,
+    pub conformance: IOINetworkEnrollmentV1Conformance,
+    pub connection: IOINetworkEnrollmentV1Connection,
+    pub selected_network_services: Vec<IOINetworkEnrollmentV1SelectedNetworkServicesItem>,
+    pub assurance_claim: IOINetworkEnrollmentV1AssuranceClaim,
+    pub standard_das_conformance_profile_ref: Option<String>,
+    pub exit: IOINetworkEnrollmentV1Exit,
+    pub suspension_reason_code: Option<String>,
+    pub transition_receipt_refs: Vec<String>,
+    pub status: IOINetworkEnrollmentV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for IOINetworkEnrollmentV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ioi-network-enrollment/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ioi-network-enrollment/v1","title":"IOINetworkEnrollment","description":"Explicit compatible, connected, or secured IOI Network relationship for one System.","x-ioi-schema-version":"ioi.network-enrollment.v1","type":"object","additionalProperties":false,"required":["schema_version","network_enrollment_id","system_id","constitution_ref","manifest_ref","version","predecessor_enrollment_ref","profile","governing_decision_ref","authority_grant_refs","effective_at","expires_at","renewal_policy_ref","conformance","connection","selected_network_services","assurance_claim","standard_das_conformance_profile_ref","exit","suspension_reason_code","transition_receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.network-enrollment.v1"},"network_enrollment_id":{"$ref":"#/$defs/networkEnrollmentRef"},"system_id":{"$ref":"#/$defs/systemRef"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"version":{"$ref":"#/$defs/version"},"predecessor_enrollment_ref":{"anyOf":[{"$ref":"#/$defs/networkEnrollmentRef"},{"type":"null"}]},"profile":{"enum":["ioi_compatible","ioi_connected","ioi_secured"]},"governing_decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"effective_at":{"$ref":"#/$defs/canonicalDateTime"},"expires_at":{"$ref":"#/$defs/nullableCanonicalDateTime"},"renewal_policy_ref":{"$ref":"#/$defs/policyRef"},"conformance":{"type":"object","additionalProperties":false,"required":["kernel_release_root","conformance_profile_refs","conformance_receipt_refs","ecosystem_assurance_profile_refs"],"properties":{"kernel_release_root":{"$ref":"#/$defs/hash"},"conformance_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"ecosystem_assurance_profile_refs":{"$ref":"#/$defs/canonicalRefs"}}},"connection":{"type":"object","additionalProperties":false,"required":["network_ref","system_registration_ref","constitution_commitment_ref","release_commitment_ref","endpoint_commitment_refs","aiip_profile_refs","aiip_channel_refs"],"properties":{"network_ref":{"anyOf":[{"const":"network://ioi-l1"},{"type":"null"}]},"system_registration_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"constitution_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"release_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"endpoint_commitment_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_channel_refs":{"$ref":"#/$defs/canonicalRefs"}}},"selected_network_services":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["service_kind","service_ref","terms_ref","fee_basis_ref","bond_or_stake_ref","slashing_or_claim_policy_ref","assurance_profile_ref"],"properties":{"service_kind":{"enum":["registry","rights","reputation","escrow","dispute","settlement","validator","verifier","guardian","availability","relayer","arbitrator","ordering","finality"]},"service_ref":{"type":"string","pattern":"^service://[^\\s]{1,248}$"},"terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,248}$"},"fee_basis_ref":{"anyOf":[{"type":"string","pattern":"^fee-basis://[^\\s]{1,248}$"},{"type":"null"}]},"bond_or_stake_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"slashing_or_claim_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"assurance_profile_ref":{"anyOf":[{"type":"string","pattern":"^assurance-profile://[^\\s]{1,248}$"},{"type":"null"}]}}},"maxItems":32,"uniqueItems":true},"assurance_claim":{"enum":["none","connected_services_only","secured_profile"]},"standard_das_conformance_profile_ref":{"anyOf":[{"type":"string","pattern":"^conformance-profile://[^\\s]{1,248}$"},{"type":"null"}]},"exit":{"type":"object","additionalProperties":false,"required":["exit_policy_ref","outstanding_obligation_refs","dispute_refs","final_commitment_ref"],"properties":{"exit_policy_ref":{"$ref":"#/$defs/policyRef"},"outstanding_obligation_refs":{"$ref":"#/$defs/canonicalRefs"},"dispute_refs":{"$ref":"#/$defs/canonicalRefs"},"final_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"suspension_reason_code":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},{"type":"null"}]},"transition_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"status":{"enum":["local_only","pending","active","suspended","exiting","exited","revoked"]}},"allOf":[{"if":{"properties":{"profile":{"const":"ioi_compatible"}},"required":["profile"]},"then":{"properties":{"status":{"const":"local_only"},"selected_network_services":{"type":"array","maxItems":0},"assurance_claim":{"const":"none"},"standard_das_conformance_profile_ref":{"type":"null"},"connection":{"type":"object","properties":{"network_ref":{"type":"null"}}}}}},{"if":{"properties":{"profile":{"const":"ioi_connected"},"status":{"const":"active"}},"required":["profile","status"]},"then":{"properties":{"selected_network_services":{"type":"array","minItems":1},"assurance_claim":{"const":"connected_services_only"},"connection":{"type":"object","properties":{"network_ref":{"const":"network://ioi-l1"}}}}}},{"if":{"properties":{"profile":{"const":"ioi_secured"}},"required":["profile"]},"then":{"properties":{"selected_network_services":{"type":"array","minItems":1},"assurance_claim":{"const":"secured_profile"},"standard_das_conformance_profile_ref":{"type":"string","pattern":"^conformance-profile://[^\\s]{1,248}$"},"connection":{"type":"object","properties":{"network_ref":{"const":"network://ioi-l1"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"networkEnrollmentRef":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"receiptRefs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableCanonicalDateTime":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<IOINetworkEnrollmentV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_enrollment_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"network_enrollment_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_enrollment_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_enrollment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_enrollment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile: serde_json::from_value::<IOINetworkEnrollmentV1Profile>(
+                object
+                    .remove(r#"profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"governing_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effective_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            renewal_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"renewal_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"renewal_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conformance: serde_json::from_value::<IOINetworkEnrollmentV1Conformance>(
+                object
+                    .remove(r#"conformance"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"conformance"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connection: serde_json::from_value::<IOINetworkEnrollmentV1Connection>(
+                object
+                    .remove(r#"connection"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connection"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            selected_network_services: serde_json::from_value::<
+                Vec<IOINetworkEnrollmentV1SelectedNetworkServicesItem>,
+            >(
+                object
+                    .remove(r#"selected_network_services"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"selected_network_services"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assurance_claim: serde_json::from_value::<IOINetworkEnrollmentV1AssuranceClaim>(
+                object
+                    .remove(r#"assurance_claim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assurance_claim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            standard_das_conformance_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"standard_das_conformance_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"standard_das_conformance_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exit: serde_json::from_value::<IOINetworkEnrollmentV1Exit>(
+                object
+                    .remove(r#"exit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            suspension_reason_code: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"suspension_reason_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"suspension_reason_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"transition_receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<IOINetworkEnrollmentV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum IOINetworkEnrollmentV1SchemaVersion {
+    #[serde(rename = r#"ioi.network-enrollment.v1"#)]
+    IoiNetworkEnrollmentV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum IOINetworkEnrollmentV1Profile {
+    #[serde(rename = r#"ioi_compatible"#)]
+    IoiCompatible,
+    #[serde(rename = r#"ioi_connected"#)]
+    IoiConnected,
+    #[serde(rename = r#"ioi_secured"#)]
+    IoiSecured,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct IOINetworkEnrollmentV1Conformance {
+    pub kernel_release_root: String,
+    pub conformance_profile_refs: Vec<String>,
+    pub conformance_receipt_refs: Vec<String>,
+    pub ecosystem_assurance_profile_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for IOINetworkEnrollmentV1Conformance {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ioi-network-enrollment/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kernel_release_root","conformance_profile_refs","conformance_receipt_refs","ecosystem_assurance_profile_refs"],"properties":{"kernel_release_root":{"$ref":"#/$defs/hash"},"conformance_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"ecosystem_assurance_profile_refs":{"$ref":"#/$defs/canonicalRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kernel_release_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"kernel_release_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kernel_release_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conformance_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"conformance_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"conformance_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conformance_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"conformance_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"conformance_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ecosystem_assurance_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ecosystem_assurance_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ecosystem_assurance_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct IOINetworkEnrollmentV1Connection {
+    pub network_ref: Option<IOINetworkEnrollmentV1ConnectionNetworkRef>,
+    pub system_registration_ref: Option<String>,
+    pub constitution_commitment_ref: Option<String>,
+    pub release_commitment_ref: Option<String>,
+    pub endpoint_commitment_refs: Vec<String>,
+    pub aiip_profile_refs: Vec<String>,
+    pub aiip_channel_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for IOINetworkEnrollmentV1Connection {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ioi-network-enrollment/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["network_ref","system_registration_ref","constitution_commitment_ref","release_commitment_ref","endpoint_commitment_refs","aiip_profile_refs","aiip_channel_refs"],"properties":{"network_ref":{"anyOf":[{"const":"network://ioi-l1"},{"type":"null"}]},"system_registration_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"constitution_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"release_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"endpoint_commitment_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_channel_refs":{"$ref":"#/$defs/canonicalRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            network_ref:
+                serde_json::from_value::<Option<IOINetworkEnrollmentV1ConnectionNetworkRef>>(
+                    object
+                        .remove(r#"network_ref"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"network_ref"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            system_registration_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"system_registration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_registration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"constitution_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"constitution_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"release_commitment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_commitment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            endpoint_commitment_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"endpoint_commitment_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"endpoint_commitment_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            aiip_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"aiip_profile_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"aiip_profile_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            aiip_channel_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"aiip_channel_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"aiip_channel_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum IOINetworkEnrollmentV1ConnectionNetworkRef {
+    #[serde(rename = r#"network://ioi-l1"#)]
+    NetworkIoiL1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct IOINetworkEnrollmentV1SelectedNetworkServicesItem {
+    pub service_kind: IOINetworkEnrollmentV1SelectedNetworkServicesItemServiceKind,
+    pub service_ref: String,
+    pub terms_ref: String,
+    pub fee_basis_ref: Option<String>,
+    pub bond_or_stake_ref: Option<String>,
+    pub slashing_or_claim_policy_ref: Option<String>,
+    pub assurance_profile_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for IOINetworkEnrollmentV1SelectedNetworkServicesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ioi-network-enrollment/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["service_kind","service_ref","terms_ref","fee_basis_ref","bond_or_stake_ref","slashing_or_claim_policy_ref","assurance_profile_ref"],"properties":{"service_kind":{"enum":["registry","rights","reputation","escrow","dispute","settlement","validator","verifier","guardian","availability","relayer","arbitrator","ordering","finality"]},"service_ref":{"type":"string","pattern":"^service://[^\\s]{1,248}$"},"terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,248}$"},"fee_basis_ref":{"anyOf":[{"type":"string","pattern":"^fee-basis://[^\\s]{1,248}$"},{"type":"null"}]},"bond_or_stake_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"slashing_or_claim_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"assurance_profile_ref":{"anyOf":[{"type":"string","pattern":"^assurance-profile://[^\\s]{1,248}$"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            service_kind: serde_json::from_value::<
+                IOINetworkEnrollmentV1SelectedNetworkServicesItemServiceKind,
+            >(
+                object
+                    .remove(r#"service_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"service_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            service_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"service_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"service_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            terms_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"terms_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"terms_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fee_basis_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"fee_basis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fee_basis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bond_or_stake_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"bond_or_stake_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bond_or_stake_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            slashing_or_claim_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"slashing_or_claim_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"slashing_or_claim_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assurance_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"assurance_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assurance_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum IOINetworkEnrollmentV1SelectedNetworkServicesItemServiceKind {
+    #[serde(rename = r#"registry"#)]
+    Registry,
+    #[serde(rename = r#"rights"#)]
+    Rights,
+    #[serde(rename = r#"reputation"#)]
+    Reputation,
+    #[serde(rename = r#"escrow"#)]
+    Escrow,
+    #[serde(rename = r#"dispute"#)]
+    Dispute,
+    #[serde(rename = r#"settlement"#)]
+    Settlement,
+    #[serde(rename = r#"validator"#)]
+    Validator,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"guardian"#)]
+    Guardian,
+    #[serde(rename = r#"availability"#)]
+    Availability,
+    #[serde(rename = r#"relayer"#)]
+    Relayer,
+    #[serde(rename = r#"arbitrator"#)]
+    Arbitrator,
+    #[serde(rename = r#"ordering"#)]
+    Ordering,
+    #[serde(rename = r#"finality"#)]
+    Finality,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum IOINetworkEnrollmentV1AssuranceClaim {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"connected_services_only"#)]
+    ConnectedServicesOnly,
+    #[serde(rename = r#"secured_profile"#)]
+    SecuredProfile,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct IOINetworkEnrollmentV1Exit {
+    pub exit_policy_ref: String,
+    pub outstanding_obligation_refs: Vec<String>,
+    pub dispute_refs: Vec<String>,
+    pub final_commitment_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for IOINetworkEnrollmentV1Exit {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/ioi-network-enrollment/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["exit_policy_ref","outstanding_obligation_refs","dispute_refs","final_commitment_ref"],"properties":{"exit_policy_ref":{"$ref":"#/$defs/policyRef"},"outstanding_obligation_refs":{"$ref":"#/$defs/canonicalRefs"},"dispute_refs":{"$ref":"#/$defs/canonicalRefs"},"final_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            exit_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"exit_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exit_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outstanding_obligation_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"outstanding_obligation_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"outstanding_obligation_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dispute_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"dispute_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dispute_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            final_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"final_commitment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"final_commitment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum IOINetworkEnrollmentV1Status {
+    #[serde(rename = r#"local_only"#)]
+    LocalOnly,
+    #[serde(rename = r#"pending"#)]
+    Pending,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"exiting"#)]
+    Exiting,
+    #[serde(rename = r#"exited"#)]
+    Exited,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -7056,6 +13475,150 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_failure: Some("schema"),
         expected_rule_id: None,
     },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-genesis/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-genesis/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-constitution/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-constitution/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("ordering_admission_finality.threshold.required_lte_eligible"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/oracle-evidence-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/oracle-evidence-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("oracle_evidence.contradiction.escalation_adjudicator.required"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("lifecycle_continuity.succession.trigger.required_when_enabled"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/lifecycle-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/lifecycle-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ioi-network-enrollment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/ioi-network-enrollment/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -7304,6 +13867,28 @@ pub const ARCHITECTURE_CONTRACT_MUTATIONS: &[ArchitectureContractMutation] = &[
         patch_operation: r#"set"#,
         patch_pointer: r#"/resolution/required_receipt_kinds"#,
         patch_value_json: Some(r#"["dispute_resolution","dispute_remedy_execution"]"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"type-less-if-else-required-hash-violated"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json"#,
+        covered_keywords: &[r#"allOf"#, r#"if"#, r#"else"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: false,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/workflow_compatibility/default_workflow_template_content_hash"#,
+        patch_value_json: Some(r#"null"#),
+    },
+    ArchitectureContractMutation {
+        id: r#"boolean-const-self-authority-violated"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+        source_fixture_path: r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json"#,
+        covered_keywords: &[r#"const"#],
+        ajv_expected_accept: false,
+        direct_projection_rejection: true,
+        patch_operation: r#"set"#,
+        patch_pointer: r#"/governance/agent_may_commit_amendment"#,
+        patch_value_json: Some(r#"true"#),
     },
 ];
 
@@ -7848,6 +14433,204 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-genesis/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-constitution-amendment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-constitution-amendment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json"#,
+        contract_id: r#"schema://ioi/foundations/ordering-admission-finality-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json"#,
+        contract_id: r#"schema://ioi/foundations/ordering-admission-finality-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json"#,
+        contract_id: r#"schema://ioi/foundations/oracle-evidence-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json"#,
+        contract_id: r#"schema://ioi/foundations/oracle-evidence-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json"#,
+        contract_id: r#"schema://ioi/foundations/lifecycle-continuity-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json"#,
+        contract_id: r#"schema://ioi/foundations/lifecycle-continuity-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json"#,
+        contract_id: r#"schema://ioi/foundations/lifecycle-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json"#,
+        contract_id: r#"schema://ioi/foundations/lifecycle-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json"#,
+        contract_id: r#"schema://ioi/foundations/ioi-network-enrollment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json"#,
+        contract_id: r#"schema://ioi/foundations/ioi-network-enrollment/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:type-number-for-string"#,
         contract_id: r#"schema://ioi/foundations/receipt-envelope/v1"#,
         source_fixture_path: None,
@@ -8032,6 +14815,24 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         contract_id: r#"schema://ioi/foundations/dispute-rail-bundle/v1"#,
         source_fixture_path: None,
         mutation_id: Some(r#"nested-all-of-contains-member-missing"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:type-less-if-else-required-hash-violated"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-manifest/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"type-less-if-else-required-hash-violated"#),
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"mutation:boolean-const-self-authority-violated"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
+        source_fixture_path: None,
+        mutation_id: Some(r#"boolean-const-self-authority-violated"#),
         value_json: None,
         ajv_schema_accept: false,
         oracle_contract_accept: false,
@@ -8531,6 +15332,42 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
         "schema://ioi/foundations/declassification-approval/v1",
         r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/declassification-approval/v1","title":"DeclassificationApproval","description":"Single-use authority object binding declassification to exact effect bytes and the exact reviewed representation.","x-ioi-schema-version":"ioi.foundations.declassification-approval.v1","type":"object","additionalProperties":false,"required":["schema_version","approval_ref","issuer_ref","subject_ref","authority_grant_ref","tool_contract_revision_ref","label_ref","label_content_hash","decision","declassified_to","exact_effect_hash","exact_request_hash","reviewed_representation_hash","destination","purpose","issued_at","expires_at","status","approval_receipt_ref"],"properties":{"schema_version":{"const":"ioi.foundations.declassification-approval.v1"},"approval_ref":{"type":"string","pattern":"^approval://[A-Za-z0-9._~:/-]+$"},"issuer_ref":{"type":"string","minLength":1},"subject_ref":{"type":"string","minLength":1},"authority_grant_ref":{"type":"string","pattern":"^grant://[A-Za-z0-9._~:/-]+$"},"tool_contract_revision_ref":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},"label_ref":{"type":"string","pattern":"^ifc-label://[A-Za-z0-9._~:/-]+$"},"label_content_hash":{"$ref":"#/$defs/hash"},"decision":{"const":"allow"},"declassified_to":{"enum":["public","internal","confidential"]},"exact_effect_hash":{"$ref":"#/$defs/hash"},"exact_request_hash":{"$ref":"#/$defs/hash"},"reviewed_representation_hash":{"$ref":"#/$defs/hash"},"destination":{"type":"string","minLength":1},"purpose":{"type":"string","minLength":1},"issued_at":{"$ref":"#/$defs/canonicalDateTime"},"expires_at":{"$ref":"#/$defs/canonicalDateTime"},"status":{"enum":["active","consumed","revoked","expired"]},"approval_receipt_ref":{"type":"string","pattern":"^receipt://[A-Za-z0-9._~:/-]+$"}},"$defs":{"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
     ),
+    (
+        "schema://ioi/foundations/autonomous-system-manifest/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-manifest/v1","title":"AutonomousSystemManifest","description":"Immutable reusable Autonomous System Package release; never live System state.","x-ioi-schema-version":"ioi.autonomous-system-manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","package_id","manifest_id","display_name","description","version","predecessor_manifest_ref","release_root","registry_status","constitution_template_ref","required_profile_templates","system_binding","worker","typed_components","workflow_compatibility","source_project","interfaces","capabilities","authority","runtime_profiles","session_state_memory_artifacts","evaluation","promotion","receipts","release"],"properties":{"schema_version":{"const":"ioi.autonomous-system-manifest.v1"},"package_id":{"$ref":"#/$defs/packageRef"},"manifest_id":{"$ref":"#/$defs/packageReleaseRef"},"display_name":{"$ref":"#/$defs/shortText"},"description":{"$ref":"#/$defs/longText"},"version":{"$ref":"#/$defs/version"},"predecessor_manifest_ref":{"anyOf":[{"$ref":"#/$defs/packageReleaseRef"},{"type":"null"}]},"release_root":{"$ref":"#/$defs/hash"},"registry_status":{"enum":["draft","evaluable","package_ready","released","promoted","deprecated","revoked"]},"constitution_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"required_profile_templates":{"type":"object","additionalProperties":false,"required":["deployment_template_ref","ordering_admission_finality_template_ref","oracle_evidence_template_refs","lifecycle_continuity_template_ref","network_enrollment_constraint_ref"],"properties":{"deployment_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"ordering_admission_finality_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"oracle_evidence_template_refs":{"$ref":"#/$defs/artifactOrCidRefs"},"lifecycle_continuity_template_ref":{"$ref":"#/$defs/artifactOrCidRef"},"network_enrollment_constraint_ref":{"$ref":"#/$defs/policyRef"}}},"system_binding":{"type":"object","additionalProperties":false,"required":["allowed_use","compatible_constitution_constraint_ref","compatible_predecessor_release_roots"],"properties":{"allowed_use":{"enum":["instantiate_new","upgrade_existing","either"]},"compatible_constitution_constraint_ref":{"$ref":"#/$defs/policyRef"},"compatible_predecessor_release_roots":{"$ref":"#/$defs/hashes"}}},"worker":{"type":"object","additionalProperties":false,"required":["worker_revision_ref","worker_content_hash","responsibility","owner_ref"],"properties":{"worker_revision_ref":{"$ref":"#/$defs/workerRevisionRef"},"worker_content_hash":{"$ref":"#/$defs/hash"},"responsibility":{"$ref":"#/$defs/longText"},"owner_ref":{"$ref":"#/$defs/publisherRef"}}},"typed_components":{"type":"object","additionalProperties":false,"required":["component_set_snapshot_ref","component_set_hash","goal_run_profiles","workflow_templates","automation_specs","harness_profiles","agent_harness_adapters","skill_manifests","data_recipes","runtime_tool_contracts","mcp_gateway_requirements"],"properties":{"component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"component_set_hash":{"$ref":"#/$defs/hash"},"goal_run_profiles":{"$ref":"#/$defs/revisionHashTuples"},"workflow_templates":{"$ref":"#/$defs/revisionHashTuples"},"automation_specs":{"$ref":"#/$defs/revisionHashTuples"},"harness_profiles":{"$ref":"#/$defs/revisionHashTuples"},"agent_harness_adapters":{"$ref":"#/$defs/revisionHashTuples"},"skill_manifests":{"$ref":"#/$defs/revisionHashTuples"},"data_recipes":{"$ref":"#/$defs/revisionHashTuples"},"runtime_tool_contracts":{"$ref":"#/$defs/revisionHashTuples"},"mcp_gateway_requirements":{"$ref":"#/$defs/revisionHashTuples"}}},"workflow_compatibility":{"type":"object","additionalProperties":false,"required":["default_workflow_template_revision_ref","default_workflow_template_content_hash","compatible_harness_profile_revision_refs","topology_hash"],"properties":{"default_workflow_template_revision_ref":{"anyOf":[{"$ref":"#/$defs/workflowRevisionRef"},{"type":"null"}]},"default_workflow_template_content_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"compatible_harness_profile_revision_refs":{"$ref":"#/$defs/immutableRevisionRefs"},"topology_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"default_workflow_template_revision_ref":{"type":"null"}},"required":["default_workflow_template_revision_ref"]},"then":{"properties":{"default_workflow_template_content_hash":{"type":"null"}}},"else":{"properties":{"default_workflow_template_content_hash":{"$ref":"#/$defs/hash"}}}}]},"source_project":{"type":"object","additionalProperties":false,"required":["project_ref","repository_refs","default_branch_or_ref","development_environment_recipe_ref","development_environment_recipe_content_hash","issue_tracker_refs","code_owner_refs"],"properties":{"project_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"repository_refs":{"$ref":"#/$defs/canonicalRefs"},"default_branch_or_ref":{"$ref":"#/$defs/nullableShortText"},"development_environment_recipe_ref":{"anyOf":[{"$ref":"#/$defs/developmentRecipeRevisionRef"},{"type":"null"}]},"development_environment_recipe_content_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"issue_tracker_refs":{"$ref":"#/$defs/canonicalRefs"},"code_owner_refs":{"$ref":"#/$defs/canonicalRefs"}},"allOf":[{"if":{"properties":{"development_environment_recipe_ref":{"type":"null"}},"required":["development_environment_recipe_ref"]},"then":{"properties":{"development_environment_recipe_content_hash":{"type":"null"}}},"else":{"properties":{"development_environment_recipe_content_hash":{"$ref":"#/$defs/hash"}}}}]},"interfaces":{"type":"object","additionalProperties":false,"required":["operator_console_descriptor_ref","generated_domain_app_descriptor_ref","api_contract_refs","aiip_binding_requirement_refs","publication_endpoint_contract_refs"],"properties":{"operator_console_descriptor_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"generated_domain_app_descriptor_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"api_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_binding_requirement_refs":{"$ref":"#/$defs/canonicalRefs"},"publication_endpoint_contract_refs":{"$ref":"#/$defs/canonicalRefs"}}},"capabilities":{"type":"object","additionalProperties":false,"required":["model_capability_requirement_refs","model_deployment_profile_refs","capability_descriptor_refs","connector_requirement_refs","primitive_capabilities_required"],"properties":{"model_capability_requirement_refs":{"$ref":"#/$defs/canonicalRefs"},"model_deployment_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"capability_descriptor_refs":{"$ref":"#/$defs/canonicalRefs"},"connector_requirement_refs":{"$ref":"#/$defs/canonicalRefs"},"primitive_capabilities_required":{"type":"array","items":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]{0,127}$"},"maxItems":128,"uniqueItems":true}}},"authority":{"type":"object","additionalProperties":false,"required":["authority_scope_requirements","grant_requirements","approval_profile_ref","policy_profile_ref","revocation_posture"],"properties":{"authority_scope_requirements":{"type":"array","items":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]{0,127}$"},"maxItems":128,"uniqueItems":true},"grant_requirements":{"$ref":"#/$defs/canonicalRefs"},"approval_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"policy_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"revocation_posture":{"enum":["fail_closed","pause","degrade_read_only"]}}},"runtime_profiles":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["profile_id","kind","compatibility_requirement_ref","cleanup_policy_ref"],"properties":{"profile_id":{"type":"string","pattern":"^profile://[^\\s]{1,248}$"},"kind":{"enum":["local_daemon","task_browser","local_container","hosted_daemon","cloud_vm","tee","depin","customer_vpc"]},"compatibility_requirement_ref":{"type":"string","pattern":"^(?:policy|profile)://[^\\s]{1,248}$"},"cleanup_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]}}},"maxItems":32,"uniqueItems":true},"session_state_memory_artifacts":{"type":"object","additionalProperties":false,"required":["session_profile_ref","state_profile_ref","memory_profile_ref","artifact_retention_profile_ref","observation_retention_mode"],"properties":{"session_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"state_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"memory_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"artifact_retention_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"observation_retention_mode":{"enum":["summary_only","local_redacted","local_raw","encrypted_local_raw","no_persistence"]}}},"evaluation":{"type":"object","additionalProperties":false,"required":["eval_profile_refs","benchmark_refs","quality_gate_refs","replay_profile_ref"],"properties":{"eval_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"benchmark_refs":{"$ref":"#/$defs/canonicalRefs"},"quality_gate_refs":{"$ref":"#/$defs/canonicalRefs"},"replay_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"promotion":{"type":"object","additionalProperties":false,"required":["promotion_profile_ref","release_target_refs","rollout_policy_ref","rollback_policy_ref","recall_policy_ref","kill_switch_ref","marketplace_exposure_eligibility","foundry_lineage_refs","worker_card_preview_ref"],"properties":{"promotion_profile_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"release_target_refs":{"$ref":"#/$defs/canonicalRefs"},"rollout_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"rollback_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"recall_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"kill_switch_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"marketplace_exposure_eligibility":{"enum":["none","internal","review_required","eligible"]},"foundry_lineage_refs":{"$ref":"#/$defs/canonicalRefs"},"worker_card_preview_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"receipts":{"type":"object","additionalProperties":false,"required":["package_readiness_receipt_ref","release_evaluation_receipt_refs"],"properties":{"package_readiness_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"release_evaluation_receipt_refs":{"$ref":"#/$defs/receiptRefs"}}},"release":{"type":"object","additionalProperties":false,"required":["publisher_signature_ref","registry_published_at"],"properties":{"publisher_signature_ref":{"type":"string","pattern":"^(?:receipt|evidence)://[^\\s]{1,248}$"},"registry_published_at":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"hashes":{"type":"array","items":{"$ref":"#/$defs/hash"},"maxItems":64,"uniqueItems":true},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"shortText":{"type":"string","pattern":"^[ -~]{1,256}$"},"nullableShortText":{"anyOf":[{"$ref":"#/$defs/shortText"},{"type":"null"}]},"longText":{"type":"string","pattern":"^[ -~]{1,2048}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"packageRef":{"type":"string","pattern":"^package://[^\\s]{1,248}$"},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"artifactOrCidRef":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,248}$"},"artifactOrCidRefs":{"type":"array","items":{"$ref":"#/$defs/artifactOrCidRef"},"maxItems":64,"uniqueItems":true},"publisherRef":{"type":"string","pattern":"^ioi://publisher/[^\\s]{1,224}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"nullableReceiptRef":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"receiptRefs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"maxItems":64,"uniqueItems":true},"immutableRevisionRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"immutableRevisionRefs":{"type":"array","items":{"$ref":"#/$defs/immutableRevisionRef"},"maxItems":128,"uniqueItems":true},"workerRevisionRef":{"type":"string","pattern":"^worker://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"workflowRevisionRef":{"type":"string","pattern":"^workflow-template://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"developmentRecipeRevisionRef":{"type":"string","pattern":"^development-environment-recipe://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"revisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}},"revisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/revisionHashTuple"},"maxItems":128,"uniqueItems":true},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-genesis/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-genesis/v1","title":"AutonomousSystemGenesis","description":"One-time binding of one immutable package release to a proposed or admitted logical System origin.","x-ioi-schema-version":"ioi.autonomous-system-genesis.v1","type":"object","additionalProperties":false,"required":["schema_version","genesis_id","system_id","package_id","manifest_ref","admitted_manifest_root","constitution_ref","initial_profile_refs","initial_component_bindings","instantiation","cryptographic_origin","activation_receipt_ref","lifecycle_transition_refs","status_source_receipt_refs","created_at","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-genesis.v1"},"genesis_id":{"$ref":"#/$defs/genesisRef"},"system_id":{"$ref":"#/$defs/systemRef"},"package_id":{"$ref":"#/$defs/packageRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"initial_profile_refs":{"type":"object","additionalProperties":false,"required":["deployment_profile_ref","ordering_admission_finality_profile_ref","oracle_evidence_profile_refs","lifecycle_continuity_profile_ref","network_enrollment_ref"],"properties":{"deployment_profile_ref":{"$ref":"#/$defs/deploymentProfileRef"},"ordering_admission_finality_profile_ref":{"$ref":"#/$defs/orderingProfileRef"},"oracle_evidence_profile_refs":{"type":"array","items":{"$ref":"#/$defs/oracleProfileRef"},"maxItems":32,"uniqueItems":true},"lifecycle_continuity_profile_ref":{"$ref":"#/$defs/lifecycleProfileRef"},"network_enrollment_ref":{"anyOf":[{"$ref":"#/$defs/networkEnrollmentRef"},{"type":"null"}]}}},"initial_component_bindings":{"type":"object","additionalProperties":false,"required":["admitted_component_set_snapshot_ref","admitted_component_set_hash","goal_run_profiles","workflow_templates","automation_specs","automation_installations","harness_profiles","agent_harness_adapters","skill_entries","data_recipes","runtime_tool_contracts","mcp_gateway_profiles"],"properties":{"admitted_component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"admitted_component_set_hash":{"$ref":"#/$defs/hash"},"goal_run_profiles":{"$ref":"#/$defs/revisionHashTuples"},"workflow_templates":{"$ref":"#/$defs/revisionHashTuples"},"automation_specs":{"$ref":"#/$defs/revisionHashTuples"},"automation_installations":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["binding_revision_ref","binding_hash","admission_receipt_ref"],"properties":{"binding_revision_ref":{"type":"string","pattern":"^install://automation/[^\\s]{1,140}/revision/sha256:[0-9a-f]{64}$"},"binding_hash":{"$ref":"#/$defs/hash"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"maxItems":128,"uniqueItems":true},"harness_profiles":{"$ref":"#/$defs/revisionHashTuples"},"agent_harness_adapters":{"$ref":"#/$defs/revisionHashTuples"},"skill_entries":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["binding_revision_ref","binding_hash","skill_manifest_revision_ref","skill_manifest_content_hash"],"properties":{"binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"binding_hash":{"$ref":"#/$defs/hash"},"skill_manifest_revision_ref":{"type":"string","pattern":"^skill://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_manifest_content_hash":{"$ref":"#/$defs/hash"}}},"maxItems":128,"uniqueItems":true},"data_recipes":{"$ref":"#/$defs/revisionHashTuples"},"runtime_tool_contracts":{"$ref":"#/$defs/revisionHashTuples"},"mcp_gateway_profiles":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["profile_revision_ref","profile_content_hash"],"properties":{"profile_revision_ref":{"type":"string","pattern":"^mcp-gateway://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"profile_content_hash":{"$ref":"#/$defs/hash"}}},"maxItems":64,"uniqueItems":true}}},"instantiation":{"type":"object","additionalProperties":false,"required":["proposed_by","decision_ref","authority_grant_refs","conformance_receipt_refs"],"properties":{"proposed_by":{"type":"string","pattern":"^(?:system|wallet|org|project)://[^\\s]{1,248}$"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"}}},"cryptographic_origin":{"type":"object","additionalProperties":false,"required":["sequence","predecessor_commitment_ref","genesis_operation_commitment","genesis_transition_commitment_ref","initial_state_root","initial_receipt_root","admission_proof_ref"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":0},"predecessor_commitment_ref":{"type":"null"},"genesis_operation_commitment":{"$ref":"#/$defs/hash"},"genesis_transition_commitment_ref":{"type":"string","pattern":"^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"},"initial_state_root":{"$ref":"#/$defs/hash"},"initial_receipt_root":{"$ref":"#/$defs/hash"},"admission_proof_ref":{"anyOf":[{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"},{"type":"null"}]}}},"activation_receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"lifecycle_transition_refs":{"type":"array","items":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"status_source_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"created_at":{"$ref":"#/$defs/canonicalDateTime"},"status":{"enum":["proposed","authorized","activated","rejected","revoked"]}},"allOf":[{"if":{"properties":{"status":{"const":"proposed"}},"required":["status"]},"then":{"properties":{"activation_receipt_ref":{"type":"null"},"lifecycle_transition_refs":{"type":"array","maxItems":0},"status_source_receipt_refs":{"type":"array","maxItems":0},"cryptographic_origin":{"type":"object","properties":{"admission_proof_ref":{"type":"null"}},"required":["admission_proof_ref"]}}}},{"if":{"properties":{"status":{"const":"activated"}},"required":["status"]},"then":{"properties":{"activation_receipt_ref":{"$ref":"#/$defs/receiptRef"},"lifecycle_transition_refs":{"type":"array","minItems":1},"status_source_receipt_refs":{"type":"array","minItems":1}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"packageRef":{"type":"string","pattern":"^package://[^\\s]{1,248}$"},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"deploymentProfileRef":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"orderingProfileRef":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"oracleProfileRef":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"lifecycleProfileRef":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"networkEnrollmentRef":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"receiptRefs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"maxItems":128,"uniqueItems":true},"immutableRevisionRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},"revisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"$ref":"#/$defs/immutableRevisionRef"},"content_hash":{"$ref":"#/$defs/hash"}}},"revisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/revisionHashTuple"},"maxItems":128,"uniqueItems":true},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-constitution/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-constitution/v1","title":"AutonomousSystemConstitution","description":"Protected purpose, agency, governance, profile-change, and shutdown constraints for one logical System.","x-ioi-schema-version":"ioi.autonomous-system-constitution.v1","type":"object","additionalProperties":false,"required":["schema_version","constitution_id","system_id","version","predecessor_constitution_ref","constitution_root","declared_purpose","normative_constraints","agency_boundary","governance","protected_profile_governance","shutdown","activation_receipt_ref","public_commitment_ref","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-constitution.v1"},"constitution_id":{"$ref":"#/$defs/constitutionRef"},"system_id":{"$ref":"#/$defs/systemRef"},"version":{"$ref":"#/$defs/version"},"predecessor_constitution_ref":{"anyOf":[{"$ref":"#/$defs/constitutionRef"},{"type":"null"}]},"constitution_root":{"$ref":"#/$defs/hash"},"declared_purpose":{"type":"object","additionalProperties":false,"required":["statement","ontology_refs","beneficiary_or_stakeholder_refs","acceptance_policy_refs"],"properties":{"statement":{"type":"string","pattern":"^[^\\s][ -~]{0,2047}$"},"ontology_refs":{"$ref":"#/$defs/canonicalRefs"},"beneficiary_or_stakeholder_refs":{"$ref":"#/$defs/canonicalRefs"},"acceptance_policy_refs":{"$ref":"#/$defs/policyRefs"}}},"normative_constraints":{"type":"object","additionalProperties":false,"required":["invariant_refs","permitted_objective_policy_refs","prohibited_objective_policy_refs","permitted_ontology_action_contract_refs","prohibited_effect_policy_refs"],"properties":{"invariant_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_objective_policy_refs":{"$ref":"#/$defs/policyRefs"},"prohibited_objective_policy_refs":{"$ref":"#/$defs/policyRefs"},"permitted_ontology_action_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"prohibited_effect_policy_refs":{"$ref":"#/$defs/policyRefs"}}},"agency_boundary":{"type":"object","additionalProperties":false,"required":["authority_ceiling_scope_refs","delegable_scope_refs","non_delegable_scope_refs","resource_and_budget_ceiling_policy_refs","time_and_duration_ceiling_policy_refs","data_and_privacy_ceiling_policy_refs","effect_and_externality_ceiling_policy_refs","egress_policy_ref","node_expansion","code_propagation","self_authority_widening"],"properties":{"authority_ceiling_scope_refs":{"$ref":"#/$defs/scopeRefs"},"delegable_scope_refs":{"$ref":"#/$defs/scopeRefs"},"non_delegable_scope_refs":{"$ref":"#/$defs/scopeRefs"},"resource_and_budget_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"time_and_duration_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"data_and_privacy_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"effect_and_externality_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"egress_policy_ref":{"$ref":"#/$defs/policyRef"},"node_expansion":{"const":"governed_membership_only"},"code_propagation":{"const":"admitted_deployment_only"},"self_authority_widening":{"const":"forbidden"}}},"governance":{"type":"object","additionalProperties":false,"required":["governance_owner_refs","accountable_principal_refs","affected_party_policy_ref","ordinary_upgrade_policy_ref","amendment_mode","amendment_decision_profile_ref","protected_clause_refs","agent_may_propose_amendment","agent_may_commit_amendment","emergency_pause_authority_refs","revocation_authority_refs"],"properties":{"governance_owner_refs":{"$ref":"#/$defs/canonicalRefs"},"accountable_principal_refs":{"$ref":"#/$defs/canonicalRefs"},"affected_party_policy_ref":{"$ref":"#/$defs/policyRef"},"ordinary_upgrade_policy_ref":{"$ref":"#/$defs/policyRef"},"amendment_mode":{"enum":["immutable","external_governance_only"]},"amendment_decision_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"protected_clause_refs":{"$ref":"#/$defs/canonicalRefs"},"agent_may_propose_amendment":{"type":"boolean"},"agent_may_commit_amendment":{"type":"boolean","const":false},"emergency_pause_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"revocation_authority_refs":{"$ref":"#/$defs/canonicalRefs"}},"allOf":[{"if":{"properties":{"amendment_mode":{"const":"immutable"}},"required":["amendment_mode"]},"then":{"properties":{"amendment_decision_profile_ref":{"type":"null"},"agent_may_propose_amendment":{"type":"boolean","const":false}}},"else":{"properties":{"amendment_decision_profile_ref":{"$ref":"#/$defs/policyRef"}}}}]},"protected_profile_governance":{"type":"object","additionalProperties":false,"required":["improvement_governance_profile_ref","improvement_governance_profile_change_decision_profile_ref","deployment_constraint_ref","deployment_change_decision_profile_ref","ordering_admission_finality_constraint_ref","ordering_profile_change_decision_profile_ref","oracle_evidence_constraint_ref","oracle_profile_change_decision_profile_ref","lifecycle_continuity_constraint_ref","lifecycle_profile_change_decision_profile_ref","network_enrollment_constraint_ref","network_enrollment_change_decision_profile_ref"],"properties":{"improvement_governance_profile_ref":{"anyOf":[{"type":"string","pattern":"^improvement-governance-profile://[^\\s]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"improvement_governance_profile_change_decision_profile_ref":{"$ref":"#/$defs/nullablePolicyRef"},"deployment_constraint_ref":{"$ref":"#/$defs/policyRef"},"deployment_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"ordering_admission_finality_constraint_ref":{"$ref":"#/$defs/policyRef"},"ordering_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"oracle_evidence_constraint_ref":{"$ref":"#/$defs/policyRef"},"oracle_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"lifecycle_continuity_constraint_ref":{"$ref":"#/$defs/policyRef"},"lifecycle_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_constraint_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"}}},"shutdown":{"type":"object","additionalProperties":false,"required":["kill_switch_ref","decommission_policy_ref","minimum_archive_policy_ref"],"properties":{"kill_switch_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"decommission_policy_ref":{"$ref":"#/$defs/policyRef"},"minimum_archive_policy_ref":{"$ref":"#/$defs/policyRef"}}},"activation_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},{"type":"null"}]},"public_commitment_ref":{"anyOf":[{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["draft","active","superseded","revoked"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"policyRefs":{"type":"array","items":{"$ref":"#/$defs/policyRef"},"maxItems":128,"uniqueItems":true},"scopeRefs":{"type":"array","items":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]{0,127}$"},"maxItems":128,"uniqueItems":true}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-constitution-amendment/v1","title":"AutonomousSystemConstitutionAmendment","description":"Non-effecting proposal that binds an exact constitution predecessor and proposed successor; approval never mutates either constitution.","x-ioi-schema-version":"ioi.autonomous-system-constitution-amendment.v1","type":"object","additionalProperties":false,"required":["schema_version","amendment_id","system_id","predecessor_constitution_ref","predecessor_constitution_root","proposed_successor_constitution_ref","proposed_successor_constitution_root","changed_field_paths","protected_field_paths","governing_decision_profile_ref","proposal_ref","evidence_refs","authority_requirement_refs","proposed_by_ref","decision_ref","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-constitution-amendment.v1"},"amendment_id":{"type":"string","pattern":"^constitution-amendment://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"predecessor_constitution_ref":{"$ref":"#/$defs/constitutionRef"},"predecessor_constitution_root":{"$ref":"#/$defs/hash"},"proposed_successor_constitution_ref":{"$ref":"#/$defs/constitutionRef"},"proposed_successor_constitution_root":{"$ref":"#/$defs/hash"},"changed_field_paths":{"$ref":"#/$defs/jsonPointers"},"protected_field_paths":{"$ref":"#/$defs/jsonPointers"},"governing_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"evidence_refs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"authority_requirement_refs":{"type":"array","items":{"type":"string","pattern":"^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$"},"minItems":1,"maxItems":64,"uniqueItems":true},"proposed_by_ref":{"type":"string","pattern":"^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$"},"decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["proposed","evidence_pending","approved","rejected"]}},"allOf":[{"if":{"properties":{"status":{"const":"approved"}},"required":["status"]},"then":{"properties":{"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"jsonPointer":{"type":"string","pattern":"^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$"},"jsonPointers":{"type":"array","items":{"$ref":"#/$defs/jsonPointer"},"minItems":1,"maxItems":128,"uniqueItems":true}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ordering-admission-finality-profile/v1","title":"OrderingAdmissionFinalityProfile","description":"Ordering, admission, cryptographic continuity, finality, and fault-model profile for one System.","x-ioi-schema-version":"ioi.ordering-admission-finality-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","ordering_profile_id","system_id","constitution_ref","version","profile","authority_distribution","ordering","admission","cryptographic_continuity","finality","fault_model_ref","liveness_policy_ref","membership_and_profile_change_policy_ref","conformance_receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.ordering-admission-finality-profile.v1"},"ordering_profile_id":{"$ref":"#/$defs/orderingProfileRef"},"system_id":{"$ref":"#/$defs/systemRef"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"version":{"$ref":"#/$defs/version"},"profile":{"enum":["single_authority","replicated_single_authority","threshold_authority","bft_consensus","external_chain_finality"]},"authority_distribution":{"type":"object","additionalProperties":false,"required":["posture","principal_refs","independence_evidence_refs"],"properties":{"posture":{"enum":["single_principal","declared_multi_principal","external_network"]},"principal_refs":{"$ref":"#/$defs/canonicalRefs"},"independence_evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}},"ordering":{"type":"object","additionalProperties":false,"required":["rule_ref","member_node_membership_refs","writer_epoch_required","fencing_required","leader_or_sequencer_selection_ref","conflict_rule_ref"],"properties":{"rule_ref":{"$ref":"#/$defs/policyRef"},"member_node_membership_refs":{"type":"array","items":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"maxItems":256,"uniqueItems":true},"writer_epoch_required":{"type":"boolean"},"fencing_required":{"type":"boolean"},"leader_or_sequencer_selection_ref":{"$ref":"#/$defs/nullablePolicyRef"},"conflict_rule_ref":{"$ref":"#/$defs/policyRef"}}},"admission":{"type":"object","additionalProperties":false,"required":["deterministic_transition_function_ref","schema_root","policy_root","authority_rule_ref","threshold","require_expected_predecessor_root","receipt_obligations"],"properties":{"deterministic_transition_function_ref":{"type":"string","pattern":"^(?:artifact|cid)://[^\\s]{1,248}$"},"schema_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"authority_rule_ref":{"$ref":"#/$defs/policyRef"},"threshold":{"type":"object","additionalProperties":false,"required":["required","eligible"],"properties":{"required":{"$ref":"#/$defs/portableInteger"},"eligible":{"$ref":"#/$defs/portableInteger"}}},"require_expected_predecessor_root":{"type":"boolean","const":true},"receipt_obligations":{"$ref":"#/$defs/canonicalRefs"}}},"cryptographic_continuity":{"type":"object","additionalProperties":false,"required":["hash_and_signature_suite_ref","sequence_rule_ref","require_monotonic_sequence","require_expected_predecessor_commitment","operation_or_batch_commitment_schema_ref","admission_proof_schema_ref","require_resulting_state_root","require_receipt_root","checkpoint_and_compaction_policy_ref"],"properties":{"hash_and_signature_suite_ref":{"$ref":"#/$defs/schemaRef"},"sequence_rule_ref":{"$ref":"#/$defs/policyRef"},"require_monotonic_sequence":{"type":"boolean","const":true},"require_expected_predecessor_commitment":{"type":"boolean","const":true},"operation_or_batch_commitment_schema_ref":{"$ref":"#/$defs/schemaRef"},"admission_proof_schema_ref":{"$ref":"#/$defs/schemaRef"},"require_resulting_state_root":{"type":"boolean","const":true},"require_receipt_root":{"type":"boolean","const":true},"checkpoint_and_compaction_policy_ref":{"$ref":"#/$defs/policyRef"}}},"finality":{"type":"object","additionalProperties":false,"required":["scope","rule_ref","proof_schema_ref","rollback_posture","external_network_ref","external_contract_ref","external_confirmation_policy_ref"],"properties":{"scope":{"enum":["local_operational","cross_domain","public_economic"]},"rule_ref":{"$ref":"#/$defs/policyRef"},"proof_schema_ref":{"$ref":"#/$defs/schemaRef"},"rollback_posture":{"enum":["recoverable_before_final","compensation_only_after_final","irreversible_after_final"]},"external_network_ref":{"anyOf":[{"type":"string","pattern":"^(?:network|chain|domain)://[^\\s]{1,248}$"},{"type":"null"}]},"external_contract_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"external_confirmation_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"}}},"fault_model_ref":{"$ref":"#/$defs/policyRef"},"liveness_policy_ref":{"$ref":"#/$defs/policyRef"},"membership_and_profile_change_policy_ref":{"$ref":"#/$defs/policyRef"},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"status":{"enum":["draft","active","superseded","revoked"]}},"allOf":[{"if":{"properties":{"profile":{"const":"external_chain_finality"}},"required":["profile"]},"then":{"properties":{"authority_distribution":{"type":"object","properties":{"posture":{"const":"external_network"}}},"finality":{"type":"object","properties":{"external_network_ref":{"type":"string","pattern":"^(?:network|chain|domain)://[^\\s]{1,248}$"},"external_confirmation_policy_ref":{"$ref":"#/$defs/policyRef"}}}}}},{"if":{"properties":{"profile":{"enum":["single_authority","replicated_single_authority"]}},"required":["profile"]},"then":{"properties":{"authority_distribution":{"type":"object","properties":{"posture":{"const":"single_principal"},"principal_refs":{"type":"array","minItems":1,"maxItems":1}}}}}}],"$defs":{"portableInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"orderingProfileRef":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"},"evidenceRefs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"receiptRefs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/oracle-evidence-profile/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/oracle-evidence-profile/v1","title":"OracleEvidenceProfile","description":"Qualified, defeasible, scope-bound evidence admission profile for one System.","x-ioi-schema-version":"ioi.oracle-evidence-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","oracle_evidence_profile_id","system_id","version","fact_class_refs","source_requirements","aggregation","contradiction","challenge","admission","missing_or_stale_evidence_mode","source_replacement_policy_ref","privacy_policy_ref","retention_policy_ref","status"],"properties":{"schema_version":{"const":"ioi.oracle-evidence-profile.v1"},"oracle_evidence_profile_id":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"version":{"$ref":"#/$defs/version"},"fact_class_refs":{"$ref":"#/$defs/canonicalRefs"},"source_requirements":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["source_class","source_refs","evidence_schema_ref","signer_or_principal_refs","freshness_and_finality_policy_ref","independence_group_ref","required"],"properties":{"source_class":{"enum":["official_record","institutional_attestation","signed_sensor","contractual_notice","human_attestation","network_commitment","other"]},"source_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_schema_ref":{"$ref":"#/$defs/schemaRef"},"signer_or_principal_refs":{"$ref":"#/$defs/canonicalRefs"},"freshness_and_finality_policy_ref":{"$ref":"#/$defs/policyRef"},"independence_group_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"required":{"type":"boolean"}},"allOf":[{"if":{"properties":{"required":{"type":"boolean","const":true}},"required":["required"]},"then":{"properties":{"source_refs":{"type":"array","minItems":1}}}}]},"minItems":1,"maxItems":64,"uniqueItems":true},"aggregation":{"type":"object","additionalProperties":false,"required":["rule","minimum_sources","minimum_independent_principals","threshold_policy_ref","correlated_failure_policy_ref","uncertainty_policy_ref"],"properties":{"rule":{"enum":["single_source","threshold","weighted","adjudicated"]},"minimum_sources":{"$ref":"#/$defs/positiveInteger"},"minimum_independent_principals":{"$ref":"#/$defs/positiveInteger"},"threshold_policy_ref":{"$ref":"#/$defs/nullablePolicyRef"},"correlated_failure_policy_ref":{"$ref":"#/$defs/policyRef"},"uncertainty_policy_ref":{"$ref":"#/$defs/policyRef"}},"allOf":[{"if":{"properties":{"rule":{"enum":["threshold","weighted"]}},"required":["rule"]},"then":{"properties":{"threshold_policy_ref":{"$ref":"#/$defs/policyRef"}}}}]},"contradiction":{"type":"object","additionalProperties":false,"required":["policy","adjudicator_refs","dispute_policy_ref"],"properties":{"policy":{"enum":["fail_closed","hold_pending","escalate"]},"adjudicator_refs":{"$ref":"#/$defs/canonicalRefs"},"dispute_policy_ref":{"$ref":"#/$defs/policyRef"}}},"challenge":{"type":"object","additionalProperties":false,"required":["challenge_window_ref","verifier_refs","appeal_policy_ref"],"properties":{"challenge_window_ref":{"$ref":"#/$defs/policyRef"},"verifier_refs":{"$ref":"#/$defs/canonicalRefs"},"appeal_policy_ref":{"$ref":"#/$defs/policyRef"}}},"admission":{"type":"object","additionalProperties":false,"required":["decision_semantics","ontology_assertion_schema_refs","required_verifier_path_refs","ontology_action_contract_refs","permitted_applicability_scope_refs","permitted_consequence_scope_refs","maximum_assertion_validity_policy_ref","required_authority_refs","policy_ref","receipt_obligations"],"properties":{"decision_semantics":{"const":"qualified_scope_bound_operational_determination"},"ontology_assertion_schema_refs":{"$ref":"#/$defs/schemaRefs"},"required_verifier_path_refs":{"$ref":"#/$defs/canonicalRefs"},"ontology_action_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_applicability_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_consequence_scope_refs":{"$ref":"#/$defs/canonicalRefs"},"maximum_assertion_validity_policy_ref":{"$ref":"#/$defs/policyRef"},"required_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"policy_ref":{"$ref":"#/$defs/policyRef"},"receipt_obligations":{"type":"array","items":{"const":"oracle_evidence_admission"},"minItems":1,"maxItems":1,"uniqueItems":true}}},"missing_or_stale_evidence_mode":{"enum":["unknown","read_only","pause","escalate"]},"source_replacement_policy_ref":{"$ref":"#/$defs/policyRef"},"privacy_policy_ref":{"$ref":"#/$defs/policyRef"},"retention_policy_ref":{"$ref":"#/$defs/policyRef"},"status":{"enum":["draft","active","superseded","revoked"]}},"$defs":{"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"schemaRef":{"type":"string","pattern":"^schema://[^\\s]{1,248}$"},"schemaRefs":{"type":"array","items":{"$ref":"#/$defs/schemaRef"},"maxItems":128,"uniqueItems":true}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/lifecycle-continuity-profile/v1","title":"LifecycleContinuityProfile","description":"Continuity, recovery, succession, dissolution, migration, fork, and adoption constraints for one System.","x-ioi-schema-version":"ioi.lifecycle-continuity-profile.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_profile_id","system_id","constitution_ref","version","continuity_class","continuity","recovery_and_suspension","succession","dissolution","migration","fork","adoption","status"],"properties":{"schema_version":{"const":"ioi.lifecycle-continuity-profile.v1"},"lifecycle_profile_id":{"$ref":"#/$defs/lifecycleProfileRef"},"system_id":{"$ref":"#/$defs/systemRef"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"version":{"$ref":"#/$defs/version"},"continuity_class":{"enum":["operator_bound","successor_governed","durable_purpose","finite_term"]},"continuity":{"type":"object","additionalProperties":false,"required":["operating_budget_policy_ref","dependency_replacement_policy_ref","minimum_archive_policy_ref","degraded_mode"],"properties":{"operating_budget_policy_ref":{"$ref":"#/$defs/policyRef"},"dependency_replacement_policy_ref":{"$ref":"#/$defs/policyRef"},"minimum_archive_policy_ref":{"$ref":"#/$defs/policyRef"},"degraded_mode":{"enum":["pause","read_only","bounded_continuation"]}}},"recovery_and_suspension":{"type":"object","additionalProperties":false,"required":["recovery_policy_ref","pause_and_resume_policy_ref","suspension_and_reinstatement_policy_ref","quarantine_and_release_policy_ref","retirement_policy_ref"],"properties":{"recovery_policy_ref":{"$ref":"#/$defs/policyRef"},"pause_and_resume_policy_ref":{"$ref":"#/$defs/policyRef"},"suspension_and_reinstatement_policy_ref":{"$ref":"#/$defs/policyRef"},"quarantine_and_release_policy_ref":{"$ref":"#/$defs/policyRef"},"retirement_policy_ref":{"$ref":"#/$defs/policyRef"}}},"succession":{"type":"object","additionalProperties":false,"required":["enabled","trigger_classes","oracle_evidence_profile_refs","successor_candidate_refs","selection_policy_ref","required_legal_or_governance_authority_refs","challenge_window_ref","authority_handoff","constitution_must_be_preserved"],"properties":{"enabled":{"type":"boolean"},"trigger_classes":{"type":"array","items":{"enum":["creator_death","creator_incapacity","organization_dissolution","authority_loss","governance_deadlock","term_expiry"]},"maxItems":6,"uniqueItems":true},"oracle_evidence_profile_refs":{"type":"array","items":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"successor_candidate_refs":{"$ref":"#/$defs/canonicalRefs"},"selection_policy_ref":{"$ref":"#/$defs/policyRef"},"required_legal_or_governance_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"challenge_window_ref":{"$ref":"#/$defs/policyRef"},"authority_handoff":{"const":"rotate_and_reissue"},"constitution_must_be_preserved":{"type":"boolean","const":true}}},"dissolution":{"type":"object","additionalProperties":false,"required":["trigger_policy_refs","approval_policy_ref","active_work_disposition_policy_ref","asset_disposition_contract_refs","outstanding_obligation_policy_ref","authority_revocation_policy_ref","worker_and_node_shutdown_policy_ref","data_export_retention_and_erasure_policy_ref","network_exit_policy_ref","tombstone_policy_ref"],"properties":{"trigger_policy_refs":{"$ref":"#/$defs/policyRefs"},"approval_policy_ref":{"$ref":"#/$defs/policyRef"},"active_work_disposition_policy_ref":{"$ref":"#/$defs/policyRef"},"asset_disposition_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"outstanding_obligation_policy_ref":{"$ref":"#/$defs/policyRef"},"authority_revocation_policy_ref":{"$ref":"#/$defs/policyRef"},"worker_and_node_shutdown_policy_ref":{"$ref":"#/$defs/policyRef"},"data_export_retention_and_erasure_policy_ref":{"$ref":"#/$defs/policyRef"},"network_exit_policy_ref":{"$ref":"#/$defs/policyRef"},"tombstone_policy_ref":{"$ref":"#/$defs/policyRef"}}},"migration":{"type":"object","additionalProperties":false,"required":["allowed","migration_policy_ref","identity_continuity_required","state_root_verification_required"],"properties":{"allowed":{"type":"boolean"},"migration_policy_ref":{"$ref":"#/$defs/policyRef"},"identity_continuity_required":{"type":"boolean","const":true},"state_root_verification_required":{"type":"boolean","const":true}}},"fork":{"type":"object","additionalProperties":false,"required":["allowed","fork_policy_ref","new_system_id_required","source_identity_inheritance","state_root_and_lineage_proof_required"],"properties":{"allowed":{"type":"boolean"},"fork_policy_ref":{"$ref":"#/$defs/policyRef"},"new_system_id_required":{"type":"boolean","const":true},"source_identity_inheritance":{"const":"forbidden"},"state_root_and_lineage_proof_required":{"type":"boolean","const":true}}},"adoption":{"type":"object","additionalProperties":false,"required":["allowed","adoption_policy_ref","identity_continuity_decision_profile_ref","explicit_identity_decision_required","state_root_and_lineage_proof_required"],"properties":{"allowed":{"type":"boolean"},"adoption_policy_ref":{"$ref":"#/$defs/policyRef"},"identity_continuity_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"explicit_identity_decision_required":{"type":"boolean","const":true},"state_root_and_lineage_proof_required":{"type":"boolean","const":true}}},"status":{"enum":["draft","active","superseded","revoked"]}},"$defs":{"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"lifecycleProfileRef":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"policyRefs":{"type":"array","items":{"$ref":"#/$defs/policyRef"},"maxItems":128,"uniqueItems":true}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/lifecycle-transition/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/lifecycle-transition/v1","title":"LifecycleTransition","description":"Evidence-, decision-, authority-, and root-bound proposal or record for one System lifecycle transition.","x-ioi-schema-version":"ioi.lifecycle-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_transition_id","system_id","resulting_or_related_system_id","lifecycle_profile_ref","transition_kind","genesis_ref","manifest_ref","admitted_manifest_root","previous_state","proposed_state","trigger_evidence_refs","oracle_evidence_profile_refs","proposal_ref","decision_ref","authority_grant_refs","challenge_opened_at","challenge_closes_at","predecessor_state_root","resulting_state_root","state_transition_commitment_ref","lineage_ref","identity_continuity_decision_ref","disposition_receipt_refs","receipt_refs","public_commitment_ref","status"],"properties":{"schema_version":{"const":"ioi.lifecycle-transition.v1"},"lifecycle_transition_id":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"system_id":{"$ref":"#/$defs/systemRef"},"resulting_or_related_system_id":{"anyOf":[{"$ref":"#/$defs/systemRef"},{"type":"null"}]},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"transition_kind":{"enum":["initialize","activate","pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","initiate_succession","complete_succession","initiate_dissolution","complete_dissolution","migrate","fork","adopt","retire","archive","revoke","decommission"]},"genesis_ref":{"$ref":"#/$defs/nullableGenesisRef"},"manifest_ref":{"$ref":"#/$defs/nullablePackageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/nullableHash"},"previous_state":{"$ref":"#/$defs/lifecycleState"},"proposed_state":{"$ref":"#/$defs/lifecycleState"},"trigger_evidence_refs":{"$ref":"#/$defs/evidenceRefs"},"oracle_evidence_profile_refs":{"type":"array","items":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},{"type":"null"}]},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"challenge_opened_at":{"$ref":"#/$defs/nullableCanonicalDateTime"},"challenge_closes_at":{"$ref":"#/$defs/nullableCanonicalDateTime"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/nullableHash"},"state_transition_commitment_ref":{"anyOf":[{"type":"string","pattern":"^transition://[^\\s]{1,248}$"},{"type":"null"}]},"lineage_ref":{"anyOf":[{"type":"string","pattern":"^provenance://[^\\s]{1,248}$"},{"type":"null"}]},"identity_continuity_decision_ref":{"anyOf":[{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},{"type":"null"}]},"disposition_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"receipt_refs":{"$ref":"#/$defs/receiptRefs"},"public_commitment_ref":{"anyOf":[{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["proposed","evidence_pending","challenge_open","approved","executing","committed","rejected","rolled_back","failed_closed"]}},"allOf":[{"if":{"properties":{"transition_kind":{"enum":["initialize","activate"]}},"required":["transition_kind"]},"then":{"properties":{"genesis_ref":{"$ref":"#/$defs/genesisRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/hash"}}},"else":{"properties":{"genesis_ref":{"type":"null"},"manifest_ref":{"type":"null"},"admitted_manifest_root":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"challenge_open"}},"required":["status"]},"then":{"properties":{"challenge_opened_at":{"$ref":"#/$defs/canonicalDateTime"},"challenge_closes_at":{"$ref":"#/$defs/canonicalDateTime"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"nullableGenesisRef":{"anyOf":[{"$ref":"#/$defs/genesisRef"},{"type":"null"}]},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"},"nullablePackageReleaseRef":{"anyOf":[{"$ref":"#/$defs/packageReleaseRef"},{"type":"null"}]},"lifecycleState":{"enum":["draft","initialized","active","degraded","paused","suspended","dormant","recovering","quarantined","succession_pending","successor_governed","dissolution_pending","dissolving","dissolved","retired","archived","decommissioned","revoked"]},"evidenceRefs":{"type":"array","items":{"type":"string","pattern":"^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"receiptRefs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableCanonicalDateTime":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/ioi-network-enrollment/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ioi-network-enrollment/v1","title":"IOINetworkEnrollment","description":"Explicit compatible, connected, or secured IOI Network relationship for one System.","x-ioi-schema-version":"ioi.network-enrollment.v1","type":"object","additionalProperties":false,"required":["schema_version","network_enrollment_id","system_id","constitution_ref","manifest_ref","version","predecessor_enrollment_ref","profile","governing_decision_ref","authority_grant_refs","effective_at","expires_at","renewal_policy_ref","conformance","connection","selected_network_services","assurance_claim","standard_das_conformance_profile_ref","exit","suspension_reason_code","transition_receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.network-enrollment.v1"},"network_enrollment_id":{"$ref":"#/$defs/networkEnrollmentRef"},"system_id":{"$ref":"#/$defs/systemRef"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"version":{"$ref":"#/$defs/version"},"predecessor_enrollment_ref":{"anyOf":[{"$ref":"#/$defs/networkEnrollmentRef"},{"type":"null"}]},"profile":{"enum":["ioi_compatible","ioi_connected","ioi_secured"]},"governing_decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"effective_at":{"$ref":"#/$defs/canonicalDateTime"},"expires_at":{"$ref":"#/$defs/nullableCanonicalDateTime"},"renewal_policy_ref":{"$ref":"#/$defs/policyRef"},"conformance":{"type":"object","additionalProperties":false,"required":["kernel_release_root","conformance_profile_refs","conformance_receipt_refs","ecosystem_assurance_profile_refs"],"properties":{"kernel_release_root":{"$ref":"#/$defs/hash"},"conformance_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"ecosystem_assurance_profile_refs":{"$ref":"#/$defs/canonicalRefs"}}},"connection":{"type":"object","additionalProperties":false,"required":["network_ref","system_registration_ref","constitution_commitment_ref","release_commitment_ref","endpoint_commitment_refs","aiip_profile_refs","aiip_channel_refs"],"properties":{"network_ref":{"anyOf":[{"const":"network://ioi-l1"},{"type":"null"}]},"system_registration_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"constitution_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"release_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"endpoint_commitment_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_channel_refs":{"$ref":"#/$defs/canonicalRefs"}}},"selected_network_services":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["service_kind","service_ref","terms_ref","fee_basis_ref","bond_or_stake_ref","slashing_or_claim_policy_ref","assurance_profile_ref"],"properties":{"service_kind":{"enum":["registry","rights","reputation","escrow","dispute","settlement","validator","verifier","guardian","availability","relayer","arbitrator","ordering","finality"]},"service_ref":{"type":"string","pattern":"^service://[^\\s]{1,248}$"},"terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,248}$"},"fee_basis_ref":{"anyOf":[{"type":"string","pattern":"^fee-basis://[^\\s]{1,248}$"},{"type":"null"}]},"bond_or_stake_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"slashing_or_claim_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"assurance_profile_ref":{"anyOf":[{"type":"string","pattern":"^assurance-profile://[^\\s]{1,248}$"},{"type":"null"}]}}},"maxItems":32,"uniqueItems":true},"assurance_claim":{"enum":["none","connected_services_only","secured_profile"]},"standard_das_conformance_profile_ref":{"anyOf":[{"type":"string","pattern":"^conformance-profile://[^\\s]{1,248}$"},{"type":"null"}]},"exit":{"type":"object","additionalProperties":false,"required":["exit_policy_ref","outstanding_obligation_refs","dispute_refs","final_commitment_ref"],"properties":{"exit_policy_ref":{"$ref":"#/$defs/policyRef"},"outstanding_obligation_refs":{"$ref":"#/$defs/canonicalRefs"},"dispute_refs":{"$ref":"#/$defs/canonicalRefs"},"final_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"suspension_reason_code":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},{"type":"null"}]},"transition_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"status":{"enum":["local_only","pending","active","suspended","exiting","exited","revoked"]}},"allOf":[{"if":{"properties":{"profile":{"const":"ioi_compatible"}},"required":["profile"]},"then":{"properties":{"status":{"const":"local_only"},"selected_network_services":{"type":"array","maxItems":0},"assurance_claim":{"const":"none"},"standard_das_conformance_profile_ref":{"type":"null"},"connection":{"type":"object","properties":{"network_ref":{"type":"null"}}}}}},{"if":{"properties":{"profile":{"const":"ioi_connected"},"status":{"const":"active"}},"required":["profile","status"]},"then":{"properties":{"selected_network_services":{"type":"array","minItems":1},"assurance_claim":{"const":"connected_services_only"},"connection":{"type":"object","properties":{"network_ref":{"const":"network://ioi-l1"}}}}}},{"if":{"properties":{"profile":{"const":"ioi_secured"}},"required":["profile"]},"then":{"properties":{"selected_network_services":{"type":"array","minItems":1},"assurance_claim":{"const":"secured_profile"},"standard_das_conformance_profile_ref":{"type":"string","pattern":"^conformance-profile://[^\\s]{1,248}$"},"connection":{"type":"object","properties":{"network_ref":{"const":"network://ioi-l1"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"networkEnrollmentRef":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s]{1,160}/release/sha256:[0-9a-f]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"receiptRefs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableCanonicalDateTime":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}}"##,
+    ),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -8586,20 +15423,88 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
         "schema://ioi/foundations/declassification-approval/v1",
         r#"[{"rule_id":"declassification_approval.exact_effect_hash.required","description":"The approval binds exact canonical effect bytes.","expression":{"operator":"non_empty","path":"$.exact_effect_hash"}},{"rule_id":"declassification_approval.reviewed_representation_hash.required","description":"The approval binds the exact representation the authority reviewed.","expression":{"operator":"non_empty","path":"$.reviewed_representation_hash"}}]"#,
     ),
+    (
+        "schema://ioi/foundations/autonomous-system-manifest/v1",
+        r#"[{"rule_id":"autonomous_system_manifest.worker.responsibility.required","description":"A package release names a bounded worker responsibility.","expression":{"operator":"non_empty","path":"$.worker.responsibility"}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-genesis/v1",
+        r#"[]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-constitution/v1",
+        r#"[{"rule_id":"autonomous_system_constitution.governance.owner.required","description":"A constitution names at least one governance owner.","expression":{"operator":"non_empty","path":"$.governance.governance_owner_refs"}},{"rule_id":"autonomous_system_constitution.accountable_principal.required","description":"A constitution names at least one accountable principal.","expression":{"operator":"non_empty","path":"$.governance.accountable_principal_refs"}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
+        r#"[{"rule_id":"autonomous_system_constitution_amendment.changed_fields.required","description":"An amendment proposal binds at least one changed field path.","expression":{"operator":"non_empty","path":"$.changed_field_paths"}},{"rule_id":"autonomous_system_constitution_amendment.protected_fields.required","description":"An amendment proposal identifies the protected field paths implicated by its change set.","expression":{"operator":"non_empty","path":"$.protected_field_paths"}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/ordering-admission-finality-profile/v1",
+        r#"[{"rule_id":"ordering_admission_finality.threshold.required_lte_eligible","description":"The required admission threshold cannot exceed the eligible principal count.","expression":{"operator":"numbers_lte","paths":["$.admission.threshold.required","$.admission.threshold.eligible"]}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/oracle-evidence-profile/v1",
+        r#"[{"rule_id":"oracle_evidence.contradiction.escalation_adjudicator.required","description":"Escalation names at least one adjudicator.","expression":{"operator":"non_empty_when_in","path":"$.contradiction.adjudicator_refs","when_path":"$.contradiction.policy","values":["escalate"]}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/lifecycle-continuity-profile/v1",
+        r#"[{"rule_id":"lifecycle_continuity.succession.trigger.required_when_enabled","description":"Enabled succession names at least one governed trigger class.","expression":{"operator":"non_empty_when_in","path":"$.succession.trigger_classes","when_path":"$.succession.enabled","values":[true]}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/lifecycle-transition/v1",
+        r#"[{"rule_id":"lifecycle_transition.evidence.required_when_pending","description":"An evidence-pending transition binds at least one trigger evidence ref.","expression":{"operator":"non_empty_when_in","path":"$.trigger_evidence_refs","when_path":"$.status","values":["evidence_pending"]}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/ioi-network-enrollment/v1",
+        r#"[{"rule_id":"ioi_network_enrollment.active.selected_service.required","description":"An active network enrollment names at least one selected service.","expression":{"operator":"non_empty_when_in","path":"$.selected_network_services","when_path":"$.status","values":["active"]}}]"#,
+    ),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
+        r#"^(?:artifact|cid)://[^\s]{1,248}$"#,
+        r#"^(?:artifact|cid)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^(?:commitment|settlement|tx)://[^\s]+$"#,
         r#"^(?:commitment|settlement|tx)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:commitment|settlement|tx)://[^\s]{1,248}$"#,
+        r#"^(?:commitment|settlement|tx)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:decision|dispute)://[^\s]+$"#,
         r#"^(?:decision|dispute)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^(?:evidence|artifact|receipt)://[^\s]{1,248}$"#,
+        r#"^(?:evidence|artifact|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^(?:evidence|assurance-evidence|artifact)://[^\s]+$"#,
         r#"^(?:evidence|assurance-evidence|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:evidence|receipt)://[^\s]{1,248}$"#,
+        r#"^(?:evidence|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:network|chain|domain)://[^\s]{1,248}$"#,
+        r#"^(?:network|chain|domain)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:policy|profile)://[^\s]{1,248}$"#,
+        r#"^(?:policy|profile)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:policy|schema|authority-requirement)://[^\s]{1,248}$"#,
+        r#"^(?:policy|schema|authority-requirement)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:receipt|evidence)://[^\s]{1,248}$"#,
+        r#"^(?:receipt|evidence)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:robot|drone|device|facility|facility-system|vehicle)://[^\s]+$"#,
@@ -8630,8 +15535,26 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:system|wallet|org|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^(?:system|wallet|org|project)://[^\s]{1,248}$"#,
+        r#"^(?:system|wallet|org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:user|wallet|org|project|system|governance)://[^\s]{1,248}$"#,
+        r#"^(?:user|wallet|org|project|system|governance)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^(?:verifier-path|verification|receipt)://[^\s]+$"#,
         r#"^(?:verifier-path|verification|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$"#,
+        r#"^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$"#,
+    ),
+    (r#"^[ -~]{1,2048}$"#, r#"^[ -~]{1,2048}$"#),
+    (r#"^[ -~]{1,256}$"#, r#"^[ -~]{1,256}$"#),
+    (
+        r#"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"#,
+        r#"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"#,
     ),
     (
         r#"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"#,
@@ -8642,6 +15565,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (r#"^[A-Za-z0-9_-]{86}$"#, r#"^[A-Za-z0-9_-]{86}$"#),
     (r#"^[A-Za-z0-9_.-]+$"#, r#"^[A-Za-z0-9_.-]+$"#),
     (
+        r#"^[^\s][ -~]{0,2047}$"#,
+        r#"^[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}][ -~]{0,2047}$"#,
+    ),
+    (
         r#"^[a-z][a-z0-9+.-]*://\S+$"#,
         r#"^[a-z][a-z0-9+.-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -8650,10 +15577,22 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[a-z][a-z0-9-]*(?:://|:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^[a-z][a-z0-9-]*(?:://|:)[^\s]{1,248}$"#,
+        r#"^[a-z][a-z0-9-]*(?:://|:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^[a-z][a-z0-9-]*://[^\s]+$"#,
         r#"^[a-z][a-z0-9-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
+    (
+        r#"^[a-z][a-z0-9-]*://[^\s]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+        r#"^[a-z][a-z0-9-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
     (r#"^[a-z][a-z0-9._-]*$"#, r#"^[a-z][a-z0-9._-]*$"#),
+    (
+        r#"^[a-z][a-z0-9._-]{0,127}$"#,
+        r#"^[a-z][a-z0-9._-]{0,127}$"#,
+    ),
     (
         r#"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"#,
         r#"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"#,
@@ -8684,8 +15623,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^artifact://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^artifact://[^\s]{1,248}$"#,
+        r#"^artifact://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^assurance-evidence://[^\s]+$"#,
         r#"^assurance-evidence://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^assurance-profile://[^\s]{1,248}$"#,
+        r#"^assurance-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^authority-request://[^\s]+$"#,
@@ -8700,8 +15647,36 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^caveat://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"#,
+        r#"^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^conformance-profile://[^\s]{1,248}$"#,
+        r#"^conformance-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^constitution-amendment://[^\s]{1,248}$"#,
+        r#"^constitution-amendment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^constitution://[^\s]{1,248}$"#,
+        r#"^constitution://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^controller-binding://[^\s]+$"#,
         r#"^controller-binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^decision://[^\s]{1,248}$"#,
+        r#"^decision://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^deployment-profile://[^\s]{1,248}$"#,
+        r#"^deployment-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^development-environment-recipe://[^\s]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+        r#"^development-environment-recipe://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
     (
         r#"^effect://[^\s]+$"#,
@@ -8720,6 +15695,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^estop://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^fee-basis://[^\s]{1,248}$"#,
+        r#"^fee-basis://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^genesis://[^\s]{1,248}$"#,
+        r#"^genesis://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^grant://[A-Za-z0-9._~:/-]+$"#,
         r#"^grant://[A-Za-z0-9._~:/-]+$"#,
     ),
@@ -8728,12 +15711,28 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^grant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^grant://[^\s]{1,248}$"#,
+        r#"^grant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^ifc-label://[A-Za-z0-9._~:/-]+$"#,
         r#"^ifc-label://[A-Za-z0-9._~:/-]+$"#,
     ),
     (
+        r#"^improvement-governance-profile://[^\s]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+        r#"^improvement-governance-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
         r#"^incident://[^\s]+$"#,
         r#"^incident://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^install://automation/[^\s]{1,140}/revision/sha256:[0-9a-f]{64}$"#,
+        r#"^install://automation/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,140}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^ioi://publisher/[^\s]{1,224}$"#,
+        r#"^ioi://publisher/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,224}$"#,
     ),
     (
         r#"^key://[^\s]+$"#,
@@ -8742,6 +15741,42 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^keyset://[^\s]+$"#,
         r#"^keyset://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^lifecycle-profile://[^\s]{1,248}$"#,
+        r#"^lifecycle-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^lifecycle-transition://[^\s]{1,248}$"#,
+        r#"^lifecycle-transition://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^mcp-gateway://[^\s]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+        r#"^mcp-gateway://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^network-enrollment://[^\s]{1,248}$"#,
+        r#"^network-enrollment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^node-membership://[^\s]{1,248}$"#,
+        r#"^node-membership://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^oracle-evidence-profile://[^\s]{1,248}$"#,
+        r#"^oracle-evidence-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^ordering-profile://[^\s]{1,248}$"#,
+        r#"^ordering-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^package://[^\s]{1,160}/release/sha256:[0-9a-f]{64}$"#,
+        r#"^package://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,160}/release/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^package://[^\s]{1,248}$"#,
+        r#"^package://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^physical-action-admission:[^\s]+$"#,
@@ -8755,11 +15790,31 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^policy://[^\s]+$"#,
         r#"^policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
+    (
+        r#"^policy://[^\s]{1,248}$"#,
+        r#"^policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
     (r#"^prim:[a-z0-9._-]+$"#, r#"^prim:[a-z0-9._-]+$"#),
     (r#"^prim:[a-z][a-z0-9._-]*$"#, r#"^prim:[a-z][a-z0-9._-]*$"#),
     (
+        r#"^prim:[a-z][a-z0-9._-]{0,127}$"#,
+        r#"^prim:[a-z][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^profile://[^\s]{1,248}$"#,
+        r#"^profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^proof://[^\s]+$"#,
         r#"^proof://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^proposal://[^\s]{1,248}$"#,
+        r#"^proposal://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^provenance://[^\s]{1,248}$"#,
+        r#"^provenance://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^receipt-checkpoint://[^\s]+$"#,
@@ -8778,6 +15833,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^receipt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^receipt://[^\s]{1,248}$"#,
+        r#"^receipt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^resource-lease://[^\s]+$"#,
         r#"^resource-lease://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -8793,14 +15852,26 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^schema://[^\s]+$"#,
         r#"^schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
+    (
+        r#"^schema://[^\s]{1,248}$"#,
+        r#"^schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
     (r#"^scope:[a-z0-9._-]+$"#, r#"^scope:[a-z0-9._-]+$"#),
     (
         r#"^scope:[a-z][a-z0-9._-]*$"#,
         r#"^scope:[a-z][a-z0-9._-]*$"#,
     ),
     (
+        r#"^scope:[a-z][a-z0-9._-]{0,127}$"#,
+        r#"^scope:[a-z][a-z0-9._-]{0,127}$"#,
+    ),
+    (
         r#"^sensor://[^\s]+$"#,
         r#"^sensor://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^service://[^\s]{1,248}$"#,
+        r#"^service://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^settlement://[^\s]+$"#,
@@ -8809,20 +15880,48 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (r#"^sha256:[0-9a-f]{64}$"#, r#"^sha256:[0-9a-f]{64}$"#),
     (r#"^sha256:[a-f0-9]{64}$"#, r#"^sha256:[a-f0-9]{64}$"#),
     (
+        r#"^skill-entry://[^\s]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+        r#"^skill-entry://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^skill://[^\s]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+        r#"^skill://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
         r#"^snapshot://[^\s]+$"#,
         r#"^snapshot://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^system://[^\s]{1,248}$"#,
+        r#"^system://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^task://[^\s]+$"#,
         r#"^task://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^terms://[^\s]{1,248}$"#,
+        r#"^terms://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^tool://[A-Za-z0-9._~:/-]+$"#,
         r#"^tool://[A-Za-z0-9._~:/-]+$"#,
     ),
     (
         r#"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"#,
         r#"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"#,
+    ),
+    (
+        r#"^transition://[^\s]{1,248}$"#,
+        r#"^transition://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^worker://[^\s]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+        r#"^worker://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^workflow-template://[^\s]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+        r#"^workflow-template://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
     (
         r#"^zone://[^\s]+$"#,
@@ -9364,6 +16463,24 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json"))),
     ("docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json"))),
     ("docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -9432,6 +16549,51 @@ mod tests {
             }
             "schema://ioi/foundations/declassification-approval/v1" => {
                 serde_json::from_value::<DeclassificationApprovalV1>(value.clone())
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/autonomous-system-manifest/v1" => {
+                serde_json::from_value::<AutonomousSystemManifestV1>(value.clone())
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/autonomous-system-genesis/v1" => {
+                serde_json::from_value::<AutonomousSystemGenesisV1>(value.clone())
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/autonomous-system-constitution/v1" => {
+                serde_json::from_value::<AutonomousSystemConstitutionV1>(value.clone())
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/autonomous-system-constitution-amendment/v1" => {
+                serde_json::from_value::<AutonomousSystemConstitutionAmendmentV1>(value.clone())
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/ordering-admission-finality-profile/v1" => {
+                serde_json::from_value::<OrderingAdmissionFinalityProfileV1>(value.clone())
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/oracle-evidence-profile/v1" => {
+                serde_json::from_value::<OracleEvidenceProfileV1>(value.clone())
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/lifecycle-continuity-profile/v1" => {
+                serde_json::from_value::<LifecycleContinuityProfileV1>(value.clone())
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/lifecycle-transition/v1" => {
+                serde_json::from_value::<LifecycleTransitionV1>(value.clone())
+                    .map(|_| ())
+                    .map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/ioi-network-enrollment/v1" => {
+                serde_json::from_value::<IOINetworkEnrollmentV1>(value.clone())
                     .map(|_| ())
                     .map_err(|error| error.to_string())
             }
@@ -9508,6 +16670,57 @@ mod tests {
                 let projection =
                     serde_json::from_value::<DeclassificationApprovalV1>(value.clone())
                         .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/autonomous-system-manifest/v1" => {
+                let projection =
+                    serde_json::from_value::<AutonomousSystemManifestV1>(value.clone())
+                        .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/autonomous-system-genesis/v1" => {
+                let projection = serde_json::from_value::<AutonomousSystemGenesisV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/autonomous-system-constitution/v1" => {
+                let projection =
+                    serde_json::from_value::<AutonomousSystemConstitutionV1>(value.clone())
+                        .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/autonomous-system-constitution-amendment/v1" => {
+                let projection = serde_json::from_value::<AutonomousSystemConstitutionAmendmentV1>(
+                    value.clone(),
+                )
+                .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/ordering-admission-finality-profile/v1" => {
+                let projection =
+                    serde_json::from_value::<OrderingAdmissionFinalityProfileV1>(value.clone())
+                        .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/oracle-evidence-profile/v1" => {
+                let projection = serde_json::from_value::<OracleEvidenceProfileV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/lifecycle-continuity-profile/v1" => {
+                let projection =
+                    serde_json::from_value::<LifecycleContinuityProfileV1>(value.clone())
+                        .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/lifecycle-transition/v1" => {
+                let projection = serde_json::from_value::<LifecycleTransitionV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/ioi-network-enrollment/v1" => {
+                let projection = serde_json::from_value::<IOINetworkEnrollmentV1>(value.clone())
+                    .map_err(|error| error.to_string())?;
                 serde_json::to_value(projection).map_err(|error| error.to_string())
             }
             _ => Err(format!("unknown projection: {contract_id}")),
@@ -9635,8 +16848,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            48,
-            "the registered golden corpus must remain the explicit 48-fixture bar",
+            66,
+            "the registered golden corpus must remain the explicit 66-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -9834,7 +17047,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 68,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 126,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }
