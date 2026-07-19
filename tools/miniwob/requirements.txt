@@ -1,0 +1,4 @@
+# Optional dependency path for the bridge:
+# - preferred: set COMPUTER_USE_SUITE_MINIWOB_SOURCE_DIR=/path/to/miniwob-plusplus
+# - fallback: install miniwob so the bridge can locate packaged html assets
+miniwob>=1.0.0
