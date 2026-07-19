@@ -31,6 +31,7 @@ pub type Head = String;
 pub type Root = String;
 
 pub const GENESIS_ROOT: &str = "sha256:genesis";
+pub(crate) const MAX_FRAME_BYTES: usize = 64 * 1024 * 1024;
 
 /// A proposed operation. `recorded_at_ms` is an input recorded by the caller
 /// (harness, route layer, wallet gate) — the engine never reads a clock.
@@ -91,6 +92,9 @@ pub enum LogFrame {
     BatchRoot(BatchRootRecord),
 }
 
+/// Fail-closed admission reasons. Agentgres is still a v0 internal contract,
+/// so consumers must tolerate new refusal variants as validation expands.
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Refusal {
     ExpectedHeadConflict {
@@ -104,6 +108,11 @@ pub enum Refusal {
     },
     ConflictingHeadConditions {
         object_ref: String,
+    },
+    FrameTooLarge {
+        object_ref: String,
+        encoded_bytes: usize,
+        max_bytes: usize,
     },
     EmptyObjectRef,
 }
@@ -126,6 +135,14 @@ impl std::fmt::Display for Refusal {
             Refusal::ConflictingHeadConditions { object_ref } => {
                 write!(f, "conflicting_head_conditions object={object_ref}")
             }
+            Refusal::FrameTooLarge {
+                object_ref,
+                encoded_bytes,
+                max_bytes,
+            } => write!(
+                f,
+                "frame_too_large object={object_ref} encoded_bytes={encoded_bytes} max_bytes={max_bytes}"
+            ),
             Refusal::EmptyObjectRef => write!(f, "empty_object_ref"),
         }
     }
@@ -321,6 +338,14 @@ impl SubstrateEngine {
                     break;
                 }
                 let len = u32::from_le_bytes(len_buf) as usize;
+                if len == 0 || len > MAX_FRAME_BYTES {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!(
+                            "existing substrate frame length {len} is outside 1..={MAX_FRAME_BYTES}; explicit migration is required"
+                        ),
+                    ));
+                }
                 let mut frame = vec![0u8; len];
                 if r.read_exact(&mut frame).is_err() {
                     break;
@@ -379,8 +404,30 @@ impl SubstrateEngine {
 
     fn encode_frame(frame: &LogFrame) -> std::io::Result<Vec<u8>> {
         let body = serde_json::to_vec(frame).map_err(std::io::Error::other)?;
+        Self::encode_frame_body(body)
+    }
+
+    fn encode_frame_body(body: Vec<u8>) -> std::io::Result<Vec<u8>> {
+        if body.len() > MAX_FRAME_BYTES {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "substrate frame length {} is outside 1..={MAX_FRAME_BYTES}",
+                    body.len()
+                ),
+            ));
+        }
+        let length = u32::try_from(body.len()).map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "substrate frame length {} exceeds the u32 wire limit",
+                    body.len()
+                ),
+            )
+        })?;
         let mut out = Vec::with_capacity(4 + body.len());
-        out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+        out.extend_from_slice(&length.to_le_bytes());
         out.extend_from_slice(&body);
         Ok(out)
     }
@@ -432,9 +479,19 @@ impl AgentgresSubstrate for SubstrateEngine {
             let op_bytes = serde_json::to_vec(&op).map_err(std::io::Error::other)?;
             let prev = effective_head.cloned().unwrap_or_default();
             let new_head = sha_hex(&[b"head|", prev.as_bytes(), b"|", &op_bytes]);
-            staged_heads.insert(op.object_ref.clone(), new_head.clone());
             let rec = AdmittedRecord { seq, new_head, op };
-            let frame = Self::encode_frame(&LogFrame::Admitted(rec.clone()))?;
+            let body = serde_json::to_vec(&LogFrame::Admitted(rec.clone()))
+                .map_err(std::io::Error::other)?;
+            if body.len() > MAX_FRAME_BYTES {
+                results[i] = Some(Err(Refusal::FrameTooLarge {
+                    object_ref: rec.op.object_ref.clone(),
+                    encoded_bytes: body.len(),
+                    max_bytes: MAX_FRAME_BYTES,
+                }));
+                continue;
+            }
+            let frame = Self::encode_frame_body(body)?;
+            staged_heads.insert(rec.op.object_ref.clone(), rec.new_head.clone());
             let mut fh = Sha256::new();
             fh.update(&frame);
             frame_hashes.extend_from_slice(&fh.finalize());
@@ -499,6 +556,14 @@ impl AgentgresSubstrate for SubstrateEngine {
                 break;
             }
             let len = u32::from_le_bytes(len_buf) as usize;
+            if len == 0 || len > MAX_FRAME_BYTES {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!(
+                        "substrate frame length {len} is outside 1..={MAX_FRAME_BYTES}; explicit migration is required"
+                    ),
+                ));
+            }
             let mut frame = vec![0u8; len];
             if r.read_exact(&mut frame).is_err() {
                 break; // torn tail: unacked bytes, not yet truth
@@ -659,6 +724,75 @@ mod tests {
         }
     }
 
+    fn admitted_body(operation: &Operation, seq: u64, previous_head: &str) -> Vec<u8> {
+        let op_bytes = serde_json::to_vec(operation).unwrap();
+        let new_head = sha_hex(&[
+            b"head|",
+            previous_head.as_bytes(),
+            b"|",
+            op_bytes.as_slice(),
+        ]);
+        serde_json::to_vec(&LogFrame::Admitted(AdmittedRecord {
+            seq,
+            new_head,
+            op: operation.clone(),
+        }))
+        .unwrap()
+    }
+
+    fn operation_with_frame_size(
+        target_bytes: usize,
+        object_ref: &str,
+        seq: u64,
+        previous_head: &str,
+    ) -> Operation {
+        let mut operation = op(object_ref, "write", None, seq + 1);
+        operation.payload = serde_json::json!({ "bytes": "" });
+        let base_bytes = admitted_body(&operation, seq, previous_head).len();
+        operation.payload = serde_json::json!({ "bytes": "x".repeat(target_bytes - base_bytes) });
+        assert_eq!(
+            admitted_body(&operation, seq, previous_head).len(),
+            target_bytes
+        );
+        operation
+    }
+
+    fn legacy_oversized_log() -> Vec<u8> {
+        let operation = operation_with_frame_size(MAX_FRAME_BYTES + 1, "obj://legacy", 0, "");
+        let mut admitted = admitted_body(&operation, 0, "");
+        let mut encoded_admitted = Vec::with_capacity(4 + admitted.len());
+        encoded_admitted.extend_from_slice(
+            &u32::try_from(admitted.len())
+                .expect("legacy frame fits u32")
+                .to_le_bytes(),
+        );
+        encoded_admitted.append(&mut admitted);
+        let mut frame_hash = Sha256::new();
+        frame_hash.update(&encoded_admitted);
+        let root = sha_hex(&[
+            b"root|",
+            GENESIS_ROOT.as_bytes(),
+            b"|",
+            &frame_hash.finalize(),
+        ]);
+        let root_frame = LogFrame::BatchRoot(BatchRootRecord {
+            batch_seq: 0,
+            from_seq: 0,
+            to_seq: 0,
+            prev_root: GENESIS_ROOT.to_string(),
+            root,
+        });
+        let mut encoded_root =
+            serde_json::to_vec(&root_frame).expect("encode legacy batch root body");
+        encoded_admitted.extend_from_slice(
+            &u32::try_from(encoded_root.len())
+                .expect("root frame fits u32")
+                .to_le_bytes(),
+        );
+        encoded_admitted.append(&mut encoded_root);
+        encoded_admitted
+    }
+
     #[test]
     fn expected_absent_is_backward_compatible_on_the_wire() {
         let legacy = serde_json::json!({
@@ -717,6 +851,74 @@ mod tests {
             .unwrap();
         assert!(matches!(r[0], Err(Refusal::ExpectedHeadConflict { .. })));
         assert!(r[1].is_ok());
+    }
+
+    #[test]
+    fn substrate_writer_enforces_replayable_frame_limit_per_operation() {
+        let directory = tmp("frame-limit");
+        let mut engine = SubstrateEngine::open(&directory, false).unwrap();
+        let exact = operation_with_frame_size(MAX_FRAME_BYTES, "obj://same", 0, "");
+        let exact_head = {
+            let op_bytes = serde_json::to_vec(&exact).unwrap();
+            sha_hex(&[b"head|", b"", b"|", op_bytes.as_slice()])
+        };
+        let oversized =
+            operation_with_frame_size(MAX_FRAME_BYTES + 1, "obj://same", 1, &exact_head);
+        let survivor = op("obj://same", "write", None, 3);
+        let survivor_head = {
+            let op_bytes = serde_json::to_vec(&survivor).unwrap();
+            sha_hex(&[b"head|", exact_head.as_bytes(), b"|", op_bytes.as_slice()])
+        };
+
+        let results = engine
+            .admit_batch(vec![exact, oversized, survivor])
+            .unwrap();
+        assert_eq!(results[0].as_ref().unwrap().seq, 0);
+        assert!(matches!(
+            results[1],
+            Err(Refusal::FrameTooLarge {
+                ref object_ref,
+                encoded_bytes,
+                max_bytes: MAX_FRAME_BYTES,
+            }) if object_ref == "obj://same" && encoded_bytes == MAX_FRAME_BYTES + 1
+        ));
+        assert_eq!(results[2].as_ref().unwrap().seq, 1);
+        assert_eq!(results[2].as_ref().unwrap().new_head, survivor_head);
+        assert_eq!(engine.next_seq(), 2);
+        assert_eq!(engine.head("obj://same"), Some(&survivor_head));
+        drop(engine);
+
+        let reopened = SubstrateEngine::open(&directory, false).unwrap();
+        assert_eq!(reopened.next_seq(), 2);
+        assert_eq!(reopened.head("obj://same"), Some(&survivor_head));
+    }
+
+    #[test]
+    fn oversized_legacy_log_requires_explicit_migration_without_mutating_evidence() {
+        let bytes = legacy_oversized_log();
+        let open_directory = tmp("legacy-frame-open");
+        std::fs::create_dir_all(&open_directory).unwrap();
+        let open_path = open_directory.join("oplog.bin");
+        std::fs::write(&open_path, &bytes).unwrap();
+        let error = SubstrateEngine::open(&open_directory, false)
+            .err()
+            .expect("legacy oversized log must require migration");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("explicit migration"));
+        assert_eq!(std::fs::read(&open_path).unwrap(), bytes);
+
+        let project_directory = tmp("legacy-frame-project");
+        let engine = SubstrateEngine::open(&project_directory, false).unwrap();
+        let project_path = project_directory.join("oplog.bin");
+        std::fs::write(&project_path, &bytes).unwrap();
+        let mut visited = 0usize;
+        let error = engine
+            .project(0, &mut |_| visited += 1)
+            .expect_err("projection must not return a partial success");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("explicit migration"));
+        assert_eq!(visited, 0);
+        assert_eq!(std::fs::read(&project_path).unwrap(), bytes);
     }
 
     #[test]

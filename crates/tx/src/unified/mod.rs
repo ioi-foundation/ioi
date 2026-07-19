@@ -13,7 +13,9 @@ use ioi_api::transaction::TransactionModel;
 use ioi_api::vm::ExecutionContext;
 use ioi_services::agentic::firewall::SemanticFirewall;
 use ioi_telemetry::sinks::{error_metrics, service_metrics};
-use ioi_types::app::{ApplicationTransaction, ChainTransaction, StateEntry, SystemPayload};
+use ioi_types::app::{
+    ApplicationTransaction, ChainTransaction, StateEntry, SystemPayload, SystemTransaction,
+};
 use ioi_types::codec;
 use ioi_types::error::{StateError, TransactionError};
 use ioi_types::keys::active_service_key;
@@ -58,6 +60,118 @@ fn validate_service_id(id: &str) -> Result<(), TransactionError> {
             "Invalid service_id format: '{}'. Must be lowercase alphanumeric with underscores.",
             id
         )));
+    }
+    Ok(())
+}
+
+async fn apply_system_transaction(
+    state: &mut dyn StateAccess,
+    sys_tx: &SystemTransaction,
+    ctx: &mut TxContext<'_>,
+) -> Result<(), TransactionError> {
+    ctx.signer_account_id = sys_tx.header.account_id;
+
+    match &sys_tx.payload {
+        SystemPayload::CallService {
+            service_id,
+            method,
+            params,
+        } => {
+            const MAX_PARAMS_LEN: usize = 64 * 1024;
+            if params.len() > MAX_PARAMS_LEN {
+                return Err(TransactionError::Invalid(
+                    "Service call params exceed size limit".into(),
+                ));
+            }
+            validate_service_id(service_id)?;
+
+            if service_id == "penalties" {
+                let service_arc = ctx
+                    .services
+                    .services()
+                    .find(|s| s.id() == "penalties")
+                    .ok_or(TransactionError::Unsupported(
+                        "Penalties service inactive".into(),
+                    ))?;
+
+                service_arc
+                    .handle_service_call(state, method, params, ctx)
+                    .await?;
+                return Ok(());
+            }
+
+            let meta_key = active_service_key(service_id);
+            let meta_bytes = state.get(&meta_key)?.ok_or_else(|| {
+                TransactionError::Unsupported(format!("Service '{}' is not active", service_id))
+            })?;
+            let meta: ActiveServiceMeta = codec::from_bytes_canonical(&meta_bytes)?;
+
+            let disabled_key = [meta_key.as_slice(), b"::disabled"].concat();
+            if state.get(&disabled_key)?.is_some() {
+                return Err(TransactionError::Unsupported(format!(
+                    "Service '{}' is administratively disabled",
+                    service_id
+                )));
+            }
+
+            let permission = meta.methods.get(method).ok_or_else(|| {
+                TransactionError::Unsupported(format!(
+                    "Method '{}' not found in service '{}' ABI",
+                    method, service_id
+                ))
+            })?;
+            match permission {
+                MethodPermission::Internal => {
+                    if !ctx.is_internal {
+                        return Err(TransactionError::Invalid(
+                            "Internal method cannot be called via transaction".into(),
+                        ));
+                    }
+                }
+                MethodPermission::Governance => {
+                    let policy_bytes = state
+                        .get(GOVERNANCE_KEY)?
+                        .ok_or_else(|| TransactionError::State(StateError::KeyNotFound))?;
+                    let policy: GovernancePolicy = codec::from_bytes_canonical(&policy_bytes)?;
+                    match policy.signer {
+                        GovernanceSigner::Single(gov_account_id) => {
+                            if ctx.signer_account_id != gov_account_id {
+                                return Err(TransactionError::Invalid(
+                                    "Caller is not the governance account".into(),
+                                ));
+                            }
+                        }
+                    }
+                }
+                MethodPermission::User => {}
+            }
+
+            let service = ctx
+                .services
+                .services()
+                .find(|s| s.id() == service_id)
+                .ok_or_else(|| {
+                    TransactionError::Unsupported(format!(
+                        "Service '{}' not found or not enabled",
+                        service_id
+                    ))
+                })?;
+
+            let prefix = service_namespace_prefix(service.id());
+            let mut namespaced_state = NamespacedStateAccess::new(state, prefix, &meta);
+
+            let start = std::time::Instant::now();
+            let result = service
+                .handle_service_call(&mut namespaced_state, method, params, ctx)
+                .await;
+            let latency = start.elapsed().as_secs_f64();
+            service_metrics().observe_service_dispatch_latency(service.id(), method, latency);
+            if let Err(e) = &result {
+                error_metrics().inc_error("service_dispatch", e.code());
+                service_metrics().inc_dispatch_error(service.id(), method, e.code());
+            }
+            result?;
+        }
     }
     Ok(())
 }
@@ -215,118 +329,7 @@ where
                 } // [FIX] Removed unreachable `_ => Err(...)` as CallContract is exhaustive for current app txs
             },
             ChainTransaction::System(sys_tx) => {
-                ctx.signer_account_id = sys_tx.header.account_id;
-
-                match &sys_tx.payload {
-                    SystemPayload::CallService {
-                        service_id,
-                        method,
-                        params,
-                    } => {
-                        const MAX_PARAMS_LEN: usize = 64 * 1024;
-                        if params.len() > MAX_PARAMS_LEN {
-                            return Err(TransactionError::Invalid(
-                                "Service call params exceed size limit".into(),
-                            ));
-                        }
-                        validate_service_id(service_id)?;
-
-                        if service_id == "penalties" {
-                            let service_arc = ctx
-                                .services
-                                .services()
-                                .find(|s| s.id() == "penalties")
-                                .ok_or(TransactionError::Unsupported(
-                                    "Penalties service inactive".into(),
-                                ))?;
-
-                            service_arc
-                                .handle_service_call(state, method, params, ctx)
-                                .await?;
-                            return Ok((UnifiedProof::System, 0));
-                        }
-
-                        let meta_key = active_service_key(service_id);
-                        let meta_bytes = state.get(&meta_key)?.ok_or_else(|| {
-                            TransactionError::Unsupported(format!(
-                                "Service '{}' is not active",
-                                service_id
-                            ))
-                        })?;
-                        let meta: ActiveServiceMeta = codec::from_bytes_canonical(&meta_bytes)?;
-
-                        let disabled_key = [meta_key.as_slice(), b"::disabled"].concat();
-                        if state.get(&disabled_key)?.is_some() {
-                            return Err(TransactionError::Unsupported(format!(
-                                "Service '{}' is administratively disabled",
-                                service_id
-                            )));
-                        }
-
-                        let permission = meta.methods.get(method).ok_or_else(|| {
-                            TransactionError::Unsupported(format!(
-                                "Method '{}' not found in service '{}' ABI",
-                                method, service_id
-                            ))
-                        })?;
-                        match permission {
-                            MethodPermission::Internal => {
-                                if !ctx.is_internal {
-                                    return Err(TransactionError::Invalid(
-                                        "Internal method cannot be called via transaction".into(),
-                                    ));
-                                }
-                            }
-                            MethodPermission::Governance => {
-                                let policy_bytes = state.get(GOVERNANCE_KEY)?.ok_or_else(|| {
-                                    TransactionError::State(StateError::KeyNotFound)
-                                })?;
-                                let policy: GovernancePolicy =
-                                    codec::from_bytes_canonical(&policy_bytes)?;
-                                match policy.signer {
-                                    GovernanceSigner::Single(gov_account_id) => {
-                                        if ctx.signer_account_id != gov_account_id {
-                                            return Err(TransactionError::Invalid(
-                                                "Caller is not the governance account".into(),
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                            MethodPermission::User => {}
-                        }
-
-                        let service = ctx
-                            .services
-                            .services()
-                            .find(|s| s.id() == service_id)
-                            .ok_or_else(|| {
-                                TransactionError::Unsupported(format!(
-                                    "Service '{}' not found or not enabled",
-                                    service_id
-                                ))
-                            })?;
-
-                        let prefix = service_namespace_prefix(service.id());
-                        let mut namespaced_state = NamespacedStateAccess::new(state, prefix, &meta);
-
-                        let start = std::time::Instant::now();
-                        let result = service
-                            .handle_service_call(&mut namespaced_state, method, params, ctx)
-                            .await;
-                        let latency = start.elapsed().as_secs_f64();
-                        service_metrics().observe_service_dispatch_latency(
-                            service.id(),
-                            method,
-                            latency,
-                        );
-                        if let Err(e) = &result {
-                            error_metrics().inc_error("service_dispatch", e.code());
-                            service_metrics().inc_dispatch_error(service.id(), method, e.code());
-                        }
-                        result?;
-                    }
-                }
+                apply_system_transaction(state, sys_tx, ctx).await?;
                 Ok((UnifiedProof::System, 0))
             }
             ChainTransaction::Semantic {
@@ -360,3 +363,7 @@ where
             .map_err(|e| TransactionError::Deserialization(e.to_string()))
     }
 }
+
+#[cfg(test)]
+#[path = "tests.rs"]
+mod tests;

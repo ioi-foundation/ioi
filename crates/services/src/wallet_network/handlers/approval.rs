@@ -17,7 +17,7 @@ use crate::wallet_network::{
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
-use ioi_types::app::action::ApprovalAuthority;
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
 use ioi_types::app::wallet_network::{
     VaultAuditEventKind, WalletApprovalDecision, WalletApprovalDecisionKind,
     WalletInterceptionContext,
@@ -116,10 +116,12 @@ pub(crate) fn record_approval(
 
     let request_hash = approval.interception.request_hash;
     let approval_state_key = approval_key(&request_hash);
-    store_typed(state, &approval_state_key, &approval)?;
+    let existing_approval: Option<WalletApprovalDecision> = load_typed(state, &approval_state_key)?;
+    let exact_current_replay = existing_approval.as_ref() == Some(&approval);
 
     let consumption_key = approval_consumption_key(&request_hash);
     let active_revocation_epoch = load_revocation_epoch(state)?;
+    let records;
     match approval.approval_grant.as_ref() {
         Some(grant) => {
             let max_usages = effective_max_usages(grant.max_usages)?;
@@ -143,67 +145,151 @@ pub(crate) fn record_approval(
                 remaining_usages: max_usages,
                 last_consumed_at_ms: None,
             };
-            let consumption_state =
-                match load_typed::<ApprovalConsumptionState>(state, &consumption_key)? {
-                    Some(existing)
-                        if existing.request_hash == fresh_consumption_state.request_hash
-                            && existing.target.canonical_label()
-                                == fresh_consumption_state.target.canonical_label()
-                            && existing.session_id == fresh_consumption_state.session_id
-                            && existing.bound_audience
-                                == fresh_consumption_state.bound_audience
-                            && existing.issued_revocation_epoch
-                                == fresh_consumption_state.issued_revocation_epoch
-                            && existing.grant_nonce == fresh_consumption_state.grant_nonce
-                            && existing.grant_counter == fresh_consumption_state.grant_counter
-                            && existing.expires_at_ms == fresh_consumption_state.expires_at_ms
-                            && existing.max_usages == fresh_consumption_state.max_usages =>
-                    {
-                        existing
-                    }
-                    _ => fresh_consumption_state,
-                };
-            store_typed(state, &consumption_key, &consumption_state)?;
-
             let grant_hash = grant.artifact_hash().map_err(|error| {
                 TransactionError::Invalid(format!("approval grant hash failed: {error}"))
             })?;
-            let grant_state_key = approval_grant_state_key(&grant_hash);
-            let grant_state = ApprovalGrantState {
-                schema_version: 1,
-                grant_hash,
-                approval: approval.clone(),
-                issued_revocation_epoch: active_revocation_epoch,
-                max_usages,
-                uses_consumed: 0,
-                remaining_usages: max_usages,
-                last_consumed_at_ms: None,
+            let same_current_grant = match existing_approval
+                .as_ref()
+                .and_then(|decision| decision.approval_grant.as_ref())
+            {
+                Some(current_grant) => {
+                    current_grant.artifact_hash().map_err(|error| {
+                        TransactionError::Invalid(format!(
+                            "recorded approval grant hash failed: {error}"
+                        ))
+                    })? == grant_hash
+                }
+                None => false,
             };
-            match load_typed::<ApprovalGrantState>(state, &grant_state_key)? {
-                Some(existing) if existing.approval == approval => {
-                    if existing.schema_version != 1
-                        || existing.grant_hash != grant_hash
-                        || existing.max_usages != max_usages
-                    {
-                        return Err(TransactionError::Invalid(
-                            "approval grant state conflicts with its canonical grant hash"
-                                .to_string(),
-                        ));
-                    }
-                }
-                Some(_) => {
-                    return Err(TransactionError::Invalid(
-                        "approval grant hash is occupied by a different approval snapshot"
-                            .to_string(),
-                    ))
-                }
-                None => store_typed(state, &grant_state_key, &grant_state)?,
+            if same_current_grant && !exact_current_replay {
+                return Err(TransactionError::Invalid(
+                    "signed approval grant is already bound to a different decision snapshot"
+                        .to_string(),
+                ));
             }
+            let grant_state_key = approval_grant_state_key(&grant_hash);
+            let existing_consumption: Option<ApprovalConsumptionState> =
+                load_typed(state, &consumption_key)?;
+            let existing_grant: Option<ApprovalGrantState> = load_typed(state, &grant_state_key)?;
+            if existing_grant.is_none() && !exact_current_replay && existing_approval.is_some() {
+                return Err(TransactionError::Invalid(
+                    "request history lacks this grant-keyed usage evidence; use a new request hash"
+                        .to_string(),
+                ));
+            }
+            validate_decision_replacement_order(
+                existing_approval.as_ref(),
+                exact_current_replay,
+                approval.decided_at_ms,
+            )?;
+            let mut preserved_history_records = Vec::new();
+            let (consumption_state, grant_state) = match existing_grant {
+                Some(existing) => {
+                    validate_grant_state_for_approval(&existing, &approval, grant_hash)?;
+                    validate_epoch_not_future(
+                        "approval grant state",
+                        existing.issued_revocation_epoch,
+                        active_revocation_epoch,
+                    )?;
+                    let request_state = if exact_current_replay {
+                        let request_state = existing_consumption.ok_or_else(|| {
+                            TransactionError::Invalid(
+                                "exact approval replay is missing its request usage state"
+                                    .to_string(),
+                            )
+                        })?;
+                        validate_consumption_state_for_approval(&request_state, &approval)?;
+                        shared_usage_counters(&existing, Some(&request_state))?;
+                        request_state
+                    } else {
+                        if let Some(current_approval) = existing_approval.as_ref() {
+                            if current_approval.approval_grant.is_some() {
+                                if let Some(record) = validate_current_approved_usage(
+                                    state,
+                                    current_approval,
+                                    &consumption_key,
+                                    active_revocation_epoch,
+                                )? {
+                                    preserved_history_records.push(record);
+                                }
+                            } else if let Some(current_request_state) =
+                                existing_consumption.as_ref()
+                            {
+                                validate_consumption_state_for_approval(
+                                    current_request_state,
+                                    &approval,
+                                )?;
+                                shared_usage_counters(&existing, Some(current_request_state))?;
+                            }
+                        }
+                        consumption_state_from_grant_state(&approval, grant, &existing)
+                    };
+                    (request_state, existing)
+                }
+                None => {
+                    let request_state = if exact_current_replay {
+                        let request_state = existing_consumption.ok_or_else(|| {
+                            TransactionError::Invalid(
+                                "exact approval replay is missing its legacy request usage state"
+                                    .to_string(),
+                            )
+                        })?;
+                        validate_consumption_state_for_approval(&request_state, &approval)?;
+                        validate_epoch_not_future(
+                            "approval request consumption state",
+                            request_state.issued_revocation_epoch,
+                            active_revocation_epoch,
+                        )?;
+                        request_state
+                    } else {
+                        fresh_consumption_state
+                    };
+                    let grant_state =
+                        grant_state_from_consumption(&approval, grant_hash, &request_state);
+                    (request_state, grant_state)
+                }
+            };
+            validate_consumption_state_for_approval(&consumption_state, &approval)?;
+            shared_usage_counters(&grant_state, Some(&consumption_state))?;
+            preserved_history_records.extend([
+                (
+                    approval_state_key,
+                    ioi_types::codec::to_bytes_canonical(&approval)?,
+                ),
+                (
+                    consumption_key,
+                    ioi_types::codec::to_bytes_canonical(&consumption_state)?,
+                ),
+                (
+                    grant_state_key,
+                    ioi_types::codec::to_bytes_canonical(&grant_state)?,
+                ),
+            ]);
+            records = preserved_history_records;
         }
         None => {
-            if state.get(&consumption_key)?.is_some() {
-                state.delete(&consumption_key)?;
+            validate_decision_replacement_order(
+                existing_approval.as_ref(),
+                exact_current_replay,
+                approval.decided_at_ms,
+            )?;
+            let mut next_records = vec![(
+                approval_state_key,
+                ioi_types::codec::to_bytes_canonical(&approval)?,
+            )];
+            if let Some(current_approval) = existing_approval.as_ref() {
+                if current_approval.approval_grant.is_some() {
+                    if let Some(record) = validate_current_approved_usage(
+                        state,
+                        current_approval,
+                        &consumption_key,
+                        active_revocation_epoch,
+                    )? {
+                        next_records.push(record);
+                    }
+                }
             }
+            records = next_records;
         }
     }
 
@@ -214,8 +300,75 @@ pub(crate) fn record_approval(
     if let Some(approver_id) = approver_id {
         meta.insert("approver_id".to_string(), hex::encode(approver_id));
     }
-    append_audit_event(state, ctx, VaultAuditEventKind::ApprovalDecided, meta)?;
+    append_audit_event_with_records(
+        state,
+        ctx,
+        VaultAuditEventKind::ApprovalDecided,
+        meta,
+        |_| Ok(records),
+    )?;
     Ok(())
+}
+
+fn validate_decision_replacement_order(
+    existing: Option<&WalletApprovalDecision>,
+    exact_current_replay: bool,
+    decided_at_ms: u64,
+) -> Result<(), TransactionError> {
+    if let Some(existing) = existing {
+        if !exact_current_replay && decided_at_ms <= existing.decided_at_ms {
+            return Err(TransactionError::Invalid(
+                "approval decision replacement must have a later decided_at_ms".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_current_approved_usage(
+    state: &dyn StateAccess,
+    approval: &WalletApprovalDecision,
+    consumption_key: &[u8],
+    active_revocation_epoch: u64,
+) -> Result<Option<(Vec<u8>, Vec<u8>)>, TransactionError> {
+    let grant = approval.approval_grant.as_ref().ok_or_else(|| {
+        TransactionError::Invalid("approved decision missing approval_grant".to_string())
+    })?;
+    let grant_hash = grant.artifact_hash().map_err(|error| {
+        TransactionError::Invalid(format!("recorded approval grant hash failed: {error}"))
+    })?;
+    let request_state: ApprovalConsumptionState =
+        load_typed(state, consumption_key)?.ok_or_else(|| {
+            TransactionError::Invalid(
+                "cannot replace an approved decision without its request usage state".to_string(),
+            )
+        })?;
+    validate_consumption_state_for_approval(&request_state, approval)?;
+    validate_epoch_not_future(
+        "approval request consumption state",
+        request_state.issued_revocation_epoch,
+        active_revocation_epoch,
+    )?;
+    let grant_state_key = approval_grant_state_key(&grant_hash);
+    match load_typed::<ApprovalGrantState>(state, &grant_state_key)? {
+        Some(grant_state) => {
+            validate_grant_state_for_approval(&grant_state, approval, grant_hash)?;
+            validate_epoch_not_future(
+                "approval grant state",
+                grant_state.issued_revocation_epoch,
+                active_revocation_epoch,
+            )?;
+            shared_usage_counters(&grant_state, Some(&request_state))?;
+            Ok(None)
+        }
+        None => {
+            let grant_state = grant_state_from_consumption(approval, grant_hash, &request_state);
+            Ok(Some((
+                grant_state_key,
+                ioi_types::codec::to_bytes_canonical(&grant_state)?,
+            )))
+        }
+    }
 }
 
 pub(crate) fn consume_approval_grant(
@@ -317,16 +470,33 @@ pub(crate) fn consume_approval_grant(
             "approval grant audience does not match transaction signer".to_string(),
         ));
     }
-    if consumption_state.remaining_usages == 0 {
+
+    let grant_hash = grant.artifact_hash().map_err(|error| {
+        TransactionError::Invalid(format!("approval grant hash failed: {error}"))
+    })?;
+    let grant_state_key = approval_grant_state_key(&grant_hash);
+    let mut grant_state: ApprovalGrantState = match load_typed(state, &grant_state_key)? {
+        Some(existing) => existing,
+        None => grant_state_from_consumption(&approval, grant_hash, &consumption_state),
+    };
+    validate_grant_state_for_approval(&grant_state, &approval, grant_hash)?;
+    validate_consumption_state_for_approval(&consumption_state, &approval)?;
+    let (uses_consumed, remaining_usages) =
+        shared_usage_counters(&grant_state, Some(&consumption_state))?;
+    if remaining_usages == 0 {
         return Err(TransactionError::Invalid(
             "approval grant has no remaining usages".to_string(),
         ));
     }
 
-    consumption_state.uses_consumed = consumption_state.uses_consumed.saturating_add(1);
-    consumption_state.remaining_usages = consumption_state.remaining_usages.saturating_sub(1);
+    let next_uses_consumed = uses_consumed.saturating_add(1);
+    let next_remaining_usages = remaining_usages.saturating_sub(1);
+    consumption_state.uses_consumed = next_uses_consumed;
+    consumption_state.remaining_usages = next_remaining_usages;
     consumption_state.last_consumed_at_ms = Some(now_ms);
-    store_typed(state, &consumption_key, &consumption_state)?;
+    grant_state.uses_consumed = next_uses_consumed;
+    grant_state.remaining_usages = next_remaining_usages;
+    grant_state.last_consumed_at_ms = Some(now_ms);
 
     let mut meta = base_audit_metadata(ctx);
     meta.insert("request_hash".to_string(), hex::encode(params.request_hash));
@@ -347,7 +517,24 @@ pub(crate) fn consume_approval_grant(
         "revocation_epoch".to_string(),
         consumption_state.issued_revocation_epoch.to_string(),
     );
-    append_audit_event(state, ctx, VaultAuditEventKind::ApprovalDecided, meta)?;
+    append_audit_event_with_records(
+        state,
+        ctx,
+        VaultAuditEventKind::ApprovalDecided,
+        meta,
+        |_| {
+            Ok(vec![
+                (
+                    consumption_key,
+                    ioi_types::codec::to_bytes_canonical(&consumption_state)?,
+                ),
+                (
+                    grant_state_key,
+                    ioi_types::codec::to_bytes_canonical(&grant_state)?,
+                ),
+            ])
+        },
+    )?;
     Ok(())
 }
 
@@ -400,13 +587,22 @@ pub(crate) fn consume_approval_grant_for_effect(
     }
 
     let grant_state_key = approval_grant_state_key(&params.grant_hash);
-    let grant_state: ApprovalGrantState =
-        load_typed(state, &grant_state_key)?.ok_or_else(|| {
+    let grant_state: ApprovalGrantState = match load_typed(state, &grant_state_key)? {
+        Some(existing) => existing,
+        None => derive_legacy_grant_state_for_effect(state, &params)?,
+    };
+    validate_grant_state_identity(&grant_state, &params)?;
+    let current_approval: WalletApprovalDecision =
+        load_typed(state, &approval_key(&params.request_hash))?.ok_or_else(|| {
             TransactionError::Invalid(
-                "approval grant state missing; record_approval must run first".to_string(),
+                "approval decision does not exist for request_hash".to_string(),
             )
         })?;
-    validate_grant_state_identity(&grant_state, &params)?;
+    if current_approval != grant_state.approval {
+        return Err(TransactionError::Invalid(
+            "approval grant is not the current request decision".to_string(),
+        ));
+    }
     if !matches!(
         grant_state.approval.decision,
         WalletApprovalDecisionKind::AutoApproved | WalletApprovalDecisionKind::ApprovedByHuman
@@ -452,10 +648,29 @@ pub(crate) fn consume_approval_grant_for_effect(
         ));
     }
 
+    let mut request_consumption_state =
+        load_current_request_consumption_for_grant(state, &grant_state)?;
+    let (uses_consumed, remaining_usages) = shared_usage_counters(
+        &grant_state,
+        request_consumption_state
+            .as_ref()
+            .map(|(_, consumption)| consumption),
+    )?;
+    if remaining_usages == 0 {
+        return Err(TransactionError::Invalid(
+            "approval grant has no remaining usages".to_string(),
+        ));
+    }
+
     let mut next_state = grant_state.clone();
-    next_state.uses_consumed = next_state.uses_consumed.saturating_add(1);
-    next_state.remaining_usages = next_state.remaining_usages.saturating_sub(1);
+    next_state.uses_consumed = uses_consumed.saturating_add(1);
+    next_state.remaining_usages = remaining_usages.saturating_sub(1);
     next_state.last_consumed_at_ms = Some(now_ms);
+    if let Some((_, consumption)) = request_consumption_state.as_mut() {
+        consumption.uses_consumed = next_state.uses_consumed;
+        consumption.remaining_usages = next_state.remaining_usages;
+        consumption.last_consumed_at_ms = Some(now_ms);
+    }
     let mut receipt = ApprovalGrantConsumptionReceipt {
         schema_version: 1,
         receipt_hash: [0u8; 32],
@@ -503,15 +718,256 @@ pub(crate) fn consume_approval_grant_for_effect(
         VaultAuditEventKind::ApprovalDecided,
         meta,
         |_| {
-            Ok(vec![
+            let mut records = vec![
                 (
                     grant_state_key,
                     ioi_types::codec::to_bytes_canonical(&next_state)?,
                 ),
                 (receipt_key, ioi_types::codec::to_bytes_canonical(&receipt)?),
-            ])
+            ];
+            if let Some((key, consumption)) = request_consumption_state {
+                records.push((key, ioi_types::codec::to_bytes_canonical(&consumption)?));
+            }
+            Ok(records)
         },
     )?;
+    Ok(())
+}
+
+fn validate_grant_state_for_approval(
+    grant_state: &ApprovalGrantState,
+    approval: &WalletApprovalDecision,
+    expected_grant_hash: [u8; 32],
+) -> Result<(), TransactionError> {
+    let grant = approval.approval_grant.as_ref().ok_or_else(|| {
+        TransactionError::Invalid("approved decision missing approval_grant".to_string())
+    })?;
+    let actual_grant_hash = grant.artifact_hash().map_err(|error| {
+        TransactionError::Invalid(format!("approval grant hash failed: {error}"))
+    })?;
+    let max_usages = effective_max_usages(grant.max_usages)?;
+    if grant_state.schema_version != 1
+        || grant_state.grant_hash != expected_grant_hash
+        || actual_grant_hash != expected_grant_hash
+        || grant_state.approval != *approval
+        || grant_state.max_usages != max_usages
+    {
+        return Err(TransactionError::Invalid(
+            "approval grant state conflicts with the exact recorded approval".to_string(),
+        ));
+    }
+    validate_usage_counters(
+        "approval grant state",
+        grant_state.max_usages,
+        grant_state.uses_consumed,
+        grant_state.remaining_usages,
+    )
+}
+
+fn grant_state_from_consumption(
+    approval: &WalletApprovalDecision,
+    grant_hash: [u8; 32],
+    consumption_state: &ApprovalConsumptionState,
+) -> ApprovalGrantState {
+    ApprovalGrantState {
+        schema_version: 1,
+        grant_hash,
+        approval: approval.clone(),
+        issued_revocation_epoch: consumption_state.issued_revocation_epoch,
+        max_usages: consumption_state.max_usages,
+        uses_consumed: consumption_state.uses_consumed,
+        remaining_usages: consumption_state.remaining_usages,
+        last_consumed_at_ms: consumption_state.last_consumed_at_ms,
+    }
+}
+
+fn consumption_state_from_grant_state(
+    approval: &WalletApprovalDecision,
+    grant: &ApprovalGrant,
+    grant_state: &ApprovalGrantState,
+) -> ApprovalConsumptionState {
+    ApprovalConsumptionState {
+        request_hash: approval.interception.request_hash,
+        target: approval.interception.target.clone(),
+        session_id: approval.interception.session_id,
+        bound_audience: Some(grant.audience),
+        issued_revocation_epoch: grant_state.issued_revocation_epoch,
+        grant_nonce: grant.nonce,
+        grant_counter: grant.counter,
+        expires_at_ms: grant.expires_at,
+        max_usages: grant_state.max_usages,
+        uses_consumed: grant_state.uses_consumed,
+        remaining_usages: grant_state.remaining_usages,
+        last_consumed_at_ms: grant_state.last_consumed_at_ms,
+    }
+}
+
+fn validate_epoch_not_future(
+    label: &str,
+    issued_revocation_epoch: u64,
+    active_revocation_epoch: u64,
+) -> Result<(), TransactionError> {
+    if issued_revocation_epoch > active_revocation_epoch {
+        return Err(TransactionError::Invalid(format!(
+            "{label} was issued under a future revocation epoch"
+        )));
+    }
+    Ok(())
+}
+
+fn derive_legacy_grant_state_for_effect(
+    state: &dyn StateAccess,
+    params: &ConsumeApprovalGrantForEffectParams,
+) -> Result<ApprovalGrantState, TransactionError> {
+    let approval: WalletApprovalDecision = load_typed(state, &approval_key(&params.request_hash))?
+        .ok_or_else(|| {
+            TransactionError::Invalid(
+                "approval grant state and legacy approval decision are both missing".to_string(),
+            )
+        })?;
+    if !matches!(
+        approval.decision,
+        WalletApprovalDecisionKind::AutoApproved | WalletApprovalDecisionKind::ApprovedByHuman
+    ) {
+        return Err(TransactionError::Invalid(
+            "approval decision is not approved".to_string(),
+        ));
+    }
+    let grant = approval.approval_grant.as_ref().ok_or_else(|| {
+        TransactionError::Invalid("approved decision missing approval_grant".to_string())
+    })?;
+    let grant_hash = grant.artifact_hash().map_err(|error| {
+        TransactionError::Invalid(format!("approval grant hash failed: {error}"))
+    })?;
+    if grant.request_hash != params.request_hash || grant_hash != params.grant_hash {
+        return Err(TransactionError::Invalid(
+            "legacy approval does not bind the requested canonical grant".to_string(),
+        ));
+    }
+
+    let consumption: ApprovalConsumptionState =
+        load_typed(state, &approval_consumption_key(&params.request_hash))?.ok_or_else(|| {
+            TransactionError::Invalid(
+                "approval consumption state missing; record_approval must run first".to_string(),
+            )
+        })?;
+    validate_consumption_state_for_approval(&consumption, &approval)?;
+    Ok(grant_state_from_consumption(
+        &approval,
+        grant_hash,
+        &consumption,
+    ))
+}
+
+fn validate_consumption_state_for_approval(
+    consumption_state: &ApprovalConsumptionState,
+    approval: &WalletApprovalDecision,
+) -> Result<(), TransactionError> {
+    let grant = approval.approval_grant.as_ref().ok_or_else(|| {
+        TransactionError::Invalid("approved decision missing approval_grant".to_string())
+    })?;
+    let max_usages = effective_max_usages(grant.max_usages)?;
+    if consumption_state.request_hash != approval.interception.request_hash
+        || consumption_state.target.canonical_label()
+            != approval.interception.target.canonical_label()
+        || consumption_state.session_id != approval.interception.session_id
+        || consumption_state.bound_audience != Some(grant.audience)
+        || consumption_state.grant_nonce != grant.nonce
+        || consumption_state.grant_counter != grant.counter
+        || consumption_state.expires_at_ms != grant.expires_at
+        || consumption_state.max_usages != max_usages
+    {
+        return Err(TransactionError::Invalid(
+            "approval request consumption state conflicts with the exact recorded grant"
+                .to_string(),
+        ));
+    }
+    validate_usage_counters(
+        "approval request consumption state",
+        consumption_state.max_usages,
+        consumption_state.uses_consumed,
+        consumption_state.remaining_usages,
+    )
+}
+
+fn load_current_request_consumption_for_grant(
+    state: &dyn StateAccess,
+    grant_state: &ApprovalGrantState,
+) -> Result<Option<(Vec<u8>, ApprovalConsumptionState)>, TransactionError> {
+    let request_hash = grant_state.approval.interception.request_hash;
+    let current_approval: Option<WalletApprovalDecision> =
+        load_typed(state, &approval_key(&request_hash))?;
+    if current_approval.as_ref() != Some(&grant_state.approval) {
+        return Ok(None);
+    }
+
+    let key = approval_consumption_key(&request_hash);
+    let consumption: ApprovalConsumptionState = load_typed(state, &key)?.ok_or_else(|| {
+        TransactionError::Invalid(
+            "approval consumption state missing; record_approval must run first".to_string(),
+        )
+    })?;
+    validate_consumption_state_for_approval(&consumption, &grant_state.approval)?;
+    if consumption.issued_revocation_epoch != grant_state.issued_revocation_epoch {
+        return Err(TransactionError::Invalid(
+            "approval grant usage records disagree on revocation epoch".to_string(),
+        ));
+    }
+    Ok(Some((key, consumption)))
+}
+
+fn shared_usage_counters(
+    grant_state: &ApprovalGrantState,
+    request_state: Option<&ApprovalConsumptionState>,
+) -> Result<(u32, u32), TransactionError> {
+    validate_usage_counters(
+        "approval grant state",
+        grant_state.max_usages,
+        grant_state.uses_consumed,
+        grant_state.remaining_usages,
+    )?;
+    let Some(request_state) = request_state else {
+        return Ok((grant_state.uses_consumed, grant_state.remaining_usages));
+    };
+    if request_state.max_usages != grant_state.max_usages {
+        return Err(TransactionError::Invalid(
+            "approval grant usage records disagree on max_usages".to_string(),
+        ));
+    }
+    validate_usage_counters(
+        "approval request consumption state",
+        request_state.max_usages,
+        request_state.uses_consumed,
+        request_state.remaining_usages,
+    )?;
+    if request_state.issued_revocation_epoch != grant_state.issued_revocation_epoch
+        || request_state.uses_consumed != grant_state.uses_consumed
+        || request_state.remaining_usages != grant_state.remaining_usages
+        || request_state.last_consumed_at_ms != grant_state.last_consumed_at_ms
+    {
+        return Err(TransactionError::Invalid(
+            "approval grant usage records disagree; refusing an ambiguous shared budget"
+                .to_string(),
+        ));
+    }
+    Ok((grant_state.uses_consumed, grant_state.remaining_usages))
+}
+
+fn validate_usage_counters(
+    label: &str,
+    max_usages: u32,
+    uses_consumed: u32,
+    remaining_usages: u32,
+) -> Result<(), TransactionError> {
+    if max_usages == 0
+        || uses_consumed > max_usages
+        || remaining_usages > max_usages
+        || uses_consumed.checked_add(remaining_usages) != Some(max_usages)
+    {
+        return Err(TransactionError::Invalid(format!(
+            "{label} has invalid usage counters"
+        )));
+    }
     Ok(())
 }
 

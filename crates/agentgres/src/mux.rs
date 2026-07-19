@@ -14,7 +14,7 @@
 
 use crate::{
     sha_hex_pub as sha_hex, validate_head_condition, AdmitAck, AdmittedRecord, BatchRootRecord,
-    CheckpointRecord, Durability, Head, Operation, Refusal, Root, GENESIS_ROOT,
+    CheckpointRecord, Durability, Head, Operation, Refusal, Root, GENESIS_ROOT, MAX_FRAME_BYTES,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -24,7 +24,7 @@ use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
-const MAX_STRICT_FRAME_BYTES: usize = 64 * 1024 * 1024;
+const MAX_STRICT_FRAME_BYTES: usize = MAX_FRAME_BYTES;
 const MAX_STRICT_PENDING_RECORDS: usize = 1_000_000;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -856,8 +856,27 @@ impl MuxEngine {
 
     fn encode(frame: &MuxLogFrame) -> std::io::Result<Vec<u8>> {
         let body = serde_json::to_vec(frame).map_err(std::io::Error::other)?;
+        Self::encode_body(body)
+    }
+
+    fn encode_body(body: Vec<u8>) -> std::io::Result<Vec<u8>> {
+        if body.len() > MAX_STRICT_FRAME_BYTES {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "mux frame length {} is outside 1..={MAX_STRICT_FRAME_BYTES}",
+                    body.len()
+                ),
+            ));
+        }
+        let length = u32::try_from(body.len()).map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("mux frame length {} exceeds the u32 wire limit", body.len()),
+            )
+        })?;
         let mut out = Vec::with_capacity(4 + body.len());
-        out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+        out.extend_from_slice(&length.to_le_bytes());
         out.extend_from_slice(&body);
         Ok(out)
     }
@@ -931,26 +950,65 @@ impl MuxEngine {
                 continue;
             }
             let committed = self.domains.get(&op.domain);
-            let dom_staged = staged_heads.entry(op.domain.clone()).or_default();
-            let effective = dom_staged
-                .get(&op.object_ref)
-                .or_else(|| committed.and_then(|d| d.heads.get(&op.object_ref)));
-            let ok = validate_head_condition(&op, effective);
+            let effective = staged_heads
+                .get(&op.domain)
+                .and_then(|heads| heads.get(&op.object_ref))
+                .or_else(|| committed.and_then(|d| d.heads.get(&op.object_ref)))
+                .cloned();
+            let ok = validate_head_condition(&op, effective.as_ref());
             if let Err(refusal) = ok {
                 results[i] = Some(Err(refusal));
                 continue;
             }
             let committed_next = committed.map(|d| d.next_seq).unwrap_or(0);
-            let staged_n = staged_count.entry(op.domain.clone()).or_insert(0);
-            let seq = committed_next + *staged_n;
-            from_seq.entry(op.domain.clone()).or_insert(seq);
-            *staged_n += 1;
+            let staged_n = staged_count.get(&op.domain).copied().unwrap_or(0);
+            let seq = committed_next + staged_n;
             let op_bytes = serde_json::to_vec(&op).map_err(std::io::Error::other)?;
-            let prev = effective.cloned().unwrap_or_default();
+            let prev = effective.unwrap_or_default();
             let new_head = sha_hex(&[b"head|", prev.as_bytes(), b"|", &op_bytes]);
-            dom_staged.insert(op.object_ref.clone(), new_head.clone());
             let rec = AdmittedRecord { seq, new_head, op };
-            let frame = Self::encode(&MuxLogFrame::Admitted(rec.clone()))?;
+            let body = serde_json::to_vec(&MuxLogFrame::Admitted(rec.clone()))
+                .map_err(std::io::Error::other)?;
+            if body.len() > MAX_STRICT_FRAME_BYTES {
+                results[i] = Some(Err(Refusal::FrameTooLarge {
+                    object_ref: rec.op.object_ref.clone(),
+                    encoded_bytes: body.len(),
+                    max_bytes: MAX_STRICT_FRAME_BYTES,
+                }));
+                continue;
+            }
+            let frame = Self::encode_body(body)?;
+            let prospective_from_seq = from_seq.get(&rec.op.domain).copied().unwrap_or(seq);
+            let (prospective_batch_seq, prospective_prev_root) = self
+                .domains
+                .get(&rec.op.domain)
+                .map(|state| (state.next_batch_seq, state.root.as_str()))
+                .unwrap_or((0, GENESIS_ROOT));
+            let prospective_root_body = serde_json::to_vec(&MuxLogFrame::DomainRoot {
+                domain: rec.op.domain.clone(),
+                rec: BatchRootRecord {
+                    batch_seq: prospective_batch_seq,
+                    from_seq: prospective_from_seq,
+                    to_seq: seq,
+                    prev_root: prospective_prev_root.to_string(),
+                    root: format!("sha256:{}", "0".repeat(64)),
+                },
+            })
+            .map_err(std::io::Error::other)?;
+            if prospective_root_body.len() > MAX_STRICT_FRAME_BYTES {
+                results[i] = Some(Err(Refusal::FrameTooLarge {
+                    object_ref: rec.op.object_ref.clone(),
+                    encoded_bytes: prospective_root_body.len(),
+                    max_bytes: MAX_STRICT_FRAME_BYTES,
+                }));
+                continue;
+            }
+            staged_heads
+                .entry(rec.op.domain.clone())
+                .or_default()
+                .insert(rec.op.object_ref.clone(), rec.new_head.clone());
+            from_seq.entry(rec.op.domain.clone()).or_insert(seq);
+            staged_count.insert(rec.op.domain.clone(), staged_n + 1);
             let mut fh = Sha256::new();
             fh.update(&frame);
             frame_hashes
@@ -973,18 +1031,19 @@ impl MuxEngine {
         // Per-domain root frames, deterministic domain order.
         let mut domain_roots: BTreeMap<String, BatchRootRecord> = BTreeMap::new();
         for (domain, hashes) in &frame_hashes {
-            let st = self
+            let (next_batch_seq, previous_root) = self
                 .domains
-                .entry(domain.clone())
-                .or_insert_with(DomainState::new);
+                .get(domain)
+                .map(|state| (state.next_batch_seq, state.root.as_str()))
+                .unwrap_or((0, GENESIS_ROOT));
             let count = staged_count[domain];
             let fs = from_seq[domain];
-            let root = sha_hex(&[b"root|", st.root.as_bytes(), b"|", hashes]);
+            let root = sha_hex(&[b"root|", previous_root.as_bytes(), b"|", hashes]);
             let br = BatchRootRecord {
-                batch_seq: st.next_batch_seq,
+                batch_seq: next_batch_seq,
                 from_seq: fs,
                 to_seq: fs + count - 1,
-                prev_root: st.root.clone(),
+                prev_root: previous_root.to_string(),
                 root,
             };
             buf.extend_from_slice(&Self::encode(&MuxLogFrame::DomainRoot {
@@ -1018,7 +1077,10 @@ impl MuxEngine {
         };
         // Commit domain states after durability.
         for (domain, br) in &domain_roots {
-            let st = self.domains.get_mut(domain).expect("domain staged");
+            let st = self
+                .domains
+                .entry(domain.clone())
+                .or_insert_with(DomainState::new);
             for i in &admitted_idx[domain] {
                 let rec = recs[*i].as_ref().expect("staged rec");
                 st.heads
@@ -1728,6 +1790,47 @@ mod tests {
         operation
     }
 
+    fn admitted_body(operation: &Operation, seq: u64, previous_head: &str) -> Vec<u8> {
+        let op_bytes = serde_json::to_vec(operation).unwrap();
+        let new_head = sha_hex(&[
+            b"head|",
+            previous_head.as_bytes(),
+            b"|",
+            op_bytes.as_slice(),
+        ]);
+        serde_json::to_vec(&MuxLogFrame::Admitted(AdmittedRecord {
+            seq,
+            new_head,
+            op: operation.clone(),
+        }))
+        .unwrap()
+    }
+
+    fn operation_with_payload_frame_size(
+        target_bytes: usize,
+        object_ref: &str,
+        seq: u64,
+        previous_head: &str,
+    ) -> Operation {
+        let mut operation = op("a", object_ref, seq + 1);
+        operation.payload = serde_json::json!({ "bytes": "" });
+        let base_bytes = admitted_body(&operation, seq, previous_head).len();
+        operation.payload = serde_json::json!({ "bytes": "x".repeat(target_bytes - base_bytes) });
+        assert_eq!(
+            admitted_body(&operation, seq, previous_head).len(),
+            target_bytes
+        );
+        operation
+    }
+
+    fn operation_with_domain_frame_size(target_bytes: usize, seq: u64) -> Operation {
+        let mut operation = op("", "o://root-edge", 1);
+        let base_bytes = admitted_body(&operation, seq, "").len();
+        operation.domain = "d".repeat(target_bytes - base_bytes);
+        assert_eq!(admitted_body(&operation, seq, "").len(), target_bytes);
+        operation
+    }
+
     #[test]
     fn expected_absent_same_key_batch_admits_exactly_one() {
         let mut engine = MuxEngine::open(&tmp("expected-absent-batch"), false).unwrap();
@@ -1848,6 +1951,123 @@ mod tests {
         let error = engine.project_exact("a", "o://exact").unwrap_err();
         assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
         assert!(error.to_string().contains("outside"));
+    }
+
+    #[test]
+    fn exact_limit_admits_and_oversized_same_key_does_not_poison_mixed_batch() {
+        let directory = tmp("writer-frame-boundary");
+        let mut engine = MuxEngine::open(&directory, false).unwrap();
+        let exact = operation_with_payload_frame_size(MAX_STRICT_FRAME_BYTES, "o://same", 0, "");
+        let exact_head = {
+            let op_bytes = serde_json::to_vec(&exact).unwrap();
+            sha_hex(&[b"head|", b"", b"|", op_bytes.as_slice()])
+        };
+        let oversized = operation_with_payload_frame_size(
+            MAX_STRICT_FRAME_BYTES + 1,
+            "o://same",
+            1,
+            &exact_head,
+        );
+        let survivor = op("a", "o://same", 3);
+        let survivor_head = {
+            let op_bytes = serde_json::to_vec(&survivor).unwrap();
+            sha_hex(&[b"head|", exact_head.as_bytes(), b"|", op_bytes.as_slice()])
+        };
+
+        let results = engine
+            .admit_batch(vec![exact, oversized, survivor])
+            .unwrap();
+        assert_eq!(results[0].as_ref().unwrap().seq, 0);
+        assert!(matches!(
+            results[1],
+            Err(Refusal::FrameTooLarge {
+                ref object_ref,
+                encoded_bytes,
+                max_bytes: MAX_STRICT_FRAME_BYTES,
+            }) if object_ref == "o://same" && encoded_bytes == MAX_STRICT_FRAME_BYTES + 1
+        ));
+        assert_eq!(results[2].as_ref().unwrap().seq, 1);
+        assert_eq!(results[2].as_ref().unwrap().new_head, survivor_head);
+        assert_eq!(engine.domain_next_seq("a"), 2);
+        assert_eq!(engine.domain_head("a", "o://same"), Some(&survivor_head));
+        drop(engine);
+
+        let reopened = MuxEngine::open(&directory, false).unwrap();
+        assert_eq!(reopened.domain_next_seq("a"), 2);
+        assert_eq!(reopened.domain_head("a", "o://same"), Some(&survivor_head));
+        assert_eq!(reopened.recovery_outcome(), &MuxRecoveryOutcome::Clean);
+    }
+
+    #[test]
+    fn oversized_domain_root_refuses_its_domain_without_stopping_writer() {
+        let directory = tmp("writer-oversized-domain-root");
+        let next_seq = u64::MAX - 1;
+        let next_batch_seq = u64::MAX;
+        let prior_root = "a".repeat(64);
+        let root_edge = operation_with_domain_frame_size(MAX_STRICT_FRAME_BYTES, next_seq);
+        let root_body = serde_json::to_vec(&MuxLogFrame::DomainRoot {
+            domain: root_edge.domain.clone(),
+            rec: BatchRootRecord {
+                batch_seq: next_batch_seq,
+                from_seq: next_seq,
+                to_seq: next_seq,
+                prev_root: prior_root.clone(),
+                root: format!("sha256:{}", "a".repeat(64)),
+            },
+        })
+        .unwrap();
+        assert!(
+            root_body.len() > MAX_STRICT_FRAME_BYTES,
+            "root body {} did not exceed admitted limit {}",
+            root_body.len(),
+            MAX_STRICT_FRAME_BYTES
+        );
+
+        let mut engine = MuxEngine::open(&directory, false).unwrap();
+        engine.domains.insert(
+            root_edge.domain.clone(),
+            DomainState {
+                heads: BTreeMap::new(),
+                next_seq,
+                next_batch_seq,
+                root: prior_root,
+            },
+        );
+        let results = engine
+            .admit_batch(vec![root_edge, op("a", "o://same-batch", 2)])
+            .unwrap();
+        assert!(
+            matches!(
+                &results[0],
+                Err(Refusal::FrameTooLarge {
+                    object_ref,
+                    encoded_bytes,
+                    max_bytes: MAX_STRICT_FRAME_BYTES,
+                }) if object_ref == "o://root-edge" && *encoded_bytes == root_body.len()
+            ),
+            "unexpected root-edge refusal: {:?}; expected bytes={}",
+            results[0],
+            root_body.len()
+        );
+        assert_eq!(results[1].as_ref().unwrap().seq, 0);
+
+        let (handle, writer) = spawn_mux_writer(engine, 16);
+        let ack = handle.admit(op("a", "o://survives", 3)).unwrap();
+        assert_eq!(ack.seq, 1);
+        handle.shutdown().unwrap();
+        writer.join.join().unwrap().unwrap();
+
+        let reopened = MuxEngine::open(&directory, false).unwrap();
+        assert_eq!(reopened.domain_next_seq("a"), 2);
+        assert!(reopened
+            .project_exact("a", "o://same-batch")
+            .unwrap()
+            .is_some());
+        assert!(reopened
+            .project_exact("a", "o://survives")
+            .unwrap()
+            .is_some());
+        assert_eq!(reopened.recovery_outcome(), &MuxRecoveryOutcome::Clean);
     }
 
     fn assert_corruption_open_preserves_log(directory: &Path, expected_cause: MuxCorruptionCause) {
