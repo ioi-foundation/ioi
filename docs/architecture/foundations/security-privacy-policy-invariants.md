@@ -185,7 +185,9 @@ security-domain application.
 7. Sealed state archives are cold encrypted payloads; Agentgres owns archive
    refs and restore receipts, while authority providers and local/domain policy
    own restore authority. wallet.network is mandatory for portable delegated
-   authority, decryption leases, secrets, restore/apply, and high-risk restore.
+   authority and its owned decryption, secret, declassification, spend,
+   external-effect, or high-risk restore scopes; ordinary locally authorized
+   restore/apply is not wallet-dependent by definition.
 8. Hypervisor Node state-transition commitment records are Agentgres/domain truth. A root
    reaches an external settlement service only under the declared profile; IOI
    L1 is valid only for explicitly enrolled, selected services.

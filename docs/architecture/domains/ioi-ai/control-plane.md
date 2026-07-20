@@ -12,7 +12,7 @@ Implementation status: mixed (bounded GoalRun and the hosted Hypervisor
 OutcomeRoom object graph are partial; the ioi.ai Goal Space product,
 federated collaboration, and thin account/device/restore control plane remain
 planned)
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-19
 
 ## Canonical Definition
 
@@ -26,12 +26,14 @@ assigned here.
 
 It is not the heavy agent runtime, credential vault, marketplace database, or canonical state store for all user work.
 
-An `ioi.ai` account is not required to install or operate the compatible local
-Hypervisor, Agentgres, package, locally permitted authority, and bounded-System
-path. `ioi.ai` is an optional managed coordination and account plane over that
-path, not its activation key. Account linkage, subscription entitlement, and
-runtime discovery do not constitute daemon admission, machine authority,
-canonical truth, custody, writer ownership, or state transfer.
+The target contract does not require an `ioi.ai` account to install or operate
+the compatible local Hypervisor, Agentgres, package, locally permitted
+authority, and bounded-System path. `ioi.ai` is an optional managed
+coordination and account plane over that path, not its activation key. Account
+linkage, subscription entitlement, and runtime discovery do not constitute
+daemon admission, machine authority, canonical truth, custody, writer
+ownership, or state transfer. The current product has not yet passed that
+end-to-end standalone contract.
 
 ## Public Umbrella Boundary
 
@@ -636,7 +638,10 @@ selected Hypervisor Daemon runtime-node profile.
 5. An ioi.ai-mediated restore must require wallet.network authority verification
    and Agentgres restore receipts; a standalone restore uses the applicable
    locally permitted authority provider and the same authority-versus-
-   authentication and receipt boundaries.
+   authentication and receipt boundaries. Both paths bind the exact
+   `TemporalVerificationProfile` and recomputable
+   `TemporalValidityEvaluation`, plus an outside-rollback-domain floor or fresh
+   independent re-anchor whenever currentness depends on one.
 6. ioi.ai stores archive refs, private-state refs, and coordination metadata,
    not raw sealed-state bytes or private user/app plaintext by default.
 7. ioi.ai does not replace aiagent.xyz, sas.xyz, wallet.network, Agentgres, storage backends, or Hypervisor Daemon runtime nodes.

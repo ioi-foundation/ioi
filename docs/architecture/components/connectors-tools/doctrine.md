@@ -6,7 +6,7 @@ local-agent-pairing-to-gateway boundary; low-level tool contracts and connector
 mappings live in [`connector-and-tool-contracts.md`](./contracts.md).
 Supersedes: older flattened capability-registry wording when it conflicts with primitive capability and authority scope tiers.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: partial (the connector estate, capability leases, and MCP gateway are built; registered RuntimeToolContract information-flow schemas and projections are contract substrate only. Production IFC enforcement and propagation across connector, MCP, model, browser, OutcomeRoom, inbound webhook, and remaining computer-use paths remain planned, as do `LocalAgentPairingSessionEnvelope`, room-admitted local-agent gateway issuance, and the semantic-data chain)
 Implementation refs:
@@ -23,8 +23,11 @@ Tools are not arbitrary function calls. Every effectful tool must have a contrac
 Hypervisor clients and application surfaces may display connector readiness,
 auth posture, dry-run previews, approval requests, run state, and receipts.
 They must not hold connector secrets or call provider APIs directly. Connector
-execution flows through daemon tool calls, wallet.network authority, policy
-decisions, and receipts.
+execution flows through daemon tool calls, the applicable
+local/domain/protocol authority provider, policy decisions, and receipts.
+wallet.network remains mandatory when the operation uses portable delegated
+authority or its owned spend, secret/decryption, declassification, external
+effect, or other high-risk scope.
 
 ## Product Surface Doctrine
 
@@ -55,13 +58,14 @@ tool quality signals
 This surface is not Settings and not an authority bypass. It helps builders and
 operators understand what a tool can do, what it needs, why it is blocked, and
 what proof it must emit. Actual invocation still flows through Hypervisor Core,
-the daemon, wallet.network, Agentgres, and receipt/replay boundaries.
+the daemon, applicable authority, Agentgres, and receipt/replay boundaries.
 
 The Hypervisor Operator Plane may consume these same tool/MCP contracts to
 operate application surfaces and Hypervisor-level product state. Child sessions
 may request or propose those operations, but effectful host/platform actions
-must be admitted by the daemon and authorized through wallet.network. MCP is a
-surface contract, not a host mutation bypass.
+must be admitted by the daemon and authorized by the authority provider that
+owns the requested scope. MCP is a surface contract, not a host mutation
+bypass.
 
 ioi.ai connector/auth escalation is a handoff over this same registry. ioi.ai
 may detect a missing connector, expired grant, insufficient scope, or required
@@ -122,7 +126,7 @@ external agent or harness
   -> exposed MCP tool manifest
   -> RuntimeToolContract or surface MCP contract
   -> daemon admission
-  -> wallet.network authority or approval
+  -> applicable local/domain/protocol authority or approval
   -> Agentgres operation, projection, receipt, and replay
 ```
 
@@ -434,7 +438,7 @@ receipt obligation
 ```
 
 No MCP server or external tool bridge may become a shortcut around daemon
-admission, wallet.network authority, Agentgres projection, or receipt policy.
+admission, applicable authority, Agentgres projection, or receipt policy.
 
 No Hypervisor MCP Gateway profile may expose an unbounded "all tools" or "all
 surfaces" authority. Broad discovery can exist, but preview, proposal, and

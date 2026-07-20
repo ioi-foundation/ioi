@@ -454,15 +454,16 @@ synchronized.
   `Optimized` means Hypervisor creates visible routing/procurement/failover or
   billing-aggregation value and may charge only with challengeable placement or
   routing evidence;
-- standalone local completeness is a first-class deployment posture within its
-  declared capability, durability, custody, and assurance envelope. It can
-  bootstrap, create and govern a bounded System, run local or BYO work,
-  preserve Agentgres truth, and back up, restore, export, and verify evidence
-  without an `ioi.ai` account or another first-party managed dependency.
-  Connection grants no authority or custody, placement/custody migration
-  requires an explicit fenced `HypervisorChangePlan`, and disconnect preserves
-  the admitted local path while managed-dependent work becomes typed
-  unavailable or degraded;
+- standalone local completeness is a first-class target deployment posture
+  within its declared capability, durability, custody, and assurance envelope.
+  A conforming implementation must bootstrap, create and govern a bounded
+  System, run local or BYO work, preserve Agentgres truth, and back up, restore,
+  export, and verify evidence without an `ioi.ai` account or another
+  first-party managed dependency. Connection grants no authority or custody,
+  placement/custody migration requires an explicit fenced
+  `HypervisorChangePlan`, and disconnect preserves only work whose complete
+  dependency closure remains locally satisfied under current authority,
+  temporal evaluation, budget, partition, and writer-fence posture;
 - Hypervisor Core is the shared runtime/control substrate whose execution
   owner is the Hypervisor Daemon; it is not a peer runtime beside the daemon,
   not a replacement for wallet.network, and not a replacement for Agentgres;

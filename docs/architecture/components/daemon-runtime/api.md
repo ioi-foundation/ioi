@@ -6,7 +6,7 @@ streaming, run lifecycle, OutcomeRoom/GoalRun execution APIs, structured errors,
 and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-07-19.
 Doctrine status: reference
 Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate, while production propagation and enforcement remain planned; the shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and status route are target-only; generalized GoalRunProfile resolution, local-agent pairing, OutcomeRoom discussion/artifact resolution, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are also target-only; source of truth is the daemon route registry)
 Implementation refs:
@@ -221,8 +221,8 @@ projection:
 This projection powers Hypervisor session rails, session detail tabs, changes
 and authority inspectors, ports/services/tasks/terminal inspectors, access/log
 leases, and restore/archive refs. The client may inspect this state, but any
-state transition still requires a daemon operation, wallet.network authority
-where relevant, and Agentgres admission/receipt linkage.
+state transition still requires a daemon operation, the applicable
+local/domain/protocol authority, and Agentgres admission/receipt linkage.
 
 ```http
 GET /v1/hypervisor/project-state
@@ -323,8 +323,9 @@ The response is an `ioi.hypervisor.project_operation_proposal.v1` object:
   "project_id": "project-or-workspace-id",
   "workspace_ref": "workspace://...",
   "operation_kind": "restore",
-  "admission_state": "requires_wallet_lease",
-  "wallet_lease_ref": "lease:wallet/project/...",
+  "admission_state": "requires_authority_lease",
+  "authority_provider_ref": "authority-provider:deployment-local-or-portable",
+  "authority_lease_ref": "lease:authority/project/...",
   "required_scope_refs": ["scope:agentgres.restore", "scope:artifact.decrypt"],
   "agentgres_operation_ref": "agentgres://operation/project/...",
   "receipt_ref": "receipt://project/...",
@@ -336,9 +337,15 @@ The response is an `ioi.hypervisor.project_operation_proposal.v1` object:
 ```
 
 Project operation proposals are not execution admissions. Archive/restore
-execution still requires wallet.network approval, required scopes, Agentgres
-operation refs, receipts, state roots, and the approved-operation admission
-boundary.
+execution still requires the current approval and lease of the authority
+provider that owns the requested scopes, Agentgres operation refs, receipts,
+state roots, and the approved-operation admission boundary. wallet.network is
+mandatory when restore/apply requires portable delegated authority or its
+owned secret, decryption, declassification, spend, external-effect, or
+high-risk scope; an ordinary deployment-local restore is not wallet-dependent
+by definition. A v1 adapter may read historical `requires_wallet_lease` and
+`wallet_lease_ref` fields only when that wallet-owned posture actually applies;
+target canonical state emits the provider-neutral fields above.
 
 ```http
 GET /v1/hypervisor/agents
@@ -1490,7 +1497,10 @@ POST /v1/hypervisor/approved-operations
 
 `POST /v1/hypervisor/approved-operations` admits an already-proposed
 Hypervisor operation for execution only after the operation has passed the
-wallet.network authority path and the Agentgres truth path.
+applicable local/domain/protocol authority path and the Agentgres truth path.
+wallet.network is mandatory when the operation invokes portable delegated
+authority or one of its owned spend, secret/decryption, declassification,
+external-effect, or high-risk scopes.
 
 Request body:
 
@@ -1522,10 +1532,11 @@ Request body:
   "direct_provider_ref": "provider://...",
   "operation_kind": "restore_session | zero_to_idle | activate_occurrence | ...",
   "target_ref": "agentgres://restore/...",
-  "wallet_approval_ref": "approval://wallet/...",
-  "wallet_lease_ref": "lease:wallet/...",
+  "authority_provider_ref": "authority-provider:...",
+  "authority_approval_ref": "approval://authority/...",
+  "authority_lease_ref": "lease:authority/...",
   "required_scope_refs": ["scope:..."],
-  "authority_receipt_refs": ["receipt://wallet/..."],
+  "authority_receipt_refs": ["receipt://authority/..."],
   "agentgres_operation_ref": "agentgres://operation/...",
   "receipt_ref": "receipt://...",
   "state_root_ref": "agentgres://state-root/...",
@@ -1534,12 +1545,12 @@ Request body:
 }
 ```
 
-The response is an `ioi.runtime.hypervisor_approved_operation_admission.v1`
-object:
+The target response is an
+`ioi.runtime.hypervisor_approved_operation_admission.v2` object:
 
 ```json
 {
-  "schema_version": "ioi.runtime.hypervisor_approved_operation_admission.v1",
+  "schema_version": "ioi.runtime.hypervisor_approved_operation_admission.v2",
   "admission_id": "hypervisor-approved-operation:...",
   "operation_family": "session",
   "proposal_ref": "session-operation:...",
@@ -1562,8 +1573,9 @@ object:
     "executor_kind": "session_lifecycle_adapter",
     "dispatch_status": "awaiting_executor"
   },
-  "wallet_approval_ref": "approval://wallet/...",
-  "wallet_lease_ref": "lease:wallet/...",
+  "authority_provider_ref": "authority-provider:...",
+  "authority_approval_ref": "approval://authority/...",
+  "authority_lease_ref": "lease:authority/...",
   "required_scope_refs": ["scope:..."],
   "agentgres_operation_refs": ["agentgres://operation/..."],
   "receipt_refs": ["receipt://..."],
@@ -1573,6 +1585,15 @@ object:
   "runtimeTruthSource": "daemon-runtime"
 }
 ```
+
+The live Rust v1 handler still requires `wallet_approval_ref` and
+`wallet_lease_ref` for every admitted operation and emits
+`ioi.runtime.hypervisor_approved_operation_admission.v1`. That is a partial
+wallet-specific precursor, not proof of the provider-neutral target. A v1
+boundary adapter may map those fields into the target authority fields only
+when wallet.network actually owns the requested scopes; ordinary local/domain
+authority requires the v2 successor path and must remain typed unavailable
+until it exists.
 
 For `operation_family: automation`, `proposal_revision_ref` and
 `proposal_resolution_receipt_ref` are null. The exact
@@ -1602,10 +1623,10 @@ binding, stale proposal hash, or changed policy fails closed before the
 
 Approved operation admission rejects fixture or unverified proposal sources.
 The endpoint is not a provider adapter and not a wallet approval UI. It is the
-daemon admission boundary that proves the selected proposal, wallet approval,
-wallet lease, Agentgres operation refs, receipts, archive/restore refs, and
-state root are bound before Hypervisor executes the session or provider
-lifecycle operation.
+daemon admission boundary that proves the selected proposal, applicable
+authority approval and lease, Agentgres operation refs, receipts,
+archive/restore refs, and state root are bound before Hypervisor executes the
+session or provider lifecycle operation.
 
 The approved-operation boundary consumes the proposal's already frozen typed
 composition. It never restates an unversioned template, graph, launch action,
@@ -2265,7 +2286,8 @@ not scrape Hypervisor product UI.
 
 Environment lifecycle responses should expose `HypervisorEnvironmentClass`,
 `HypervisorEnvironmentOpsProfile`, `HypervisorDevelopmentEnvironmentRecipe`,
-`HypervisorEnvironmentRecipeResolution`,
+`HypervisorDevelopmentEnvironmentRecipeResolution`,
+`HypervisorEnvironmentStartupPlan`,
 `HypervisorEnvironmentLifecycleState`, activity signal refs, lifecycle
 observation refs, snapshot refs, backup refs, archive refs, restore refs,
 state-root refs, and receipt refs when present.
@@ -2274,7 +2296,8 @@ Provider lifecycle state may be evidence, but it is not Agentgres truth.
 Canonical session/environment API objects include
 `HypervisorEnvironmentClass`, `HypervisorEnvironmentOpsProfile`,
 `HypervisorDevelopmentEnvironmentRecipe`,
-`HypervisorEnvironmentRecipeResolution`,
+`HypervisorDevelopmentEnvironmentRecipeResolution`,
+`HypervisorEnvironmentStartupPlan`,
 `HypervisorEnvironmentLifecycleState`,
 `HypervisorEnvironmentLifecycleObservation`,
 `HypervisorEnvironmentActivitySignal`, `HypervisorEnvironmentStopPolicy`,
@@ -2292,8 +2315,10 @@ Developer Workspace and other development-oriented sessions: substrate, image or
 devcontainer refs, checkout/workspace locations, init tasks, services, ports,
 editor adapters, environment variable refs, secret requirements, SCM auth,
 cache/warmup policy, model/harness defaults, privacy posture, and authority
-templates. Recipe resolution is daemon-admitted before a session can treat the
-recipe as launch posture.
+templates. Recipe resolution must be `resolved` before the daemon can admit the
+exact `HypervisorEnvironmentStartupPlan` as the session's lifecycle
+predecessor; neither the reusable recipe nor its resolution alone is launch
+authority or runtime readiness.
 
 Snapshot, backup, archive, and restore operations must not silently mutate
 local or provider files as canonical state. Snapshot and backup payloads are
@@ -2771,12 +2796,15 @@ GET  /v1/trace-bundles/{run_id}
 
 The daemon-local deployment-governance plane. It identifies **who** is operating
 this deployment and scopes org-surface access; it does NOT authorize
-consequential crossings — those still require wallet.network authority. Identity
-and roles are never machine authority. Passwords and inbound tokens are
-hashed/sealed at rest (surfaced at most once); secret values are sealed and never
-returned by a read; metering consumption is derived from recorded receipts.
-Enforcement is fail-safe: `auto` mode authenticates when the deployment is
-exposed (loopback stays open), with a one-time lockout bootstrap. Canon:
+consequential crossings — those still require the authority provider that owns
+the requested scope. wallet.network owns portable delegation and its designated
+high-risk scopes; deployment-local or domain authority may own ordinary local
+effects. Identity and roles are never machine authority. Passwords and inbound
+tokens are hashed/sealed at rest (surfaced at most once); secret values are
+sealed and never returned by a read; metering consumption is derived from
+recorded receipts. Enforcement is fail-safe: `auto` mode authenticates when the
+deployment is exposed (loopback stays open), with a one-time lockout bootstrap.
+Canon:
 [`../hypervisor/identity-access-and-metering.md`](../hypervisor/identity-access-and-metering.md).
 
 Identity, sessions, and gated enforcement:

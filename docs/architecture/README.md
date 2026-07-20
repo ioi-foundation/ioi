@@ -4,10 +4,10 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: mixed (navigation index over built, partial, planned, and speculative subjects)
-Last implementation audit: 2026-07-11
+Last implementation audit: 2026-07-19
 
 ## Purpose
 
@@ -235,15 +235,17 @@ HTTP/RPC, and chain/escrow bindings reuse external standards for remote tasks,
 tools/context, discovery, and settlement without treating their completion or
 registry state as IOI verification or authority.
 
-### The standalone core is independently operable
+### The standalone core must be independently operable
 
-Within its declared standalone capability, durability, custody, and assurance
-envelope, a compatible local or customer-controlled IOI deployment can
-bootstrap, create and govern a bounded System, execute local or BYO work,
-preserve and replay Agentgres truth, and back up, restore, export, and verify
-evidence without an `ioi.ai` account or another first-party managed
-dependency. Unavailable connected capabilities remain typed unavailable
-rather than becoming hidden prerequisites or simulated local parity.
+The target contract requires a compatible local or customer-controlled IOI
+deployment, within its declared standalone capability, durability, custody,
+and assurance envelope, to bootstrap, create and govern a bounded System,
+execute local or BYO work, preserve and replay Agentgres truth, and back up,
+restore, export, and verify evidence without an `ioi.ai` account or another
+first-party managed dependency. Unavailable connected capabilities remain
+typed unavailable rather than becoming hidden prerequisites or simulated
+local parity. The conformance contract is defined; no current end-to-end
+standalone product pass is claimed.
 
 Managed attachment may extend placement, collaboration, backup, support, model
 supply, routing, and assurance, but it never silently uploads, owns, meters,

@@ -7,7 +7,7 @@ Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: mixed (category definition; stack layers span built to speculative)
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-19
 
 ## Canonical Definition
 
@@ -309,8 +309,9 @@ A canonical Web4 application should have:
     inherited bounds, learning eligibility, target-owner promotion, and typed
     effect recovery. Improvement evidence never self-promotes.
 11. **Standalone local completeness, zero-to-idle, and managed optionality** —
-    within its declared standalone capability, durability, custody, and
-    assurance envelope, a compatible IOI deployment can bootstrap
+    the target contract requires a compatible IOI deployment, within its
+    declared standalone capability, durability, custody, and assurance
+    envelope, to bootstrap
     deployment-local identity and locally permitted authority, create and
     govern a bounded System, execute local or BYO work, preserve and replay
     Agentgres truth, and back up, restore, export, and verify evidence without
@@ -322,7 +323,8 @@ A canonical Web4 application should have:
     capabilities instead of completing a crippled core. Clients and runtimes
     continue serving from local, static, or projection state where possible,
     waking authority and active runtime only when the requested operation
-    requires them.
+    requires them. This is a conformance requirement, not a claim that the
+    current product has passed the end-to-end profile.
 12. **Marketplace neutrality** — default runtime/harness infrastructure does not silently absorb third-party intelligence.
 13. **Worker routing over model centrality** — MoW selects accountable workers,
     not merely model providers.

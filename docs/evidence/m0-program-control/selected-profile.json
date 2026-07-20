@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-18",
-  "build_fingerprint": "ffc244adbda8dc5a4540c6164c3d0a924bd7f98be1f941531343d5cb5a1b85d8",
+  "build_fingerprint": "95da3de7aa3c1499e107f5177b82e4a94643f176f3c1a5aac6f1d620e6bfca6d",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -19,7 +19,7 @@
       "one isolated sandbox repository and branch",
       "deployment-local identity and a low-risk local product session with locally permitted authority, plus an optional provider-neutral connected overlay with passkey-capable portable authority",
       "exact authority, revocation, IFC, budget, fence, idempotency, recovery, and receipt checks",
-      "Agentgres operations, heads, roots, receipts, replay, evidence admission, and export",
+      "Agentgres operations, heads, roots, receipts, restart, replay, backup, restore, evidence admission, export, and offline verification",
       "private evaluation and model routes with measured internal cost only",
       "proposal-mediated improvement with target-owner activation, rollback or recall, suspension, and retirement"
     ],
@@ -29,6 +29,7 @@
       "no public marketplace, payment, payout, settlement, IOI Network, IOI L1, or native asset",
       "no physical actuation, cTEE claim, public certification, or generalized recursive improvement",
       "no autonomous production access, universal correctness, universal factual truth, or hidden provider non-learning",
+      "minimum L0 proves only the sovereign-local lane; managed optionality remains unclaimed until its ordered connected overlay passes",
       "no architecture or production capability closes merely because M0 program control verifies"
     ],
     "object_owners": [
@@ -89,6 +90,43 @@
       }
     ],
     "profile_id": "selected-minimum-l0-outcome-room-bounded-software-change",
+    "proof_lane_baseline_extension": {
+      "baseline_extension_id": "BASE-M0-SOVEREIGN-LOCAL-MANAGED-OPTIONALITY",
+      "blocker_refs": [
+        "BLK-M0-BASELINE-PRODUCT",
+        "BLK-M0-BASELINE-RELIABILITY",
+        "BLK-M0-BASELINE-COST",
+        "BLK-M0-BASELINE-COMPREHENSION"
+      ],
+      "cohort": "Fresh standalone deployments complete the sovereign-local lane with every IOI-managed endpoint denied; the same Systems enter the connected lane only for managed-optionality claims.",
+      "frozen_as_of": "2026-07-19",
+      "measurements": {
+        "comprehension": {
+          "correct_connect_use_transfer_distinction_rate_min": 0.9,
+          "correct_local_identity_vs_machine_authority_interpretation_rate_min": 0.9,
+          "correct_managed_dependency_unavailable_interpretation_rate_min": 0.9
+        },
+        "cost": {
+          "implicit_or_unnamed_managed_charge_count_max": 0,
+          "managed_charge_without_quote_and_use_receipts_count_max": 0
+        },
+        "product": {
+          "managed_attach_named_use_inspect_detach_completion_rate_min_when_claimed": 0.9,
+          "network_blocked_terminal_journey_completion_rate_min": 0.9,
+          "offline_export_and_independent_verification_rate_min": 0.9,
+          "post_detach_local_continuation_rate_min_when_claimed": 0.9
+        },
+        "reliability": {
+          "authentic_stale_restore_authority_reactivation_count_max": 0,
+          "backup_clean_restore_checkpoint_equivalence_rate_min": 1,
+          "post_detach_hidden_managed_dependency_count_max_when_claimed": 0,
+          "restart_replay_duplicate_effect_count_max": 0
+        }
+      },
+      "rule": "Additive proof-lane target overlay only; it does not rewrite the frozen 2026-07-18 M0 baselines.",
+      "status": "not_measured"
+    },
+    "proof_lane_validation_posture": "reviewed and fingerprinted evidence metadata only; the current M0 validator enforces the top-level 13-step journey but does not structurally validate proof_lanes, lane_bindings, or the deployment-local identity owner source, so the named local and connected authority blockers remain open",
     "proof_lanes": [
       {
         "authority_posture": "deployment-local authentication remains distinct from locally permitted exact-effect authority; no portable delegated-authority claim",
@@ -96,21 +134,38 @@
         "endpoint_posture": "all IOI-managed endpoints denied; loopback and declared local IPC allowed",
         "lane_id": "sovereign_local_completeness",
         "order": 1,
+        "required_evidence": [
+          "network-blocked terminal product journey",
+          "restart and replay",
+          "backup and clean restore",
+          "offline evidence export and independent verification"
+        ],
         "starting_state": "fresh standalone deployment"
       },
       {
         "authority_posture": "provider-neutral account authentication plus passkey-capable context-bound portable authority when connected policy requires it",
         "claim_requirement": "required only for managed-optionality claims and claims that depend on managed attachment",
-        "connection_posture": "explicitly attach one named managed service, prove no implicit transfer or billing, then revoke or detach it",
+        "connection_posture": "explicitly attach one named managed service, execute one admitted operation, prove no implicit transfer or unnamed-use billing, then revoke or detach it",
         "lane_id": "managed_optionality_overlay",
         "order": 2,
+        "prerequisite_lane_id": "sovereign_local_completeness",
+        "required_evidence": [
+          "explicit attachment receipt",
+          "connected identity and context-bound portable authority when required",
+          "one explicitly leased and receipted named managed-service use",
+          "exact binding, data-view, lease, RuntimeAssignment, custody, usage, charge, and receipt inspection",
+          "zero implicit transfer or charge without named service use",
+          "detach or revocation receipt",
+          "post-detach continuation for locally satisfied dependencies"
+        ],
         "starting_state": "the same independently operable System after a passing sovereign-local lane"
       }
     ],
     "rollback_stop_rules": [
       "Stop on any hidden database edit, privileged one-off script, copied bearer authority, prompt-only transition, fabricated success, or manually reconstructed evidence chain.",
       "An unavailable owner step remains a typed blocker; compatibility output never substitutes for it.",
-      "Revoke or fence authority before recovery, preserve ambiguous effects, and require explicit reconciliation before retry."
+      "Revoke or fence authority before recovery, preserve ambiguous effects, and require explicit reconciliation before retry.",
+      "Stop on any silent truth, authority, custody, writer, execution, or billing transfer, or when detachment breaks work whose complete dependency closure remains locally satisfied."
     ],
     "source": "docs/architecture/_meta/execution-horizons.md#selected-minimum-l0-proof-profile",
     "topology": {
@@ -121,14 +176,29 @@
     },
     "visible_terminal_journey": [
       {
-        "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+        "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+        "lane_bindings": [
+          {
+            "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+            "lane_id": "sovereign_local_completeness",
+            "route_identities": [
+              "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
+              "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami"
+            ]
+          },
+          {
+            "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+            "lane_id": "managed_optionality_overlay",
+            "route_identities": []
+          }
+        ],
         "route_identities": [
           "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
           "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami"
         ],
         "state": "unavailable",
         "step": 1,
-        "visible_action": "Authenticate through deployment-local identity in the sovereign-local lane; repeat through an eligible provider-neutral identity or passkey only for the connected overlay."
+        "visible_action": "Authenticate through deployment-local identity with every IOI-managed endpoint denied; in the ordered managed overlay, begin from the same independently operable System, link an eligible provider-neutral account, and explicitly enable one named managed service."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -195,14 +265,30 @@
         "visible_action": "Review the exact proposed repository effect."
       },
       {
-        "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+        "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+        "lane_bindings": [
+          {
+            "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+            "lane_id": "sovereign_local_completeness",
+            "route_identities": [
+              "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight"
+            ]
+          },
+          {
+            "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+            "lane_id": "managed_optionality_overlay",
+            "route_identities": [
+              "service:wallet.network:issue_session_grant@v1",
+              "service:wallet.network:issue_principal_authority_binding@v1"
+            ]
+          }
+        ],
         "route_identities": [
-          "service:wallet.network:issue_session_grant@v1",
-          "service:wallet.network:issue_principal_authority_binding@v1"
+          "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight"
         ],
         "state": "unavailable",
         "step": 9,
-        "visible_action": "Approve through locally permitted authority in the sovereign-local lane; unlock a scoped portable grant with a passkey only when connected policy requires it."
+        "visible_action": "Satisfy the lane's exact scoped authority ceremony: locally permitted nonportable authority in the sovereign-local lane, and context-bound portable authority with passkey step-up only when connected policy requires it."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-REPO-EFFECT",
@@ -222,23 +308,39 @@
         ],
         "state": "unavailable",
         "step": 11,
-        "visible_action": "Inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility."
+        "visible_action": "Inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility; in the managed overlay also inspect the named service's exact bindings, data views, leases, RuntimeAssignment, custody, usage, charges, and receipts."
       },
       {
-        "blocker_ref": "BLK-M0-SELECTED-INSPECTION-CHAIN",
+        "blocker_ref": "BLK-M0-SELECTED-BACKUP-RESTORE",
         "route_identities": [
-          "http:hypervisor-daemon:GET /v1/runs/:id/replay"
+          "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+          "http:hypervisor-daemon:POST /v1/hypervisor/backups",
+          "http:hypervisor-daemon:POST /v1/hypervisor/snapshots/:id/restore",
+          "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview",
+          "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-apply"
         ],
         "state": "unavailable",
         "step": 12,
-        "visible_action": "Replay the decision and effect from exported evidence."
+        "visible_action": "Restart and replay the decision and effect; back up, restore, export, and independently verify the evidence offline."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
+        "lane_bindings": [
+          {
+            "blocker_ref": "BLK-M0-SELECTED-MANAGED-ATTACH-USE",
+            "lane_id": "managed_optionality_overlay",
+            "route_identities": []
+          },
+          {
+            "blocker_ref": "BLK-M0-SELECTED-MANAGED-DETACH",
+            "lane_id": "managed_optionality_overlay",
+            "route_identities": []
+          }
+        ],
         "route_identities": [],
         "state": "unavailable",
         "step": 13,
-        "visible_action": "Propose an upgrade, exercise rollback or recall, and retire the System."
+        "visible_action": "In the managed overlay, revoke or disconnect the named service and prove locally satisfiable continuation; in both lanes, propose an upgrade, exercise rollback or recall, and retire the System."
       }
     ]
   },
@@ -356,6 +458,20 @@
       "selected_profile_applicability": "required_journey"
     },
     {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-BACKUP-RESTORE",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "17181766c9b8c8c980f5fb737dedff754ac173260dcc1cfa07292fa7cb8f2358",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+        "symbol": "spawn_mux_writer_cfg"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/backups",
+      "implementation_state": "partial",
+      "selected_profile_applicability": "adjacent_not_sufficient"
+    },
+    {
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
       "final_invoker": {
         "claim_state": "candidate_or_handler_boundary_not_final",
@@ -426,6 +542,20 @@
       "selected_profile_applicability": "required_journey"
     },
     {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-BACKUP-RESTORE",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "17181766c9b8c8c980f5fb737dedff754ac173260dcc1cfa07292fa7cb8f2358",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/environment_routes.rs",
+        "symbol": "std::fs::write"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/snapshots/:id/restore",
+      "implementation_state": "partial",
+      "selected_profile_applicability": "adjacent_not_sufficient"
+    },
+    {
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
       "final_invoker": {
         "claim_state": "candidate_or_handler_boundary_not_final",
@@ -466,6 +596,27 @@
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/work-results",
       "implementation_state": "unavailable",
       "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-BACKUP-RESTORE",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+        "symbol": "std::fs::OpenOptions::open[write]"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-apply",
+      "implementation_state": "partial",
+      "selected_profile_applicability": "adjacent_not_sufficient"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-BACKUP-RESTORE",
+      "final_invoker": null,
+      "identity": "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview",
+      "implementation_state": "not_applicable",
+      "selected_profile_applicability": "adjacent_not_sufficient"
     },
     {
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-REPO-EFFECT",
@@ -582,14 +733,15 @@
   ],
   "selected_entry_counts": {
     "by_applicability": {
-      "adjacent_not_sufficient": 5,
+      "adjacent_not_sufficient": 9,
       "required_effect": 1,
       "required_journey": 19
     },
     "by_state": {
-      "partial": 5,
+      "not_applicable": 1,
+      "partial": 8,
       "unavailable": 20
     },
-    "total": 25
+    "total": 29
   }
 }

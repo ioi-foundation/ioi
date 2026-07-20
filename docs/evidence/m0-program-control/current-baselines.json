@@ -6,14 +6,14 @@
       "baseline_id": "BASE-M0-PRODUCT",
       "blocker_ref": "BLK-M0-BASELINE-PRODUCT",
       "category": "product",
-      "cohort": "At least five first-time internal operators using only supported selected-profile product surfaces, beginning in the sovereign-local lane.",
+      "cohort": "At least five first-time internal operators using only supported selected-profile product surfaces.",
       "frozen_as_of": "2026-07-18",
       "frozen_threshold": {
         "median_time_to_first_valid_preview_minutes_max": 10,
         "median_time_to_genesis_minutes_max": 20,
         "unaided_terminal_completion_rate_min": 0.8
       },
-      "method": "Timestamp first successful deployment-local authentication, first valid preview, genesis approval, effect review, terminal inspection, and replay; repeat with eligible connected sign-in only when the managed-optionality overlay is claimed, and retain typed blockers.",
+      "method": "Timestamp first eligible sign-in, first valid preview, genesis approval, effect review, terminal inspection, and replay; retain typed blockers.",
       "observed_as_of": null,
       "observed_value": null,
       "status": "not_measured"
@@ -71,7 +71,7 @@
       "status": "not_measured"
     }
   ],
-  "build_fingerprint": "ffc244adbda8dc5a4540c6164c3d0a924bd7f98be1f941531343d5cb5a1b85d8",
+  "build_fingerprint": "95da3de7aa3c1499e107f5177b82e4a94643f176f3c1a5aac6f1d620e6bfca6d",
   "counts": {
     "not_measured": 4
   },

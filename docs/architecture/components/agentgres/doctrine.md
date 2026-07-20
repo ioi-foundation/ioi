@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for high-level Agentgres doctrine; low-level runtime objects live in [`agentgres-api-and-object-model.md`](./api-object-model.md), and Postgres bridge/readiness guarantees live in [`postgres-bridge-and-readiness-contract.md`](./postgres-bridge-and-readiness-contract.md).
 Supersedes: overlapping plan prose when Agentgres state ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: partial (the runtime state store and multiple daemon object planes are live; thread forks, run replay, counterfactual what-if replay, and workspace snapshot/restore custody are implementation precedents. `ReceiptCheckpoint`/`ReceiptProofBundle` schemas, fixtures, invariants, and generated projections are present, while portable verifiers and Agentgres checkpoint admission/emission/export remain planned. Hosted OutcomeRoom participation, frontier/claim, offer/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge planes are merged. Per-System writer-transition/fencing control, room discovery, portable exit, federation, acceptance/verdict/settlement, branch/staged-effect object families, and the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine remain planned.)
 Implementation refs:
@@ -496,14 +496,14 @@ Agentgres does not own:
 - a mutable candidate archive, Campaign status, remaining-budget counter, or
   claim-support graph outside rebuildable projections over admitted operations.
 
-Authority providers and domain governance own permission decisions. wallet.network
-is the portable delegated authority provider for secrets, provider credentials,
-external effects, spend, decryption, declassification, restore/apply,
-high-risk approvals, and other portable or consequential authority. Hypervisor
-and domain/application governance may own local policy decisions that do not
-cross those boundaries. Agentgres records authority refs, policy decisions, and
-governance owner refs, and enforces them at admission time, but it is not the
-authority provider.
+Authority providers and domain governance own permission decisions.
+wallet.network is the portable delegated authority provider for its owned
+secrets, provider credentials, external effects, spend, decryption,
+declassification, portable/cross-domain/high-risk restore/apply, and high-risk
+approval scopes. Hypervisor and domain/application governance may own local
+policy decisions that do not cross those boundaries. Agentgres records
+authority refs, policy decisions, and governance owner refs, and enforces them
+at admission time, but it is not the authority provider.
 
 Hypervisor Daemon runtime nodes own execution. Hypervisor clients and
 application surfaces own UX/projections. AIIP owns autonomous-work interop
@@ -1228,8 +1228,9 @@ storage backends hold bytes
 authority providers and local/domain policy authorize read, write, decrypt,
 export, forget, and restore, with wallet.network mandatory when the operation
 requires portable delegated authority, secrets, decryption leases,
-declassification, external effects, spend, restore/apply, or other
-consequential authority
+declassification, external effects, spend, or another wallet-owned high-risk
+scope; ordinary locally authorized restore/apply does not require wallet.network
+by definition
 ```
 
 ## Related Canon

@@ -157,11 +157,13 @@ The gate runs in two ordered profiles:
    only its actual durability and failure domain.
 2. **Managed optionality.** Beginning from that independently operable System,
    the operator links an account, explicitly enables one managed service,
-   inspects its exact bindings, data views, leases, custody, charges, and
-   receipts, then revokes or disconnects it. The gate fails if connection
-   silently moves truth or custody, grants authority, changes package or System
-   identity, creates a writer, or starts billing; it also fails if detachment
-   prevents work whose complete dependency closure remains locally satisfied.
+   executes one named managed operation through its exact data view, lease,
+   RuntimeAssignment, authority, and quote or rate contract, inspects the
+   binding, custody, usage, charge, and receipt chain, then revokes or
+   disconnects it. The gate fails if connection silently moves truth or
+   custody, grants authority, changes package or System identity, creates a
+   writer, or starts billing; it also fails if detachment prevents work whose
+   complete dependency closure remains locally satisfied.
 
 The minimum-L0 claim requires the first profile. A production self-hosted
 organization claim additionally requires a headless single-node fixture. A

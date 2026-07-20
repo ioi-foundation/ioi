@@ -14,7 +14,7 @@ Implementation status: partial (env lifecycle, providers, readiness, warm pools,
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs`
   - `crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs`
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-19
 
 ## Canonical Definition
 
@@ -34,7 +34,9 @@ Environments are managed resources behind sessions.
 Providers are cross-session resources.
 Hypervisor coordinates environment and provider posture.
 Hypervisor Daemon executes lifecycle operations.
-wallet.network authorizes spend, access, secrets, SCM auth, and declassification.
+The applicable local/domain or protocol authority provider authorizes
+environment effects. wallet.network owns portable delegation and its designated
+spend, secret, SCM-auth, access, declassification, and high-risk scopes.
 Agentgres records admitted truth, receipts, state roots, archive refs, and
 restore validity.
 Storage backends hold payload bytes.
@@ -130,7 +132,7 @@ environment operations.
 Environments views do not own:
 
 ```text
-wallet.network authority
+local/domain/protocol authority, including wallet.network-owned portable authority
 secrets or durable credentials
 Agentgres operation admission
 restore validity
@@ -219,13 +221,13 @@ embedded single-user / workstation
 The same environment recipes, daemon lifecycle operations, readiness gates,
 Agentgres truth contracts, authority requirements, receipt semantics, and
 portable package/System identities apply across those postures. Local and
-self-hosted deployments are production-eligible within their declared
-durability, availability, isolation, custody, and recovery envelopes; they are
-not intrinsically demo or development modes. Stable package hashes and
-`system_id` values may survive an admitted transition, but deployment-local
-sessions, principals, keys, grants, writer epochs, provider bindings, and
-custody or assurance claims are re-resolved or explicitly migrated rather than
-assumed equivalent.
+self-hosted deployments are eligible for production claims only after their
+profile-specific durability, availability, isolation, custody, recovery, and
+sovereign-local conformance gates pass; they are not intrinsically demo or
+development modes. Stable package hashes and `system_id` values may survive an
+admitted transition, but deployment-local sessions, principals, keys, grants,
+writer epochs, provider bindings, and custody or assurance claims are
+re-resolved or explicitly migrated rather than assumed equivalent.
 
 Three operations remain distinct:
 
@@ -240,8 +242,8 @@ operate
 
 migrate
   execute an owner-authorized HypervisorChangePlan that verifies copied state,
-  quiesces and fences the source, cuts over one admitted writer, preserves a
-  rollback window, and records the source disposition
+  applies the selected ordering/finality transition and resource fences,
+  preserves a rollback window, and records the source disposition
 ```
 
 Connecting `ioi.ai`, a provider, or another managed plane grants no effect
@@ -258,17 +260,21 @@ A placement or custody transition follows:
 ```text
 copy or checkpoint
   -> verify target import and readiness
-  -> quiesce and fence the source
-  -> admit the cutover and new writer epoch
+  -> quiesce and fence the source as the selected profile requires
+  -> admit a successor writer epoch or native membership/quorum/finality transition
   -> observe the rollback window
   -> admit explicit source retention, replica, archive, or teardown disposition
 ```
 
 Copying bytes never transfers truth. Replication and retained backups remain
-valid when admitted; the invariant is one current admitted writer and explicit
-custody/fencing, not one physical copy. If cutover cannot complete, the source
-retains authority or the transition enters typed blocked/reconciliation state;
-it never produces two active writers.
+valid when admitted. For a `single_authority` or otherwise single-writer
+profile, the invariant is one current admitted writer with an exact successor
+epoch and explicit custody/fencing, not one physical copy. Threshold, BFT,
+external-finality, and other multi-writer-capable profiles instead require
+their native membership, quorum, ordering, finality, and recovery transition
+proofs. If cutover cannot complete, the source retains the selected profile's
+mutation authority or the transition enters typed blocked/reconciliation
+state; it never creates conflicting admitted mutation authority.
 
 Disconnecting or revoking a managed binding expires its managed leases and
 re-evaluates the exact dependency closure. Locally satisfied work may continue
@@ -419,7 +425,7 @@ the intended WorkRun:
 HypervisorEnvironmentReadinessGate
   gate_ref
   environment_ref
-  recipe_resolution_ref
+  development_environment_recipe_resolution_ref
   required_task_refs
   required_service_refs
   required_port_refs
@@ -531,8 +537,10 @@ Ownership boundary:
 ```text
 Hypervisor displays and coordinates posture.
 Hypervisor Daemon executes lifecycle operations.
-wallet.network authorizes spend, secrets, SCM auth, access, support, and
-declassification.
+The applicable local/domain or protocol authority provider authorizes
+environment effects. wallet.network owns portable delegation and its designated
+spend, secret, SCM-auth, access, support, declassification, and high-risk
+scopes.
 Agentgres records lifecycle receipts, archive refs, restore refs, state roots,
 activity signals, lifecycle observations, and provider evidence.
 Storage backends hold encrypted payload/archive bytes.
@@ -545,7 +553,8 @@ The environment lifecycle projects through a structured status object with
 component sub-phases, so sessions render real provisioning instead of a flat step
 list or a timed animation. The object follows established remote-development
 environment status conventions and is fully IOI-native: the truth is Agentgres,
-the authority is wallet.network, and the state bytes are encrypted-blob storage.
+the authority comes from the applicable local/domain or protocol provider, and
+the state bytes are encrypted-blob storage.
 Provider/container/PTY/file-watcher output remains evidence, not truth.
 
 ```text
@@ -558,7 +567,7 @@ HypervisorEnvironmentStatus
   phase: creating | starting | running | updating | recovering | stopping |
          stopped | archived | failed
   components:
-    recipe            { phase, development_environment_recipe_ref, resolution_ref, evidence_ref }
+    recipe            { phase, development_environment_recipe_ref, development_environment_recipe_resolution_ref, evidence_ref }
     provisioner       { phase, evidence_ref, detail }            # node/VM/host lane
     workspace_content { phase, initializer_ref, custody_posture, evidence_ref }
     sandbox           { phase, container_ref, evidence_ref }     # devcontainer/microVM/host lane
@@ -703,34 +712,47 @@ HypervisorDevelopmentEnvironmentRecipe
   receipt_policy_ref
 ```
 
-`HypervisorDevelopmentEnvironmentRecipeResolution` is the daemon-admitted result of
-turning a recipe into a concrete session/environment plan:
+`HypervisorDevelopmentEnvironmentRecipeResolution` is the daemon-produced,
+Agentgres-recorded decision that turns a recipe into concrete
+session/environment ingredients. A `resolved` decision may feed a startup
+plan; a `blocked` decision may not.
 
 ```text
-development_environment_recipe_ref
-development_environment_recipe_content_hash
-session_ref / environment_ref
-provider_candidate_ref
-resolved_image_ref / resolved_substrate
-resolved_initializer_ref
-resolved_ports
-resolved_tasks
-resolved_services
-resolved_agent_services
-resolved_connectivity_profile_ref
-resolved_resource_isolation_profile_ref
-readiness_gate_ref
-resolved_editor_adapters
-required_wallet_scope_refs
-required_secret_refs
-required_scm_auth_refs
-storage_refs
-cache_refs
-state_root_ref
-receipt_refs
-blocked_reason?
-runtimeTruthSource: daemon-runtime
+HypervisorDevelopmentEnvironmentRecipeResolution
+  schema_version
+  development_environment_recipe_resolution_ref:
+    development-environment-recipe-resolution://.../revision/...
+  resolution_hash
+  disposition: resolved | blocked
+  development_environment_recipe_ref
+  development_environment_recipe_content_hash
+  session_ref / environment_ref
+  provider_candidate_ref
+  resolved_image_ref / resolved_substrate
+  resolved_initializer_ref
+  resolved_ports
+  resolved_tasks
+  resolved_services
+  resolved_agent_services
+  resolved_connectivity_profile_ref
+  resolved_resource_isolation_profile_ref
+  readiness_gate_ref
+  resolved_editor_adapters
+  required_authority_scope_refs
+  required_secret_refs
+  required_scm_auth_refs
+  storage_refs
+  cache_refs
+  state_root_ref
+  receipt_refs
+  blocked_reason?  # iff disposition = blocked
+  runtimeTruthSource: daemon-runtime
 ```
+
+`resolution_hash` covers the canonical resolution payload through `cache_refs`
+while excluding `resolution_hash` itself and the later Agentgres root,
+receipts, and blocked projection. Those records bind the resolution ref and
+hash externally.
 
 `HypervisorEnvironmentStartupPlan` is the immutable daemon-admitted bridge from
 that resolved recipe to one concrete startup attempt. It freezes what will
@@ -747,8 +769,8 @@ HypervisorEnvironmentStartupPlan
   session_ref?
   development_environment_recipe_ref
   development_environment_recipe_content_hash
-  recipe_resolution_ref
-  recipe_resolution_hash
+  development_environment_recipe_resolution_ref
+  development_environment_recipe_resolution_hash
   placement_decision_ref
   runtime_assignment_ref?
   runtime_operator: ioi_managed | customer_managed | local | hybrid
@@ -784,12 +806,13 @@ The same recipe may resolve to different startup plans across local,
 customer-managed, and IOI-managed postures. Every lifecycle observation and
 startup receipt binds the exact plan ref and hash. `plan_hash` covers the
 canonical immutable plan body from `schema_version` through
-`expected_receipt_contract_refs`; it excludes the later admission decision,
-Agentgres state root, admission and lifecycle receipts, readiness observations,
-and refusal reason. Those derived records bind the plan ref and hash
-externally, so admission cannot create a receipt/hash cycle. A refused
-candidate remains a refused resolution or admission record and never becomes
-an admitted startup plan with an embedded `blocked_reason`.
+`expected_receipt_contract_refs` while excluding `plan_hash` itself and the
+later admission decision, Agentgres state root, admission and lifecycle
+receipts, readiness observations, and refusal reason. Those derived records
+bind the plan ref and hash externally, so admission cannot create a
+receipt/hash cycle. A refused candidate remains a refused resolution or
+admission record and never becomes an admitted startup plan with an embedded
+`blocked_reason`.
 
 Changed placement, provider adapter, authority decision or lease, secret
 capability, readiness, privacy, budget, or recovery resolution requires a
@@ -798,11 +821,22 @@ recipes point only toward declarative setup and policy inputs. The concrete
 startup plan points one-way back to the exact recipe and resolution, never the
 reverse.
 
-Historical `recipe_ref` and `HypervisorEnvironmentRecipeResolution` spellings
-are v1 compatibility aliases. Boundary adapters may read them, but canonical
-state emits the owner-qualified development-environment names above so they
-cannot collide with `DataRecipe`, `HypervisorSessionLaunchRecipe`,
-`WorkflowTemplate`, or `GoalRunProfile`.
+Plan admission freezes exact predecessors; it does not make mutable evidence
+current forever or extend a lease's lifetime. Immediately before startup and
+at every consequential effect boundary, the daemon revalidates each applicable
+authority, capability, secret, and budget lease's exact ref/hash, subject,
+scope, revocation and temporal validity, remaining budget,
+provider/placement binding, and writer/fence state. Missing, stale, revoked,
+exhausted, mismatched, or uncertain required evidence blocks execution and
+requires re-resolution plus a successor plan rather than execution from the
+frozen plan alone.
+
+Historical `recipe_ref`, `resolution_ref`, `required_wallet_scope_refs`, and
+`HypervisorEnvironmentRecipeResolution` spellings are read-only v1
+compatibility aliases. Boundary adapters may read them, but canonical state
+emits the owner-qualified development-environment and provider-neutral
+authority names above so they cannot collide with `DataRecipe`,
+`HypervisorSessionLaunchRecipe`, `WorkflowTemplate`, or `GoalRunProfile`.
 
 `HypervisorEnvironmentSubstratePolicy` records why the selected substrate is
 allowed for the workload and tenant posture:
@@ -900,8 +934,9 @@ run or validate the system is not a complete agent work environment.
 Recipes should make the development path ergonomic without hiding governance.
 Image selection, dependency setup, port exposure, SSH/editor/browser access,
 secret injection, SCM auth, model/harness defaults, and cache/restore behavior
-must still pass through daemon admission, wallet.network authority where
-relevant, and Agentgres refs/receipts when they affect truth.
+must still pass through daemon admission, the applicable local/domain/protocol
+authority, including wallet.network where its scopes apply, and Agentgres
+refs/receipts when they affect truth.
 
 Snapshot, backup, and archive are distinct:
 
@@ -1566,8 +1601,8 @@ operator_contract_refs
 The projection may aggregate target state, observed state, change plans,
 resource queues, jobs, evals, approvals, issue state, lineage impact, receipts,
 and proof refs from other owners. Effectful transitions still execute through
-Hypervisor Core, daemon/provider boundaries, wallet.network authority,
-Agentgres admission, and receipt/replay semantics.
+Hypervisor Core, daemon/provider boundaries, the applicable local/domain or
+protocol authority provider, Agentgres admission, and receipt/replay semantics.
 
 ### Plans, Gates, And Execution
 
@@ -1594,7 +1629,8 @@ when placement or custody changes:
   export_or_checkpoint_ref
   target_import_and_validation_ref
   quiescence_policy_ref
-  cutover_epoch_and_writer_fence_ref
+  cutover_epoch_and_writer_fence_ref |
+    native_membership_quorum_finality_transition_ref
   rollback_window_ref
   source_retention_replica_archive_or_teardown_policy_ref
   portability_receipt_refs
@@ -1603,20 +1639,27 @@ when placement or custody changes:
 Change plans may be proposed by Automations, Developer Workspace, Foundry, ioi.ai,
 provider views, scanner findings, policy engines, or human operators. They are
 executed only through Hypervisor Core and the daemon/provider boundary.
-wallet.network authorizes spend, secret release, SCM auth, access,
-declassification, and emergency overrides. Agentgres records plan lifecycle,
-state roots, receipts, rollback outcomes, and replay projections.
+The applicable local/domain or protocol authority provider authorizes each
+effect; wallet.network owns portable delegation and its designated spend,
+secret release, SCM-auth, access, declassification, emergency-override, and
+high-risk scopes. Agentgres records plan lifecycle, state roots, receipts,
+rollback outcomes, and replay projections.
 
 Placement or custody migration preserves a `system_id` only when the applicable
-Lifecycle Continuity decision authorizes that identity-preserving transition.
-Otherwise the import is a fork or successor with its own identity. Connection,
-copy, restore material, provider readiness, or possession of the prior bytes
-cannot make that decision.
+governed-System `LifecycleTransitionEnvelope.identity_continuity_decision_ref`
+authorizes that identity-preserving transition. Providers and Environments own
+the physical copy, readiness, fence, cutover, rollback, and source-disposition
+procedure; they do not own same-System identity. Otherwise the import is a fork
+or successor with its own identity. Connection, copy, restore material,
+provider readiness, or possession of the prior bytes cannot make that
+decision. The portability and migration receipt chain described here is target
+contract only; no current end-to-end migration producer or evaluator is
+claimed.
 
 `ChangePlanGate` covers constraints that must be satisfied before execution:
 
 ```text
-wallet approval
+applicable local/domain/protocol authority approval
 maintenance window
 suppression window not active
 release channel eligibility
@@ -1628,6 +1671,10 @@ cTEE/private workspace posture
 budget, region, data locality, support, and provider-capacity checks
 operator required approval or break-glass receipt
 ```
+
+wallet.network approval is mandatory only when a gate invokes portable
+delegated authority or one of its owned spend, secret/decryption,
+declassification, external-effect, or high-risk scopes.
 
 If no plan can execute, the product should show the blocked reason and the
 object or policy that would unblock it. Silent "no work" states are not a
@@ -1741,7 +1788,8 @@ operator opens Hypervisor
   -> selects or creates a session
   -> Hypervisor resolves a development environment recipe when applicable
   -> Hypervisor resolves environment class and provider candidates
-  -> wallet.network authorizes spend, access, SCM auth, or secret release
+  -> the applicable authority provider admits the effect; wallet.network
+     handles its designated portable, spend, access, SCM-auth, or secret scopes
   -> Hypervisor Daemon creates/starts/attaches the environment
   -> services, tasks, ports, logs, and adapters bind to the session
   -> Agentgres records receipts, state roots, archive refs, and restore refs
@@ -1844,8 +1892,9 @@ restore/import receipt chain.
   or restore truth.
 - Development environment recipes are setup contracts and desired posture; they
   do not authorize secret use, expose ports, execute tasks, or mutate restore
-  truth without daemon admission, wallet.network authority where relevant, and
-  Agentgres operation/receipt refs.
+  truth without daemon admission, the applicable local/domain/protocol
+  authority, including wallet.network where its scopes apply, and Agentgres
+  operation/receipt refs.
 - Agent-ready recipes must compile into typed tasks, services, readiness gates,
   resource-isolation profiles, connectivity profiles, and lifecycle
   observations. "Container started" or "shell attached" is not sufficient
@@ -1953,7 +2002,8 @@ Hypervisor manages sessions, environments, and providers.
 Sessions are the unit.
 Providers are cross-session resources.
 Hypervisor Daemon executes.
-wallet.network authorizes.
+The applicable local/domain or protocol authority provider authorizes;
+wallet.network owns portable delegation and its designated high-risk scopes.
 Agentgres records truth.
 Storage backends hold bytes.
 ```
