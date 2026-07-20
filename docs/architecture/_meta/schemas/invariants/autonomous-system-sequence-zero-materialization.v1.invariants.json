@@ -1,0 +1,52 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-sequence-zero-materialization/frozen-origin/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+  "rules": [
+    {
+      "rule_id": "materialization-id-binds-genesis-admission-root",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.materialization_id",
+        "prefix": "system-materialization://sequence-zero/",
+        "expected_path": "$.genesis_admission_record_root"
+      }
+    },
+    {
+      "rule_id": "component-registry-ref-binds-registry-root",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.component_registry_ref",
+        "prefix": "agentgres://object-set/autonomous-system-components/",
+        "expected_path": "$.component_registry_root"
+      }
+    },
+    {
+      "rule_id": "component-binding-count-matches-array",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.component_bindings",
+        "count_path": "$.component_binding_count"
+      }
+    },
+    {
+      "rule_id": "component-binding-identities-are-unique",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.component_bindings",
+        "fields": [
+          "kind",
+          "binding_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "deployment-profile-ref-binds-deployment-root",
+      "expression": {
+        "operator": "field_ends_with",
+        "path": "$.profile_refs.deployment_profile_ref",
+        "expected_path": "$.deployment_profile_root"
+      }
+    }
+  ]
+}

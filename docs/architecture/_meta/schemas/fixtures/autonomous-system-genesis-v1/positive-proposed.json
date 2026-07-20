@@ -8,7 +8,7 @@
   "constitution_ref": "constitution://acme/system-alpha/v1",
   "initial_profile_bundle_root": "sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48",
   "initial_profile_refs": {
-    "deployment_profile_ref": "deployment-profile://acme/system-alpha/local",
+    "deployment_profile_ref": "deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     "ordering_admission_finality_profile_ref": "ordering-profile://acme/system-alpha/poa1",
     "oracle_evidence_profile_refs": [
       "oracle-evidence-profile://acme/system-alpha/public-records"
@@ -59,8 +59,8 @@
   "cryptographic_origin": {
     "sequence": 0,
     "predecessor_commitment_ref": null,
-    "genesis_operation_commitment": "sha256:37b92d683d7b543a26e1e82ab80c54bb4609119047b0957437c52d14cc0bce9d",
-    "genesis_transition_commitment_ref": "commitment://ioi/system-genesis/sha256:37b92d683d7b543a26e1e82ab80c54bb4609119047b0957437c52d14cc0bce9d",
+    "genesis_operation_commitment": "sha256:f25a67924f9ed21cd5a14a1fb2a4116eb7a365f047bb62fd09db39bf4ce946c0",
+    "genesis_transition_commitment_ref": "commitment://ioi/system-genesis/sha256:f25a67924f9ed21cd5a14a1fb2a4116eb7a365f047bb62fd09db39bf4ce946c0",
     "initial_state_root": "sha256:f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
     "initial_receipt_root": "sha256:f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3",
     "admission_proof_ref": null

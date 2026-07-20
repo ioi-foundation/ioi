@@ -1181,6 +1181,68 @@ function generatorInvariantErrors(contract, value) {
             expected !== undefined &&
             canonicalJson(optional[expression.field]) ===
               canonicalJson(expected));
+      } else if (
+        expression.operator === "prefixed_field_equals" &&
+        typeof expression.path === "string" &&
+        typeof expression.prefix === "string" &&
+        typeof expression.expected_path === "string"
+      ) {
+        const actual = generatorValueAtPath(value, expression.path);
+        const expected = generatorValueAtPath(value, expression.expected_path);
+        valid =
+          typeof actual === "string" &&
+          typeof expected === "string" &&
+          actual === `${expression.prefix}${expected}`;
+      } else if (
+        expression.operator === "field_ends_with" &&
+        typeof expression.path === "string" &&
+        typeof expression.expected_path === "string"
+      ) {
+        const actual = generatorValueAtPath(value, expression.path);
+        const expected = generatorValueAtPath(value, expression.expected_path);
+        valid =
+          typeof actual === "string" &&
+          typeof expected === "string" &&
+          expected.length > 0 &&
+          actual.endsWith(expected);
+      } else if (
+        expression.operator === "array_length_equals" &&
+        typeof expression.array_path === "string" &&
+        typeof expression.count_path === "string"
+      ) {
+        const values = generatorValueAtPath(value, expression.array_path);
+        const count = generatorValueAtPath(value, expression.count_path);
+        valid =
+          Array.isArray(values) &&
+          typeof count === "number" &&
+          Number.isSafeInteger(count) &&
+          count >= 0 &&
+          values.length === count;
+      } else if (
+        expression.operator === "array_unique_by_fields" &&
+        typeof expression.array_path === "string" &&
+        Array.isArray(expression.fields) &&
+        expression.fields.length > 0
+      ) {
+        const values = generatorValueAtPath(value, expression.array_path);
+        valid =
+          Array.isArray(values) &&
+          values.every(
+            (item, index) =>
+              isPlainObject(item) &&
+              expression.fields.every((field) =>
+                Object.hasOwn(item, field),
+              ) &&
+              !values.slice(0, index).some(
+                (previous) =>
+                  isPlainObject(previous) &&
+                  expression.fields.every(
+                    (field) =>
+                      canonicalJson(previous[field]) ===
+                      canonicalJson(item[field]),
+                  ),
+              ),
+          );
       } else if (expression.operator === "matches_contract_schema_hash") {
         valid =
           generatorValueAtPath(value, expression.path) === expectedSchemaHash;
@@ -1834,6 +1896,71 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
         (isObject(optional) &&
           expected !== undefined &&
           jsonSchemaEqual(optional[field], expected));
+    } else if (
+      operator === "prefixed_field_equals" &&
+      typeof expression.path === "string" &&
+      typeof expression.prefix === "string" &&
+      typeof expression.expected_path === "string"
+    ) {
+      const actual = valueAtPath(value, expression.path);
+      const expected = valueAtPath(value, expression.expected_path);
+      valid =
+        typeof actual === "string" &&
+        typeof expected === "string" &&
+        actual === expression.prefix + expected;
+    } else if (
+      operator === "field_ends_with" &&
+      typeof expression.path === "string" &&
+      typeof expression.expected_path === "string"
+    ) {
+      const actual = valueAtPath(value, expression.path);
+      const expected = valueAtPath(value, expression.expected_path);
+      valid =
+        typeof actual === "string" &&
+        typeof expected === "string" &&
+        expected.length > 0 &&
+        actual.endsWith(expected);
+    } else if (
+      operator === "array_length_equals" &&
+      typeof expression.array_path === "string" &&
+      typeof expression.count_path === "string"
+    ) {
+      const values = valueAtPath(value, expression.array_path);
+      const count = valueAtPath(value, expression.count_path);
+      valid =
+        Array.isArray(values) &&
+        typeof count === "number" &&
+        Number.isSafeInteger(count) &&
+        count >= 0 &&
+        values.length === count;
+    } else if (
+      operator === "array_unique_by_fields" &&
+      typeof expression.array_path === "string" &&
+      Array.isArray(expression.fields) &&
+      expression.fields.length > 0
+    ) {
+      const values = valueAtPath(value, expression.array_path);
+      const fields = expression.fields;
+      valid =
+        Array.isArray(values) &&
+        values.every(
+          (item, index) =>
+            isObject(item) &&
+            fields.every(
+              (field) =>
+                typeof field === "string" &&
+                Object.prototype.hasOwnProperty.call(item, field),
+            ) &&
+            !values.slice(0, index).some(
+              (previous) =>
+                isObject(previous) &&
+                fields.every(
+                  (field) =>
+                    typeof field === "string" &&
+                    jsonSchemaEqual(previous[field], item[field]),
+                ),
+            ),
+        );
     } else if (operator === "matches_contract_schema_hash") {
       valid = valueAtPath(value, expression.path) === architectureContractSchemaHash(contractId);
     } else if (
@@ -2667,6 +2794,48 @@ fn non_empty(value: Option<&Value>) -> bool {
     })
 }
 
+fn portable_array_length(value: Option<&Value>) -> Option<usize> {
+    let number = value?.as_number()?;
+    if let Some(value) = number.as_u64() {
+        return usize::try_from(value).ok();
+    }
+    let value = number.as_f64()?;
+    (value.is_finite()
+        && value >= 0.0
+        && value <= 9_007_199_254_740_991.0
+        && value.fract() == 0.0)
+        .then(|| value as usize)
+}
+
+fn array_unique_by_fields(value: Option<&Value>, fields: &[&str]) -> bool {
+    let Some(items) = value.and_then(Value::as_array) else {
+        return false;
+    };
+    if fields.is_empty() {
+        return false;
+    }
+    let mut identities = std::collections::BTreeSet::new();
+    for item in items {
+        let Some(object) = item.as_object() else {
+            return false;
+        };
+        let Some(identity) = fields
+            .iter()
+            .map(|field| object.get(*field).cloned())
+            .collect::<Option<Vec<_>>>()
+        else {
+            return false;
+        };
+        let Ok(encoded) = serde_jcs::to_vec(&identity) else {
+            return false;
+        };
+        if !identities.insert(encoded) {
+            return false;
+        }
+    }
+    true
+}
+
 fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Result<(), String> {
     for rule in rules.as_array().into_iter().flatten() {
         let expression = &rule["expression"];
@@ -2751,6 +2920,71 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                             .get(field)
                             .is_some_and(|actual| json_schema_equal(actual, expected))
                 }),
+            Some("prefixed_field_equals") => expression
+                .get("path")
+                .and_then(Value::as_str)
+                .and_then(|path| value_at_path(value, path))
+                .and_then(Value::as_str)
+                .zip(
+                    expression
+                        .get("prefix")
+                        .and_then(Value::as_str)
+                        .zip(
+                            expression
+                                .get("expected_path")
+                                .and_then(Value::as_str)
+                                .and_then(|path| value_at_path(value, path))
+                                .and_then(Value::as_str),
+                        ),
+                )
+                .is_some_and(|(actual, (prefix, expected))| {
+                    actual.len() == prefix.len() + expected.len()
+                        && actual.starts_with(prefix)
+                        && actual.ends_with(expected)
+                }),
+            Some("field_ends_with") => expression
+                .get("path")
+                .and_then(Value::as_str)
+                .and_then(|path| value_at_path(value, path))
+                .and_then(Value::as_str)
+                .zip(
+                    expression
+                        .get("expected_path")
+                        .and_then(Value::as_str)
+                        .and_then(|path| value_at_path(value, path))
+                        .and_then(Value::as_str),
+                )
+                .is_some_and(|(actual, expected)| {
+                    !expected.is_empty() && actual.ends_with(expected)
+                }),
+            Some("array_length_equals") => expression
+                .get("array_path")
+                .and_then(Value::as_str)
+                .and_then(|path| value_at_path(value, path))
+                .and_then(Value::as_array)
+                .zip(
+                    expression
+                        .get("count_path")
+                        .and_then(Value::as_str)
+                        .and_then(|path| portable_array_length(value_at_path(value, path))),
+                )
+                .is_some_and(|(items, count)| items.len() == count),
+            Some("array_unique_by_fields") => expression
+                .get("array_path")
+                .and_then(Value::as_str)
+                .map(|path| value_at_path(value, path))
+                .zip(
+                    expression
+                        .get("fields")
+                        .and_then(Value::as_array)
+                        .and_then(|fields| {
+                            fields
+                                .iter()
+                                .map(Value::as_str)
+                                .collect::<Option<Vec<_>>>()
+                        }),
+                )
+                .is_some_and(|(items, fields)| array_unique_by_fields(items, &fields)),
             Some("matches_contract_schema_hash") => expression
                 .get("path")
                 .and_then(Value::as_str)

@@ -104,6 +104,10 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
         "sha256:843897a91ec65f41c794cb01ddeca43b91bd6c3586cd3d392d1643efb938acc5",
     ),
     (
+        "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+        "sha256:0d0c9aae727234773fe426430ed99d6e5f8841f48602b6d69cf5e2f225c7ab32",
+    ),
+    (
         "schema://ioi/foundations/autonomous-system-constitution/v1",
         "sha256:ac6b394c4664e90cece1792eeb6857d99087a56e019368b70077001dffc4e36c",
     ),
@@ -9394,6 +9398,447 @@ pub enum AutonomousSystemGenesisV1Status {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemSequenceZeroMaterializationV1 {
+    pub schema_version: AutonomousSystemSequenceZeroMaterializationV1SchemaVersion,
+    pub materialization_id: String,
+    pub system_id: String,
+    pub genesis_ref: String,
+    pub genesis_admission_receipt_ref: String,
+    pub genesis_admission_record_root: String,
+    pub genesis_admission_receipt_root: String,
+    pub proposed_initial_state_root: String,
+    pub proposed_initial_receipt_root: String,
+    pub package_id: String,
+    pub manifest_ref: String,
+    pub admitted_manifest_root: String,
+    pub constitution_ref: String,
+    pub constitution_root: String,
+    pub profile_bundle_root: String,
+    pub profile_materialization_root: String,
+    pub deployment_profile_root: String,
+    pub profile_refs: AutonomousSystemSequenceZeroMaterializationV1ProfileRefs,
+    pub component_registry_ref: String,
+    pub component_registry_root: String,
+    pub component_binding_count: ArchitectureContractInteger,
+    pub component_bindings: Vec<AutonomousSystemSequenceZeroMaterializationV1ComponentBindingsItem>,
+    pub sequence: ArchitectureContractInteger,
+    pub predecessor_transition_commitment_ref: serde_json::Value,
+    pub operation_commitment: String,
+    pub transition_commitment_ref: String,
+    pub initial_state_root: String,
+    pub initial_receipt_root: String,
+    pub materialization_receipt_ref: String,
+    pub activation_receipt_ref: serde_json::Value,
+    pub created_at: String,
+    pub status: AutonomousSystemSequenceZeroMaterializationV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemSequenceZeroMaterializationV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","title":"AutonomousSystemSequenceZeroMaterialization","description":"Immutable pre-activation binding of one admitted genesis to exact profile/component candidates and daemon-derived sequence-zero roots.","x-ioi-schema-version":"ioi.autonomous-system-sequence-zero-materialization.v1","type":"object","additionalProperties":false,"required":["schema_version","materialization_id","system_id","genesis_ref","genesis_admission_receipt_ref","genesis_admission_record_root","genesis_admission_receipt_root","proposed_initial_state_root","proposed_initial_receipt_root","package_id","manifest_ref","admitted_manifest_root","constitution_ref","constitution_root","profile_bundle_root","profile_materialization_root","deployment_profile_root","profile_refs","component_registry_ref","component_registry_root","component_binding_count","component_bindings","sequence","predecessor_transition_commitment_ref","operation_commitment","transition_commitment_ref","initial_state_root","initial_receipt_root","materialization_receipt_ref","activation_receipt_ref","created_at","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-sequence-zero-materialization.v1"},"materialization_id":{"type":"string","pattern":"^system-materialization://[^\\s]{1,248}$"},"system_id":{"$ref":"#/$defs/systemRef"},"genesis_ref":{"$ref":"#/$defs/genesisRef"},"genesis_admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"genesis_admission_record_root":{"$ref":"#/$defs/hash"},"genesis_admission_receipt_root":{"$ref":"#/$defs/hash"},"proposed_initial_state_root":{"$ref":"#/$defs/hash"},"proposed_initial_receipt_root":{"$ref":"#/$defs/hash"},"package_id":{"$ref":"#/$defs/packageRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"constitution_root":{"$ref":"#/$defs/hash"},"profile_bundle_root":{"$ref":"#/$defs/hash"},"profile_materialization_root":{"$ref":"#/$defs/hash"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"profile_refs":{"type":"object","additionalProperties":false,"required":["deployment_profile_ref","ordering_admission_finality_profile_ref","oracle_evidence_profile_refs","lifecycle_continuity_profile_ref","network_enrollment_ref"],"properties":{"deployment_profile_ref":{"$ref":"#/$defs/deploymentProfileRef"},"ordering_admission_finality_profile_ref":{"$ref":"#/$defs/orderingProfileRef"},"oracle_evidence_profile_refs":{"type":"array","items":{"$ref":"#/$defs/oracleProfileRef"},"maxItems":32,"uniqueItems":true},"lifecycle_continuity_profile_ref":{"$ref":"#/$defs/lifecycleProfileRef"},"network_enrollment_ref":{"anyOf":[{"$ref":"#/$defs/networkEnrollmentRef"},{"type":"null"}]}}},"component_registry_ref":{"type":"string","pattern":"^agentgres://object-set/[^\\s]{1,248}$"},"component_registry_root":{"$ref":"#/$defs/hash"},"component_binding_count":{"$ref":"#/$defs/portableInteger"},"component_bindings":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["kind","binding_ref","binding_hash","evidence_refs","evidence_hashes"],"properties":{"kind":{"enum":["goal_run_profile","workflow_template","automation_spec","automation_installation","harness_profile","agent_harness_adapter","skill_entry","data_recipe","runtime_tool_contract","mcp_gateway_profile"]},"binding_ref":{"$ref":"#/$defs/canonicalRef"},"binding_hash":{"$ref":"#/$defs/hash"},"evidence_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_hashes":{"type":"array","items":{"$ref":"#/$defs/hash"},"maxItems":16,"uniqueItems":true}}}},"sequence":{"type":"integer","minimum":0,"maximum":0},"predecessor_transition_commitment_ref":{"type":"null"},"operation_commitment":{"$ref":"#/$defs/hash"},"transition_commitment_ref":{"type":"string","pattern":"^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$"},"initial_state_root":{"$ref":"#/$defs/hash"},"initial_receipt_root":{"$ref":"#/$defs/hash"},"materialization_receipt_ref":{"$ref":"#/$defs/receiptRef"},"activation_receipt_ref":{"type":"null"},"created_at":{"$ref":"#/$defs/canonicalDateTime"},"status":{"const":"materialized_pending_activation"}},"$defs":{"portableInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"packageRef":{"type":"string","pattern":"^package://[^\\s]{1,248}$"},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"deploymentProfileRef":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"orderingProfileRef":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"oracleProfileRef":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"lifecycleProfileRef":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"networkEnrollmentRef":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemSequenceZeroMaterializationV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            materialization_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"materialization_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"materialization_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_admission_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_admission_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"genesis_admission_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_admission_record_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_admission_record_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"genesis_admission_record_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_admission_receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_admission_receipt_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"genesis_admission_receipt_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_initial_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_initial_state_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_initial_state_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_initial_receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_initial_receipt_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_initial_receipt_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            package_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"package_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"package_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_manifest_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_manifest_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_manifest_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_bundle_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_bundle_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_bundle_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_materialization_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_materialization_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"profile_materialization_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_refs: serde_json::from_value::<
+                AutonomousSystemSequenceZeroMaterializationV1ProfileRefs,
+            >(
+                object
+                    .remove(r#"profile_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            component_registry_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"component_registry_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"component_registry_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            component_registry_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"component_registry_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"component_registry_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            component_binding_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"component_binding_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"component_binding_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            component_bindings: serde_json::from_value::<
+                Vec<AutonomousSystemSequenceZeroMaterializationV1ComponentBindingsItem>,
+            >(
+                object
+                    .remove(r#"component_bindings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"component_bindings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_transition_commitment_ref: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"predecessor_transition_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_transition_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_commitment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transition_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"transition_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initial_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"initial_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"initial_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initial_receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"initial_receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"initial_receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            materialization_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"materialization_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"materialization_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            activation_receipt_ref: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"activation_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activation_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemSequenceZeroMaterializationV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemSequenceZeroMaterializationV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-sequence-zero-materialization.v1"#)]
+    IoiAutonomousSystemSequenceZeroMaterializationV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemSequenceZeroMaterializationV1ProfileRefs {
+    pub deployment_profile_ref: String,
+    pub ordering_admission_finality_profile_ref: String,
+    pub oracle_evidence_profile_refs: Vec<String>,
+    pub lifecycle_continuity_profile_ref: String,
+    pub network_enrollment_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemSequenceZeroMaterializationV1ProfileRefs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["deployment_profile_ref","ordering_admission_finality_profile_ref","oracle_evidence_profile_refs","lifecycle_continuity_profile_ref","network_enrollment_ref"],"properties":{"deployment_profile_ref":{"$ref":"#/$defs/deploymentProfileRef"},"ordering_admission_finality_profile_ref":{"$ref":"#/$defs/orderingProfileRef"},"oracle_evidence_profile_refs":{"type":"array","items":{"$ref":"#/$defs/oracleProfileRef"},"maxItems":32,"uniqueItems":true},"lifecycle_continuity_profile_ref":{"$ref":"#/$defs/lifecycleProfileRef"},"network_enrollment_ref":{"anyOf":[{"$ref":"#/$defs/networkEnrollmentRef"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ordering_admission_finality_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ordering_admission_finality_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"ordering_admission_finality_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            oracle_evidence_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"oracle_evidence_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"oracle_evidence_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_continuity_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_continuity_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"lifecycle_continuity_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"network_enrollment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_enrollment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemSequenceZeroMaterializationV1ComponentBindingsItem {
+    pub kind: AutonomousSystemSequenceZeroMaterializationV1ComponentBindingsItemKind,
+    pub binding_ref: String,
+    pub binding_hash: String,
+    pub evidence_refs: Vec<String>,
+    pub evidence_hashes: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemSequenceZeroMaterializationV1ComponentBindingsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","binding_ref","binding_hash","evidence_refs","evidence_hashes"],"properties":{"kind":{"enum":["goal_run_profile","workflow_template","automation_spec","automation_installation","harness_profile","agent_harness_adapter","skill_entry","data_recipe","runtime_tool_contract","mcp_gateway_profile"]},"binding_ref":{"$ref":"#/$defs/canonicalRef"},"binding_hash":{"$ref":"#/$defs/hash"},"evidence_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_hashes":{"type":"array","items":{"$ref":"#/$defs/hash"},"maxItems":16,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<
+                AutonomousSystemSequenceZeroMaterializationV1ComponentBindingsItemKind,
+            >(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            binding_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"binding_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"binding_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_hashes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_hashes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_hashes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemSequenceZeroMaterializationV1ComponentBindingsItemKind {
+    #[serde(rename = r#"goal_run_profile"#)]
+    GoalRunProfile,
+    #[serde(rename = r#"workflow_template"#)]
+    WorkflowTemplate,
+    #[serde(rename = r#"automation_spec"#)]
+    AutomationSpec,
+    #[serde(rename = r#"automation_installation"#)]
+    AutomationInstallation,
+    #[serde(rename = r#"harness_profile"#)]
+    HarnessProfile,
+    #[serde(rename = r#"agent_harness_adapter"#)]
+    AgentHarnessAdapter,
+    #[serde(rename = r#"skill_entry"#)]
+    SkillEntry,
+    #[serde(rename = r#"data_recipe"#)]
+    DataRecipe,
+    #[serde(rename = r#"runtime_tool_contract"#)]
+    RuntimeToolContract,
+    #[serde(rename = r#"mcp_gateway_profile"#)]
+    McpGatewayProfile,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemSequenceZeroMaterializationV1Status {
+    #[serde(rename = r#"materialized_pending_activation"#)]
+    MaterializedPendingActivation,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct AutonomousSystemConstitutionV1 {
     pub schema_version: AutonomousSystemConstitutionV1SchemaVersion,
     pub constitution_id: String,
@@ -14032,6 +14477,62 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-activation-claim.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-materialization-id-binding.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("materialization-id-binds-genesis-admission-root"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-registry-binding.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("component-registry-ref-binds-registry-root"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-count-binding.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("component-binding-count-matches-array"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-identity-duplicate.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("component-binding-identities-are-unique"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-deployment-profile-root-binding.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("deployment-profile-ref-binds-deployment-root"),
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/foundations/autonomous-system-constitution/v1",
         path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
         expected_accept: true,
@@ -15352,6 +15853,83 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-activation-claim.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-activation-claim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-materialization-id-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-materialization-id-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-registry-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-registry-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-count-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-count-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-identity-duplicate.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-identity-duplicate.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-deployment-profile-root-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-deployment-profile-root-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-constitution/v1"#,
         source_fixture_path: Some(
@@ -16445,6 +17023,10 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
         r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-genesis/v1","title":"AutonomousSystemGenesis","description":"One-time binding of one immutable package release to a proposed or admitted logical System origin.","x-ioi-schema-version":"ioi.autonomous-system-genesis.v1","type":"object","additionalProperties":false,"required":["schema_version","genesis_id","system_id","package_id","manifest_ref","admitted_manifest_root","constitution_ref","initial_profile_bundle_root","initial_profile_refs","initial_component_bindings","instantiation","cryptographic_origin","activation_receipt_ref","lifecycle_transition_refs","status_source_receipt_refs","created_at","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-genesis.v1"},"genesis_id":{"$ref":"#/$defs/genesisRef"},"system_id":{"$ref":"#/$defs/systemRef"},"package_id":{"$ref":"#/$defs/packageRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"initial_profile_bundle_root":{"$ref":"#/$defs/hash"},"initial_profile_refs":{"type":"object","additionalProperties":false,"required":["deployment_profile_ref","ordering_admission_finality_profile_ref","oracle_evidence_profile_refs","lifecycle_continuity_profile_ref","network_enrollment_ref"],"properties":{"deployment_profile_ref":{"$ref":"#/$defs/deploymentProfileRef"},"ordering_admission_finality_profile_ref":{"$ref":"#/$defs/orderingProfileRef"},"oracle_evidence_profile_refs":{"type":"array","items":{"$ref":"#/$defs/oracleProfileRef"},"maxItems":32,"uniqueItems":true},"lifecycle_continuity_profile_ref":{"$ref":"#/$defs/lifecycleProfileRef"},"network_enrollment_ref":{"anyOf":[{"$ref":"#/$defs/networkEnrollmentRef"},{"type":"null"}]}}},"initial_component_bindings":{"type":"object","additionalProperties":false,"required":["admitted_component_set_snapshot_ref","admitted_component_set_hash","goal_run_profiles","workflow_templates","automation_specs","automation_installations","harness_profiles","agent_harness_adapters","skill_entries","data_recipes","runtime_tool_contracts","mcp_gateway_profiles"],"properties":{"admitted_component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef"},"admitted_component_set_hash":{"$ref":"#/$defs/hash"},"goal_run_profiles":{"$ref":"#/$defs/goalRunProfileRevisionHashTuples"},"workflow_templates":{"$ref":"#/$defs/workflowTemplateRevisionHashTuples"},"automation_specs":{"$ref":"#/$defs/automationRevisionHashTuples"},"automation_installations":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["binding_revision_ref","binding_hash","admission_receipt_ref"],"properties":{"binding_revision_ref":{"type":"string","pattern":"^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$"},"binding_hash":{"$ref":"#/$defs/hash"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"maxItems":128,"uniqueItems":true},"harness_profiles":{"$ref":"#/$defs/harnessProfileRevisionHashTuples"},"agent_harness_adapters":{"$ref":"#/$defs/agentHarnessAdapterRevisionHashTuples"},"skill_entries":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["binding_revision_ref","binding_hash","skill_manifest_revision_ref","skill_manifest_content_hash"],"properties":{"binding_revision_ref":{"type":"string","pattern":"^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"binding_hash":{"$ref":"#/$defs/hash"},"skill_manifest_revision_ref":{"type":"string","pattern":"^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"skill_manifest_content_hash":{"$ref":"#/$defs/hash"}}},"maxItems":128,"uniqueItems":true},"data_recipes":{"$ref":"#/$defs/dataRecipeRevisionHashTuples"},"runtime_tool_contracts":{"$ref":"#/$defs/toolRevisionHashTuples"},"mcp_gateway_profiles":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["profile_revision_ref","profile_content_hash"],"properties":{"profile_revision_ref":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"profile_content_hash":{"$ref":"#/$defs/hash"}}},"maxItems":64,"uniqueItems":true}}},"instantiation":{"type":"object","additionalProperties":false,"required":["proposed_by","decision_ref","authority_grant_refs","conformance_receipt_refs"],"properties":{"proposed_by":{"type":"string","pattern":"^(?:system|wallet|org|project)://[^\\s]{1,248}$"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"}}},"cryptographic_origin":{"type":"object","additionalProperties":false,"required":["sequence","predecessor_commitment_ref","genesis_operation_commitment","genesis_transition_commitment_ref","initial_state_root","initial_receipt_root","admission_proof_ref"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":0},"predecessor_commitment_ref":{"type":"null"},"genesis_operation_commitment":{"$ref":"#/$defs/hash"},"genesis_transition_commitment_ref":{"type":"string","pattern":"^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"},"initial_state_root":{"$ref":"#/$defs/hash"},"initial_receipt_root":{"$ref":"#/$defs/hash"},"admission_proof_ref":{"anyOf":[{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"},{"type":"null"}]}}},"activation_receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"lifecycle_transition_refs":{"type":"array","items":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"status_source_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"created_at":{"$ref":"#/$defs/canonicalDateTime"},"status":{"enum":["proposed","authorized","activated","rejected","revoked"]}},"allOf":[{"if":{"properties":{"status":{"const":"proposed"}},"required":["status"]},"then":{"properties":{"activation_receipt_ref":{"type":"null"},"lifecycle_transition_refs":{"type":"array","maxItems":0},"status_source_receipt_refs":{"type":"array","maxItems":0},"cryptographic_origin":{"type":"object","properties":{"admission_proof_ref":{"type":"null"}},"required":["admission_proof_ref"]},"instantiation":{"type":"object","properties":{"authority_grant_refs":{"type":"array","maxItems":0},"conformance_receipt_refs":{"type":"array","maxItems":0}},"required":["authority_grant_refs","conformance_receipt_refs"]}}}},{"if":{"properties":{"status":{"enum":["authorized","activated"]}},"required":["status"]},"then":{"properties":{"cryptographic_origin":{"type":"object","properties":{"admission_proof_ref":{"type":"string","pattern":"^(?:evidence|receipt)://[^\\s]{1,248}$"}},"required":["admission_proof_ref"]},"instantiation":{"type":"object","properties":{"authority_grant_refs":{"type":"array","minItems":1}},"required":["authority_grant_refs"]},"status_source_receipt_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"status":{"const":"activated"}},"required":["status"]},"then":{"properties":{"activation_receipt_ref":{"$ref":"#/$defs/receiptRef"},"lifecycle_transition_refs":{"type":"array","minItems":1},"status_source_receipt_refs":{"type":"array","minItems":1}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"packageRef":{"type":"string","pattern":"^package://[^\\s]{1,248}$"},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"deploymentProfileRef":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"orderingProfileRef":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"oracleProfileRef":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"lifecycleProfileRef":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"networkEnrollmentRef":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"receiptRefs":{"type":"array","items":{"$ref":"#/$defs/receiptRef"},"maxItems":128,"uniqueItems":true},"goalRunProfileRevisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/goalRunProfileRevisionHashTuple"},"maxItems":128,"uniqueItems":true},"goalRunProfileRevisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"content_hash":{"$ref":"#/$defs/hash"}}},"workflowTemplateRevisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/workflowTemplateRevisionHashTuple"},"maxItems":128,"uniqueItems":true},"workflowTemplateRevisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"content_hash":{"$ref":"#/$defs/hash"}}},"automationRevisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/automationRevisionHashTuple"},"maxItems":128,"uniqueItems":true},"automationRevisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"content_hash":{"$ref":"#/$defs/hash"}}},"harnessProfileRevisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/harnessProfileRevisionHashTuple"},"maxItems":128,"uniqueItems":true},"harnessProfileRevisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"content_hash":{"$ref":"#/$defs/hash"}}},"agentHarnessAdapterRevisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/agentHarnessAdapterRevisionHashTuple"},"maxItems":128,"uniqueItems":true},"agentHarnessAdapterRevisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"content_hash":{"$ref":"#/$defs/hash"}}},"dataRecipeRevisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/dataRecipeRevisionHashTuple"},"maxItems":128,"uniqueItems":true},"dataRecipeRevisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"content_hash":{"$ref":"#/$defs/hash"}}},"toolRevisionHashTuples":{"type":"array","items":{"$ref":"#/$defs/toolRevisionHashTuple"},"maxItems":128,"uniqueItems":true},"toolRevisionHashTuple":{"type":"object","additionalProperties":false,"required":["revision_ref","content_hash"],"properties":{"revision_ref":{"type":"string","pattern":"^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"content_hash":{"$ref":"#/$defs/hash"}}},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
     ),
     (
+        "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","title":"AutonomousSystemSequenceZeroMaterialization","description":"Immutable pre-activation binding of one admitted genesis to exact profile/component candidates and daemon-derived sequence-zero roots.","x-ioi-schema-version":"ioi.autonomous-system-sequence-zero-materialization.v1","type":"object","additionalProperties":false,"required":["schema_version","materialization_id","system_id","genesis_ref","genesis_admission_receipt_ref","genesis_admission_record_root","genesis_admission_receipt_root","proposed_initial_state_root","proposed_initial_receipt_root","package_id","manifest_ref","admitted_manifest_root","constitution_ref","constitution_root","profile_bundle_root","profile_materialization_root","deployment_profile_root","profile_refs","component_registry_ref","component_registry_root","component_binding_count","component_bindings","sequence","predecessor_transition_commitment_ref","operation_commitment","transition_commitment_ref","initial_state_root","initial_receipt_root","materialization_receipt_ref","activation_receipt_ref","created_at","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-sequence-zero-materialization.v1"},"materialization_id":{"type":"string","pattern":"^system-materialization://[^\\s]{1,248}$"},"system_id":{"$ref":"#/$defs/systemRef"},"genesis_ref":{"$ref":"#/$defs/genesisRef"},"genesis_admission_receipt_ref":{"$ref":"#/$defs/receiptRef"},"genesis_admission_record_root":{"$ref":"#/$defs/hash"},"genesis_admission_receipt_root":{"$ref":"#/$defs/hash"},"proposed_initial_state_root":{"$ref":"#/$defs/hash"},"proposed_initial_receipt_root":{"$ref":"#/$defs/hash"},"package_id":{"$ref":"#/$defs/packageRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"admitted_manifest_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"constitution_root":{"$ref":"#/$defs/hash"},"profile_bundle_root":{"$ref":"#/$defs/hash"},"profile_materialization_root":{"$ref":"#/$defs/hash"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"profile_refs":{"type":"object","additionalProperties":false,"required":["deployment_profile_ref","ordering_admission_finality_profile_ref","oracle_evidence_profile_refs","lifecycle_continuity_profile_ref","network_enrollment_ref"],"properties":{"deployment_profile_ref":{"$ref":"#/$defs/deploymentProfileRef"},"ordering_admission_finality_profile_ref":{"$ref":"#/$defs/orderingProfileRef"},"oracle_evidence_profile_refs":{"type":"array","items":{"$ref":"#/$defs/oracleProfileRef"},"maxItems":32,"uniqueItems":true},"lifecycle_continuity_profile_ref":{"$ref":"#/$defs/lifecycleProfileRef"},"network_enrollment_ref":{"anyOf":[{"$ref":"#/$defs/networkEnrollmentRef"},{"type":"null"}]}}},"component_registry_ref":{"type":"string","pattern":"^agentgres://object-set/[^\\s]{1,248}$"},"component_registry_root":{"$ref":"#/$defs/hash"},"component_binding_count":{"$ref":"#/$defs/portableInteger"},"component_bindings":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["kind","binding_ref","binding_hash","evidence_refs","evidence_hashes"],"properties":{"kind":{"enum":["goal_run_profile","workflow_template","automation_spec","automation_installation","harness_profile","agent_harness_adapter","skill_entry","data_recipe","runtime_tool_contract","mcp_gateway_profile"]},"binding_ref":{"$ref":"#/$defs/canonicalRef"},"binding_hash":{"$ref":"#/$defs/hash"},"evidence_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_hashes":{"type":"array","items":{"$ref":"#/$defs/hash"},"maxItems":16,"uniqueItems":true}}}},"sequence":{"type":"integer","minimum":0,"maximum":0},"predecessor_transition_commitment_ref":{"type":"null"},"operation_commitment":{"$ref":"#/$defs/hash"},"transition_commitment_ref":{"type":"string","pattern":"^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$"},"initial_state_root":{"$ref":"#/$defs/hash"},"initial_receipt_root":{"$ref":"#/$defs/hash"},"materialization_receipt_ref":{"$ref":"#/$defs/receiptRef"},"activation_receipt_ref":{"type":"null"},"created_at":{"$ref":"#/$defs/canonicalDateTime"},"status":{"const":"materialized_pending_activation"}},"$defs":{"portableInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"packageRef":{"type":"string","pattern":"^package://[^\\s]{1,248}$"},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"deploymentProfileRef":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"orderingProfileRef":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"oracleProfileRef":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"lifecycleProfileRef":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"networkEnrollmentRef":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+    ),
+    (
         "schema://ioi/foundations/autonomous-system-constitution/v1",
         r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-constitution/v1","title":"AutonomousSystemConstitution","description":"Protected purpose, agency, governance, profile-change, and shutdown constraints for one logical System.","x-ioi-schema-version":"ioi.autonomous-system-constitution.v1","type":"object","additionalProperties":false,"required":["schema_version","constitution_id","system_id","version","predecessor_constitution_ref","constitution_root","declared_purpose","normative_constraints","agency_boundary","governance","protected_profile_governance","shutdown","activation_receipt_ref","public_commitment_ref","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-constitution.v1"},"constitution_id":{"$ref":"#/$defs/constitutionRef"},"system_id":{"$ref":"#/$defs/systemRef"},"version":{"$ref":"#/$defs/version"},"predecessor_constitution_ref":{"anyOf":[{"$ref":"#/$defs/constitutionRef"},{"type":"null"}]},"constitution_root":{"$ref":"#/$defs/hash"},"declared_purpose":{"type":"object","additionalProperties":false,"required":["statement","ontology_refs","beneficiary_or_stakeholder_refs","acceptance_policy_refs"],"properties":{"statement":{"type":"string","pattern":"^[^\\s][ -~]{0,2047}$"},"ontology_refs":{"$ref":"#/$defs/canonicalRefs"},"beneficiary_or_stakeholder_refs":{"$ref":"#/$defs/canonicalRefs"},"acceptance_policy_refs":{"$ref":"#/$defs/policyRefs"}}},"normative_constraints":{"type":"object","additionalProperties":false,"required":["invariant_refs","permitted_objective_policy_refs","prohibited_objective_policy_refs","permitted_ontology_action_contract_refs","prohibited_effect_policy_refs"],"properties":{"invariant_refs":{"$ref":"#/$defs/canonicalRefs"},"permitted_objective_policy_refs":{"$ref":"#/$defs/policyRefs"},"prohibited_objective_policy_refs":{"$ref":"#/$defs/policyRefs"},"permitted_ontology_action_contract_refs":{"$ref":"#/$defs/canonicalRefs"},"prohibited_effect_policy_refs":{"$ref":"#/$defs/policyRefs"}}},"agency_boundary":{"type":"object","additionalProperties":false,"required":["authority_ceiling_scope_refs","delegable_scope_refs","non_delegable_scope_refs","resource_and_budget_ceiling_policy_refs","time_and_duration_ceiling_policy_refs","data_and_privacy_ceiling_policy_refs","effect_and_externality_ceiling_policy_refs","egress_policy_ref","node_expansion","code_propagation","self_authority_widening"],"properties":{"authority_ceiling_scope_refs":{"$ref":"#/$defs/scopeRefs"},"delegable_scope_refs":{"$ref":"#/$defs/scopeRefs"},"non_delegable_scope_refs":{"$ref":"#/$defs/scopeRefs"},"resource_and_budget_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"time_and_duration_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"data_and_privacy_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"effect_and_externality_ceiling_policy_refs":{"$ref":"#/$defs/policyRefs"},"egress_policy_ref":{"$ref":"#/$defs/policyRef"},"node_expansion":{"const":"governed_membership_only"},"code_propagation":{"const":"admitted_deployment_only"},"self_authority_widening":{"const":"forbidden"}}},"governance":{"type":"object","additionalProperties":false,"required":["governance_owner_refs","accountable_principal_refs","affected_party_policy_ref","ordinary_upgrade_policy_ref","amendment_mode","amendment_decision_profile_ref","protected_clause_refs","agent_may_propose_amendment","agent_may_commit_amendment","emergency_pause_authority_refs","revocation_authority_refs"],"properties":{"governance_owner_refs":{"$ref":"#/$defs/canonicalRefs"},"accountable_principal_refs":{"$ref":"#/$defs/canonicalRefs"},"affected_party_policy_ref":{"$ref":"#/$defs/policyRef"},"ordinary_upgrade_policy_ref":{"$ref":"#/$defs/policyRef"},"amendment_mode":{"enum":["immutable","external_governance_only"]},"amendment_decision_profile_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"protected_clause_refs":{"$ref":"#/$defs/canonicalRefs"},"agent_may_propose_amendment":{"type":"boolean"},"agent_may_commit_amendment":{"type":"boolean","const":false},"emergency_pause_authority_refs":{"$ref":"#/$defs/canonicalRefs"},"revocation_authority_refs":{"$ref":"#/$defs/canonicalRefs"}},"allOf":[{"if":{"properties":{"amendment_mode":{"const":"immutable"}},"required":["amendment_mode"]},"then":{"properties":{"amendment_decision_profile_ref":{"type":"null"},"agent_may_propose_amendment":{"type":"boolean","const":false}}},"else":{"properties":{"amendment_decision_profile_ref":{"$ref":"#/$defs/policyRef"}}}}]},"protected_profile_governance":{"type":"object","additionalProperties":false,"required":["improvement_governance_profile_ref","improvement_governance_profile_change_decision_profile_ref","deployment_constraint_ref","deployment_change_decision_profile_ref","ordering_admission_finality_constraint_ref","ordering_profile_change_decision_profile_ref","oracle_evidence_constraint_ref","oracle_profile_change_decision_profile_ref","lifecycle_continuity_constraint_ref","lifecycle_profile_change_decision_profile_ref","network_enrollment_constraint_ref","network_enrollment_change_decision_profile_ref"],"properties":{"improvement_governance_profile_ref":{"anyOf":[{"type":"string","pattern":"^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},{"type":"null"}]},"improvement_governance_profile_change_decision_profile_ref":{"$ref":"#/$defs/nullablePolicyRef"},"deployment_constraint_ref":{"$ref":"#/$defs/policyRef"},"deployment_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"ordering_admission_finality_constraint_ref":{"$ref":"#/$defs/policyRef"},"ordering_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"oracle_evidence_constraint_ref":{"$ref":"#/$defs/policyRef"},"oracle_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"lifecycle_continuity_constraint_ref":{"$ref":"#/$defs/policyRef"},"lifecycle_profile_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_constraint_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_change_decision_profile_ref":{"$ref":"#/$defs/policyRef"}}},"shutdown":{"type":"object","additionalProperties":false,"required":["kill_switch_ref","decommission_policy_ref","minimum_archive_policy_ref"],"properties":{"kill_switch_ref":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"decommission_policy_ref":{"$ref":"#/$defs/policyRef"},"minimum_archive_policy_ref":{"$ref":"#/$defs/policyRef"}}},"activation_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},{"type":"null"}]},"public_commitment_ref":{"anyOf":[{"type":"string","pattern":"^(?:commitment|settlement|tx)://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["draft","active","superseded","revoked"]}},"allOf":[{"if":{"properties":{"status":{"const":"draft"}},"required":["status"]},"then":{"properties":{"activation_receipt_ref":{"type":"null"},"public_commitment_ref":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"active"}},"required":["status"]},"then":{"properties":{"activation_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"nullablePolicyRef":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"policyRefs":{"type":"array","items":{"$ref":"#/$defs/policyRef"},"maxItems":128,"uniqueItems":true},"scopeRefs":{"type":"array","items":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]{0,127}$"},"maxItems":128,"uniqueItems":true}}}"##,
     ),
@@ -16538,6 +17120,10 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     (
         "schema://ioi/foundations/autonomous-system-genesis/v1",
         r#"[]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+        r#"[{"rule_id":"materialization-id-binds-genesis-admission-root","expression":{"operator":"prefixed_field_equals","path":"$.materialization_id","prefix":"system-materialization://sequence-zero/","expected_path":"$.genesis_admission_record_root"}},{"rule_id":"component-registry-ref-binds-registry-root","expression":{"operator":"prefixed_field_equals","path":"$.component_registry_ref","prefix":"agentgres://object-set/autonomous-system-components/","expected_path":"$.component_registry_root"}},{"rule_id":"component-binding-count-matches-array","expression":{"operator":"array_length_equals","array_path":"$.component_bindings","count_path":"$.component_binding_count"}},{"rule_id":"component-binding-identities-are-unique","expression":{"operator":"array_unique_by_fields","array_path":"$.component_bindings","fields":["kind","binding_ref"]}},{"rule_id":"deployment-profile-ref-binds-deployment-root","expression":{"operator":"field_ends_with","path":"$.profile_refs.deployment_profile_ref","expected_path":"$.deployment_profile_root"}}]"#,
     ),
     (
         "schema://ioi/foundations/autonomous-system-constitution/v1",
@@ -16719,6 +17305,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^agent-harness-adapter://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^agentgres://object-set/[^\s]{1,248}$"#,
+        r#"^agentgres://object-set/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^agentgres://operation/[^\s]+$"#,
         r#"^agentgres://operation/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -16763,6 +17353,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$"#,
+        r#"^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
         r#"^conformance-profile://[^\s]{1,248}$"#,
         r#"^conformance-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -16785,6 +17379,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^decision://[^\s]{1,248}$"#,
         r#"^decision://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^deployment-profile://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+        r#"^deployment-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
     (
         r#"^deployment-profile://[^\s]{1,248}$"#,
@@ -17018,6 +17616,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^snapshot://[^\s]+$"#,
         r#"^snapshot://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^system-materialization://[^\s]{1,248}$"#,
+        r#"^system-materialization://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^system://[^\s]{1,248}$"#,
@@ -17427,111 +18029,207 @@ fn non_empty(value: Option<&Value>) -> bool {
     })
 }
 
+fn portable_array_length(value: Option<&Value>) -> Option<usize> {
+    let number = value?.as_number()?;
+    if let Some(value) = number.as_u64() {
+        return usize::try_from(value).ok();
+    }
+    let value = number.as_f64()?;
+    (value.is_finite() && value >= 0.0 && value <= 9_007_199_254_740_991.0 && value.fract() == 0.0)
+        .then(|| value as usize)
+}
+
+fn array_unique_by_fields(value: Option<&Value>, fields: &[&str]) -> bool {
+    let Some(items) = value.and_then(Value::as_array) else {
+        return false;
+    };
+    if fields.is_empty() {
+        return false;
+    }
+    let mut identities = std::collections::BTreeSet::new();
+    for item in items {
+        let Some(object) = item.as_object() else {
+            return false;
+        };
+        let Some(identity) = fields
+            .iter()
+            .map(|field| object.get(*field).cloned())
+            .collect::<Option<Vec<_>>>()
+        else {
+            return false;
+        };
+        let Ok(encoded) = serde_jcs::to_vec(&identity) else {
+            return false;
+        };
+        if !identities.insert(encoded) {
+            return false;
+        }
+    }
+    true
+}
+
 fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Result<(), String> {
     for rule in rules.as_array().into_iter().flatten() {
         let expression = &rule["expression"];
-        let valid = match expression.get("operator").and_then(Value::as_str) {
-            Some("non_empty") => expression
-                .get("path")
-                .and_then(Value::as_str)
-                .is_some_and(|path| non_empty(value_at_path(value, path))),
-            Some("any_non_empty") => expression
-                .get("paths")
-                .and_then(Value::as_array)
-                .is_some_and(|paths| {
-                    paths
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .any(|path| non_empty(value_at_path(value, path)))
-                }),
-            Some("non_empty_when_in") => {
-                let applies = expression
-                    .get("when_path")
+        let valid =
+            match expression.get("operator").and_then(Value::as_str) {
+                Some("non_empty") => expression
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .is_some_and(|path| non_empty(value_at_path(value, path))),
+                Some("any_non_empty") => expression
+                    .get("paths")
+                    .and_then(Value::as_array)
+                    .is_some_and(|paths| {
+                        paths
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .any(|path| non_empty(value_at_path(value, path)))
+                    }),
+                Some("non_empty_when_in") => {
+                    let applies = expression
+                        .get("when_path")
+                        .and_then(Value::as_str)
+                        .and_then(|path| value_at_path(value, path))
+                        .zip(expression.get("values").and_then(Value::as_array))
+                        .is_some_and(|(actual, expected)| expected.contains(actual));
+                    !applies
+                        || expression
+                            .get("path")
+                            .and_then(Value::as_str)
+                            .is_some_and(|path| non_empty(value_at_path(value, path)))
+                }
+                Some("fields_equal") => expression
+                    .get("paths")
+                    .and_then(Value::as_array)
+                    .filter(|paths| paths.len() == 2)
+                    .and_then(|paths| {
+                        Some((
+                            value_at_path(value, paths.first()?.as_str()?)?,
+                            value_at_path(value, paths.get(1)?.as_str()?)?,
+                        ))
+                    })
+                    .is_some_and(|(left, right)| json_schema_equal(left, right)),
+                Some("array_field_equals") => expression
+                    .get("array_path")
                     .and_then(Value::as_str)
                     .and_then(|path| value_at_path(value, path))
-                    .zip(expression.get("values").and_then(Value::as_array))
-                    .is_some_and(|(actual, expected)| expected.contains(actual));
-                !applies
-                    || expression
-                        .get("path")
+                    .and_then(Value::as_array)
+                    .zip(
+                        expression.get("field").and_then(Value::as_str).zip(
+                            expression
+                                .get("expected_path")
+                                .and_then(Value::as_str)
+                                .and_then(|path| value_at_path(value, path)),
+                        ),
+                    )
+                    .is_some_and(|(items, (field, expected))| {
+                        items.iter().all(|item| {
+                            item.get(field)
+                                .is_some_and(|actual| json_schema_equal(actual, expected))
+                        })
+                    }),
+                Some("optional_field_equals") => expression
+                    .get("optional_object_path")
+                    .and_then(Value::as_str)
+                    .and_then(|path| value_at_path(value, path))
+                    .zip(
+                        expression.get("field").and_then(Value::as_str).zip(
+                            expression
+                                .get("expected_path")
+                                .and_then(Value::as_str)
+                                .and_then(|path| value_at_path(value, path)),
+                        ),
+                    )
+                    .is_some_and(|(optional, (field, expected))| {
+                        optional.is_null()
+                            || optional
+                                .get(field)
+                                .is_some_and(|actual| json_schema_equal(actual, expected))
+                    }),
+                Some("prefixed_field_equals") => expression
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .and_then(|path| value_at_path(value, path))
+                    .and_then(Value::as_str)
+                    .zip(
+                        expression.get("prefix").and_then(Value::as_str).zip(
+                            expression
+                                .get("expected_path")
+                                .and_then(Value::as_str)
+                                .and_then(|path| value_at_path(value, path))
+                                .and_then(Value::as_str),
+                        ),
+                    )
+                    .is_some_and(|(actual, (prefix, expected))| {
+                        actual.len() == prefix.len() + expected.len()
+                            && actual.starts_with(prefix)
+                            && actual.ends_with(expected)
+                    }),
+                Some("field_ends_with") => expression
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .and_then(|path| value_at_path(value, path))
+                    .and_then(Value::as_str)
+                    .zip(
+                        expression
+                            .get("expected_path")
+                            .and_then(Value::as_str)
+                            .and_then(|path| value_at_path(value, path))
+                            .and_then(Value::as_str),
+                    )
+                    .is_some_and(|(actual, expected)| {
+                        !expected.is_empty() && actual.ends_with(expected)
+                    }),
+                Some("array_length_equals") => expression
+                    .get("array_path")
+                    .and_then(Value::as_str)
+                    .and_then(|path| value_at_path(value, path))
+                    .and_then(Value::as_array)
+                    .zip(
+                        expression
+                            .get("count_path")
+                            .and_then(Value::as_str)
+                            .and_then(|path| portable_array_length(value_at_path(value, path))),
+                    )
+                    .is_some_and(|(items, count)| items.len() == count),
+                Some("array_unique_by_fields") => {
+                    expression
+                        .get("array_path")
                         .and_then(Value::as_str)
-                        .is_some_and(|path| non_empty(value_at_path(value, path)))
-            }
-            Some("fields_equal") => expression
-                .get("paths")
-                .and_then(Value::as_array)
-                .filter(|paths| paths.len() == 2)
-                .and_then(|paths| {
-                    Some((
-                        value_at_path(value, paths.first()?.as_str()?)?,
-                        value_at_path(value, paths.get(1)?.as_str()?)?,
-                    ))
-                })
-                .is_some_and(|(left, right)| json_schema_equal(left, right)),
-            Some("array_field_equals") => expression
-                .get("array_path")
-                .and_then(Value::as_str)
-                .and_then(|path| value_at_path(value, path))
-                .and_then(Value::as_array)
-                .zip(
-                    expression.get("field").and_then(Value::as_str).zip(
-                        expression
-                            .get("expected_path")
-                            .and_then(Value::as_str)
-                            .and_then(|path| value_at_path(value, path)),
-                    ),
-                )
-                .is_some_and(|(items, (field, expected))| {
-                    items.iter().all(|item| {
-                        item.get(field)
-                            .is_some_and(|actual| json_schema_equal(actual, expected))
+                        .map(|path| value_at_path(value, path))
+                        .zip(expression.get("fields").and_then(Value::as_array).and_then(
+                            |fields| fields.iter().map(Value::as_str).collect::<Option<Vec<_>>>(),
+                        ))
+                        .is_some_and(|(items, fields)| array_unique_by_fields(items, &fields))
+                }
+                Some("matches_contract_schema_hash") => expression
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .and_then(|path| value_at_path(value, path))
+                    .and_then(Value::as_str)
+                    .zip(architecture_contract_schema_hash(contract_id))
+                    .is_some_and(|(actual, expected)| actual == expected),
+                Some(operator @ ("numbers_lte" | "numbers_lt")) => expression
+                    .get("paths")
+                    .and_then(Value::as_array)
+                    .filter(|paths| paths.len() == 2)
+                    .and_then(|paths| {
+                        Some((
+                            value_at_path(value, paths.first()?.as_str()?)?.as_number()?,
+                            value_at_path(value, paths.get(1)?.as_str()?)?.as_number()?,
+                        ))
                     })
-                }),
-            Some("optional_field_equals") => expression
-                .get("optional_object_path")
-                .and_then(Value::as_str)
-                .and_then(|path| value_at_path(value, path))
-                .zip(
-                    expression.get("field").and_then(Value::as_str).zip(
-                        expression
-                            .get("expected_path")
-                            .and_then(Value::as_str)
-                            .and_then(|path| value_at_path(value, path)),
-                    ),
-                )
-                .is_some_and(|(optional, (field, expected))| {
-                    optional.is_null()
-                        || optional
-                            .get(field)
-                            .is_some_and(|actual| json_schema_equal(actual, expected))
-                }),
-            Some("matches_contract_schema_hash") => expression
-                .get("path")
-                .and_then(Value::as_str)
-                .and_then(|path| value_at_path(value, path))
-                .and_then(Value::as_str)
-                .zip(architecture_contract_schema_hash(contract_id))
-                .is_some_and(|(actual, expected)| actual == expected),
-            Some(operator @ ("numbers_lte" | "numbers_lt")) => expression
-                .get("paths")
-                .and_then(Value::as_array)
-                .filter(|paths| paths.len() == 2)
-                .and_then(|paths| {
-                    Some((
-                        value_at_path(value, paths.first()?.as_str()?)?.as_number()?,
-                        value_at_path(value, paths.get(1)?.as_str()?)?.as_number()?,
-                    ))
-                })
-                .is_some_and(|(left, right)| {
-                    let ordering = compare_json_numbers(left, right);
-                    if operator == "numbers_lte" {
-                        ordering != Ordering::Greater
-                    } else {
-                        ordering == Ordering::Less
-                    }
-                }),
-            _ => false,
-        };
+                    .is_some_and(|(left, right)| {
+                        let ordering = compare_json_numbers(left, right);
+                        if operator == "numbers_lte" {
+                            ordering != Ordering::Greater
+                        } else {
+                            ordering == Ordering::Less
+                        }
+                    }),
+                _ => false,
+            };
         if !valid {
             let rule_id = rule
                 .get("rule_id")
@@ -17640,6 +18338,13 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-foreign-oracle-system.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-foreign-oracle-system.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-activation-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-activation-claim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-materialization-id-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-materialization-id-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-registry-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-registry-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-count-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-count-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-identity-duplicate.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-identity-duplicate.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-deployment-profile-root-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-deployment-profile-root-binding.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json"))),
@@ -17739,6 +18444,13 @@ mod tests {
                 serde_json::from_value::<AutonomousSystemGenesisV1>(value.clone())
                     .map(|_| ())
                     .map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1" => {
+                serde_json::from_value::<AutonomousSystemSequenceZeroMaterializationV1>(
+                    value.clone(),
+                )
+                .map(|_| ())
+                .map_err(|error| error.to_string())
             }
             "schema://ioi/foundations/autonomous-system-constitution/v1" => {
                 serde_json::from_value::<AutonomousSystemConstitutionV1>(value.clone())
@@ -17865,6 +18577,13 @@ mod tests {
             "schema://ioi/foundations/autonomous-system-genesis/v1" => {
                 let projection = serde_json::from_value::<AutonomousSystemGenesisV1>(value.clone())
                     .map_err(|error| error.to_string())?;
+                serde_json::to_value(projection).map_err(|error| error.to_string())
+            }
+            "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1" => {
+                let projection = serde_json::from_value::<
+                    AutonomousSystemSequenceZeroMaterializationV1,
+                >(value.clone())
+                .map_err(|error| error.to_string())?;
                 serde_json::to_value(projection).map_err(|error| error.to_string())
             }
             "schema://ioi/foundations/autonomous-system-constitution/v1" => {
@@ -18043,8 +18762,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            70,
-            "the registered golden corpus must remain the explicit 70-fixture bar",
+            77,
+            "the registered golden corpus must remain the explicit 77-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -18242,7 +18961,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 132,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 136,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

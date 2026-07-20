@@ -743,6 +743,7 @@ Protected autonomous-system transitions use separate scopes:
 
 ```text
 scope:autonomous_system.genesis_admit
+scope:autonomous_system.genesis_materialize
 scope:autonomous_system.constitution_amend
 scope:autonomous_system.deployment_profile_change
 scope:autonomous_system.node_admit
@@ -775,6 +776,17 @@ statefully by exact grant hash before the System admission can become visible;
 the immutable consumption receipt and remaining-use count are part of the
 admission evidence. A review or recorded grant that has not crossed this
 consumption boundary is not admission authority.
+
+`scope:autonomous_system.genesis_materialize` is the separate one-time M1.4
+crossing from an exact converged M1.3 admission to immutable pre-activation
+profile/component candidates and daemon-derived sequence-zero
+operation/transition/state/receipt roots. It binds the M1.3 record and receipt
+roots, the content-addressed deployment-profile root, materialization effect,
+governing authority, complete current wallet.network binding snapshot, and a
+separately consumed single-use grant. The wallet transaction preflights the
+exact target scope and one-use ceiling before changing grant state. It does not
+admit an active profile, initialize or activate a System, enroll a node or
+network, or create runtime authority.
 
 Requests for these scopes additionally bind `system_id`, active constitution
 root, target profile or membership ref, predecessor and proposed roots,

@@ -6,7 +6,7 @@ Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: canonical
-Implementation status: mixed (the registered architecture-contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for `ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, `AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, `AuthorityRevocationSnapshot` v1, `InformationFlowLabel` v1, `DeclassificationApproval` v1, `ManagedWorkBillingLedgerBundle` v1, `DisputeRailBundle` v1, `PhysicalActionExecutionReceipt` v1, and the bounded-System manifest/genesis/constitution/amendment/ordering/oracle/lifecycle/enrollment family listed below; the pure bounded-System genesis proposal compiler and M1.3 exact wallet-authorized, statefully consumed, crash-convergent System admission with immutable local and Agentgres evidence are merged on current master. That admission leaves the System authorized but not activated; M1.4 active-profile materialization, activation, amendment/lifecycle execution, network-enrollment effects, and product surfaces remain not started. Production portable-authority and receipt-proof cryptographic verifiers/CLIs, information-flow enforcement, managed-work billing and dispute kernels, shared work-lifecycle persistence/routes, physical execution, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned; other core runtime envelopes and IDs are built or partial only where their owner routes exist; bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine, conditional-cooperation terms, local-agent pairing, AIIP transport/bindings and collaborative-pursuit, optional federated ontology/action, Institutional Learning Boundary, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families remain planned or speculative)
+Implementation status: mixed (the registered architecture-contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for `ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, `AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, `AuthorityRevocationSnapshot` v1, `InformationFlowLabel` v1, `DeclassificationApproval` v1, `ManagedWorkBillingLedgerBundle` v1, `DisputeRailBundle` v1, `PhysicalActionExecutionReceipt` v1, and the bounded-System manifest/genesis/sequence-zero-materialization/constitution/amendment/ordering/oracle/lifecycle/enrollment family listed below; the pure bounded-System genesis proposal compiler and M1.3 exact wallet-authorized, statefully consumed, crash-convergent System admission with immutable local and Agentgres evidence are merged on current master. The held M1.4 cut registers and durably admits the exact pre-activation component/profile candidate set plus sequence-zero operation, state, receipt, and transition roots through a distinct wallet.network scope and four mandatory Agentgres evidence domains. It leaves the System `materialized_pending_activation`; activation, amendment/lifecycle execution, network-enrollment effects, and product surfaces remain not started. Production portable-authority and receipt-proof cryptographic verifiers/CLIs, information-flow enforcement, managed-work billing and dispute kernels, shared work-lifecycle persistence/routes, physical execution, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned; other core runtime envelopes and IDs are built or partial only where their owner routes exist; bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine, conditional-cooperation terms, local-agent pairing, AIIP transport/bindings and collaborative-pursuit, optional federated ontology/action, Institutional Learning Boundary, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families remain planned or speculative)
 Last implementation audit: 2026-07-19
 
 ## Purpose
@@ -28,6 +28,7 @@ SkillEntryEnvelope
 ActiveSkillSetSnapshotEnvelope
 AutonomousSystemManifestEnvelope
 AutonomousSystemGenesisEnvelope
+AutonomousSystemSequenceZeroMaterializationEnvelope
 AutonomousSystemConstitutionEnvelope
 ImprovementGovernanceProfileEnvelope
 AutonomousSystemDeploymentProfileEnvelope
@@ -1383,6 +1384,87 @@ Sequence zero is initial-only: the bundled constitution has
 `activation_receipt_ref: null`; a supplied initial network enrollment has
 `predecessor_enrollment_ref: null`. Any predecessor or constitution activation
 residue blocks compilation with its own typed reason.
+
+### AutonomousSystemSequenceZeroMaterializationEnvelope
+
+```yaml
+AutonomousSystemSequenceZeroMaterializationEnvelope:
+  schema_version: ioi.autonomous-system-sequence-zero-materialization.v1
+  materialization_id: system-materialization://...
+  system_id: system://...
+  genesis_ref: genesis://...
+  genesis_admission_receipt_ref: receipt://...
+  genesis_admission_record_root: hash
+  genesis_admission_receipt_root: hash
+  proposed_initial_state_root: hash
+  proposed_initial_receipt_root: hash
+  package_id: package://...
+  manifest_ref: package://.../release/...
+  admitted_manifest_root: hash
+  constitution_ref: constitution://...
+  constitution_root: hash
+  profile_bundle_root: hash
+  profile_materialization_root: hash
+  deployment_profile_root: hash
+  profile_refs:
+    deployment_profile_ref: deployment-profile://.../revision/sha256:...
+    ordering_admission_finality_profile_ref: ordering-profile://...
+    oracle_evidence_profile_refs: []
+    lifecycle_continuity_profile_ref: lifecycle-profile://...
+    network_enrollment_ref: network-enrollment://... | null
+  component_registry_ref: agentgres://object-set/...
+  component_registry_root: hash
+  component_binding_count: nonnegative_integer
+  component_bindings:
+    - kind: goal_run_profile | workflow_template | automation_spec | automation_installation | harness_profile | agent_harness_adapter | skill_entry | data_recipe | runtime_tool_contract | mcp_gateway_profile
+      binding_ref: canonical_ref
+      binding_hash: hash
+      evidence_refs: []
+      evidence_hashes: []
+  sequence: 0
+  predecessor_transition_commitment_ref: null
+  operation_commitment: hash
+  transition_commitment_ref: commitment://ioi/system-sequence-zero/...
+  initial_state_root: hash
+  initial_receipt_root: hash
+  materialization_receipt_ref: receipt://...
+  activation_receipt_ref: null
+  created_at: timestamp
+  status: materialized_pending_activation
+```
+
+This immutable M1.4 artifact freezes the exact activation candidates and the
+daemon-derived sequence-zero commitment set after genesis authorization. It is
+not the live `AutonomousSystemChainEnvelope`: no profile or component becomes
+live merely because it appears here, and no initialize, activate, membership,
+runtime, or network-enrollment effect is implied. A later authorized activation
+transition must consume this exact artifact and receipt before it may populate
+the live chain fields.
+
+The daemon derives every operational root from the converged M1.3 admission and
+exact normalized component/profile material. Because the M1.3 profile bundle
+does not persist a deployment-profile body, M1.4 admits only a content-addressed
+`deployment_profile_ref` ending in `/revision/sha256:<hash>` and carries that
+hash separately as `deployment_profile_root`; a legacy unversioned deployment
+candidate remains valid M1.3 evidence but cannot cross M1.4. The M1.3 genesis
+`initial_state_root` and `initial_receipt_root` survive only as the explicitly
+named `proposed_initial_*` trace fields; they are never copied into the
+operational `initial_state_root` or `initial_receipt_root`. The hash domains
+are:
+
+- `ioi.autonomous-system-component-registry-jcs-sha256.v1`;
+- `ioi.autonomous-system-profile-materialization-jcs-sha256.v1`;
+- `ioi.autonomous-system-sequence-zero-operation-jcs-sha256.v1`;
+- `ioi.autonomous-system-sequence-zero-state-jcs-sha256.v1`;
+- `ioi.autonomous-system-sequence-zero-receipt-jcs-sha256.v1`; and
+- `ioi.autonomous-system-sequence-zero-transition-jcs-sha256.v1`.
+
+The receipt-root material binds the M1.3 admission receipt/root, the deterministic
+M1.4 receipt identity, operation commitment, and resulting state root. The
+transition material then binds sequence zero, null predecessor, operation
+commitment, M1.4 admission-proof ref, resulting state root, and receipt root.
+The component registry is an exact ordered ref/hash projection, not a copy of
+package contents or a grant of component execution authority.
 
 ## Governed Autonomous-System Chain Envelopes
 

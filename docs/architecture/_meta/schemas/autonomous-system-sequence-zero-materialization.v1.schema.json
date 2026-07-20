@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+  "title": "AutonomousSystemSequenceZeroMaterialization",
+  "description": "Immutable pre-activation binding of one admitted genesis to exact profile/component candidates and daemon-derived sequence-zero roots.",
+  "x-ioi-schema-version": "ioi.autonomous-system-sequence-zero-materialization.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "materialization_id",
+    "system_id",
+    "genesis_ref",
+    "genesis_admission_receipt_ref",
+    "genesis_admission_record_root",
+    "genesis_admission_receipt_root",
+    "proposed_initial_state_root",
+    "proposed_initial_receipt_root",
+    "package_id",
+    "manifest_ref",
+    "admitted_manifest_root",
+    "constitution_ref",
+    "constitution_root",
+    "profile_bundle_root",
+    "profile_materialization_root",
+    "deployment_profile_root",
+    "profile_refs",
+    "component_registry_ref",
+    "component_registry_root",
+    "component_binding_count",
+    "component_bindings",
+    "sequence",
+    "predecessor_transition_commitment_ref",
+    "operation_commitment",
+    "transition_commitment_ref",
+    "initial_state_root",
+    "initial_receipt_root",
+    "materialization_receipt_ref",
+    "activation_receipt_ref",
+    "created_at",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-sequence-zero-materialization.v1"
+    },
+    "materialization_id": {
+      "type": "string",
+      "pattern": "^system-materialization://[^\\s]{1,248}$"
+    },
+    "system_id": {
+      "$ref": "#/$defs/systemRef"
+    },
+    "genesis_ref": {
+      "$ref": "#/$defs/genesisRef"
+    },
+    "genesis_admission_receipt_ref": {
+      "$ref": "#/$defs/receiptRef"
+    },
+    "genesis_admission_record_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "genesis_admission_receipt_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "proposed_initial_state_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "proposed_initial_receipt_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "package_id": {
+      "$ref": "#/$defs/packageRef"
+    },
+    "manifest_ref": {
+      "$ref": "#/$defs/packageReleaseRef"
+    },
+    "admitted_manifest_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "constitution_ref": {
+      "$ref": "#/$defs/constitutionRef"
+    },
+    "constitution_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "profile_bundle_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "profile_materialization_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "deployment_profile_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "profile_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deployment_profile_ref",
+        "ordering_admission_finality_profile_ref",
+        "oracle_evidence_profile_refs",
+        "lifecycle_continuity_profile_ref",
+        "network_enrollment_ref"
+      ],
+      "properties": {
+        "deployment_profile_ref": {
+          "$ref": "#/$defs/deploymentProfileRef"
+        },
+        "ordering_admission_finality_profile_ref": {
+          "$ref": "#/$defs/orderingProfileRef"
+        },
+        "oracle_evidence_profile_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/oracleProfileRef"
+          },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "lifecycle_continuity_profile_ref": {
+          "$ref": "#/$defs/lifecycleProfileRef"
+        },
+        "network_enrollment_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/networkEnrollmentRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "component_registry_ref": {
+      "type": "string",
+      "pattern": "^agentgres://object-set/[^\\s]{1,248}$"
+    },
+    "component_registry_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "component_binding_count": {
+      "$ref": "#/$defs/portableInteger"
+    },
+    "component_bindings": {
+      "type": "array",
+      "maxItems": 1024,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "binding_ref",
+          "binding_hash",
+          "evidence_refs",
+          "evidence_hashes"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "goal_run_profile",
+              "workflow_template",
+              "automation_spec",
+              "automation_installation",
+              "harness_profile",
+              "agent_harness_adapter",
+              "skill_entry",
+              "data_recipe",
+              "runtime_tool_contract",
+              "mcp_gateway_profile"
+            ]
+          },
+          "binding_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "binding_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "evidence_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "evidence_hashes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/hash"
+            },
+            "maxItems": 16,
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 0
+    },
+    "predecessor_transition_commitment_ref": {
+      "type": "null"
+    },
+    "operation_commitment": {
+      "$ref": "#/$defs/hash"
+    },
+    "transition_commitment_ref": {
+      "type": "string",
+      "pattern": "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$"
+    },
+    "initial_state_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "initial_receipt_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "materialization_receipt_ref": {
+      "$ref": "#/$defs/receiptRef"
+    },
+    "activation_receipt_ref": {
+      "type": "null"
+    },
+    "created_at": {
+      "$ref": "#/$defs/canonicalDateTime"
+    },
+    "status": {
+      "const": "materialized_pending_activation"
+    }
+  },
+  "$defs": {
+    "portableInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+    },
+    "canonicalRefs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "genesisRef": {
+      "type": "string",
+      "pattern": "^genesis://[^\\s]{1,248}$"
+    },
+    "packageRef": {
+      "type": "string",
+      "pattern": "^package://[^\\s]{1,248}$"
+    },
+    "packageReleaseRef": {
+      "type": "string",
+      "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
+    },
+    "constitutionRef": {
+      "type": "string",
+      "pattern": "^constitution://[^\\s]{1,248}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "deploymentProfileRef": {
+      "type": "string",
+      "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "orderingProfileRef": {
+      "type": "string",
+      "pattern": "^ordering-profile://[^\\s]{1,248}$"
+    },
+    "oracleProfileRef": {
+      "type": "string",
+      "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+    },
+    "lifecycleProfileRef": {
+      "type": "string",
+      "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+    },
+    "networkEnrollmentRef": {
+      "type": "string",
+      "pattern": "^network-enrollment://[^\\s]{1,248}$"
+    },
+    "canonicalDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}
