@@ -1,0 +1,71 @@
+{
+  "schema_version": "ioi.autonomous-system-sequence-zero-materialization.v1",
+  "materialization_id": "system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "system_id": "system://acme/system-alpha",
+  "genesis_ref": "genesis://acme/system-alpha/zero",
+  "genesis_admission_receipt_ref": "receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777",
+  "genesis_admission_record_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "genesis_admission_receipt_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "proposed_initial_state_root": "sha256:1212121212121212121212121212121212121212121212121212121212121212",
+  "proposed_initial_receipt_root": "sha256:2323232323232323232323232323232323232323232323232323232323232323",
+  "package_id": "package://acme/outcome-operator",
+  "manifest_ref": "package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "admitted_manifest_root": "sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b",
+  "constitution_ref": "constitution://acme/system-alpha/v1",
+  "constitution_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "profile_bundle_root": "sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48",
+  "profile_materialization_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "deployment_profile_root": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "profile_refs": {
+    "deployment_profile_ref": "deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "ordering_admission_finality_profile_ref": "ordering-profile://acme/system-alpha/poa1",
+    "oracle_evidence_profile_refs": [
+      "oracle-evidence-profile://acme/system-alpha/public-records"
+    ],
+    "lifecycle_continuity_profile_ref": "lifecycle-profile://acme/system-alpha/default",
+    "network_enrollment_ref": null
+  },
+  "component_registry_ref": "agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "component_registry_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "component_binding_count": 4,
+  "component_bindings": [
+    {
+      "kind": "goal_run_profile",
+      "binding_ref": "tool://acme/search/revision/sha256:abababababababababababababababababababababababababababababababab",
+      "binding_hash": "sha256:6767676767676767676767676767676767676767676767676767676767676767",
+      "evidence_refs": [],
+      "evidence_hashes": []
+    },
+    {
+      "kind": "harness_profile",
+      "binding_ref": "harness-profile://acme/default/revision/sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "binding_hash": "sha256:8989898989898989898989898989898989898989898989898989898989898989",
+      "evidence_refs": [],
+      "evidence_hashes": []
+    },
+    {
+      "kind": "runtime_tool_contract",
+      "binding_ref": "tool://acme/search/revision/sha256:abababababababababababababababababababababababababababababababab",
+      "binding_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "evidence_refs": [],
+      "evidence_hashes": []
+    },
+    {
+      "kind": "workflow_template",
+      "binding_ref": "workflow-template://acme/default/revision/sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "binding_hash": "sha256:7878787878787878787878787878787878787878787878787878787878787878",
+      "evidence_refs": [],
+      "evidence_hashes": []
+    }
+  ],
+  "sequence": 0,
+  "predecessor_transition_commitment_ref": null,
+  "operation_commitment": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "transition_commitment_ref": "commitment://ioi/system-sequence-zero/sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "initial_state_root": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+  "initial_receipt_root": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "materialization_receipt_ref": "receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "activation_receipt_ref": null,
+  "created_at": "2026-07-19T12:00:00Z",
+  "status": "materialized_pending_activation"
+}

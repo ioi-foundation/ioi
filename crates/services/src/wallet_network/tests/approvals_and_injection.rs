@@ -220,8 +220,24 @@ fn effect_consume_params(
         grant_hash,
         consumption_id,
         expected_principal_authority: expected.clone(),
-        expected_target_label: None,
-        expected_max_usages: None,
+    }
+}
+
+fn effect_consume_v2_params(
+    request_hash: [u8; 32],
+    grant_hash: [u8; 32],
+    consumption_id: [u8; 32],
+    expected: &ExpectedPrincipalAuthorityBinding,
+    expected_target_label: String,
+    expected_max_usages: u32,
+) -> ConsumeApprovalGrantForEffectV2Params {
+    ConsumeApprovalGrantForEffectV2Params {
+        request_hash,
+        grant_hash,
+        consumption_id,
+        expected_principal_authority: expected.clone(),
+        expected_target_label,
+        expected_max_usages,
     }
 }
 
@@ -243,6 +259,26 @@ fn consume_effect_at(
         )));
     });
     result.expect("effect consumption result")
+}
+
+fn consume_effect_v2_at(
+    service: &WalletNetworkService,
+    state: &mut MockState,
+    params: &ConsumeApprovalGrantForEffectV2Params,
+    now_ms: u64,
+) -> Result<(), ioi_types::error::TransactionError> {
+    let encoded = codec::to_bytes_canonical(params).expect("encode v2 effect consumption");
+    let mut result = None;
+    with_ctx(|ctx| {
+        ctx.block_timestamp = now_ms.saturating_mul(1_000_000);
+        result = Some(run_async(service.handle_service_call(
+            state,
+            "consume_approval_grant_for_effect@v2",
+            &encoded,
+            ctx,
+        )));
+    });
+    result.expect("v2 effect consumption result")
 }
 
 fn consume_legacy_at(
@@ -267,6 +303,116 @@ fn consume_legacy_at(
         )));
     });
     result.expect("legacy consumption result")
+}
+
+#[test]
+fn effect_consumption_v1_and_v2_keep_distinct_scale_wires_and_methods() {
+    #[derive(parity_scale_codec::Encode)]
+    struct PrePrV1Wire {
+        request_hash: [u8; 32],
+        grant_hash: [u8; 32],
+        consumption_id: [u8; 32],
+        expected_principal_authority: ExpectedPrincipalAuthorityBinding,
+    }
+
+    let authority = ApprovalAuthority {
+        schema_version: 1,
+        authority_id: [0x41; 32],
+        public_key: vec![0x42; 32],
+        signature_suite: SignatureSuite::ED25519,
+        expires_at: 1_850_000_000_000,
+        revoked: false,
+        scope_allowlist: vec![EFFECT_REQUIRED_SCOPE.to_string()],
+    };
+    let expected = ExpectedPrincipalAuthorityBinding {
+        principal_ref: EFFECT_PRINCIPAL_REF.to_string(),
+        required_scope: EFFECT_REQUIRED_SCOPE.to_string(),
+        coordinates: PrincipalAuthorityBindingCoordinates {
+            binding_ref: format!(
+                "wallet.network://principal-authority-binding/{}",
+                "43".repeat(32)
+            ),
+            binding_version: 1,
+            binding_hash: [0x43; 32],
+        },
+        approval_authority: authority,
+        approval_authority_snapshot_hash: [0x44; 32],
+    };
+    let v1 = effect_consume_params([0x45; 32], [0x46; 32], [0x47; 32], &expected);
+    let pre_pr_v1 = PrePrV1Wire {
+        request_hash: v1.request_hash,
+        grant_hash: v1.grant_hash,
+        consumption_id: v1.consumption_id,
+        expected_principal_authority: v1.expected_principal_authority.clone(),
+    };
+    let v1_bytes = codec::to_bytes_canonical(&v1).expect("encode restored v1");
+    assert_eq!(
+        v1_bytes,
+        codec::to_bytes_canonical(&pre_pr_v1).expect("encode pre-PR v1 layout"),
+        "v1 must remain the exact historical four-field SCALE request"
+    );
+
+    let v2 = effect_consume_v2_params(
+        v1.request_hash,
+        v1.grant_hash,
+        v1.consumption_id,
+        &expected,
+        ActionTarget::NetFetch.canonical_label(),
+        1,
+    );
+    let v2_bytes = codec::to_bytes_canonical(&v2).expect("encode v2");
+    assert!(
+        codec::from_bytes_canonical::<ConsumeApprovalGrantForEffectV2Params>(&v1_bytes).is_err(),
+        "v2 must not reinterpret a short v1 request"
+    );
+    assert!(
+        codec::from_bytes_canonical::<ConsumeApprovalGrantForEffectParams>(&v2_bytes).is_err(),
+        "v1 must reject v2 trailing fields"
+    );
+
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    with_ctx(|ctx| {
+        let v1_result = run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v1",
+            &v1_bytes,
+            ctx,
+        ))
+        .expect_err("decoded v1 reaches state validation");
+        assert!(v1_result.to_string().contains("approval decision"));
+
+        let v1_with_v2_wire = run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v1",
+            &v2_bytes,
+            ctx,
+        ))
+        .expect_err("v1 refuses v2 bytes");
+        assert!(v1_with_v2_wire
+            .to_string()
+            .contains("canonical decode failed"));
+
+        let v2_result = run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v2",
+            &v2_bytes,
+            ctx,
+        ))
+        .expect_err("decoded v2 reaches state validation");
+        assert!(v2_result.to_string().contains("approval decision"));
+
+        let v2_with_v1_wire = run_async(service.handle_service_call(
+            &mut state,
+            "consume_approval_grant_for_effect@v2",
+            &v1_bytes,
+            ctx,
+        ))
+        .expect_err("v2 refuses v1 bytes");
+        assert!(v2_with_v1_wire
+            .to_string()
+            .contains("canonical decode failed"));
+    });
 }
 
 fn record_shared_budget_approval(
@@ -594,13 +740,17 @@ fn effect_consumption_preflights_target_and_usage_ceiling_before_mutation() {
     );
     let binding =
         install_effect_binding(&service, &mut state, &approver.authority, 1_850_000_000_000);
-    let mut params =
-        effect_consume_params(request_hash, grant_hash, [0xb0u8; 32], &binding.expected);
+    let mut params = effect_consume_v2_params(
+        request_hash,
+        grant_hash,
+        [0xb0u8; 32],
+        &binding.expected,
+        "scope:autonomous_system.genesis_materialize".to_string(),
+        2,
+    );
 
-    params.expected_target_label = Some("scope:autonomous_system.genesis_materialize".to_string());
-    params.expected_max_usages = Some(2);
     let before = state.data.clone();
-    let error = consume_effect_at(&service, &mut state, &params, EFFECT_NOW_MS)
+    let error = consume_effect_v2_at(&service, &mut state, &params, EFFECT_NOW_MS)
         .expect_err("wrong target must refuse before consumption");
     assert!(error.to_string().contains("expected target"));
     assert_eq!(
@@ -608,9 +758,9 @@ fn effect_consumption_preflights_target_and_usage_ceiling_before_mutation() {
         "wrong target must change no wallet state"
     );
 
-    params.expected_target_label = Some(ActionTarget::NetFetch.canonical_label());
-    params.expected_max_usages = Some(1);
-    let error = consume_effect_at(&service, &mut state, &params, EFFECT_NOW_MS)
+    params.expected_target_label = ActionTarget::NetFetch.canonical_label();
+    params.expected_max_usages = 1;
+    let error = consume_effect_v2_at(&service, &mut state, &params, EFFECT_NOW_MS)
         .expect_err("wrong use ceiling must refuse before consumption");
     assert!(error.to_string().contains("expected ceiling"));
     assert_eq!(
@@ -618,8 +768,8 @@ fn effect_consumption_preflights_target_and_usage_ceiling_before_mutation() {
         "wrong use ceiling must change no wallet state"
     );
 
-    params.expected_max_usages = Some(2);
-    consume_effect_at(&service, &mut state, &params, EFFECT_NOW_MS)
+    params.expected_max_usages = 2;
+    consume_effect_v2_at(&service, &mut state, &params, EFFECT_NOW_MS)
         .expect("exact target and usage ceiling consume one use");
 }
 

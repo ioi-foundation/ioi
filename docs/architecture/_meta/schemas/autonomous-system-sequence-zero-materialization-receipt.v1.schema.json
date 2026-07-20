@@ -1,0 +1,510 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+  "title": "AutonomousSystemSequenceZeroMaterializationReceipt",
+  "description": "Closed portable receipt profile extending ReceiptEnvelope v1 with the exact governed M1.4 pre-activation materialization facts and retained owner-plane authority evidence.",
+  "x-ioi-schema-version": "ioi.autonomous-system-sequence-zero-materialization-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "receipt_ref",
+    "receipt_type",
+    "receipt_profile_ref",
+    "actor_id",
+    "subject_ref",
+    "op",
+    "attested_boundary_fact_refs",
+    "bound_facts",
+    "input_hash",
+    "output_hash",
+    "policy_hash",
+    "effect_hash",
+    "authorized_effect",
+    "wallet_approval_grant",
+    "principal_authority_binding",
+    "authority_resolved_at_ms",
+    "hash_scope_excludes",
+    "assurance_posture",
+    "assurance_note",
+    "verification_ref",
+    "acceptance_ref",
+    "claim_scope_ref",
+    "run_id",
+    "task_id",
+    "authority_grant_id",
+    "primitive_capabilities",
+    "authority_scopes",
+    "artifact_refs",
+    "evidence_bundle_refs",
+    "adjudication_ref",
+    "settlement_ref",
+    "signature",
+    "public_commitment_ref",
+    "timestamp",
+    "outcome",
+    "at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-sequence-zero-materialization-receipt.v1"
+    },
+    "receipt_id": {
+      "$ref": "#/$defs/materializationReceiptRef"
+    },
+    "receipt_ref": {
+      "$ref": "#/$defs/materializationReceiptRef"
+    },
+    "receipt_type": {
+      "const": "autonomous_system_sequence_zero_materialization"
+    },
+    "receipt_profile_ref": {
+      "const": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1"
+    },
+    "actor_id": {
+      "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+    },
+    "subject_ref": {
+      "$ref": "#/$defs/materializationRef"
+    },
+    "op": {
+      "const": "materialized"
+    },
+    "attested_boundary_fact_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "bound_facts": {
+      "$ref": "#/$defs/materializationFacts"
+    },
+    "input_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "output_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "policy_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "effect_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "authorized_effect": {
+      "description": "Exact owner-plane authority effect retained for replay. Its internal contract remains owned by the governed runtime authority plane.",
+      "type": "object"
+    },
+    "wallet_approval_grant": {
+      "description": "Exact wallet.network approval grant retained for replay. This profile does not redefine the wallet-owned grant schema.",
+      "type": "object"
+    },
+    "principal_authority_binding": {
+      "description": "Exact wallet.network principal-authority resolution retained for replay. This profile does not redefine the wallet-owned binding schema.",
+      "type": "object"
+    },
+    "authority_resolved_at_ms": {
+      "$ref": "#/$defs/portableInteger"
+    },
+    "hash_scope_excludes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "maxItems": 0,
+      "uniqueItems": true
+    },
+    "assurance_posture": {
+      "const": "sequence_zero_materialized_not_activated"
+    },
+    "assurance_note": {
+      "const": "governed materialization of immutable activation candidates and sequence-zero roots; active-profile admission, initialize, activation, live-chain, membership, network, and runtime effects remain unadmitted"
+    },
+    "verification_ref": {
+      "type": "null"
+    },
+    "acceptance_ref": {
+      "type": "null"
+    },
+    "claim_scope_ref": {
+      "type": "null"
+    },
+    "run_id": {
+      "type": "null"
+    },
+    "task_id": {
+      "type": "null"
+    },
+    "authority_grant_id": {
+      "$ref": "#/$defs/grantRef"
+    },
+    "primitive_capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/primitiveCapability"
+      },
+      "maxItems": 0,
+      "uniqueItems": true
+    },
+    "authority_scopes": {
+      "type": "array",
+      "items": {
+        "const": "scope:autonomous_system.genesis_materialize"
+      },
+      "minItems": 1,
+      "maxItems": 1,
+      "uniqueItems": true
+    },
+    "artifact_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifactRef"
+      },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "evidence_bundle_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceRef"
+      },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "adjudication_ref": {
+      "type": "null"
+    },
+    "settlement_ref": {
+      "type": "null"
+    },
+    "signature": {
+      "type": "null"
+    },
+    "public_commitment_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/publicCommitmentRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "timestamp": {
+      "$ref": "#/$defs/canonicalDateTime"
+    },
+    "outcome": {
+      "const": "ok"
+    },
+    "at": {
+      "$ref": "#/$defs/canonicalDateTime"
+    }
+  },
+  "$defs": {
+    "materializationFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system_id",
+        "genesis_ref",
+        "genesis_admission_record_root",
+        "genesis_admission_receipt_ref",
+        "genesis_admission_receipt_root",
+        "proposed_initial_state_root",
+        "proposed_initial_receipt_root",
+        "package_id",
+        "manifest_ref",
+        "admitted_manifest_root",
+        "constitution_ref",
+        "constitution_root",
+        "profile_bundle_root",
+        "profile_materialization_root",
+        "deployment_profile_root",
+        "profile_refs",
+        "component_registry_ref",
+        "component_registry_root",
+        "component_binding_count",
+        "sequence",
+        "predecessor_transition_commitment_ref",
+        "operation_commitment",
+        "transition_commitment_ref",
+        "initial_state_root",
+        "initial_receipt_root",
+        "wallet_grant_consumption_ref",
+        "wallet_grant_consumption_evidence_ref",
+        "materialized_pending_activation",
+        "active_profile_admission",
+        "initialize_admitted",
+        "activation_admitted",
+        "live_chain_created",
+        "node_membership_created",
+        "network_effect_admitted",
+        "runtime_effect_admitted"
+      ],
+      "properties": {
+        "system_id": {
+          "$ref": "#/$defs/systemRef"
+        },
+        "genesis_ref": {
+          "$ref": "#/$defs/genesisRef"
+        },
+        "genesis_admission_record_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "genesis_admission_receipt_ref": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "genesis_admission_receipt_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "proposed_initial_state_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "proposed_initial_receipt_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "package_id": {
+          "$ref": "#/$defs/packageRef"
+        },
+        "manifest_ref": {
+          "$ref": "#/$defs/packageReleaseRef"
+        },
+        "admitted_manifest_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "constitution_ref": {
+          "$ref": "#/$defs/constitutionRef"
+        },
+        "constitution_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "profile_bundle_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "profile_materialization_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "deployment_profile_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "profile_refs": {
+          "$ref": "#/$defs/profileRefs"
+        },
+        "component_registry_ref": {
+          "$ref": "#/$defs/componentRegistryRef"
+        },
+        "component_registry_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "component_binding_count": {
+          "$ref": "#/$defs/portableInteger"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 0
+        },
+        "predecessor_transition_commitment_ref": {
+          "type": "null"
+        },
+        "operation_commitment": {
+          "$ref": "#/$defs/hash"
+        },
+        "transition_commitment_ref": {
+          "$ref": "#/$defs/transitionCommitmentRef"
+        },
+        "initial_state_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "initial_receipt_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "wallet_grant_consumption_ref": {
+          "$ref": "#/$defs/walletGrantConsumptionRef"
+        },
+        "wallet_grant_consumption_evidence_ref": {
+          "$ref": "#/$defs/walletGrantConsumptionEvidenceRef"
+        },
+        "materialized_pending_activation": {
+          "const": true
+        },
+        "active_profile_admission": {
+          "const": false
+        },
+        "initialize_admitted": {
+          "const": false
+        },
+        "activation_admitted": {
+          "const": false
+        },
+        "live_chain_created": {
+          "const": false
+        },
+        "node_membership_created": {
+          "const": false
+        },
+        "network_effect_admitted": {
+          "const": false
+        },
+        "runtime_effect_admitted": {
+          "const": false
+        }
+      }
+    },
+    "profileRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deployment_profile_ref",
+        "ordering_admission_finality_profile_ref",
+        "oracle_evidence_profile_refs",
+        "lifecycle_continuity_profile_ref",
+        "network_enrollment_ref"
+      ],
+      "properties": {
+        "deployment_profile_ref": {
+          "$ref": "#/$defs/deploymentProfileRef"
+        },
+        "ordering_admission_finality_profile_ref": {
+          "$ref": "#/$defs/orderingProfileRef"
+        },
+        "oracle_evidence_profile_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/oracleProfileRef"
+          },
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "lifecycle_continuity_profile_ref": {
+          "$ref": "#/$defs/lifecycleProfileRef"
+        },
+        "network_enrollment_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/networkEnrollmentRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "portableInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+    },
+    "materializationReceiptRef": {
+      "type": "string",
+      "pattern": "^receipt://aszmr_[0-9a-f]{64}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "materializationRef": {
+      "type": "string",
+      "pattern": "^system-materialization://sequence-zero/sha256:[0-9a-f]{64}$"
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "genesisRef": {
+      "type": "string",
+      "pattern": "^genesis://[^\\s]{1,248}$"
+    },
+    "packageRef": {
+      "type": "string",
+      "pattern": "^package://[^\\s]{1,248}$"
+    },
+    "packageReleaseRef": {
+      "type": "string",
+      "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
+    },
+    "constitutionRef": {
+      "type": "string",
+      "pattern": "^constitution://[^\\s]{1,248}$"
+    },
+    "deploymentProfileRef": {
+      "type": "string",
+      "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "orderingProfileRef": {
+      "type": "string",
+      "pattern": "^ordering-profile://[^\\s]{1,248}$"
+    },
+    "oracleProfileRef": {
+      "type": "string",
+      "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+    },
+    "lifecycleProfileRef": {
+      "type": "string",
+      "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+    },
+    "networkEnrollmentRef": {
+      "type": "string",
+      "pattern": "^network-enrollment://[^\\s]{1,248}$"
+    },
+    "componentRegistryRef": {
+      "type": "string",
+      "pattern": "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$"
+    },
+    "transitionCommitmentRef": {
+      "type": "string",
+      "pattern": "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$"
+    },
+    "walletGrantConsumptionRef": {
+      "type": "string",
+      "pattern": "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$"
+    },
+    "walletGrantConsumptionEvidenceRef": {
+      "type": "string",
+      "pattern": "^system-sequence-zero-authority-consumption://aszmc_[0-9a-f]{64}$"
+    },
+    "protocolPrincipalOrRuntimeRef": {
+      "type": "string",
+      "pattern": "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,248}$"
+    },
+    "grantRef": {
+      "type": "string",
+      "pattern": "^grant://[^\\s]{1,248}$"
+    },
+    "primitiveCapability": {
+      "type": "string",
+      "pattern": "^prim:[a-z][a-z0-9._-]*$"
+    },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,248}$"
+    },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,248}$"
+    },
+    "publicCommitmentRef": {
+      "type": "string",
+      "pattern": "^(?:commitment|settlement|tx)://[^\\s]{1,248}$"
+    },
+    "canonicalDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

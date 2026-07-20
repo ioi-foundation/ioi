@@ -524,7 +524,7 @@
           {
             "note": "enumerated wallet.network service registry",
             "source_file": "crates/services/src/wallet_network/mod.rs",
-            "source_sha256": "f44d95b585997e9b842d7abe2203653e988ed3e4f5867187a48ae7433d324780"
+            "source_sha256": "8b4244ed4c3e4fb8f16c76863ef99818605e46a1c5313677f97465003e8609b0"
           },
           {
             "note": "no externally callable service method; transaction decorator and end-block hooks only",

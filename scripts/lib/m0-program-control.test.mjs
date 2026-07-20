@@ -911,6 +911,21 @@ test("a newly discovered or changed mutation fails until explicitly classified",
   );
 });
 
+test("a newly reviewed identity cannot inherit an older review epoch date", () => {
+  const newRouteIdentity =
+    "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization";
+  const newRouteIndex = reviewLock.entries.findIndex(
+    (entry) => entry.identity === newRouteIdentity,
+  );
+  assert.notEqual(newRouteIndex, -1, `missing ${newRouteIdentity}`);
+  expectReviewFailure(
+    (fixture) => {
+      fixture.entries[newRouteIndex].reviewed_as_of = "2026-07-18";
+    },
+    /review epoch m0-initial-review-2026-07-18 has a stale reviewed entry count/u,
+  );
+});
+
 test("omission and duplicate identities fail closed", () => {
   expectReviewFailure(
     (fixture) => fixture.entries.pop(),

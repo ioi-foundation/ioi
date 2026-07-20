@@ -23,6 +23,15 @@ import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-ne
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
 const FIXTURES = join(REPO, "docs", "architecture", "_meta", "schemas", "fixtures");
+const SYSTEM_SEQUENCE_ZERO_SOURCE = join(
+  REPO,
+  "crates",
+  "node",
+  "src",
+  "bin",
+  "hypervisor_daemon_routes",
+  "system_sequence_zero_routes.rs",
+);
 const GENESIS_ROUTE = "/v1/hypervisor/autonomous-systems";
 const OWNER = "org://acme/research";
 const OWNER_APPROVER_SEED = "07".repeat(32);
@@ -44,6 +53,22 @@ const MATERIALIZATION_FAMILIES = [
 ];
 const INTENT_FAMILY =
   "autonomous-system-sequence-zero-materialization-intents";
+const MATERIALIZATION_RESPONSE_FIELDS = [
+  "autonomous_system_sequence_zero_materialization",
+  "autonomous_system_sequence_zero_materialization_receipt",
+  "component_registry_snapshot",
+  "wallet_grant_consumption_receipt",
+];
+const EXACT_FALSE_NONCLAIMS = {
+  active_profile_admission: false,
+  initialize: false,
+  activation: false,
+  live_chain: false,
+  node_membership: false,
+  network_effect: false,
+  runtime_effect: false,
+  systems_product_surface: false,
+};
 
 const results = [];
 const ownedDataDirs = new Set();
@@ -112,6 +137,14 @@ function recordOutputHash(record, excludes = []) {
   return `sha256:${createHash("sha256")
     .update(canonicalJson(material))
     .digest("hex")}`;
+}
+
+function walletConsumptionReceiptHash(receipt) {
+  const material = clone(receipt);
+  material.receipt_hash = Array(32).fill(0);
+  return [
+    ...createHash("sha256").update(canonicalJson(material)).digest(),
+  ];
 }
 
 function recomputeReleaseHashes(release) {
@@ -206,6 +239,16 @@ function familyBytes(dataDir, family) {
   ]);
 }
 
+function singleFamilyRecord(dataDir, family) {
+  const files = familyFiles(dataDir, family);
+  if (files.length !== 1) return null;
+  try {
+    return JSON.parse(readFileSync(join(dataDir, family, files[0]), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 function familiesSnapshot(dataDir, families) {
   return canonicalJson(
     Object.fromEntries(families.map((family) => [family, familyBytes(dataDir, family)])),
@@ -258,6 +301,32 @@ function requiredDomainState(response, family) {
   return domain && domain.root != null && domain.admitted_seq != null
     ? { root: domain.root, admitted_seq: domain.admitted_seq }
     : null;
+}
+
+function requiredDomainIsNonVacuous(response, family) {
+  const state = requiredDomainState(response, family);
+  return Boolean(
+    response?.status === 200 &&
+      state &&
+      typeof state.root === "string" &&
+      state.root.length > 0 &&
+      Number.isInteger(Number(state.admitted_seq)) &&
+      Number(state.admitted_seq) > 0,
+  );
+}
+
+function responseHasExactEvidence(body, expected) {
+  return MATERIALIZATION_RESPONSE_FIELDS.every(
+    (field) =>
+      Object.hasOwn(body ?? {}, field) &&
+      body[field] !== null &&
+      body[field] !== undefined &&
+      sameJson(body[field], expected[field]),
+  );
+}
+
+function hasExactFalseNonclaims(body) {
+  return sameJson(body?.nonclaims, EXACT_FALSE_NONCLAIMS);
 }
 
 async function challengeAndGrant(call, resolver, path, body, scope) {
@@ -376,6 +445,10 @@ async function admitGenesis(
     admitted.body.autonomous_system_genesis_receipt,
     "M1.3 response lacks its receipt",
   );
+  const walletReceipt = requireValue(
+    admitted.body.wallet_grant_consumption_receipt,
+    "M1.3 response lacks its wallet consumption receipt",
+  );
   const sourceTail = String(record.admission_id || "").replace(
     "system-genesis-admission://",
     "",
@@ -384,6 +457,7 @@ async function admitGenesis(
     sourceTail,
     record,
     receipt,
+    walletReceipt,
     recordRoot: domainHash(
       "ioi.autonomous-system-genesis-admission-record-jcs-sha256.v1",
       record,
@@ -654,6 +728,24 @@ async function runPrimaryJourney() {
       `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
     const sourceBytesBefore = familiesSnapshot(dataDir, SOURCE_FAMILIES);
     const sourceStatusBefore = await call("GET", "/v1/hypervisor/substrate/status");
+    const sourceEvidence = [
+      [SOURCE_FAMILIES[0], source.record],
+      [SOURCE_FAMILIES[1], source.receipt],
+      [SOURCE_FAMILIES[2], source.walletReceipt],
+    ];
+    ok(
+      "SOURCE: M1.3 local and Agentgres evidence is exact and non-vacuous before M1.4",
+      sourceEvidence.every(
+        ([family, expected]) =>
+          sameJson(singleFamilyRecord(dataDir, family), expected) &&
+          requiredDomainIsNonVacuous(sourceStatusBefore, family),
+      ),
+      `families=${sourceEvidence.filter(
+        ([family, expected]) =>
+          sameJson(singleFamilyRecord(dataDir, family), expected) &&
+          requiredDomainIsNonVacuous(sourceStatusBefore, family),
+      ).length}/${sourceEvidence.length}`,
+    );
     const request = {
       expected_genesis_admission_record_root: source.recordRoot,
       expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -809,6 +901,29 @@ async function runPrimaryJourney() {
       MATERIALIZE_SCOPE,
     );
 
+    const nonCanonicalGrant = {
+      ...grant,
+      memo: "sk-live-SEQUENCE_ZERO-SENTINEL",
+    };
+    const nonCanonical = await call("POST", path, {
+      ...request,
+      wallet_approval_grant: nonCanonicalGrant,
+    });
+    ok(
+      "AUTHORITY: unsigned fields outside the closed typed grant projection refuse with zero evidence",
+      nonCanonical.status === 403 &&
+        nonCanonical.body.error?.code ===
+          "system_sequence_zero_host_authority_required" &&
+        !JSON.stringify(nonCanonical.body).includes(
+          "sk-live-SEQUENCE_ZERO-SENTINEL",
+        ) &&
+        !jsonTreeSnapshot(dataDir).includes(
+          "sk-live-SEQUENCE_ZERO-SENTINEL",
+        ) &&
+        correctPlaneBefore === jsonTreeSnapshot(dataDir),
+      `${nonCanonical.status}/${nonCanonical.body.error?.code || "no-code"}`,
+    );
+
     const foreignGrant = mintApprovalGrant({
       seed: "08".repeat(32),
       policyHash: approval.policy_hash,
@@ -874,11 +989,28 @@ async function runPrimaryJourney() {
       `created=${winners.length} conflicts=${refusals.length}`,
     );
 
-    const materialization =
-      winner.body.autonomous_system_sequence_zero_materialization;
-    const receipt =
-      winner.body.autonomous_system_sequence_zero_materialization_receipt;
-    const componentRegistry = winner.body.component_registry_snapshot;
+    const materialization = requireValue(
+      winner.body.autonomous_system_sequence_zero_materialization,
+      "M1.4 response lacks its materialization",
+    );
+    const receipt = requireValue(
+      winner.body.autonomous_system_sequence_zero_materialization_receipt,
+      "M1.4 response lacks its materialization receipt",
+    );
+    const componentRegistry = requireValue(
+      winner.body.component_registry_snapshot,
+      "M1.4 response lacks its component-registry snapshot",
+    );
+    const walletConsumptionReceipt = requireValue(
+      winner.body.wallet_grant_consumption_receipt,
+      "M1.4 response lacks its wallet consumption receipt",
+    );
+    const exactEvidence = {
+      autonomous_system_sequence_zero_materialization: materialization,
+      autonomous_system_sequence_zero_materialization_receipt: receipt,
+      component_registry_snapshot: componentRegistry,
+      wallet_grant_consumption_receipt: walletConsumptionReceipt,
+    };
     const recomputed = recomputeMaterialization(source, materialization);
     ok(
       "ROOTS: all six sequence-zero commitments recompute independently from M1.3 truth",
@@ -904,16 +1036,42 @@ async function runPrimaryJourney() {
       `${materialization.proposed_initial_state_root} -> ${materialization.initial_state_root}`,
     );
     ok(
-      "RECEIPT: durable evidence binds the complete output and distinct authority scope",
+      "RECEIPT: the live durable receipt conforms to the closed portable M1.4 profile",
       receipt.output_hash ===
         recordOutputHash(materialization, receipt.hash_scope_excludes || []) &&
         receipt.bound_facts?.proposed_initial_state_root ===
           materialization.proposed_initial_state_root &&
-      receipt.bound_facts?.proposed_initial_receipt_root ===
+        receipt.bound_facts?.proposed_initial_receipt_root ===
           materialization.proposed_initial_receipt_root &&
         receipt.bound_facts?.deployment_profile_root ===
           recomputed.deploymentProfileRoot &&
+        receipt.schema_version ===
+          "ioi.autonomous-system-sequence-zero-materialization-receipt.v1" &&
+        receipt.receipt_type ===
+          "autonomous_system_sequence_zero_materialization" &&
+        receipt.receipt_profile_ref ===
+          "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1" &&
+        receipt.actor_id === "runtime://hypervisor-runtime" &&
+        receipt.receipt_id === receipt.receipt_ref &&
+        receipt.timestamp === receipt.at &&
+        /^grant:\/\/wallet[.]network\/approval\/sha256:[0-9a-f]{64}$/.test(
+          receipt.authority_grant_id || "",
+        ) &&
         sameJson(receipt.authority_scopes, [MATERIALIZE_SCOPE]) &&
+        sameJson(receipt.artifact_refs, []) &&
+        receipt.public_commitment_ref === null &&
+        !Object.hasOwn(receipt, "l1_commitment") &&
+        !receipt.attested_boundary_fact_refs?.some((reference) =>
+          String(reference).startsWith(
+            "wallet.network://approval-effect-consumption/",
+          ),
+        ) &&
+        receipt.attested_boundary_fact_refs?.includes(
+          receipt.bound_facts?.wallet_grant_consumption_evidence_ref,
+        ) &&
+        String(receipt.bound_facts?.wallet_grant_consumption_ref || "").startsWith(
+          "wallet.network://approval-effect-consumption/",
+        ) &&
         receipt.assurance_posture ===
           "sequence_zero_materialized_not_activated",
       `${receipt.output_hash}/${receipt.authority_scopes?.join(",")}`,
@@ -921,17 +1079,11 @@ async function runPrimaryJourney() {
 
     const read = await call("GET", path);
     ok(
-      "GET PROOF: exact local and Agentgres evidence reconstructs the same artifact",
+      "GET PROOF: all four local and Agentgres families equal the POST evidence exactly",
       read.status === 200 &&
-        sameJson(
-          read.body.autonomous_system_sequence_zero_materialization,
-          materialization,
-        ) &&
-        sameJson(
-          read.body.autonomous_system_sequence_zero_materialization_receipt,
-          receipt,
-        ) &&
-        Object.values(read.body.nonclaims || {}).every((claim) => claim === false),
+        responseHasExactEvidence(read.body, exactEvidence) &&
+        hasExactFalseNonclaims(winner.body) &&
+        hasExactFalseNonclaims(read.body),
       `${read.status}/${read.body.error?.code || "ok"}`,
     );
 
@@ -939,7 +1091,11 @@ async function runPrimaryJourney() {
     ok(
       "SOURCE IMMUTABILITY: M1.3 bytes and Agentgres heads are unchanged",
       sourceBytesBefore === familiesSnapshot(dataDir, SOURCE_FAMILIES) &&
+        sourceStatusBefore.status === 200 &&
+        sourceStatusAfter.status === 200 &&
         SOURCE_FAMILIES.every((family) =>
+          requiredDomainIsNonVacuous(sourceStatusBefore, family) &&
+          requiredDomainIsNonVacuous(sourceStatusAfter, family) &&
           sameJson(
             requiredDomainState(sourceStatusBefore, family),
             requiredDomainState(sourceStatusAfter, family),
@@ -947,15 +1103,18 @@ async function runPrimaryJourney() {
         ),
       `bytes=${sourceBytesBefore === familiesSnapshot(dataDir, SOURCE_FAMILIES)}`,
     );
+    const familyEvidence = MATERIALIZATION_FAMILIES.map((family, index) => [
+      family,
+      exactEvidence[MATERIALIZATION_RESPONSE_FIELDS[index]],
+    ]);
     ok(
-      "DURABILITY: every M1.4 evidence family has one exact record and no intent/temp residue",
-      MATERIALIZATION_FAMILIES.every(
-        (family) => familyFiles(dataDir, family).length === 1,
+      "DURABILITY: every M1.4 response has one exact local record and non-vacuous Agentgres proof",
+      familyEvidence.every(
+        ([family, expected]) =>
+          sameJson(singleFamilyRecord(dataDir, family), expected) &&
+          requiredDomainIsNonVacuous(sourceStatusAfter, family),
       ) &&
         familyFiles(dataDir, INTENT_FAMILY).length === 0 &&
-        MATERIALIZATION_FAMILIES.every((family) =>
-          Boolean(requiredDomainState(sourceStatusAfter, family)),
-        ) &&
         tempResidue(dataDir).length === 0,
       JSON.stringify(
         Object.fromEntries(
@@ -967,23 +1126,98 @@ async function runPrimaryJourney() {
       ),
     );
 
-    const materializationFile = join(
-      dataDir,
-      MATERIALIZATION_FAMILIES[0],
-      familyFiles(dataDir, MATERIALIZATION_FAMILIES[0])[0],
+    const localCorruptionCases = [
+      {
+        family: MATERIALIZATION_FAMILIES[0],
+        expectedCode: "system_sequence_zero_materialization_invalid",
+        corrupt(value) {
+          value.status = "active";
+        },
+      },
+      {
+        family: MATERIALIZATION_FAMILIES[1],
+        expectedCode: "system_sequence_zero_receipt_evidence_mismatch",
+        corrupt(value) {
+          value.assurance_posture = "forged_assurance";
+        },
+      },
+      {
+        family: MATERIALIZATION_FAMILIES[2],
+        expectedCode: "system_sequence_zero_component_evidence_mismatch",
+        corrupt(value) {
+          value.status = "active";
+        },
+      },
+      {
+        family: MATERIALIZATION_FAMILIES[3],
+        expectedCode: "system_sequence_zero_agentgres_evidence_mismatch",
+        corrupt(value) {
+          const consumedAt = Number(value.consumed_at_ms);
+          value.consumed_at_ms = consumedAt > 1 ? consumedAt - 1 : consumedAt + 1;
+          value.receipt_hash = walletConsumptionReceiptHash(value);
+        },
+      },
+    ];
+    for (const testCase of localCorruptionCases) {
+      const fileName = requireValue(
+        familyFiles(dataDir, testCase.family)[0],
+        `M1.4 corruption probe lacks ${testCase.family}`,
+      );
+      const filePath = join(dataDir, testCase.family, fileName);
+      const originalBytes = readFileSync(filePath);
+      const corrupted = JSON.parse(originalBytes.toString("utf8"));
+      testCase.corrupt(corrupted);
+      const corruptedBytes = Buffer.from(JSON.stringify(corrupted));
+      requireValue(
+        !originalBytes.equals(corruptedBytes),
+        `M1.4 ${testCase.family} corruption probe was vacuous`,
+      );
+      let refused;
+      try {
+        writeFileSync(filePath, corruptedBytes);
+        refused = await call("GET", path);
+      } finally {
+        writeFileSync(filePath, originalBytes);
+      }
+      const restored = await call("GET", path);
+      ok(
+        `GET PROOF: ${testCase.family} corruption refuses typed and exact bytes restore`,
+        refused.status === 500 &&
+          refused.body.error?.code === testCase.expectedCode &&
+          readFileSync(filePath).equals(originalBytes) &&
+          restored.status === 200 &&
+          responseHasExactEvidence(restored.body, exactEvidence) &&
+          hasExactFalseNonclaims(restored.body),
+        `${refused.status}/${refused.body.error?.code || "no-code"} restored=${restored.status}/${restored.body.error?.code || "ok"}`,
+      );
+    }
+
+    const muxPath = join(dataDir, "substrate", "muxlog.bin");
+    const muxBytes = readFileSync(muxPath);
+    requireValue(
+      muxBytes.length > 1,
+      "M1.4 Agentgres corruption probe requires a non-empty mux log",
     );
-    const originalMaterializationBytes = readFileSync(materializationFile);
-    const forged = clone(materialization);
-    forged.status = "active";
-    writeFileSync(materializationFile, JSON.stringify(forged));
-    const forgedRead = await call("GET", path);
-    writeFileSync(materializationFile, originalMaterializationBytes);
+    let truncatedAgentgresRead;
+    try {
+      writeFileSync(muxPath, muxBytes.subarray(0, muxBytes.length - 1));
+      truncatedAgentgresRead = await call("GET", path);
+    } finally {
+      writeFileSync(muxPath, muxBytes);
+    }
+    const restoredAgentgresRead = await call("GET", path);
     ok(
-      "GET PROOF: a locally forged activation claim refuses against contract and Agentgres truth",
-      forgedRead.status === 500 &&
-        forgedRead.body.error?.code ===
-          "system_sequence_zero_materialization_invalid",
-      `${forgedRead.status}/${forgedRead.body.error?.code || "no-code"}`,
+      "GET PROOF: truncated Agentgres evidence refuses typed and exact bytes restore",
+      truncatedAgentgresRead.status === 500 &&
+        [
+          "system_genesis_agentgres_evidence_mismatch",
+          "system_sequence_zero_agentgres_evidence_mismatch",
+        ].includes(truncatedAgentgresRead.body.error?.code) &&
+        readFileSync(muxPath).equals(muxBytes) &&
+        restoredAgentgresRead.status === 200 &&
+        responseHasExactEvidence(restoredAgentgresRead.body, exactEvidence) &&
+        hasExactFalseNonclaims(restoredAgentgresRead.body),
+      `${truncatedAgentgresRead.status}/${truncatedAgentgresRead.body.error?.code || "no-code"} restored=${restoredAgentgresRead.status}/${restoredAgentgresRead.body.error?.code || "ok"}`,
     );
   } finally {
     if (plane) await plane.stop();
@@ -1480,6 +1714,20 @@ async function run() {
   let fatal;
   let requiredJourneys = [];
   try {
+    const routeSource = readFileSync(SYSTEM_SEQUENCE_ZERO_SOURCE, "utf8");
+    ok(
+      "SOURCE: the held verifier is pinned to all four required M1.4 evidence families",
+      MATERIALIZATION_FAMILIES.every((family) =>
+        routeSource.includes(`"${family}"`),
+      ) &&
+        MATERIALIZATION_RESPONSE_FIELDS.every(
+          (field) => routeSource.split(`"${field}"`).length >= 3,
+        ) &&
+        routeSource.includes("verify_required_exact"),
+      `families=${MATERIALIZATION_FAMILIES.filter((family) =>
+        routeSource.includes(`"${family}"`),
+      ).length}/${MATERIALIZATION_FAMILIES.length}`,
+    );
     const journeys = new Map([
       ["primary", runPrimaryJourney],
       ["wallet-replay", runCrashReplayJourney],

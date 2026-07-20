@@ -114,6 +114,7 @@ fn wallet_policy() -> ServicePolicy {
         "resolve_principal_authority@v1",
         "record_approval@v1",
         "consume_approval_grant_for_effect@v1",
+        "consume_approval_grant_for_effect@v2",
     ]
     .into_iter()
     .map(|method| (method.to_string(), MethodPermission::User))
@@ -774,6 +775,9 @@ fn fixture_command_contract_is_canonical_and_bounded() {
     assert!(policy
         .methods
         .contains_key("consume_approval_grant_for_effect@v1"));
+    assert!(policy
+        .methods
+        .contains_key("consume_approval_grant_for_effect@v2"));
     let host = approval_authority(&HOST_SEED).expect("host authority");
     assert!(host
         .scope_allowlist

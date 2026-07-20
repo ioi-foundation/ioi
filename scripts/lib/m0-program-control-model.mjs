@@ -31,7 +31,7 @@ export const EVIDENCE_DIR = "docs/evidence/m0-program-control";
 export const REVIEW_FILE = `${EVIDENCE_DIR}/reviewed-entry-lock.json`;
 export const PROGRAM_SOURCE_FILE = `${EVIDENCE_DIR}/program-control-source.json`;
 export const README_FILE = `${EVIDENCE_DIR}/README.md`;
-export const REVIEW_AS_OF_DATE = "2026-07-18";
+export const M0_BASELINE_AS_OF_DATE = "2026-07-18";
 export const AS_OF_DATE = "2026-07-19";
 
 export const GENERATED_ARTIFACT_FILES = [
@@ -2878,7 +2878,7 @@ export function createInitialReview(repoRoot, discoveredEntries) {
   return {
     evidence_format: "ioi.m0.reviewed_entry_lock.v1",
     lock_state: "worksheet_unreviewed",
-    as_of_date: REVIEW_AS_OF_DATE,
+    as_of_date: null,
     default_classification: "fail_closed_unclassified",
     discovery_scope: {
       active_surfaces: [
@@ -3341,7 +3341,7 @@ const BASELINES = [
     baseline_id: "BASE-M0-PRODUCT",
     category: "product",
     status: "not_measured",
-    frozen_as_of: REVIEW_AS_OF_DATE,
+    frozen_as_of: M0_BASELINE_AS_OF_DATE,
     observed_as_of: null,
     cohort: "At least five first-time internal operators using only supported selected-profile product surfaces.",
     method: "Timestamp first eligible sign-in, first valid preview, genesis approval, effect review, terminal inspection, and replay; retain typed blockers.",
@@ -3358,7 +3358,7 @@ const BASELINES = [
     baseline_id: "BASE-M0-RELIABILITY",
     category: "reliability",
     status: "not_measured",
-    frozen_as_of: REVIEW_AS_OF_DATE,
+    frozen_as_of: M0_BASELINE_AS_OF_DATE,
     observed_as_of: null,
     cohort: "Thirty selected-profile runs, including at least ten declared crash, restart, stale-authority, or ambiguous-effect injections.",
     method: "Replay owner records and exported evidence; independently reproduce verification and score every terminal, refused, recovered, or ambiguous effect.",
@@ -3376,7 +3376,7 @@ const BASELINES = [
     baseline_id: "BASE-M0-COST",
     category: "cost",
     status: "not_measured",
-    frozen_as_of: REVIEW_AS_OF_DATE,
+    frozen_as_of: M0_BASELINE_AS_OF_DATE,
     observed_as_of: null,
     cohort: "Thirty successful selected-profile runs with route-attempt, tool, runtime, storage, and supplier-attributable measurements.",
     method: "Reconcile measured internal cost to each accepted run; report p50, p90, fallback amplification, and unattributed cost without treating accounting as cash movement.",
@@ -3393,7 +3393,7 @@ const BASELINES = [
     baseline_id: "BASE-M0-COMPREHENSION",
     category: "comprehension",
     status: "not_measured",
-    frozen_as_of: REVIEW_AS_OF_DATE,
+    frozen_as_of: M0_BASELINE_AS_OF_DATE,
     observed_as_of: null,
     cohort: "At least five first-time internal operators with no implementation-guide access during the selected journey.",
     method: "Record exposed architecture terms, correct blocker interpretation, unsupported-success attempts, and a post-task comprehension check.",
@@ -3411,7 +3411,7 @@ const BASELINES = [
 const REPOSITORY_VALIDATION_BASELINES = [
   {
     baseline_id: "BASE-M0-REPOSITORY-RUSTFMT",
-    observed_as_of: REVIEW_AS_OF_DATE,
+    observed_as_of: M0_BASELINE_AS_OF_DATE,
     command: "cargo fmt --all -- --check",
     status: "existing_failure",
     exit_code: 1,
@@ -3882,6 +3882,19 @@ function hasExactMembers(actual, expected) {
     && actual.every((value, index) => value === expected[index]);
 }
 
+function isIsoDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
+    return false;
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.valueOf())
+    && parsed.toISOString().slice(0, 10) === value;
+}
+
+function reviewIdentitySetSha256(identities) {
+  return sha256(stableStringify([...identities].sort()));
+}
+
 function validationFailure(label, errors) {
   if (errors.length > 0) {
     throw new Error(
@@ -3920,18 +3933,8 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
   addError(errors, reviewLock?.lock_state === "reviewed", "review lock is not in reviewed state");
   addError(
     errors,
-    reviewLock?.as_of_date === REVIEW_AS_OF_DATE,
-    "review lock has the wrong as_of_date",
-  );
-  addError(
-    errors,
     reviewLock?.default_classification === "fail_closed_unclassified",
     "review lock must use fail_closed_unclassified as its default",
-  );
-  addError(
-    errors,
-    reviewLock?.review_attestation?.reviewed_as_of === REVIEW_AS_OF_DATE,
-    "review lock is missing its dated review attestation",
   );
   addError(
     errors,
@@ -3994,6 +3997,113 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
   for (const identity of reviewByIdentity.keys()) {
     addError(errors, discoveredByIdentity.has(identity), `review identity is no longer discovered: ${identity}`);
   }
+
+  const reviewEpochs = reviewLock?.review_attestation?.review_epochs;
+  addError(
+    errors,
+    Array.isArray(reviewEpochs) && reviewEpochs.length > 0,
+    "review attestation must declare at least one review epoch",
+  );
+  const epochByDate = new Map();
+  const epochIds = new Set();
+  for (const epoch of reviewEpochs ?? []) {
+    const label = `review epoch ${epoch?.epoch_id ?? "<missing>"}`;
+    addError(errors, isNonEmptyString(epoch?.epoch_id), `${label} lacks an id`);
+    addError(
+      errors,
+      !epochIds.has(epoch?.epoch_id),
+      `${label} duplicates an epoch id`,
+    );
+    epochIds.add(epoch?.epoch_id);
+    addError(
+      errors,
+      isIsoDate(epoch?.reviewed_as_of),
+      `${label} lacks a valid reviewed_as_of date`,
+    );
+    addError(
+      errors,
+      !epochByDate.has(epoch?.reviewed_as_of),
+      `${label} duplicates review date ${epoch?.reviewed_as_of}`,
+    );
+    if (isIsoDate(epoch?.reviewed_as_of)) {
+      epochByDate.set(epoch.reviewed_as_of, epoch);
+    }
+    addError(
+      errors,
+      Number.isInteger(epoch?.reviewed_entry_count)
+        && epoch.reviewed_entry_count > 0,
+      `${label} lacks a positive reviewed entry count`,
+    );
+    addError(
+      errors,
+      /^[0-9a-f]{64}$/u.test(epoch?.identity_set_sha256 ?? ""),
+      `${label} lacks an identity set commitment`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(epoch?.provenance),
+      `${label} lacks explicit review provenance`,
+    );
+    if (epoch?.identity_refs !== undefined) {
+      addError(
+        errors,
+        Array.isArray(epoch.identity_refs)
+          && epoch.identity_refs.length > 0
+          && new Set(epoch.identity_refs).size === epoch.identity_refs.length
+          && epoch.identity_refs.every(isNonEmptyString),
+        `${label} has invalid explicit identity refs`,
+      );
+    }
+  }
+
+  const identitiesByReviewDate = new Map();
+  for (const reviewed of reviewByIdentity.values()) {
+    const date = reviewed.reviewed_as_of;
+    if (!identitiesByReviewDate.has(date)) {
+      identitiesByReviewDate.set(date, []);
+    }
+    identitiesByReviewDate.get(date).push(reviewed.identity);
+    addError(
+      errors,
+      epochByDate.has(date),
+      `review entry ${reviewed.identity} date ${date ?? "<missing>"} does not bind a declared review epoch`,
+    );
+  }
+  for (const epoch of reviewEpochs ?? []) {
+    const label = `review epoch ${epoch?.epoch_id ?? "<missing>"}`;
+    const identities = identitiesByReviewDate.get(epoch?.reviewed_as_of) ?? [];
+    addError(
+      errors,
+      identities.length === epoch?.reviewed_entry_count,
+      `${label} has a stale reviewed entry count`,
+    );
+    addError(
+      errors,
+      reviewIdentitySetSha256(identities) === epoch?.identity_set_sha256,
+      `${label} has a stale identity set commitment`,
+    );
+    if (Array.isArray(epoch?.identity_refs)) {
+      addError(
+        errors,
+        hasExactMembers(
+          [...epoch.identity_refs].sort(),
+          [...identities].sort(),
+        ),
+        `${label} explicit identity refs do not match its reviewed entries`,
+      );
+    }
+  }
+  const latestReviewDate = [...epochByDate.keys()].sort().at(-1);
+  addError(
+    errors,
+    reviewLock?.as_of_date === latestReviewDate,
+    "review lock as_of_date does not match its latest declared review epoch",
+  );
+  addError(
+    errors,
+    reviewLock?.review_attestation?.reviewed_as_of === latestReviewDate,
+    "review attestation date does not match its latest declared review epoch",
+  );
 
   const expectedSurfaceCounts = new Map();
   for (const entry of reviewByIdentity.values()) {
@@ -4062,8 +4172,8 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
     );
     addError(
       errors,
-      reviewed.reviewed_as_of === REVIEW_AS_OF_DATE,
-      `${label} lacks a dated review`,
+      isIsoDate(reviewed.reviewed_as_of),
+      `${label} lacks a valid dated review`,
     );
     for (const field of [
       "kind",
@@ -4810,7 +4920,7 @@ export function validateProgramSource(
     );
     addError(
       errors,
-      baseline.frozen_as_of === REVIEW_AS_OF_DATE,
+      baseline.frozen_as_of === M0_BASELINE_AS_OF_DATE,
       `baseline ${baseline.baseline_id} was not frozen on the M0 baseline date`,
     );
     addError(

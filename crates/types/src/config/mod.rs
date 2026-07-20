@@ -973,6 +973,7 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "lookup_principal_authority_binding@v1",
         "consume_approval_grant@v1",
         "consume_approval_grant_for_effect@v1",
+        "consume_approval_grant_for_effect@v2",
         "panic_stop@v1",
     ] {
         wallet_methods.insert(method.to_string(), MethodPermission::User);

@@ -97,12 +97,26 @@ pub struct ConsumeApprovalGrantForEffectParams {
     pub consumption_id: [u8; 32],
     /// Principal authority that must still resolve exactly on first consumption.
     pub expected_principal_authority: ExpectedPrincipalAuthorityBinding,
-    /// Exact approval target the effect expects. Omitted only by legacy callers.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_target_label: Option<String>,
-    /// Exact grant-use ceiling the effect expects. Omitted only by legacy callers.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_max_usages: Option<u32>,
+}
+
+/// Version 2 exact-effect consumption request.
+///
+/// This preserves the version 1 four-field SCALE ABI while requiring callers that need exact
+/// effect preconditions to name both the canonical target and the grant-use ceiling.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct ConsumeApprovalGrantForEffectV2Params {
+    /// Approved request hash to consume.
+    pub request_hash: [u8; 32],
+    /// Canonical content hash of the exact signed grant being consumed.
+    pub grant_hash: [u8; 32],
+    /// Stable id of the caller's durable pre-effect intent.
+    pub consumption_id: [u8; 32],
+    /// Principal authority that must still resolve exactly on first consumption.
+    pub expected_principal_authority: ExpectedPrincipalAuthorityBinding,
+    /// Exact canonical approval target required by the effect.
+    pub expected_target_label: String,
+    /// Exact grant-use ceiling required by the effect.
+    pub expected_max_usages: u32,
 }
 
 /// Immutable receipt for one intent-bound approval-grant consumption.
@@ -483,6 +497,11 @@ impl BlockchainService for WalletNetworkService {
                 let consume: ConsumeApprovalGrantForEffectParams =
                     codec::from_bytes_canonical(params)?;
                 handlers::approval::consume_approval_grant_for_effect(state, ctx, consume)
+            }
+            "consume_approval_grant_for_effect@v2" => {
+                let consume: ConsumeApprovalGrantForEffectV2Params =
+                    codec::from_bytes_canonical(params)?;
+                handlers::approval::consume_approval_grant_for_effect_v2(state, ctx, consume)
             }
             "panic_stop@v1" => {
                 let params: BumpRevocationEpochParams = codec::from_bytes_canonical(params)?;
