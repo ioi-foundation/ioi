@@ -5,7 +5,7 @@ Canonical owner: this file for Agentgres-governed artifact refs, payload refs, e
 Supersedes: product prose that lets storage backends appear to own artifact
 meaning, authority, lifecycle, or restore validity.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-20.
 Doctrine status: canonical
 Implementation status: partial (archive/restore refs, state-root restore truth, and repair receipts built on the storage plane)
 Implementation refs:
@@ -118,7 +118,8 @@ ArtifactRef:
     delivery_bundle | audit_export | package | screenshot | dataset | tool_result |
     model_trace | ontology_pack | data_recipe | projection_checkpoint |
     private_profile | app_preferences | service_intake |
-    workspace_snapshot | private_output | managed_instance_state |
+    workspace_snapshot | environment_backup_payload |
+    environment_backup_manifest | private_output | managed_instance_state |
     shielded_capsule | alpha_seal | protected_output
   content:
     cid: bafy... | null

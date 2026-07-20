@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-20.
 Doctrine status: reference
 Implementation status: mixed (naming reference across all maturity levels)
 Last implementation audit: 2026-07-05
@@ -149,9 +149,11 @@ product pitch or routine onboarding flow.
   redacted by policy; it is not the source of runtime truth.
 - `HypervisorProvidersAndEnvironments`: the default Hypervisor capability set
   for cross-session provider integrations, environment lifecycle, managed
-  runtime resources, services, tasks, ports, logs, SCM auth, archive/restore
-  posture, cost, health, placement, and provider evidence. It is part of
-  Hypervisor's default session/project/provider views, not a separate product.
+  runtime resources, evidenced project discovery, services, tasks, ports,
+  route bindings, logs, SCM auth, manifest-complete backups, restore/change
+  posture, durable provider cleanup, cost, health, placement, and provider
+  evidence. It is part of Hypervisor's default session/project/provider views,
+  not a separate product.
 - `HypervisorProviderNode`: the Hypervisor projection/object for a local, cloud, GPU, DePIN,
   customer, HypervisorOS, TEE, or bare-metal runtime node. It binds node
   identity, daemon refs, provider metadata, Agentgres domain refs, authority
@@ -1180,6 +1182,14 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   Core. It binds repository/context roots, default policies, persistence
   defaults, adapter preferences, and Agentgres domain links. It is not a
   product UI and not canonical runtime truth by itself.
+- `HypervisorProjectDiscoveryProposal`: immutable, read-only discovery output
+  binding one exact source snapshot and detector revision to ordered candidate
+  roots, evidence, confidence, uncertainty, conflicts, alternatives, unknowns,
+  and permitted overrides. It executes no source, installs nothing, accesses no
+  secret, grants no authority, and cannot create a Project, recipe, placement,
+  lease, or running environment. Only explicit acceptance of one exact
+  candidate and admitted override set may freeze its lineage into a
+  `HypervisorProject` or `HypervisorDevelopmentEnvironmentRecipe`.
 - `HypervisorMission`: retired generic product/runtime object. Existing routes
   and records must resolve to their typed backing object rather than creating a
   second lifecycle: GoalRun for durable pursuit, OutcomeRoom for collective
@@ -1387,6 +1397,13 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   customer cloud, or enterprise cluster. It declares resource shape, provider
   posture, persistence modes, privacy posture, attestation policy, and cost
   policy.
+- `HypervisorEnvironmentStartupPlan`: immutable daemon-admitted predecessor for
+  one environment start. It freezes the exact recipe resolution, placement,
+  optional RuntimeAssignment, runtime operator, provider/adapter revision,
+  ordered dependencies, readiness gate, authority and lease decisions,
+  privacy, budget, recovery, rollback, and expected receipt contracts. It does
+  not execute, grant authority, extend a lease, own readiness, or represent the
+  product-level zero-to-operable journey.
 - `HypervisorEnvironmentOpsProfile`: daemon/Core lifecycle and operations
   contract for a managed Hypervisor environment. It covers discovery,
   create/start/stop/mark-active/archive/unarchive/restore/delete, command
@@ -1418,6 +1435,29 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `HypervisorEnvironmentPort`: daemon-visible port and exposure posture for a
   Hypervisor environment. Port sharing is a policy and lease event, not a
   harmless preview toggle.
+- `HypervisorEnvironmentRouteBinding`: immutable successor-versioned admitted
+  binding between one environment port/service and one externally addressable
+  route, including provider, hostname/path, TLS, ownership proof, traffic,
+  privacy, authority, budget, active-head, and receipt commitments. Desired
+  attach, cutover, renewal, replacement, and detach use target state and an
+  admitted `HypervisorChangePlan`; observations remain observed state. An open
+  port, reachable URL, certificate, or successful probe is neither this
+  binding nor proof of authority or readiness.
+- `HypervisorEnvironmentBackup`: durable Agentgres-backed backup lifecycle
+  aggregate binding source roots and heads, capture/destination/custody policy,
+  artifact refs, an immutable manifest root, content commitments, encryption,
+  retention, authority, provider operations, evidence, and receipts. Only
+  `complete` is restore eligible, and completion requires the complete manifest
+  plus every referenced payload byte to be durably available and verified.
+  Provider-object existence, a size match, partial bytes, or metadata alone
+  does not establish a backup.
+- `HypervisorResourceCleanupObligation`: durable exact-resource disposition
+  duty created when provider effects remain after deletion, rollback,
+  supersession, partial execution, provider unreachability, or unknown effect.
+  It survives deletion of its originating environment, Session, Project, plan,
+  or provider connection until the exact namespace and resource identity are
+  reconciled and receipted; parent deletion and an ambiguous `not found` do not
+  complete it.
 - `HypervisorScmAuthRequirement`: brokered source-control authentication or
   credential requirement for clone, fetch, push, pull request, issue, or
   release actions. Satisfaction may require wallet.network step-up, scoped
@@ -2193,13 +2233,22 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `HypervisorAppShell`: implementation-level native shell for Hypervisor App.
   It owns shell affordances such as windows, deep links, tray, shortcuts,
   updater, auth handoff, and daemon supervision. Shell framework selection is an
-  implementation choice, not Hypervisor's product identity.
+  implementation choice, not Hypervisor's product identity. Its install,
+  bootstrap, start, readiness, status, doctor, update, rollback, stop,
+  uninstall, and recovery controls project the shared daemon/domain lifecycle;
+  the shell does not own private installation truth, and uninstall is never
+  implicit wipe.
 - `HypervisorDesktop`: the local/private device automation mode within the
   Hypervisor product. It may launch, manage, or project a local Hypervisor Daemon runtime
   profile, but it does not define a separate canonical runtime path.
 - `IOICli`: the terminal/headless operator client over daemon/public runtime
   APIs. It can render plans, controls, traces, approvals, and receipts, but it
-  does not own execution semantics.
+  does not own execution semantics. It exposes the same source-neutral
+  zero-to-operable local lifecycle as Hypervisor App—release verification and
+  preview, install, deployment-local bootstrap, start/readiness,
+  status/doctor/logs, change-plan update/rollback, stop/uninstall without
+  implicit wipe, and owner-contract backup/export/restore—without creating a
+  new plane, profile, or durable state owner.
 - `IOITui`: an optional interactive presentation of IOI CLI controls. It is
   useful when a terminal operator wants a dashboard-like flow, but it must map
   to daemon/domain APIs and must not create hidden runtime truth.

@@ -1,5 +1,8 @@
 {
   "schema_version": "ioi.platform-fault-scenario.v1",
+  "matrix_id": "ioi.platform-fault-matrix.v1",
+  "hash_profile": "ioi.platform-fault-matrix-jcs-sha256.v1",
+  "status": "target_fixture_only",
   "scenarios": [
     {
       "scenario_id": "authority-unavailable-blocks-external-effect",
@@ -674,6 +677,286 @@
       "required_final_pep_obligations": [
         "refuse_before_final_invoker_and_reconcile_writer"
       ]
+    },
+    {
+      "scenario_id": "provider-unreachable-cleanup-obligation-persists",
+      "input": {
+        "operation": "provider_resource_cleanup",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "provider", "state": "unavailable" }
+        ],
+        "cleanup_obligation": {
+          "cleanup_obligation_ref": "cleanup-obligation://environment/example/provider-resource/alpha",
+          "provider_ref": "provider://example",
+          "resource_identity_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "required_disposition": "destroy",
+          "cause": "provider_unreachable",
+          "status": "retry_scheduled",
+          "attempt_count": 3,
+          "next_attempt_after": "2026-07-20T12:10:00Z"
+        },
+        "originating_owner_deleted": true,
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "expected_cleanup_status": "retry_scheduled",
+      "required_reason_codes": [
+        "required_plane_unavailable:provider",
+        "cleanup_disposition_unproven"
+      ],
+      "required_obligations": [
+        "retain_cleanup_obligation_after_owner_teardown",
+        "retry_under_reclaim_policy"
+      ],
+      "required_evidence": [
+        "cleanup_obligation_head",
+        "provider_unreachable_observation",
+        "next_attempt_or_blocker"
+      ],
+      "forbidden_observations": [
+        "cleanup_obligation_deleted_with_owner",
+        "resource_reclaimed_without_exact_evidence"
+      ]
+    },
+    {
+      "scenario_id": "unknown-deletion-outcome-requires-cleanup-reconciliation",
+      "input": {
+        "operation": "provider_resource_cleanup",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "provider", "state": "healthy" }
+        ],
+        "cleanup_obligation": {
+          "cleanup_obligation_ref": "cleanup-obligation://environment/example/provider-resource/beta",
+          "provider_ref": "provider://example",
+          "resource_identity_commitment": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "required_disposition": "destroy",
+          "cause": "unknown_effect",
+          "status": "reconciling",
+          "attempt_count": 1
+        },
+        "deletion_attempt": {
+          "attempt_ref": "provider-operation://example/delete/beta/attempt/1",
+          "idempotency_key": "cleanup-beta-delete-v1",
+          "effect_outcome": "unknown"
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "expected_cleanup_status": "reconciling",
+      "required_reason_codes": [
+        "unknown_effect_requires_reconciliation",
+        "cleanup_disposition_unproven"
+      ],
+      "required_obligations": [
+        "retain_cleanup_obligation",
+        "reconcile_before_retry_or_completion"
+      ],
+      "required_evidence": [
+        "cleanup_obligation_head",
+        "deletion_attempt_and_idempotency_key",
+        "provider_reconciliation_observation"
+      ],
+      "forbidden_observations": [
+        "blind_delete_retry_before_reconciliation",
+        "cleanup_completed_from_request_acceptance"
+      ]
+    },
+    {
+      "scenario_id": "ambiguous-provider-not-found-does-not-close-cleanup",
+      "input": {
+        "operation": "provider_resource_cleanup",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" },
+          { "plane": "provider", "state": "healthy" }
+        ],
+        "cleanup_obligation": {
+          "cleanup_obligation_ref": "cleanup-obligation://environment/example/provider-resource/gamma",
+          "provider_ref": "provider://example",
+          "resource_identity_commitment": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "required_disposition": "verify_absent",
+          "cause": "owner_deleted",
+          "status": "blocked",
+          "attempt_count": 2
+        },
+        "provider_absence_observation": {
+          "result": "not_found",
+          "queried_provider_namespace_ref": null,
+          "queried_resource_identity_commitment": null,
+          "exact_identity_binding": false
+        },
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "expected_cleanup_status": "blocked",
+      "required_reason_codes": [
+        "provider_not_found_identity_ambiguous",
+        "cleanup_disposition_unproven"
+      ],
+      "required_obligations": [
+        "retain_cleanup_obligation",
+        "establish_exact_provider_namespace_and_identity_before_close"
+      ],
+      "required_evidence": [
+        "cleanup_obligation_head",
+        "provider_not_found_observation",
+        "exact_namespace_and_identity_query"
+      ],
+      "forbidden_observations": [
+        "cleanup_closed_from_ambiguous_not_found",
+        "resource_absence_inferred_from_projection"
+      ]
+    },
+    {
+      "scenario_id": "failed-activation-cannot-advance-active-head",
+      "input": {
+        "operation": "activation_head_transition",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" }
+        ],
+        "activation_kind": "route",
+        "active_head_before_ref": "route-activation://example/generation/7",
+        "active_generation_before": 7,
+        "candidate_execution_ref": "change-plan-execution://example/route/generation/8",
+        "candidate_expected_active_head_ref": "route-activation://example/generation/7",
+        "candidate_generation": 8,
+        "observed_execution_outcome": "failed",
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "expected_activation_outcome": "refused_failed",
+      "expected_active_head_ref": "route-activation://example/generation/7",
+      "expected_active_generation": 7,
+      "required_reason_codes": [
+        "activation_execution_failed",
+        "activation_head_advance_refused"
+      ],
+      "required_obligations": [
+        "preserve_prior_active_head",
+        "record_failure_and_cleanup_duties"
+      ],
+      "forbidden_observations": ["active_head_advanced_by_failed_execution"]
+    },
+    {
+      "scenario_id": "partial-activation-without-adjudication-cannot-advance-active-head",
+      "input": {
+        "operation": "activation_head_transition",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" }
+        ],
+        "activation_kind": "release",
+        "active_head_before_ref": "release-activation://example/generation/12",
+        "active_generation_before": 12,
+        "candidate_execution_ref": "change-plan-execution://example/release/generation/13",
+        "candidate_expected_active_head_ref": "release-activation://example/generation/12",
+        "candidate_generation": 13,
+        "observed_execution_outcome": "partial",
+        "adjudication_ref": null,
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "expected_activation_outcome": "refused_partial",
+      "expected_active_head_ref": "release-activation://example/generation/12",
+      "expected_active_generation": 12,
+      "required_reason_codes": [
+        "activation_execution_partial_unadjudicated",
+        "activation_head_advance_refused"
+      ],
+      "required_obligations": [
+        "preserve_prior_active_head",
+        "adjudicate_and_issue_successor_decision"
+      ],
+      "forbidden_observations": ["partial_health_projected_as_activation_success"]
+    },
+    {
+      "scenario_id": "unknown-activation-cannot-advance-active-head",
+      "input": {
+        "operation": "activation_head_transition",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" }
+        ],
+        "activation_kind": "restore",
+        "active_head_before_ref": "environment-activation://example/generation/4",
+        "active_generation_before": 4,
+        "candidate_execution_ref": "change-plan-execution://example/restore/generation/5",
+        "candidate_expected_active_head_ref": "environment-activation://example/generation/4",
+        "candidate_generation": 5,
+        "observed_execution_outcome": "unknown",
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "expected_activation_outcome": "refused_unknown",
+      "expected_active_head_ref": "environment-activation://example/generation/4",
+      "expected_active_generation": 4,
+      "required_reason_codes": [
+        "unknown_effect_requires_reconciliation",
+        "activation_head_advance_refused"
+      ],
+      "required_obligations": [
+        "preserve_prior_active_head",
+        "reconcile_before_retry_or_success"
+      ],
+      "forbidden_observations": ["active_head_advanced_by_unknown_execution"]
+    },
+    {
+      "scenario_id": "late-superseded-activation-cannot-reclaim-active-head",
+      "input": {
+        "operation": "activation_head_transition",
+        "observations": [
+          { "plane": "daemon", "state": "healthy" },
+          { "plane": "agentgres", "state": "healthy" },
+          { "plane": "authority", "state": "healthy" }
+        ],
+        "activation_kind": "release",
+        "active_head_before_ref": "release-activation://example/generation/21",
+        "active_generation_before": 21,
+        "candidate_execution_ref": "change-plan-execution://example/release/generation/20",
+        "candidate_expected_active_head_ref": "release-activation://example/generation/19",
+        "candidate_generation": 20,
+        "observed_execution_outcome": "superseded",
+        "late_success_observation": true,
+        "asserted_assurance": "software_only",
+        "fallback_assurance": "software_only"
+      },
+      "expected_disposition": "fail_closed",
+      "expected_effective_assurance": "software_only",
+      "expected_activation_outcome": "refused_superseded",
+      "expected_active_head_ref": "release-activation://example/generation/21",
+      "expected_active_generation": 21,
+      "required_reason_codes": [
+        "activation_execution_superseded",
+        "activation_head_reclaim_refused"
+      ],
+      "required_obligations": [
+        "preserve_newer_active_head",
+        "record_late_observation_without_reactivation"
+      ],
+      "forbidden_observations": ["newer_active_head_reclaimed_by_superseded_execution"]
     }
   ]
 }

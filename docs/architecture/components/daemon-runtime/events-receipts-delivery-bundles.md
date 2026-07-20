@@ -4,10 +4,10 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-20.
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, and `PhysicalActionExecutionReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, `TemporalVerificationProfile`/`TemporalValidityEvaluation` contracts, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, OutcomeRoom/collective-pursuit receipt families, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
-Last implementation audit: 2026-07-19
+Implementation status: mixed (receipts/events live across existing owner planes; `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, managed-work billing ledger-bundle, dispute-rail-bundle, and `PhysicalActionExecutionReceipt` v1 have registered schemas, invariants, fixtures, and generated projections; portable cryptographic proof verification/CLI support, `TemporalVerificationProfile`/`TemporalValidityEvaluation` contracts, exact-action review/effect-admission receipt profiles, managed-work billing and dispute kernels, physical execution production, daemon/Agentgres production billing/dispute/physical/checkpoint emission, supplier-statement resolution, evidence adjudication, remedy/bond execution receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipt profiles, OutcomeRoom/collective-pursuit receipt families, full bounded-improvement Campaign receipts, embodied graph activation and action-chunk lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned)
+Last implementation audit: 2026-07-20
 
 ## Purpose
 
@@ -500,6 +500,36 @@ workspace_trust.acknowledged
 workspace_snapshot.created
 workspace_restore.previewed
 workspace_restore.applied
+change_plan.prepared
+change_plan.admitted
+change_plan.applied
+change_plan.cancel_requested
+change_plan.cancelled
+change_plan.superseded
+change_plan.failed
+environment.backup_requested
+environment.backup_started
+environment.backup_completed
+environment.backup_failed
+environment.backup_cancelled
+environment.restore_prepared
+environment.restore_apply_started
+environment.restore_applied
+environment.restore_cancel_requested
+environment.restore_cancelled
+environment.restore_failed
+environment.route_binding_proposed
+environment.route_binding_ownership_verified
+environment.route_binding_activated
+environment.route_binding_degraded
+environment.route_binding_renewed
+environment.route_binding_detached
+environment.cleanup_obligation_opened
+environment.cleanup_retry_scheduled
+environment.cleanup_attempt_recorded
+environment.cleanup_completed
+environment.cleanup_quarantined
+environment.cleanup_abandoned
 environment.failure_detected
 environment.recovery_planned
 environment.recovery_started
@@ -784,6 +814,10 @@ PostTrainingCycleReceipt
 PromotionDecisionReceipt
 CapabilityRegressionReceipt
 CapabilityLifecycleTransitionReceipt
+EnvironmentBackupReceipt
+EnvironmentRestoreReceipt
+EnvironmentRouteBindingReceipt
+ResourceCleanupReceipt
 EnvironmentFailureReceipt
 EnvironmentRecoveryReceipt
 WorkRunRecoveryReceipt
@@ -2124,6 +2158,189 @@ binary hash, package/driver manifest hashes, measurement method, and declared
 privacy claim. It proves node integrity posture, not protected plaintext
 privacy by itself.
 
+## Environment Backup, Restore, Route-Binding, And Cleanup Receipts
+
+These owner-specific profiles record ordinary environment operations. They
+extend the shared `ReceiptEnvelope`; they do not create a second environment
+truth store, Change Plane, storage plane, route authority, or restore-plan
+family. The profiles below are target doctrine. Current implementation does not
+have registered portable schemas or complete production emitters for them.
+
+`EnvironmentBackupReceipt` records the backup lifecycle boundary and, for a
+completed backup, the actual-byte verification and manifest finalization that
+make the material eligible for later restore evaluation:
+
+```yaml
+EnvironmentBackupReceipt:
+  receipt_id: receipt://...
+  receipt_type: environment_backup
+  backup_ref: environment-backup://...
+  environment_ref: environment://...
+  session_ref: session://... | null
+  backup_policy_ref: policy://...
+  trigger_ref: event://... | schedule://... | change-plan://... | null
+  source_state_root_ref: state-root://...
+  source_object_head_refs: []
+  source_checkpoint_or_suffix_boundary_refs: []
+  destination_ref: storage://...
+  custody_profile_ref: policy://...
+  artifact_commitments:
+    - artifact_ref: artifact://...
+      expected_commitment: sha256:...
+      observed_commitment: sha256:... | null
+      size_bytes: nonnegative_integer
+      actual_byte_verification_ref: evidence://... | null
+  manifest_artifact_ref: artifact://... | null
+  manifest_root: sha256:... | null
+  artifact_admission_head_ref: agentgres://... | null
+  manifest_admission_operation_ref: agentgres://operation/... | null
+  actual_byte_verification_status: verified | failed | incomplete
+  encryption_ref: encryption://... | null
+  retention_policy_ref: policy://...
+  authority_grant_refs: []
+  daemon_operation_refs: []
+  provider_operation_refs: []
+  agentgres_operation_refs: []
+  status: complete | failed | cancelled | expired | pruned
+```
+
+`complete` requires `actual_byte_verification_status: verified`, matching
+commitments for every artifact, and a manifest admitted after the artifact refs
+it covers. Provider metadata, object existence, filename, or size equality is
+not actual-byte verification. This receipt establishes the recorded capture
+boundary; it does not by itself establish that a later target can decrypt,
+import, reconcile, or validly restore the material.
+
+`EnvironmentRestoreReceipt` records preparation separately from application:
+
+```yaml
+EnvironmentRestoreReceipt:
+  receipt_id: receipt://...
+  receipt_type: environment_restore
+  change_plan_ref: change-plan://...
+  change_plan_hash: sha256:...
+  phase:
+    prepared | apply_started | applied | cancel_requested |
+    cancelled | failed | reconciliation_required
+  restore_material_refs: []
+  restore_manifest_ref: artifact://... | null
+  restore_manifest_root: sha256:... | null
+  restore_scope:
+    whole_environment | workspace | service | volume | declared_objects
+  target_environment_ref: environment://...
+  target_read_only_preflight_ref: evidence://... | null
+  target_read_only_preflight_hash: sha256:... | null
+  target_preflight_valid_until: timestamp | null
+  apply_revalidation_refs: []
+  actual_byte_revalidation_refs: []
+  expected_active_head_ref: agentgres://... | null
+  target_generation_or_writer_fence_ref: fence://... | null
+  state_root_before_ref: state-root://... | null
+  state_root_after_ref: state-root://... | null
+  readiness_validation_refs: []
+  authority_grant_refs: []
+  rollback_refs: []
+  reconciliation_refs: []
+  cleanup_obligation_refs: []
+  effect_boundary:
+    not_started | started_known | started_unknown |
+    rolled_back | compensated | reconciled
+  agentgres_operation_refs: []
+```
+
+A `prepared` receipt proves only that the named checks passed at the bound
+evidence horizon; it grants no authority and records no target mutation.
+`applied` requires fresh apply-time checks, actual-byte verification, the exact
+target head/fence, an admitted resulting root, and readiness evidence.
+Cancellation before the first effect may emit `cancelled` with
+`effect_boundary: not_started`. Once an effect may have begun, cancellation is
+only `cancel_requested` until rollback, reconciliation, compensation, or
+cleanup reaches an admitted disposition.
+
+`EnvironmentRouteBindingReceipt` records one externally or internally
+addressable route-binding transition without making DNS, ingress, CDN, or
+certificate-provider state canonical:
+
+```yaml
+EnvironmentRouteBindingReceipt:
+  receipt_id: receipt://...
+  receipt_type: environment_route_binding
+  route_binding_ref: environment-route-binding://.../revision/...
+  environment_ref: environment://...
+  service_ref: environment-service://... | null
+  port_ref: environment-port://...
+  operation:
+    proposed | ownership_verified | activated | renewed |
+    degraded | detached | failed
+  target_endpoint_ref: endpoint://...
+  hostname_or_address: string
+  path_prefix: string | null
+  target_protocol: http | https | tcp | udp | websocket | grpc
+  network_scope: string
+  port_exposure_policy_ref: policy://...
+  traffic_policy_ref: policy://...
+  ownership_proof_ref: evidence://... | null
+  tls_policy_ref: policy://... | null
+  certificate_evidence_ref: evidence://... | null
+  certificate_evidence_valid_until: timestamp | null
+  expected_active_head_ref: agentgres://... | null
+  activation_generation: nonnegative_integer
+  resulting_active_head_ref: agentgres://... | null
+  activation_outcome:
+    advanced | not_attempted | refused_failed |
+    refused_partial | refused_unknown | refused_superseded
+  target_state_ref: agentgres://...
+  observed_state_ref: agentgres://... | null
+  authority_grant_refs: []
+  provider_operation_refs: []
+  cleanup_obligation_refs: []
+  agentgres_operation_refs: []
+```
+
+Activation is forward-only: failed, unknown, late-superseded, or unadjudicated
+partial work cannot advance or reclaim the active route head. A route receipt
+proves only its bound operation and evidence horizon. It cannot claim current
+ownership, TLS validity, reachability, or safe exposure after the relevant
+evidence expires, and a TLS-required policy cannot silently degrade to HTTP.
+
+`ResourceCleanupReceipt` records attempts to discharge a durable cleanup
+obligation:
+
+```yaml
+ResourceCleanupReceipt:
+  receipt_id: receipt://...
+  receipt_type: resource_cleanup
+  cleanup_obligation_ref: cleanup-obligation://...
+  originating_plan_ref: change-plan://... | null
+  originating_execution_ref: execution://... | null
+  environment_ref: environment://... | null
+  provider_ref: provider://...
+  resource_kind:
+    vm | container | image | volume | network | route |
+    certificate | lease | reservation | other
+  canonical_resource_ref: resource://... | null
+  provider_native_evidence_ref: evidence://... | null
+  resource_identity_commitment: sha256:...
+  required_disposition:
+    destroy | detach | revoke | release | verify_absent | quarantine
+  attempt_ref: attempt://...
+  attempt_number: positive_integer
+  outcome:
+    completed | not_found_verified | retry_scheduled |
+    blocked | ambiguous | quarantined | abandoned
+  not_found_evidence_ref: evidence://... | null
+  next_attempt_after: timestamp | null
+  authority_grant_refs: []
+  provider_operation_refs: []
+  agentgres_operation_refs: []
+```
+
+The obligation and its history survive deletion of the originating environment,
+session, or plan. `not_found_verified` closes it only when the provider
+namespace, exact resource identity commitment, and query semantics match the
+obligation. Ambiguous absence remains outstanding. Quarantine or abandonment
+requires owner authority and preserves the residual-risk evidence.
+
 ## Environment Failure And Recovery Receipts
 
 `EnvironmentFailureReceipt` records the provider/runtime failure boundary for a
@@ -2132,6 +2349,10 @@ path, including restore/failover/rebuild material, authority context, WorkRun
 reconciliation, and final state. These receipts do not make provider logs,
 snapshots, backups, or encrypted archive blobs authoritative by themselves;
 they bind provider evidence and recovery execution to Agentgres operations.
+These two profiles are incident-only: `EnvironmentRecoveryReceipt` requires an
+admitted failure incident and selected recovery candidate. Ordinary backup,
+restore, route-binding, and cleanup operations use the profiles above and must
+not mint an incident-recovery receipt merely because they succeeded or failed.
 
 ```json
 {
@@ -3483,6 +3704,24 @@ data, assets, and obligations. Network receipts bind exact services, terms,
 assurance, bond/stake or fee basis, and exit obligations. A proposed topology
 or a successful API call is not an observed-readiness, failover, or assurance
 receipt.
+
+`MigrationReceipt` additionally binds the exact read-only target preflight, its
+input hash and validity horizon, apply-time revalidation, and an explicit
+disposition reference for every affected secret or credential: retain at
+source, reissue at target, rewrap for target, require user relink, exclude from
+transfer, or revoke at source. It carries refs and commitments, never plaintext
+secret material. Copied ciphertext, a prior preflight result, or possession of
+source bytes cannot establish target usability.
+
+```yaml
+MigrationReceipt:
+  receipt_type: migration
+  migration_preflight_ref: evidence://...
+  migration_preflight_hash: hash
+  migration_preflight_valid_until: timestamp
+  migration_apply_revalidation_refs: []
+  secret_and_credential_disposition_refs: []
+```
 
 `SingleWriterRestoreReceipt` binds same-admitted-node restart versus governed
 replacement, checkpoint/log continuity proof, predecessor and resulting state/

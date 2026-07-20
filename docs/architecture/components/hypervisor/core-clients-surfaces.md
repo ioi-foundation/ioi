@@ -13,7 +13,7 @@ Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-20.
 Doctrine status: canonical
 Implementation status: mixed (the existing Home, New Session, Projects,
 Automations, Applications, Sessions, owner-application, environment, and
@@ -176,6 +176,50 @@ The claim is gated by
 [`sovereign-local-completeness.md`](../../../conformance/hypervisor-core/sovereign-local-completeness.md);
 the contract currently defines target evidence and does not claim a shipped
 end-to-end standalone product.
+
+## Zero-To-Operable Local Deployment
+
+Standalone completeness must compress into one supported, source-neutral
+operator journey rather than remain an architectural capability list:
+
+```text
+fresh supported release
+  -> verify signer, release/package hash, supply-chain manifest, and SBOM
+  -> preview install paths, endpoints, data custody, supervisor/autostart, and egress
+  -> install under explicit host authority
+  -> bootstrap deployment-local identity and locally permitted authority
+  -> start client, daemon, and the declared Agentgres posture
+  -> bounded component readiness with typed degraded/unavailable state
+  -> open through a supported first-class client
+  -> inspect status, doctor, logs, and support posture
+  -> explicit signed update or rollback through the Change Plane
+  -> stop or uninstall
+  -> separately authorize any data wipe
+  -> preserve verified backup, export, and restore material
+```
+
+This is a product and conformance journey, not another runtime object, plane,
+profile, or deployment tier. It is distinct from environment `zero_to_idle` and
+from `HypervisorEnvironmentStartupPlan`, which activates one resolved Session
+environment after the product is operable. Pre-daemon installation is a
+bootstrapping trust bridge: the host's authority controls initial host mutation,
+and signed release evidence enters ordinary Agentgres/Change Plane admission
+once the daemon exists.
+
+Configuration preview, status, and doctor are read-only. Installing a
+supervisor, starting, stopping, updating, rolling back, uninstalling, and wiping
+data are separate effects. Uninstall never implies deletion of user data,
+Agentgres truth, keys, packages, backups, or restore material. A CLI/headless
+distribution supplies an attached/foreground or equivalent recovery mode when
+supervisor integration is unavailable. Readiness is bounded and
+component-specific; an optional UI or managed dependency may degrade its facet
+but cannot fabricate overall success or disable the declared local core.
+
+Update discovery is optional egress. Downloaded and air-gapped material still
+cross signer, digest, revocation, downgrade, Change Plane, authority, rollback,
+and receipt checks before activation. App, Web where locally served, CLI,
+headless, SDK, and optional TUI projections resolve the same deployment state;
+none maintains separate lifecycle truth.
 
 ## Hypervisor Lineage And Operator Entry Contract
 
@@ -1446,6 +1490,14 @@ Project-owned product state is still admitted through the canonical owners:
 daemon/Core for execution semantics, wallet.network for authority and secret
 release, Agentgres for operational truth and restore validity, and storage
 backends for bytes.
+
+Create/import flows may begin with a reviewable
+`HypervisorProjectDiscoveryProposal`. Candidate roots, stacks, services, tasks,
+ports, confidence, conflicts, alternatives, unknowns, and proposed overrides
+remain drafts until the operator explicitly accepts one exact proposal,
+candidate, and override set into Project or development-recipe lineage.
+Detection never creates a Project, executes repository code, installs a
+dependency, or starts an environment by itself.
 
 Correct:
 
@@ -2947,7 +2999,7 @@ truth, and storage backends hold payload bytes.
 Environment-ops contracts cover:
 
 ```text
-project discovery
+evidenced project discovery proposal / inspect / accept
 environment class discovery
 create session from project or context URL
 non-blocking create and readiness polling
@@ -2956,9 +3008,10 @@ structured command execution
 SSH or shell access when explicitly allowed
 service and task discovery / start / stop
 port discovery / share / revoke
+route binding inspect / attach / renew / cut over / detach
 logs and output capture
 SCM auth requirements and satisfaction
-archive / unarchive / restore / delete
+backup lifecycle / archive / unarchive / restore prepare / apply / cancel / delete
 activity signals
 cleanup obligations
 receipt obligations
@@ -2981,6 +3034,9 @@ HypervisorSessionAccessLease
 HypervisorEnvironmentService
 HypervisorEnvironmentTask
 HypervisorEnvironmentPort
+HypervisorEnvironmentRouteBinding
+HypervisorEnvironmentBackup
+HypervisorResourceCleanupObligation
 HypervisorScmAuthRequirement
 ```
 
@@ -3085,7 +3141,8 @@ SessionAccessToken
 
 PortExposurePolicy
   declares which local/session ports may be opened, forwarded, shared,
-  previewed, or exposed externally
+  previewed, or proposed for an external
+  HypervisorEnvironmentRouteBinding
 
 BrowserOpenPolicy
   declares whether browser URLs can be auto-opened, proxied, externally shared,
@@ -4109,7 +4166,26 @@ HypervisorEnvironmentPort:
     closed | local_preview | shared_preview | external | blocked
   policy_ref: policy://...
   access_lease_ref: hypervisor_session_access_lease:... | null
+  route_binding_refs:
+    - environment-route-binding://...
   receipt_ref: receipt://... | null
+
+HypervisorEnvironmentRouteBindingProjection:
+  route_binding_ref: environment-route-binding://.../revision/...
+  environment_ref: environment://...
+  service_ref: hypervisor_environment_service:... | null
+  port_ref: hypervisor_environment_port:...
+  hostname_or_endpoint_ref: string
+  target_state_ref: hypervisor_target_state:...
+  observed_state_ref: hypervisor_observed_state:...
+  expected_active_head_ref: string | null
+  activation_generation: integer
+  tls_policy_ref: policy://...
+  authority_requirement_refs:
+    - authority-requirement://...
+  lifecycle_head_ref: string
+  receipt_refs:
+    - receipt://...
 
 HypervisorScmAuthRequirement:
   requirement_id: hypervisor_scm_auth_requirement:...
@@ -4126,6 +4202,11 @@ HypervisorScmAuthRequirement:
     pending | satisfied | denied | expired | revoked
   receipt_ref: receipt://... | null
 ```
+
+The route-binding projection joins the immutable
+`HypervisorEnvironmentRouteBinding` with its separately owned target state,
+observed state, lifecycle head, and receipts. It does not mutate the binding or
+turn product display state into route truth.
 
 Automation definition and activation are revision-bound. A released
 AutomationSpec patch creates a successor revision; a WorkflowTemplate patch
@@ -4162,6 +4243,11 @@ not mutate host state directly.
 
 ## Conformance Checks
 
+- A claimed standalone product must complete the zero-to-operable journey
+  through supported public clients: verified install, disclosed configuration,
+  deployment-local bootstrap, bounded readiness, diagnostics, signed
+  update/rollback, stop/uninstall without implicit wipe, and verified
+  backup/export/restore. No managed endpoint or hidden script may be required.
 - No Hypervisor client may write canonical run/session/task truth without the
   daemon and Agentgres admission path.
 - No application surface may become a private runtime loop beside the
@@ -4327,6 +4413,10 @@ not mutate host state directly.
 - Port forwarding, browser-open behavior, and support bundle export must be
   explicit policy objects when the session is remote, shared, private, or
   provider-hosted.
+- Project discovery remains a read-only, content-committed proposal until an
+  exact candidate and override set is accepted. External routes remain separate
+  bindings with target/observed state, TLS posture, authority, activation, and
+  receipts; deleting their parent cannot erase outstanding cleanup obligations.
 - Remote/private sessions must declare cTEE, TEE, provider-trust, or local-only
   posture before protected workspace state is mounted or projected.
 
@@ -4353,6 +4443,8 @@ generated UI = launchable before package admission and install binding
 Marketplace = mandatory package lifecycle or second package owner
 package install = runtime authority or live System identity
 package recall = silent mutation or termination of live Systems
+local uninstall = implicit user-data or Agentgres wipe
+unsigned or latest-by-name update = admitted product activation
 Pinned Applications = permanent empty rail region
 Open Application = multiple simultaneous primary app frames
 application composition = bespoke product island
@@ -4366,6 +4458,7 @@ Canvas = automation runtime
 Canvas = product plane
 support bundle = harmless log export
 port preview = not a data boundary
+reachable port URL = admitted external route binding
 SSH token = durable credential
 encrypted blob = restore truth
 provider lifecycle state = Agentgres truth
@@ -4378,6 +4471,7 @@ OutcomeRoom = duplicated Goal Space and Work / Room truth
 Work = universal canonical status or lifecycle written over every subject kind
 System = renamed Project
 Project = implicit live System identity
+discovery confidence = Project, recipe, or startup truth
 New Session = implicit Goal, Automation, or System creation
 generic Mission = background-work or collective-work truth object
 background agent = invisible process or token stream

@@ -4,10 +4,10 @@ Status: canonical architecture authority.
 Canonical owner: this file for cross-plane operability, degraded-mode, recovery, and platform SRE doctrine.
 Supersedes: implicit or component-local assumptions that a healthy daemon implies a healthy platform.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-20.
 Doctrine status: canonical
 Implementation status: planned (the canonical fault matrix is machine-readable target fixture data; the deterministic evaluator, plane observers, scheduler, recovery controllers, and estate-wide probes are not implemented on current master)
-Last implementation audit: 2026-07-19
+Last implementation audit: 2026-07-20
 
 ## Canonical Definition
 
@@ -130,6 +130,25 @@ provider was irrelevant.
     high-water mark, or `clock: healthy` flag cannot establish latest or
     rollback-resistant currentness. The exact required claim must be
     established under an admitted profile immediately before use.
+12. **Preparation is not application.** A read-only preflight or prepared
+    change may establish that declared inputs satisfied named checks at one
+    evidence horizon. It grants no authority, reserves no continuing
+    eligibility, performs no effect, and cannot substitute for apply-time
+    revalidation.
+13. **Cancellation states the effect boundary.** Cancellation before the first
+    effect may close the operation as `cancelled`. Once an effect may have
+    started, cancellation is only a request to stop further work; the attempted
+    effect remains `known`, `unknown`, `rolled_back`, `compensated`, or
+    `reconciliation_required` until its owner admits that disposition.
+14. **Activation advances forward only.** Failed, unknown, late-superseded, or
+    unadjudicated partial execution cannot advance or reclaim an active release,
+    route, writer, or other activation head. Activation uses the owner's exact
+    expected-head and generation fence.
+15. **Cleanup duty survives owner teardown.** Deleting a session, environment,
+    plan, or local projection cannot erase an unresolved provider or runtime
+    resource. The cleanup obligation remains durable until exact evidence proves
+    the required disposition, or an authorized owner quarantines or abandons it
+    with residual-risk evidence.
 
 ## Deterministic Decision Boundary
 
@@ -410,19 +429,28 @@ not uptime alone.
 
 ## Readiness and Degraded States
 
-Production surfaces expose at least four distinct projections:
+Production surfaces expose at least five distinct projections:
 
 - **process liveness**: the component can answer a minimal local probe;
+- **local-product component readiness**: the declared local client, API, or
+  service component can serve its supported local/static/projection contract
+  with optional managed dependencies unavailable;
 - **plane readiness**: the component can satisfy its declared plane contract;
 - **operation readiness**: the exact operation's required planes and evidence
   are currently eligible; and
 - **system posture**: the bounded system's allowed local, cross-node,
   physical, paid, and public-settlement behaviors after policy evaluation.
 
-A liveness probe must never be used as operation readiness. The UI and API must
-render typed reasons and consequences such as `read_only`, `cached_read_only`,
-`proposal_only`, `local_supervisor_only`, `no_new_paid_work`,
-`reconciliation_required`, or `public_settlement_deferred`.
+A liveness probe or ready local product shell must never be used as plane or
+operation readiness. A locally ready Environments view, for example, may render
+cached state and prepare a change while provider-backed apply remains blocked;
+conversely, a healthy provider cannot make an unavailable local authority or
+truth boundary ready. `Local-product component readiness` is a projection, not
+a new plane, runtime, or authority source. The UI and API must render typed
+reasons and consequences such as `read_only`, `cached_read_only`,
+`proposal_only`, `local_component_ready_operation_blocked`,
+`local_supervisor_only`, `no_new_paid_work`, `reconciliation_required`, or
+`public_settlement_deferred`.
 
 ## Dependency and Failure-Domain Rules
 
@@ -439,7 +467,7 @@ render typed reasons and consequences such as `read_only`, `cached_read_only`,
 - Provider diversity is not failure-domain diversity when routes share the
   same account, network, region, aggregator, secret issuer, or billing rail.
 
-## Checkpoint, Backup, Restore, and Compaction
+## Checkpoint, Backup, Restore, Migration, and Compaction
 
 Every state-bearing plane declares:
 
@@ -457,6 +485,44 @@ is recorded as a `LostSuffixRecord` or the owner-equivalent incident; it is not
 silently accepted. Restored environment bytes do not prove reconciliation of
 external, financial, physical, or provider effects.
 
+An environment backup becomes complete only after the daemon or admitted
+producer has read or streamed the actual bytes for every declared artifact,
+recomputed each content commitment, admitted the artifact refs, and committed a
+manifest whose root covers those exact refs and commitments. The manifest is
+finalized only after its referenced artifacts. Provider object metadata,
+`HEAD`, filename, existence, or size equality alone cannot establish byte
+completion. Partial uploads and a manifest with any missing, mismatched, or
+unverified artifact remain non-restorable incomplete material.
+
+Restore preparation and application remain distinct:
+
+```text
+prepare
+  read and verify declared material, compatibility, target posture, overwrite
+  policy, authority requirements, writer/resource fences, and independent
+  preflight checks without target mutation
+
+apply
+  re-resolve every required plane, revalidate the exact manifest and actual
+  bytes, authority, leases, preflight validity, target head, writer/resource
+  fence, and overwrite policy immediately before effect; then recompute and
+  admit the resulting root and readiness evidence
+```
+
+A prepared result is evidence at its stated horizon, not a capability or
+promise that apply will succeed. Cancellation before the first apply effect may
+close as `cancelled`. Cancellation after an effect may have started must
+preserve the attempt and enter rollback, reconciliation, compensation, or
+durable cleanup; it cannot report clean cancellation merely because the worker
+stopped.
+
+Release, route, restore, migration, and rollback activation is forward-only.
+Only a confirmed execution satisfying its exact expected active head,
+generation fence, and required adjudication may advance the active binding. A
+failed, unknown, late-superseded, or unadjudicated partial execution leaves the
+prior active head unchanged and records any resulting reconciliation or cleanup
+duty.
+
 Restore and migration also hand off every required per-namespace temporal,
 key-set, revocation, checkpoint, and owner-generation floor. Imported
 `healthy`, `verified`, `current`, or evaluation outputs are evidence inputs,
@@ -464,6 +530,21 @@ not target-side truth. The target re-resolves the exact profile, trust roots,
 authority status, temporal sources, outside-domain floors, and resource fence
 before readiness. A floor that cannot be retained or freshly re-established
 narrows the posture or fails closed; restore never lowers it silently.
+
+Migration preflight is read-only, reports all independent checks rather than
+mutating until the first failure, binds its exact inputs and evidence horizon,
+and is rechecked at apply. Every affected secret or credential declares one
+explicit disposition: retain at source, reissue at target, rewrap for target,
+require user relink, exclude from transfer, or revoke at source. Copied
+ciphertext never implies target usability. Missing disposition, unresolved
+target custody, or stale preflight blocks apply.
+
+Provider or runtime cleanup remains a durable duty even after the originating
+environment or plan is deleted. Retries preserve exact resource identity,
+attempt history, backoff, authority requirements, and the next required
+disposition. A provider `not found` response closes the duty only when the
+provider namespace, queried resource identity, and absence semantics match the
+obligation; ambiguous absence remains reconciliation-required.
 
 ## Key Rotation and Revocation
 
@@ -542,6 +623,8 @@ An operability incident preserves:
   compensated, reconciled, or irrecoverable;
 - containment, fencing, safe-state, rollback, restore, replay, and manual
   admission actions;
+- durable resource-cleanup obligations, attempt history, next retry or
+  quarantine posture, and exact closure evidence;
 - responsible operator/role and required deadlines; and
 - closure evidence plus residual lost-suffix, disputed-effect, assurance, or
   customer-notification state.
