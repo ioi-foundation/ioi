@@ -86,6 +86,59 @@ fn required_env(name: &str) -> Result<String, ResolveError> {
         })
 }
 
+fn load_pinned_root() -> Result<WalletControlPlaneRootRecord, ResolveError> {
+    let root_path = PathBuf::from(required_env("IOI_WALLET_NETWORK_ROOT_RECORD_PATH")?);
+    let root_bytes = std::fs::read(&root_path).map_err(|error| {
+        ResolveError::NotConfigured(format!(
+            "wallet.network root record '{}' could not be read: {error}",
+            root_path.display()
+        ))
+    })?;
+    let root: WalletControlPlaneRootRecord =
+        serde_json::from_slice(&root_bytes).map_err(|error| {
+            ResolveError::NotConfigured(format!(
+                "wallet.network root record is not canonical JSON: {error}"
+            ))
+        })?;
+    let derived_root = account_id_from_key_material(root.signature_suite, &root.public_key)
+        .map_err(|error| {
+            ResolveError::NotConfigured(format!(
+                "wallet.network root record has invalid key material: {error}"
+            ))
+        })?;
+    if root.account_id != derived_root {
+        return Err(ResolveError::NotConfigured(
+            "wallet.network root record account_id does not match its pinned key".to_string(),
+        ));
+    }
+    Ok(root)
+}
+
+pub(crate) fn verify_retained_principal_authority_binding_proof(
+    proof: &PrincipalAuthorityBindingProofV1,
+) -> Result<(), ResolveError> {
+    let root = load_pinned_root()?;
+    proof
+        .verify_root_signature_with(&root, |suite, public_key, message, signature| {
+            verify_wallet_signature_proof(
+                &SignatureProof {
+                    suite,
+                    public_key: public_key.to_vec(),
+                    signature: signature.to_vec(),
+                },
+                message,
+                "Hypervisor retained principal-authority binding",
+            )
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+        })
+        .map_err(|error| {
+            ResolveError::Invalid(format!(
+                "retained wallet.network binding proof is not signed by the pinned root: {error}"
+            ))
+        })
+}
+
 fn load_config() -> Result<Config, ResolveError> {
     let rpc_addr = required_env("IOI_WALLET_NETWORK_RPC_ADDR")?;
     let chain_id = required_env("IOI_WALLET_NETWORK_CHAIN_ID")?
@@ -114,30 +167,7 @@ fn load_config() -> Result<Config, ResolveError> {
         ))
     })?;
 
-    let root_path = PathBuf::from(required_env("IOI_WALLET_NETWORK_ROOT_RECORD_PATH")?);
-    let root_bytes = std::fs::read(&root_path).map_err(|error| {
-        ResolveError::NotConfigured(format!(
-            "wallet.network root record '{}' could not be read: {error}",
-            root_path.display()
-        ))
-    })?;
-    let root: WalletControlPlaneRootRecord =
-        serde_json::from_slice(&root_bytes).map_err(|error| {
-            ResolveError::NotConfigured(format!(
-                "wallet.network root record is not canonical JSON: {error}"
-            ))
-        })?;
-    let derived_root = account_id_from_key_material(root.signature_suite, &root.public_key)
-        .map_err(|error| {
-            ResolveError::NotConfigured(format!(
-                "wallet.network root record has invalid key material: {error}"
-            ))
-        })?;
-    if root.account_id != derived_root {
-        return Err(ResolveError::NotConfigured(
-            "wallet.network root record account_id does not match its pinned key".to_string(),
-        ));
-    }
+    let root = load_pinned_root()?;
 
     if !rpc_addr.starts_with("https://") {
         return Err(ResolveError::NotConfigured(

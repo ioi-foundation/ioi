@@ -164,6 +164,7 @@ pub enum RawOverrideMode {
 
 /// Scoped policy exception minted by Stage 2 review flow.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
+#[serde(deny_unknown_fields)]
 pub struct PiiScopedException {
     /// Stable exception id.
     pub exception_id: String,

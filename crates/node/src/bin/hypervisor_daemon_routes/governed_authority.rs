@@ -14,10 +14,11 @@ use ioi_services::agentic::runtime::kernel::approval::{
     verify_wallet_approval_grant_binding, ApprovalScopeContext, AuthorityScopeMatcher,
 };
 use ioi_types::app::{
-    ApprovalGrant, PrincipalAuthorityBindingCoordinates, PrincipalAuthorityBindingProofV1,
-    PrincipalAuthorityKind, PrincipalAuthorityResolutionReceipt, PrincipalAuthorityResolutionV1,
-    ResolvePrincipalAuthorityParams,
+    ApprovalAuthority, ApprovalGrant, PrincipalAuthorityBindingCoordinates,
+    PrincipalAuthorityBindingProofV1, PrincipalAuthorityKind, PrincipalAuthorityResolutionReceipt,
+    PrincipalAuthorityResolutionV1, ResolvePrincipalAuthorityParams,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
@@ -92,6 +93,148 @@ pub(crate) struct AuthorizedDecision {
 pub(crate) struct VerifiedAuthorityResolution {
     pub(crate) resolution: PrincipalAuthorityResolutionV1,
     pub(crate) authority_binding: Value,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StableAuthorityBindingV1 {
+    schema_version: u16,
+    principal_ref: String,
+    authority_kind: PrincipalAuthorityKind,
+    coordinates: PrincipalAuthorityBindingCoordinates,
+    required_scope: String,
+    matched_scope: String,
+    approval_authority: ApprovalAuthority,
+    approval_authority_snapshot_hash: [u8; 32],
+    binding_proof: PrincipalAuthorityBindingProofV1,
+}
+
+const APPROVAL_GRANT_FIELDS: &[&str] = &[
+    "schema_version",
+    "authority_id",
+    "request_hash",
+    "policy_hash",
+    "audience",
+    "nonce",
+    "counter",
+    "expires_at",
+    "max_usages",
+    "window_id",
+    "pii_action",
+    "scoped_exception",
+    "review_request_hash",
+    "approver_public_key",
+    "approver_sig",
+    "approver_suite",
+];
+
+/// Parse the accepted ApprovalGrant JSON ABI, reject undeclared fields, and return the one
+/// canonical typed projection retained by new evidence. Explicit null and omission remain
+/// equivalent for optional legacy fields.
+pub(crate) fn canonicalize_approval_grant(value: &Value) -> Result<(ApprovalGrant, Value), String> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| "approval grant must be one JSON object".to_string())?;
+    if let Some(field) = object
+        .keys()
+        .find(|field| !APPROVAL_GRANT_FIELDS.contains(&field.as_str()))
+    {
+        return Err(format!(
+            "approval grant contains undeclared field '{field}'"
+        ));
+    }
+    let parsed: ApprovalGrant = serde_json::from_value(value.clone())
+        .map_err(|error| format!("approval grant is not canonical: {error}"))?;
+    let canonical = serde_json::to_value(&parsed)
+        .map_err(|error| format!("approval grant cannot be serialized canonically: {error}"))?;
+    let mut normalized = value.clone();
+    let normalized_object = normalized
+        .as_object_mut()
+        .expect("approval grant object was checked above");
+    for field in [
+        "window_id",
+        "pii_action",
+        "scoped_exception",
+        "review_request_hash",
+    ] {
+        if normalized_object.get(field).is_some_and(Value::is_null) {
+            normalized_object.remove(field);
+        }
+    }
+    if canonical != normalized {
+        return Err(
+            "approval grant differs from its closed canonical typed projection".to_string(),
+        );
+    }
+    Ok((parsed, canonical))
+}
+
+/// Validate the complete retained wallet.network binding without treating its untrusted JSON
+/// envelope as evidence. Reauthorization callers additionally resolve and byte-compare this
+/// projection against wallet.network's authenticated current resolution.
+pub(crate) fn canonicalize_authority_binding(
+    value: &Value,
+    resolved_at_ms: u64,
+) -> Result<Value, String> {
+    let binding: StableAuthorityBindingV1 = serde_json::from_value(value.clone())
+        .map_err(|error| format!("principal-authority binding is not closed and typed: {error}"))?;
+    let canonical = serde_json::to_value(&binding).map_err(|error| {
+        format!("principal-authority binding cannot be serialized canonically: {error}")
+    })?;
+    if canonical != *value {
+        return Err(
+            "principal-authority binding differs from its closed canonical typed projection"
+                .to_string(),
+        );
+    }
+    if binding.schema_version != 1 || binding.authority_kind != PrincipalAuthorityKind::Approval {
+        return Err("principal-authority binding has an unsupported version or kind".to_string());
+    }
+    binding
+        .binding_proof
+        .verify_active_at(resolved_at_ms)
+        .map_err(|error| format!("principal-authority binding proof is not active: {error}"))?;
+    binding
+        .binding_proof
+        .verify_authority_snapshot(&binding.approval_authority)
+        .map_err(|error| {
+            format!(
+                "principal-authority binding proof does not bind its authority snapshot: {error}"
+            )
+        })?;
+    let statement = &binding.binding_proof.statement;
+    if binding.coordinates != binding.binding_proof.coordinates()
+        || binding.principal_ref != statement.principal_ref
+        || binding.authority_kind != statement.authority_kind
+        || binding.approval_authority_snapshot_hash != statement.approval_authority_snapshot_hash
+    {
+        return Err(
+            "principal-authority binding does not match its immutable proof coordinates and statement"
+                .to_string(),
+        );
+    }
+    let decision = AuthorityScopeMatcher::evaluate(
+        &binding.approval_authority,
+        &ApprovalScopeContext::new(binding.required_scope.clone()),
+    );
+    if !decision.allowed
+        || decision.matched_scope.as_deref() != Some(binding.matched_scope.as_str())
+    {
+        return Err(
+            "principal-authority binding matched_scope is not the canonical authority scope match"
+                .to_string(),
+        );
+    }
+    Ok(canonical)
+}
+
+pub(crate) fn verify_retained_authority_binding_root(value: &Value) -> Result<(), String> {
+    let binding: StableAuthorityBindingV1 = serde_json::from_value(value.clone())
+        .map_err(|error| format!("principal-authority binding is not closed and typed: {error}"))?;
+    super::wallet_network_capability_client::verify_retained_principal_authority_binding_proof(
+        &binding.binding_proof,
+    )
+    .map_err(|error| format!("{error:?}"))
 }
 
 fn local_now_ms() -> u64 {
@@ -433,17 +576,7 @@ pub(crate) fn authorize_decision_for_resolution_with_context(
         Err("a wallet_approval_grant is required".to_string())
     } else {
         (|| {
-            let parsed: ApprovalGrant = serde_json::from_value(grant.clone())
-                .map_err(|error| format!("approval grant is not canonical: {error}"))?;
-            let canonical = serde_json::to_value(&parsed).map_err(|error| {
-                format!("approval grant cannot be serialized canonically: {error}")
-            })?;
-            if canonical != grant {
-                return Err(
-                    "approval grant must equal its closed canonical typed projection exactly"
-                        .to_string(),
-                );
-            }
+            let (parsed, canonical) = canonicalize_approval_grant(&grant)?;
             let binding = verify_wallet_approval_grant_binding(
                 &canonical,
                 Some(local_now_ms()),
@@ -701,6 +834,14 @@ pub(crate) async fn reauthorize_sealed_receipt_with_context(
     if sealed.wallet_approval_grant.is_null() || !sealed.authority_binding.is_object() {
         return Err("the governed intent does not retain its complete signed grant and authority binding tuple".into());
     }
+    let (_, canonical_grant) = canonicalize_approval_grant(&sealed.wallet_approval_grant)?;
+    let canonical_binding = canonicalize_authority_binding(
+        &sealed.authority_binding,
+        receipt
+            .get("authority_resolved_at_ms")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| "the governed intent lacks authority_resolved_at_ms".to_string())?,
+    )?;
     validate_sealed_effect(contract, receipt, effect)?;
     let required_scope = contract.operation_scope(op);
     if sealed
@@ -735,10 +876,10 @@ pub(crate) async fn reauthorize_sealed_receipt_with_context(
     )
     .await
     .map_err(|(_, code, message)| format!("{code}: {message}"))?;
-    if resolution.authority_binding != sealed.authority_binding {
+    if resolution.authority_binding != canonical_binding {
         return Err("wallet.network no longer resolves the exact snapshot, scope, and immutable coordinates pinned by the governed intent".into());
     }
-    let body = json!({ "wallet_approval_grant": sealed.wallet_approval_grant });
+    let body = json!({ "wallet_approval_grant": canonical_grant });
     let live = authorize_decision_for_resolution_with_context(
         contract,
         &body,
@@ -758,7 +899,10 @@ pub(crate) async fn reauthorize_sealed_receipt_with_context(
             .unwrap_or("the retained approval grant no longer verifies")
             .to_string()
     })?;
-    if live.evidence != sealed {
+    let mut normalized_sealed = sealed;
+    normalized_sealed.wallet_approval_grant = body["wallet_approval_grant"].clone();
+    normalized_sealed.authority_binding = canonical_binding;
+    if live.evidence != normalized_sealed {
         return Err("the reverified grant and resolution do not reconstruct the exact sealed authority tuple".into());
     }
     Ok(live.resolved_at_ms)
