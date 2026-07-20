@@ -4,7 +4,7 @@ Status: canonical architecture note.
 Canonical owner: this file for the horizon framing that separates the launch wedge from long-horizon breadth without narrowing canon.
 Supersedes: readings of the canon that mistake speculative breadth for current shipped surface, or that treat horizon labels as scope deletion.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: mixed (this note classifies; subject owners carry per-file status)
 Last implementation audit: 2026-07-05
@@ -55,6 +55,17 @@ boundaries end to end while leaving conditional breadth honest. This selection
 does not create a `MinimumL0` object, redefine a bounded DAS, or make unselected
 features optional for every later deployment.
 
+### Required sovereign-local fixture
+
+The selected profile must first pass the
+`embedded_single_operator_offline` fixture with every IOI-managed endpoint
+denied. Preloaded signed package, tool, fixture, and local-model artifacts are
+allowed. The fixture must not require an `ioi.ai` account, hosted
+wallet.network login, marketplace, IOI Network enrollment, IOI L1, license
+heartbeat, telemetry, update service, or external model provider. Loopback and
+explicit local IPC remain available. Optional planes return typed unavailable
+or degraded dispositions rather than fabricated success.
+
 The selected first profile is an **OutcomeRoom-backed bounded software change
 institution**. One reusable package instantiates one single-node,
 single-authority System that can receive a bounded change goal, allocate
@@ -76,11 +87,15 @@ Required for this profile:
   disclosed Worker/role topology, scoped skills/tools/model routes, isolated
   work environment, generic result, independent deterministic verifier, and
   OutcomeRoom admission/claim/finding lineage;
-- provider-neutral account authentication, a low-risk product session, exact
-  consequential-action review, passkey-capable step-up, scoped expiring
-  authority through the context-bound portable `AuthorityGrantEnvelope` v3
-  successor, daemon boundary revalidation, effect fencing, receipt, and
-  revocation;
+- deployment-local identity authentication and a low-risk product session for
+  the isolated lane, with authentication remaining separate from a locally
+  permitted authority provider; exact consequential-action review, scoped
+  expiring authority, daemon-boundary revalidation, effect fencing, receipt,
+  and revocation remain required. A separately tested connected lane repeats
+  the journey with provider-neutral account authentication, passkey-capable
+  step-up, and the context-bound portable `AuthorityGrantEnvelope` v3
+  successor. The isolated lane does not claim portable delegated authority,
+  and hosted wallet.network login is never its prerequisite;
 - Agentgres-backed operations, receipts, replay, artifact/source-to-export
   lineage, assertion/evidence admission, and inspectable state roots;
 - proposal-mediated package/profile improvement plus target-owner
@@ -107,7 +122,7 @@ when one operator can complete this visible journey through supported product
 surfaces and public contracts:
 
 ```text
-continue with an eligible identity or passkey
+authenticate through the deployment-local or connected identity lane
   -> choose the bounded software-change template
   -> describe the goal, repository, constraints, authority, and acceptance
   -> validate, preview, and simulate one compiled package/genesis proposal
@@ -115,7 +130,7 @@ continue with an eligible identity or passkey
   -> start or admit the GoalRun in its OutcomeRoom-backed work context
   -> observe planning, claimed work, attempts, verification, and blockers
   -> review the exact proposed repository effect
-  -> unlock a scoped grant with a passkey when policy requires it
+  -> satisfy the lane's exact scoped authority ceremony
   -> let the daemon revalidate and execute or refuse the effect
   -> inspect the diff, tests, evidence admission, receipt chain, state root,
      costs, provider route, and learning eligibility
@@ -129,13 +144,43 @@ uninspectable prompt-only transition, a fabricated success row, or manual
 reconstruction of the evidence chain. A compact flow and the advanced
 declaration must resolve to the same typed objects and hashes.
 
+The gate runs in two ordered profiles:
+
+1. **Sovereign-local completeness.** With every IOI-managed endpoint blocked,
+   the operator uses a fixture repository, embedded Agentgres, local storage,
+   deployment-local identity, a locally permitted authority provider, and an
+   admitted local-model or deterministic fixture route to complete package
+   admission, genesis, governed work, independent verification, exact-effect
+   execution or refusal, receipt inspection, restart/replay, backup/restore,
+   evidence export and offline verification, upgrade/recall, and retirement.
+   Accountless never means unauthenticated, and single-node operation claims
+   only its actual durability and failure domain.
+2. **Managed optionality.** Beginning from that independently operable System,
+   the operator links an account, explicitly enables one managed service,
+   inspects its exact bindings, data views, leases, custody, charges, and
+   receipts, then revokes or disconnects it. The gate fails if connection
+   silently moves truth or custody, grants authority, changes package or System
+   identity, creates a writer, or starts billing; it also fails if detachment
+   prevents work whose complete dependency closure remains locally satisfied.
+
+The minimum-L0 claim requires the first profile. A production self-hosted
+organization claim additionally requires a headless single-node fixture. A
+managed-optionality claim requires both ordered profiles. Multi-node HA,
+IOI-managed hosting, identity-preserving migration, AIIP, IOI L1, marketplace,
+cTEE, and physical-action claims remain conditional until their own fixtures
+pass.
+
+The target cases and claim-scoped fixture requirements live in
+[`sovereign-local-completeness.md`](../../conformance/hypervisor-core/sovereign-local-completeness.md).
+
 At minimum the proof records time to first valid preview, time to genesis,
 typed-blocker resolution rate, authorized completion rate, verifier
 reproducibility, effect-recovery success, receipt/replay completeness,
-provider-swap continuity, recovery/revocation behavior, and the amount of
-architecture vocabulary exposed to a first-time operator. Thresholds and
-baseline cohorts are release-program decisions; omitting the measurements is
-not.
+provider-swap continuity, recovery/revocation behavior, time to a locally valid
+System, network-blocked completion, managed-link scope accuracy, disconnect
+continuity, export/import portability, and the amount of architecture vocabulary
+exposed to a first-time operator. Thresholds and baseline cohorts are
+release-program decisions; omitting the measurements is not.
 
 ## Horizon 0 — bounded-DAS contract convergence and commercial truth
 

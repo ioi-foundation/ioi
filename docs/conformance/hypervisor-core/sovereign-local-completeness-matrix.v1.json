@@ -1,0 +1,628 @@
+{
+  "schema_version": "ioi.sovereign-local-completeness-scenario.v1",
+  "status": "target_fixture_only",
+  "claim_profiles": [
+    {
+      "claim_profile_id": "minimum_l0_local_completeness",
+      "required_prerequisite_claim_profile_ids": [],
+      "required_fixture_profile_ids": ["embedded_single_operator_offline"],
+      "required_overlay_ids": []
+    },
+    {
+      "claim_profile_id": "production_self_hosted",
+      "required_prerequisite_claim_profile_ids": [
+        "minimum_l0_local_completeness"
+      ],
+      "required_fixture_profile_ids": ["self_hosted_org_single_node"],
+      "required_overlay_ids": []
+    },
+    {
+      "claim_profile_id": "managed_optionality",
+      "required_prerequisite_claim_profile_ids": [
+        "minimum_l0_local_completeness"
+      ],
+      "required_fixture_profile_ids": [],
+      "required_overlay_ids": ["managed_attach_detach_overlay"]
+    },
+    {
+      "claim_profile_id": "identity_preserving_migration",
+      "required_prerequisite_claim_profile_ids": [
+        "minimum_l0_local_completeness"
+      ],
+      "required_fixture_profile_ids": [],
+      "required_overlay_ids": ["identity_preserving_migration_overlay"]
+    }
+  ],
+  "external_conditional_nonclaims": [
+    {
+      "claim_id": "multi_node_high_availability",
+      "conformance_status": "out_of_scope_unavailable",
+      "required_external_evidence": [
+        "governed_membership",
+        "failure_domain_independence",
+        "declared_durability",
+        "writer_fencing",
+        "failover_reconciliation"
+      ]
+    },
+    {
+      "claim_id": "ioi_managed_hosting",
+      "conformance_status": "out_of_scope_unavailable",
+      "required_external_evidence": [
+        "managed_provider_admission",
+        "custody_contract",
+        "availability_contract",
+        "usage_and_billing",
+        "export_and_exit"
+      ]
+    }
+  ],
+  "evaluation_rules": {
+    "claim_dependencies": "transitive_and_must_pass",
+    "fixture_execution": "execute each selected scenario against every directly required compatible fixture; prerequisite claims retain and execute their own fixtures",
+    "missing_required_evidence": "incomplete",
+    "overlay_execution": "begin each overlay from the passing predecessor claim state and bind the exact predecessor evidence",
+    "scenario_selection": "execute every scenario whose required_for_claims names the claim; this index is the sole requirement-to-claim mapping",
+    "unknown_disposition_or_verdict": "invalid_matrix"
+  },
+  "operation_disposition_vocabulary": [
+    "available",
+    "unavailable",
+    "fail_closed",
+    "reconciliation_required",
+    "not_applicable"
+  ],
+  "report_verdict_vocabulary": ["pass", "fail", "incomplete"],
+  "fixture_profiles": [
+    {
+      "fixture_profile_id": "embedded_single_operator_offline",
+      "runtime_operator": "local",
+      "node_count": 1,
+      "agentgres_mode": "embedded",
+      "identity_posture": "deployment_local",
+      "authority_posture": "locally_permitted_provider",
+      "storage_posture": "local",
+      "route_posture": "deterministic_fixture_or_local_model",
+      "network_policy": {
+        "loopback": "allowed",
+        "declared_local_ipc": "allowed",
+        "non_loopback_egress": "denied",
+        "dns": "denied"
+      },
+      "declared_nonclaims": [
+        "multi_node_high_availability",
+        "portable_delegated_authority",
+        "public_settlement",
+        "provider_service_level_agreement"
+      ]
+    },
+    {
+      "fixture_profile_id": "self_hosted_org_single_node",
+      "runtime_operator": "customer_managed",
+      "node_count": 1,
+      "agentgres_mode": "server",
+      "identity_posture": "deployment_local_or_customer_oidc",
+      "authority_posture": "locally_permitted_provider",
+      "storage_posture": "customer_controlled",
+      "route_posture": "local_or_customer_supplied",
+      "network_policy": {
+        "loopback": "allowed",
+        "declared_customer_network": "allowed",
+        "ioi_managed_endpoints": "denied"
+      },
+      "declared_nonclaims": [
+        "multi_node_high_availability",
+        "hypervisoros_required",
+        "provider_service_level_agreement"
+      ]
+    }
+  ],
+  "overlays": [
+    {
+      "overlay_id": "managed_attach_detach_overlay",
+      "precondition": "passing_standalone_fixture",
+      "allowed_changes": [
+        "explicit_account_binding",
+        "explicit_service_binding",
+        "scoped_data_view",
+        "scoped_lease",
+        "runtime_assignment",
+        "declared_usage_and_charge"
+      ],
+      "forbidden_implicit_changes": [
+        "system_identity",
+        "package_identity",
+        "authority",
+        "keys",
+        "writer_role",
+        "canonical_truth",
+        "payload_custody",
+        "institutional_learning_boundary",
+        "network_enrollment",
+        "usage_or_charge_without_named_service_use"
+      ]
+    },
+    {
+      "overlay_id": "identity_preserving_migration_overlay",
+      "precondition": "passing_applicable_standalone_fixture",
+      "source_runtime_operator": "fixture_runtime_operator",
+      "target_runtime_operator_allowed": [
+        "local",
+        "customer_managed",
+        "ioi_managed",
+        "hybrid"
+      ],
+      "required_inputs": [
+        "lifecycle_continuity_decision",
+        "hypervisor_change_plan",
+        "source_checkpoint",
+        "target_validation",
+        "quiescence_and_fence",
+        "cutover_writer_epoch",
+        "rollback_window",
+        "source_disposition"
+      ],
+      "forbidden_outcomes": ["two_active_writers", "implicit_identity_transfer"]
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario_id": "slc-01-network-disabled-cold-boot",
+      "requirement_id": "SLC-01",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "fresh_state": true,
+        "ioi_managed_endpoints": "blocked",
+        "license_update_support_telemetry_endpoints": "blocked"
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "client_start_receipt",
+        "daemon_start_receipt",
+        "agentgres_start_receipt",
+        "network_boundary_observation"
+      ],
+      "forbidden_observations": [
+        "required_ioi_ai_account",
+        "required_hosted_wallet_login",
+        "required_managed_endpoint",
+        "required_external_model_provider"
+      ]
+    },
+    {
+      "scenario_id": "slc-02-local-exact-effect-admitted",
+      "requirement_id": "SLC-02",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "identity": "authenticated_local_operator",
+        "authority": "valid_locally_permitted_exact_effect"
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "identity_session_ref",
+        "authority_decision_ref",
+        "effect_admission_receipt"
+      ],
+      "forbidden_observations": ["portable_authority_claim"]
+    },
+    {
+      "scenario_id": "slc-02-authenticated-without-authority-refused",
+      "requirement_id": "SLC-02",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "adversarial",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "identity": "authenticated_local_admin",
+        "authority": "missing"
+      },
+      "expected_disposition": "fail_closed",
+      "required_evidence": ["authority_refusal_receipt", "invoker_call_count_zero"],
+      "required_reason_codes": ["effect_authority_missing"],
+      "forbidden_observations": ["effect_invoked"]
+    },
+    {
+      "scenario_id": "slc-03-complete-bounded-system-journey",
+      "requirement_id": "SLC-03",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "journey": "package_to_system_to_governed_work_to_retirement",
+        "verification": "independent_deterministic"
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "package_release_ref",
+        "system_genesis_ref",
+        "goal_run_ref",
+        "work_result_ref",
+        "verification_ref",
+        "effect_or_refusal_receipt",
+        "state_root_ref",
+        "retirement_receipt"
+      ],
+      "forbidden_observations": [
+        "hidden_database_edit",
+        "unpublished_privileged_script",
+        "fabricated_receipt"
+      ]
+    },
+    {
+      "scenario_id": "slc-03-missing-verification-cannot-complete",
+      "requirement_id": "SLC-03",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "adversarial",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "work_result": "present",
+        "independent_verification": "missing"
+      },
+      "expected_disposition": "fail_closed",
+      "required_reason_codes": ["required_verification_missing"],
+      "forbidden_observations": ["completed_status", "effect_invoked"]
+    },
+    {
+      "scenario_id": "slc-04-zero-undeclared-egress",
+      "requirement_id": "SLC-04",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "seeded_canary_classes": [
+          "ontology",
+          "memory",
+          "trace",
+          "evaluation",
+          "secret",
+          "workspace",
+          "receipt",
+          "diagnostic"
+        ],
+        "egress_policy": "deny_all_non_loopback"
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "network_boundary_observation",
+        "canary_non_egress_report"
+      ],
+      "forbidden_observations": ["undeclared_egress", "canary_observed_remotely"]
+    },
+    {
+      "scenario_id": "slc-04-blocked-diagnostics-preserve-local-operation",
+      "requirement_id": "SLC-04",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "adversarial",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "diagnostic_endpoints": "blocked",
+        "local_operation": "unrelated_governed_work"
+      },
+      "expected_disposition": "available",
+      "required_evidence": ["blocked_egress_observation", "local_work_receipt"],
+      "forbidden_observations": ["license_lockout", "diagnostic_dependency_failure"]
+    },
+    {
+      "scenario_id": "slc-05-crash-restart-idempotent-replay",
+      "requirement_id": "SLC-05",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "fault_points": ["before_admission", "after_admission", "after_effect"]
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "pre_crash_state_root",
+        "post_restart_state_root",
+        "replay_report",
+        "effect_invocation_count"
+      ],
+      "forbidden_observations": ["duplicate_effect", "changed_body_replay_accepted"]
+    },
+    {
+      "scenario_id": "slc-05-unknown-effect-requires-reconciliation",
+      "requirement_id": "SLC-05",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "adversarial",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "effect_observation": "unknown"
+      },
+      "expected_disposition": "fail_closed",
+      "required_reason_codes": ["effect_outcome_unknown"],
+      "required_obligations": ["reconcile_before_retry"],
+      "forbidden_observations": ["success_status", "automatic_retry"]
+    },
+    {
+      "scenario_id": "slc-06-backup-clean-restore-root-equality",
+      "requirement_id": "SLC-06",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "restore_target": "clean_deployment",
+        "verification_network": "offline"
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "backup_ref",
+        "export_proof_ref",
+        "restore_receipt",
+        "source_state_root",
+        "restored_state_root",
+        "offline_verification_report"
+      ],
+      "forbidden_observations": ["hosted_verifier_required"]
+    },
+    {
+      "scenario_id": "slc-06-tampered-export-refused",
+      "requirement_id": "SLC-06",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "adversarial",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "export": "tampered_or_incomplete"
+      },
+      "expected_disposition": "fail_closed",
+      "required_reason_codes": ["export_lineage_or_root_mismatch"],
+      "forbidden_observations": ["restore_activated", "currentness_increased"]
+    },
+    {
+      "scenario_id": "slc-07-embedded-contract-compatibility",
+      "requirement_id": "SLC-07",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["production_self_hosted"],
+      "input": {
+        "agentgres_mode": "embedded"
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "public_api_trace",
+        "operation_commitments",
+        "receipt_bundle",
+        "durability_label"
+      ],
+      "forbidden_observations": ["ha_claim", "quorum_independence_claim"]
+    },
+    {
+      "scenario_id": "slc-07-embedded-server-semantic-parity",
+      "requirement_id": "SLC-07",
+      "fixture_profile_ids": [
+        "embedded_single_operator_offline",
+        "self_hosted_org_single_node"
+      ],
+      "scenario_kind": "positive",
+      "required_for_claims": ["production_self_hosted"],
+      "input": {
+        "same_canonical_fixture": true,
+        "agentgres_modes": ["embedded", "server"]
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "identifier_comparison",
+        "hash_comparison",
+        "api_semantics_comparison",
+        "receipt_semantics_comparison",
+        "declared_availability_difference"
+      ],
+      "forbidden_observations": ["capacity_parity_inferred", "sla_parity_inferred"]
+    },
+    {
+      "scenario_id": "slc-08-attach-without-transfer-or-charge",
+      "requirement_id": "SLC-08",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "overlay_ids": ["managed_attach_detach_overlay"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["managed_optionality"],
+      "input": {
+        "action": "attach_account_and_service_without_use"
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "attachment_binding_ref",
+        "before_after_custody_writer_state",
+        "billing_summary"
+      ],
+      "forbidden_observations": [
+        "implicit_authority",
+        "implicit_state_upload",
+        "implicit_writer_change",
+        "implicit_custody_change",
+        "implicit_charge"
+      ]
+    },
+    {
+      "scenario_id": "slc-08-managed-use-requires-explicit-lease",
+      "requirement_id": "SLC-08",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "overlay_ids": ["managed_attach_detach_overlay"],
+      "scenario_kind": "adversarial",
+      "required_for_claims": ["managed_optionality"],
+      "input": {
+        "managed_operation": "requested",
+        "service_lease": "missing"
+      },
+      "expected_disposition": "fail_closed",
+      "required_reason_codes": ["managed_service_lease_missing"],
+      "forbidden_observations": ["managed_execution", "managed_usage_charge"]
+    },
+    {
+      "scenario_id": "slc-09-detach-preserves-local-continuity",
+      "requirement_id": "SLC-09",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "overlay_ids": ["managed_attach_detach_overlay"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["managed_optionality"],
+      "input": {
+        "action": "detach_and_block_managed_endpoints",
+        "work_dependency_closure": "fully_local"
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "lease_revocation_receipt",
+        "local_work_receipt",
+        "local_state_root"
+      ],
+      "forbidden_observations": [
+        "account_lockout",
+        "local_truth_deleted",
+        "post_revocation_remote_execution"
+      ]
+    },
+    {
+      "scenario_id": "slc-09-detached-managed-dependency-typed-unavailable",
+      "requirement_id": "SLC-09",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "overlay_ids": ["managed_attach_detach_overlay"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["managed_optionality"],
+      "input": {
+        "action": "detach_and_request_managed_dependent_work",
+        "work_dependency_closure": "requires_detached_service"
+      },
+      "expected_disposition": "unavailable",
+      "required_reason_codes": ["required_managed_dependency_detached"],
+      "forbidden_observations": ["fabricated_local_success", "remote_execution"]
+    },
+    {
+      "scenario_id": "slc-10-connect-does-not-migrate",
+      "requirement_id": "SLC-10",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "overlay_ids": ["managed_attach_detach_overlay"],
+      "scenario_kind": "adversarial",
+      "required_for_claims": ["identity_preserving_migration"],
+      "input": {
+        "action": "connect_or_copy_without_change_plan"
+      },
+      "expected_disposition": "fail_closed",
+      "required_reason_codes": ["authorized_migration_plan_missing"],
+      "forbidden_observations": [
+        "truth_transferred",
+        "custody_transferred",
+        "writer_transferred",
+        "system_identity_preserved_by_inference"
+      ]
+    },
+    {
+      "scenario_id": "slc-10-authorized-fenced-migration",
+      "requirement_id": "SLC-10",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "overlay_ids": [
+        "managed_attach_detach_overlay",
+        "identity_preserving_migration_overlay"
+      ],
+      "scenario_kind": "positive",
+      "required_for_claims": ["identity_preserving_migration"],
+      "input": {
+        "lifecycle_continuity_decision": "admitted",
+        "change_plan": "authorized_complete"
+      },
+      "expected_disposition": "available",
+      "required_evidence": [
+        "source_checkpoint_ref",
+        "target_validation_ref",
+        "source_quiescence_ref",
+        "writer_fence_ref",
+        "cutover_receipt",
+        "rollback_window_ref",
+        "source_disposition_receipt"
+      ],
+      "forbidden_observations": ["two_active_writers"]
+    },
+    {
+      "scenario_id": "slc-10-interrupted-cutover-retains-one-writer",
+      "requirement_id": "SLC-10",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "overlay_ids": [
+        "managed_attach_detach_overlay",
+        "identity_preserving_migration_overlay"
+      ],
+      "scenario_kind": "adversarial",
+      "required_for_claims": ["identity_preserving_migration"],
+      "input": {
+        "fault_point": "during_cutover"
+      },
+      "expected_disposition": "fail_closed_or_reconciliation_required",
+      "required_evidence": ["active_writer_observation", "migration_incident_ref"],
+      "required_obligations": ["reconcile_before_retry"],
+      "forbidden_observations": ["two_active_writers", "implicit_source_teardown"]
+    },
+    {
+      "scenario_id": "slc-11-local-byo-supplier-cost-excluded",
+      "requirement_id": "SLC-11",
+      "fixture_profile_ids": [
+        "embedded_single_operator_offline",
+        "self_hosted_org_single_node"
+      ],
+      "scenario_kind": "positive",
+      "required_for_claims": [
+        "minimum_l0_local_completeness",
+        "production_self_hosted"
+      ],
+      "input": {
+        "supplier_cost_borne_by": "customer",
+        "managed_service_used": false
+      },
+      "expected_disposition": "available",
+      "required_evidence": ["usage_summary", "billing_summary"],
+      "forbidden_observations": [
+        "managed_provider_cost_debit",
+        "generic_pass_through_work_credit_charge"
+      ]
+    },
+    {
+      "scenario_id": "slc-11-explicit-managed-fee-requires-use-evidence",
+      "requirement_id": "SLC-11",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "overlay_ids": ["managed_attach_detach_overlay"],
+      "scenario_kind": "adversarial",
+      "required_for_claims": ["managed_optionality"],
+      "input": {
+        "managed_charge": "present",
+        "quote_or_rate_contract": "missing_or_mismatched",
+        "service_use_evidence": "missing_or_mismatched"
+      },
+      "expected_disposition": "fail_closed",
+      "required_reason_codes": ["managed_charge_not_supported_by_use_evidence"],
+      "forbidden_observations": ["finalized_charge"]
+    },
+    {
+      "scenario_id": "slc-12-unsupported-assurance-claims-withheld",
+      "requirement_id": "SLC-12",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "positive",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "requested_claims": [
+          "multi_node_high_availability",
+          "ctee",
+          "provider_non_learning",
+          "public_settlement",
+          "provider_service_level_agreement"
+        ],
+        "supporting_evidence": "absent"
+      },
+      "expected_disposition": "incomplete_for_requested_claims",
+      "required_evidence": ["declared_nonclaims"],
+      "forbidden_observations": ["unsupported_claim_promoted"]
+    },
+    {
+      "scenario_id": "slc-12-missing-evidence-produces-incomplete-report",
+      "requirement_id": "SLC-12",
+      "fixture_profile_ids": ["embedded_single_operator_offline"],
+      "scenario_kind": "adversarial",
+      "required_for_claims": ["minimum_l0_local_completeness"],
+      "input": {
+        "required_scenario_evidence": "missing"
+      },
+      "expected_disposition": "incomplete",
+      "required_reason_codes": ["required_conformance_evidence_missing"],
+      "forbidden_observations": ["pass_verdict"]
+    }
+  ]
+}

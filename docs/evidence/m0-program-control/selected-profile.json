@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-18",
-  "build_fingerprint": "27520589f52af9e4b5b2dff6ea1c72a1c8ffe3465adbafecff12d1347f4b195a",
+  "build_fingerprint": "ffc244adbda8dc5a4540c6164c3d0a924bd7f98be1f941531343d5cb5a1b85d8",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -17,7 +17,7 @@
       "one immutable GoalRunProfile and durable GoalRun in an OutcomeRoom",
       "disclosed first-party worker roles plus an independent deterministic verifier",
       "one isolated sandbox repository and branch",
-      "provider-neutral account and low-risk product session with passkey-capable step-up",
+      "deployment-local identity and a low-risk local product session with locally permitted authority, plus an optional provider-neutral connected overlay with passkey-capable portable authority",
       "exact authority, revocation, IFC, budget, fence, idempotency, recovery, and receipt checks",
       "Agentgres operations, heads, roots, receipts, replay, evidence admission, and export",
       "private evaluation and model routes with measured internal cost only",
@@ -53,7 +53,12 @@
         "owner_doc": "docs/architecture/components/daemon-runtime/api.md"
       },
       {
-        "object_set": "Account identity, product session, approval, portable grant, revocation, and step-up",
+        "object_set": "Deployment-local identity, product access, account and entitlement boundaries, and metering posture",
+        "owner": "Hypervisor identity, access, and metering",
+        "owner_doc": "docs/architecture/components/hypervisor/identity-access-and-metering.md"
+      },
+      {
+        "object_set": "Connected product-session binding, portable approval and grant, revocation, and step-up",
         "owner": "wallet.network authority",
         "owner_doc": "docs/architecture/components/wallet-network/api-authority-scopes.md"
       },
@@ -84,6 +89,24 @@
       }
     ],
     "profile_id": "selected-minimum-l0-outcome-room-bounded-software-change",
+    "proof_lanes": [
+      {
+        "authority_posture": "deployment-local authentication remains distinct from locally permitted exact-effect authority; no portable delegated-authority claim",
+        "claim_requirement": "required for the minimum-L0 local-completeness claim and every stronger claim that depends on it",
+        "endpoint_posture": "all IOI-managed endpoints denied; loopback and declared local IPC allowed",
+        "lane_id": "sovereign_local_completeness",
+        "order": 1,
+        "starting_state": "fresh standalone deployment"
+      },
+      {
+        "authority_posture": "provider-neutral account authentication plus passkey-capable context-bound portable authority when connected policy requires it",
+        "claim_requirement": "required only for managed-optionality claims and claims that depend on managed attachment",
+        "connection_posture": "explicitly attach one named managed service, prove no implicit transfer or billing, then revoke or detach it",
+        "lane_id": "managed_optionality_overlay",
+        "order": 2,
+        "starting_state": "the same independently operable System after a passing sovereign-local lane"
+      }
+    ],
     "rollback_stop_rules": [
       "Stop on any hidden database edit, privileged one-off script, copied bearer authority, prompt-only transition, fabricated success, or manually reconstructed evidence chain.",
       "An unavailable owner step remains a typed blocker; compatibility output never substitutes for it.",
@@ -105,7 +128,7 @@
         ],
         "state": "unavailable",
         "step": 1,
-        "visible_action": "Continue with an eligible identity or passkey."
+        "visible_action": "Authenticate through deployment-local identity in the sovereign-local lane; repeat through an eligible provider-neutral identity or passkey only for the connected overlay."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -179,7 +202,7 @@
         ],
         "state": "unavailable",
         "step": 9,
-        "visible_action": "Unlock a scoped grant with a passkey when policy requires it."
+        "visible_action": "Approve through locally permitted authority in the sovereign-local lane; unlock a scoped portable grant with a passkey only when connected policy requires it."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-REPO-EFFECT",

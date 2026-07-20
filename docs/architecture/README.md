@@ -235,6 +235,21 @@ HTTP/RPC, and chain/escrow bindings reuse external standards for remote tasks,
 tools/context, discovery, and settlement without treating their completion or
 registry state as IOI verification or authority.
 
+### The standalone core is independently operable
+
+Within its declared standalone capability, durability, custody, and assurance
+envelope, a compatible local or customer-controlled IOI deployment can
+bootstrap, create and govern a bounded System, execute local or BYO work,
+preserve and replay Agentgres truth, and back up, restore, export, and verify
+evidence without an `ioi.ai` account or another first-party managed
+dependency. Unavailable connected capabilities remain typed unavailable
+rather than becoming hidden prerequisites or simulated local parity.
+
+Managed attachment may extend placement, collaboration, backup, support, model
+supply, routing, and assurance, but it never silently uploads, owns, meters,
+authorizes, or completes locally governed Systems. Primary managed product
+does not mean required control plane.
+
 ### Goal Space is the primary managed product
 
 ioi.ai should provide one Goal Space subscription: persistent conductor and

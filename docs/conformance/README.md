@@ -5,7 +5,7 @@ Canonical owner: this file for the conformance tree and contract ownership.
 Supersedes: product or architecture prose that treats conformance as tied to one
 agent runtime, IDE, or harness.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-07-19.
 
 ## Purpose
 
@@ -41,6 +41,8 @@ Conformance keeps that architecture from collapsing into hidden shortcuts.
 | [`hypervisor-core/physical-action-safety.md`](./hypervisor-core/physical-action-safety.md) | Physical safety and Embodied Runtime | Current declaration-level intent admission plus target final-invoker, interrupted-effect, and execution-receipt contract. |
 | [`hypervisor-core/platform-operability.md`](./hypervisor-core/platform-operability.md) | Platform Operability | Target cross-plane operation disposition, recovery, version/key transition, and protected observability contract. |
 | [`hypervisor-core/platform-fault-matrix.v1.json`](./hypervisor-core/platform-fault-matrix.v1.json) | Platform Operability | Canonical machine-readable target scenarios; fixture evidence only, with no current operability evaluator or live fault injection. |
+| [`hypervisor-core/sovereign-local-completeness.md`](./hypervisor-core/sovereign-local-completeness.md) | Hypervisor Core and deployment owners | Target claim-scoped standalone, self-hosted, managed attach/detach, portability, and honest-capability contract; no current end-to-end evaluator. |
+| [`hypervisor-core/sovereign-local-completeness-matrix.v1.json`](./hypervisor-core/sovereign-local-completeness-matrix.v1.json) | Hypervisor Core and deployment owners | Canonical machine-readable target scenarios; fixture evidence only, with no current local-completeness runner or isolation evaluator. |
 
 ## Compatibility Labels
 

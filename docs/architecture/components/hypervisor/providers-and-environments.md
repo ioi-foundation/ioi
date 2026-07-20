@@ -8,7 +8,7 @@ integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-07-11.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: partial (env lifecycle, providers, readiness, warm pools, and placement built; DePIN/storage posture families vary)
 Implementation refs:
@@ -205,6 +205,84 @@ workloads when policy allows. Filecoin can hold encrypted payload/archive bytes
 and retrieval commitments. Neither owns Hypervisor execution, wallet authority,
 Agentgres artifact meaning, private plaintext, or restore validity.
 
+## Deployment Continuity And Managed Optionality
+
+Hypervisor deployment postures form one contract continuum:
+
+```text
+embedded single-user / workstation
+  -> self-hosted organization server
+  -> customer cluster, VPC, or infrastructure
+  -> optional IOI-managed placement and operations
+```
+
+The same environment recipes, daemon lifecycle operations, readiness gates,
+Agentgres truth contracts, authority requirements, receipt semantics, and
+portable package/System identities apply across those postures. Local and
+self-hosted deployments are production-eligible within their declared
+durability, availability, isolation, custody, and recovery envelopes; they are
+not intrinsically demo or development modes. Stable package hashes and
+`system_id` values may survive an admitted transition, but deployment-local
+sessions, principals, keys, grants, writer epochs, provider bindings, and
+custody or assurance claims are re-resolved or explicitly migrated rather than
+assumed equivalent.
+
+Three operations remain distinct:
+
+```text
+connect
+  register candidate account, entitlement, provider, runtime-discovery,
+  coordination, and service-binding relationships
+
+operate
+  admit exact leases, RuntimeAssignments, placement, data views, charges,
+  authority, and receipts for selected services
+
+migrate
+  execute an owner-authorized HypervisorChangePlan that verifies copied state,
+  quiesces and fences the source, cuts over one admitted writer, preserves a
+  rollback window, and records the source disposition
+```
+
+Connecting `ioi.ai`, a provider, or another managed plane grants no effect
+authority, exports no state, secret, credential, or institutional-learning
+material, changes no writer or custodian, transfers no package or System
+ownership, and starts no billing by itself. Sync, hosted backup, collaboration,
+managed workers, remote operations, support or telemetry export, managed
+placement, and custody transfer each require explicit configuration, applicable
+information-flow and institutional-learning evaluation, authority, admission,
+and receipts.
+
+A placement or custody transition follows:
+
+```text
+copy or checkpoint
+  -> verify target import and readiness
+  -> quiesce and fence the source
+  -> admit the cutover and new writer epoch
+  -> observe the rollback window
+  -> admit explicit source retention, replica, archive, or teardown disposition
+```
+
+Copying bytes never transfers truth. Replication and retained backups remain
+valid when admitted; the invariant is one current admitted writer and explicit
+custody/fencing, not one physical copy. If cutover cannot complete, the source
+retains authority or the transition enters typed blocked/reconciliation state;
+it never produces two active writers.
+
+Disconnecting or revoking a managed binding expires its managed leases and
+re-evaluates the exact dependency closure. Locally satisfied work may continue
+under still-valid authority, temporal, budget, partition, and writer-fence
+profiles. Work requiring a removed managed dependency becomes typed unavailable
+or explicitly degraded. Disconnect must not delete, widen, silently migrate, or
+invalidate locally owned Systems, packages, Agentgres truth, receipts, restore
+material, or export paths.
+
+The isolated, attachment, detachment, and migration consequences are tested by
+the target
+[`sovereign-local-completeness.md`](../../../conformance/hypervisor-core/sovereign-local-completeness.md)
+contract; no current end-to-end evaluator is implied.
+
 ## General VM And Runtime Lifecycle
 
 Hypervisor should support general VM creation and lifecycle control for any
@@ -370,7 +448,7 @@ Canonical environment ops objects:
 HypervisorEnvironmentClass
 HypervisorEnvironmentOpsProfile
 HypervisorDevelopmentEnvironmentRecipe
-HypervisorEnvironmentRecipeResolution
+HypervisorDevelopmentEnvironmentRecipeResolution
 HypervisorEnvironmentLifecycleState
 HypervisorEnvironmentStatus
 HypervisorEnvironmentComponentStatus
@@ -608,7 +686,6 @@ HypervisorDevelopmentEnvironmentRecipe
   connectivity_profile_ref
   cache_policy_ref
   warmup_policy_ref
-  startup_plan_ref
   readiness_gate_policy_ref
   resource_isolation_profile_ref
   snapshot_policy_ref
@@ -654,6 +731,72 @@ receipt_refs
 blocked_reason?
 runtimeTruthSource: daemon-runtime
 ```
+
+`HypervisorEnvironmentStartupPlan` is the immutable daemon-admitted bridge from
+that resolved recipe to one concrete startup attempt. It freezes what will
+start, where it will start, which dependencies and gates must become ready, and
+which evidence the lifecycle must emit. The plan does not execute, grant
+authority, own provider truth, or make readiness true by declaration.
+
+```text
+HypervisorEnvironmentStartupPlan
+  schema_version
+  startup_plan_ref: environment-startup-plan://.../revision/...
+  plan_hash
+  environment_ref
+  session_ref?
+  development_environment_recipe_ref
+  development_environment_recipe_content_hash
+  recipe_resolution_ref
+  recipe_resolution_hash
+  placement_decision_ref
+  runtime_assignment_ref?
+  runtime_operator: ioi_managed | customer_managed | local | hybrid
+  provider_account_ref?
+  provider_adapter_revision_ref?
+  source_ref / artifact_ref / configuration_ref
+  ordered_task_refs
+  service_refs
+  agent_service_refs
+  port_refs
+  readiness_gate_ref
+  connectivity_profile_ref
+  resource_isolation_profile_ref
+  custody_and_privacy_profile_refs
+  required_identity_context_ref
+  required_authority_scope_refs
+  resolved_authority_decision_refs
+  authority_lease_refs
+  capability_lease_refs
+  required_secret_refs
+  secret_capability_lease_refs
+  required_scm_auth_refs
+  resource_budget_ref
+  budget_lease_ref?
+  resource_allocation_ref?
+  stop_policy_ref
+  recovery_policy_ref
+  rollback_policy_ref
+  expected_receipt_contract_refs
+```
+
+The same recipe may resolve to different startup plans across local,
+customer-managed, and IOI-managed postures. Every lifecycle observation and
+startup receipt binds the exact plan ref and hash. `plan_hash` covers the
+canonical immutable plan body from `schema_version` through
+`expected_receipt_contract_refs`; it excludes the later admission decision,
+Agentgres state root, admission and lifecycle receipts, readiness observations,
+and refusal reason. Those derived records bind the plan ref and hash
+externally, so admission cannot create a receipt/hash cycle. A refused
+candidate remains a refused resolution or admission record and never becomes
+an admitted startup plan with an embedded `blocked_reason`.
+
+Changed placement, provider adapter, authority decision or lease, secret
+capability, readiness, privacy, budget, or recovery resolution requires a
+successor plan; a client may never patch the admitted plan in place. Reusable
+recipes point only toward declarative setup and policy inputs. The concrete
+startup plan points one-way back to the exact recipe and resolution, never the
+reverse.
 
 Historical `recipe_ref` and `HypervisorEnvironmentRecipeResolution` spellings
 are v1 compatibility aliases. Boundary adapters may read them, but canonical
@@ -1445,6 +1588,16 @@ expected spend and risk posture
 privacy and cTEE posture
 state_root_ref and receipt_refs
 reason_when_blocked
+when placement or custody changes:
+  source_authoritative_refs
+  target_candidate_refs
+  export_or_checkpoint_ref
+  target_import_and_validation_ref
+  quiescence_policy_ref
+  cutover_epoch_and_writer_fence_ref
+  rollback_window_ref
+  source_retention_replica_archive_or_teardown_policy_ref
+  portability_receipt_refs
 ```
 
 Change plans may be proposed by Automations, Developer Workspace, Foundry, ioi.ai,
@@ -1453,6 +1606,12 @@ executed only through Hypervisor Core and the daemon/provider boundary.
 wallet.network authorizes spend, secret release, SCM auth, access,
 declassification, and emergency overrides. Agentgres records plan lifecycle,
 state roots, receipts, rollback outcomes, and replay projections.
+
+Placement or custody migration preserves a `system_id` only when the applicable
+Lifecycle Continuity decision authorizes that identity-preserving transition.
+Otherwise the import is a fork or successor with its own identity. Connection,
+copy, restore material, provider readiness, or possession of the prior bytes
+cannot make that decision.
 
 `ChangePlanGate` covers constraints that must be satisfied before execution:
 
