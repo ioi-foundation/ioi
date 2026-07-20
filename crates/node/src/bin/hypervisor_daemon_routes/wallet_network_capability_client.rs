@@ -24,7 +24,7 @@ use ioi_ipc::public::{
 };
 use ioi_services::wallet_network::{
     verify_wallet_signature_proof, ApprovalGrantConsumptionReceipt,
-    ConsumeApprovalGrantForEffectParams,
+    ConsumeApprovalGrantForEffectParams, ConsumeApprovalGrantForEffectV2Params,
 };
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainId, ChainTransaction,
@@ -467,26 +467,25 @@ async fn resolve_inner(
     })
 }
 
-async fn consume_for_effect_inner(
+async fn consume_for_effect_inner<P: parity_scale_codec::Encode>(
     config: &Config,
-    params: ConsumeApprovalGrantForEffectParams,
+    method: &str,
+    wire_params: &P,
+    receipt_params: &ConsumeApprovalGrantForEffectParams,
 ) -> Result<ApprovalGrantConsumptionReceipt, ResolveError> {
     let _transaction_guard = TRANSACTION_LOCK.lock().await;
     let mut client = connect(config).await?;
-    let encoded = codec::to_bytes_canonical(&params).map_err(|error| {
+    let encoded = codec::to_bytes_canonical(wire_params).map_err(|error| {
         ResolveError::Invalid(format!(
             "approval-grant consumption request encoding failed: {error}"
         ))
     })?;
-    submit_service_call(
-        config,
-        &mut client,
-        "consume_approval_grant_for_effect@v1",
-        encoded,
-    )
-    .await?;
+    submit_service_call(config, &mut client, method, encoded).await?;
 
-    let receipt_key = namespaced_key(EFFECT_CONSUMPTION_RECEIPT_PREFIX, &params.consumption_id);
+    let receipt_key = namespaced_key(
+        EFFECT_CONSUMPTION_RECEIPT_PREFIX,
+        &receipt_params.consumption_id,
+    );
     let receipt_bytes = query_raw(&mut client, receipt_key).await?.ok_or_else(|| {
         ResolveError::Invalid(
             "committed wallet.network grant consumption emitted no receipt".to_string(),
@@ -494,10 +493,10 @@ async fn consume_for_effect_inner(
     })?;
     let receipt: ApprovalGrantConsumptionReceipt = decode_state_value(&receipt_bytes)?;
     if receipt.schema_version != 1
-        || receipt.request_hash != params.request_hash
-        || receipt.grant_hash != params.grant_hash
-        || receipt.consumption_id != params.consumption_id
-        || receipt.principal_authority != params.expected_principal_authority
+        || receipt.request_hash != receipt_params.request_hash
+        || receipt.grant_hash != receipt_params.grant_hash
+        || receipt.consumption_id != receipt_params.consumption_id
+        || receipt.principal_authority != receipt_params.expected_principal_authority
         || receipt.receipt_hash == [0u8; 32]
     {
         return Err(ResolveError::Invalid(
@@ -523,17 +522,55 @@ pub(crate) async fn resolve_principal_authority(
         })?
 }
 
+#[allow(dead_code)] // Retained for daemon consumers that still emit the four-field v1 wire.
 pub(crate) async fn consume_approval_grant_for_effect(
     params: ConsumeApprovalGrantForEffectParams,
 ) -> Result<ApprovalGrantConsumptionReceipt, ResolveError> {
     let config = load_config()?;
     let timeout = config.timeout;
-    tokio::time::timeout(timeout, consume_for_effect_inner(&config, params))
-        .await
-        .map_err(|_| {
-            ResolveError::Unavailable(format!(
-                "authenticated wallet.network grant consumption exceeded {} ms",
-                timeout.as_millis()
-            ))
-        })?
+    tokio::time::timeout(
+        timeout,
+        consume_for_effect_inner(
+            &config,
+            "consume_approval_grant_for_effect@v1",
+            &params,
+            &params,
+        ),
+    )
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "authenticated wallet.network grant consumption exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
+}
+
+pub(crate) async fn consume_approval_grant_for_effect_v2(
+    params: ConsumeApprovalGrantForEffectV2Params,
+) -> Result<ApprovalGrantConsumptionReceipt, ResolveError> {
+    let config = load_config()?;
+    let timeout = config.timeout;
+    let receipt_params = ConsumeApprovalGrantForEffectParams {
+        request_hash: params.request_hash,
+        grant_hash: params.grant_hash,
+        consumption_id: params.consumption_id,
+        expected_principal_authority: params.expected_principal_authority.clone(),
+    };
+    tokio::time::timeout(
+        timeout,
+        consume_for_effect_inner(
+            &config,
+            "consume_approval_grant_for_effect@v2",
+            &params,
+            &receipt_params,
+        ),
+    )
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "authenticated wallet.network grant consumption exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
 }

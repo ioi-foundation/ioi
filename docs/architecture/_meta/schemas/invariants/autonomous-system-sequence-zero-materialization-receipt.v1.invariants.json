@@ -1,0 +1,37 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/exact-boundary/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "sequence_zero_materialization_receipt.boundary_fact.required",
+      "description": "The materialization receipt attests at least one exact M1.4 boundary fact.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.attested_boundary_fact_refs"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.identity.matches_ref",
+      "description": "The legacy storage-facing receipt_ref is an exact mirror of canonical ReceiptEnvelope receipt_id.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.timestamp.matches_at",
+      "description": "The legacy storage-facing at field is an exact mirror of canonical ReceiptEnvelope timestamp.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.timestamp",
+          "$.at"
+        ]
+      }
+    }
+  ]
+}

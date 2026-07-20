@@ -11,10 +11,12 @@ use axum::{
     http::StatusCode,
     Json,
 };
+use ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding;
 use ioi_services::wallet_network::{
-    ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectParams,
+    ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
     ExpectedPrincipalAuthorityBinding,
 };
+use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
 use ioi_types::app::{
     compile_system_sequence_zero_plan, compute_system_genesis_admission_receipt_root,
     compute_system_genesis_admission_record_root, finalize_system_sequence_zero_materialization,
@@ -25,7 +27,8 @@ use sha2::{Digest, Sha256};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use super::governed_authority::{
-    self as governed, AuthorityContract, AuthorityPolicyContext, AuthorizedDecision, Governance,
+    self as governed, AuthorityContract, AuthorityPolicyContext, AuthorizedDecision,
+    DecisionEvidence, Governance,
 };
 use super::DaemonState;
 
@@ -36,8 +39,10 @@ const RECEIPT_DIR: &str = "autonomous-system-sequence-zero-materialization-recei
 const COMPONENT_DIR: &str = "autonomous-system-sequence-zero-component-registries";
 const CONSUMPTION_DIR: &str = "autonomous-system-sequence-zero-authority-consumptions";
 const INTENT_DIR: &str = "autonomous-system-sequence-zero-materialization-intents";
-const RECEIPT_SCHEMA: &str =
-    "ioi.hypervisor.autonomous-system-sequence-zero-materialization-receipt.v1";
+const RECEIPT_SCHEMA: &str = "ioi.autonomous-system-sequence-zero-materialization-receipt.v1";
+const RECEIPT_CONTRACT: &str =
+    "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1";
+const RECEIPT_TYPE: &str = "autonomous_system_sequence_zero_materialization";
 const INTENT_SCHEMA: &str =
     "ioi.hypervisor.autonomous-system-sequence-zero-materialization-intent.v1";
 const OP: &str = "genesis_materialize";
@@ -77,7 +82,7 @@ struct ReconstructedIntent {
     receipt_tail: String,
     component_registry: Value,
     component_tail: String,
-    wallet_consumption: ConsumeApprovalGrantForEffectParams,
+    wallet_consumption: ConsumeApprovalGrantForEffectV2Params,
     wallet_consumption_ref: String,
     wallet_consumption_tail: String,
 }
@@ -433,7 +438,7 @@ fn component_tail(plan: &CompiledSystemSequenceZeroPlan) -> Result<String, VErr>
 fn wallet_consumption_coordinates(
     authorized: &AuthorizedDecision,
     source: &SourcePlan,
-) -> Result<(ConsumeApprovalGrantForEffectParams, String), VErr> {
+) -> Result<(ConsumeApprovalGrantForEffectV2Params, String), VErr> {
     let request_hash =
         hash_bytes_from_ref(&authorized.evidence.request_hash, "authority request_hash")?;
     let grant: ApprovalGrant = serde_json::from_value(
@@ -488,13 +493,13 @@ fn wallet_consumption_coordinates(
         hex::encode(consumption_id)
     );
     Ok((
-        ConsumeApprovalGrantForEffectParams {
+        ConsumeApprovalGrantForEffectV2Params {
             request_hash,
             grant_hash,
             consumption_id,
             expected_principal_authority,
-            expected_target_label: Some(AUTHORITY.operation_scope(OP)),
-            expected_max_usages: Some(1),
+            expected_target_label: AUTHORITY.operation_scope(OP),
+            expected_max_usages: 1,
         },
         consumption_ref,
     ))
@@ -505,6 +510,84 @@ fn canonical_grant_ref(wallet_grant_ref: &str) -> String {
         "grant://wallet.network/approval/sha256:{:x}",
         Sha256::digest(wallet_grant_ref.as_bytes())
     )
+}
+
+fn sealed_sequence_zero_authorized_decision(
+    receipt: &Value,
+    resolved_at_ms: u64,
+) -> Result<AuthorizedDecision, VErr> {
+    let wallet_approval_grant = receipt
+        .get("wallet_approval_grant")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let grant: ApprovalGrant =
+        serde_json::from_value(wallet_approval_grant.clone()).map_err(|error| {
+            verr(
+                "system_sequence_zero_receipt_evidence_mismatch",
+                format!("sealed wallet approval grant is malformed ({error})"),
+            )
+        })?;
+    let canonical_grant = serde_json::to_value(&grant).map_err(|error| {
+        verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            format!("sealed wallet approval grant cannot be projected ({error})"),
+        )
+    })?;
+    if canonical_grant != wallet_approval_grant {
+        return Err(verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            "sealed wallet approval grant differs from its closed canonical typed projection",
+        ));
+    }
+    let policy_hash = s(receipt, "policy_hash");
+    let request_hash = s(receipt, "input_hash");
+    let effect_hash = s(receipt, "effect_hash");
+    let binding = verify_wallet_approval_grant_binding(
+        &canonical_grant,
+        Some(resolved_at_ms),
+        Some(&policy_hash),
+        Some(&request_hash),
+    )
+    .map_err(|error| {
+        verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            format!("sealed wallet approval grant does not verify ({error})"),
+        )
+    })?;
+    let portable_grant_ref = canonical_grant_ref(&binding.grant_ref);
+    if receipt.get("authority_grant_id").and_then(Value::as_str)
+        != Some(portable_grant_ref.as_str())
+    {
+        return Err(verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            "portable authority_grant_id does not bind the retained signed wallet grant",
+        ));
+    }
+    let acting_authority_id = serde_json::to_value(grant.authority_id).map_err(|error| {
+        verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            format!("sealed authority id cannot be projected ({error})"),
+        )
+    })?;
+    Ok(AuthorizedDecision {
+        evidence: DecisionEvidence {
+            acting_authority_id,
+            grant_ref: binding.grant_ref,
+            policy_hash,
+            request_hash,
+            effect_hash,
+            authorized_effect: receipt
+                .get("authorized_effect")
+                .cloned()
+                .unwrap_or(Value::Null),
+            wallet_approval_grant: canonical_grant,
+            authority_binding: receipt
+                .get("principal_authority_binding")
+                .cloned()
+                .unwrap_or(Value::Null),
+        },
+        resolved_at_ms,
+    })
 }
 
 fn profile_boundary_refs(materialization: &Value) -> Vec<Value> {
@@ -561,7 +644,7 @@ fn build_receipt(
     wallet_consumption_ref: &str,
     wallet_consumption_tail: &str,
     created_at: &str,
-) -> Value {
+) -> Result<Value, VErr> {
     let receipt_ref = format!("receipt://{receipt_tail}");
     let mut boundary_refs = profile_boundary_refs(materialization);
     boundary_refs.push(json!(format!(
@@ -577,7 +660,6 @@ fn build_receipt(
     );
     boundary_refs.push(json!(source.governing_authority_ref));
     boundary_refs.push(json!(canonical_grant_ref(&authorized.evidence.grant_ref)));
-    boundary_refs.push(json!(wallet_consumption_ref));
     boundary_refs.push(json!(format!(
         "system-sequence-zero-authority-consumption://{wallet_consumption_tail}"
     )));
@@ -585,9 +667,9 @@ fn build_receipt(
         "schema_version": RECEIPT_SCHEMA,
         "receipt_id": receipt_ref,
         "receipt_ref": receipt_ref,
-        "receipt_type": "AutonomousSystemSequenceZeroMaterializationReceipt",
-        "receipt_profile_ref": format!("schema://{RECEIPT_SCHEMA}"),
-        "actor_id": "daemon://hypervisor-runtime",
+        "receipt_type": RECEIPT_TYPE,
+        "receipt_profile_ref": RECEIPT_CONTRACT,
+        "actor_id": "runtime://hypervisor-runtime",
         "subject_ref": materialization.get("materialization_id"),
         "op": "materialized",
         "attested_boundary_fact_refs": boundary_refs,
@@ -644,21 +726,26 @@ fn build_receipt(
         "authority_grant_id": Value::Null,
         "primitive_capabilities": [],
         "authority_scopes": [AUTHORITY.operation_scope(OP)],
-        "artifact_refs": [
-            materialization.get("manifest_ref").cloned().unwrap_or(Value::Null),
-            materialization.get("component_registry_ref").cloned().unwrap_or(Value::Null)
-        ],
+        "artifact_refs": [],
         "evidence_bundle_refs": [],
         "adjudication_ref": Value::Null,
         "settlement_ref": Value::Null,
         "signature": Value::Null,
-        "l1_commitment": Value::Null,
+        "public_commitment_ref": Value::Null,
         "timestamp": created_at,
         "outcome": "ok",
         "at": created_at
     });
     governed::append_evidence(&mut receipt, authorized);
-    receipt
+    receipt["actor_id"] = json!("runtime://hypervisor-runtime");
+    receipt["authority_grant_id"] = json!(canonical_grant_ref(&authorized.evidence.grant_ref));
+    validate_architecture_contract(RECEIPT_CONTRACT, &receipt).map_err(|error| {
+        verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            format!("materialization receipt contract invalid ({error})"),
+        )
+    })?;
+    Ok(receipt)
 }
 
 fn map_commit_failure(failure: super::durable_fs::CommitFailure) -> VErr {
@@ -976,17 +1063,18 @@ fn validate_receipt_identity(tail: &str, value: &Value) -> Result<(), String> {
             != Some(format!("receipt://{tail}").as_str())
         || value.get("receipt_id") != value.get("receipt_ref")
         || value.get("schema_version").and_then(Value::as_str) != Some(RECEIPT_SCHEMA)
-        || value.get("receipt_type").and_then(Value::as_str)
-            != Some("AutonomousSystemSequenceZeroMaterializationReceipt")
+        || value.get("receipt_type").and_then(Value::as_str) != Some(RECEIPT_TYPE)
+        || value.get("receipt_profile_ref").and_then(Value::as_str) != Some(RECEIPT_CONTRACT)
     {
         return Err("materialization receipt storage-key identity failed".to_owned());
     }
-    Ok(())
+    validate_architecture_contract(RECEIPT_CONTRACT, value)
+        .map_err(|error| format!("materialization receipt contract invalid ({error})"))
 }
 
 fn validate_wallet_consumption_receipt(
     materialization_receipt: &Value,
-    wallet_consumption: &ConsumeApprovalGrantForEffectParams,
+    wallet_consumption: &ConsumeApprovalGrantForEffectV2Params,
     wallet_consumption_ref: &str,
     wallet_receipt: &ApprovalGrantConsumptionReceipt,
 ) -> Result<(), VErr> {
@@ -1070,10 +1158,7 @@ fn reconstruct_artifacts(source: SourcePlan, receipt: Value) -> Result<Reconstru
             )
         })?;
     let created_at = ms_to_rfc3339(resolved_at_ms)?;
-    let authorized = AuthorizedDecision {
-        evidence: governed::sealed_evidence(&receipt),
-        resolved_at_ms,
-    };
+    let authorized = sealed_sequence_zero_authorized_decision(&receipt, resolved_at_ms)?;
     governed::validate_sealed_effect(AUTHORITY, &receipt, &source.plan.authority_effect)
         .map_err(|message| verr("system_sequence_zero_receipt_evidence_mismatch", message))?;
     let finalized = finalize_system_sequence_zero_materialization(&source.plan, &created_at)
@@ -1120,7 +1205,7 @@ fn reconstruct_artifacts(source: SourcePlan, receipt: Value) -> Result<Reconstru
         &wallet_consumption_ref,
         &wallet_consumption_tail,
         &created_at,
-    );
+    )?;
     if receipt != expected_receipt {
         return Err(verr(
             "system_sequence_zero_receipt_evidence_mismatch",
@@ -1407,7 +1492,7 @@ async fn consume_wallet_grant(
     reconstructed: &ReconstructedIntent,
 ) -> Result<ApprovalGrantConsumptionReceipt, VErr> {
     let wallet_receipt =
-        super::wallet_network_capability_client::consume_approval_grant_for_effect(
+        super::wallet_network_capability_client::consume_approval_grant_for_effect_v2(
             reconstructed.wallet_consumption.clone(),
         )
         .await
@@ -1550,7 +1635,7 @@ fn build_online_artifacts(
         &wallet_consumption_ref,
         &wallet_consumption_tail,
         &created_at,
-    );
+    )?;
     reconstruct_artifacts(source, receipt)
 }
 

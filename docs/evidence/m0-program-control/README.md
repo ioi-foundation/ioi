@@ -14,6 +14,8 @@ is terminal.
 ## Sources
 
 - `reviewed-entry-lock.json` is the explicit, dated entry-by-entry review lock.
+  Each entry date binds a declared review epoch with exact identity-set
+  provenance, so newly discovered identities cannot inherit an older review.
   Candidate boundaries remain blocked; UI state and copied fields are never
   accepted as authority.
 - `program-control-source.json` freezes the selected minimum-L0 profile, visible

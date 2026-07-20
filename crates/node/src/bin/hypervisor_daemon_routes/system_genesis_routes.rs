@@ -13,7 +13,7 @@ use axum::{
     Json,
 };
 use ioi_services::wallet_network::{
-    ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectParams,
+    ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
     ExpectedPrincipalAuthorityBinding,
 };
 use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
@@ -83,7 +83,7 @@ struct ReconstructedIntent {
     receipt_tail: String,
     final_record: Value,
     record_tail: String,
-    wallet_consumption: ConsumeApprovalGrantForEffectParams,
+    wallet_consumption: ConsumeApprovalGrantForEffectV2Params,
     wallet_consumption_ref: String,
     wallet_consumption_tail: String,
 }
@@ -220,7 +220,7 @@ fn wallet_consumption_coordinates(
     system_id: &str,
     genesis_ref: &str,
     proposal_root: &str,
-) -> Result<(ConsumeApprovalGrantForEffectParams, String), VErr> {
+) -> Result<(ConsumeApprovalGrantForEffectV2Params, String), VErr> {
     let request_hash =
         hash_bytes_from_ref(&authorized.evidence.request_hash, "authority request_hash")?;
     let grant: ApprovalGrant = serde_json::from_value(
@@ -273,13 +273,13 @@ fn wallet_consumption_coordinates(
         hex::encode(consumption_id)
     );
     Ok((
-        ConsumeApprovalGrantForEffectParams {
+        ConsumeApprovalGrantForEffectV2Params {
             request_hash,
             grant_hash,
             consumption_id,
             expected_principal_authority,
-            expected_target_label: Some(AUTHORITY.operation_scope("genesis_admit")),
-            expected_max_usages: Some(1),
+            expected_target_label: AUTHORITY.operation_scope("genesis_admit"),
+            expected_max_usages: 1,
         },
         consumption_ref,
     ))
@@ -295,7 +295,7 @@ fn deterministic_evidence_tails(
         String,
         String,
         String,
-        ConsumeApprovalGrantForEffectParams,
+        ConsumeApprovalGrantForEffectV2Params,
         String,
     ),
     VErr,
@@ -881,7 +881,7 @@ fn reconstruct_converged_local_evidence(
     record: &Value,
     receipt_tail: &str,
     receipt: &Value,
-) -> Result<(ConsumeApprovalGrantForEffectParams, String, String), String> {
+) -> Result<(ConsumeApprovalGrantForEffectV2Params, String, String), String> {
     validate_record_identity(record_tail, record)?;
     let release = record
         .get("manifest_release")
@@ -1513,7 +1513,7 @@ fn reconstruct_intent(intent: &Value, tail: &str) -> Result<ReconstructedIntent,
 
 fn validate_wallet_consumption_receipt(
     system_receipt: &Value,
-    wallet_consumption: &ConsumeApprovalGrantForEffectParams,
+    wallet_consumption: &ConsumeApprovalGrantForEffectV2Params,
     wallet_consumption_ref: &str,
     wallet_receipt: &ApprovalGrantConsumptionReceipt,
 ) -> Result<(), VErr> {
@@ -1587,7 +1587,7 @@ async fn consume_wallet_grant_for_intent(
     reconstructed: &ReconstructedIntent,
 ) -> Result<ApprovalGrantConsumptionReceipt, VErr> {
     let wallet_receipt =
-        super::wallet_network_capability_client::consume_approval_grant_for_effect(
+        super::wallet_network_capability_client::consume_approval_grant_for_effect_v2(
             reconstructed.wallet_consumption.clone(),
         )
         .await

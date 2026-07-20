@@ -918,6 +918,89 @@ export type AutonomousSystemSequenceZeroMaterializationV1 = {
   status: "materialized_pending_activation";
 };
 
+export type AutonomousSystemSequenceZeroMaterializationReceiptV1 = {
+  schema_version: "ioi.autonomous-system-sequence-zero-materialization-receipt.v1";
+  receipt_id: string;
+  receipt_ref: string;
+  receipt_type: "autonomous_system_sequence_zero_materialization";
+  receipt_profile_ref: "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1";
+  actor_id: string;
+  subject_ref: string;
+  op: "materialized";
+  attested_boundary_fact_refs: Array<string>;
+  bound_facts: {
+      system_id: string;
+      genesis_ref: string;
+      genesis_admission_record_root: string;
+      genesis_admission_receipt_ref: string;
+      genesis_admission_receipt_root: string;
+      proposed_initial_state_root: string;
+      proposed_initial_receipt_root: string;
+      package_id: string;
+      manifest_ref: string;
+      admitted_manifest_root: string;
+      constitution_ref: string;
+      constitution_root: string;
+      profile_bundle_root: string;
+      profile_materialization_root: string;
+      deployment_profile_root: string;
+      profile_refs: {
+            deployment_profile_ref: string;
+            ordering_admission_finality_profile_ref: string;
+            oracle_evidence_profile_refs: Array<string>;
+            lifecycle_continuity_profile_ref: string;
+            network_enrollment_ref: string | null;
+          };
+      component_registry_ref: string;
+      component_registry_root: string;
+      component_binding_count: number;
+      sequence: number;
+      predecessor_transition_commitment_ref: null;
+      operation_commitment: string;
+      transition_commitment_ref: string;
+      initial_state_root: string;
+      initial_receipt_root: string;
+      wallet_grant_consumption_ref: string;
+      wallet_grant_consumption_evidence_ref: string;
+      materialized_pending_activation: true;
+      active_profile_admission: false;
+      initialize_admitted: false;
+      activation_admitted: false;
+      live_chain_created: false;
+      node_membership_created: false;
+      network_effect_admitted: false;
+      runtime_effect_admitted: false;
+    };
+  input_hash: string;
+  output_hash: string;
+  policy_hash: string;
+  effect_hash: string;
+  authorized_effect: Record<string, unknown>;
+  wallet_approval_grant: Record<string, unknown>;
+  principal_authority_binding: Record<string, unknown>;
+  authority_resolved_at_ms: number;
+  hash_scope_excludes: Array<string>;
+  assurance_posture: "sequence_zero_materialized_not_activated";
+  assurance_note: "governed materialization of immutable activation candidates and sequence-zero roots; active-profile admission, initialize, activation, live-chain, membership, network, and runtime effects remain unadmitted";
+  verification_ref: null;
+  acceptance_ref: null;
+  claim_scope_ref: null;
+  run_id: null;
+  task_id: null;
+  authority_grant_id: string;
+  primitive_capabilities: Array<string>;
+  authority_scopes: Array<"scope:autonomous_system.genesis_materialize">;
+  artifact_refs: Array<string>;
+  evidence_bundle_refs: Array<string>;
+  adjudication_ref: null;
+  settlement_ref: null;
+  signature: null;
+  public_commitment_ref: string | null;
+  timestamp: string;
+  outcome: "ok";
+  at: string;
+};
+
 export type AutonomousSystemConstitutionV1 = {
   schema_version: "ioi.autonomous-system-constitution.v1";
   constitution_id: string;
@@ -1776,6 +1859,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "deployment-profile-ref-binds-deployment-root"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-kind-ref-substitution.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-legacy-receipt-type.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-missing-public-commitment-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-incompatible-artifact-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-receipt-identity-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "sequence_zero_materialization_receipt.identity.matches_ref"
   },
   {
     "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
@@ -3246,6 +3377,48 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-kind-ref-substitution.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-kind-ref-substitution.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-legacy-receipt-type.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-legacy-receipt-type.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-missing-public-commitment-ref.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-missing-public-commitment-ref.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-incompatible-artifact-ref.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-incompatible-artifact-ref.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-receipt-identity-binding.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-receipt-identity-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
     "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
@@ -3812,6 +3985,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:decision|dispute)://[^\\s]+$",
   "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$",
   "^(?:evidence|assurance-evidence|artifact)://[^\\s]+$",
+  "^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,248}$",
   "^(?:evidence|receipt)://[^\\s]{1,248}$",
   "^(?:network|chain|domain)://[^\\s]{1,248}$",
   "^(?:policy|profile)://[^\\s]{1,248}$",
@@ -3823,6 +3997,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|agent|worker|runtime)://[^\\s]+$",
   "^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$",
   "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$",
+  "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,248}$",
   "^(?:system|wallet|org|policy)://[^\\s]+$",
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
@@ -3850,6 +4025,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^actuator://[^\\s]+$",
   "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^agentgres://object-set/[^\\s]{1,248}$",
+  "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$",
   "^agentgres://operation/[^\\s]+$",
   "^approval://[A-Za-z0-9._~:/-]+$",
   "^artifact://[^\\s]+$",
@@ -3915,6 +4091,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://[A-Za-z0-9._~:/-]+$",
   "^receipt://[^\\s]+$",
   "^receipt://[^\\s]{1,248}$",
+  "^receipt://aszmr_[0-9a-f]{64}$",
   "^resource-lease://[^\\s]+$",
   "^run://[^\\s]+$",
   "^safety://[^\\s]+$",
@@ -3932,6 +4109,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^snapshot://[^\\s]+$",
   "^system-materialization://[^\\s]{1,248}$",
+  "^system-materialization://sequence-zero/sha256:[0-9a-f]{64}$",
+  "^system-sequence-zero-authority-consumption://aszmc_[0-9a-f]{64}$",
   "^system://[^\\s]{1,248}$",
   "^task://[^\\s]+$",
   "^terms://[^\\s]{1,248}$",
@@ -3939,6 +4118,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$",
   "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^transition://[^\\s]{1,248}$",
+  "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$",
   "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^zone://[^\\s]+$"
@@ -3961,7 +4141,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-manifest/v1": "sha256:7560d4cf80b893c89133a6a3afddd523207791778da7fdc594e71bed18ebdc26",
   "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1": "sha256:448e4c665241863cc775ada805e2ca73ff4fc9cbd29a58118722e9fefe0b3397",
   "schema://ioi/foundations/autonomous-system-genesis/v1": "sha256:843897a91ec65f41c794cb01ddeca43b91bd6c3586cd3d392d1643efb938acc5",
-  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1": "sha256:0d0c9aae727234773fe426430ed99d6e5f8841f48602b6d69cf5e2f225c7ab32",
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1": "sha256:0a9d7b65c19517fc262f418dade61045576870c16bbe5aedf361de756904934c",
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1": "sha256:6871d0e72cf8153d9ca1f6e1505bd49c16b74dbdfaf23d83faf61aaf974137ae",
   "schema://ioi/foundations/autonomous-system-constitution/v1": "sha256:ac6b394c4664e90cece1792eeb6857d99087a56e019368b70077001dffc4e36c",
   "schema://ioi/foundations/autonomous-system-constitution-amendment/v1": "sha256:d84937bb5651c4c4dabae249b639928b61bb3e5b950b00151df4bbbe2996a67b",
   "schema://ioi/foundations/ordering-admission-finality-profile/v1": "sha256:c2cf0f68516971e4bd87938da7bee04bac25a5995c501044bf3a2a0da5e65af3",
@@ -10131,7 +10312,229 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               "maxItems": 16,
               "uniqueItems": true
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "goal_run_profile"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "binding_ref": {
+                    "$ref": "#/$defs/goalRunProfileRef"
+                  }
+                },
+                "required": [
+                  "binding_ref"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "workflow_template"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "binding_ref": {
+                    "$ref": "#/$defs/workflowTemplateRef"
+                  }
+                },
+                "required": [
+                  "binding_ref"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "automation_spec"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "binding_ref": {
+                    "$ref": "#/$defs/automationSpecRef"
+                  }
+                },
+                "required": [
+                  "binding_ref"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "automation_installation"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "binding_ref": {
+                    "$ref": "#/$defs/automationInstallationRef"
+                  }
+                },
+                "required": [
+                  "binding_ref"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "harness_profile"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "binding_ref": {
+                    "$ref": "#/$defs/harnessProfileRef"
+                  }
+                },
+                "required": [
+                  "binding_ref"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "agent_harness_adapter"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "binding_ref": {
+                    "$ref": "#/$defs/agentHarnessAdapterRef"
+                  }
+                },
+                "required": [
+                  "binding_ref"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "skill_entry"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "binding_ref": {
+                    "$ref": "#/$defs/skillEntryRef"
+                  }
+                },
+                "required": [
+                  "binding_ref"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "data_recipe"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "binding_ref": {
+                    "$ref": "#/$defs/dataRecipeRef"
+                  }
+                },
+                "required": [
+                  "binding_ref"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "runtime_tool_contract"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "binding_ref": {
+                    "$ref": "#/$defs/runtimeToolContractRef"
+                  }
+                },
+                "required": [
+                  "binding_ref"
+                ]
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "mcp_gateway_profile"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "binding_ref": {
+                    "$ref": "#/$defs/mcpGatewayProfileRef"
+                  }
+                },
+                "required": [
+                  "binding_ref"
+                ]
+              }
+            }
+          ]
         }
       },
       "sequence": {
@@ -10190,6 +10593,46 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "maxItems": 32,
         "uniqueItems": true
       },
+      "goalRunProfileRef": {
+        "type": "string",
+        "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "workflowTemplateRef": {
+        "type": "string",
+        "pattern": "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "automationSpecRef": {
+        "type": "string",
+        "pattern": "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "automationInstallationRef": {
+        "type": "string",
+        "pattern": "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "harnessProfileRef": {
+        "type": "string",
+        "pattern": "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "agentHarnessAdapterRef": {
+        "type": "string",
+        "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "skillEntryRef": {
+        "type": "string",
+        "pattern": "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "dataRecipeRef": {
+        "type": "string",
+        "pattern": "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "runtimeToolContractRef": {
+        "type": "string",
+        "pattern": "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "mcpGatewayProfileRef": {
+        "type": "string",
+        "pattern": "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
       "systemRef": {
         "type": "string",
         "pattern": "^system://[^\\s]{1,248}$"
@@ -10233,6 +10676,516 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "networkEnrollmentRef": {
         "type": "string",
         "pattern": "^network-enrollment://[^\\s]{1,248}$"
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "title": "AutonomousSystemSequenceZeroMaterializationReceipt",
+    "description": "Closed portable receipt profile extending ReceiptEnvelope v1 with the exact governed M1.4 pre-activation materialization facts and retained owner-plane authority evidence.",
+    "x-ioi-schema-version": "ioi.autonomous-system-sequence-zero-materialization-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "receipt_ref",
+      "receipt_type",
+      "receipt_profile_ref",
+      "actor_id",
+      "subject_ref",
+      "op",
+      "attested_boundary_fact_refs",
+      "bound_facts",
+      "input_hash",
+      "output_hash",
+      "policy_hash",
+      "effect_hash",
+      "authorized_effect",
+      "wallet_approval_grant",
+      "principal_authority_binding",
+      "authority_resolved_at_ms",
+      "hash_scope_excludes",
+      "assurance_posture",
+      "assurance_note",
+      "verification_ref",
+      "acceptance_ref",
+      "claim_scope_ref",
+      "run_id",
+      "task_id",
+      "authority_grant_id",
+      "primitive_capabilities",
+      "authority_scopes",
+      "artifact_refs",
+      "evidence_bundle_refs",
+      "adjudication_ref",
+      "settlement_ref",
+      "signature",
+      "public_commitment_ref",
+      "timestamp",
+      "outcome",
+      "at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-sequence-zero-materialization-receipt.v1"
+      },
+      "receipt_id": {
+        "$ref": "#/$defs/materializationReceiptRef"
+      },
+      "receipt_ref": {
+        "$ref": "#/$defs/materializationReceiptRef"
+      },
+      "receipt_type": {
+        "const": "autonomous_system_sequence_zero_materialization"
+      },
+      "receipt_profile_ref": {
+        "const": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1"
+      },
+      "actor_id": {
+        "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+      },
+      "subject_ref": {
+        "$ref": "#/$defs/materializationRef"
+      },
+      "op": {
+        "const": "materialized"
+      },
+      "attested_boundary_fact_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "bound_facts": {
+        "$ref": "#/$defs/materializationFacts"
+      },
+      "input_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "output_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "effect_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authorized_effect": {
+        "description": "Exact owner-plane authority effect retained for replay. Its internal contract remains owned by the governed runtime authority plane.",
+        "type": "object"
+      },
+      "wallet_approval_grant": {
+        "description": "Exact wallet.network approval grant retained for replay. This profile does not redefine the wallet-owned grant schema.",
+        "type": "object"
+      },
+      "principal_authority_binding": {
+        "description": "Exact wallet.network principal-authority resolution retained for replay. This profile does not redefine the wallet-owned binding schema.",
+        "type": "object"
+      },
+      "authority_resolved_at_ms": {
+        "$ref": "#/$defs/portableInteger"
+      },
+      "hash_scope_excludes": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "maxItems": 0,
+        "uniqueItems": true
+      },
+      "assurance_posture": {
+        "const": "sequence_zero_materialized_not_activated"
+      },
+      "assurance_note": {
+        "const": "governed materialization of immutable activation candidates and sequence-zero roots; active-profile admission, initialize, activation, live-chain, membership, network, and runtime effects remain unadmitted"
+      },
+      "verification_ref": {
+        "type": "null"
+      },
+      "acceptance_ref": {
+        "type": "null"
+      },
+      "claim_scope_ref": {
+        "type": "null"
+      },
+      "run_id": {
+        "type": "null"
+      },
+      "task_id": {
+        "type": "null"
+      },
+      "authority_grant_id": {
+        "$ref": "#/$defs/grantRef"
+      },
+      "primitive_capabilities": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/primitiveCapability"
+        },
+        "maxItems": 0,
+        "uniqueItems": true
+      },
+      "authority_scopes": {
+        "type": "array",
+        "items": {
+          "const": "scope:autonomous_system.genesis_materialize"
+        },
+        "minItems": 1,
+        "maxItems": 1,
+        "uniqueItems": true
+      },
+      "artifact_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "evidence_bundle_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/evidenceRef"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "adjudication_ref": {
+        "type": "null"
+      },
+      "settlement_ref": {
+        "type": "null"
+      },
+      "signature": {
+        "type": "null"
+      },
+      "public_commitment_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/publicCommitmentRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "timestamp": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "outcome": {
+        "const": "ok"
+      },
+      "at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "materializationFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "system_id",
+          "genesis_ref",
+          "genesis_admission_record_root",
+          "genesis_admission_receipt_ref",
+          "genesis_admission_receipt_root",
+          "proposed_initial_state_root",
+          "proposed_initial_receipt_root",
+          "package_id",
+          "manifest_ref",
+          "admitted_manifest_root",
+          "constitution_ref",
+          "constitution_root",
+          "profile_bundle_root",
+          "profile_materialization_root",
+          "deployment_profile_root",
+          "profile_refs",
+          "component_registry_ref",
+          "component_registry_root",
+          "component_binding_count",
+          "sequence",
+          "predecessor_transition_commitment_ref",
+          "operation_commitment",
+          "transition_commitment_ref",
+          "initial_state_root",
+          "initial_receipt_root",
+          "wallet_grant_consumption_ref",
+          "wallet_grant_consumption_evidence_ref",
+          "materialized_pending_activation",
+          "active_profile_admission",
+          "initialize_admitted",
+          "activation_admitted",
+          "live_chain_created",
+          "node_membership_created",
+          "network_effect_admitted",
+          "runtime_effect_admitted"
+        ],
+        "properties": {
+          "system_id": {
+            "$ref": "#/$defs/systemRef"
+          },
+          "genesis_ref": {
+            "$ref": "#/$defs/genesisRef"
+          },
+          "genesis_admission_record_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "genesis_admission_receipt_ref": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "genesis_admission_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "proposed_initial_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "proposed_initial_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "package_id": {
+            "$ref": "#/$defs/packageRef"
+          },
+          "manifest_ref": {
+            "$ref": "#/$defs/packageReleaseRef"
+          },
+          "admitted_manifest_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "constitution_ref": {
+            "$ref": "#/$defs/constitutionRef"
+          },
+          "constitution_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "profile_bundle_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "profile_materialization_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "deployment_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "profile_refs": {
+            "$ref": "#/$defs/profileRefs"
+          },
+          "component_registry_ref": {
+            "$ref": "#/$defs/componentRegistryRef"
+          },
+          "component_registry_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "component_binding_count": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 0
+          },
+          "predecessor_transition_commitment_ref": {
+            "type": "null"
+          },
+          "operation_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "transition_commitment_ref": {
+            "$ref": "#/$defs/transitionCommitmentRef"
+          },
+          "initial_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "initial_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "wallet_grant_consumption_ref": {
+            "$ref": "#/$defs/walletGrantConsumptionRef"
+          },
+          "wallet_grant_consumption_evidence_ref": {
+            "$ref": "#/$defs/walletGrantConsumptionEvidenceRef"
+          },
+          "materialized_pending_activation": {
+            "const": true
+          },
+          "active_profile_admission": {
+            "const": false
+          },
+          "initialize_admitted": {
+            "const": false
+          },
+          "activation_admitted": {
+            "const": false
+          },
+          "live_chain_created": {
+            "const": false
+          },
+          "node_membership_created": {
+            "const": false
+          },
+          "network_effect_admitted": {
+            "const": false
+          },
+          "runtime_effect_admitted": {
+            "const": false
+          }
+        }
+      },
+      "profileRefs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deployment_profile_ref",
+          "ordering_admission_finality_profile_ref",
+          "oracle_evidence_profile_refs",
+          "lifecycle_continuity_profile_ref",
+          "network_enrollment_ref"
+        ],
+        "properties": {
+          "deployment_profile_ref": {
+            "$ref": "#/$defs/deploymentProfileRef"
+          },
+          "ordering_admission_finality_profile_ref": {
+            "$ref": "#/$defs/orderingProfileRef"
+          },
+          "oracle_evidence_profile_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/oracleProfileRef"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "lifecycle_continuity_profile_ref": {
+            "$ref": "#/$defs/lifecycleProfileRef"
+          },
+          "network_enrollment_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/networkEnrollmentRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "portableInteger": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "materializationReceiptRef": {
+        "type": "string",
+        "pattern": "^receipt://aszmr_[0-9a-f]{64}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "materializationRef": {
+        "type": "string",
+        "pattern": "^system-materialization://sequence-zero/sha256:[0-9a-f]{64}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "packageRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s]{1,248}$"
+      },
+      "packageReleaseRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "deploymentProfileRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "orderingProfileRef": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "oracleProfileRef": {
+        "type": "string",
+        "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+      },
+      "lifecycleProfileRef": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "networkEnrollmentRef": {
+        "type": "string",
+        "pattern": "^network-enrollment://[^\\s]{1,248}$"
+      },
+      "componentRegistryRef": {
+        "type": "string",
+        "pattern": "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$"
+      },
+      "transitionCommitmentRef": {
+        "type": "string",
+        "pattern": "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$"
+      },
+      "walletGrantConsumptionRef": {
+        "type": "string",
+        "pattern": "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$"
+      },
+      "walletGrantConsumptionEvidenceRef": {
+        "type": "string",
+        "pattern": "^system-sequence-zero-authority-consumption://aszmc_[0-9a-f]{64}$"
+      },
+      "protocolPrincipalOrRuntimeRef": {
+        "type": "string",
+        "pattern": "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,248}$"
+      },
+      "grantRef": {
+        "type": "string",
+        "pattern": "^grant://[^\\s]{1,248}$"
+      },
+      "primitiveCapability": {
+        "type": "string",
+        "pattern": "^prim:[a-z][a-z0-9._-]*$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,248}$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,248}$"
+      },
+      "publicCommitmentRef": {
+        "type": "string",
+        "pattern": "^(?:commitment|settlement|tx)://[^\\s]{1,248}$"
       },
       "canonicalDateTime": {
         "type": "string",
@@ -13758,6 +14711,38 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1": [
+    {
+      "rule_id": "sequence_zero_materialization_receipt.boundary_fact.required",
+      "description": "The materialization receipt attests at least one exact M1.4 boundary fact.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.attested_boundary_fact_refs"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.identity.matches_ref",
+      "description": "The legacy storage-facing receipt_ref is an exact mirror of canonical ReceiptEnvelope receipt_id.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.timestamp.matches_at",
+      "description": "The legacy storage-facing at field is an exact mirror of canonical ReceiptEnvelope timestamp.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.timestamp",
+          "$.at"
+        ]
+      }
+    }
+  ],
   "schema://ioi/foundations/autonomous-system-constitution/v1": [
     {
       "rule_id": "autonomous_system_constitution.governance.owner.required",
@@ -14380,6 +15365,12 @@ export function validateAutonomousSystemSequenceZeroMaterializationV1(
   value: unknown,
 ): value is AutonomousSystemSequenceZeroMaterializationV1 {
   return validateArchitectureContract("schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1", value).ok;
+}
+
+export function validateAutonomousSystemSequenceZeroMaterializationReceiptV1(
+  value: unknown,
+): value is AutonomousSystemSequenceZeroMaterializationReceiptV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1", value).ok;
 }
 
 export function validateAutonomousSystemConstitutionV1(

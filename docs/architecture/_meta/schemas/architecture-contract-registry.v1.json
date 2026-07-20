@@ -938,6 +938,71 @@
           "path": "fixtures/autonomous-system-sequence-zero-materialization-v1/negative-deployment-profile-root-binding.json",
           "expected_failure": "invariant",
           "expected_rule_id": "deployment-profile-ref-binds-deployment-root"
+        },
+        {
+          "path": "fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-kind-ref-substitution.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+      "canonical_name": "AutonomousSystemSequenceZeroMaterializationReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemsequencezeromaterializationenvelope",
+      "schema_version": "ioi.autonomous-system-sequence-zero-materialization-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "autonomous-system-sequence-zero-materialization-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/exact-boundary/v1",
+          "path": "invariants/autonomous-system-sequence-zero-materialization-receipt.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemSequenceZeroMaterializationReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemSequenceZeroMaterializationReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-legacy-receipt-type.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-missing-public-commitment-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-incompatible-artifact-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-receipt-identity-binding.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "sequence_zero_materialization_receipt.identity.matches_ref"
         }
       ]
     },

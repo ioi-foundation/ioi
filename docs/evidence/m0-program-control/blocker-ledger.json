@@ -136,7 +136,7 @@
     },
     {
       "blocker_id": "BLK-M0-WALLET-PRODUCTION-PEP",
-      "reference_count": 43,
+      "reference_count": 44,
       "references": [
         "service:wallet.network:close_channel@v1",
         "service:wallet.network:commit_receipt_root@v1",
@@ -148,6 +148,7 @@
         "service:wallet.network:connector_auth_upsert@v1",
         "service:wallet.network:consume_approval_grant@v1",
         "service:wallet.network:consume_approval_grant_for_effect@v1",
+        "service:wallet.network:consume_approval_grant_for_effect@v2",
         "service:wallet.network:create_identity@v1",
         "service:wallet.network:get_client@v1",
         "service:wallet.network:grant_secret_injection@v1",
@@ -1548,7 +1549,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "051a027b55e8a367f7ca2b45f1af71b3314eceb22d2a4564281eefd7e91263a7",
+  "build_fingerprint": "87d4d2751f953849ec3292d69e648d4b2d5f3c780b1b315f619ab3ed490036b1",
   "counts": {
     "by_state": {
       "open": 23,

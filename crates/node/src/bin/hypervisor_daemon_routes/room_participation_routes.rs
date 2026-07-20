@@ -6492,7 +6492,7 @@ mod participation_tests {
             authority_binding: json!({ "test_only": "signer-binding-unit-test" }),
             resolution,
         };
-        assert!(authorize_decision_for_resolution(
+        let authorized = authorize_decision_for_resolution(
             &json!({ "wallet_approval_grant": bound_grant.clone() }),
             Gov::Host,
             "outcome-room://or_z1",
@@ -6503,7 +6503,36 @@ mod participation_tests {
             1,
             &effect,
         )
-        .is_ok());
+        .expect("canonical signed grant authorizes");
+        assert_eq!(
+            authorized.wallet_approval_grant, bound_grant,
+            "valid grants retain their exact typed canonical projection"
+        );
+        let mut unsigned_memo = bound_grant.clone();
+        unsigned_memo["memo"] = json!("UNSIGNED_MEMO_SENTINEL_MUST_NOT_PERSIST");
+        let (memo_status, memo_body) = authorize_decision_for_resolution(
+            &json!({ "wallet_approval_grant": unsigned_memo }),
+            Gov::Host,
+            "outcome-room://or_z1",
+            "domain://acme-host",
+            &verified_resolution,
+            "participation-request://rpr_z1",
+            "admit",
+            1,
+            &effect,
+        )
+        .expect_err("unsigned fields outside the canonical grant must be refused");
+        assert_eq!(memo_status, StatusCode::FORBIDDEN);
+        assert!(memo_body.0["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("closed canonical typed projection")));
+        assert!(
+            !memo_body
+                .0
+                .to_string()
+                .contains("UNSIGNED_MEMO_SENTINEL_MUST_NOT_PERSIST"),
+            "the unsigned memo sentinel must not survive in authority output"
+        );
         let swapped_effect = json!({ "admit_params": { "admitted_role": "verifier" }, "expected_revision": 1, "transition": "admit" });
         assert!(
             authorize_decision_for_resolution(

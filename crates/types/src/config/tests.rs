@@ -29,6 +29,7 @@ fn wallet_network_policy_exposes_policy_rule_upsert() {
         "lookup_principal_authority_binding@v1",
         "consume_approval_grant@v1",
         "consume_approval_grant_for_effect@v1",
+        "consume_approval_grant_for_effect@v2",
     ] {
         assert_eq!(
             wallet.methods.get(method),

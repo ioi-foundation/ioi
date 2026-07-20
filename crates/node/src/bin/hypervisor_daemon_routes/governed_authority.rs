@@ -429,18 +429,27 @@ pub(crate) fn authorize_decision_for_resolution_with_context(
         .get("wallet_approval_grant")
         .cloned()
         .unwrap_or(Value::Null);
-    let binding = if grant.is_null() {
+    let verified_grant = if grant.is_null() {
         Err("a wallet_approval_grant is required".to_string())
     } else {
-        verify_wallet_approval_grant_binding(
-            &grant,
-            Some(local_now_ms()),
-            Some(&policy_hash),
-            Some(&request_hash),
-        )
-        .and_then(|binding| {
+        (|| {
             let parsed: ApprovalGrant = serde_json::from_value(grant.clone())
                 .map_err(|error| format!("approval grant is not canonical: {error}"))?;
+            let canonical = serde_json::to_value(&parsed).map_err(|error| {
+                format!("approval grant cannot be serialized canonically: {error}")
+            })?;
+            if canonical != grant {
+                return Err(
+                    "approval grant must equal its closed canonical typed projection exactly"
+                        .to_string(),
+                );
+            }
+            let binding = verify_wallet_approval_grant_binding(
+                &canonical,
+                Some(local_now_ms()),
+                Some(&policy_hash),
+                Some(&request_hash),
+            )?;
             let authority = &resolution.approval_authority;
             if parsed.authority_id != authority.authority_id
                 || parsed.approver_public_key != authority.public_key
@@ -450,19 +459,22 @@ pub(crate) fn authorize_decision_for_resolution_with_context(
                     "approval grant signer tuple does not match the frozen authority snapshot bound to '{required_authority}'"
                 ));
             }
-            Ok(binding)
-        })
+            Ok((binding, canonical))
+        })()
     };
-    match binding {
-        Ok(binding) => Ok(AuthorizedDecision {
+    match verified_grant {
+        Ok((binding, canonical_grant)) => Ok(AuthorizedDecision {
             evidence: DecisionEvidence {
-                acting_authority_id: grant.get("authority_id").cloned().unwrap_or(Value::Null),
+                acting_authority_id: canonical_grant
+                    .get("authority_id")
+                    .cloned()
+                    .unwrap_or(Value::Null),
                 grant_ref: binding.grant_ref,
                 policy_hash,
                 request_hash,
                 effect_hash,
                 authorized_effect: effect.clone(),
-                wallet_approval_grant: grant,
+                wallet_approval_grant: canonical_grant,
                 authority_binding: verified_resolution.authority_binding.clone(),
             },
             resolved_at_ms: resolution.resolved_at_ms,

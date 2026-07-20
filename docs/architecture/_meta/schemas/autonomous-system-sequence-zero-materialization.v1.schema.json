@@ -189,7 +189,189 @@
             "maxItems": 16,
             "uniqueItems": true
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "goal_run_profile"
+                }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/goalRunProfileRef"
+                }
+              },
+              "required": ["binding_ref"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "workflow_template"
+                }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/workflowTemplateRef"
+                }
+              },
+              "required": ["binding_ref"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "automation_spec"
+                }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/automationSpecRef"
+                }
+              },
+              "required": ["binding_ref"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "automation_installation"
+                }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/automationInstallationRef"
+                }
+              },
+              "required": ["binding_ref"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "harness_profile"
+                }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/harnessProfileRef"
+                }
+              },
+              "required": ["binding_ref"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "agent_harness_adapter"
+                }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/agentHarnessAdapterRef"
+                }
+              },
+              "required": ["binding_ref"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "skill_entry"
+                }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/skillEntryRef"
+                }
+              },
+              "required": ["binding_ref"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "data_recipe"
+                }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/dataRecipeRef"
+                }
+              },
+              "required": ["binding_ref"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "runtime_tool_contract"
+                }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/runtimeToolContractRef"
+                }
+              },
+              "required": ["binding_ref"]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "mcp_gateway_profile"
+                }
+              },
+              "required": ["kind"]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/mcpGatewayProfileRef"
+                }
+              },
+              "required": ["binding_ref"]
+            }
+          }
+        ]
       }
     },
     "sequence": {
@@ -247,6 +429,46 @@
       },
       "maxItems": 32,
       "uniqueItems": true
+    },
+    "goalRunProfileRef": {
+      "type": "string",
+      "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "workflowTemplateRef": {
+      "type": "string",
+      "pattern": "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "automationSpecRef": {
+      "type": "string",
+      "pattern": "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "automationInstallationRef": {
+      "type": "string",
+      "pattern": "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "harnessProfileRef": {
+      "type": "string",
+      "pattern": "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "agentHarnessAdapterRef": {
+      "type": "string",
+      "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "skillEntryRef": {
+      "type": "string",
+      "pattern": "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "dataRecipeRef": {
+      "type": "string",
+      "pattern": "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "runtimeToolContractRef": {
+      "type": "string",
+      "pattern": "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "mcpGatewayProfileRef": {
+      "type": "string",
+      "pattern": "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
     },
     "systemRef": {
       "type": "string",

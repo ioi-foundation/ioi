@@ -11,7 +11,8 @@ use crate::wallet_network::support::{
 use crate::wallet_network::validation::{validate_approval, validate_registered_approval_grant};
 use crate::wallet_network::{
     ApprovalConsumptionState, ApprovalGrantConsumptionReceipt, ApprovalGrantState,
-    BumpRevocationEpochParams, ConsumeApprovalGrantForEffectParams, ConsumeApprovalGrantParams,
+    BumpRevocationEpochParams, ConsumeApprovalGrantForEffectParams,
+    ConsumeApprovalGrantForEffectV2Params, ConsumeApprovalGrantParams,
     RegisterApprovalAuthorityParams, RevokeApprovalAuthorityParams,
 };
 use dcrypt::algorithms::hash::{HashFunction, Sha256 as DcryptSha256};
@@ -543,6 +544,41 @@ pub(crate) fn consume_approval_grant_for_effect(
     ctx: &TxContext<'_>,
     params: ConsumeApprovalGrantForEffectParams,
 ) -> Result<(), TransactionError> {
+    consume_approval_grant_for_effect_inner(state, ctx, params, None)
+}
+
+pub(crate) fn consume_approval_grant_for_effect_v2(
+    state: &mut dyn StateAccess,
+    ctx: &TxContext<'_>,
+    params: ConsumeApprovalGrantForEffectV2Params,
+) -> Result<(), TransactionError> {
+    let ConsumeApprovalGrantForEffectV2Params {
+        request_hash,
+        grant_hash,
+        consumption_id,
+        expected_principal_authority,
+        expected_target_label,
+        expected_max_usages,
+    } = params;
+    consume_approval_grant_for_effect_inner(
+        state,
+        ctx,
+        ConsumeApprovalGrantForEffectParams {
+            request_hash,
+            grant_hash,
+            consumption_id,
+            expected_principal_authority,
+        },
+        Some((expected_target_label, expected_max_usages)),
+    )
+}
+
+fn consume_approval_grant_for_effect_inner(
+    state: &mut dyn StateAccess,
+    ctx: &TxContext<'_>,
+    params: ConsumeApprovalGrantForEffectParams,
+    exact_expectations: Option<(String, u32)>,
+) -> Result<(), TransactionError> {
     if params.request_hash == [0u8; 32] {
         return Err(TransactionError::Invalid(
             "request_hash must not be all zeroes".to_string(),
@@ -558,19 +594,17 @@ pub(crate) fn consume_approval_grant_for_effect(
             "grant_hash must not be all zeroes".to_string(),
         ));
     }
-    if params
-        .expected_target_label
-        .as_ref()
-        .is_some_and(|target| target.is_empty() || target.len() > 256)
-    {
-        return Err(TransactionError::Invalid(
-            "expected_target_label must contain 1..=256 bytes".to_string(),
-        ));
-    }
-    if params.expected_max_usages == Some(0) {
-        return Err(TransactionError::Invalid(
-            "expected_max_usages must be positive".to_string(),
-        ));
+    if let Some((expected_target_label, expected_max_usages)) = exact_expectations.as_ref() {
+        if expected_target_label.is_empty() || expected_target_label.len() > 256 {
+            return Err(TransactionError::Invalid(
+                "expected_target_label must contain 1..=256 bytes".to_string(),
+            ));
+        }
+        if *expected_max_usages == 0 {
+            return Err(TransactionError::Invalid(
+                "expected_max_usages must be positive".to_string(),
+            ));
+        }
     }
 
     let receipt_key = approval_effect_consumption_receipt_key(&params.consumption_id);
@@ -585,13 +619,17 @@ pub(crate) fn consume_approval_grant_for_effect(
             || existing.grant_hash != params.grant_hash
             || existing.consumption_id != params.consumption_id
             || existing.principal_authority != params.expected_principal_authority
-            || params
-                .expected_target_label
-                .as_deref()
-                .is_some_and(|target| existing.target.canonical_label() != target)
         {
             return Err(TransactionError::Invalid(
-                "approval effect consumption id is bound to a different request, grant, target, or principal authority".to_string(),
+                "approval effect consumption id is bound to a different request or grant, or a different principal authority".to_string(),
+            ));
+        }
+        if exact_expectations
+            .as_ref()
+            .is_some_and(|(target, _)| existing.target.canonical_label() != target.as_str())
+        {
+            return Err(TransactionError::Invalid(
+                "approval effect consumption id is bound to a different target".to_string(),
             ));
         }
         let grant_state: ApprovalGrantState =
@@ -600,9 +638,9 @@ pub(crate) fn consume_approval_grant_for_effect(
                     "approval grant state is missing for an existing effect receipt".to_string(),
                 )
             })?;
-        if params
-            .expected_max_usages
-            .is_some_and(|expected| grant_state.max_usages != expected)
+        if exact_expectations
+            .as_ref()
+            .is_some_and(|(_, expected)| grant_state.max_usages != *expected)
         {
             return Err(TransactionError::Invalid(
                 "approval effect consumption id is bound to a different grant-use ceiling"
@@ -639,18 +677,17 @@ pub(crate) fn consume_approval_grant_for_effect(
         ));
     }
     let actual_target = grant_state.approval.interception.target.canonical_label();
-    if params
-        .expected_target_label
-        .as_deref()
-        .is_some_and(|expected| actual_target != expected)
+    if exact_expectations
+        .as_ref()
+        .is_some_and(|(expected, _)| actual_target != expected.as_str())
     {
         return Err(TransactionError::Invalid(
             "approval_effect_expected_target_mismatch: approval decision target does not match the effect's expected target".to_string(),
         ));
     }
-    if params
-        .expected_max_usages
-        .is_some_and(|expected| grant_state.max_usages != expected)
+    if exact_expectations
+        .as_ref()
+        .is_some_and(|(_, expected)| grant_state.max_usages != *expected)
     {
         return Err(TransactionError::Invalid(
             "approval_effect_expected_max_usages_mismatch: approval grant use ceiling does not match the effect's expected ceiling".to_string(),
