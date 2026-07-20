@@ -6,14 +6,14 @@
       "baseline_id": "BASE-M0-PRODUCT",
       "blocker_ref": "BLK-M0-BASELINE-PRODUCT",
       "category": "product",
-      "cohort": "At least five first-time internal operators using only supported selected-profile product surfaces, beginning in the sovereign-local lane.",
+      "cohort": "At least five first-time internal operators using only supported selected-profile product surfaces.",
       "frozen_as_of": "2026-07-18",
       "frozen_threshold": {
         "median_time_to_first_valid_preview_minutes_max": 10,
         "median_time_to_genesis_minutes_max": 20,
         "unaided_terminal_completion_rate_min": 0.8
       },
-      "method": "Timestamp first successful deployment-local authentication, first valid preview, genesis approval, effect review, terminal inspection, and replay; repeat with eligible connected sign-in only when the managed-optionality overlay is claimed, and retain typed blockers.",
+      "method": "Timestamp first eligible sign-in, first valid preview, genesis approval, effect review, terminal inspection, and replay; retain typed blockers.",
       "observed_as_of": null,
       "observed_value": null,
       "status": "not_measured"
@@ -81,13 +81,19 @@
     {
       "blocker_id": "BLK-M0-SELECTED-JOURNEY-BINDING",
       "state": "open",
-      "summary": "Live partial objects are not bound into the selected immutable profile and complete journey.",
+      "summary": "Live partial objects are not bound into the selected immutable profile, complete network-blocked local journey, and conditional attach, use, inspect, detach, and continuation overlay.",
       "type": "cross_owner_binding_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+      "state": "open",
+      "summary": "Deployment-local authentication and locally permitted exact-effect authority remain separate in canon but are not terminal through the selected product and final-invoker path.",
+      "type": "local_authority_path_unavailable"
     },
     {
       "blocker_id": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
       "state": "open",
-      "summary": "Deployment-local authentication and local-authority separation are not terminal end to end; the optional connected provider-neutral sign-in, passkey step-up, portable grant, and final-invoker revalidation path is also not terminal.",
+      "summary": "The optional connected provider-neutral sign-in, passkey step-up, context-bound portable grant, and final-invoker revalidation path is not terminal.",
       "type": "authority_path_unavailable"
     },
     {
@@ -99,13 +105,31 @@
     {
       "blocker_id": "BLK-M0-SELECTED-INSPECTION-CHAIN",
       "state": "open",
-      "summary": "No one selected inspection/export reconstructs diff, tests, evidence, receipts, root, costs, route, and learning eligibility.",
+      "summary": "No one selected inspection/export reconstructs diff, tests, evidence, receipts, root, costs, route, learning eligibility, restart, backup, restore, offline verification, and managed binding, data-view, lease, custody, usage, and charge evidence.",
       "type": "evidence_chain_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-SELECTED-BACKUP-RESTORE",
+      "state": "open",
+      "summary": "Backup, restore preview, restore application, clean-target reconstruction, and offline verification exist only as adjacent routes; they are not bound into one selected-profile proof with authority, currentness, checkpoint equivalence, valid successor-root lineage, and typed refusal evidence.",
+      "type": "backup_restore_proof_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-SELECTED-MANAGED-ATTACH-USE",
+      "state": "open",
+      "summary": "The optional managed overlay has no one selected route set that explicitly attaches a named service, admits one use, and reconstructs its binding, data-view, lease, RuntimeAssignment, custody, usage, charge, and receipt evidence.",
+      "type": "managed_service_use_proof_unavailable"
+    },
+    {
+      "blocker_id": "BLK-M0-SELECTED-MANAGED-DETACH",
+      "state": "open",
+      "summary": "The optional managed overlay has no one selected revoke or detach path proving that locally satisfied dependencies continue without hidden managed authority, custody, execution, or billing.",
+      "type": "managed_detach_continuity_unavailable"
     },
     {
       "blocker_id": "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
       "state": "open",
-      "summary": "Selected package/profile proposal, activation, rollback or recall, and System retirement are not terminal.",
+      "summary": "Managed revoke or detach with post-detach continuation and selected package/profile proposal, activation, rollback or recall, and System retirement are not terminal.",
       "type": "system_lifecycle_unavailable"
     },
     {
@@ -313,17 +337,17 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/execution-horizons.md",
-      "source_sha256": "cfeeb763e25cc7d77f76bb9e2c9af48dc364409c71dbadb161565ddf5e47b8de"
+      "source_sha256": "1dbc38f8501395a8454462895a59c9c1062c93ee52f29367a88e89b9acd2c216"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "f5452606cd09eaa78ed21ecd37dedbe3a4b72560510569b9d413403969506ed3"
+      "source_sha256": "6aa92a28a5323e05b44194a975981617285c8b1cb2f013dd77792d82cc0bdd80"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "b8304be81ad0b782da26c96c33cb39e518989e68fcc211e61c332d8b6f2b5b67"
+      "source_sha256": "8e037c525e6b178b396a9cb6673275976f657ea6ac96a9ceef53054a31d7075f"
     },
     {
       "role": "landed owner canon",
@@ -348,7 +372,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/api.md",
-      "source_sha256": "96fca5a9e9a543678a285ec5bf86004544cdf0f57d00e2150ef40394ba7bb877"
+      "source_sha256": "ce8a973623a5c57f07b565ac0846c33a9531d407ec1f456b960c18e5f24703bb"
     },
     {
       "role": "landed owner canon",
@@ -373,7 +397,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/agentgres/doctrine.md",
-      "source_sha256": "fe2e3a69910ecba46197daf5062a8b01a4be402d7c79310c98f1efd031b8a533"
+      "source_sha256": "4a8b06374f7b0a415eaab12841347c3e7d1e1acde2084dd8be23b4f1f838370b"
     },
     {
       "role": "landed owner canon",
@@ -388,7 +412,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/providers-and-environments.md",
-      "source_sha256": "e194a3bd1611dc62520b93588a2e29709caa00324d4dbd4817cf770fe42ab740"
+      "source_sha256": "4edc214879c844ea49d1fe519f90940863556d8811b4e66cea0a6a537cf0f5c7"
     },
     {
       "role": "landed owner canon",
@@ -1002,31 +1026,31 @@
       },
       {
         "closure_claimed": false,
-        "disposition": "required_now",
-        "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+        "disposition": "conditional",
+        "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
         "pg_id": "PG-2.1",
-        "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+        "selected_profile_rationale": "Portable delegated authority is required only for the managed-optionality overlay. The sovereign-local lane uses locally permitted nonportable authority and makes no portable-authority claim."
       },
       {
         "closure_claimed": false,
         "disposition": "required_now",
         "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
         "pg_id": "PG-2.2",
-        "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+        "selected_profile_rationale": "Every selected consequential local or managed policy-enforcement point must verify its lane's current authority before the final invocation; copied authority fields are insufficient."
       },
       {
         "closure_claimed": false,
         "disposition": "required_now",
         "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
         "pg_id": "PG-2.3",
-        "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+        "selected_profile_rationale": "The selected sovereign-local journey requires ordinary and consequential receipts through Agentgres-owned append, scheduled checkpoints, and crash-safe inclusion and consistency evidence."
       },
       {
         "closure_claimed": false,
         "disposition": "required_now",
         "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
         "pg_id": "PG-2.4",
-        "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+        "selected_profile_rationale": "The selected local export must verify offline integrity and valid-as-of posture from declared signer, key, revocation, and temporal inputs without confusing authentic historical proof with current authority."
       },
       {
         "closure_claimed": false,
@@ -1504,7 +1528,7 @@
       "one isolated sandbox repository and branch",
       "deployment-local identity and a low-risk local product session with locally permitted authority, plus an optional provider-neutral connected overlay with passkey-capable portable authority",
       "exact authority, revocation, IFC, budget, fence, idempotency, recovery, and receipt checks",
-      "Agentgres operations, heads, roots, receipts, replay, evidence admission, and export",
+      "Agentgres operations, heads, roots, receipts, restart, replay, backup, restore, evidence admission, export, and offline verification",
       "private evaluation and model routes with measured internal cost only",
       "proposal-mediated improvement with target-owner activation, rollback or recall, suspension, and retirement"
     ],
@@ -1514,6 +1538,7 @@
       "no public marketplace, payment, payout, settlement, IOI Network, IOI L1, or native asset",
       "no physical actuation, cTEE claim, public certification, or generalized recursive improvement",
       "no autonomous production access, universal correctness, universal factual truth, or hidden provider non-learning",
+      "minimum L0 proves only the sovereign-local lane; managed optionality remains unclaimed until its ordered connected overlay passes",
       "no architecture or production capability closes merely because M0 program control verifies"
     ],
     "object_owners": [
@@ -1574,6 +1599,43 @@
       }
     ],
     "profile_id": "selected-minimum-l0-outcome-room-bounded-software-change",
+    "proof_lane_baseline_extension": {
+      "baseline_extension_id": "BASE-M0-SOVEREIGN-LOCAL-MANAGED-OPTIONALITY",
+      "blocker_refs": [
+        "BLK-M0-BASELINE-PRODUCT",
+        "BLK-M0-BASELINE-RELIABILITY",
+        "BLK-M0-BASELINE-COST",
+        "BLK-M0-BASELINE-COMPREHENSION"
+      ],
+      "cohort": "Fresh standalone deployments complete the sovereign-local lane with every IOI-managed endpoint denied; the same Systems enter the connected lane only for managed-optionality claims.",
+      "frozen_as_of": "2026-07-19",
+      "measurements": {
+        "comprehension": {
+          "correct_connect_use_transfer_distinction_rate_min": 0.9,
+          "correct_local_identity_vs_machine_authority_interpretation_rate_min": 0.9,
+          "correct_managed_dependency_unavailable_interpretation_rate_min": 0.9
+        },
+        "cost": {
+          "implicit_or_unnamed_managed_charge_count_max": 0,
+          "managed_charge_without_quote_and_use_receipts_count_max": 0
+        },
+        "product": {
+          "managed_attach_named_use_inspect_detach_completion_rate_min_when_claimed": 0.9,
+          "network_blocked_terminal_journey_completion_rate_min": 0.9,
+          "offline_export_and_independent_verification_rate_min": 0.9,
+          "post_detach_local_continuation_rate_min_when_claimed": 0.9
+        },
+        "reliability": {
+          "authentic_stale_restore_authority_reactivation_count_max": 0,
+          "backup_clean_restore_checkpoint_equivalence_rate_min": 1,
+          "post_detach_hidden_managed_dependency_count_max_when_claimed": 0,
+          "restart_replay_duplicate_effect_count_max": 0
+        }
+      },
+      "rule": "Additive proof-lane target overlay only; it does not rewrite the frozen 2026-07-18 M0 baselines.",
+      "status": "not_measured"
+    },
+    "proof_lane_validation_posture": "reviewed and fingerprinted evidence metadata only; the current M0 validator enforces the top-level 13-step journey but does not structurally validate proof_lanes, lane_bindings, or the deployment-local identity owner source, so the named local and connected authority blockers remain open",
     "proof_lanes": [
       {
         "authority_posture": "deployment-local authentication remains distinct from locally permitted exact-effect authority; no portable delegated-authority claim",
@@ -1581,21 +1643,38 @@
         "endpoint_posture": "all IOI-managed endpoints denied; loopback and declared local IPC allowed",
         "lane_id": "sovereign_local_completeness",
         "order": 1,
+        "required_evidence": [
+          "network-blocked terminal product journey",
+          "restart and replay",
+          "backup and clean restore",
+          "offline evidence export and independent verification"
+        ],
         "starting_state": "fresh standalone deployment"
       },
       {
         "authority_posture": "provider-neutral account authentication plus passkey-capable context-bound portable authority when connected policy requires it",
         "claim_requirement": "required only for managed-optionality claims and claims that depend on managed attachment",
-        "connection_posture": "explicitly attach one named managed service, prove no implicit transfer or billing, then revoke or detach it",
+        "connection_posture": "explicitly attach one named managed service, execute one admitted operation, prove no implicit transfer or unnamed-use billing, then revoke or detach it",
         "lane_id": "managed_optionality_overlay",
         "order": 2,
+        "prerequisite_lane_id": "sovereign_local_completeness",
+        "required_evidence": [
+          "explicit attachment receipt",
+          "connected identity and context-bound portable authority when required",
+          "one explicitly leased and receipted named managed-service use",
+          "exact binding, data-view, lease, RuntimeAssignment, custody, usage, charge, and receipt inspection",
+          "zero implicit transfer or charge without named service use",
+          "detach or revocation receipt",
+          "post-detach continuation for locally satisfied dependencies"
+        ],
         "starting_state": "the same independently operable System after a passing sovereign-local lane"
       }
     ],
     "rollback_stop_rules": [
       "Stop on any hidden database edit, privileged one-off script, copied bearer authority, prompt-only transition, fabricated success, or manually reconstructed evidence chain.",
       "An unavailable owner step remains a typed blocker; compatibility output never substitutes for it.",
-      "Revoke or fence authority before recovery, preserve ambiguous effects, and require explicit reconciliation before retry."
+      "Revoke or fence authority before recovery, preserve ambiguous effects, and require explicit reconciliation before retry.",
+      "Stop on any silent truth, authority, custody, writer, execution, or billing transfer, or when detachment breaks work whose complete dependency closure remains locally satisfied."
     ],
     "source": "docs/architecture/_meta/execution-horizons.md#selected-minimum-l0-proof-profile",
     "topology": {
@@ -1606,14 +1685,29 @@
     },
     "visible_terminal_journey": [
       {
-        "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+        "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+        "lane_bindings": [
+          {
+            "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+            "lane_id": "sovereign_local_completeness",
+            "route_identities": [
+              "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
+              "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami"
+            ]
+          },
+          {
+            "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+            "lane_id": "managed_optionality_overlay",
+            "route_identities": []
+          }
+        ],
         "route_identities": [
           "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
           "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami"
         ],
         "state": "unavailable",
         "step": 1,
-        "visible_action": "Authenticate through deployment-local identity in the sovereign-local lane; repeat through an eligible provider-neutral identity or passkey only for the connected overlay."
+        "visible_action": "Authenticate through deployment-local identity with every IOI-managed endpoint denied; in the ordered managed overlay, begin from the same independently operable System, link an eligible provider-neutral account, and explicitly enable one named managed service."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -1680,14 +1774,30 @@
         "visible_action": "Review the exact proposed repository effect."
       },
       {
-        "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+        "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+        "lane_bindings": [
+          {
+            "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+            "lane_id": "sovereign_local_completeness",
+            "route_identities": [
+              "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight"
+            ]
+          },
+          {
+            "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+            "lane_id": "managed_optionality_overlay",
+            "route_identities": [
+              "service:wallet.network:issue_session_grant@v1",
+              "service:wallet.network:issue_principal_authority_binding@v1"
+            ]
+          }
+        ],
         "route_identities": [
-          "service:wallet.network:issue_session_grant@v1",
-          "service:wallet.network:issue_principal_authority_binding@v1"
+          "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight"
         ],
         "state": "unavailable",
         "step": 9,
-        "visible_action": "Approve through locally permitted authority in the sovereign-local lane; unlock a scoped portable grant with a passkey only when connected policy requires it."
+        "visible_action": "Satisfy the lane's exact scoped authority ceremony: locally permitted nonportable authority in the sovereign-local lane, and context-bound portable authority with passkey step-up only when connected policy requires it."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-REPO-EFFECT",
@@ -1707,23 +1817,39 @@
         ],
         "state": "unavailable",
         "step": 11,
-        "visible_action": "Inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility."
+        "visible_action": "Inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility; in the managed overlay also inspect the named service's exact bindings, data views, leases, RuntimeAssignment, custody, usage, charges, and receipts."
       },
       {
-        "blocker_ref": "BLK-M0-SELECTED-INSPECTION-CHAIN",
+        "blocker_ref": "BLK-M0-SELECTED-BACKUP-RESTORE",
         "route_identities": [
-          "http:hypervisor-daemon:GET /v1/runs/:id/replay"
+          "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+          "http:hypervisor-daemon:POST /v1/hypervisor/backups",
+          "http:hypervisor-daemon:POST /v1/hypervisor/snapshots/:id/restore",
+          "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview",
+          "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-apply"
         ],
         "state": "unavailable",
         "step": 12,
-        "visible_action": "Replay the decision and effect from exported evidence."
+        "visible_action": "Restart and replay the decision and effect; back up, restore, export, and independently verify the evidence offline."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
+        "lane_bindings": [
+          {
+            "blocker_ref": "BLK-M0-SELECTED-MANAGED-ATTACH-USE",
+            "lane_id": "managed_optionality_overlay",
+            "route_identities": []
+          },
+          {
+            "blocker_ref": "BLK-M0-SELECTED-MANAGED-DETACH",
+            "lane_id": "managed_optionality_overlay",
+            "route_identities": []
+          }
+        ],
         "route_identities": [],
         "state": "unavailable",
         "step": 13,
-        "visible_action": "Propose an upgrade, exercise rollback or recall, and retire the System."
+        "visible_action": "In the managed overlay, revoke or disconnect the named service and prove locally satisfiable continuation; in both lanes, propose an upgrade, exercise rollback or recall, and retire the System."
       }
     ]
   },

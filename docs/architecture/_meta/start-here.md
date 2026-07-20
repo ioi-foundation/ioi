@@ -7,7 +7,7 @@ Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: mixed (reader entry point over built, partial, planned, and speculative subjects)
-Last implementation audit: 2026-07-11
+Last implementation audit: 2026-07-19
 
 ## Five-Minute Mental Model
 
@@ -33,12 +33,14 @@ It combines two complementary directions:
 The first direction makes intelligence executable and governable. The second
 makes independently owned intelligence composable. Neither replaces the other.
 
-Local-first is an operating contract, not only a semantic preference: within a
-declared standalone capability, durability, custody, and assurance envelope, a
-compatible local or customer-controlled deployment remains independently
-operable without an `ioi.ai` account or another first-party managed
-dependency. Managed attachment adds separately admitted capabilities and never
-silently transfers truth, authority, custody, or writer ownership.
+Local-first is a target operating contract, not only a semantic preference:
+within a declared standalone capability, durability, custody, and assurance
+envelope, a conforming local or customer-controlled deployment must remain
+independently operable without an `ioi.ai` account or another first-party
+managed dependency. Managed attachment adds separately admitted capabilities
+and never silently transfers truth, authority, custody, or writer ownership.
+The current estate has not yet passed the end-to-end standalone conformance
+profile.
 
 For an enterprise, their clearest joint value is a governed learning loop:
 models remain replaceable cognition suppliers while the institution retains the

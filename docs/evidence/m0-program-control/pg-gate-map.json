@@ -1,12 +1,12 @@
 {
   "as_of_date": "2026-07-18",
-  "build_fingerprint": "ffc244adbda8dc5a4540c6164c3d0a924bd7f98be1f941531343d5cb5a1b85d8",
+  "build_fingerprint": "95da3de7aa3c1499e107f5177b82e4a94643f176f3c1a5aac6f1d620e6bfca6d",
   "closure_claimed": false,
   "counts": {
-    "conditional": 15,
+    "conditional": 16,
     "later": 6,
     "out_of_scope": 15,
-    "required_now": 22
+    "required_now": 21
   },
   "definition_owner": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
   "entries": [
@@ -54,31 +54,31 @@
     },
     {
       "closure_claimed": false,
-      "disposition": "required_now",
-      "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
+      "disposition": "conditional",
+      "evidence_or_blocker_ref": "COND-M0-PG-SELECTION",
       "pg_id": "PG-2.1",
-      "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+      "selected_profile_rationale": "Portable delegated authority is required only for the managed-optionality overlay. The sovereign-local lane uses locally permitted nonportable authority and makes no portable-authority claim."
     },
     {
       "closure_claimed": false,
       "disposition": "required_now",
       "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
       "pg_id": "PG-2.2",
-      "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+      "selected_profile_rationale": "Every selected consequential local or managed policy-enforcement point must verify its lane's current authority before the final invocation; copied authority fields are insufficient."
     },
     {
       "closure_claimed": false,
       "disposition": "required_now",
       "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
       "pg_id": "PG-2.3",
-      "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+      "selected_profile_rationale": "The selected sovereign-local journey requires ordinary and consequential receipts through Agentgres-owned append, scheduled checkpoints, and crash-safe inclusion and consistency evidence."
     },
     {
       "closure_claimed": false,
       "disposition": "required_now",
       "evidence_or_blocker_ref": "BLK-M0-PG-REQUIRED-NOT-CLOSED",
       "pg_id": "PG-2.4",
-      "selected_profile_rationale": "The selected single-node software-change profile directly needs portable authority and receipt proof; the gate remains open."
+      "selected_profile_rationale": "The selected local export must verify offline integrity and valid-as-of posture from declared signer, key, revocation, and temporal inputs without confusing authentic historical proof with current authority."
     },
     {
       "closure_claimed": false,

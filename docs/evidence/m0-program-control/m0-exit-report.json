@@ -1,7 +1,7 @@
 {
   "architecture_or_production_capability_closure": false,
   "as_of_date": "2026-07-18",
-  "build_fingerprint": "ffc244adbda8dc5a4540c6164c3d0a924bd7f98be1f941531343d5cb5a1b85d8",
+  "build_fingerprint": "95da3de7aa3c1499e107f5177b82e4a94643f176f3c1a5aac6f1d620e6bfca6d",
   "census_counts": {
     "consequential": 962,
     "partial_consequential": 944,
@@ -27,5 +27,5 @@
     "M0 does not provide runtime capability, authority, product UX, or a canonical wire contract.",
     "Every production gate remains owned by the read-only PG ledger."
   ],
-  "open_blocker_count": 19
+  "open_blocker_count": 23
 }
