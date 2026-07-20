@@ -343,6 +343,66 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
           (isObject(optional) &&
             expected !== undefined &&
             Object.is(optional[expression.field], expected));
+      } else if (
+        expression.operator === "prefixed_field_equals" &&
+        typeof expression.path === "string" &&
+        typeof expression.prefix === "string" &&
+        typeof expression.expected_path === "string"
+      ) {
+        const actual = valueAtPath(value, expression.path);
+        const expected = valueAtPath(value, expression.expected_path);
+        valid =
+          typeof actual === "string" &&
+          typeof expected === "string" &&
+          actual === `${expression.prefix}${expected}`;
+      } else if (
+        expression.operator === "field_ends_with" &&
+        typeof expression.path === "string" &&
+        typeof expression.expected_path === "string"
+      ) {
+        const actual = valueAtPath(value, expression.path);
+        const expected = valueAtPath(value, expression.expected_path);
+        valid =
+          typeof actual === "string" &&
+          typeof expected === "string" &&
+          expected.length > 0 &&
+          actual.endsWith(expected);
+      } else if (
+        expression.operator === "array_length_equals" &&
+        typeof expression.array_path === "string" &&
+        typeof expression.count_path === "string"
+      ) {
+        const values = valueAtPath(value, expression.array_path);
+        const count = valueAtPath(value, expression.count_path);
+        valid =
+          Array.isArray(values) &&
+          typeof count === "number" &&
+          Number.isSafeInteger(count) &&
+          count >= 0 &&
+          values.length === count;
+      } else if (
+        expression.operator === "array_unique_by_fields" &&
+        typeof expression.array_path === "string" &&
+        Array.isArray(expression.fields) &&
+        expression.fields.length > 0
+      ) {
+        const values = valueAtPath(value, expression.array_path);
+        valid =
+          Array.isArray(values) &&
+          values.every(
+            (item, index) =>
+              isObject(item) &&
+              expression.fields.every((field) =>
+                Object.hasOwn(item, field),
+              ) &&
+              !values.slice(0, index).some(
+                (previous) =>
+                  isObject(previous) &&
+                  expression.fields.every((field) =>
+                    Object.is(previous[field], item[field]),
+                  ),
+              ),
+          );
       } else if (expression.operator === "matches_contract_schema_hash") {
         valid = valueAtPath(value, expression.path) === expectedSchemaHash;
       } else if (
@@ -671,6 +731,10 @@ for (const contract of registry.contracts ?? []) {
       const pointers = [
         ...(rule.expression?.paths ?? [rule.expression?.path]),
         rule.expression?.when_path,
+        rule.expression?.array_path,
+        rule.expression?.count_path,
+        rule.expression?.expected_path,
+        rule.expression?.optional_object_path,
       ];
       for (const pointer of pointers.filter(Boolean)) {
         const property = pointer.startsWith("$.")
@@ -678,6 +742,24 @@ for (const contract of registry.contracts ?? []) {
           : null;
         if (!property || !Object.hasOwn(schema.properties ?? {}, property)) {
           fail(`${profile.$id}: invariant path is outside schema: ${pointer}`);
+        }
+      }
+      if (rule.expression?.operator === "array_unique_by_fields") {
+        const fields = rule.expression.fields;
+        if (
+          !Array.isArray(fields) ||
+          fields.length === 0 ||
+          fields.length > 8 ||
+          new Set(fields).size !== fields.length ||
+          fields.some(
+            (field) =>
+              typeof field !== "string" ||
+              !/^[a-z][a-z0-9_]*$/u.test(field),
+          )
+        ) {
+          fail(
+            `${profile.$id}: array_unique_by_fields requires 1..=8 unique canonical field names`,
+          );
         }
       }
     }

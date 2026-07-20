@@ -9,6 +9,7 @@ const COMPILER_SOURCE: &str = include_str!("../src/app/system_genesis.rs");
 const ALLOWED_PRODUCTION_IMPORTS: &[&str] = &[
     "crate::app::generated::architecture_contracts::AutonomousSystemGenesisV1",
     "crate::app::generated::architecture_contracts::AutonomousSystemInitialProfileBundleV1",
+    "crate::app::generated::architecture_contracts::AutonomousSystemSequenceZeroMaterializationV1",
     "crate::app::generated::architecture_contracts::validate_architecture_contract",
     "dcrypt::algorithms::hash::HashFunction",
     "dcrypt::algorithms::hash::Sha256",

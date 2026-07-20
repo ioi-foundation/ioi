@@ -2,7 +2,7 @@
 
 use crate::app::generated::architecture_contracts::{
     validate_architecture_contract, AutonomousSystemGenesisV1,
-    AutonomousSystemInitialProfileBundleV1,
+    AutonomousSystemInitialProfileBundleV1, AutonomousSystemSequenceZeroMaterializationV1,
 };
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use serde::Serialize;
@@ -24,6 +24,30 @@ pub const SYSTEM_GENESIS_OPERATION_HASH_PROFILE: &str =
 /// RFC 8785 JCS + SHA-256 profile for the complete proposed genesis artifact.
 pub const SYSTEM_GENESIS_PROPOSAL_ROOT_HASH_PROFILE: &str =
     "ioi.autonomous-system-genesis-proposal-root-jcs-sha256.v1";
+/// RFC 8785 JCS + SHA-256 profile for the exact normalized component registry.
+pub const SYSTEM_COMPONENT_REGISTRY_HASH_PROFILE: &str =
+    "ioi.autonomous-system-component-registry-jcs-sha256.v1";
+/// RFC 8785 JCS + SHA-256 profile for the exact profile refs and candidate bundle.
+pub const SYSTEM_PROFILE_MATERIALIZATION_HASH_PROFILE: &str =
+    "ioi.autonomous-system-profile-materialization-jcs-sha256.v1";
+/// RFC 8785 JCS + SHA-256 profile for the separately governed M1.4 operation.
+pub const SYSTEM_SEQUENCE_ZERO_OPERATION_HASH_PROFILE: &str =
+    "ioi.autonomous-system-sequence-zero-operation-jcs-sha256.v1";
+/// RFC 8785 JCS + SHA-256 profile for the pre-activation sequence-zero state.
+pub const SYSTEM_SEQUENCE_ZERO_STATE_HASH_PROFILE: &str =
+    "ioi.autonomous-system-sequence-zero-state-jcs-sha256.v1";
+/// RFC 8785 JCS + SHA-256 profile for the sequence-zero receipt accumulator leaf.
+pub const SYSTEM_SEQUENCE_ZERO_RECEIPT_HASH_PROFILE: &str =
+    "ioi.autonomous-system-sequence-zero-receipt-jcs-sha256.v1";
+/// RFC 8785 JCS + SHA-256 profile for the complete sequence-zero transition.
+pub const SYSTEM_SEQUENCE_ZERO_TRANSITION_HASH_PROFILE: &str =
+    "ioi.autonomous-system-sequence-zero-transition-jcs-sha256.v1";
+/// RFC 8785 JCS + SHA-256 profile for the immutable M1.3 admission aggregate.
+pub const SYSTEM_GENESIS_ADMISSION_RECORD_HASH_PROFILE: &str =
+    "ioi.autonomous-system-genesis-admission-record-jcs-sha256.v1";
+/// RFC 8785 JCS + SHA-256 profile for the immutable M1.3 admission receipt.
+pub const SYSTEM_GENESIS_ADMISSION_RECEIPT_HASH_PROFILE: &str =
+    "ioi.autonomous-system-genesis-admission-receipt-jcs-sha256.v1";
 /// Explicit statement that compilation is neither authority nor admission.
 pub const SYSTEM_GENESIS_PROPOSAL_AUTHORITY_BOUNDARY: &str =
     "unverified_proposal_only_no_authority_admission_activation_or_effect";
@@ -32,6 +56,8 @@ const MANIFEST_CONTRACT_ID: &str = "schema://ioi/foundations/autonomous-system-m
 const INITIAL_PROFILE_BUNDLE_CONTRACT_ID: &str =
     "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1";
 const GENESIS_CONTRACT_ID: &str = "schema://ioi/foundations/autonomous-system-genesis/v1";
+const SEQUENCE_ZERO_MATERIALIZATION_CONTRACT_ID: &str =
+    "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1";
 const CONSTITUTION_CONTRACT_ID: &str = "schema://ioi/foundations/autonomous-system-constitution/v1";
 const ORDERING_CONTRACT_ID: &str =
     "schema://ioi/foundations/ordering-admission-finality-profile/v1";
@@ -332,6 +358,38 @@ pub struct CompiledSystemGenesisProposal {
     pub hash_profile: &'static str,
 }
 
+/// Deterministic M1.4 plan derived only from one converged M1.3 admission.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CompiledSystemSequenceZeroPlan {
+    /// Immutable normalized registry payload admitted beside the materialization.
+    pub component_registry_snapshot: Value,
+    /// Canonical pre-activation materialization body without its authority timestamp.
+    pub materialization_body: Value,
+    /// Exact authority effect for the separate M1.4 crossing.
+    pub authority_effect: Value,
+    /// Domain-separated root of the normalized component registry.
+    pub component_registry_root: String,
+    /// Domain-separated root binding the exact candidate profile refs and bundle.
+    pub profile_materialization_root: String,
+    /// Domain-separated operation commitment.
+    pub operation_commitment: String,
+    /// Domain-separated resulting pre-activation state root.
+    pub initial_state_root: String,
+    /// Domain-separated sequence-zero receipt root.
+    pub initial_receipt_root: String,
+    /// Complete transition commitment ref binding operation, state, receipt, and proof.
+    pub transition_commitment_ref: String,
+}
+
+/// Final typed M1.4 artifact plus its canonical bytes.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CompiledSystemSequenceZeroMaterialization {
+    /// Registered closed projection.
+    pub materialization: AutonomousSystemSequenceZeroMaterializationV1,
+    /// RFC 8785 canonical bytes of `materialization`.
+    pub canonical_json: Vec<u8>,
+}
+
 /// Pure compiler result. `proposal` is absent whenever any blocker exists.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SystemGenesisCompilation {
@@ -422,6 +480,500 @@ pub fn compute_system_release_root(release: &Value) -> Result<String, String> {
         release_projection.remove("registry_published_at");
     }
     domain_hash(SYSTEM_RELEASE_ROOT_HASH_PROFILE, &Value::Object(material))
+}
+
+/// Compute the immutable M1.3 admission-record root consumed by M1.4.
+pub fn compute_system_genesis_admission_record_root(record: &Value) -> Result<String, String> {
+    domain_hash(SYSTEM_GENESIS_ADMISSION_RECORD_HASH_PROFILE, record)
+}
+
+/// Compute the immutable M1.3 admission-receipt root consumed by M1.4.
+pub fn compute_system_genesis_admission_receipt_root(receipt: &Value) -> Result<String, String> {
+    domain_hash(SYSTEM_GENESIS_ADMISSION_RECEIPT_HASH_PROFILE, receipt)
+}
+
+fn required_string(value: &Value, pointer: &str) -> Result<String, String> {
+    value
+        .pointer(pointer)
+        .and_then(Value::as_str)
+        .filter(|text| !text.is_empty())
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| format!("missing canonical string at '{pointer}'"))
+}
+
+fn normalized_component_binding(
+    kind: &str,
+    binding_ref: &str,
+    binding_hash: &str,
+    evidence_refs: Vec<Value>,
+    evidence_hashes: Vec<Value>,
+) -> Value {
+    serde_json::json!({
+        "kind": kind,
+        "binding_ref": binding_ref,
+        "binding_hash": binding_hash,
+        "evidence_refs": evidence_refs,
+        "evidence_hashes": evidence_hashes
+    })
+}
+
+fn normalize_component_bindings(genesis: &Value) -> Result<Vec<Value>, String> {
+    let bindings = genesis
+        .get("initial_component_bindings")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "authorized genesis lacks initial_component_bindings".to_owned())?;
+    let mut normalized = Vec::new();
+    for (field, kind) in [
+        ("goal_run_profiles", "goal_run_profile"),
+        ("workflow_templates", "workflow_template"),
+        ("automation_specs", "automation_spec"),
+        ("harness_profiles", "harness_profile"),
+        ("agent_harness_adapters", "agent_harness_adapter"),
+        ("data_recipes", "data_recipe"),
+        ("runtime_tool_contracts", "runtime_tool_contract"),
+    ] {
+        let rows = bindings
+            .get(field)
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("initial_component_bindings.{field} is not an array"))?;
+        for (index, row) in rows.iter().enumerate() {
+            normalized.push(normalized_component_binding(
+                kind,
+                &required_string(row, "/revision_ref").map_err(|error| {
+                    format!("initial_component_bindings.{field}[{index}] {error}")
+                })?,
+                &required_string(row, "/content_hash").map_err(|error| {
+                    format!("initial_component_bindings.{field}[{index}] {error}")
+                })?,
+                Vec::new(),
+                Vec::new(),
+            ));
+        }
+    }
+
+    for (index, row) in bindings
+        .get("automation_installations")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            "initial_component_bindings.automation_installations is not an array".to_owned()
+        })?
+        .iter()
+        .enumerate()
+    {
+        normalized.push(normalized_component_binding(
+            "automation_installation",
+            &required_string(row, "/binding_revision_ref").map_err(|error| {
+                format!("initial_component_bindings.automation_installations[{index}] {error}")
+            })?,
+            &required_string(row, "/binding_hash").map_err(|error| {
+                format!("initial_component_bindings.automation_installations[{index}] {error}")
+            })?,
+            vec![Value::String(
+                required_string(row, "/admission_receipt_ref").map_err(|error| {
+                    format!("initial_component_bindings.automation_installations[{index}] {error}")
+                })?,
+            )],
+            Vec::new(),
+        ));
+    }
+
+    for (index, row) in bindings
+        .get("skill_entries")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "initial_component_bindings.skill_entries is not an array".to_owned())?
+        .iter()
+        .enumerate()
+    {
+        normalized.push(normalized_component_binding(
+            "skill_entry",
+            &required_string(row, "/binding_revision_ref").map_err(|error| {
+                format!("initial_component_bindings.skill_entries[{index}] {error}")
+            })?,
+            &required_string(row, "/binding_hash").map_err(|error| {
+                format!("initial_component_bindings.skill_entries[{index}] {error}")
+            })?,
+            vec![Value::String(
+                required_string(row, "/skill_manifest_revision_ref").map_err(|error| {
+                    format!("initial_component_bindings.skill_entries[{index}] {error}")
+                })?,
+            )],
+            vec![Value::String(
+                required_string(row, "/skill_manifest_content_hash").map_err(|error| {
+                    format!("initial_component_bindings.skill_entries[{index}] {error}")
+                })?,
+            )],
+        ));
+    }
+
+    for (index, row) in bindings
+        .get("mcp_gateway_profiles")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            "initial_component_bindings.mcp_gateway_profiles is not an array".to_owned()
+        })?
+        .iter()
+        .enumerate()
+    {
+        normalized.push(normalized_component_binding(
+            "mcp_gateway_profile",
+            &required_string(row, "/profile_revision_ref").map_err(|error| {
+                format!("initial_component_bindings.mcp_gateway_profiles[{index}] {error}")
+            })?,
+            &required_string(row, "/profile_content_hash").map_err(|error| {
+                format!("initial_component_bindings.mcp_gateway_profiles[{index}] {error}")
+            })?,
+            Vec::new(),
+            Vec::new(),
+        ));
+    }
+
+    let mut identities = BTreeSet::new();
+    let mut canonical = Vec::with_capacity(normalized.len());
+    for binding in normalized {
+        let kind = required_string(&binding, "/kind")?;
+        let binding_ref = required_string(&binding, "/binding_ref")?;
+        if !identities.insert((kind.clone(), binding_ref.clone())) {
+            return Err(format!(
+                "duplicate normalized component binding '{kind}:{binding_ref}'"
+            ));
+        }
+        canonical.push((
+            serde_jcs::to_vec(&binding)
+                .map_err(|error| format!("component binding JCS failed ({error})"))?,
+            binding,
+        ));
+    }
+    canonical.sort_by(|left, right| left.0.cmp(&right.0));
+    Ok(canonical.into_iter().map(|(_, binding)| binding).collect())
+}
+
+fn deployment_profile_root(profile_refs: &Value) -> Result<String, String> {
+    let deployment_profile_ref = required_string(profile_refs, "/deployment_profile_ref")?;
+    let (identity, hash) = deployment_profile_ref
+        .strip_prefix("deployment-profile://")
+        .and_then(|value| value.rsplit_once("/revision/sha256:"))
+        .ok_or_else(|| {
+            "M1.4 requires deployment_profile_ref to end in /revision/sha256:<64 lowercase hex>"
+                .to_owned()
+        })?;
+    if identity.is_empty()
+        || identity
+            .chars()
+            .any(|ch| ch.is_whitespace() || matches!(ch, '?' | '#' | '\\'))
+        || hash.len() != 64
+        || !hash
+            .chars()
+            .all(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_uppercase())
+    {
+        return Err(
+            "M1.4 requires deployment_profile_ref to end in /revision/sha256:<64 lowercase hex>"
+                .to_owned(),
+        );
+    }
+    Ok(format!("sha256:{hash}"))
+}
+
+/// Derive the complete M1.4 effect without trusting caller-authored root values.
+pub fn compile_system_sequence_zero_plan(
+    authorized_genesis: &Value,
+    initial_profile_bundle: &Value,
+    genesis_admission_record_root: &str,
+    genesis_admission_receipt_ref: &str,
+    genesis_admission_receipt_root: &str,
+) -> Result<CompiledSystemSequenceZeroPlan, String> {
+    validate_architecture_contract(GENESIS_CONTRACT_ID, authorized_genesis)
+        .map_err(|error| format!("authorized genesis contract invalid ({error})"))?;
+    validate_architecture_contract(INITIAL_PROFILE_BUNDLE_CONTRACT_ID, initial_profile_bundle)
+        .map_err(|error| format!("initial profile bundle contract invalid ({error})"))?;
+    if authorized_genesis.get("status").and_then(Value::as_str) != Some("authorized")
+        || !authorized_genesis
+            .get("activation_receipt_ref")
+            .is_some_and(Value::is_null)
+        || authorized_genesis
+            .get("lifecycle_transition_refs")
+            .and_then(Value::as_array)
+            .is_none_or(|refs| !refs.is_empty())
+    {
+        return Err(
+            "M1.4 requires an authorized, non-activated genesis with no lifecycle history"
+                .to_owned(),
+        );
+    }
+    if authorized_genesis
+        .pointer("/cryptographic_origin/admission_proof_ref")
+        .and_then(Value::as_str)
+        != Some(genesis_admission_receipt_ref)
+    {
+        return Err("authorized genesis does not bind the supplied admission receipt".to_owned());
+    }
+    for (field, value) in [
+        (
+            "genesis_admission_record_root",
+            genesis_admission_record_root,
+        ),
+        (
+            "genesis_admission_receipt_root",
+            genesis_admission_receipt_root,
+        ),
+    ] {
+        if !value.strip_prefix("sha256:").is_some_and(|tail| {
+            tail.len() == 64
+                && tail
+                    .chars()
+                    .all(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_uppercase())
+        }) {
+            return Err(format!(
+                "{field} must be one canonical lowercase sha256 ref"
+            ));
+        }
+    }
+    if !genesis_admission_receipt_ref.starts_with("receipt://")
+        || genesis_admission_receipt_ref
+            .chars()
+            .any(char::is_whitespace)
+    {
+        return Err("genesis_admission_receipt_ref must be canonical".to_owned());
+    }
+
+    let profile_bundle_root = domain_hash(
+        SYSTEM_INITIAL_PROFILE_BUNDLE_HASH_PROFILE,
+        initial_profile_bundle,
+    )?;
+    if authorized_genesis
+        .get("initial_profile_bundle_root")
+        .and_then(Value::as_str)
+        != Some(profile_bundle_root.as_str())
+    {
+        return Err(
+            "authorized genesis profile-bundle root does not match its exact bodies".into(),
+        );
+    }
+    let system_id = required_string(authorized_genesis, "/system_id")?;
+    let genesis_ref = required_string(authorized_genesis, "/genesis_id")?;
+    let package_id = required_string(authorized_genesis, "/package_id")?;
+    let manifest_ref = required_string(authorized_genesis, "/manifest_ref")?;
+    let admitted_manifest_root = required_string(authorized_genesis, "/admitted_manifest_root")?;
+    let proposed_initial_state_root = required_string(
+        authorized_genesis,
+        "/cryptographic_origin/initial_state_root",
+    )?;
+    let proposed_initial_receipt_root = required_string(
+        authorized_genesis,
+        "/cryptographic_origin/initial_receipt_root",
+    )?;
+    let constitution_ref = required_string(authorized_genesis, "/constitution_ref")?;
+    let constitution_root =
+        required_string(initial_profile_bundle, "/constitution/constitution_root")?;
+    let profile_refs = authorized_genesis
+        .get("initial_profile_refs")
+        .cloned()
+        .ok_or_else(|| "authorized genesis lacks initial_profile_refs".to_owned())?;
+    let deployment_profile_root = deployment_profile_root(&profile_refs)?;
+    let component_bindings = normalize_component_bindings(authorized_genesis)?;
+
+    let component_registry_material = serde_json::json!({
+        "schema_version": "ioi.autonomous-system-component-registry-snapshot.v1",
+        "system_id": system_id,
+        "genesis_ref": genesis_ref,
+        "component_bindings": component_bindings
+    });
+    let component_registry_root = domain_hash(
+        SYSTEM_COMPONENT_REGISTRY_HASH_PROFILE,
+        &component_registry_material,
+    )?;
+    let component_registry_ref =
+        format!("agentgres://object-set/autonomous-system-components/{component_registry_root}");
+    let component_registry_snapshot = serde_json::json!({
+        "schema_version": "ioi.autonomous-system-component-registry-snapshot.v1",
+        "component_registry_ref": component_registry_ref,
+        "component_registry_root": component_registry_root,
+        "system_id": system_id,
+        "genesis_ref": genesis_ref,
+        "component_binding_count": component_bindings.len(),
+        "component_bindings": component_bindings,
+        "status": "frozen_pending_activation"
+    });
+
+    let profile_materialization_material = serde_json::json!({
+        "schema_version": "ioi.autonomous-system-profile-materialization.v1",
+        "system_id": system_id,
+        "genesis_ref": genesis_ref,
+        "profile_bundle_root": profile_bundle_root,
+        "deployment_profile_root": deployment_profile_root,
+        "profile_refs": profile_refs
+    });
+    let profile_materialization_root = domain_hash(
+        SYSTEM_PROFILE_MATERIALIZATION_HASH_PROFILE,
+        &profile_materialization_material,
+    )?;
+    let materialization_id =
+        format!("system-materialization://sequence-zero/{genesis_admission_record_root}");
+    let operation_material = serde_json::json!({
+        "schema_version": "ioi.autonomous-system-sequence-zero-operation.v1",
+        "operation": "materialize_sequence_zero",
+        "materialization_id": materialization_id,
+        "system_id": system_id,
+        "genesis_ref": genesis_ref,
+        "genesis_admission_receipt_ref": genesis_admission_receipt_ref,
+        "genesis_admission_record_root": genesis_admission_record_root,
+        "genesis_admission_receipt_root": genesis_admission_receipt_root,
+        "proposed_initial_state_root": proposed_initial_state_root,
+        "proposed_initial_receipt_root": proposed_initial_receipt_root,
+        "package_id": package_id,
+        "manifest_ref": manifest_ref,
+        "admitted_manifest_root": admitted_manifest_root,
+        "constitution_ref": constitution_ref,
+        "constitution_root": constitution_root,
+        "profile_bundle_root": profile_bundle_root,
+        "profile_materialization_root": profile_materialization_root,
+        "deployment_profile_root": deployment_profile_root,
+        "profile_refs": profile_refs,
+        "component_registry_ref": component_registry_ref,
+        "component_registry_root": component_registry_root,
+        "component_bindings": component_bindings,
+        "sequence": 0,
+        "predecessor_transition_commitment_ref": Value::Null,
+        "target_status": "materialized_pending_activation",
+        "activation_admitted": false,
+        "runtime_effect_admitted": false
+    });
+    let operation_commitment = domain_hash(
+        SYSTEM_SEQUENCE_ZERO_OPERATION_HASH_PROFILE,
+        &operation_material,
+    )?;
+    let state_material = serde_json::json!({
+        "schema_version": "ioi.autonomous-system-sequence-zero-state.v1",
+        "materialization_id": materialization_id,
+        "system_id": system_id,
+        "genesis_ref": genesis_ref,
+        "package_id": package_id,
+        "manifest_ref": manifest_ref,
+        "admitted_manifest_root": admitted_manifest_root,
+        "constitution_ref": constitution_ref,
+        "constitution_root": constitution_root,
+        "profile_bundle_root": profile_bundle_root,
+        "profile_materialization_root": profile_materialization_root,
+        "deployment_profile_root": deployment_profile_root,
+        "profile_refs": profile_refs,
+        "component_registry_ref": component_registry_ref,
+        "component_registry_root": component_registry_root,
+        "component_bindings": component_bindings,
+        "sequence": 0,
+        "node_membership_refs": [],
+        "worker_instance_refs": [],
+        "workflow_refs": [],
+        "activation_state": "not_started",
+        "status": "materialized_pending_activation"
+    });
+    let initial_state_root = domain_hash(SYSTEM_SEQUENCE_ZERO_STATE_HASH_PROFILE, &state_material)?;
+    let receipt_tail = operation_commitment
+        .strip_prefix("sha256:")
+        .ok_or_else(|| "operation commitment is not canonical".to_owned())?;
+    let materialization_receipt_ref = format!("receipt://aszmr_{receipt_tail}");
+    let receipt_material = serde_json::json!({
+        "schema_version": "ioi.autonomous-system-sequence-zero-receipt-root.v1",
+        "sequence": 0,
+        "genesis_admission_receipt_ref": genesis_admission_receipt_ref,
+        "genesis_admission_receipt_root": genesis_admission_receipt_root,
+        "materialization_receipt_ref": materialization_receipt_ref,
+        "operation_commitment": operation_commitment,
+        "initial_state_root": initial_state_root
+    });
+    let initial_receipt_root =
+        domain_hash(SYSTEM_SEQUENCE_ZERO_RECEIPT_HASH_PROFILE, &receipt_material)?;
+    let transition_material = serde_json::json!({
+        "schema_version": "ioi.autonomous-system-sequence-zero-transition.v1",
+        "sequence": 0,
+        "predecessor_transition_commitment_ref": Value::Null,
+        "operation_commitment": operation_commitment,
+        "admission_proof_ref": materialization_receipt_ref,
+        "resulting_state_root": initial_state_root,
+        "receipt_root": initial_receipt_root
+    });
+    let transition_hash = domain_hash(
+        SYSTEM_SEQUENCE_ZERO_TRANSITION_HASH_PROFILE,
+        &transition_material,
+    )?;
+    let transition_commitment_ref =
+        format!("commitment://ioi/system-sequence-zero/{transition_hash}");
+    let materialization_body = serde_json::json!({
+        "schema_version": "ioi.autonomous-system-sequence-zero-materialization.v1",
+        "materialization_id": materialization_id,
+        "system_id": system_id,
+        "genesis_ref": genesis_ref,
+        "genesis_admission_receipt_ref": genesis_admission_receipt_ref,
+        "genesis_admission_record_root": genesis_admission_record_root,
+        "genesis_admission_receipt_root": genesis_admission_receipt_root,
+        "proposed_initial_state_root": proposed_initial_state_root,
+        "proposed_initial_receipt_root": proposed_initial_receipt_root,
+        "package_id": package_id,
+        "manifest_ref": manifest_ref,
+        "admitted_manifest_root": admitted_manifest_root,
+        "constitution_ref": constitution_ref,
+        "constitution_root": constitution_root,
+        "profile_bundle_root": profile_bundle_root,
+        "profile_materialization_root": profile_materialization_root,
+        "deployment_profile_root": deployment_profile_root,
+        "profile_refs": profile_refs,
+        "component_registry_ref": component_registry_ref,
+        "component_registry_root": component_registry_root,
+        "component_binding_count": component_bindings.len(),
+        "component_bindings": component_bindings,
+        "sequence": 0,
+        "predecessor_transition_commitment_ref": Value::Null,
+        "operation_commitment": operation_commitment,
+        "transition_commitment_ref": transition_commitment_ref,
+        "initial_state_root": initial_state_root,
+        "initial_receipt_root": initial_receipt_root,
+        "materialization_receipt_ref": materialization_receipt_ref,
+        "activation_receipt_ref": Value::Null,
+        "status": "materialized_pending_activation"
+    });
+    let authority_effect = serde_json::json!({
+        "operation": "materialize_sequence_zero",
+        "materialization": materialization_body,
+        "activation_admitted": false,
+        "runtime_effect_admitted": false
+    });
+    Ok(CompiledSystemSequenceZeroPlan {
+        component_registry_snapshot,
+        materialization_body,
+        authority_effect,
+        component_registry_root,
+        profile_materialization_root,
+        operation_commitment,
+        initial_state_root,
+        initial_receipt_root,
+        transition_commitment_ref,
+    })
+}
+
+/// Add wallet-derived time to a deterministic M1.4 plan and validate its registered contract.
+pub fn finalize_system_sequence_zero_materialization(
+    plan: &CompiledSystemSequenceZeroPlan,
+    created_at: &str,
+) -> Result<CompiledSystemSequenceZeroMaterialization, String> {
+    let mut value = plan.materialization_body.clone();
+    value
+        .as_object_mut()
+        .ok_or_else(|| "sequence-zero materialization plan is not an object".to_owned())?
+        .insert(
+            "created_at".to_owned(),
+            Value::String(created_at.to_owned()),
+        );
+    validate_architecture_contract(SEQUENCE_ZERO_MATERIALIZATION_CONTRACT_ID, &value)
+        .map_err(|error| format!("sequence-zero materialization contract invalid ({error})"))?;
+    let materialization =
+        serde_json::from_value::<AutonomousSystemSequenceZeroMaterializationV1>(value.clone())
+            .map_err(|error| {
+                format!("sequence-zero materialization projection failed ({error})")
+            })?;
+    let canonical_json = serde_jcs::to_vec(&value)
+        .map_err(|error| format!("sequence-zero materialization JCS failed ({error})"))?;
+    Ok(CompiledSystemSequenceZeroMaterialization {
+        materialization,
+        canonical_json,
+    })
 }
 
 /// Compile a proposal without identity minting, authority verification, persistence, or effects.
@@ -1962,6 +2514,7 @@ fn is_uri_token_separator(character: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     fn fixture(body: &str) -> Value {
         serde_json::from_str(body).expect("fixture contains JSON")
@@ -2044,6 +2597,256 @@ mod tests {
         (release, proposal, compilation)
     }
 
+    fn valid_sequence_zero_inputs() -> (Value, Value, String, String, String) {
+        let (_, _, compilation) = compile_valid();
+        let proposal = compilation.proposal.expect("valid genesis proposal");
+        let mut genesis =
+            serde_json::to_value(&proposal.genesis).expect("genesis projection serializes");
+        let bundle = serde_json::to_value(&proposal.initial_profile_bundle.bundle)
+            .expect("bundle projection serializes");
+        let receipt_ref = format!("receipt://asgr_{}", "7".repeat(64));
+        genesis["status"] = json!("authorized");
+        genesis["instantiation"]["authority_grant_refs"] = json!([format!(
+            "grant://wallet.network/approval/sha256:{}",
+            "8".repeat(64)
+        )]);
+        genesis["cryptographic_origin"]["admission_proof_ref"] = json!(receipt_ref);
+        genesis["status_source_receipt_refs"] = json!([receipt_ref]);
+        validate_architecture_contract(GENESIS_CONTRACT_ID, &genesis)
+            .expect("authorized genesis satisfies its contract");
+        let record = json!({
+            "schema_version": "ioi.hypervisor.autonomous-system-genesis-admission.v1",
+            "authorized_genesis": genesis,
+            "initial_profile_bundle": bundle,
+            "admission_receipt_ref": receipt_ref
+        });
+        let receipt = json!({
+            "schema_version": "ioi.hypervisor.autonomous-system-genesis-receipt.v1",
+            "receipt_ref": receipt_ref,
+            "subject": genesis["genesis_id"]
+        });
+        let record_root =
+            compute_system_genesis_admission_record_root(&record).expect("record root");
+        let receipt_root =
+            compute_system_genesis_admission_receipt_root(&receipt).expect("receipt root");
+        (genesis, bundle, record_root, receipt_ref, receipt_root)
+    }
+
+    #[test]
+    fn sequence_zero_materialization_is_deterministic_typed_and_pre_activation() {
+        let (genesis, bundle, record_root, receipt_ref, receipt_root) =
+            valid_sequence_zero_inputs();
+        let first = compile_system_sequence_zero_plan(
+            &genesis,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect("valid M1.3 admission compiles into an M1.4 plan");
+        let second = compile_system_sequence_zero_plan(
+            &genesis,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect("same admission recompiles");
+        assert_eq!(first, second);
+        assert_eq!(
+            first.authority_effect["operation"],
+            "materialize_sequence_zero"
+        );
+        assert_eq!(first.authority_effect["activation_admitted"], false);
+        assert_eq!(first.authority_effect["runtime_effect_admitted"], false);
+        assert_eq!(
+            first.materialization_body["status"],
+            "materialized_pending_activation"
+        );
+        assert_eq!(first.materialization_body["sequence"], 0);
+        assert!(first.materialization_body["activation_receipt_ref"].is_null());
+        let compiled =
+            finalize_system_sequence_zero_materialization(&first, "2026-07-19T12:00:00Z")
+                .expect("materialization finalizes through the registered projection");
+        let serialized =
+            serde_json::to_value(&compiled.materialization).expect("projection serializes");
+        validate_architecture_contract(SEQUENCE_ZERO_MATERIALIZATION_CONTRACT_ID, &serialized)
+            .expect("final materialization satisfies the registered contract");
+        assert_eq!(
+            compiled.canonical_json,
+            serde_jcs::to_vec(&serialized).expect("independent canonicalization")
+        );
+    }
+
+    #[test]
+    fn sequence_zero_roots_are_derived_instead_of_copying_proposal_placeholders() {
+        let (genesis, bundle, record_root, receipt_ref, receipt_root) =
+            valid_sequence_zero_inputs();
+        let proposal_state = required_string(&genesis, "/cryptographic_origin/initial_state_root")
+            .expect("proposal state root");
+        let proposal_receipts =
+            required_string(&genesis, "/cryptographic_origin/initial_receipt_root")
+                .expect("proposal receipt root");
+        let plan = compile_system_sequence_zero_plan(
+            &genesis,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect("materialization plan");
+        assert_ne!(plan.initial_state_root, proposal_state);
+        assert_ne!(plan.initial_receipt_root, proposal_receipts);
+        assert_eq!(
+            plan.materialization_body["proposed_initial_state_root"],
+            proposal_state
+        );
+        assert_eq!(
+            plan.materialization_body["proposed_initial_receipt_root"],
+            proposal_receipts
+        );
+        assert_eq!(
+            plan.materialization_body
+                .pointer("/predecessor_transition_commitment_ref"),
+            Some(&Value::Null)
+        );
+    }
+
+    #[test]
+    fn sequence_zero_exact_component_change_moves_registry_state_and_transition_roots() {
+        let (genesis, bundle, record_root, receipt_ref, receipt_root) =
+            valid_sequence_zero_inputs();
+        let first = compile_system_sequence_zero_plan(
+            &genesis,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect("first plan");
+        let mut changed = genesis.clone();
+        changed["initial_component_bindings"]["goal_run_profiles"][0]["content_hash"] =
+            json!(format!("sha256:{}", "a".repeat(64)));
+        let second = compile_system_sequence_zero_plan(
+            &changed,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect("changed plan");
+        assert_ne!(
+            first.component_registry_root,
+            second.component_registry_root
+        );
+        assert_ne!(first.operation_commitment, second.operation_commitment);
+        assert_ne!(first.initial_state_root, second.initial_state_root);
+        assert_ne!(
+            first.transition_commitment_ref,
+            second.transition_commitment_ref
+        );
+    }
+
+    #[test]
+    fn sequence_zero_binds_a_content_addressed_deployment_candidate() {
+        let (genesis, bundle, record_root, receipt_ref, receipt_root) =
+            valid_sequence_zero_inputs();
+        let first = compile_system_sequence_zero_plan(
+            &genesis,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect("first deployment candidate");
+        assert_eq!(
+            first.materialization_body["deployment_profile_root"],
+            format!("sha256:{}", "d".repeat(64))
+        );
+
+        let mut changed = genesis.clone();
+        changed["initial_profile_refs"]["deployment_profile_ref"] = json!(format!(
+            "deployment-profile://acme/system-alpha/local/revision/sha256:{}",
+            "e".repeat(64)
+        ));
+        let second = compile_system_sequence_zero_plan(
+            &changed,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect("changed deployment candidate");
+        assert_eq!(
+            second.materialization_body["deployment_profile_root"],
+            format!("sha256:{}", "e".repeat(64))
+        );
+        assert_ne!(
+            first.profile_materialization_root,
+            second.profile_materialization_root
+        );
+        assert_ne!(first.operation_commitment, second.operation_commitment);
+        assert_ne!(first.initial_state_root, second.initial_state_root);
+        assert_ne!(
+            first.transition_commitment_ref,
+            second.transition_commitment_ref
+        );
+    }
+
+    #[test]
+    fn sequence_zero_refuses_an_unversioned_deployment_candidate() {
+        let (mut genesis, bundle, record_root, receipt_ref, receipt_root) =
+            valid_sequence_zero_inputs();
+        genesis["initial_profile_refs"]["deployment_profile_ref"] =
+            json!("deployment-profile://acme/system-alpha/local");
+        let error = compile_system_sequence_zero_plan(
+            &genesis,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect_err("M1.3 legacy ref cannot cross M1.4 without immutable identity");
+        assert!(error.contains("/revision/sha256:<64 lowercase hex>"));
+    }
+
+    #[test]
+    fn sequence_zero_refuses_duplicate_bindings_and_activated_genesis() {
+        let (genesis, bundle, record_root, receipt_ref, receipt_root) =
+            valid_sequence_zero_inputs();
+        let mut duplicate = genesis.clone();
+        let mut second = duplicate["initial_component_bindings"]["goal_run_profiles"][0].clone();
+        second["content_hash"] = json!(format!("sha256:{}", "a".repeat(64)));
+        duplicate["initial_component_bindings"]["goal_run_profiles"]
+            .as_array_mut()
+            .expect("goal-run profile bindings")
+            .push(second);
+        let error = compile_system_sequence_zero_plan(
+            &duplicate,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect_err("duplicate normalized identity must refuse");
+        assert!(error.contains("duplicate normalized component binding"));
+
+        let mut activated = genesis;
+        activated["status"] = json!("activated");
+        activated["activation_receipt_ref"] = json!(format!("receipt://{}", "9".repeat(64)));
+        activated["lifecycle_transition_refs"] =
+            json!(["lifecycle-transition://acme/system-alpha/activate"]);
+        let error = compile_system_sequence_zero_plan(
+            &activated,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect_err("activated genesis must refuse M1.4");
+        assert!(error.contains("authorized, non-activated genesis"));
+    }
+
     #[test]
     fn identical_input_produces_byte_identical_proposal_and_root() {
         let release = valid_release();
@@ -2064,7 +2867,7 @@ mod tests {
                 .proposal
                 .as_ref()
                 .map(|value| value.proposal_root.as_str()),
-            Some("sha256:1d337b534c9ee000ba3dafffb86b00ff727e0d58d05468595d037514e43c29c6")
+            Some("sha256:b361b4f59e3486dbae2204fd40fabf50956ba881e3aa0c8706a069f4605d6e72")
         );
         let compiled = first.proposal.as_ref().expect("valid compiled proposal");
         assert_eq!(
@@ -2073,7 +2876,7 @@ mod tests {
         );
         assert_eq!(
             genesis_operation_commitment(compiled),
-            "sha256:37b92d683d7b543a26e1e82ab80c54bb4609119047b0957437c52d14cc0bce9d",
+            "sha256:f25a67924f9ed21cd5a14a1fb2a4116eb7a365f047bb62fd09db39bf4ce946c0",
         );
         assert_eq!(
             first.authority_effect_boundary,

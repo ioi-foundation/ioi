@@ -6,7 +6,7 @@ Supersedes: product prose that collapses Hypervisor UI, Hypervisor Node, autonom
 Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: canonical
-Implementation status: mixed (the improvement-proposal plane, bounded GoalRun multi-HarnessInvocation slice, hosted OutcomeRoom graph through participation, frontier/claim, offers/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge are built or partial; M1.3 wallet-authorized one-time System genesis admission without activation is merged on current master. M1.4 active-profile materialization remains pending; local-agent pairing, active System lifecycle chains, federated admission, acceptance/verdict/settlement, and local operational-finality domains remain planned or speculative)
+Implementation status: mixed (the improvement-proposal plane, bounded GoalRun multi-HarnessInvocation slice, hosted OutcomeRoom graph through participation, frontier/claim, offers/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge are built or partial; M1.3 wallet-authorized one-time System genesis admission without activation is merged on current master. The held M1.4 cut freezes the exact pre-activation component/profile candidate set and daemon-derived sequence-zero operation, state, receipt, and transition roots under a distinct wallet.network authority crossing and mandatory Agentgres evidence. Activation, local-agent pairing, active System lifecycle chains, federated admission, acceptance/verdict/settlement, and local operational-finality domains remain planned or speculative)
 Last implementation audit: 2026-07-19
 
 ## Canonical Definition
@@ -125,9 +125,10 @@ IOINetworkEnrollmentEnvelope
 
 Package identity, system identity, and node identity are three different
 things. A `package://` release can instantiate many systems. Genesis mints one
-`system://` identity and activates the first admitted constitution and profile
-set. Nodes later join that system through governed membership. A release update
-is an upgrade to the same system; it is not another genesis. Package lifecycle
+`system://` identity and binds its initial constitution and profile candidates;
+a later governed transition activates the admitted set. Nodes later join that
+system through governed membership. A release update is an upgrade to the same
+system; it is not another genesis. Package lifecycle
 ends in release, promotion, deprecation, or revocation, while recovery,
 migration, succession, dissolution, and decommission belong only to the live
 system.

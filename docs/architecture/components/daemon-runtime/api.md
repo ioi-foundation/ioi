@@ -2937,14 +2937,16 @@ POST   /v1/hypervisor/budget/reconcile
 
 ## Autonomous-System Control APIs
 
-Current master mounts the narrow M1.3 genesis-admission owner routes. They
-authorize a System record without activating it; M1.4 active-profile
-materialization remains pending:
+Current master mounts the narrow M1.3 genesis-admission owner routes. The held
+M1.4 cut adds a separate pre-activation sequence-zero materialization route;
+neither crossing activates a System:
 
 ```http
 POST /v1/hypervisor/autonomous-systems
 GET  /v1/hypervisor/autonomous-systems?system_id={canonical_system_ref}
 GET  /v1/hypervisor/autonomous-systems/{canonical_record_key}
+POST /v1/hypervisor/autonomous-systems/{canonical_record_key}/sequence-zero-materialization
+GET  /v1/hypervisor/autonomous-systems/{canonical_record_key}/sequence-zero-materialization
 ```
 
 `POST /autonomous-systems` accepts the immutable package release, proposed
@@ -2957,6 +2959,23 @@ record, portable receipt, and mandatory Agentgres evidence. Exact GETs
 reconstruct and compare all local and Agentgres evidence before returning
 `200`; one-sided, malformed, or mismatched proof fails closed. The result is
 `authorized`, not active.
+
+`POST /{canonical_record_key}/sequence-zero-materialization` accepts only the
+expected M1.3 admission-record and admission-receipt roots plus an exact wallet
+approval grant. The daemon re-verifies the immutable M1.3 local and Agentgres
+evidence, derives every profile/component and sequence-zero root, resolves the
+same governing authority under the distinct
+`scope:autonomous_system.genesis_materialize` scope, durably prepares and
+statefully consumes that grant, and admits the materialization, receipt,
+component registry, and wallet-use evidence into four mandatory Agentgres
+domains. The M1.3 aggregate is never mutated. The materialization retains the
+M1.3 proposal's initial state/receipt roots only as named `proposed_initial_*`
+trace fields; its operational roots are independently derived. Because M1.3
+does not persist a deployment-profile body, this route additionally requires a
+content-addressed `deployment_profile_ref` ending in
+`/revision/sha256:<hash>` and binds that hash as
+`deployment_profile_root`; an unversioned legacy M1.3 ref refuses here. Exact
+GET reconstructs all evidence before returning it.
 
 The following wider bounded-System control routes remain target-only. They
 expose constitution, deployment, observed membership, failover, lifecycle, and
@@ -2983,12 +3002,13 @@ POST /v1/hypervisor/autonomous-systems/{system_id}/network-enrollment/transition
 POST /v1/hypervisor/autonomous-systems/{system_id}/network-service-invocations
 ```
 
-M1.4+ must derive the sequence-zero operation/transition/state/receipt
-commitments from canonical admitted inputs; callers never author commitment
-truth. Active-profile materialization and `initialize`/`activate` lifecycle
-transitions remain distinct future crossings. Genesis and activation receipts
-must remain distinct and bind the release, constitution, profiles, authority
-decision, initial state/receipt roots, and genesis transition commitment.
+M1.4 derives the sequence-zero operation/transition/state/receipt commitments
+from canonical admitted inputs; callers never author commitment truth. The
+result is `materialized_pending_activation`, not an active profile. Active
+profile admission and `initialize`/`activate` lifecycle transitions remain
+distinct future crossings. Genesis, materialization, and activation receipts
+remain distinct and bind their own exact release, constitution, profiles,
+authority decision, roots, and transition commitment.
 
 All mutation routes create typed proposals or lifecycle transitions; none
 directly mutates a constitution, membership role, writer epoch, ordering rule,
