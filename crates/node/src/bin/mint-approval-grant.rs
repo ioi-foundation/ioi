@@ -10,7 +10,8 @@
 //! bypass — the routes verify the grant exactly the way production does.
 //!
 //! Usage: `mint-approval-grant [--seed <hex32>] [--audience <hex32>]
-//! [--expires-at <ms>]`. Prints the grant as a single line of JSON on stdout.
+//! [--expires-at <ms>] [--max-usages <count>]`. Prints the grant as a single line
+//! of JSON on stdout.
 
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
@@ -64,6 +65,11 @@ fn main() {
         .unwrap_or_else(|| "1850000000000".to_string())
         .parse()
         .expect("--expires-at must be a u64 (ms)");
+    let max_usages: u32 = flag(&args, "--max-usages")
+        .unwrap_or_else(|| "1".to_string())
+        .parse()
+        .expect("--max-usages must be a u32");
+    assert!(max_usages > 0, "--max-usages must be positive");
 
     let private_key = Ed25519PrivateKey::from_bytes(&seed).expect("private key from seed");
     let keypair = Ed25519KeyPair::from_private_key(&private_key).expect("keypair from private key");
@@ -84,7 +90,7 @@ fn main() {
         nonce: [4u8; 32],
         counter: 1,
         expires_at,
-        max_usages: Some(1),
+        max_usages: Some(max_usages),
         window_id: None,
         pii_action: None,
         scoped_exception: None,

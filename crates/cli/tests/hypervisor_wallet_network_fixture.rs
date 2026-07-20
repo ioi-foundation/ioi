@@ -59,7 +59,10 @@ const COMMAND_SCHEMA_VERSION: u16 = 1;
 const MAX_COMMAND_BYTES: u64 = 64 * 1024;
 const MAX_PENDING_COMMANDS: usize = 64;
 const SYSTEM_GENESIS_SCOPE: &str = "scope:autonomous_system.genesis_admit";
+const SYSTEM_SEQUENCE_ZERO_SCOPE: &str = "scope:autonomous_system.genesis_materialize";
 const SYSTEM_GENESIS_APPROVAL_REASON: &str = "System genesis admission fixture approval";
+const SYSTEM_SEQUENCE_ZERO_APPROVAL_REASON: &str =
+    "System sequence-zero materialization fixture approval";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -73,6 +76,8 @@ struct FixtureCommand {
     request_hash: Option<String>,
     #[serde(default)]
     approval_grant: Option<ApprovalGrant>,
+    #[serde(default)]
+    target_scope: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -189,6 +194,7 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             "finding.*".to_string(),
             "verifier_challenge.*".to_string(),
             SYSTEM_GENESIS_SCOPE.to_string(),
+            SYSTEM_SEQUENCE_ZERO_SCOPE.to_string(),
         ],
     )
 }
@@ -385,13 +391,15 @@ fn existing_approval_matches(
     request_hash: [u8; 32],
     policy_hash: [u8; 32],
     grant: &ApprovalGrant,
+    target_scope: &str,
+    reason: &str,
 ) -> bool {
     approval.interception.session_id.is_none()
         && approval.interception.request_hash == request_hash
-        && approval.interception.target.canonical_label() == SYSTEM_GENESIS_SCOPE
+        && approval.interception.target.canonical_label() == target_scope
         && approval.interception.policy_hash == policy_hash
         && approval.interception.value_usd_micros.is_none()
-        && approval.interception.reason == SYSTEM_GENESIS_APPROVAL_REASON
+        && approval.interception.reason == reason
         && approval.interception.intercepted_at_ms.saturating_add(1) == approval.decided_at_ms
         && approval.decision == WalletApprovalDecisionKind::ApprovedByHuman
         && approval.approval_grant.as_ref() == Some(grant)
@@ -437,6 +445,19 @@ async fn submit_record_approval(
         "policy_hash",
     )?;
     let expected_authority = authority_for_principal(&command.principal_ref)?;
+    let target_scope = command
+        .target_scope
+        .as_deref()
+        .unwrap_or(SYSTEM_GENESIS_SCOPE);
+    let reason = match target_scope {
+        SYSTEM_GENESIS_SCOPE => SYSTEM_GENESIS_APPROVAL_REASON,
+        SYSTEM_SEQUENCE_ZERO_SCOPE => SYSTEM_SEQUENCE_ZERO_APPROVAL_REASON,
+        _ => {
+            return Err(anyhow!(
+                "record_approval target_scope is not one of the fixture's governed System scopes"
+            ))
+        }
+    };
     let grant = command
         .approval_grant
         .ok_or_else(|| anyhow!("record_approval requires approval_grant"))?;
@@ -465,7 +486,14 @@ async fn submit_record_approval(
     if let Some(existing_bytes) = query_state_key(rpc_addr, &approval_key).await? {
         let existing: WalletApprovalDecision =
             decode_state_value(&existing_bytes, "approval decision")?;
-        if existing_approval_matches(&existing, request_hash, policy_hash, &grant) {
+        if existing_approval_matches(
+            &existing,
+            request_hash,
+            policy_hash,
+            &grant,
+            target_scope,
+            reason,
+        ) {
             return Ok(request_hash);
         }
         return Err(anyhow!(
@@ -481,10 +509,10 @@ async fn submit_record_approval(
         interception: WalletInterceptionContext {
             session_id: None,
             request_hash,
-            target: ActionTarget::Custom(SYSTEM_GENESIS_SCOPE.to_string()),
+            target: ActionTarget::Custom(target_scope.to_string()),
             policy_hash,
             value_usd_micros: None,
-            reason: SYSTEM_GENESIS_APPROVAL_REASON.to_string(),
+            reason: reason.to_string(),
             intercepted_at_ms: decided_at_ms.saturating_sub(1),
         },
         decision: WalletApprovalDecisionKind::ApprovedByHuman,
@@ -751,6 +779,10 @@ fn fixture_command_contract_is_canonical_and_bounded() {
         .scope_allowlist
         .iter()
         .any(|scope| scope == SYSTEM_GENESIS_SCOPE));
+    assert!(host
+        .scope_allowlist
+        .iter()
+        .any(|scope| scope == SYSTEM_SEQUENCE_ZERO_SCOPE));
 }
 
 #[tokio::test]

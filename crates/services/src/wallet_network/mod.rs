@@ -97,6 +97,12 @@ pub struct ConsumeApprovalGrantForEffectParams {
     pub consumption_id: [u8; 32],
     /// Principal authority that must still resolve exactly on first consumption.
     pub expected_principal_authority: ExpectedPrincipalAuthorityBinding,
+    /// Exact approval target the effect expects. Omitted only by legacy callers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_target_label: Option<String>,
+    /// Exact grant-use ceiling the effect expects. Omitted only by legacy callers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_max_usages: Option<u32>,
 }
 
 /// Immutable receipt for one intent-bound approval-grant consumption.

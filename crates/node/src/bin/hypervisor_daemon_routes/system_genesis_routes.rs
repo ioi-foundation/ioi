@@ -30,7 +30,7 @@ use super::governed_authority::{
 };
 use super::DaemonState;
 
-type VErr = (String, String);
+pub(crate) type VErr = (String, String);
 
 const RECORD_DIR: &str = "autonomous-system-genesis-registry";
 const RECEIPT_DIR: &str = "autonomous-system-genesis-receipts";
@@ -65,6 +65,16 @@ struct CompiledAdmission {
     proposal_hash_profile: String,
     bundle_root: String,
     bundle_hash_profile: String,
+}
+
+/// One byte-reconstructed M1.3 admission whose local and Agentgres evidence agree exactly.
+///
+/// Callers must hold `SYSTEM_GENESIS_LOCK` while loading this projection so a startup
+/// completer cannot change the pending/converged view between the intent scan and slot reads.
+pub(crate) struct VerifiedSystemGenesisAdmission {
+    pub(crate) record_tail: String,
+    pub(crate) record: Value,
+    pub(crate) receipt: Value,
 }
 
 #[derive(Debug)]
@@ -228,6 +238,12 @@ fn wallet_consumption_coordinates(
             format!("wallet approval grant cannot be hashed ({error})"),
         )
     })?;
+    if grant.max_usages != Some(1) {
+        return Err(verr(
+            "system_genesis_authority_evidence_invalid",
+            "System genesis admission requires a separately consumed single-use grant",
+        ));
+    }
     let expected_principal_authority: ExpectedPrincipalAuthorityBinding =
         serde_json::from_value(authorized.evidence.authority_binding.clone()).map_err(|error| {
             verr(
@@ -262,6 +278,8 @@ fn wallet_consumption_coordinates(
             grant_hash,
             consumption_id,
             expected_principal_authority,
+            expected_target_label: Some(AUTHORITY.operation_scope("genesis_admit")),
+            expected_max_usages: Some(1),
         },
         consumption_ref,
     ))
@@ -1000,6 +1018,51 @@ fn verify_converged_admission(
     Ok((receipt, wallet_receipt))
 }
 
+pub(crate) fn load_verified_admission_by_key(
+    data_dir: &str,
+    tail: &str,
+) -> Result<Option<VerifiedSystemGenesisAdmission>, VErr> {
+    if !canonical_record_tail(tail) {
+        return Err(verr(
+            "system_genesis_key_invalid",
+            "the autonomous-System admission key must be 'asg_' plus 64 lowercase hex characters",
+        ));
+    }
+    let pending = scan_intents(data_dir)
+        .map_err(|message| verr("system_genesis_intent_unreadable", message))?
+        .iter()
+        .any(|(_, intent)| intent.get("record_tail").and_then(Value::as_str) == Some(tail));
+    if pending {
+        return Err(verr(
+            "system_genesis_pending_convergence",
+            format!("genesis admission at key '{tail}' has not crossed every durable boundary"),
+        ));
+    }
+    let Some(record) = load_record(data_dir, tail)
+        .map_err(|message| verr("system_genesis_registry_unreadable", message))?
+    else {
+        return match super::substrate_store::read_required_exact(data_dir, RECORD_DIR, tail) {
+            Ok(None) => Ok(None),
+            Ok(Some(_)) => Err(verr(
+                "system_genesis_agentgres_evidence_mismatch",
+                format!(
+                    "Agentgres contains '{RECORD_DIR}/{tail}' while the required local aggregate is absent"
+                ),
+            )),
+            Err(error) => Err(verr(
+                "system_genesis_agentgres_evidence_unreadable",
+                format!("Agentgres cannot prove absence for '{RECORD_DIR}/{tail}' ({error})"),
+            )),
+        };
+    };
+    let (receipt, _) = verify_converged_admission(data_dir, tail, &record)?;
+    Ok(Some(VerifiedSystemGenesisAdmission {
+        record_tail: tail.to_owned(),
+        record,
+        receipt,
+    }))
+}
+
 fn scan_records(data_dir: &str) -> Result<Vec<Value>, String> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, RECORD_DIR) {
         Ok(value) => value,
@@ -1486,7 +1549,6 @@ fn validate_wallet_consumption_receipt(
         )
     })?;
     let expected_receipt_hash: [u8; 32] = Sha256::digest(&canonical_receipt).into();
-    let max_usages = grant.max_usages.unwrap_or(1);
     let expected_scope = AUTHORITY.operation_scope("genesis_admit");
     let expected_ref = format!(
         "wallet.network://approval-effect-consumption/{}/{}",
@@ -1509,12 +1571,9 @@ fn validate_wallet_consumption_receipt(
         || wallet_receipt.grant_counter != grant.counter
         || wallet_receipt.grant_hash != grant_hash
         || wallet_receipt.consumed_at_ms > grant.expires_at
-        || wallet_receipt.usage_ordinal == 0
-        || wallet_receipt.usage_ordinal > max_usages
-        || wallet_receipt
-            .remaining_usages
-            .saturating_add(wallet_receipt.usage_ordinal)
-            != max_usages
+        || grant.max_usages != Some(1)
+        || wallet_receipt.usage_ordinal != 1
+        || wallet_receipt.remaining_usages != 0
     {
         return Err(verr(
             "system_genesis_wallet_consumption_invalid",
@@ -1541,6 +1600,15 @@ async fn consume_wallet_grant_for_intent(
                 ResolveError::Unavailable(message) => {
                     verr("system_genesis_wallet_consumption_unavailable", message)
                 }
+                ResolveError::Refused(message)
+                    if message.contains("approval_effect_expected_target_mismatch")
+                        || message.contains("approval_effect_expected_max_usages_mismatch") =>
+                {
+                    verr(
+                        "system_genesis_wallet_consumption_precondition_refused",
+                        message,
+                    )
+                }
                 ResolveError::Refused(message) => {
                     verr("system_genesis_wallet_consumption_refused", message)
                 }
@@ -1556,6 +1624,54 @@ async fn consume_wallet_grant_for_intent(
         &wallet_receipt,
     )?;
     Ok(wallet_receipt)
+}
+
+fn consume_unspent_precondition_intent_locked(
+    data_dir: &str,
+    tail: &str,
+    expected_intent: &Value,
+    wallet_consumption_tail: &str,
+) -> Result<(), VErr> {
+    let stored = load_intent(data_dir, tail)
+        .map_err(|message| verr("system_genesis_intent_unreadable", message))?
+        .ok_or_else(|| {
+            verr(
+                "system_genesis_pending_convergence",
+                "precondition-refused genesis intent vanished before cleanup",
+            )
+        })?;
+    if &stored != expected_intent {
+        return Err(verr(
+            "system_genesis_intent_unreadable",
+            "precondition-refused genesis intent changed before cleanup",
+        ));
+    }
+    if load_wallet_consumption_evidence(data_dir, wallet_consumption_tail)
+        .map_err(|message| verr("system_genesis_wallet_consumption_invalid", message))?
+        .is_some()
+    {
+        return Err(verr(
+            "system_genesis_pending_convergence",
+            "wallet-consumption evidence exists for a precondition-refused genesis intent",
+        ));
+    }
+    match super::substrate_store::read_required_exact(
+        data_dir,
+        CONSUMPTION_DIR,
+        wallet_consumption_tail,
+    ) {
+        Ok(None) => consume_intent(data_dir, tail),
+        Ok(Some(_)) => Err(verr(
+            "system_genesis_pending_convergence",
+            "Agentgres wallet-consumption evidence exists for a precondition-refused genesis intent",
+        )),
+        Err(error) => Err(verr(
+            "system_genesis_agentgres_evidence_unreadable",
+            format!(
+                "Agentgres cannot prove wallet-consumption absence before intent cleanup ({error})"
+            ),
+        )),
+    }
 }
 
 fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
@@ -1775,6 +1891,23 @@ pub(crate) async fn handle_admit(
     };
     let wallet_receipt = match consume_wallet_grant_for_intent(&reconstructed).await {
         Ok(value) => value,
+        Err(error) if error.0 == "system_genesis_wallet_consumption_precondition_refused" => {
+            let cleanup = {
+                let _plane = SYSTEM_GENESIS_LOCK
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                consume_unspent_precondition_intent_locked(
+                    &state.data_dir,
+                    &intent_tail,
+                    &intent,
+                    &reconstructed.wallet_consumption_tail,
+                )
+            };
+            if let Err(cleanup_error) = cleanup {
+                return classify(cleanup_error);
+            }
+            return classify(error);
+        }
         Err(error) => return classify(error),
     };
     if std::env::var("IOI_TEST_FORCE_SYSTEM_GENESIS_AFTER_WALLET_CONSUME")
@@ -1988,6 +2121,27 @@ pub(crate) async fn complete_governed_system_genesis_intents(data_dir: &str, max
             }
             Ok(None) => match consume_wallet_grant_for_intent(&reconstructed).await {
                 Ok(value) => value,
+                Err((code, message))
+                    if code == "system_genesis_wallet_consumption_precondition_refused" =>
+                {
+                    let _plane = SYSTEM_GENESIS_LOCK
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    match consume_unspent_precondition_intent_locked(
+                        data_dir,
+                        &tail,
+                        &intent,
+                        &reconstructed.wallet_consumption_tail,
+                    ) {
+                        Ok(()) => eprintln!(
+                            "SystemGenesis completer: '{tail}' discarded after wallet precondition refusal ({message})"
+                        ),
+                        Err((_, cleanup_message)) => eprintln!(
+                            "SystemGenesis completer: '{tail}' precondition cleanup failed ({cleanup_message}); retained"
+                        ),
+                    }
+                    continue;
+                }
                 Err((_, message)) => {
                     eprintln!(
                         "SystemGenesis completer: '{tail}' wallet consumption pending ({message}); retained"

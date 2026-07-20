@@ -220,6 +220,8 @@ fn effect_consume_params(
         grant_hash,
         consumption_id,
         expected_principal_authority: expected.clone(),
+        expected_target_label: None,
+        expected_max_usages: None,
     }
 }
 
@@ -573,6 +575,52 @@ fn record_approval_initializes_consumption_state_and_consumes_by_usage() {
     assert_eq!(exact_grant.grant_hash, grant_hash);
     assert_eq!(exact_grant.uses_consumed, 2);
     assert_eq!(exact_grant.remaining_usages, 0);
+}
+
+#[test]
+fn effect_consumption_preflights_target_and_usage_ceiling_before_mutation() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let request_hash = [0xadu8; 32];
+    let policy_hash = [0xaeu8; 32];
+    let (approver, _approval, grant_hash) = record_shared_budget_approval(
+        &service,
+        &mut state,
+        request_hash,
+        policy_hash,
+        [0xafu8; 32],
+        301,
+        2,
+    );
+    let binding =
+        install_effect_binding(&service, &mut state, &approver.authority, 1_850_000_000_000);
+    let mut params =
+        effect_consume_params(request_hash, grant_hash, [0xb0u8; 32], &binding.expected);
+
+    params.expected_target_label = Some("scope:autonomous_system.genesis_materialize".to_string());
+    params.expected_max_usages = Some(2);
+    let before = state.data.clone();
+    let error = consume_effect_at(&service, &mut state, &params, EFFECT_NOW_MS)
+        .expect_err("wrong target must refuse before consumption");
+    assert!(error.to_string().contains("expected target"));
+    assert_eq!(
+        state.data, before,
+        "wrong target must change no wallet state"
+    );
+
+    params.expected_target_label = Some(ActionTarget::NetFetch.canonical_label());
+    params.expected_max_usages = Some(1);
+    let error = consume_effect_at(&service, &mut state, &params, EFFECT_NOW_MS)
+        .expect_err("wrong use ceiling must refuse before consumption");
+    assert!(error.to_string().contains("expected ceiling"));
+    assert_eq!(
+        state.data, before,
+        "wrong use ceiling must change no wallet state"
+    );
+
+    params.expected_max_usages = Some(2);
+    consume_effect_at(&service, &mut state, &params, EFFECT_NOW_MS)
+        .expect("exact target and usage ceiling consume one use");
 }
 
 #[test]

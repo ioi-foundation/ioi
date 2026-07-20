@@ -37,6 +37,10 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-genesis-registry",
     "autonomous-system-genesis-receipts",
     "autonomous-system-genesis-authority-consumptions",
+    "autonomous-system-sequence-zero-materializations",
+    "autonomous-system-sequence-zero-materialization-receipts",
+    "autonomous-system-sequence-zero-component-registries",
+    "autonomous-system-sequence-zero-authority-consumptions",
 ];
 
 static HANDLE: OnceLock<Option<MuxHandle>> = OnceLock::new();
@@ -125,6 +129,26 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         "autonomous-system-genesis-authority-consumptions" => {
             unreachable!("wallet consumption identity is validated from its 32-byte field")
         }
+        "autonomous-system-sequence-zero-materializations" => (
+            "materialization_id",
+            format!(
+                "system-materialization://sequence-zero/sha256:{}",
+                record_id.strip_prefix("aszm_").unwrap_or("")
+            ),
+        ),
+        "autonomous-system-sequence-zero-materialization-receipts" => {
+            ("receipt_ref", format!("receipt://{record_id}"))
+        }
+        "autonomous-system-sequence-zero-component-registries" => (
+            "component_registry_ref",
+            format!(
+                "agentgres://object-set/autonomous-system-components/sha256:{}",
+                record_id.strip_prefix("aszcr_").unwrap_or("")
+            ),
+        ),
+        "autonomous-system-sequence-zero-authority-consumptions" => {
+            unreachable!("wallet consumption identity is validated from its 32-byte field")
+        }
         _ => unreachable!("required-admission domains are exhaustively matched"),
     }
 }
@@ -134,23 +158,37 @@ fn validate_required_identity(
     record_id: &str,
     record: &Value,
 ) -> std::io::Result<()> {
-    if record_dir == "autonomous-system-genesis-authority-consumptions" {
-        let Some(encoded_id) = record_id.strip_prefix("asgc_") else {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "required Agentgres wallet consumption key must start with 'asgc_'",
-            ));
-        };
-        if encoded_id.len() != 64
-            || !encoded_id
+    let required_prefix = match record_dir {
+        "autonomous-system-genesis-registry" => "asg_",
+        "autonomous-system-genesis-receipts" => "asgr_",
+        "autonomous-system-genesis-authority-consumptions" => "asgc_",
+        "autonomous-system-sequence-zero-materializations" => "aszm_",
+        "autonomous-system-sequence-zero-materialization-receipts" => "aszmr_",
+        "autonomous-system-sequence-zero-component-registries" => "aszcr_",
+        "autonomous-system-sequence-zero-authority-consumptions" => "aszmc_",
+        _ => unreachable!("required-admission domains are exhaustively matched"),
+    };
+    if !record_id.strip_prefix(required_prefix).is_some_and(|tail| {
+        tail.len() == 64
+            && tail
                 .bytes()
                 .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
-        {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "required Agentgres wallet consumption key must be 'asgc_' plus 64 lowercase hex characters",
-            ));
-        }
+    }) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!(
+                "required Agentgres key must be '{required_prefix}' plus 64 lowercase hex characters"
+            ),
+        ));
+    }
+    if matches!(
+        record_dir,
+        "autonomous-system-genesis-authority-consumptions"
+            | "autonomous-system-sequence-zero-authority-consumptions"
+    ) {
+        let encoded_id = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
         let consumption_id: [u8; 32] =
             serde_json::from_value(record.get("consumption_id").cloned().unwrap_or(Value::Null))
                 .map_err(|_| {
@@ -756,7 +794,8 @@ mod tests {
     use super::*;
 
     const REQUIRED_DOMAIN: &str = "autonomous-system-genesis-registry";
-    const REQUIRED_ID: &str = "sga_0123456789abcdef";
+    const REQUIRED_ID: &str =
+        "asg_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     const CONSUMPTION_DOMAIN: &str = "autonomous-system-genesis-authority-consumptions";
 
     fn required_record() -> Value {
@@ -901,5 +940,72 @@ mod tests {
             .kind(),
             std::io::ErrorKind::InvalidInput
         );
+    }
+
+    #[test]
+    fn sequence_zero_required_identities_bind_every_agentgres_key() {
+        let materialization_hash = "11".repeat(32);
+        let materialization_id = format!("aszm_{materialization_hash}");
+        validate_required_identity(
+            "autonomous-system-sequence-zero-materializations",
+            &materialization_id,
+            &json!({
+                "materialization_id": format!(
+                    "system-materialization://sequence-zero/sha256:{materialization_hash}"
+                )
+            }),
+        )
+        .unwrap();
+
+        let receipt_id = format!("aszmr_{}", "22".repeat(32));
+        validate_required_identity(
+            "autonomous-system-sequence-zero-materialization-receipts",
+            &receipt_id,
+            &json!({"receipt_ref": format!("receipt://{receipt_id}")}),
+        )
+        .unwrap();
+
+        let component_hash = "33".repeat(32);
+        let component_id = format!("aszcr_{component_hash}");
+        validate_required_identity(
+            "autonomous-system-sequence-zero-component-registries",
+            &component_id,
+            &json!({
+                "component_registry_ref": format!(
+                    "agentgres://object-set/autonomous-system-components/sha256:{component_hash}"
+                )
+            }),
+        )
+        .unwrap();
+
+        for (family, record_id, record) in [
+            (
+                "autonomous-system-sequence-zero-materializations",
+                format!("aszm_{}", "AA".repeat(32)),
+                json!({
+                    "materialization_id": format!(
+                        "system-materialization://sequence-zero/sha256:{}",
+                        "AA".repeat(32)
+                    )
+                }),
+            ),
+            (
+                "autonomous-system-sequence-zero-component-registries",
+                format!("aszcr_{}", "44".repeat(32)),
+                json!({
+                    "component_registry_ref": format!(
+                        "agentgres://object-set/autonomous-system-components/sha256:{}",
+                        "55".repeat(32)
+                    )
+                }),
+            ),
+        ] {
+            assert_eq!(
+                validate_required_identity(family, &record_id, &record)
+                    .unwrap_err()
+                    .kind(),
+                std::io::ErrorKind::InvalidInput,
+            );
+        }
     }
 }
