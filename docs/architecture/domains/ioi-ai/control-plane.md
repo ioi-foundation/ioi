@@ -6,7 +6,7 @@ entitlement projections, device, restore, publishing, console Environments
 views, and remote-runtime coordination boundaries.
 Supersedes: product prose that implies ioi.ai owns raw secrets, full traces, user workspaces, always-on execution, or marketplace operational truth.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: mixed (bounded GoalRun and the hosted Hypervisor
 OutcomeRoom object graph are partial; the ioi.ai Goal Space product,
@@ -25,6 +25,13 @@ Hypervisor Environments web-view, and remote-runtime coordination records
 assigned here.
 
 It is not the heavy agent runtime, credential vault, marketplace database, or canonical state store for all user work.
+
+An `ioi.ai` account is not required to install or operate the compatible local
+Hypervisor, Agentgres, package, locally permitted authority, and bounded-System
+path. `ioi.ai` is an optional managed coordination and account plane over that
+path, not its activation key. Account linkage, subscription entitlement, and
+runtime discovery do not constitute daemon admission, machine authority,
+canonical truth, custody, writer ownership, or state transfer.
 
 ## Public Umbrella Boundary
 
@@ -374,7 +381,11 @@ authority providers and local/domain governance authorize as required, with
 wallet.network mandatory for portable delegated authority and high-risk
 external effects; Agentgres records admitted truth.
 
-## Control-Plane Flow
+## Optional Connected Control-Plane Flow
+
+The following flow applies only after an operator explicitly connects a local
+or customer-controlled deployment. Local startup and operation do not begin
+with `ioi.ai` sign-in.
 
 ```text
 user signs in
@@ -609,33 +620,49 @@ selected Hypervisor Daemon runtime-node profile.
 ## Non-Negotiables
 
 1. ioi.ai must stay thin enough that users can remain local-first and sovereign.
-2. Restore must require wallet.network authority verification and Agentgres restore receipts.
-3. ioi.ai stores archive refs, private-state refs, and coordination metadata,
+2. Connecting ioi.ai grants no runtime or effect authority and transfers no
+   canonical state, custody, keys, credentials, package ownership, System
+   identity, or writer role; every managed service, data view, lease, and charge
+   is admitted separately.
+3. Disconnect or account revocation must leave locally owned Systems, packages,
+   Agentgres truth, receipts, restore material, and export paths operable within
+   their declared standalone/offline profile. Only explicitly selected managed
+   functions may degrade or stop.
+4. No local package, System, Session, GoalRun, AutomationRun, receipt, restore,
+   or export operation may require a Goal Space subscription merely because
+   ioi.ai can project or coordinate it. Local daemon admission may require an
+   online entitlement check only when the exact operation consumes a named paid
+   managed service.
+5. An ioi.ai-mediated restore must require wallet.network authority verification
+   and Agentgres restore receipts; a standalone restore uses the applicable
+   locally permitted authority provider and the same authority-versus-
+   authentication and receipt boundaries.
+6. ioi.ai stores archive refs, private-state refs, and coordination metadata,
    not raw sealed-state bytes or private user/app plaintext by default.
-4. ioi.ai does not replace aiagent.xyz, sas.xyz, wallet.network, Agentgres, storage backends, or Hypervisor Daemon runtime nodes.
-5. Remote compute entitlement must resolve to explicit runtime assignments, not ambient execution authority.
-6. Private Workspace/cTEE node status in ioi.ai is coordination metadata, not
+7. ioi.ai does not replace aiagent.xyz, sas.xyz, wallet.network, Agentgres, storage backends, or Hypervisor Daemon runtime nodes.
+8. Remote compute entitlement must resolve to explicit runtime assignments, not ambient execution authority.
+9. Private Workspace/cTEE node status in ioi.ai is coordination metadata, not
    proof that the control plane owns private execution or keys.
-7. Provider and environment status in ioi.ai is coordination metadata, not proof
+10. Provider and environment status in ioi.ai is coordination metadata, not proof
    that ioi.ai owns execution, authority, cTEE custody, Agentgres truth, or
    payload bytes.
-8. Connector/auth escalation is a handoff through Hypervisor surface contracts,
+11. Connector/auth escalation is a handoff through Hypervisor surface contracts,
    wallet.network authority, daemon admission, and Agentgres receipts; it is not
    a direct provider path.
-9. Learned conductors are bounded planning/routing advisors produced through
+12. Learned conductors are bounded planning/routing advisors produced through
    Foundry and approved data-use gates; they are not hidden ioi.ai authority.
-10. Marketplace workers that contribute to ioi.ai outcomes must preserve
+13. Marketplace workers that contribute to ioi.ai outcomes must preserve
     explainable routing and ContributionReceipt refs.
-11. The Goal Space subscription must not be implemented by pooling, sharing,
+14. The Goal Space subscription must not be implemented by pooling, sharing,
     browser-automating, or reselling named-user foundation-model seats as
     machine capacity.
-12. Included Work Credits and a Network/Open goal budget are distinct. Opening
+15. Included Work Credits and a Network/Open goal budget are distinct. Opening
     contributor scope must not silently spend the ordinary seat allowance or
     declassify data.
-13. Multi-model, multi-worker, multi-node, and multi-party are distinct
+16. Multi-model, multi-worker, multi-node, and multi-party are distinct
     disclosures. Only separate principals that retain authority, truth, risk,
     challenge, and settlement control count as independent parties.
-14. Goal Space background work must be graph-visible through participants,
+17. Goal Space background work must be graph-visible through participants,
     claims, leases, spend, evidence, blockers, and replay; chat or token streams
     alone are not sufficient operational UX.
 

@@ -53,7 +53,7 @@
         "selected-journey-step:9"
       ],
       "state": "open",
-      "summary": "Provider-neutral sign-in, passkey step-up, portable grant, and final-invoker revalidation are not terminal.",
+      "summary": "Deployment-local authentication and local-authority separation are not terminal end to end; the optional connected provider-neutral sign-in, passkey step-up, portable grant, and final-invoker revalidation path is also not terminal.",
       "type": "authority_path_unavailable"
     },
     {
@@ -1504,7 +1504,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "27520589f52af9e4b5b2dff6ea1c72a1c8ffe3465adbafecff12d1347f4b195a",
+  "build_fingerprint": "ffc244adbda8dc5a4540c6164c3d0a924bd7f98be1f941531343d5cb5a1b85d8",
   "counts": {
     "by_state": {
       "open": 19,

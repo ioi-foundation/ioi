@@ -584,6 +584,19 @@ Telemetry sampled for product improvement remains subject to the
 `InstitutionalLearningBoundaryProfile`; operational necessity does not grant
 training, distillation, cross-tenant, or provider-learning rights.
 
+A standalone deployment has no required telemetry, crash-reporting, support,
+license-heartbeat, or update-discovery egress. Each outbound diagnostic,
+profile, crash export, update check, or support bundle is separately declared
+and governed by information-flow and institutional-learning policy. Its
+absence cannot disable unrelated local work. An air-gapped deployment may
+import signed release material through the ordinary Change Plane; imported
+bytes still require the applicable verification, authority, admission,
+rollback, and receipt path before activation.
+
+The standalone startup, blocked-diagnostic, attach/detach, and dependency-
+closure consequences are specified by
+[`sovereign-local-completeness.md`](../../../conformance/hypervisor-core/sovereign-local-completeness.md).
+
 ## Conformance
 
 The canonical scheduled matrix is

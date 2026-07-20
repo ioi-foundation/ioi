@@ -13,7 +13,7 @@ Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-07-17.
+Last alignment pass: 2026-07-19.
 Doctrine status: canonical
 Implementation status: mixed (the existing Home, New Session, Projects,
 Automations, Applications, Sessions, owner-application, environment, and
@@ -139,6 +139,43 @@ infrastructure, cTEE/private workspaces, DePIN compute, model providers,
 workers, tools, and domain applications without surrendering runtime truth,
 authority, or capability supply to one vendor.
 ```
+
+## Standalone Local Completeness
+
+A Hypervisor App or CLI/headless client, Hypervisor Daemon, and embedded or
+local Agentgres form a first-class independently operable deployment posture.
+Within its declared capability, durability, custody, and assurance envelope,
+that posture must be able to bootstrap deployment-local identity and locally
+permitted authority, create or import a bounded System and its declared
+semantic contracts, run governed local or BYO workers, tools, and model routes,
+persist and inspect Agentgres truth and receipts, restart and replay, and
+perform verified backup, export, and restore without an `ioi.ai` account,
+IOI-managed control plane, marketplace, IOI Network enrollment, IOI L1, or an
+always-on IOI connection.
+
+Standalone does not mean unauthenticated: an exposed deployment still uses the
+fail-safe bootstrap and access contract owned by
+[`identity-access-and-metering.md`](./identity-access-and-metering.md).
+Authentication remains separate from the locally permitted authority provider
+and exact-effect daemon admission. It also does not mean feature parity with
+every connected deployment. A single-machine profile exposes its actual
+durability and failure domain and cannot claim automatic HA, portable-current
+revocation, public settlement, remote collaboration, provider non-learning, or
+offline authority for new external effects. Capabilities whose declared
+owners or dependencies are absent remain typed unavailable or degraded; they
+are never simulated as local success.
+
+Managed services may add explicitly selected placement, collaboration, backup,
+support, model supply, routing, assurance, or network capabilities. Connection
+alone cannot upload, own, meter, authorize, or complete a locally governed
+System. Hypervisor clients continue to resolve the same public semantic
+contracts across standalone and connected postures; capacity, availability,
+custody, and assurance differences remain explicit.
+
+The claim is gated by
+[`sovereign-local-completeness.md`](../../../conformance/hypervisor-core/sovereign-local-completeness.md);
+the contract currently defines target evidence and does not claim a shipped
+end-to-end standalone product.
 
 ## Hypervisor Lineage And Operator Entry Contract
 

@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-18",
-  "build_fingerprint": "27520589f52af9e4b5b2dff6ea1c72a1c8ffe3465adbafecff12d1347f4b195a",
+  "build_fingerprint": "ffc244adbda8dc5a4540c6164c3d0a924bd7f98be1f941531343d5cb5a1b85d8",
   "consumption_rule": "Evidence is current only when the read-only checker reproduces this fingerprint and every manifest hash.",
   "evidence_format": "ioi.m0.program_evidence_index.v1",
   "evidence_items": [

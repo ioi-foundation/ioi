@@ -6,14 +6,14 @@
       "baseline_id": "BASE-M0-PRODUCT",
       "blocker_ref": "BLK-M0-BASELINE-PRODUCT",
       "category": "product",
-      "cohort": "At least five first-time internal operators using only supported selected-profile product surfaces.",
+      "cohort": "At least five first-time internal operators using only supported selected-profile product surfaces, beginning in the sovereign-local lane.",
       "frozen_as_of": "2026-07-18",
       "frozen_threshold": {
         "median_time_to_first_valid_preview_minutes_max": 10,
         "median_time_to_genesis_minutes_max": 20,
         "unaided_terminal_completion_rate_min": 0.8
       },
-      "method": "Timestamp first eligible sign-in, first valid preview, genesis approval, effect review, terminal inspection, and replay; retain typed blockers.",
+      "method": "Timestamp first successful deployment-local authentication, first valid preview, genesis approval, effect review, terminal inspection, and replay; repeat with eligible connected sign-in only when the managed-optionality overlay is claimed, and retain typed blockers.",
       "observed_as_of": null,
       "observed_value": null,
       "status": "not_measured"
@@ -87,7 +87,7 @@
     {
       "blocker_id": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
       "state": "open",
-      "summary": "Provider-neutral sign-in, passkey step-up, portable grant, and final-invoker revalidation are not terminal.",
+      "summary": "Deployment-local authentication and local-authority separation are not terminal end to end; the optional connected provider-neutral sign-in, passkey step-up, portable grant, and final-invoker revalidation path is also not terminal.",
       "type": "authority_path_unavailable"
     },
     {
@@ -313,22 +313,22 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/execution-horizons.md",
-      "source_sha256": "539bb1839b7394e3f07c091a8285e353e301dccc26880291a12abf264c2b1adb"
+      "source_sha256": "cfeeb763e25cc7d77f76bb9e2c9af48dc364409c71dbadb161565ddf5e47b8de"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "50f3c6537202c7bdd935717c652ec35c463321d9ce1a81be3706737c77961a19"
+      "source_sha256": "f5452606cd09eaa78ed21ecd37dedbe3a4b72560510569b9d413403969506ed3"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "93a13aef5d46ce7a4f3e6259d8d23d37a699c6c4107d69dde6748212e7767deb"
+      "source_sha256": "b8304be81ad0b782da26c96c33cb39e518989e68fcc211e61c332d8b6f2b5b67"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "fe8d0ced5532db10d4306cdbc1e962612ba4f955bd3f795c6b40fdb03fce8cc6"
+      "source_sha256": "4f093cd5105b6407d2e3e08a74ccb20687db379efc87e29730f91e0367d2ecbc"
     },
     {
       "role": "landed owner canon",
@@ -363,7 +363,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/doctrine.md",
-      "source_sha256": "3cfca45acefd7bf6823bcf992c67fc78fcb8b6882ccc5a72605f37c005dba57a"
+      "source_sha256": "dc5ea983a16e6de175fb5cf7af25720ddec351ac723327287b3802da83b6ba1c"
     },
     {
       "role": "landed owner canon",
@@ -383,12 +383,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
-      "source_sha256": "ae5b9ff857331ed7c98356fe42f4abedafb93a3a8760b706112ae725cc43849c"
+      "source_sha256": "d07d0fbf6f072a5a288a4a07ab165f714a41706003f2251e013fc988b68c2748"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/providers-and-environments.md",
-      "source_sha256": "a3ed4badd668272d86c14ebdce7c37b0c94fea5caa77e62fce35b9a064d9a9f5"
+      "source_sha256": "e194a3bd1611dc62520b93588a2e29709caa00324d4dbd4817cf770fe42ab740"
     },
     {
       "role": "landed owner canon",
@@ -1502,7 +1502,7 @@
       "one immutable GoalRunProfile and durable GoalRun in an OutcomeRoom",
       "disclosed first-party worker roles plus an independent deterministic verifier",
       "one isolated sandbox repository and branch",
-      "provider-neutral account and low-risk product session with passkey-capable step-up",
+      "deployment-local identity and a low-risk local product session with locally permitted authority, plus an optional provider-neutral connected overlay with passkey-capable portable authority",
       "exact authority, revocation, IFC, budget, fence, idempotency, recovery, and receipt checks",
       "Agentgres operations, heads, roots, receipts, replay, evidence admission, and export",
       "private evaluation and model routes with measured internal cost only",
@@ -1538,7 +1538,12 @@
         "owner_doc": "docs/architecture/components/daemon-runtime/api.md"
       },
       {
-        "object_set": "Account identity, product session, approval, portable grant, revocation, and step-up",
+        "object_set": "Deployment-local identity, product access, account and entitlement boundaries, and metering posture",
+        "owner": "Hypervisor identity, access, and metering",
+        "owner_doc": "docs/architecture/components/hypervisor/identity-access-and-metering.md"
+      },
+      {
+        "object_set": "Connected product-session binding, portable approval and grant, revocation, and step-up",
         "owner": "wallet.network authority",
         "owner_doc": "docs/architecture/components/wallet-network/api-authority-scopes.md"
       },
@@ -1569,6 +1574,24 @@
       }
     ],
     "profile_id": "selected-minimum-l0-outcome-room-bounded-software-change",
+    "proof_lanes": [
+      {
+        "authority_posture": "deployment-local authentication remains distinct from locally permitted exact-effect authority; no portable delegated-authority claim",
+        "claim_requirement": "required for the minimum-L0 local-completeness claim and every stronger claim that depends on it",
+        "endpoint_posture": "all IOI-managed endpoints denied; loopback and declared local IPC allowed",
+        "lane_id": "sovereign_local_completeness",
+        "order": 1,
+        "starting_state": "fresh standalone deployment"
+      },
+      {
+        "authority_posture": "provider-neutral account authentication plus passkey-capable context-bound portable authority when connected policy requires it",
+        "claim_requirement": "required only for managed-optionality claims and claims that depend on managed attachment",
+        "connection_posture": "explicitly attach one named managed service, prove no implicit transfer or billing, then revoke or detach it",
+        "lane_id": "managed_optionality_overlay",
+        "order": 2,
+        "starting_state": "the same independently operable System after a passing sovereign-local lane"
+      }
+    ],
     "rollback_stop_rules": [
       "Stop on any hidden database edit, privileged one-off script, copied bearer authority, prompt-only transition, fabricated success, or manually reconstructed evidence chain.",
       "An unavailable owner step remains a typed blocker; compatibility output never substitutes for it.",
@@ -1590,7 +1613,7 @@
         ],
         "state": "unavailable",
         "step": 1,
-        "visible_action": "Continue with an eligible identity or passkey."
+        "visible_action": "Authenticate through deployment-local identity in the sovereign-local lane; repeat through an eligible provider-neutral identity or passkey only for the connected overlay."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -1664,7 +1687,7 @@
         ],
         "state": "unavailable",
         "step": 9,
-        "visible_action": "Unlock a scoped grant with a passkey when policy requires it."
+        "visible_action": "Approve through locally permitted authority in the sovereign-local lane; unlock a scoped portable grant with a passkey only when connected policy requires it."
       },
       {
         "blocker_ref": "BLK-M0-SELECTED-REPO-EFFECT",
