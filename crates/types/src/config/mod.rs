@@ -17,6 +17,10 @@ pub use consensus::*;
 pub mod validator_role;
 pub use validator_role::*;
 
+/// Stable startup error code for explicit wallet policies that predate effect-consumption v2.
+pub const WALLET_EFFECT_V2_CONFIG_MIGRATION_CODE: &str =
+    "required_config_migration:wallet_network.consume_approval_grant_for_effect@v2";
+
 /// Selects the underlying data structure for the state manager.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
@@ -619,6 +623,25 @@ impl WorkloadConfig {
     pub fn validate(&self) -> Result<(), String> {
         let needs_srs = matches!(self.state_tree, StateTreeType::Verkle)
             || matches!(self.commitment_scheme, CommitmentSchemeType::KZG);
+
+        if self
+            .service_policies
+            .get("wallet_network")
+            .is_some_and(|policy| {
+                policy
+                    .methods
+                    .contains_key("consume_approval_grant_for_effect@v1")
+                    && !policy
+                        .methods
+                        .contains_key("consume_approval_grant_for_effect@v2")
+            })
+        {
+            return Err(format!(
+                "{WALLET_EFFECT_V2_CONFIG_MIGRATION_CODE}: explicit wallet_network method maps \
+                 that expose consume_approval_grant_for_effect@v1 must add \
+                 consume_approval_grant_for_effect@v2 with the same permission before startup"
+            ));
+        }
 
         if needs_srs && self.srs_file_path.is_none() {
             return Err("Configuration Error: 'srs_file_path' is required when using Verkle trees or KZG commitments.".to_string());

@@ -774,6 +774,71 @@ fn effect_consumption_preflights_target_and_usage_ceiling_before_mutation() {
 }
 
 #[test]
+fn v1_consumed_receipt_replays_through_v2_byte_exact_and_refuses_wrong_expectations() {
+    let service = WalletNetworkService;
+    let mut state = MockState::default();
+    let request_hash = [0xb1; 32];
+    let policy_hash = [0xb2; 32];
+    let consumption_id = [0xb3; 32];
+    let (approver, _, grant_hash) = record_shared_budget_approval(
+        &service,
+        &mut state,
+        request_hash,
+        policy_hash,
+        [0xb4; 32],
+        302,
+        2,
+    );
+    let binding =
+        install_effect_binding(&service, &mut state, &approver.authority, 1_850_000_000_000);
+    let v1 = effect_consume_params(request_hash, grant_hash, consumption_id, &binding.expected);
+    consume_effect_at(&service, &mut state, &v1, EFFECT_NOW_MS)
+        .expect("v1 consumes the first shared-budget usage");
+
+    let receipt_key = approval_effect_consumption_receipt_key(&consumption_id);
+    let consumed_state = state.data.clone();
+    let receipt_bytes = state
+        .get(&receipt_key)
+        .expect("read v1 receipt")
+        .expect("v1 receipt");
+    let mut v2 = effect_consume_v2_params(
+        request_hash,
+        grant_hash,
+        consumption_id,
+        &binding.expected,
+        ActionTarget::NetFetch.canonical_label(),
+        2,
+    );
+    consume_effect_v2_at(&service, &mut state, &v2, EFFECT_NOW_MS + 1)
+        .expect("v2 replays the exact v1-consumed receipt");
+    assert_eq!(
+        state.data, consumed_state,
+        "cross-version replay must not rewrite any wallet state"
+    );
+    assert_eq!(
+        state.get(&receipt_key).expect("read replayed receipt"),
+        Some(receipt_bytes),
+        "v2 replay must preserve the v1 receipt bytes exactly"
+    );
+
+    v2.expected_target_label = "scope:autonomous_system.genesis_admit".to_string();
+    let error = consume_effect_v2_at(&service, &mut state, &v2, EFFECT_NOW_MS + 2)
+        .expect_err("wrong target cannot replay the v1 receipt");
+    assert!(error.to_string().contains("different target"));
+    assert_eq!(state.data, consumed_state);
+
+    v2.expected_target_label = ActionTarget::NetFetch.canonical_label();
+    v2.expected_max_usages = 1;
+    let error = consume_effect_v2_at(&service, &mut state, &v2, EFFECT_NOW_MS + 3)
+        .expect_err("wrong max_usages cannot replay the v1 receipt");
+    assert!(error.to_string().contains("different grant-use ceiling"));
+    assert_eq!(
+        state.data, consumed_state,
+        "refused cross-version replays must not mutate counters, receipts, or audit state"
+    );
+}
+
+#[test]
 fn legacy_and_effect_consumption_share_one_grant_usage_budget_in_either_order() {
     for (index, effect_first) in [false, true].into_iter().enumerate() {
         let case = if effect_first {
