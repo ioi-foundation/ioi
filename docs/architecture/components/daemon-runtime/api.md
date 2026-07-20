@@ -2893,7 +2893,9 @@ POST   /v1/hypervisor/budget/reconcile
 
 ## Autonomous-System Control APIs
 
-The held M1.3 cut mounts the narrow genesis-admission owner routes:
+Current master mounts the narrow M1.3 genesis-admission owner routes. They
+authorize a System record without activating it; M1.4 active-profile
+materialization remains pending:
 
 ```http
 POST /v1/hypervisor/autonomous-systems

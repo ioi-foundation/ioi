@@ -6,7 +6,7 @@ Supersedes: product prose that collapses Hypervisor UI, Hypervisor Node, autonom
 Superseded by: none.
 Last alignment pass: 2026-07-19.
 Doctrine status: canonical
-Implementation status: mixed (the improvement-proposal plane, bounded GoalRun multi-HarnessInvocation slice, hosted OutcomeRoom graph through participation, frontier/claim, offers/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge are built or partial; the held M1.3 cut adds wallet-authorized one-time System genesis admission without activation; local-agent pairing, active System profiles and lifecycle chains, federated admission, acceptance/verdict/settlement, and local operational-finality domains remain planned or speculative)
+Implementation status: mixed (the improvement-proposal plane, bounded GoalRun multi-HarnessInvocation slice, hosted OutcomeRoom graph through participation, frontier/claim, offers/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge are built or partial; M1.3 wallet-authorized one-time System genesis admission without activation is merged on current master. M1.4 active-profile materialization remains pending; local-agent pairing, active System lifecycle chains, federated admission, acceptance/verdict/settlement, and local operational-finality domains remain planned or speculative)
 Last implementation audit: 2026-07-19
 
 ## Canonical Definition

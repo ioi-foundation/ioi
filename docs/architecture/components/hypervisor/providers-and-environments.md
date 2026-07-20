@@ -723,7 +723,7 @@ HypervisorDevelopmentEnvironmentRecipeResolution
   development_environment_recipe_resolution_ref:
     development-environment-recipe-resolution://.../revision/...
   resolution_hash
-  disposition: resolved | blocked
+  disposition: resolved
   development_environment_recipe_ref
   development_environment_recipe_content_hash
   session_ref / environment_ref
@@ -745,14 +745,39 @@ HypervisorDevelopmentEnvironmentRecipeResolution
   cache_refs
   state_root_ref
   receipt_refs
-  blocked_reason?  # iff disposition = blocked
   runtimeTruthSource: daemon-runtime
 ```
 
-`resolution_hash` covers the canonical resolution payload through `cache_refs`
-while excluding `resolution_hash` itself and the later Agentgres root,
-receipts, and blocked projection. Those records bind the resolution ref and
+The owner allocates
+`development_environment_recipe_resolution_ref` independently before hashing.
+`resolution_hash` then covers the canonical resolved payload from
+`schema_version` through `cache_refs`, including that allocated ref and the
+exact nullable fields, while excluding only `resolution_hash` and the later
+Agentgres root and receipts. Those later records bind the resolution ref and
 hash externally.
+
+A blocked candidate is not a partially populated resolution. It emits a
+separate refusal:
+
+```text
+HypervisorDevelopmentEnvironmentRecipeResolutionRefusal
+  schema_version
+  refusal_ref
+  refusal_hash
+  development_environment_recipe_ref
+  development_environment_recipe_content_hash
+  session_ref / environment_ref
+  provider_candidate_ref?
+  reason_codes
+  evidence_refs
+  state_root_ref
+  receipt_refs
+```
+
+The owner allocates `refusal_ref` before hashing. `refusal_hash` covers the
+canonical refusal body through `evidence_refs`, including the allocated ref,
+and excludes only itself plus the later state root and receipts. A refusal
+never shares a ref or hash with a resolved decision.
 
 `HypervisorEnvironmentStartupPlan` is the immutable daemon-admitted bridge from
 that resolved recipe to one concrete startup attempt. It freezes what will
@@ -767,6 +792,8 @@ HypervisorEnvironmentStartupPlan
   plan_hash
   environment_ref
   session_ref?
+  system_ref?  # required when the environment serves an admitted System
+  work_subject_ref?  # required when the startup attempt is bound to work
   development_environment_recipe_ref
   development_environment_recipe_content_hash
   development_environment_recipe_resolution_ref
@@ -785,6 +812,10 @@ HypervisorEnvironmentStartupPlan
   connectivity_profile_ref
   resource_isolation_profile_ref
   custody_and_privacy_profile_refs
+  temporal_verification_profile_ref
+  authority_currentness_floor_ref
+  lifecycle_continuity_floor_ref?
+  ordering_finality_profile_ref?
   required_identity_context_ref
   required_authority_scope_refs
   resolved_authority_decision_refs
@@ -804,15 +835,57 @@ HypervisorEnvironmentStartupPlan
 
 The same recipe may resolve to different startup plans across local,
 customer-managed, and IOI-managed postures. Every lifecycle observation and
-startup receipt binds the exact plan ref and hash. `plan_hash` covers the
+startup receipt binds the exact plan ref and hash. The owner allocates
+`startup_plan_ref` independently before hashing. `plan_hash` covers the
 canonical immutable plan body from `schema_version` through
-`expected_receipt_contract_refs` while excluding `plan_hash` itself and the
-later admission decision, Agentgres state root, admission and lifecycle
-receipts, readiness observations, and refusal reason. Those derived records
-bind the plan ref and hash externally, so admission cannot create a
-receipt/hash cycle. A refused candidate remains a refused resolution or
-admission record and never becomes an admitted startup plan with an embedded
-`blocked_reason`.
+`expected_receipt_contract_refs`, including the allocated ref and every exact
+nullable System/work-subject, temporal, currentness-floor, continuity-floor,
+and ordering/finality field; it excludes only `plan_hash`. Admission,
+execution, Agentgres roots, lifecycle receipts, readiness observations, and
+refusal reasons are different records that bind the plan ref and hash, so they
+cannot create a receipt/hash cycle or mutate the plan.
+
+```text
+HypervisorEnvironmentStartupAdmission
+  schema_version
+  startup_admission_ref / startup_admission_hash
+  startup_plan_ref / startup_plan_hash
+  authority_decision_refs / lease_refs
+  temporal_and_continuity_evaluation_refs
+  budget_and_writer_fence_refs
+  state_root_ref / receipt_refs
+  decision: admitted
+
+HypervisorEnvironmentStartupExecution
+  schema_version
+  startup_execution_ref / startup_execution_hash
+  startup_plan_ref / startup_plan_hash
+  startup_admission_ref / startup_admission_hash
+  provider_operation_refs
+  readiness_observation_refs
+  resulting_environment_state_ref
+  state_root_ref / receipt_refs
+
+HypervisorEnvironmentStartupRefusal
+  schema_version
+  startup_refusal_ref / startup_refusal_hash
+  startup_plan_ref / startup_plan_hash
+  reason_codes
+  failed_precondition_refs
+  state_root_ref / receipt_refs
+```
+
+A derived-record owner allocates each admission, execution, or refusal ref
+independently before hashing. The corresponding hash covers the complete
+canonical record from `schema_version` through `decision`,
+`resulting_environment_state_ref`, or `failed_precondition_refs`, respectively,
+including the allocated record ref and exact plan binding. It excludes only
+itself plus the later `state_root_ref` and `receipt_refs`. Those Agentgres root
+and receipt records commit the derived ref and hash externally; they are never
+inputs to the hash they attest.
+
+A refused candidate remains a resolution refusal or startup-admission refusal;
+it never becomes an admitted startup plan with an embedded `blocked_reason`.
 
 Changed placement, provider adapter, authority decision or lease, secret
 capability, readiness, privacy, budget, or recovery resolution requires a
@@ -1610,8 +1683,12 @@ protocol authority provider, Agentgres admission, and receipt/replay semantics.
 It should include:
 
 ```text
+schema_version
 plan_ref
+plan_hash
 target_ref and observed_ref
+system_ref?
+work_subject_ref?
 plan_type
 steps and rollback_steps
 required ChangePlanGate refs
@@ -1619,10 +1696,12 @@ affected sessions, environments, providers, services, model routes, workers,
 connectors, secrets, ports, storage refs, and datasets
 maintenance_window_ref / suppression_window_ref
 authority_scope_refs
+temporal_verification_profile_ref
+authority_currentness_floor_ref
+lifecycle_continuity_floor_ref?
+ordering_finality_profile_ref?
 expected spend and risk posture
 privacy and cTEE posture
-state_root_ref and receipt_refs
-reason_when_blocked
 when placement or custody changes:
   source_authoritative_refs
   target_candidate_refs
@@ -1633,8 +1712,15 @@ when placement or custody changes:
     native_membership_quorum_finality_transition_ref
   rollback_window_ref
   source_retention_replica_archive_or_teardown_policy_ref
-  portability_receipt_refs
+  expected_portability_receipt_contract_refs
 ```
+
+The owner allocates `plan_ref` independently before hashing. `plan_hash` covers
+the complete canonical immutable plan body above, including the allocated ref,
+exact nullable System/work-subject and temporal/continuity fields, and every
+ordered step, gate, rollback, and migration input; it excludes only
+`plan_hash`. State roots, receipts, observations, execution output, and refusal
+reasons are never members of that preimage.
 
 Change plans may be proposed by Automations, Developer Workspace, Foundry, ioi.ai,
 provider views, scanner findings, policy engines, or human operators. They are
@@ -1644,6 +1730,50 @@ effect; wallet.network owns portable delegation and its designated spend,
 secret release, SCM-auth, access, declassification, emergency-override, and
 high-risk scopes. Agentgres records plan lifecycle, state roots, receipts,
 rollback outcomes, and replay projections.
+
+Proposal, admission, execution, and refusal stay distinct:
+
+```text
+HypervisorChangePlanAdmission
+  schema_version
+  change_plan_admission_ref / change_plan_admission_hash
+  plan_ref / plan_hash
+  admitted_gate_refs
+  authority_decision_refs / lease_refs
+  temporal_and_continuity_evaluation_refs
+  budget_and_writer_fence_refs
+  state_root_ref / receipt_refs
+  decision: admitted
+
+HypervisorChangePlanExecution
+  schema_version
+  change_plan_execution_ref / change_plan_execution_hash
+  plan_ref / plan_hash
+  change_plan_admission_ref / change_plan_admission_hash
+  applied_step_refs
+  resulting_state_refs
+  canary_or_validation_refs
+  rollback_or_reconciliation_refs
+  state_root_ref / receipt_refs
+
+HypervisorChangePlanRefusal
+  schema_version
+  change_plan_refusal_ref / change_plan_refusal_hash
+  plan_ref / plan_hash
+  reason_codes
+  failed_gate_refs
+  state_root_ref / receipt_refs
+```
+
+The owner allocates each admission, execution, or refusal ref independently
+before hashing. The corresponding hash covers the complete canonical record
+from `schema_version` through `decision`, `rollback_or_reconciliation_refs`, or
+`failed_gate_refs`, respectively, including the allocated record ref and exact
+plan binding. It excludes only itself plus the later `state_root_ref` and
+`receipt_refs`. Those Agentgres root and receipt records commit the derived ref
+and hash externally; they are never inputs to the hash they attest. Admission
+and execution never rewrite the immutable plan or launder an execution result
+into its proposal hash.
 
 Placement or custody migration preserves a `system_id` only when the applicable
 governed-System `LifecycleTransitionEnvelope.identity_continuity_decision_ref`

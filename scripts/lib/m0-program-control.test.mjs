@@ -1025,6 +1025,57 @@ test("PG and baseline incompleteness or fabricated zeros fail closed", () => {
   assert.equal(PG_IDS.length, 58);
 });
 
+test("proof lanes, lane bindings, and local identity ownership fail closed", () => {
+  expectProgramFailure(
+    (fixture) => fixture.selected_profile.proof_lanes.pop(),
+    /exactly two proof lanes|managed proof lane/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      for (const step of fixture.selected_profile.visible_terminal_journey) {
+        delete step.lane_bindings;
+      }
+    },
+    /exact required proof-lane binding set|omits required proof-lane binding|no journey binding coverage/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.visible_terminal_journey[12].lane_bindings.pop();
+    },
+    /exact required proof-lane binding set|omits required proof-lane binding managed-detach-and-continue/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.visible_terminal_journey[8].lane_bindings[0].lane_id =
+        "managed_optionality_overlay";
+    },
+    /wrong journey step or proof lane/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.visible_terminal_journey[0].lane_bindings[0].lane_id =
+        "unknown_lane";
+    },
+    /unknown proof lane/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.visible_terminal_journey[0].lane_bindings[0].blocker_ref =
+        null;
+    },
+    /lacks a typed blocker|neither selected routes nor a typed unavailable contract/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      const owner = fixture.selected_profile.object_owners.find((entry) => (
+        entry.object_set.startsWith("Deployment-local identity")
+      ));
+      owner.owner_doc = "docs/architecture/components/wallet-network/doctrine.md";
+    },
+    /lacks its canonical identity owner source/u,
+  );
+});
+
 test("bare invocation exits 2 with usage and writes nothing", () => {
   const before = hashEvidenceTree();
   const result = spawnSync(process.execPath, [cli], {

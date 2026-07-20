@@ -1,7 +1,7 @@
 {
   "architecture_or_production_capability_closure": false,
-  "as_of_date": "2026-07-18",
-  "build_fingerprint": "95da3de7aa3c1499e107f5177b82e4a94643f176f3c1a5aac6f1d620e6bfca6d",
+  "as_of_date": "2026-07-19",
+  "build_fingerprint": "5a72d5bb62e9298e50b61958ca56ac3b2247cbde605740a45dcce32ad9f3c66b",
   "census_counts": {
     "consequential": 962,
     "partial_consequential": 944,
@@ -14,9 +14,11 @@
     "all_58_pg_ids_mapped_once": true,
     "all_discovered_entries_explicitly_reviewed": true,
     "baselines_are_measured_or_honestly_named": true,
+    "deployment_local_identity_owner_source_validated": true,
     "every_selected_object_has_owner": true,
     "evidence_items_are_current_or_honestly_open": true,
     "legacy_sequencing_is_non_authoritative": true,
+    "proof_lanes_and_bindings_structurally_validated": true,
     "repository_validation_baseline_recorded": true,
     "selected_effect_has_leaf_or_unavailable_blocker": true
   },

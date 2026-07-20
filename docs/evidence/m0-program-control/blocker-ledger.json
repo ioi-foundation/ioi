@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-18",
+  "as_of_date": "2026-07-19",
   "blockers": [
     {
       "blocker_id": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -47,10 +47,12 @@
     },
     {
       "blocker_id": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
-      "reference_count": 2,
+      "reference_count": 4,
       "references": [
         "selected-journey-step:1",
-        "selected-journey-step:9"
+        "selected-journey-step:1:lane:sovereign_local_completeness",
+        "selected-journey-step:9",
+        "selected-journey-step:9:lane:sovereign_local_completeness"
       ],
       "state": "open",
       "summary": "Deployment-local authentication and locally permitted exact-effect authority remain separate in canon but are not terminal through the selected product and final-invoker path.",
@@ -58,8 +60,11 @@
     },
     {
       "blocker_id": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
-      "reference_count": 0,
-      "references": [],
+      "reference_count": 2,
+      "references": [
+        "selected-journey-step:1:lane:managed_optionality_overlay",
+        "selected-journey-step:9:lane:managed_optionality_overlay"
+      ],
       "state": "open",
       "summary": "The optional connected provider-neutral sign-in, passkey step-up, context-bound portable grant, and final-invoker revalidation path is not terminal.",
       "type": "authority_path_unavailable"
@@ -101,16 +106,20 @@
     },
     {
       "blocker_id": "BLK-M0-SELECTED-MANAGED-ATTACH-USE",
-      "reference_count": 0,
-      "references": [],
+      "reference_count": 1,
+      "references": [
+        "selected-journey-step:13:lane:managed_optionality_overlay"
+      ],
       "state": "open",
       "summary": "The optional managed overlay has no one selected route set that explicitly attaches a named service, admits one use, and reconstructs its binding, data-view, lease, RuntimeAssignment, custody, usage, charge, and receipt evidence.",
       "type": "managed_service_use_proof_unavailable"
     },
     {
       "blocker_id": "BLK-M0-SELECTED-MANAGED-DETACH",
-      "reference_count": 0,
-      "references": [],
+      "reference_count": 1,
+      "references": [
+        "selected-journey-step:13:lane:managed_optionality_overlay"
+      ],
       "state": "open",
       "summary": "The optional managed overlay has no one selected revoke or detach path proving that locally satisfied dependencies continue without hidden managed authority, custody, execution, or billing.",
       "type": "managed_detach_continuity_unavailable"
@@ -1538,7 +1547,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "95da3de7aa3c1499e107f5177b82e4a94643f176f3c1a5aac6f1d620e6bfca6d",
+  "build_fingerprint": "5a72d5bb62e9298e50b61958ca56ac3b2247cbde605740a45dcce32ad9f3c66b",
   "counts": {
     "by_state": {
       "open": 23,

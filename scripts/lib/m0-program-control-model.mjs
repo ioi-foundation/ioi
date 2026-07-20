@@ -31,7 +31,8 @@ export const EVIDENCE_DIR = "docs/evidence/m0-program-control";
 export const REVIEW_FILE = `${EVIDENCE_DIR}/reviewed-entry-lock.json`;
 export const PROGRAM_SOURCE_FILE = `${EVIDENCE_DIR}/program-control-source.json`;
 export const README_FILE = `${EVIDENCE_DIR}/README.md`;
-export const AS_OF_DATE = "2026-07-18";
+export const REVIEW_AS_OF_DATE = "2026-07-18";
+export const AS_OF_DATE = "2026-07-19";
 
 export const GENERATED_ARTIFACT_FILES = [
   "effect-census.json",
@@ -73,6 +74,38 @@ const REVIEW_DIMENSIONS = [
   "durable_evidence_idempotency_and_recovery",
   "selected_profile_applicability_and_typed_blocker",
 ];
+const REQUIRED_PROOF_LANE_BINDINGS = Object.freeze([
+  Object.freeze({
+    binding_id: "sovereign-local-identity",
+    lane_id: "sovereign_local_completeness",
+    step: 1,
+  }),
+  Object.freeze({
+    binding_id: "managed-connected-identity",
+    lane_id: "managed_optionality_overlay",
+    step: 1,
+  }),
+  Object.freeze({
+    binding_id: "sovereign-local-effect-authority",
+    lane_id: "sovereign_local_completeness",
+    step: 9,
+  }),
+  Object.freeze({
+    binding_id: "managed-portable-effect-authority",
+    lane_id: "managed_optionality_overlay",
+    step: 9,
+  }),
+  Object.freeze({
+    binding_id: "managed-attach-and-use",
+    lane_id: "managed_optionality_overlay",
+    step: 13,
+  }),
+  Object.freeze({
+    binding_id: "managed-detach-and-continue",
+    lane_id: "managed_optionality_overlay",
+    step: 13,
+  }),
+]);
 
 export const PG_IDS = [
   "PG-0.1", "PG-0.2", "PG-0.3",
@@ -2756,7 +2789,7 @@ export function createInitialReview(repoRoot, discoveredEntries) {
   return {
     evidence_format: "ioi.m0.reviewed_entry_lock.v1",
     lock_state: "worksheet_unreviewed",
-    as_of_date: AS_OF_DATE,
+    as_of_date: REVIEW_AS_OF_DATE,
     default_classification: "fail_closed_unclassified",
     discovery_scope: {
       active_surfaces: [
@@ -3162,7 +3195,7 @@ const BASELINES = [
     baseline_id: "BASE-M0-PRODUCT",
     category: "product",
     status: "not_measured",
-    frozen_as_of: AS_OF_DATE,
+    frozen_as_of: REVIEW_AS_OF_DATE,
     observed_as_of: null,
     cohort: "At least five first-time internal operators using only supported selected-profile product surfaces.",
     method: "Timestamp first eligible sign-in, first valid preview, genesis approval, effect review, terminal inspection, and replay; retain typed blockers.",
@@ -3179,7 +3212,7 @@ const BASELINES = [
     baseline_id: "BASE-M0-RELIABILITY",
     category: "reliability",
     status: "not_measured",
-    frozen_as_of: AS_OF_DATE,
+    frozen_as_of: REVIEW_AS_OF_DATE,
     observed_as_of: null,
     cohort: "Thirty selected-profile runs, including at least ten declared crash, restart, stale-authority, or ambiguous-effect injections.",
     method: "Replay owner records and exported evidence; independently reproduce verification and score every terminal, refused, recovered, or ambiguous effect.",
@@ -3197,7 +3230,7 @@ const BASELINES = [
     baseline_id: "BASE-M0-COST",
     category: "cost",
     status: "not_measured",
-    frozen_as_of: AS_OF_DATE,
+    frozen_as_of: REVIEW_AS_OF_DATE,
     observed_as_of: null,
     cohort: "Thirty successful selected-profile runs with route-attempt, tool, runtime, storage, and supplier-attributable measurements.",
     method: "Reconcile measured internal cost to each accepted run; report p50, p90, fallback amplification, and unattributed cost without treating accounting as cash movement.",
@@ -3214,7 +3247,7 @@ const BASELINES = [
     baseline_id: "BASE-M0-COMPREHENSION",
     category: "comprehension",
     status: "not_measured",
-    frozen_as_of: AS_OF_DATE,
+    frozen_as_of: REVIEW_AS_OF_DATE,
     observed_as_of: null,
     cohort: "At least five first-time internal operators with no implementation-guide access during the selected journey.",
     method: "Record exposed architecture terms, correct blocker interpretation, unsupported-success attempts, and a post-task comprehension check.",
@@ -3232,7 +3265,7 @@ const BASELINES = [
 const REPOSITORY_VALIDATION_BASELINES = [
   {
     baseline_id: "BASE-M0-REPOSITORY-RUSTFMT",
-    observed_as_of: AS_OF_DATE,
+    observed_as_of: REVIEW_AS_OF_DATE,
     command: "cargo fmt --all -- --check",
     status: "existing_failure",
     exit_code: 1,
@@ -3660,7 +3693,11 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
     "review lock has an unsafe or unknown evidence_format",
   );
   addError(errors, reviewLock?.lock_state === "reviewed", "review lock is not in reviewed state");
-  addError(errors, reviewLock?.as_of_date === AS_OF_DATE, "review lock has the wrong as_of_date");
+  addError(
+    errors,
+    reviewLock?.as_of_date === REVIEW_AS_OF_DATE,
+    "review lock has the wrong as_of_date",
+  );
   addError(
     errors,
     reviewLock?.default_classification === "fail_closed_unclassified",
@@ -3668,7 +3705,7 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
   );
   addError(
     errors,
-    reviewLock?.review_attestation?.reviewed_as_of === AS_OF_DATE,
+    reviewLock?.review_attestation?.reviewed_as_of === REVIEW_AS_OF_DATE,
     "review lock is missing its dated review attestation",
   );
   addError(
@@ -3798,7 +3835,11 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
       reviewed.review_origin === "explicit_m0_review",
       `${label} has heuristic or unresolved review provenance`,
     );
-    addError(errors, reviewed.reviewed_as_of === AS_OF_DATE, `${label} lacks a dated review`);
+    addError(
+      errors,
+      reviewed.reviewed_as_of === REVIEW_AS_OF_DATE,
+      `${label} lacks a dated review`,
+    );
     for (const field of [
       "kind",
       "surface",
@@ -4154,6 +4195,70 @@ export function validateProgramSource(
       `selected object owner ${index} lacks a live owner document`,
     );
   }
+  const localIdentityOwner = objectOwners.find((entry) => (
+    entry.object_set
+      === "Deployment-local identity, product access, account and entitlement boundaries, and metering posture"
+  ));
+  addError(
+    errors,
+    localIdentityOwner?.owner === "Hypervisor identity, access, and metering"
+      && localIdentityOwner?.owner_doc
+        === "docs/architecture/components/hypervisor/identity-access-and-metering.md",
+    "selected sovereign-local identity lane lacks its canonical identity owner source",
+  );
+
+  const proofLanes = selectedProfile?.proof_lanes ?? [];
+  addError(errors, proofLanes.length === 2, "selected profile must define exactly two proof lanes");
+  const proofLaneById = new Map();
+  for (const [index, lane] of proofLanes.entries()) {
+    addError(
+      errors,
+      isNonEmptyString(lane.lane_id),
+      `selected proof lane ${index + 1} lacks lane_id`,
+    );
+    if (proofLaneById.has(lane.lane_id)) {
+      errors.push(`selected proof lane duplicates ${lane.lane_id}`);
+    }
+    proofLaneById.set(lane.lane_id, lane);
+    addError(
+      errors,
+      lane.order === index + 1,
+      `selected proof lane ${lane.lane_id} has noncanonical order`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(lane.starting_state)
+        && isNonEmptyString(lane.claim_requirement)
+        && isNonEmptyString(lane.authority_posture),
+      `selected proof lane ${lane.lane_id} lacks its structural contract`,
+    );
+    addError(
+      errors,
+      Array.isArray(lane.required_evidence)
+        && lane.required_evidence.length > 0
+        && lane.required_evidence.every(isNonEmptyString)
+        && new Set(lane.required_evidence).size === lane.required_evidence.length,
+      `selected proof lane ${lane.lane_id} lacks unique required evidence`,
+    );
+  }
+  addError(
+    errors,
+    proofLanes[0]?.lane_id === "sovereign_local_completeness"
+      && proofLanes[0]?.prerequisite_lane_id === undefined,
+    "selected sovereign-local proof lane must be first and independent",
+  );
+  addError(
+    errors,
+    proofLanes[1]?.lane_id === "managed_optionality_overlay"
+      && proofLanes[1]?.prerequisite_lane_id === "sovereign_local_completeness",
+    "selected managed proof lane must be an ordered overlay on sovereign-local completeness",
+  );
+  addError(
+    errors,
+    selectedProfile?.proof_lane_validation_posture
+      === "structurally validated lane ids, order, prerequisites, required evidence, route selection or typed empty-route blockers, and deployment-local identity owner source; named blockers remain open until the product journeys pass",
+    "selected proof-lane validation posture is stale or overclaims closure",
+  );
 
   const exactEffect = selectedProfile?.exact_effect;
   const exactEffectReview = reviewByIdentity.get(exactEffect?.route_identity);
@@ -4187,6 +4292,13 @@ export function validateProgramSource(
 
   const journey = selectedProfile?.visible_terminal_journey ?? [];
   addError(errors, journey.length === 13, "selected visible journey must contain exactly 13 steps");
+  const requiredLaneBindingById = new Map(
+    REQUIRED_PROOF_LANE_BINDINGS.map((binding) => [binding.binding_id, binding]),
+  );
+  const observedLaneBindingIds = new Set();
+  const observedBindingCountByLane = new Map(
+    proofLanes.map((lane) => [lane.lane_id, 0]),
+  );
   for (const [index, step] of journey.entries()) {
     addError(errors, step.step === index + 1, `selected journey step ${index + 1} is missing`);
     addError(
@@ -4216,6 +4328,85 @@ export function validateProgramSource(
         `selected journey step ${index + 1} references unselected route ${identity}`,
       );
     }
+    const laneBindings = step.lane_bindings ?? [];
+    for (const [bindingIndex, binding] of laneBindings.entries()) {
+      const label = `selected journey step ${index + 1} lane binding ${bindingIndex + 1}`;
+      addError(errors, isNonEmptyString(binding.binding_id), `${label} lacks binding_id`);
+      addError(
+        errors,
+        proofLaneById.has(binding.lane_id),
+        `${label} references unknown proof lane ${binding.lane_id}`,
+      );
+      if (observedLaneBindingIds.has(binding.binding_id)) {
+        errors.push(`${label} duplicates binding_id ${binding.binding_id}`);
+      }
+      observedLaneBindingIds.add(binding.binding_id);
+      const requiredBinding = requiredLaneBindingById.get(binding.binding_id);
+      addError(
+        errors,
+        requiredBinding !== undefined,
+        `${label} is not a canonical required binding`,
+      );
+      addError(
+        errors,
+        requiredBinding?.step === step.step
+          && requiredBinding?.lane_id === binding.lane_id,
+        `${label} is assigned to the wrong journey step or proof lane`,
+      );
+      if (proofLaneById.has(binding.lane_id)) {
+        observedBindingCountByLane.set(
+          binding.lane_id,
+          (observedBindingCountByLane.get(binding.lane_id) ?? 0) + 1,
+        );
+      }
+      addError(
+        errors,
+        blockerById.has(binding.blocker_ref),
+        `${label} lacks a typed blocker`,
+      );
+      addError(
+        errors,
+        Array.isArray(binding.route_identities),
+        `${label} lacks route identities`,
+      );
+      for (const identity of binding.route_identities ?? []) {
+        addError(
+          errors,
+          reviewByIdentity.has(identity),
+          `${label} references undiscovered route ${identity}`,
+        );
+        addError(
+          errors,
+          reviewByIdentity.get(identity)?.selected_profile_applicability !== "not_selected",
+          `${label} references unselected route ${identity}`,
+        );
+      }
+      addError(
+        errors,
+        (binding.route_identities?.length ?? 0) > 0
+          || (step.state === "unavailable" && blockerById.has(binding.blocker_ref)),
+        `${label} has neither selected routes nor a typed unavailable contract`,
+      );
+    }
+  }
+  addError(
+    errors,
+    observedLaneBindingIds.size === REQUIRED_PROOF_LANE_BINDINGS.length,
+    "selected journey does not contain the exact required proof-lane binding set",
+  );
+  for (const requiredBinding of REQUIRED_PROOF_LANE_BINDINGS) {
+    addError(
+      errors,
+      observedLaneBindingIds.has(requiredBinding.binding_id),
+      `selected journey omits required proof-lane binding ${requiredBinding.binding_id}`,
+    );
+  }
+  for (const lane of proofLanes) {
+    addError(
+      errors,
+      (observedBindingCountByLane.get(lane.lane_id) ?? 0) > 0,
+      `selected proof lane ${lane.lane_id} has no journey binding coverage`,
+    );
   }
 
   const pgEntries = programSource?.pg_gate_map?.entries ?? [];
@@ -4276,7 +4467,7 @@ export function validateProgramSource(
     );
     addError(
       errors,
-      baseline.frozen_as_of === AS_OF_DATE,
+      baseline.frozen_as_of === REVIEW_AS_OF_DATE,
       `baseline ${baseline.baseline_id} was not frozen on the M0 baseline date`,
     );
     addError(
@@ -4490,6 +4681,13 @@ export function buildM0Artifacts(
     if (isNonEmptyString(step.blocker_ref)) {
       blockerUsage.get(step.blocker_ref)?.push(`selected-journey-step:${step.step}`);
     }
+    for (const binding of step.lane_bindings ?? []) {
+      if (isNonEmptyString(binding.blocker_ref)) {
+        blockerUsage.get(binding.blocker_ref)?.push(
+          `selected-journey-step:${step.step}:lane:${binding.lane_id}`,
+        );
+      }
+    }
   }
   for (const baseline of programSource.baselines) {
     if (isNonEmptyString(baseline.blocker_ref)) {
@@ -4609,6 +4807,17 @@ export function buildM0Artifacts(
       programSource.selected_profile.object_owners.every((entry) => (
         isNonEmptyString(entry.owner) && isNonEmptyString(entry.owner_doc)
       )),
+    deployment_local_identity_owner_source_validated:
+      programSource.selected_profile.object_owners.some((entry) => (
+        entry.object_set
+          === "Deployment-local identity, product access, account and entitlement boundaries, and metering posture"
+        && entry.owner === "Hypervisor identity, access, and metering"
+        && entry.owner_doc
+          === "docs/architecture/components/hypervisor/identity-access-and-metering.md"
+      )),
+    proof_lanes_and_bindings_structurally_validated:
+      programSource.selected_profile.proof_lane_validation_posture
+        === "structurally validated lane ids, order, prerequisites, required evidence, route selection or typed empty-route blockers, and deployment-local identity owner source; named blockers remain open until the product journeys pass",
     selected_effect_has_leaf_or_unavailable_blocker:
       isNonEmptyString(programSource.selected_profile.exact_effect.final_invoker_symbol)
       && (
