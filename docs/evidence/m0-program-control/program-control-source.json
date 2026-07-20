@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-18",
+  "as_of_date": "2026-07-19",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -342,22 +342,22 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "6aa92a28a5323e05b44194a975981617285c8b1cb2f013dd77792d82cc0bdd80"
+      "source_sha256": "194d58d56aa1bfab9a11097798da7fe576a7ffa05cc49c8a1a37c5fa178f6e4f"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "8e037c525e6b178b396a9cb6673275976f657ea6ac96a9ceef53054a31d7075f"
+      "source_sha256": "d84bee1b79a44033ecfb69badc64f971636af1b8055443d5cd760ee72b282d4d"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "4f093cd5105b6407d2e3e08a74ccb20687db379efc87e29730f91e0367d2ecbc"
+      "source_sha256": "0eae9cb06e3e6222117fc0e200d2e48be4a42926885fd6138877161ea1f32b6a"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/governed-autonomous-systems.md",
-      "source_sha256": "8fc653be26b31ddecefac16455ef7fcca60fb9566913d258e68423354534236d"
+      "source_sha256": "e12a014149dadb78b97b9d057384eb156c2756de7528cafdae34d409617d69cd"
     },
     {
       "role": "landed owner canon",
@@ -372,7 +372,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/api.md",
-      "source_sha256": "ce8a973623a5c57f07b565ac0846c33a9531d407ec1f456b960c18e5f24703bb"
+      "source_sha256": "c948773a2fdba4365fbfa4126d2cea01891d375834f47a4fc0807c8d8cc97467"
     },
     {
       "role": "landed owner canon",
@@ -387,7 +387,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/doctrine.md",
-      "source_sha256": "dc5ea983a16e6de175fb5cf7af25720ddec351ac723327287b3802da83b6ba1c"
+      "source_sha256": "3cfca45acefd7bf6823bcf992c67fc78fcb8b6882ccc5a72605f37c005dba57a"
     },
     {
       "role": "landed owner canon",
@@ -412,7 +412,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/providers-and-environments.md",
-      "source_sha256": "4edc214879c844ea49d1fe519f90940863556d8811b4e66cea0a6a537cf0f5c7"
+      "source_sha256": "c28b3b65c7c4a78914ee40adf64b2b3bf4b88ab03048d7786ef38fbcc9e09270"
     },
     {
       "role": "landed owner canon",
@@ -1635,7 +1635,7 @@
       "rule": "Additive proof-lane target overlay only; it does not rewrite the frozen 2026-07-18 M0 baselines.",
       "status": "not_measured"
     },
-    "proof_lane_validation_posture": "reviewed and fingerprinted evidence metadata only; the current M0 validator enforces the top-level 13-step journey but does not structurally validate proof_lanes, lane_bindings, or the deployment-local identity owner source, so the named local and connected authority blockers remain open",
+    "proof_lane_validation_posture": "structurally validated lane ids, order, prerequisites, required evidence, route selection or typed empty-route blockers, and deployment-local identity owner source; named blockers remain open until the product journeys pass",
     "proof_lanes": [
       {
         "authority_posture": "deployment-local authentication remains distinct from locally permitted exact-effect authority; no portable delegated-authority claim",
@@ -1688,6 +1688,7 @@
         "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
         "lane_bindings": [
           {
+            "binding_id": "sovereign-local-identity",
             "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
             "lane_id": "sovereign_local_completeness",
             "route_identities": [
@@ -1696,6 +1697,7 @@
             ]
           },
           {
+            "binding_id": "managed-connected-identity",
             "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
             "lane_id": "managed_optionality_overlay",
             "route_identities": []
@@ -1777,6 +1779,7 @@
         "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
         "lane_bindings": [
           {
+            "binding_id": "sovereign-local-effect-authority",
             "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
             "lane_id": "sovereign_local_completeness",
             "route_identities": [
@@ -1784,6 +1787,7 @@
             ]
           },
           {
+            "binding_id": "managed-portable-effect-authority",
             "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
             "lane_id": "managed_optionality_overlay",
             "route_identities": [
@@ -1836,11 +1840,13 @@
         "blocker_ref": "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
         "lane_bindings": [
           {
+            "binding_id": "managed-attach-and-use",
             "blocker_ref": "BLK-M0-SELECTED-MANAGED-ATTACH-USE",
             "lane_id": "managed_optionality_overlay",
             "route_identities": []
           },
           {
+            "binding_id": "managed-detach-and-continue",
             "blocker_ref": "BLK-M0-SELECTED-MANAGED-DETACH",
             "lane_id": "managed_optionality_overlay",
             "route_identities": []

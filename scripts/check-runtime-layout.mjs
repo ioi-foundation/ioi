@@ -1182,15 +1182,27 @@ assert(
   "hypervisor-approved-operation-admission",
     daemonRuntimeApiDoc.includes("POST /v1/hypervisor/approved-operations") &&
     daemonRuntimeApiDoc.includes(
-      "ioi.runtime.hypervisor_approved_operation_admission.v1",
+      "ioi.runtime.hypervisor_approved_operation_admission.v2",
     ) &&
     daemonRuntimeApiDoc.includes(
       "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
+    ) &&
+    daemonRuntimeApiDoc.includes("\"authority_provider_ref\": \"authority-provider:...\"") &&
+    daemonRuntimeApiDoc.includes("\"authority_approval_ref\": \"approval://authority/...\"") &&
+    daemonRuntimeApiDoc.includes("\"authority_lease_ref\": \"lease:authority/...\"") &&
+    daemonRuntimeApiDoc.includes(
+      "The live Rust v1 handler still requires `wallet_approval_ref` and",
+    ) &&
+    daemonRuntimeApiDoc.includes(
+      "wallet-specific precursor, not proof of the provider-neutral target",
+    ) &&
+    daemonRuntimeApiDoc.includes(
+      "authority requires the v2 successor path and must remain typed unavailable",
     ),
   [
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Approved Hypervisor operation admission must only admit daemon-authored session/provider/project/automation proposals after wallet approval, wallet lease, Agentgres operations, receipts, and state-root refs are bound, then emit a daemon-owned execution plan awaiting a real executor.",
+  "Approved Hypervisor operation admission must bind daemon-authored proposals to the owning provider-neutral authority approval and lease plus Agentgres evidence before emitting a daemon-owned execution plan; the live wallet-specific v1 precursor must remain explicitly partial.",
 );
 assert(
   "hypervisor-approved-operation-dispatch",

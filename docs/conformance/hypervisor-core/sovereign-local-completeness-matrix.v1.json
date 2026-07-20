@@ -937,12 +937,13 @@
       "expected_report_verdict": "pass",
       "required_evidence": [
         "lifecycle_continuity_denial_ref",
-        "fork_or_successor_identity_ref"
+        "fork_or_successor_disposition_ref"
       ],
       "required_reason_codes": ["system_identity_preservation_not_authorized"],
       "forbidden_observations": [
         "prior_system_id_preserved",
-        "identity_transfer_inferred_from_bytes_or_custody"
+        "identity_transfer_inferred_from_bytes_or_custody",
+        "fork_or_successor_identity_minted_without_separate_authority"
       ]
     },
     {

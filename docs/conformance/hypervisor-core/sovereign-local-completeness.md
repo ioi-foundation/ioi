@@ -260,11 +260,13 @@ rollback window, and records explicit source retention, replica, archive, or
 teardown disposition. An interrupted cutover retains source authority or
 enters typed reconciliation-required state; it never produces two active
 writers. `system_id` is preserved only under an applicable Lifecycle
-Continuity decision. A denied continuity decision requires a fork or successor
-identity even when the remaining migration plan is otherwise complete. A
-passing report is scoped only to its exact source/target runtime operators,
-placements, custody profiles, durability profile, and assurance profile; one
-local-source fixture cannot generalize across every permitted migration tuple.
+Continuity decision. A denied continuity decision records a fork-or-successor
+disposition even when the remaining migration plan is otherwise complete;
+minting that fork or successor identity is a separate authorized effect and is
+never implied by the denial itself. A passing report is scoped only to its exact
+source/target runtime operators, placements, custody profiles, durability
+profile, and assurance profile; one local-source fixture cannot generalize
+across every permitted migration tuple.
 
 The fixtures in this contract select a single-node `single_authority`
 ordering/finality profile, so their migration cases require exactly one current

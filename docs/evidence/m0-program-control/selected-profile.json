@@ -1,6 +1,6 @@
 {
-  "as_of_date": "2026-07-18",
-  "build_fingerprint": "95da3de7aa3c1499e107f5177b82e4a94643f176f3c1a5aac6f1d620e6bfca6d",
+  "as_of_date": "2026-07-19",
+  "build_fingerprint": "5a72d5bb62e9298e50b61958ca56ac3b2247cbde605740a45dcce32ad9f3c66b",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -126,7 +126,7 @@
       "rule": "Additive proof-lane target overlay only; it does not rewrite the frozen 2026-07-18 M0 baselines.",
       "status": "not_measured"
     },
-    "proof_lane_validation_posture": "reviewed and fingerprinted evidence metadata only; the current M0 validator enforces the top-level 13-step journey but does not structurally validate proof_lanes, lane_bindings, or the deployment-local identity owner source, so the named local and connected authority blockers remain open",
+    "proof_lane_validation_posture": "structurally validated lane ids, order, prerequisites, required evidence, route selection or typed empty-route blockers, and deployment-local identity owner source; named blockers remain open until the product journeys pass",
     "proof_lanes": [
       {
         "authority_posture": "deployment-local authentication remains distinct from locally permitted exact-effect authority; no portable delegated-authority claim",
@@ -179,6 +179,7 @@
         "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
         "lane_bindings": [
           {
+            "binding_id": "sovereign-local-identity",
             "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
             "lane_id": "sovereign_local_completeness",
             "route_identities": [
@@ -187,6 +188,7 @@
             ]
           },
           {
+            "binding_id": "managed-connected-identity",
             "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
             "lane_id": "managed_optionality_overlay",
             "route_identities": []
@@ -268,6 +270,7 @@
         "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
         "lane_bindings": [
           {
+            "binding_id": "sovereign-local-effect-authority",
             "blocker_ref": "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
             "lane_id": "sovereign_local_completeness",
             "route_identities": [
@@ -275,6 +278,7 @@
             ]
           },
           {
+            "binding_id": "managed-portable-effect-authority",
             "blocker_ref": "BLK-M0-SELECTED-IDENTITY-STEP-UP",
             "lane_id": "managed_optionality_overlay",
             "route_identities": [
@@ -327,11 +331,13 @@
         "blocker_ref": "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
         "lane_bindings": [
           {
+            "binding_id": "managed-attach-and-use",
             "blocker_ref": "BLK-M0-SELECTED-MANAGED-ATTACH-USE",
             "lane_id": "managed_optionality_overlay",
             "route_identities": []
           },
           {
+            "binding_id": "managed-detach-and-continue",
             "blocker_ref": "BLK-M0-SELECTED-MANAGED-DETACH",
             "lane_id": "managed_optionality_overlay",
             "route_identities": []
