@@ -305,7 +305,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 659,
+      "reference_count": 660,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -669,6 +669,7 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/automations/:id/webhook",
         "http:hypervisor-daemon:POST /v1/hypervisor/automations/:id/webhook-rotate",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
         "http:hypervisor-daemon:POST /v1/hypervisor/budget/reconcile",
         "http:hypervisor-daemon:POST /v1/hypervisor/capability-offers",
         "http:hypervisor-daemon:POST /v1/hypervisor/capability-offers/:id/transition",
@@ -1547,7 +1548,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "694b6469bae0e1bce1fafc5f2af5e16d94a474325a860fd5b813be910d83968f",
+  "build_fingerprint": "051a027b55e8a367f7ca2b45f1af71b3314eceb22d2a4564281eefd7e91263a7",
   "counts": {
     "by_state": {
       "open": 23,

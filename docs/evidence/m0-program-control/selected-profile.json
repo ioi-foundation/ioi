@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-19",
-  "build_fingerprint": "694b6469bae0e1bce1fafc5f2af5e16d94a474325a860fd5b813be910d83968f",
+  "build_fingerprint": "051a027b55e8a367f7ca2b45f1af71b3314eceb22d2a4564281eefd7e91263a7",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -460,7 +460,7 @@
         "claim_state": "verified_effect_leaf",
         "note": "Every admit and refusal branch calls emit_receipt, whose final leaf persists an authority-receipt record.",
         "resolution": "verified_effect_leaf",
-        "source_anchor_sha256": "4a4f7f76ab808b30628267f00a1e62c1008995498be56968e35a035171adc598",
+        "source_anchor_sha256": "7be02ed62b8643adcdb167c389261b81a5abebd224e7f0c49a438856faafe94d",
         "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
         "symbol": "persist_record[authority-receipts]"
       },
@@ -719,7 +719,7 @@
         "claim_state": "verified_boundary_not_downstream_effect",
         "note": "These exact effect calls are observed in the resolved wallet handler; downstream provider completion and production PEP closure are not claimed.",
         "resolution": "verified_service_effect_calls_not_production_pep",
-        "source_anchor_sha256": "4dfbccb568a5cb0c26743a1c80a164a18eae17e54809781e1fe2fd59b884e144",
+        "source_anchor_sha256": "8e5ba7f82bef966fe5802e58178800af8bb1b406fe65d8af45d869b18443ac74",
         "source_file": "crates/services/src/wallet_network/handlers/approval.rs",
         "symbol": "store_typed | state.insert | append_audit_event"
       },
