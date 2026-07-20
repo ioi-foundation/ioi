@@ -558,6 +558,20 @@ pub(crate) fn consume_approval_grant_for_effect(
             "grant_hash must not be all zeroes".to_string(),
         ));
     }
+    if params
+        .expected_target_label
+        .as_ref()
+        .is_some_and(|target| target.is_empty() || target.len() > 256)
+    {
+        return Err(TransactionError::Invalid(
+            "expected_target_label must contain 1..=256 bytes".to_string(),
+        ));
+    }
+    if params.expected_max_usages == Some(0) {
+        return Err(TransactionError::Invalid(
+            "expected_max_usages must be positive".to_string(),
+        ));
+    }
 
     let receipt_key = approval_effect_consumption_receipt_key(&params.consumption_id);
     if let Some(existing_bytes) = state.get(&receipt_key)? {
@@ -571,9 +585,13 @@ pub(crate) fn consume_approval_grant_for_effect(
             || existing.grant_hash != params.grant_hash
             || existing.consumption_id != params.consumption_id
             || existing.principal_authority != params.expected_principal_authority
+            || params
+                .expected_target_label
+                .as_deref()
+                .is_some_and(|target| existing.target.canonical_label() != target)
         {
             return Err(TransactionError::Invalid(
-                "approval effect consumption id is bound to a different request or grant, or a different principal authority".to_string(),
+                "approval effect consumption id is bound to a different request, grant, target, or principal authority".to_string(),
             ));
         }
         let grant_state: ApprovalGrantState =
@@ -582,6 +600,15 @@ pub(crate) fn consume_approval_grant_for_effect(
                     "approval grant state is missing for an existing effect receipt".to_string(),
                 )
             })?;
+        if params
+            .expected_max_usages
+            .is_some_and(|expected| grant_state.max_usages != expected)
+        {
+            return Err(TransactionError::Invalid(
+                "approval effect consumption id is bound to a different grant-use ceiling"
+                    .to_string(),
+            ));
+        }
         validate_effect_receipt(&existing, &grant_state)?;
         return Ok(());
     }
@@ -609,6 +636,24 @@ pub(crate) fn consume_approval_grant_for_effect(
     ) {
         return Err(TransactionError::Invalid(
             "approval decision is not approved".to_string(),
+        ));
+    }
+    let actual_target = grant_state.approval.interception.target.canonical_label();
+    if params
+        .expected_target_label
+        .as_deref()
+        .is_some_and(|expected| actual_target != expected)
+    {
+        return Err(TransactionError::Invalid(
+            "approval_effect_expected_target_mismatch: approval decision target does not match the effect's expected target".to_string(),
+        ));
+    }
+    if params
+        .expected_max_usages
+        .is_some_and(|expected| grant_state.max_usages != expected)
+    {
+        return Err(TransactionError::Invalid(
+            "approval_effect_expected_max_usages_mismatch: approval grant use ceiling does not match the effect's expected ceiling".to_string(),
         ));
     }
     let grant = grant_state

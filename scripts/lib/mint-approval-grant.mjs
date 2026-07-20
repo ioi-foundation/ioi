@@ -30,6 +30,9 @@ export function mintApprovalGrant(options = {}) {
   if (options.policyHash) args.push("--policy-hash", options.policyHash);
   if (options.requestHash) args.push("--request-hash", options.requestHash);
   if (options.audience) args.push("--audience", options.audience);
+  if (options.maxUsages !== undefined) {
+    args.push("--max-usages", String(options.maxUsages));
+  }
   const result = spawnSync(binary, args, { cwd: repoRoot, encoding: "utf8" });
   if (result.status !== 0) {
     throw new Error(`mint-approval-grant failed:\n${result.stdout}\n${result.stderr}`);

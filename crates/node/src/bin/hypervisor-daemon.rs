@@ -138,6 +138,8 @@ mod substrate_store;
 mod supervisor_routes;
 #[path = "hypervisor_daemon_routes/system_genesis_routes.rs"]
 mod system_genesis_routes;
+#[path = "hypervisor_daemon_routes/system_sequence_zero_routes.rs"]
+mod system_sequence_zero_routes;
 #[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
 mod transformation_run_routes;
 #[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
@@ -1946,6 +1948,11 @@ async fn async_main() -> anyhow::Result<()> {
             get(system_genesis_routes::handle_get_by_key),
         )
         .route(
+            "/v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
+            get(system_sequence_zero_routes::handle_get)
+                .post(system_sequence_zero_routes::handle_materialize),
+        )
+        .route(
             "/v1/hypervisor/work-results",
             get(work_result_routes::handle_work_results_list)
                 .post(work_result_routes::handle_work_result_create),
@@ -3070,11 +3077,20 @@ async fn async_main() -> anyhow::Result<()> {
                         &governed_data_dir,
                         governed_max_intents,
                     ),
-                    system_genesis_routes::complete_governed_system_genesis_intents(
-                        &governed_data_dir,
-                        governed_max_intents,
-                    ),
                 );
+                // Sequence-zero reconstruction consumes exact M1.3 evidence. Preserve that
+                // dependency explicitly so a boot with both intents converges genesis first and
+                // materialization second rather than requiring another restart.
+                system_genesis_routes::complete_governed_system_genesis_intents(
+                    &governed_data_dir,
+                    governed_max_intents,
+                )
+                .await;
+                system_sequence_zero_routes::complete_governed_system_sequence_zero_intents(
+                    &governed_data_dir,
+                    governed_max_intents,
+                )
+                .await;
                 // A participation terminal intent can materialize its separately authorized
                 // work-claim intent during the joined pass. Re-scan once in the same bounded
                 // post-readiness pass so one boot can clear the claim and then the room slot.

@@ -255,7 +255,13 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
     return response;
   }
 
-  async function recordApproval(principalRef, policyHash, requestHash, grant) {
+  async function recordApproval(
+    principalRef,
+    policyHash,
+    requestHash,
+    grant,
+    targetScope = "scope:autonomous_system.genesis_admit",
+  ) {
     if (!seeds.has(principalRef)) {
       throw new Error(`real wallet.network fixture has no approver for ${principalRef}`);
     }
@@ -276,6 +282,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
       policy_hash: normalizedPolicyHash,
       request_hash: normalizedRequestHash,
       approval_grant: grant,
+      target_scope: targetScope,
     });
     if (response.request_hash !== normalizedRequestHash) {
       throw new Error("wallet.network record_approval response named a different request hash");
