@@ -6525,7 +6525,7 @@ mod participation_tests {
         assert_eq!(memo_status, StatusCode::FORBIDDEN);
         assert!(memo_body.0["error"]["message"]
             .as_str()
-            .is_some_and(|message| message.contains("closed canonical typed projection")));
+            .is_some_and(|message| message.contains("contains undeclared field 'memo'")));
         assert!(
             !memo_body
                 .0

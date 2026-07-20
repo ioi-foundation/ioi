@@ -11,7 +11,6 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding;
 use ioi_services::wallet_network::{
     ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
     ExpectedPrincipalAuthorityBinding,
@@ -512,48 +511,86 @@ fn canonical_grant_ref(wallet_grant_ref: &str) -> String {
     )
 }
 
+fn reconstruct_sealed_authority_context(
+    receipt: &Value,
+    system_id: &str,
+    genesis_ref: &str,
+    governing_authority_ref: &str,
+    subject_ref: &str,
+    authority_effect: &Value,
+) -> Result<(String, String, String), VErr> {
+    let policy_hash = governed::decision_policy_hash_for_context(
+        AUTHORITY,
+        Governance::Host,
+        AuthorityPolicyContext::SystemGenesis {
+            system_id,
+            genesis_id: genesis_ref,
+        },
+        governing_authority_ref,
+        OP,
+    );
+    let effect_hash = governed::decision_effect_hash(AUTHORITY, authority_effect);
+    let request_hash = governed::decision_request_hash(
+        AUTHORITY,
+        Governance::Host,
+        subject_ref,
+        OP,
+        0,
+        governing_authority_ref,
+        &effect_hash,
+    );
+    if receipt.get("policy_hash").and_then(Value::as_str) != Some(policy_hash.as_str())
+        || receipt.get("input_hash").and_then(Value::as_str) != Some(request_hash.as_str())
+        || receipt.get("effect_hash").and_then(Value::as_str) != Some(effect_hash.as_str())
+        || receipt.get("authorized_effect") != Some(authority_effect)
+        || receipt.get("subject_ref").and_then(Value::as_str) != Some(subject_ref)
+    {
+        return Err(verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            "sealed policy, request, effect, or subject does not reconstruct from the exact M1.3 source and M1.4 plan",
+        ));
+    }
+    Ok((policy_hash, request_hash, effect_hash))
+}
+
 fn sealed_sequence_zero_authorized_decision(
     receipt: &Value,
+    source: &SourcePlan,
     resolved_at_ms: u64,
 ) -> Result<AuthorizedDecision, VErr> {
     let wallet_approval_grant = receipt
         .get("wallet_approval_grant")
         .cloned()
         .unwrap_or(Value::Null);
-    let grant: ApprovalGrant =
-        serde_json::from_value(wallet_approval_grant.clone()).map_err(|error| {
+    let (grant, canonical_grant) = governed::canonicalize_approval_grant(&wallet_approval_grant)
+        .map_err(|error| {
             verr(
                 "system_sequence_zero_receipt_evidence_mismatch",
                 format!("sealed wallet approval grant is malformed ({error})"),
             )
         })?;
-    let canonical_grant = serde_json::to_value(&grant).map_err(|error| {
-        verr(
-            "system_sequence_zero_receipt_evidence_mismatch",
-            format!("sealed wallet approval grant cannot be projected ({error})"),
+    let subject_ref = s(&source.plan.materialization_body, "materialization_id");
+    let (policy_hash, request_hash, effect_hash) = reconstruct_sealed_authority_context(
+        receipt,
+        &source.system_id,
+        &source.genesis_ref,
+        &source.governing_authority_ref,
+        &subject_ref,
+        &source.plan.authority_effect,
+    )?;
+    let binding =
+        ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding(
+            &canonical_grant,
+            Some(resolved_at_ms),
+            Some(&policy_hash),
+            Some(&request_hash),
         )
-    })?;
-    if canonical_grant != wallet_approval_grant {
-        return Err(verr(
-            "system_sequence_zero_receipt_evidence_mismatch",
-            "sealed wallet approval grant differs from its closed canonical typed projection",
-        ));
-    }
-    let policy_hash = s(receipt, "policy_hash");
-    let request_hash = s(receipt, "input_hash");
-    let effect_hash = s(receipt, "effect_hash");
-    let binding = verify_wallet_approval_grant_binding(
-        &canonical_grant,
-        Some(resolved_at_ms),
-        Some(&policy_hash),
-        Some(&request_hash),
-    )
-    .map_err(|error| {
-        verr(
-            "system_sequence_zero_receipt_evidence_mismatch",
-            format!("sealed wallet approval grant does not verify ({error})"),
-        )
-    })?;
+        .map_err(|error| {
+            verr(
+                "system_sequence_zero_receipt_evidence_mismatch",
+                format!("sealed wallet approval grant does not verify ({error})"),
+            )
+        })?;
     let portable_grant_ref = canonical_grant_ref(&binding.grant_ref);
     if receipt.get("authority_grant_id").and_then(Value::as_str)
         != Some(portable_grant_ref.as_str())
@@ -561,6 +598,39 @@ fn sealed_sequence_zero_authorized_decision(
         return Err(verr(
             "system_sequence_zero_receipt_evidence_mismatch",
             "portable authority_grant_id does not bind the retained signed wallet grant",
+        ));
+    }
+    let authority_binding = governed::canonicalize_authority_binding(
+        receipt
+            .get("principal_authority_binding")
+            .unwrap_or(&Value::Null),
+        resolved_at_ms,
+    )
+    .map_err(|error| {
+        verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            format!("sealed principal-authority binding is invalid ({error})"),
+        )
+    })?;
+    let expected_principal_authority: ExpectedPrincipalAuthorityBinding =
+        serde_json::from_value(authority_binding.clone()).map_err(|error| {
+            verr(
+                "system_sequence_zero_receipt_evidence_mismatch",
+                format!("sealed principal-authority binding cannot authorize wallet use ({error})"),
+            )
+        })?;
+    if expected_principal_authority.principal_ref != source.governing_authority_ref
+        || expected_principal_authority.required_scope != AUTHORITY.operation_scope(OP)
+        || grant.authority_id != expected_principal_authority.approval_authority.authority_id
+        || grant.approver_public_key != expected_principal_authority.approval_authority.public_key
+        || grant.approver_suite
+            != expected_principal_authority
+                .approval_authority
+                .signature_suite
+    {
+        return Err(verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            "sealed grant signer or principal-authority binding does not match the M1.3 governing authority and M1.4 scope",
         ));
     }
     let acting_authority_id = serde_json::to_value(grant.authority_id).map_err(|error| {
@@ -576,15 +646,9 @@ fn sealed_sequence_zero_authorized_decision(
             policy_hash,
             request_hash,
             effect_hash,
-            authorized_effect: receipt
-                .get("authorized_effect")
-                .cloned()
-                .unwrap_or(Value::Null),
+            authorized_effect: source.plan.authority_effect.clone(),
             wallet_approval_grant: canonical_grant,
-            authority_binding: receipt
-                .get("principal_authority_binding")
-                .cloned()
-                .unwrap_or(Value::Null),
+            authority_binding,
         },
         resolved_at_ms,
     })
@@ -646,6 +710,8 @@ fn build_receipt(
     created_at: &str,
 ) -> Result<Value, VErr> {
     let receipt_ref = format!("receipt://{receipt_tail}");
+    let materialization_output_hash =
+        super::outcome_room_routes::record_output_hash(materialization, &[]);
     let mut boundary_refs = profile_boundary_refs(materialization);
     boundary_refs.push(json!(format!(
         "system-genesis-admission://{}",
@@ -674,6 +740,10 @@ fn build_receipt(
         "op": "materialized",
         "attested_boundary_fact_refs": boundary_refs,
         "bound_facts": {
+            "materialization_id": materialization.get("materialization_id"),
+            "materialization_output_hash": materialization_output_hash,
+            "governing_authority_ref": source.governing_authority_ref,
+            "authority_effect_hash": authorized.evidence.effect_hash,
             "system_id": materialization.get("system_id"),
             "genesis_ref": materialization.get("genesis_ref"),
             "genesis_admission_record_root": materialization.get("genesis_admission_record_root"),
@@ -712,7 +782,7 @@ fn build_receipt(
             "network_effect_admitted": false,
             "runtime_effect_admitted": false
         },
-        "output_hash": super::outcome_room_routes::record_output_hash(materialization, &[]),
+        "output_hash": materialization_output_hash,
         "hash_scope_excludes": [],
         "assurance_posture": "sequence_zero_materialized_not_activated",
         "assurance_note": "governed materialization of immutable activation candidates and sequence-zero roots; active-profile admission, initialize, activation, live-chain, membership, network, and runtime effects remain unadmitted",
@@ -840,7 +910,11 @@ fn load_wallet_consumption(
         })
 }
 
-fn consume_intent(data_dir: &str, tail: &str) -> Result<(), VErr> {
+fn consume_intent(
+    data_dir: &str,
+    tail: &str,
+    remove_request_created_family: bool,
+) -> Result<(), VErr> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, INTENT_DIR) {
         Ok(value) => value,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
@@ -866,7 +940,17 @@ fn consume_intent(data_dir: &str, tail: &str) -> Result<(), VErr> {
             "system_sequence_zero_pending_convergence",
             format!("intent directory sync failed ({error})"),
         )
-    })
+    })?;
+    drop(directory);
+    if remove_request_created_family {
+        super::durable_fs::remove_empty_family_durable(data_dir, INTENT_DIR).map_err(|error| {
+            verr(
+                "system_sequence_zero_pending_convergence",
+                format!("request-created empty intent family cleanup failed ({error})"),
+            )
+        })?;
+    }
+    Ok(())
 }
 
 fn touched_refs(
@@ -1158,7 +1242,7 @@ fn reconstruct_artifacts(source: SourcePlan, receipt: Value) -> Result<Reconstru
             )
         })?;
     let created_at = ms_to_rfc3339(resolved_at_ms)?;
-    let authorized = sealed_sequence_zero_authorized_decision(&receipt, resolved_at_ms)?;
+    let authorized = sealed_sequence_zero_authorized_decision(&receipt, &source, resolved_at_ms)?;
     governed::validate_sealed_effect(AUTHORITY, &receipt, &source.plan.authority_effect)
         .map_err(|message| verr("system_sequence_zero_receipt_evidence_mismatch", message))?;
     let finalized = finalize_system_sequence_zero_materialization(&source.plan, &created_at)
@@ -1484,7 +1568,7 @@ fn complete_intent_locked(
             "test-forced interruption after materialization admission",
         ));
     }
-    consume_intent(data_dir, tail)?;
+    consume_intent(data_dir, tail, false)?;
     Ok(reconstructed)
 }
 
@@ -1534,6 +1618,7 @@ fn consume_unspent_precondition_intent_locked(
     tail: &str,
     expected_intent: &Value,
     wallet_consumption_tail: &str,
+    remove_request_created_family: bool,
 ) -> Result<(), VErr> {
     let stored = load_intent(data_dir, tail)
         .map_err(|message| verr("system_sequence_zero_intent_unreadable", message))?
@@ -1563,7 +1648,7 @@ fn consume_unspent_precondition_intent_locked(
         CONSUMPTION_DIR,
         wallet_consumption_tail,
     ) {
-        Ok(None) => consume_intent(data_dir, tail),
+        Ok(None) => consume_intent(data_dir, tail, remove_request_created_family),
         Ok(Some(_)) => Err(verr(
             "system_sequence_zero_pending_convergence",
             "Agentgres wallet-consumption evidence exists for a precondition-refused intent",
@@ -1726,7 +1811,7 @@ pub(crate) async fn handle_materialize(
         &intent_tail,
         &reconstructed.source,
     );
-    if let Err(error) = with_plane_locks(|| {
+    let remove_request_created_intent_family = match with_plane_locks(|| {
         let current = source_plan_locked(&state.data_dir, &source_record_tail)?;
         compare_expected_source(&current, &expected_record_root, &expected_receipt_root)?;
         if current.source_record != source.source_record
@@ -1739,10 +1824,23 @@ pub(crate) async fn handle_materialize(
             ));
         }
         preflight_locked(&state.data_dir, &current)?;
-        persist_intent(&state.data_dir, &intent_tail, &intent)
+        let family_preexisted =
+            match super::durable_fs::open_family_dir_pinned(&state.data_dir, INTENT_DIR) {
+                Ok(_) => true,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+                Err(error) => {
+                    return Err(verr(
+                        "system_sequence_zero_intent_unreadable",
+                        format!("intent family preflight failed ({error})"),
+                    ))
+                }
+            };
+        persist_intent(&state.data_dir, &intent_tail, &intent)?;
+        Ok(!family_preexisted)
     }) {
-        return classify(error);
-    }
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
     if std::env::var("IOI_TEST_FORCE_SYSTEM_SEQUENCE_ZERO_AFTER_PREPARE")
         .ok()
         .as_deref()
@@ -1782,6 +1880,7 @@ pub(crate) async fn handle_materialize(
                     &intent_tail,
                     &intent,
                     &reconstructed.wallet_consumption_tail,
+                    remove_request_created_intent_family,
                 )
             }) {
                 return classify(cleanup_error);
@@ -2041,11 +2140,34 @@ pub(crate) async fn complete_governed_system_sequence_zero_intents(
                 continue;
             }
         };
-        let wallet_receipt = match with_plane_locks(|| {
+        let existing_wallet_receipt = match with_plane_locks(|| {
             load_wallet_consumption(data_dir, &reconstructed.wallet_consumption_tail)
         }) {
-            Ok(Some(value)) => value,
-            Ok(None) => match consume_wallet_grant(&reconstructed).await {
+            Ok(value) => value,
+            Err(message) => {
+                eprintln!(
+                    "SystemSequenceZero completer: '{tail}' wallet evidence unreadable ({message}); retained"
+                );
+                continue;
+            }
+        };
+        if let Err(message) = governed::verify_retained_authority_binding_root(
+            &reconstructed
+                .receipt
+                .get("principal_authority_binding")
+                .cloned()
+                .unwrap_or(Value::Null),
+        ) {
+            eprintln!(
+                "SystemSequenceZero completer: '{tail}' retained binding proof invalid ({message}); retained"
+            );
+            continue;
+        }
+        // Wallet consumption is the replay oracle: an existing exact receipt is idempotent even
+        // after revocation, while a first consumption validates the current binding before spend.
+        let wallet_receipt = match existing_wallet_receipt {
+            Some(value) => value,
+            None => match consume_wallet_grant(&reconstructed).await {
                 Ok(value) => value,
                 Err((code, message))
                     if code == "system_sequence_zero_wallet_consumption_precondition_refused" =>
@@ -2056,6 +2178,7 @@ pub(crate) async fn complete_governed_system_sequence_zero_intents(
                             &tail,
                             &intent,
                             &reconstructed.wallet_consumption_tail,
+                            false,
                         )
                     }) {
                         Ok(()) => eprintln!(
@@ -2069,17 +2192,11 @@ pub(crate) async fn complete_governed_system_sequence_zero_intents(
                 }
                 Err((_, message)) => {
                     eprintln!(
-                            "SystemSequenceZero completer: '{tail}' wallet consumption unavailable ({message}); retained"
-                        );
+                        "SystemSequenceZero completer: '{tail}' wallet consumption unavailable ({message}); retained"
+                    );
                     continue;
                 }
             },
-            Err(message) => {
-                eprintln!(
-                    "SystemSequenceZero completer: '{tail}' wallet evidence unreadable ({message}); retained"
-                );
-                continue;
-            }
         };
         let result = with_plane_locks(|| {
             let stored = load_intent(data_dir, &tail)
@@ -2145,6 +2262,120 @@ mod system_sequence_zero_tests {
         let error = validate_request(&secret).unwrap_err();
         assert_eq!(error.0, "system_sequence_zero_sensitive_field_rejected");
         assert!(!error.1.contains("must-never-persist"));
+    }
+
+    #[test]
+    fn retained_authority_evidence_accepts_legacy_nulls_but_rejects_unknown_fields() {
+        let receipt: Value = serde_json::from_str(include_str!(
+            "../../../../../docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json"
+        ))
+        .expect("registered positive receipt fixture");
+
+        let mut legacy_grant = receipt["wallet_approval_grant"].clone();
+        for field in [
+            "window_id",
+            "pii_action",
+            "scoped_exception",
+            "review_request_hash",
+        ] {
+            legacy_grant[field] = Value::Null;
+        }
+        let (_, canonical_grant) =
+            governed::canonicalize_approval_grant(&legacy_grant).expect("legacy null ABI");
+        assert!(canonical_grant.is_object());
+
+        legacy_grant["forged_context"] = json!("claim inflation");
+        assert!(governed::canonicalize_approval_grant(&legacy_grant).is_err());
+
+        let mut nested_grant = receipt["wallet_approval_grant"].clone();
+        nested_grant["pii_action"] = json!("grant_scoped_exception");
+        nested_grant["scoped_exception"] = json!({
+            "exception_id": "exception-1",
+            "allowed_classes": ["email"],
+            "destination_hash": vec![7; 32],
+            "action_hash": vec![8; 32],
+            "expires_at": 1,
+            "max_uses": 1,
+            "justification_hash": vec![9; 32]
+        });
+        governed::canonicalize_approval_grant(&nested_grant)
+            .expect("closed nested grant projection");
+        nested_grant["scoped_exception"]["forged_context"] = json!("claim inflation");
+        assert!(governed::canonicalize_approval_grant(&nested_grant).is_err());
+
+        let mut authority_binding = receipt["principal_authority_binding"].clone();
+        authority_binding["forged_context"] = json!("claim inflation");
+        assert!(governed::canonicalize_authority_binding(
+            &authority_binding,
+            receipt["authority_resolved_at_ms"]
+                .as_u64()
+                .expect("fixture authority time"),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn sealed_authority_context_cannot_move_between_system_genesis_pairs() {
+        let authority_effect = json!({
+            "operation": "materialize_sequence_zero",
+            "materialization": {
+                "materialization_id": "system-materialization://sequence-zero/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "activation_admitted": false,
+            "runtime_effect_admitted": false
+        });
+        let subject_ref =
+            "system-materialization://sequence-zero/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let policy_hash = governed::decision_policy_hash_for_context(
+            AUTHORITY,
+            Governance::Host,
+            AuthorityPolicyContext::SystemGenesis {
+                system_id: "system://acme/system-a",
+                genesis_id: "genesis://acme/system-a/zero",
+            },
+            "org://acme/research",
+            OP,
+        );
+        let effect_hash = governed::decision_effect_hash(AUTHORITY, &authority_effect);
+        let request_hash = governed::decision_request_hash(
+            AUTHORITY,
+            Governance::Host,
+            subject_ref,
+            OP,
+            0,
+            "org://acme/research",
+            &effect_hash,
+        );
+        let receipt = json!({
+            "policy_hash": policy_hash,
+            "input_hash": request_hash,
+            "effect_hash": effect_hash,
+            "authorized_effect": authority_effect,
+            "subject_ref": subject_ref,
+        });
+
+        reconstruct_sealed_authority_context(
+            &receipt,
+            "system://acme/system-a",
+            "genesis://acme/system-a/zero",
+            "org://acme/research",
+            subject_ref,
+            &receipt["authorized_effect"],
+        )
+        .expect("matching context");
+        assert_eq!(
+            reconstruct_sealed_authority_context(
+                &receipt,
+                "system://acme/system-b",
+                "genesis://acme/system-b/zero",
+                "org://acme/research",
+                subject_ref,
+                &receipt["authorized_effect"],
+            )
+            .unwrap_err()
+            .0,
+            "system_sequence_zero_receipt_evidence_mismatch"
+        );
     }
 
     #[test]

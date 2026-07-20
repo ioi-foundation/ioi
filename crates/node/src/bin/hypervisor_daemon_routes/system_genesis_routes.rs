@@ -1207,7 +1207,11 @@ fn load_wallet_consumption_evidence(
     })
 }
 
-fn consume_intent(data_dir: &str, tail: &str) -> Result<(), VErr> {
+fn consume_intent(
+    data_dir: &str,
+    tail: &str,
+    remove_request_created_family: bool,
+) -> Result<(), VErr> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, INTENT_DIR) {
         Ok(value) => value,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
@@ -1228,7 +1232,17 @@ fn consume_intent(data_dir: &str, tail: &str) -> Result<(), VErr> {
             "system_genesis_pending_convergence",
             format!("intent directory sync failed ({error})"),
         )
-    })
+    })?;
+    drop(directory);
+    if remove_request_created_family {
+        super::durable_fs::remove_empty_family_durable(data_dir, INTENT_DIR).map_err(|error| {
+            verr(
+                "system_genesis_pending_convergence",
+                format!("request-created empty intent family cleanup failed ({error})"),
+            )
+        })?;
+    }
+    Ok(())
 }
 
 fn touched_refs(
@@ -1668,6 +1682,7 @@ fn consume_unspent_precondition_intent_locked(
     tail: &str,
     expected_intent: &Value,
     wallet_consumption_tail: &str,
+    remove_request_created_family: bool,
 ) -> Result<(), VErr> {
     let stored = load_intent(data_dir, tail)
         .map_err(|message| verr("system_genesis_intent_unreadable", message))?
@@ -1697,7 +1712,7 @@ fn consume_unspent_precondition_intent_locked(
         CONSUMPTION_DIR,
         wallet_consumption_tail,
     ) {
-        Ok(None) => consume_intent(data_dir, tail),
+        Ok(None) => consume_intent(data_dir, tail, remove_request_created_family),
         Ok(Some(_)) => Err(verr(
             "system_genesis_pending_convergence",
             "Agentgres wallet-consumption evidence exists for a precondition-refused genesis intent",
@@ -1754,7 +1769,7 @@ fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<
             "test-forced interruption after required Agentgres admission",
         ));
     }
-    consume_intent(data_dir, tail)
+    consume_intent(data_dir, tail, false)
 }
 
 pub(crate) async fn handle_admit(
@@ -1894,7 +1909,7 @@ pub(crate) async fn handle_admit(
         &intent_tail,
     );
 
-    {
+    let remove_request_created_intent_family = {
         let _plane = SYSTEM_GENESIS_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -1908,10 +1923,22 @@ pub(crate) async fn handle_admit(
         ) {
             return classify(error);
         }
+        let family_preexisted =
+            match super::durable_fs::open_family_dir_pinned(&state.data_dir, INTENT_DIR) {
+                Ok(_) => true,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+                Err(error) => {
+                    return classify(verr(
+                        "system_genesis_intent_unreadable",
+                        format!("intent family preflight failed ({error})"),
+                    ))
+                }
+            };
         if let Err(error) = persist_intent(&state.data_dir, &intent_tail, &intent) {
             return classify(error);
         }
-    }
+        !family_preexisted
+    };
     if std::env::var("IOI_TEST_FORCE_SYSTEM_GENESIS_AFTER_PREPARE")
         .ok()
         .as_deref()
@@ -1941,6 +1968,7 @@ pub(crate) async fn handle_admit(
                     &intent_tail,
                     &intent,
                     &reconstructed.wallet_consumption_tail,
+                    remove_request_created_intent_family,
                 )
             };
             if let Err(cleanup_error) = cleanup {
@@ -2172,6 +2200,7 @@ pub(crate) async fn complete_governed_system_genesis_intents(data_dir: &str, max
                         &tail,
                         &intent,
                         &reconstructed.wallet_consumption_tail,
+                        false,
                     ) {
                         Ok(()) => eprintln!(
                             "SystemGenesis completer: '{tail}' discarded after wallet precondition refusal ({message})"

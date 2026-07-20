@@ -261,6 +261,34 @@ pub(crate) fn unlink_at(
     Ok(())
 }
 
+/// Remove a record-family directory only when it is still empty, then make the parent-directory
+/// deletion durable. Callers use this to restore a pre-request data-dir shape when an append-only
+/// writer had to create a family before a fail-closed operation could prove its preconditions.
+///
+/// The family is pinned and enumerated before `AT_REMOVEDIR`; a nonempty or unreadable family
+/// refuses rather than deleting evidence. API-level callers must hold their owning plane lock
+/// while deciding that this request created the family and while invoking this helper.
+pub(crate) fn remove_empty_family_durable(
+    data_dir: &str,
+    family: &str,
+) -> std::io::Result<()> {
+    use std::os::unix::io::AsRawFd;
+    let root = open_dir_pinned(std::path::Path::new(data_dir))?;
+    let directory = open_dir_at(&root, family)?;
+    let entries = enumerate_pinned(&directory)?;
+    if !entries.is_empty() {
+        return Err(std::io::Error::from_raw_os_error(libc::ENOTEMPTY));
+    }
+    // Confirm the preceding slot unlink against the pinned family before removing its name.
+    directory.sync_all()?;
+    drop(directory);
+    let c = component_cstr(family)?;
+    if unsafe { libc::unlinkat(root.as_raw_fd(), c.as_ptr(), libc::AT_REMOVEDIR) } != 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    root.sync_all()
+}
+
 /// Walk (and in `create` mode, mkdirat) each PARENT component of `rel` under `root`,
 /// returning the pinned parent directory fd. A directory CREATED here is made durable by a
 /// checked fsync of the directory that received the new entry (#72 round 7 finding 1).
@@ -850,6 +878,35 @@ mod durable_fs_tests {
             "the post-readdir errno branch fired typed: {err}"
         );
         // The three real entries were NEVER served as a partial listing — the error carries none.
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn empty_family_removal_is_pinned_durable_and_refuses_nonempty_evidence() {
+        let dir = temp_dir("remove-empty-family");
+        let data_dir = dir.to_str().unwrap();
+
+        std::fs::create_dir(dir.join("new-intents")).unwrap();
+        remove_empty_family_durable(data_dir, "new-intents").unwrap();
+        assert!(
+            !dir.join("new-intents").exists(),
+            "a request-created empty family is removed"
+        );
+
+        std::fs::create_dir(dir.join("retained-intents")).unwrap();
+        std::fs::write(dir.join("retained-intents").join("intent.json"), b"{}").unwrap();
+        let error = remove_empty_family_durable(data_dir, "retained-intents").unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(libc::ENOTEMPTY));
+        assert_eq!(
+            std::fs::read(dir.join("retained-intents").join("intent.json")).unwrap(),
+            b"{}",
+            "nonempty evidence is preserved byte-exactly"
+        );
+
+        assert!(
+            remove_empty_family_durable(data_dir, "../outside").is_err(),
+            "the family boundary remains non-traversing"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
