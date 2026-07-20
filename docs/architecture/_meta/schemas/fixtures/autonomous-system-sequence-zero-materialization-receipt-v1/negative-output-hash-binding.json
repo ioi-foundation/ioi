@@ -2,7 +2,7 @@
   "schema_version": "ioi.autonomous-system-sequence-zero-materialization-receipt.v1",
   "receipt_id": "receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "receipt_ref": "receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "receipt_type": "AutonomousSystemSequenceZeroMaterializationReceipt",
+  "receipt_type": "autonomous_system_sequence_zero_materialization",
   "receipt_profile_ref": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
   "actor_id": "runtime://hypervisor-runtime",
   "subject_ref": "system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111",
@@ -73,7 +73,7 @@
     "runtime_effect_admitted": false
   },
   "input_hash": "sha256:1010101010101010101010101010101010101010101010101010101010101010",
-  "output_hash": "sha256:2020202020202020202020202020202020202020202020202020202020202020",
+  "output_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
   "policy_hash": "sha256:3030303030303030303030303030303030303030303030303030303030303030",
   "effect_hash": "sha256:4040404040404040404040404040404040404040404040404040404040404040",
   "authorized_effect": {

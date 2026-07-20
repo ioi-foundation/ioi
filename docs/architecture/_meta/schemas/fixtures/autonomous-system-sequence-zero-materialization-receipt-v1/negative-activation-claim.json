@@ -2,7 +2,7 @@
   "schema_version": "ioi.autonomous-system-sequence-zero-materialization-receipt.v1",
   "receipt_id": "receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "receipt_ref": "receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "receipt_type": "AutonomousSystemSequenceZeroMaterializationReceipt",
+  "receipt_type": "autonomous_system_sequence_zero_materialization",
   "receipt_profile_ref": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
   "actor_id": "runtime://hypervisor-runtime",
   "subject_ref": "system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111",
@@ -148,7 +148,7 @@
       "activation_receipt_ref": null,
       "status": "materialized_pending_activation"
     },
-    "activation_admitted": false,
+    "activation_admitted": true,
     "runtime_effect_admitted": false
   },
   "wallet_approval_grant": {

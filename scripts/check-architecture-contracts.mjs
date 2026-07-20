@@ -226,15 +226,23 @@ function checkPortableSchemaProfiles(value, at = "$") {
   if (!isObject(value)) return;
   if (
     value.type === "integer" &&
-    (!Number.isSafeInteger(value.minimum) ||
-      !Number.isSafeInteger(value.maximum) ||
-      value.minimum < 0 ||
-      value.maximum > Number.MAX_SAFE_INTEGER ||
-      value.minimum > value.maximum)
+    !(
+      (Array.isArray(value.enum) &&
+        value.enum.length > 0 &&
+        value.enum.every(
+          (candidate) =>
+            Number.isSafeInteger(candidate) &&
+            candidate >= -Number.MAX_SAFE_INTEGER &&
+            candidate <= Number.MAX_SAFE_INTEGER,
+        )) ||
+      (Number.isSafeInteger(value.minimum) &&
+        Number.isSafeInteger(value.maximum) &&
+        value.minimum >= -Number.MAX_SAFE_INTEGER &&
+        value.maximum <= Number.MAX_SAFE_INTEGER &&
+        value.minimum <= value.maximum)
+    )
   ) {
-    fail(
-      `${at}: integer schema is outside the portable unsigned JS-safe domain`,
-    );
+    fail(`${at}: integer schema is outside the portable JS-safe domain`);
   }
   if (
     value.format === "date-time" &&
@@ -311,10 +319,9 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
         Array.isArray(expression.paths) &&
         expression.paths.length === 2
       ) {
-        valid = Object.is(
-          valueAtPath(value, expression.paths[0]),
-          valueAtPath(value, expression.paths[1]),
-        );
+        valid =
+          canonicalJson(valueAtPath(value, expression.paths[0])) ===
+          canonicalJson(valueAtPath(value, expression.paths[1]));
       } else if (
         expression.operator === "array_field_equals" &&
         typeof expression.array_path === "string" &&
