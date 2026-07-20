@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -15,6 +16,8 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import grpc from "@grpc/grpc-js";
+import protoLoader from "@grpc/proto-loader";
 
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
@@ -22,7 +25,10 @@ import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-ne
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
+const VERIFIER_SOURCE = fileURLToPath(import.meta.url);
 const FIXTURES = join(REPO, "docs", "architecture", "_meta", "schemas", "fixtures");
+const IPC_PROTO_ROOT = join(REPO, "crates", "ipc", "proto");
+const PUBLIC_PROTO = join(IPC_PROTO_ROOT, "public", "v1", "public.proto");
 const SYSTEM_SEQUENCE_ZERO_SOURCE = join(
   REPO,
   "crates",
@@ -69,13 +75,122 @@ const EXACT_FALSE_NONCLAIMS = {
   runtime_effect: false,
   systems_product_surface: false,
 };
+const PARTIAL_PREFIX_CASES = [
+  {
+    name: "required-agentgres-durability",
+    env: { IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE: "1" },
+    interruptedCode: "system_sequence_zero_agentgres_admission_failed",
+    expectedCounts: [0, 0, 0, 1],
+  },
+  {
+    name: "after-component",
+    env: { IOI_TEST_FORCE_SYSTEM_SEQUENCE_ZERO_AFTER_COMPONENT: "1" },
+    interruptedCode: "system_sequence_zero_pending_convergence",
+    expectedCounts: [0, 0, 1, 1],
+  },
+  {
+    name: "after-receipt",
+    env: { IOI_TEST_FORCE_SYSTEM_SEQUENCE_ZERO_AFTER_RECEIPT: "1" },
+    interruptedCode: "system_sequence_zero_pending_convergence",
+    expectedCounts: [0, 1, 1, 1],
+  },
+  {
+    name: "after-materialization",
+    env: {
+      IOI_TEST_FORCE_SYSTEM_SEQUENCE_ZERO_AFTER_MATERIALIZATION: "1",
+    },
+    interruptedCode: "system_sequence_zero_pending_convergence",
+    expectedCounts: [1, 1, 1, 1],
+  },
+];
+const localCorruptionProofName = (family) =>
+  `GET PROOF: ${family} corruption refuses typed and exact bytes restore`;
+const agentgresCorruptionProofName = (family) =>
+  `GET PROOF: isolated ${family} Agentgres corruption refuses the M1.4 code and restores exactly`;
+const JOURNEY_PROOF_CENSUS = new Map([
+  [
+    "primary",
+    {
+      resources: 1,
+      proofs: [
+        "M1.3 AUTHORITY: a wallet-proven materialization-scope grant is discarded unspent",
+        "SOURCE: M1.3 local and Agentgres evidence is exact and non-vacuous before M1.4",
+        "INTAKE: callers cannot author operational roots",
+        "INTAKE: recursive sensitive keys refuse before any write",
+        "CAS: stale M1.3 source roots refuse before authority with zero mutation",
+        "AUTHORITY: a wallet-proven wrong-scope grant is discarded unspent with zero mutation",
+        "PREFLIGHT: malformed occupied record slots refuse as uncertain evidence, never ordinary completion",
+        "AUTHORITY: materialization has a distinct real-wallet scope and zero-write challenge",
+        "AUTHORITY: unsigned fields outside the closed typed grant projection refuse with zero evidence",
+        "AUTHORITY: same-hash foreign signer refuses with zero mutation",
+        "AUTHORITY: a validly signed multi-use grant refuses before mutation",
+        "CONCURRENCY: twelve exact requests linearize to one materialization",
+        "ROOTS: all six sequence-zero commitments recompute independently from M1.3 truth",
+        "TRACE: proposal roots remain explicit history and never become operational roots",
+        "RECEIPT: the live durable receipt conforms to the closed portable M1.4 profile",
+        "GET PROOF: all four local and Agentgres families equal the POST evidence exactly",
+        "SOURCE IMMUTABILITY: M1.3 bytes and Agentgres heads are unchanged",
+        "DURABILITY: every M1.4 response has one exact local record and non-vacuous Agentgres proof",
+        ...MATERIALIZATION_FAMILIES.map(localCorruptionProofName),
+        ...MATERIALIZATION_FAMILIES.map(agentgresCorruptionProofName),
+      ],
+    },
+  ],
+  [
+    "wallet-replay",
+    {
+      resources: 1,
+      proofs: [
+        "REPLAY PREPARE: interruption after wallet consumption retains only the durable intent",
+        "REPLAY: an already-consumed grant converges after binding revocation without re-authoring",
+      ],
+    },
+  ],
+  [
+    "partial-prefix-replay",
+    {
+      resources: PARTIAL_PREFIX_CASES.length,
+      proofs: PARTIAL_PREFIX_CASES.flatMap(({ name }) => [
+        `PREFIX ${name}: partial evidence stays non-servable with its replay anchor`,
+        `PREFIX ${name}: restart converges exactly once without another authority use`,
+      ]),
+    },
+  ],
+  [
+    "dependency-ordered-replay",
+    {
+      resources: 1,
+      proofs: [
+        "DEPENDENCY PREPARE: M1.3 can retain a fully admitted replay anchor",
+        "DEPENDENCY REPLAY: one boot converges M1.3 before its M1.4 successor",
+      ],
+    },
+  ],
+  [
+    "unconsumed-revocation",
+    {
+      resources: 1,
+      proofs: [
+        "REPLAY PRE-AUTHORITY: interruption after prepare retains an unconsumed intent only",
+        "REPLAY AUTHORITY: an unconsumed grant cannot cross a revoked binding on restart",
+      ],
+    },
+  ],
+]);
 
 const results = [];
-const ownedDataDirs = new Set();
+const ownedDataDirs = new Map();
 const executedJourneys = [];
+let activeJourney = null;
+let publicApiConstructor;
 
 function ok(name, pass, detail = "") {
-  results.push({ name, pass: Boolean(pass), detail });
+  results.push({
+    journey: activeJourney || "verifier",
+    name,
+    pass: Boolean(pass),
+    detail,
+  });
   console.log(`${pass ? "PASS" : "FAIL"}: ${name}${detail ? ` - ${detail}` : ""}`);
 }
 
@@ -86,6 +201,109 @@ function requireValue(value, message) {
 
 function clone(value) {
   return structuredClone(value);
+}
+
+function createOwnedDataDir(prefix) {
+  requireValue(activeJourney, "verifier-owned data directories require an active journey");
+  const dataDir = mkdtempSync(join(tmpdir(), prefix));
+  if (ownedDataDirs.has(dataDir)) {
+    throw new Error(`verifier-owned data directory was registered twice: ${dataDir}`);
+  }
+  ownedDataDirs.set(dataDir, activeJourney);
+  return dataDir;
+}
+
+function startVerifierPlane({ dataDir, env = {}, ...options } = {}) {
+  return startIsolatedPlane({
+    dataDir,
+    ...options,
+    env: {
+      ...env,
+      RUST_LOG: "off",
+    },
+  });
+}
+
+function exactJourneyCensus(name, observedProofs, observedResources) {
+  const expected = requireValue(
+    JOURNEY_PROOF_CENSUS.get(name),
+    `journey '${name}' lacks an exact proof census`,
+  );
+  if (!sameJson(observedProofs, expected.proofs)) {
+    throw new Error(
+      `journey '${name}' proof census mismatch: expected=${canonicalJson(expected.proofs)} observed=${canonicalJson(observedProofs)}`,
+    );
+  }
+  if (observedResources.length !== expected.resources) {
+    throw new Error(
+      `journey '${name}' resource census mismatch: expected=${expected.resources} observed=${observedResources.length}`,
+    );
+  }
+  if (
+    observedResources.some(
+      (path) => ownedDataDirs.get(path) !== name,
+    )
+  ) {
+    throw new Error(`journey '${name}' resource census contains an unowned path`);
+  }
+}
+
+async function executeJourneyWithCensus(name, journey) {
+  const resultStart = results.length;
+  const resourcesBefore = new Set(ownedDataDirs.keys());
+  if (activeJourney !== null) {
+    throw new Error(`journey '${name}' cannot nest inside '${activeJourney}'`);
+  }
+  activeJourney = name;
+  try {
+    await journey();
+  } finally {
+    activeJourney = null;
+  }
+  const observedProofs = results
+    .slice(resultStart)
+    .filter((result) => result.journey === name)
+    .map((result) => result.name);
+  const observedResources = [...ownedDataDirs.keys()].filter(
+    (path) => !resourcesBefore.has(path),
+  );
+  exactJourneyCensus(name, observedProofs, observedResources);
+}
+
+async function noopJourneysRefuseCertification() {
+  for (const name of JOURNEY_PROOF_CENSUS.keys()) {
+    const resultStart = results.length;
+    const resourcesBefore = new Set(ownedDataDirs.keys());
+    await (async () => {})();
+    const observedProofs = results.slice(resultStart).map((result) => result.name);
+    const observedResources = [...ownedDataDirs.keys()].filter(
+      (path) => !resourcesBefore.has(path),
+    );
+    try {
+      exactJourneyCensus(name, observedProofs, observedResources);
+      return false;
+    } catch (error) {
+      if (!String(error.message || error).includes("proof census mismatch")) {
+        throw error;
+      }
+    }
+  }
+  return true;
+}
+
+function teardownComplete(resources, selectedJourneys) {
+  if (resources.size === 0 || selectedJourneys.length === 0) return false;
+  const expectedResources = selectedJourneys.reduce(
+    (total, name) => total + JOURNEY_PROOF_CENSUS.get(name).resources,
+    0,
+  );
+  return (
+    resources.size === expectedResources &&
+    selectedJourneys.every((name) =>
+      [...resources.values()].includes(name),
+    ) &&
+    [...resources.keys()].every((path) => !existsSync(path))
+  );
 }
 
 function fixture(relativePath) {
@@ -223,12 +441,22 @@ async function jsonCall(base, method, path, body) {
 }
 
 function familyFiles(dataDir, family) {
+  const familyDir = join(dataDir, family);
   try {
-    return readdirSync(join(dataDir, family))
+    return readdirSync(familyDir, { withFileTypes: true })
+      .map((entry) => {
+        if (!entry.isFile()) {
+          throw new Error(
+            `evidence family '${family}' contains nonregular entry '${entry.name}'`,
+          );
+        }
+        return entry.name;
+      })
       .filter((name) => name.endsWith(".json"))
       .sort();
-  } catch {
-    return [];
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
   }
 }
 
@@ -251,30 +479,264 @@ function singleFamilyRecord(dataDir, family) {
 
 function familiesSnapshot(dataDir, families) {
   return canonicalJson(
-    Object.fromEntries(families.map((family) => [family, familyBytes(dataDir, family)])),
+    Object.fromEntries(
+      families.map((family) => {
+        const familyDir = join(dataDir, family);
+        return [
+          family,
+          existsSync(familyDir) ? recursiveBytesSnapshot(familyDir) : null,
+        ];
+      }),
+    ),
   );
 }
 
-function jsonTreeSnapshot(root) {
-  const rows = [];
+function recursiveBytesSnapshot(root) {
+  const rootStat = lstatSync(root);
+  if (!rootStat.isDirectory()) {
+    throw new Error(`snapshot root is not a directory: ${root}`);
+  }
+  const rows = [["directory", "", null]];
   function walk(current, relative = "") {
-    let entries;
-    try {
-      entries = readdirSync(current, { withFileTypes: true });
-    } catch {
-      return;
-    }
+    const entries = readdirSync(current, { withFileTypes: true });
     for (const entry of entries) {
       const nextRelative = relative ? `${relative}/${entry.name}` : entry.name;
       const absolute = join(current, entry.name);
-      if (entry.isDirectory()) walk(absolute, nextRelative);
-      else if (entry.isFile() && entry.name.endsWith(".json")) {
-        rows.push([nextRelative, readFileSync(absolute, "utf8")]);
+      const stat = lstatSync(absolute);
+      if (stat.isDirectory()) {
+        rows.push(["directory", nextRelative, null]);
+        walk(absolute, nextRelative);
+      } else if (stat.isFile()) {
+        rows.push(["file", nextRelative, readFileSync(absolute).toString("base64")]);
+      } else {
+        throw new Error(`snapshot refuses nonregular entry: ${absolute}`);
       }
     }
   }
   walk(root);
-  return canonicalJson(rows.sort(([left], [right]) => left.localeCompare(right)));
+  return canonicalJson(
+    rows.sort((left, right) => {
+      const pathOrder = left[1].localeCompare(right[1]);
+      return pathOrder || left[0].localeCompare(right[0]);
+    }),
+  );
+}
+
+async function stableDataPlaneSnapshot(call, dataDir) {
+  const status = await call("GET", "/v1/hypervisor/substrate/status");
+  requireValue(
+    status.status === 200,
+    `data-plane snapshot warmup failed: ${status.status}/${status.body.error?.code || "no-code"}`,
+  );
+  let previous = recursiveBytesSnapshot(dataDir);
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const current = recursiveBytesSnapshot(dataDir);
+    if (current === previous) return current;
+    previous = current;
+  }
+  throw new Error("data-plane snapshot did not become byte-stable");
+}
+
+function loadPublicApiConstructor() {
+  if (publicApiConstructor) return publicApiConstructor;
+  const definition = protoLoader.loadSync(PUBLIC_PROTO, {
+    includeDirs: [IPC_PROTO_ROOT],
+    keepCase: true,
+    longs: String,
+    enums: String,
+    defaults: true,
+    oneofs: true,
+  });
+  publicApiConstructor =
+    grpc.loadPackageDefinition(definition).ioi.public.v1.PublicApi;
+  return publicApiConstructor;
+}
+
+async function queryWalletRawState(resolver, key) {
+  const rpcUrl = new URL(resolver.env.IOI_WALLET_NETWORK_RPC_ADDR);
+  const serverName = resolver.env.IOI_WALLET_NETWORK_TLS_SERVER_NAME;
+  const client = new (loadPublicApiConstructor())(
+    `${rpcUrl.hostname}:${rpcUrl.port}`,
+    grpc.credentials.createSsl(
+      readFileSync(resolver.env.IOI_WALLET_NETWORK_TLS_CA_PATH),
+    ),
+    {
+      "grpc.ssl_target_name_override": serverName,
+      "grpc.default_authority": serverName,
+    },
+  );
+  try {
+    return await new Promise((resolve, reject) => {
+      client.queryRawState({ key }, (error, response) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(response.found ? Buffer.from(response.value) : null);
+      });
+    });
+  } finally {
+    client.close();
+  }
+}
+
+async function walletConsumptionStateBytes(resolver, requestHash) {
+  const normalized = String(requestHash || "")
+    .replace(/^sha256:/, "")
+    .toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(normalized)) {
+    throw new Error("wallet consumption state query requires an exact request hash");
+  }
+  const key = Buffer.concat([
+    Buffer.from("_service_data::wallet_network::approval_consumption::"),
+    Buffer.from(normalized, "hex"),
+  ]);
+  return queryWalletRawState(resolver, key);
+}
+
+function parseMuxFrames(bytes) {
+  const frames = [];
+  let offset = 0;
+  while (offset < bytes.length) {
+    if (offset + 4 > bytes.length) {
+      throw new Error(`mux log has a partial frame length at byte ${offset}`);
+    }
+    const length = bytes.readUInt32LE(offset);
+    if (length === 0 || offset + 4 + length > bytes.length) {
+      throw new Error(`mux log has an invalid frame length ${length} at byte ${offset}`);
+    }
+    const encoded = bytes.subarray(offset, offset + 4 + length);
+    const body = encoded.subarray(4);
+    frames.push({
+      value: JSON.parse(body.toString("utf8")),
+      encoded: Buffer.from(encoded),
+    });
+    offset += 4 + length;
+  }
+  return frames;
+}
+
+function encodeMuxFrame(value) {
+  const body = Buffer.from(JSON.stringify(value));
+  const length = Buffer.alloc(4);
+  length.writeUInt32LE(body.length);
+  return Buffer.concat([length, body]);
+}
+
+function shaHex(...parts) {
+  return `sha256:${createHash("sha256").update(Buffer.concat(parts)).digest("hex")}`;
+}
+
+function mutateLengthPreservingScalar(value) {
+  if (typeof value === "string") {
+    const match = /[a-zA-Z0-9](?!.*[a-zA-Z0-9])/.exec(value);
+    if (!match) return null;
+    const replacement = match[0] === "1" ? "2" : "1";
+    return `${value.slice(0, match.index)}${replacement}${value.slice(match.index + 1)}`;
+  }
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const mutated = mutateLengthPreservingScalar(value[index]);
+      if (mutated !== null) {
+        value[index] = mutated;
+        return value;
+      }
+    }
+    return null;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const key of Object.keys(value)) {
+      const mutated = mutateLengthPreservingScalar(value[key]);
+      if (mutated !== null) {
+        value[key] = mutated;
+        return value;
+      }
+    }
+  }
+  return null;
+}
+
+function corruptAgentgresFamily(bytes, targetFamily) {
+  const frames = parseMuxFrames(bytes);
+  const roundTrip = Buffer.concat(frames.map(({ value }) => encodeMuxFrame(value)));
+  requireValue(
+    roundTrip.equals(bytes),
+    "Agentgres mux log is not byte-exactly JSON round-trippable",
+  );
+  const domains = new Map();
+  let mutations = 0;
+  const rewritten = frames.map(({ value }) => {
+    const frame = clone(value);
+    if (frame.frame === "Admitted") {
+      const domain = frame.op?.domain;
+      const state = domains.get(domain) || {
+        root: "sha256:genesis",
+        heads: new Map(),
+        pendingHashes: [],
+        pendingHeads: new Map(),
+      };
+      domains.set(domain, state);
+      if (domain === targetFamily) {
+        requireValue(
+          mutateLengthPreservingScalar(frame.op?.payload),
+          `Agentgres ${targetFamily} payload lacks a length-preserving scalar`,
+        );
+        mutations += 1;
+      }
+      const priorHead =
+        state.pendingHeads.get(frame.op.object_ref) ||
+        state.heads.get(frame.op.object_ref) ||
+        "";
+      frame.new_head = shaHex(
+        Buffer.from("head|"),
+        Buffer.from(priorHead),
+        Buffer.from("|"),
+        Buffer.from(JSON.stringify(frame.op)),
+      );
+      const encoded = encodeMuxFrame(frame);
+      state.pendingHashes.push(
+        createHash("sha256").update(encoded).digest(),
+      );
+      state.pendingHeads.set(frame.op.object_ref, frame.new_head);
+      return encoded;
+    }
+    if (frame.frame === "DomainRoot") {
+      const state = requireValue(
+        domains.get(frame.domain),
+        `Agentgres root lacks admitted domain '${frame.domain}'`,
+      );
+      requireValue(
+        state.pendingHashes.length > 0,
+        `Agentgres root for '${frame.domain}' is vacuous`,
+      );
+      frame.rec.prev_root = state.root;
+      frame.rec.root = shaHex(
+        Buffer.from("root|"),
+        Buffer.from(state.root),
+        Buffer.from("|"),
+        Buffer.concat(state.pendingHashes),
+      );
+      state.root = frame.rec.root;
+      for (const [objectRef, head] of state.pendingHeads) {
+        state.heads.set(objectRef, head);
+      }
+      state.pendingHashes = [];
+      state.pendingHeads.clear();
+      return encodeMuxFrame(frame);
+    }
+    return encodeMuxFrame(frame);
+  });
+  requireValue(
+    mutations === 1,
+    `Agentgres corruption expected one ${targetFamily} frame, found ${mutations}`,
+  );
+  const corrupted = Buffer.concat(rewritten);
+  requireValue(
+    corrupted.length === bytes.length && !corrupted.equals(bytes),
+    `Agentgres ${targetFamily} corruption was not isolated and length-preserving`,
+  );
+  return corrupted;
 }
 
 function tempResidue(root) {
@@ -373,7 +835,6 @@ async function admitGenesis(
         probeApproval?.request_hash,
       `M1.3 probe did not expose its governed challenge: ${JSON.stringify(probeChallenge)}`,
     );
-    const beforeWrongScope = jsonTreeSnapshot(dataDir);
     const wrongScopeGrant = mintApprovalGrant({
       seed: OWNER_APPROVER_SEED,
       policyHash: probeApproval.policy_hash,
@@ -387,21 +848,41 @@ async function admitGenesis(
       wrongScopeGrant,
       MATERIALIZE_SCOPE,
     );
+    const beforeWrongScope = await stableDataPlaneSnapshot(call, dataDir);
+    const walletStateBeforeWrongScope = requireValue(
+      await walletConsumptionStateBytes(
+        resolver,
+        probeApproval.request_hash,
+      ),
+      "M1.3 wrong-scope grant lacks committed wallet consumption state",
+    );
     const wrongScope = await call("POST", GENESIS_ROUTE, {
       ...probeBody,
       wallet_approval_grant: wrongScopeGrant,
     });
+    const walletStateAfterWrongScope = requireValue(
+      await walletConsumptionStateBytes(
+        resolver,
+        probeApproval.request_hash,
+      ),
+      "M1.3 wrong-scope refusal removed wallet consumption state",
+    );
+    const walletStateUnchanged =
+      walletStateBeforeWrongScope.equals(walletStateAfterWrongScope);
+    const dataPlaneUnchanged =
+      beforeWrongScope === recursiveBytesSnapshot(dataDir);
     ok(
       "M1.3 AUTHORITY: a wallet-proven materialization-scope grant is discarded unspent",
       wrongScope.status === 422 &&
         wrongScope.body.error?.code ===
           "system_genesis_wallet_consumption_precondition_refused" &&
-        beforeWrongScope === jsonTreeSnapshot(dataDir) &&
+        walletStateUnchanged &&
+        dataPlaneUnchanged &&
         familyFiles(dataDir, SOURCE_INTENT_FAMILY).length === 0 &&
         SOURCE_FAMILIES.every(
           (family) => familyFiles(dataDir, family).length === 0,
         ),
-      `${wrongScope.status}/${wrongScope.body.error?.code || "no-code"}`,
+      `${wrongScope.status}/${wrongScope.body.error?.code || "no-code"} wallet-unchanged=${walletStateUnchanged} data-unchanged=${dataPlaneUnchanged} wallet-bytes=${walletStateAfterWrongScope.length}`,
     );
   }
   const challenge = await call("POST", GENESIS_ROUTE, body);
@@ -712,12 +1193,11 @@ function recomputeMaterialization(source, materialization) {
 
 async function runPrimaryJourney() {
   let resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
-  const dataDir = mkdtempSync(join(tmpdir(), "ioi-system-sequence-zero-primary-"));
-  ownedDataDirs.add(dataDir);
+  const dataDir = createOwnedDataDir("ioi-system-sequence-zero-primary-");
   let plane;
   let wrongScopeResolver;
   try {
-    plane = await startIsolatedPlane({ dataDir, env: resolver.env });
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
     if (!plane) throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
     const call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
@@ -751,7 +1231,7 @@ async function runPrimaryJourney() {
       expected_genesis_admission_receipt_root: source.receiptRoot,
     };
 
-    const unknownBefore = jsonTreeSnapshot(dataDir);
+    const unknownBefore = await stableDataPlaneSnapshot(call, dataDir);
     const unknown = await call("POST", path, {
       ...request,
       initial_state_root: "sha256:".padEnd(71, "0"),
@@ -761,7 +1241,7 @@ async function runPrimaryJourney() {
       unknown.status === 422 &&
         unknown.body.error?.code ===
           "system_sequence_zero_request_field_unknown" &&
-        unknownBefore === jsonTreeSnapshot(dataDir),
+        unknownBefore === recursiveBytesSnapshot(dataDir),
       `${unknown.status}/${unknown.body.error?.code || "no-code"}`,
     );
 
@@ -775,7 +1255,7 @@ async function runPrimaryJourney() {
         secret.body.error?.code ===
           "system_sequence_zero_sensitive_field_rejected" &&
         !JSON.stringify(secret.body).includes("SEQUENCE_ZERO_SECRET_SENTINEL") &&
-        unknownBefore === jsonTreeSnapshot(dataDir),
+        unknownBefore === recursiveBytesSnapshot(dataDir),
       `${secret.status}/${secret.body.error?.code || "no-code"}`,
     );
 
@@ -788,7 +1268,7 @@ async function runPrimaryJourney() {
       "CAS: stale M1.3 source roots refuse before authority with zero mutation",
       conflict.status === 409 &&
         conflict.body.error?.code === "system_sequence_zero_source_conflict" &&
-        unknownBefore === jsonTreeSnapshot(dataDir),
+        unknownBefore === recursiveBytesSnapshot(dataDir),
       `${conflict.status}/${conflict.body.error?.code || "no-code"}`,
     );
 
@@ -798,7 +1278,7 @@ async function runPrimaryJourney() {
     resolver = undefined;
     wrongScopeResolver =
       await startRealWalletNetworkPrincipalAuthorityFixture();
-    plane = await startIsolatedPlane({
+    plane = await startVerifierPlane({
       dataDir,
       env: wrongScopeResolver.env,
     });
@@ -815,7 +1295,6 @@ async function runPrimaryJourney() {
         wrongScopeApproval?.request_hash,
       `M1.4 wrong-scope probe lacks its challenge: ${JSON.stringify(wrongScopeChallenge)}`,
     );
-    const wrongScopePlaneBefore = jsonTreeSnapshot(dataDir);
     const wrongScopeGrant = wrongScopeResolver.mintForCapability(
       OWNER,
       wrongScopeApproval.policy_hash,
@@ -828,33 +1307,53 @@ async function runPrimaryJourney() {
       wrongScopeGrant,
       GENESIS_SCOPE,
     );
+    const wrongScopePlaneBefore = await stableDataPlaneSnapshot(call, dataDir);
+    const walletStateBeforeWrongScope = requireValue(
+      await walletConsumptionStateBytes(
+        wrongScopeResolver,
+        wrongScopeApproval.request_hash,
+      ),
+      "M1.4 wrong-scope grant lacks committed wallet consumption state",
+    );
     const wrongScope = await call("POST", path, {
       ...request,
       wallet_approval_grant: wrongScopeGrant,
     });
+    const walletStateAfterWrongScope = requireValue(
+      await walletConsumptionStateBytes(
+        wrongScopeResolver,
+        wrongScopeApproval.request_hash,
+      ),
+      "M1.4 wrong-scope refusal removed wallet consumption state",
+    );
+    const walletStateUnchanged =
+      walletStateBeforeWrongScope.equals(walletStateAfterWrongScope);
+    const dataPlaneUnchanged =
+      wrongScopePlaneBefore === recursiveBytesSnapshot(dataDir);
     ok(
       "AUTHORITY: a wallet-proven wrong-scope grant is discarded unspent with zero mutation",
       wrongScope.status === 422 &&
         wrongScope.body.error?.code ===
           "system_sequence_zero_wallet_consumption_precondition_refused" &&
-        wrongScopePlaneBefore === jsonTreeSnapshot(dataDir) &&
+        walletStateUnchanged &&
+        dataPlaneUnchanged &&
         familyFiles(dataDir, INTENT_FAMILY).length === 0 &&
         MATERIALIZATION_FAMILIES.every(
           (family) => familyFiles(dataDir, family).length === 0,
         ),
-      `${wrongScope.status}/${wrongScope.body.error?.code || "no-code"}`,
+      `${wrongScope.status}/${wrongScope.body.error?.code || "no-code"} wallet-unchanged=${walletStateUnchanged} data-unchanged=${dataPlaneUnchanged} wallet-bytes=${walletStateAfterWrongScope.length}`,
     );
     await plane.stop();
     plane = undefined;
     await wrongScopeResolver.stop();
     wrongScopeResolver = undefined;
     resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
-    plane = await startIsolatedPlane({ dataDir, env: resolver.env });
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
     if (!plane) {
       throw new Error("BLOCKED: correctly scoped primary daemon is not built");
     }
 
-    const correctPlaneBefore = jsonTreeSnapshot(dataDir);
+    const correctPlaneBefore = await stableDataPlaneSnapshot(call, dataDir);
     const occupiedFamily = join(dataDir, MATERIALIZATION_FAMILIES[0]);
     const occupiedTail = `aszm_${source.recordRoot.slice("sha256:".length)}`;
     mkdirSync(occupiedFamily, { recursive: true });
@@ -866,7 +1365,7 @@ async function runPrimaryJourney() {
       malformedOccupied.status === 500 &&
         malformedOccupied.body.error?.code ===
           "system_sequence_zero_materialization_invalid" &&
-        correctPlaneBefore === jsonTreeSnapshot(dataDir),
+        correctPlaneBefore === recursiveBytesSnapshot(dataDir),
       `${malformedOccupied.status}/${malformedOccupied.body.error?.code || "no-code"}`,
     );
 
@@ -888,7 +1387,7 @@ async function runPrimaryJourney() {
         challenge.body.error?.required_scope === MATERIALIZE_SCOPE &&
         challenge.body.error?.required_authority_ref === OWNER &&
         grant &&
-        correctPlaneBefore === jsonTreeSnapshot(dataDir),
+        correctPlaneBefore === recursiveBytesSnapshot(dataDir),
       `${challenge.status}/${challenge.body.error?.required_scope || "no-scope"}`,
     );
     requireValue(grant, "M1.4 challenge did not produce a grant");
@@ -917,10 +1416,7 @@ async function runPrimaryJourney() {
         !JSON.stringify(nonCanonical.body).includes(
           "sk-live-SEQUENCE_ZERO-SENTINEL",
         ) &&
-        !jsonTreeSnapshot(dataDir).includes(
-          "sk-live-SEQUENCE_ZERO-SENTINEL",
-        ) &&
-        correctPlaneBefore === jsonTreeSnapshot(dataDir),
+        correctPlaneBefore === recursiveBytesSnapshot(dataDir),
       `${nonCanonical.status}/${nonCanonical.body.error?.code || "no-code"}`,
     );
 
@@ -939,7 +1435,7 @@ async function runPrimaryJourney() {
       foreign.status === 403 &&
         foreign.body.error?.code ===
           "system_sequence_zero_host_authority_required" &&
-        correctPlaneBefore === jsonTreeSnapshot(dataDir),
+        correctPlaneBefore === recursiveBytesSnapshot(dataDir),
       `${foreign.status}/${foreign.body.error?.code || "no-code"}`,
     );
 
@@ -959,7 +1455,7 @@ async function runPrimaryJourney() {
       multiUse.status === 422 &&
         multiUse.body.error?.code ===
           "system_sequence_zero_authority_evidence_invalid" &&
-        correctPlaneBefore === jsonTreeSnapshot(dataDir),
+        correctPlaneBefore === recursiveBytesSnapshot(dataDir),
       `${multiUse.status}/${multiUse.body.error?.code || "no-code"}`,
     );
 
@@ -1198,27 +1694,40 @@ async function runPrimaryJourney() {
       muxBytes.length > 1,
       "M1.4 Agentgres corruption probe requires a non-empty mux log",
     );
-    let truncatedAgentgresRead;
-    try {
-      writeFileSync(muxPath, muxBytes.subarray(0, muxBytes.length - 1));
-      truncatedAgentgresRead = await call("GET", path);
-    } finally {
-      writeFileSync(muxPath, muxBytes);
+    for (const family of MATERIALIZATION_FAMILIES) {
+      const corruptedMuxBytes = corruptAgentgresFamily(muxBytes, family);
+      await plane.stop();
+      plane = undefined;
+      let refused;
+      try {
+        writeFileSync(muxPath, corruptedMuxBytes);
+        plane = await startVerifierPlane({ dataDir, env: resolver.env });
+        if (!plane) {
+          throw new Error("BLOCKED: Agentgres corruption plane is not built");
+        }
+        refused = await call("GET", path);
+      } finally {
+        if (plane) await plane.stop();
+        plane = undefined;
+        writeFileSync(muxPath, muxBytes);
+      }
+      plane = await startVerifierPlane({ dataDir, env: resolver.env });
+      if (!plane) {
+        throw new Error("BLOCKED: Agentgres restoration plane is not built");
+      }
+      const restored = await call("GET", path);
+      ok(
+        agentgresCorruptionProofName(family),
+        refused.status === 500 &&
+          refused.body.error?.code ===
+            "system_sequence_zero_agentgres_evidence_mismatch" &&
+          readFileSync(muxPath).equals(muxBytes) &&
+          restored.status === 200 &&
+          responseHasExactEvidence(restored.body, exactEvidence) &&
+          hasExactFalseNonclaims(restored.body),
+        `${refused.status}/${refused.body.error?.code || "no-code"} restored=${restored.status}/${restored.body.error?.code || "ok"}`,
+      );
     }
-    const restoredAgentgresRead = await call("GET", path);
-    ok(
-      "GET PROOF: truncated Agentgres evidence refuses typed and exact bytes restore",
-      truncatedAgentgresRead.status === 500 &&
-        [
-          "system_genesis_agentgres_evidence_mismatch",
-          "system_sequence_zero_agentgres_evidence_mismatch",
-        ].includes(truncatedAgentgresRead.body.error?.code) &&
-        readFileSync(muxPath).equals(muxBytes) &&
-        restoredAgentgresRead.status === 200 &&
-        responseHasExactEvidence(restoredAgentgresRead.body, exactEvidence) &&
-        hasExactFalseNonclaims(restoredAgentgresRead.body),
-      `${truncatedAgentgresRead.status}/${truncatedAgentgresRead.body.error?.code || "no-code"} restored=${restoredAgentgresRead.status}/${restoredAgentgresRead.body.error?.code || "ok"}`,
-    );
   } finally {
     if (plane) await plane.stop();
     if (wrongScopeResolver) await wrongScopeResolver.stop();
@@ -1229,11 +1738,10 @@ async function runPrimaryJourney() {
 
 async function runCrashReplayJourney() {
   const resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
-  const dataDir = mkdtempSync(join(tmpdir(), "ioi-system-sequence-zero-replay-"));
-  ownedDataDirs.add(dataDir);
+  const dataDir = createOwnedDataDir("ioi-system-sequence-zero-replay-");
   let plane;
   try {
-    plane = await startIsolatedPlane({
+    plane = await startVerifierPlane({
       dataDir,
       env: {
         ...resolver.env,
@@ -1276,7 +1784,7 @@ async function runCrashReplayJourney() {
     );
     await plane.stop();
     await resolver.revokePrincipalAuthority(OWNER);
-    plane = await startIsolatedPlane({ dataDir, env: resolver.env });
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
     if (!plane) throw new Error("BLOCKED: restart daemon is not built");
     call = (method, route, body) =>
       jsonCall(plane.daemonUrl, method, route, body);
@@ -1309,43 +1817,14 @@ async function runCrashReplayJourney() {
 
 async function runPartialPrefixReplayJourney() {
   const resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
-  const cases = [
-    {
-      name: "required-agentgres-durability",
-      env: { IOI_TEST_FORCE_REQUIRED_ADMISSION_SYNC_FAILURE: "1" },
-      interruptedCode: "system_sequence_zero_agentgres_admission_failed",
-      expectedCounts: [0, 0, 0, 1],
-    },
-    {
-      name: "after-component",
-      env: { IOI_TEST_FORCE_SYSTEM_SEQUENCE_ZERO_AFTER_COMPONENT: "1" },
-      interruptedCode: "system_sequence_zero_pending_convergence",
-      expectedCounts: [0, 0, 1, 1],
-    },
-    {
-      name: "after-receipt",
-      env: { IOI_TEST_FORCE_SYSTEM_SEQUENCE_ZERO_AFTER_RECEIPT: "1" },
-      interruptedCode: "system_sequence_zero_pending_convergence",
-      expectedCounts: [0, 1, 1, 1],
-    },
-    {
-      name: "after-materialization",
-      env: {
-        IOI_TEST_FORCE_SYSTEM_SEQUENCE_ZERO_AFTER_MATERIALIZATION: "1",
-      },
-      interruptedCode: "system_sequence_zero_pending_convergence",
-      expectedCounts: [1, 1, 1, 1],
-    },
-  ];
   try {
-    for (const [index, testCase] of cases.entries()) {
-      const dataDir = mkdtempSync(
-        join(tmpdir(), `ioi-system-sequence-zero-${testCase.name}-`),
+    for (const [index, testCase] of PARTIAL_PREFIX_CASES.entries()) {
+      const dataDir = createOwnedDataDir(
+        `ioi-system-sequence-zero-${testCase.name}-`,
       );
-      ownedDataDirs.add(dataDir);
       let plane;
       try {
-        plane = await startIsolatedPlane({ dataDir, env: resolver.env });
+        plane = await startVerifierPlane({ dataDir, env: resolver.env });
         if (!plane) {
           throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
         }
@@ -1362,7 +1841,7 @@ async function runPartialPrefixReplayJourney() {
           expected_genesis_admission_receipt_root: source.receiptRoot,
         };
         await plane.stop();
-        plane = await startIsolatedPlane({
+        plane = await startVerifierPlane({
           dataDir,
           env: { ...resolver.env, ...testCase.env },
         });
@@ -1399,7 +1878,7 @@ async function runPartialPrefixReplayJourney() {
         );
 
         await plane.stop();
-        plane = await startIsolatedPlane({ dataDir, env: resolver.env });
+        plane = await startVerifierPlane({ dataDir, env: resolver.env });
         if (!plane) throw new Error("BLOCKED: replay plane is not built");
         call = (method, route, body) =>
           jsonCall(plane.daemonUrl, method, route, body);
@@ -1437,13 +1916,12 @@ async function runPartialPrefixReplayJourney() {
 
 async function runDependencyOrderedReplayJourney() {
   const resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
-  const dataDir = mkdtempSync(
-    join(tmpdir(), "ioi-system-sequence-zero-dependency-order-"),
+  const dataDir = createOwnedDataDir(
+    "ioi-system-sequence-zero-dependency-order-",
   );
-  ownedDataDirs.add(dataDir);
   let plane;
   try {
-    plane = await startIsolatedPlane({
+    plane = await startVerifierPlane({
       dataDir,
       env: {
         ...resolver.env,
@@ -1489,7 +1967,7 @@ async function runDependencyOrderedReplayJourney() {
     );
 
     await plane.stop();
-    plane = await startIsolatedPlane({ dataDir, env: resolver.env });
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
     if (!plane) throw new Error("BLOCKED: M1.3 replay plane is not built");
     call = (method, route, body) =>
       jsonCall(plane.daemonUrl, method, route, body);
@@ -1513,7 +1991,7 @@ async function runDependencyOrderedReplayJourney() {
     );
 
     await plane.stop();
-    plane = await startIsolatedPlane({
+    plane = await startVerifierPlane({
       dataDir,
       env: {
         ...resolver.env,
@@ -1556,7 +2034,7 @@ async function runDependencyOrderedReplayJourney() {
       join(dataDir, SOURCE_INTENT_FAMILY, sourceIntentName),
       sourceIntentBytes,
     );
-    plane = await startIsolatedPlane({ dataDir, env: resolver.env });
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
     if (!plane) throw new Error("BLOCKED: ordered replay plane is not built");
     call = (method, route, body) =>
       jsonCall(plane.daemonUrl, method, route, body);
@@ -1590,13 +2068,12 @@ async function runDependencyOrderedReplayJourney() {
 
 async function runUnconsumedRevocationJourney() {
   const resolver = await startRealWalletNetworkPrincipalAuthorityFixture();
-  const dataDir = mkdtempSync(
-    join(tmpdir(), "ioi-system-sequence-zero-unconsumed-revocation-"),
+  const dataDir = createOwnedDataDir(
+    "ioi-system-sequence-zero-unconsumed-revocation-",
   );
-  ownedDataDirs.add(dataDir);
   let plane;
   try {
-    plane = await startIsolatedPlane({
+    plane = await startVerifierPlane({
       dataDir,
       env: {
         ...resolver.env,
@@ -1641,7 +2118,7 @@ async function runUnconsumedRevocationJourney() {
 
     await plane.stop();
     await resolver.revokePrincipalAuthority(OWNER);
-    plane = await startIsolatedPlane({ dataDir, env: resolver.env });
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
     if (!plane) throw new Error("BLOCKED: restart daemon is not built");
     call = (method, route, body) =>
       jsonCall(plane.daemonUrl, method, route, body);
@@ -1713,8 +2190,10 @@ function sameJourneySet(left, right) {
 async function run() {
   let fatal;
   let requiredJourneys = [];
+  let selectedJourneys = [];
   try {
     const routeSource = readFileSync(SYSTEM_SEQUENCE_ZERO_SOURCE, "utf8");
+    const verifierSource = readFileSync(VERIFIER_SOURCE, "utf8");
     ok(
       "SOURCE: the held verifier is pinned to all four required M1.4 evidence families",
       MATERIALIZATION_FAMILIES.every((family) =>
@@ -1736,6 +2215,29 @@ async function run() {
       ["unconsumed-revocation", runUnconsumedRevocationJourney],
     ]);
     requiredJourneys = [...journeys.keys()];
+    ok(
+      "SOURCE GUARD: every held journey has an exact nonempty proof and resource census",
+      sameJson([...JOURNEY_PROOF_CENSUS.keys()], requiredJourneys) &&
+        [...JOURNEY_PROOF_CENSUS.values()].every(
+          ({ proofs, resources }) =>
+            proofs.length > 0 &&
+            new Set(proofs).size === proofs.length &&
+            Number.isInteger(resources) &&
+            resources > 0,
+        ) &&
+        verifierSource.includes(
+          "await executeJourneyWithCensus(name, journey)",
+        ),
+      `journeys=${JOURNEY_PROOF_CENSUS.size}/${requiredJourneys.length}`,
+    );
+    ok(
+      "SELF-TEST: substituting async no-ops for all five journeys fails certification",
+      await noopJourneysRefuseCertification(),
+    );
+    ok(
+      "SELF-TEST: an empty verifier-owned resource ledger cannot satisfy teardown",
+      !teardownComplete(new Map(), ["primary"]),
+    );
     ok(
       "SELECTOR: an omitted selector defaults to every journey",
       sameJson(
@@ -1778,22 +2280,22 @@ async function run() {
         ["wallet-replay", "primary"],
       ),
     );
-    const selected = selectJourneys(
+    selectedJourneys = selectJourneys(
       process.env[JOURNEY_SELECTOR_ENV],
       requiredJourneys,
     );
-    for (const name of selected) {
+    for (const name of selectedJourneys) {
       const journey = journeys.get(name);
-      await journey();
+      await executeJourneyWithCensus(name, journey);
       executedJourneys.push(name);
     }
   } catch (error) {
     fatal = error;
   }
   ok(
-    "TEARDOWN: every verifier-owned data directory is removed",
-    [...ownedDataDirs].every((path) => !existsSync(path)),
-    `removed=${[...ownedDataDirs].every((path) => !existsSync(path))}`,
+    "TEARDOWN: the nonempty exact verifier-owned resource ledger is fully removed",
+    teardownComplete(ownedDataDirs, selectedJourneys),
+    `owned=${ownedDataDirs.size} removed=${[...ownedDataDirs.keys()].filter((path) => !existsSync(path)).length}`,
   );
   if (fatal) {
     const blocked = String(fatal.message || fatal).startsWith("BLOCKED:");
