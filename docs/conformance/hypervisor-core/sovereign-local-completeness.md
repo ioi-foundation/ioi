@@ -69,6 +69,7 @@ evidence only; they are not canonical deployment enums.
 | `identity_preserving_migration` | one passing applicable standalone fixture plus `identity_preserving_migration_overlay` |
 | `multi_node_high_availability` | separate distributed-operability, membership, durability, and fencing evidence |
 | `ioi_managed_hosting` | separate managed-provider, custody, availability, billing, and export evidence |
+| `portable_secret_export` | separate explicit secret-export authority, independently sealed bundle, pre-write wrong-passphrase/tamper refusal, destination rekey, and merge non-clobber evidence |
 
 The machine-readable claim graph makes prerequisite claims transitive:
 production self-hosted and managed optionality depend on a passing minimum local
@@ -76,8 +77,8 @@ claim, while identity-preserving migration depends on a passing applicable
 standalone claim rather than on first-party managed attachment. The scenario
 `required_for_claims` index is the sole requirement-to-claim mapping. It must
 not be duplicated by a second, independently editable requirement list.
-Out-of-scope HA and managed-hosting claims are ineligible in this contract and
-cannot pass vacuously.
+Out-of-scope HA, managed-hosting, and portable-secret-export claims are
+ineligible in this contract and cannot pass vacuously.
 
 `embedded_single_operator_offline` uses one admitted node, embedded Agentgres,
 local storage, deployment-local identity, a locally permitted authority
@@ -113,22 +114,32 @@ semantic operations:
 
 ```yaml
 configure_network_boundary
+verify_release_and_install
 bootstrap_deployment
 authenticate_deployment_local
 admit_locally_permitted_authority
+enumerate_authorization_surfaces
+verify_mcp_exposure_and_dispatch
 create_and_activate_system
 execute_bounded_work
 propose_and_admit_effect
 query_state_root
 crash_and_restart
+apply_signed_update
 export_backup
+inspect_export_secret_boundary
+preflight_restore_destination
 restore_backup
 verify_exported_evidence
 attach_managed_service
+inspect_attachment_state
 authenticate_connected_account
 authorize_connected_effect
 use_managed_service
 detach_managed_service
+quiesce_writer_classes
+observe_writer_fence
+inject_concurrent_writer_attempts
 execute_change_plan_migration
 query_custody_and_writer_state
 query_usage_and_billing
@@ -153,6 +164,14 @@ license heartbeat, telemetry, update service, support service, or external
 model provider. Loopback and declared local IPC may remain available. Missing
 optional planes return typed unavailable or degraded dispositions.
 
+The installed build must come from a locally available signed release manifest
+whose artifact digests validate against a pinned trusted-key and revocation
+snapshot. Cold boot binds the installed-build hash and performs no remote
+release discovery. Unsigned, revoked-signer, digest-mismatched, or
+manifest-substituted releases are refused before installer execution, leave
+empty or prior installation state unchanged, and never fall back to an
+unverified "latest" release.
+
 ### SLC-02 — Identity and authority separation
 
 The runner bootstraps a deployment-local operator and admits one locally
@@ -166,6 +185,15 @@ lease never means that consequential authority is optional.
 An exposed binding retains fail-safe authentication. This fixture makes no
 portable delegated-authority claim.
 
+Every externally reachable route must appear in one hashed mount manifest and
+be classified as authenticated-and-policy-enforced, explicitly public with a
+reason, or internal-only. Exposed MCP tools are an opt-in subset backed by
+declared `RuntimeToolContract` refs. Their call-time authorization must re-enter
+the same policy-enforcement and final-invoker path as the corresponding native
+route. MCP may instead be typed unavailable. An unclassified mutation route or
+an MCP-only authorization fork fails startup or admission before the final
+invoker.
+
 ### SLC-03 — Closed product vertical
 
 Through supported product clients and public contracts, one reusable package
@@ -177,6 +205,12 @@ selected upgrade, rollback or recall, and retirement lifecycle. Client
 projections resolve the same owner refs and hashes. A separate adversarial path
 proves that missing verification is refused before the invoker. A typed refusal
 is valid negative evidence but cannot replace the required successful effect.
+
+The lifecycle proof includes a signed successor release, an authorized
+`HypervisorChangePlan`, canary and readiness evidence, an exact activation
+receipt, and rollback or recall proof. An unsigned, tampered, revoked,
+downgraded, or substituted update is refused before activation; the previously
+admitted build remains active and its rollback state remains intact.
 
 ### SLC-04 — Custody and zero undeclared egress
 
@@ -215,6 +249,22 @@ backward. An authentic but stale pre-revocation or pre-continuity-floor restore
 remains historical or blocked until independently re-anchored; signature
 validity alone cannot make it current.
 
+Before the first target write, restore validates destination write/read/delete
+capability, applicable local path and symlink confinement, the complete
+byte-stream hash, and atomic-publication prerequisites. Default backup and
+evidence export excludes plaintext secrets and source-instance ciphertext,
+emits an exhaustive secret scrub/exclusion report, and restores only after
+destination-local credential re-resolution. Loose plaintext or foreign
+ciphertext in an import is refused before the first target write. Same-size
+artifact substitution must fail full-stream hashing with the target root
+unchanged and zero stop, wipe, copy, or apply calls.
+
+Portable secret export is not part of the minimum local-completeness claim. If
+an implementation separately claims it, that path requires explicit
+secret-export authority, an independently sealed bundle, wrong-passphrase and
+tamper refusal before write, destination rekeying, and non-clobbering merge
+semantics. A conforming default rebind-only path need not implement it.
+
 ### SLC-07 — Public-contract semantic parity
 
 The selected canonical fixture runs once over embedded Agentgres and once over
@@ -250,6 +300,11 @@ is refused before the managed invoker and creates no usage charge.
 Attachment-without-use and missing-lease refusal are necessary negative cases,
 not substitutes for successful managed use.
 
+The attachment projection must expose linked, local-only, managed-only, and
+unreachable states without treating drift inspection as reconciliation.
+Inspection cannot upload, adopt, delete, change custody or writer roles, or
+otherwise reconcile state without a separate admitted action.
+
 ### SLC-09 — Detachment and dependency closure
 
 After managed leases are revoked and managed endpoints are blocked, locally
@@ -277,6 +332,13 @@ never implied by the denial itself. A passing report is scoped only to its exact
 source/target runtime operators, placements, custody profiles, durability
 profile, and assurance profile; one local-source fixture cannot generalize
 across every permitted migration tuple.
+
+Quiescence covers every admitted writer class: foreground mutations, background
+queue work, and identity or membership mutations. Each is blocked or durably
+held before the checkpoint and fence boundary. Fence observation failure,
+timeout, or elapsed age alone never authorizes takeover. Those conditions fail
+closed or enter typed reconciliation with the target writer unadmitted and the
+live source not deposed.
 
 The fixtures in this contract select a single-node `single_authority`
 ordering/finality profile, so their migration cases require exactly one current
@@ -396,6 +458,11 @@ outbound_observation_refs
 state_root_refs
 authority_and_effect_receipt_refs
 backup_restore_proof_refs
+release_install_update_proof_refs
+route_surface_manifest_ref
+mcp_exposure_manifest_or_unavailable_ref
+export_secret_boundary_and_rebind_proof_refs
+migration_quiescence_and_fence_proof_refs
 custody_writer_before_after
 billing_summary_ref
 declared_unavailable_capabilities
@@ -408,14 +475,20 @@ certification claim, or permission to execute.
 
 ## Open live gates and nonclaims
 
-- isolated installer/client/daemon startup under enforced egress denial;
+- isolated signed installer/client/daemon startup under enforced egress denial,
+  including untrusted-release refusal before execution;
 - a complete package-to-retirement bounded-System product journey;
-- local exact-effect authority and zero-invoker negative proof;
-- embedded/server Agentgres semantic parity and clean restore;
+- local exact-effect authority, complete route/MCP authorization-surface
+  classification, same-PEP enforcement, and zero-invoker negative proof;
+- embedded/server Agentgres semantic parity and clean restore with destination
+  preflight, atomic publication, full-stream hashing, secret exclusion, and
+  destination-local rebind;
 - offline receipt/root verification over authentic emitted evidence;
 - managed attachment and detachment against real account/service owners;
 - explicit usage/billing reconciliation with customer-borne cost exclusion;
-- fenced placement/custody migration and failure injection; and
+- signed update activation and previous-build preservation under refusal;
+- fenced placement/custody migration with all-writer quiescence, fence
+  observation failure, and timeout-only takeover injection; and
 - aggregate runner/report validation against the canonical matrix.
 
 Until those gates execute, the architecture defines the target claim and its

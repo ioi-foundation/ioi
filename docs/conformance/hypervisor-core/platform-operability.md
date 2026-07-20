@@ -5,17 +5,19 @@ matrix. No current cross-plane operability evaluator, recovery kernel, or live
 fault-injection tier is claimed.
 Canonical input:
 [`platform-operability.md`](../../architecture/components/daemon-runtime/platform-operability.md).
-Last audited: 2026-07-19.
+Last audited: 2026-07-20.
 
 ## Scope and honest implementation posture
 
 This profile specifies the behavior of a future cross-plane operability
 evaluator, recovery kernel, version/key-transition validator, and protected
-observability projection. The canonical fault matrix is a target fixture
-corpus. Current master does not execute it and therefore proves no operation
-disposition, stable reason code, bounded-cache decision, unknown-effect
-refusal, reconstructed root, upgrade decision, signer rotation, or protected
-field minimization.
+observability projection. It also specifies the operability refusal boundary
+that durable resource-cleanup and active-head owners must consume. The
+canonical fault matrix is a target fixture corpus. Current master does not
+execute it and therefore proves no operation disposition, stable reason code,
+bounded-cache decision, unknown-effect refusal, persistent cleanup,
+forward-only activation, reconstructed root, upgrade decision, signer
+rotation, or protected field minimization.
 
 A future executable gate must consume authentic owner-produced observations
 immediately before the relevant effect. Fixture rows alone cannot establish
@@ -116,6 +118,22 @@ Operability's expected disposition separately from the final PEP disposition.
 Fresh temporal/plane evidence may yield `available` while the owner-derived
 stale fence still yields a final fail-closed result and zero invoker calls.
 
+### CPO-12 — Persistent cleanup and forward-only activation
+
+Cleanup obligations survive deletion of their originating owner and remain
+open while the provider is unreachable, a deletion effect is unknown, or a
+provider `not found` result lacks the exact namespace and resource-identity
+binding. An unknown deletion returns Platform Operability's `fail_closed`
+disposition while the cleanup owner retains a `reconciling` lifecycle state;
+the disposition and the durable lifecycle state are not competing
+vocabularies.
+
+Failed, unadjudicated-partial, unknown, and late-superseded activation
+executions cannot advance or reclaim an active release, route, restore,
+migration, rollback, writer, or other owner head. The prior head and generation
+remain unchanged. A superseded execution's late success observation remains
+evidence, but it cannot reactivate the older target.
+
 ## Canonical matrix
 
 The canonical target matrix is
@@ -124,8 +142,10 @@ operation classes, or fallback rules require positive and adversarial scenarios
 in this matrix before their conformance claim is promoted.
 
 Current master has no `operability` conformance tier. The matrix must remain
-valid JSON and linked from canon, but that documentation/fixture evidence must
-not be reported as an executable platform pass.
+valid JSON, retain `status: target_fixture_only`, and match the reviewed
+32-scenario roster and semantic fingerprint enforced by
+`check:conformance-docs`. That documentation/fixture evidence must not be
+reported as an executable platform pass.
 
 The older v1 rows that use only `{plane: clock, state: healthy}` exercise coarse
 cross-plane dependency handling; that flag is not temporal proof. They must be
@@ -144,6 +164,11 @@ rows below state the new refusal boundary.
 - outside-rollback-domain continuity floors or fresh re-anchor adapters plus
   interval, reboot, restore, and holdover fault injection;
 - daemon/scheduler admission immediately before real effects;
+- provider-unreachable, unknown-delete, and identity-ambiguous `not found`
+  cleanup reconciliation that survives owner teardown;
+- monotonic active-head compare-and-swap fault injection proving failed,
+  partial, unknown, and late-superseded executions cannot advance or reclaim
+  the head;
 - correlated failure injection across shared failure domains;
 - live checkpoint/backup restore using each plane's actual persistence engine;
 - key distribution/revocation across real signer and verifier processes;

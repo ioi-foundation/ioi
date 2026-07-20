@@ -6,6 +6,11 @@ import {
   SLC_REQUIREMENT_IDS,
   validateSovereignLocalCompletenessMatrix,
 } from "./sovereign-local-completeness-matrix.mjs";
+import {
+  CPO_REQUIREMENT_IDS,
+  parsePlatformFaultMatrixJson,
+  validatePlatformFaultMatrix,
+} from "./platform-fault-matrix.mjs";
 
 function markdownFilesUnder(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -290,6 +295,50 @@ export function checkConformanceDocsIntegrity({
       ) {
         failures.push(`${relativeFile} has broken local anchor: ${link.display}`);
       }
+    }
+  }
+  const platformFaultMatrix = path.join(
+    conformanceRoot,
+    "hypervisor-core",
+    "platform-fault-matrix.v1.json",
+  );
+  if (fs.existsSync(platformFaultMatrix)) {
+    let matrix;
+    try {
+      matrix = parsePlatformFaultMatrixJson(
+        fs.readFileSync(platformFaultMatrix, "utf8"),
+      );
+    } catch (error) {
+      failures.push(
+        `docs/conformance/hypervisor-core/platform-fault-matrix.v1.json is invalid JSON: ${error.message}`,
+      );
+    }
+    if (matrix !== undefined) {
+      failures.push(
+        ...validatePlatformFaultMatrix(matrix).map((failure) => (
+          `docs/conformance/hypervisor-core/platform-fault-matrix.v1.json: ${failure}`
+        )),
+      );
+    }
+  }
+  const platformOperabilityContract = path.join(
+    conformanceRoot,
+    "hypervisor-core",
+    "platform-operability.md",
+  );
+  if (fs.existsSync(platformOperabilityContract)) {
+    const requirementHeadings = [
+      ...fs.readFileSync(platformOperabilityContract, "utf8").matchAll(
+        /^### (CPO-\d+)\s+—/gmu,
+      ),
+    ].map((match) => match[1]);
+    if (
+      JSON.stringify(requirementHeadings)
+        !== JSON.stringify(CPO_REQUIREMENT_IDS)
+    ) {
+      failures.push(
+        "docs/conformance/hypervisor-core/platform-operability.md must define exactly CPO-1 through CPO-12 in order",
+      );
     }
   }
   const sovereignLocalMatrix = path.join(

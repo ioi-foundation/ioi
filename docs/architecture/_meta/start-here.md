@@ -4,7 +4,7 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-20.
 Doctrine status: canonical
 Implementation status: mixed (reader entry point over built, partial, planned, and speculative subjects)
 Last implementation audit: 2026-07-19
@@ -41,6 +41,16 @@ managed dependency. Managed attachment adds separately admitted capabilities
 and never silently transfers truth, authority, custody, or writer ownership.
 The current estate has not yet passed the end-to-end standalone conformance
 profile.
+
+The local product target makes that contract visible as one shared,
+non-object zero-to-operable journey across App and CLI/headless:
+verify and preview the selected release; install; bootstrap deployment-local
+identity and authority; start the client, daemon, and declared Agentgres
+posture; pass bounded readiness; inspect status, doctor findings, and logs;
+update or roll back through an admitted change plan; stop or uninstall without
+implicit wipe; and back up, export, or restore through the owning contracts.
+It is distinct from zero-to-idle and from one environment StartupPlan. The
+current estate has not yet passed this end-to-end product proof.
 
 For an enterprise, their clearest joint value is a governed learning loop:
 models remain replaceable cognition suppliers while the institution retains the
@@ -241,6 +251,17 @@ immutable release, surface descriptor, installation binding, enablement,
 serving runtime, System binding, and System identity; reference-product
 captures and parity evidence grant none of them.
 
+Project and environment convenience remains proposal-mediated and
+evidence-bearing. A source snapshot plus an exact detector revision may produce
+a `HypervisorProjectDiscoveryProposal`, but discovery executes no source,
+installs nothing, grants no authority, and starts no environment. Explicit
+candidate and override acceptance creates the Project/recipe lineage; one exact
+resolution may then be admitted as a `HypervisorEnvironmentStartupPlan`.
+Environment ports and route bindings remain separate, backups require a
+complete manifest and actual payload bytes, restore prepares and applies
+through `HypervisorChangePlan`, and unresolved provider cleanup obligations
+survive parent deletion.
+
 ### Local Ontology And Optional Federation
 
 There is no universal enterprise graph. Each domain owns local ontology
@@ -379,6 +400,7 @@ before claiming that a target object is built.
 | Goal Space pricing, Work Credits, Network/Open budgets | [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md) | [`identity-access-and-metering.md`](../components/hypervisor/identity-access-and-metering.md), [`collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md) |
 | Foundation-model supply, OpenRouter, BYOK/BYOA, route rights | [`model-router/doctrine.md`](../components/model-router/doctrine.md) | [`api-byok-mounting.md`](../components/model-router/api-byok-mounting.md), [`economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md) |
 | Hypervisor shell, Systems/Work, applications, packages, clients, sessions, adapters | [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`canonical-enums.md`](../foundations/canonical-enums.md), [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`doctrine.md`](../components/daemon-runtime/doctrine.md) |
+| Project discovery, environment recipes/startup, routes, backups, restore, and provider cleanup | [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md) | [`api.md`](../components/daemon-runtime/api.md), [`agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md), [`doctrine.md`](../components/daemon-runtime/doctrine.md) |
 | Type 1/2/3 substrate and HypervisorOS | [`hypervisoros.md`](../components/daemon-runtime/hypervisoros.md) | [`providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md) |
 | Enterprise ontology, semantic federation, ODK | [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`foundry.md`](../components/hypervisor/foundry.md) |
 | Enterprise-owned learning, provider exposure, capability portability, and model-swap continuity | [`institutional-learning-boundary.md`](../foundations/institutional-learning-boundary.md) | [`model-router/doctrine.md`](../components/model-router/doctrine.md), [`foundry.md`](../components/hypervisor/foundry.md), [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) |

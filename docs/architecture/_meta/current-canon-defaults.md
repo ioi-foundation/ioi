@@ -7,7 +7,7 @@ files named in [source-of-truth-map.md](./source-of-truth-map.md).
 Supersedes: the inline "Current canonical defaults" digest formerly embedded in
 [source-of-truth-map.md](./source-of-truth-map.md).
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-20.
 Doctrine status: canonical
 Implementation status: mixed (cross-owner digest)
 Last implementation audit: 2026-07-19
@@ -464,6 +464,39 @@ synchronized.
   `HypervisorChangePlan`, and disconnect preserves only work whose complete
   dependency closure remains locally satisfied under current authority,
   temporal evaluation, budget, partition, and writer-fence posture;
+- the user-visible local proof is one non-object zero-to-operable journey
+  shared by App and CLI/headless: verify release identity, integrity, and
+  supply-chain evidence; preview paths, endpoints, custody, supervision,
+  egress, and effects; install; bootstrap deployment-local identity and
+  authority; start client, daemon, and the declared Agentgres posture; pass
+  bounded readiness; inspect status, doctor findings, and logs; update or roll
+  back through an admitted `HypervisorChangePlan`; stop or uninstall without
+  implicit wipe; and export, back up, or restore through owner contracts. This
+  is not a plane, profile, SKU, zero-to-idle policy, or
+  `HypervisorEnvironmentStartupPlan`, and no current end-to-end pass is
+  claimed;
+- project discovery is deterministic proposal generation, not activation. A
+  `HypervisorProjectDiscoveryProposal` binds the exact source snapshot,
+  detector revision, candidates, evidence, confidence, conflicts, and unknowns
+  without executing source, installing dependencies, using secrets, granting
+  authority, or starting an environment. Only explicit acceptance of one exact
+  candidate and admitted override set freezes lineage into
+  `HypervisorProject` and `HypervisorDevelopmentEnvironmentRecipe`; resolution
+  and admission may then produce a `HypervisorEnvironmentStartupPlan`;
+- `HypervisorEnvironmentRouteBinding` owns the admitted target/observed route
+  relationship, TLS posture, authority, and activation lineage separately from
+  `HypervisorEnvironmentPort` and mere reachability. Route effects use
+  `HypervisorChangePlan`; an open port or successful probe grants neither route
+  authority nor readiness;
+- a `HypervisorEnvironmentBackup` is restore-eligible only when its complete,
+  immutable manifest and every required payload byte are available and
+  verified. Restore preparation is read-only; apply revalidates preflight,
+  authority, active head, content, and fences through
+  `plan_type: environment_restore`. Failed, unknown, partial, superseded, or
+  late execution cannot advance or reclaim the active binding, cancellation
+  after possible effect becomes rollback/reconciliation/cleanup, and a
+  `HypervisorResourceCleanupObligation` survives parent deletion until its
+  exact provider resource is reconciled;
 - Hypervisor Core is the shared runtime/control substrate whose execution
   owner is the Hypervisor Daemon; it is not a peer runtime beside the daemon,
   not a replacement for wallet.network, and not a replacement for Agentgres;

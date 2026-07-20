@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Daemon, CLI ownership boundaries, and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`api.md`](./api.md).
 Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
 Superseded by: none.
-Last alignment pass: 2026-07-12.
+Last alignment pass: 2026-07-20.
 Doctrine status: canonical
 Implementation status: partial (the daemon is the single runtime surface; hosted/DePIN endpoint families planned)
 Implementation refs:
@@ -277,6 +277,34 @@ ioi forge
 `forge` remains an advanced namespace for domain/kernel scaffolding. It is not
 the primary identity of the CLI.
 
+The App and CLI/headless clients must also expose one shared, source-neutral
+zero-to-operable local lifecycle. The product verbs are semantic operations,
+not a promise that every shell spells them identically:
+
+```text
+verify release, signer, integrity, and supply-chain evidence
+  -> preview paths, endpoints, data custody, supervisor, egress, and effects
+  -> install the selected local release
+  -> bootstrap deployment-local identity and authority
+  -> start client, daemon, and the declared Agentgres posture
+  -> evaluate bounded readiness
+  -> open the requested product surface
+  -> inspect status, doctor findings, and logs
+  -> update or roll back through an admitted HypervisorChangePlan
+  -> stop or uninstall
+  -> separately approve destructive wipe when explicitly requested
+  -> export, back up, or restore through the owning environment contracts
+```
+
+This lifecycle is a non-object product journey, not a new plane, profile, SKU,
+or durable truth source. It is distinct from zero-to-idle infrastructure
+posture and from `HypervisorEnvironmentStartupPlan`, which freezes one admitted
+environment start. Initial installer verification is an explicit trust bridge;
+status and doctor operations are read-only; uninstall never implies wipe; and
+App, CLI/headless, and any optional TUI must report the same daemon/Agentgres
+state rather than maintain private installation truth. This end-to-end product
+journey is target behavior and is not yet implemented or conformance-proven.
+
 When CLI prose says "Web4 L0," it refers to the IOI kernel/L0 substrate:
 domain scaffolding, manifests, policy roots, receipts, runtime profiles, and
 upgrade objects. The CLI is an operator client over that substrate. It is not
@@ -314,6 +342,19 @@ may manage or inspect local Hypervisor Daemons and render local runtime
 projections. Remote, hosted, provider, DePIN, TEE, and customer runtime nodes
 should still be described as Hypervisor Daemon runtime-node profiles, even when
 they run Hypervisor-compatible workflow packages.
+
+Environment composition follows one inspectable lineage: source snapshot and
+detector evidence produce a non-authoritative
+`HypervisorProjectDiscoveryProposal`; explicit acceptance of one exact
+candidate and overrides creates or updates the Project and environment recipe;
+resolution and admission may then produce a
+`HypervisorEnvironmentStartupPlan`. Route bindings remain distinct from ports
+and reachable URLs. Backups are restore-eligible only when their complete
+manifest and referenced payload bytes are available. Restore preparation and
+activation use `HypervisorChangePlan`; failed, partial, superseded, unknown, or
+late executions cannot advance the active binding; and exact provider cleanup
+obligations survive deletion of their parent environment until reconciled.
+Clients render and invoke these contracts but do not own them.
 
 ### Authority Gateway / Sidecar Profile
 
@@ -714,6 +755,13 @@ selected harness/model = owner of workspace skills or memory
 Authority Gateway adapter = total control over opaque third-party agents
 runtime node = application-domain truth store
 model reply = completed run proof
+installer convenience = implicit trust
+uninstall = destructive wipe
+project discovery = code execution, authority, or environment start
+reachable URL or open port = admitted route binding
+provider object existence = restore-eligible backup
+restore prepare = activation
+parent deletion = provider cleanup completion
 ```
 
 Correct model:
@@ -769,6 +817,17 @@ receipts and replay make work accountable
 12. No generic lifecycle transition that bypasses the object's kind-specific
     legal edge and authority table, and no cancellation completion claim without
     child-owner receipts.
+13. No local install or update without verified release identity, integrity,
+    declared effects, and an explicit trust transition; update and rollback
+    effects use admitted change plans.
+14. No uninstall path may destroy data, secrets, backups, or Agentgres truth
+    unless a separate exact wipe action is explicitly authorized and receipted.
+15. No discovery proposal, port observation, reachable URL, backup metadata, or
+    restore preparation may be presented as Project acceptance, route
+    activation, restore eligibility, or applied state.
+16. No environment deletion discharges an unresolved provider cleanup
+    obligation, and no failed, partial, superseded, unknown, or late change-plan
+    execution may claim or advance the active binding head.
 
 ## One-Line Doctrine
 

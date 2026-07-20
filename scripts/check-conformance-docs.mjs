@@ -20,6 +20,8 @@ console.log(
       checks: [
         "local-link-targets",
         "local-markdown-anchors",
+        "platform-fault-matrix-contract",
+        "platform-fault-matrix-jcs-sha256-profile",
         "sovereign-local-completeness-matrix-contract",
         "sovereign-local-completeness-jcs-sha256-profile",
       ],

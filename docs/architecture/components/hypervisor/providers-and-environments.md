@@ -8,7 +8,7 @@ integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-20.
 Doctrine status: canonical
 Implementation status: partial (env lifecycle, providers, readiness, warm pools, and placement built; DePIN/storage posture families vary)
 Implementation refs:
@@ -104,14 +104,16 @@ provider integrations
 provider accounts and connector posture
 local/cloud/DePIN/customer/bare-metal resource posture
 environment classes
+evidenced project/source discovery proposals
 development environment recipes
 environment lifecycle
 environment lifecycle observations
 session access leases
-services, tasks, ports, logs, and support posture
+services, tasks, ports, external route bindings, logs, and support posture
 agent work services, service refs, health checks, and work-run observability
 SCM auth requirements
-snapshots, backups, archive material, and restore posture
+snapshots, manifest-complete backups, staged restore, and archive material
+durable provider-resource cleanup obligations
 cost, health, utilization, and placement views
 target-vs-observed environment and workload state
 change plans, release channels, maintenance windows, suppression windows,
@@ -122,9 +124,10 @@ zero-to-idle and restore posture
 archive/restore refs as projections over Agentgres truth
 ```
 
-The Hypervisor Daemon owns lifecycle execution semantics for create, start,
-stop, mark-active, snapshot, backup, archive, unarchive, restore, delete,
-service/task execution, port sharing, log access, lifecycle observation, and
+The Hypervisor Daemon owns lifecycle execution semantics for discovery
+proposal, create, start, stop, mark-active, snapshot, backup, archive,
+unarchive, staged restore, delete, service/task execution, port and route
+binding, cleanup reconciliation, log access, lifecycle observation, and
 environment operations.
 
 ## Does Not Own
@@ -453,6 +456,7 @@ Canonical environment ops objects:
 ```text
 HypervisorEnvironmentClass
 HypervisorEnvironmentOpsProfile
+HypervisorProjectDiscoveryProposal
 HypervisorDevelopmentEnvironmentRecipe
 HypervisorDevelopmentEnvironmentRecipeResolution
 HypervisorEnvironmentLifecycleState
@@ -465,12 +469,14 @@ HypervisorEnvironmentRecoveryAttempt
 HypervisorEnvironmentStopPolicy
 HypervisorEnvironmentSnapshot
 HypervisorEnvironmentBackup
+HypervisorResourceCleanupObligation
 HypervisorWorkspaceInitializer
 HypervisorEnvironmentActivitySignal
 HypervisorSessionAccessLease
 HypervisorEnvironmentService
 HypervisorEnvironmentTask
 HypervisorEnvironmentPort
+HypervisorEnvironmentRouteBinding
 HypervisorScmAuthRequirement
 HypervisorEnvironmentSubstratePolicy
 HypervisorEnvironmentResourceIsolationProfile
@@ -512,14 +518,16 @@ Hypervisor may initiate or display:
 
 ```text
 create / create_from_project / create_from_context_url
+project discovery propose / inspect / accept
 development recipe validate / admit / resolve
 start / stop / mark_active
 service start / stop
 task start / stop
 port share / revoke
+route binding propose / attach / renew / cut over / detach
 SCM auth satisfaction flow
 snapshot / backup / finalization
-archive / unarchive / restore / delete
+archive / unarchive / restore prepare / restore apply / restore cancel / delete
 timeout / idle / maximum lifetime policy
 graceful / immediate / abort stop policy
 activity and idle posture
@@ -527,6 +535,7 @@ access/log/support leases
 lifecycle observations and condition timeline
 provider failure classify / recovery candidate preview / recovery attempt
 failover / rebuild / WorkRun retry / fail-closed recovery decision
+cleanup obligation inspect / retry / quarantine / close
 capacity shock classify / allocation request / allocation decision
 preempt / pause / defer / degrade / shift provider / request budget
 catch-up policy for delayed scheduled work
@@ -579,6 +588,8 @@ HypervisorEnvironmentStatus
     model_mount       { phase, model_route_ref, evidence_ref }   # IOI-native
     harness           { phase, harness_session_ref, evidence_ref } # IOI-native
   ports: [ HypervisorEnvironmentPort ]
+  route_binding_refs
+  cleanup_obligation_refs
   failure_message? / warning_message?
   lifecycle_observation_refs
   initializer_metrics
@@ -606,16 +617,73 @@ HypervisorWorkspaceInitializer
   authority_scope_refs
 ```
 
-Ports are structured and wallet-gated, not owner-token shared:
+Ports are structured and authority-gated, not owner-token shared:
 
 ```text
 HypervisorEnvironmentPort
-  port, protocol
+  port_ref
+  environment_ref
+  service_ref?
+  port
+  protocol
   access_policy: private | session_lease | shared
-  capability_lease_ref
-  url
+  port_exposure_policy_ref
+  capability_lease_ref?
   exposure_state: closed | lease_required | open
+  local_or_session_url?
+  route_binding_refs
 ```
+
+A port is a daemon-visible socket or service endpoint. An externally
+addressable route has independent cardinality, ownership proof, certificate,
+provider, cutover, cost, and revocation semantics, so it uses one immutable
+`HypervisorEnvironmentRouteBinding` per admitted route:
+
+```text
+HypervisorEnvironmentRouteBinding
+  schema_version
+  route_binding_ref: environment-route-binding://.../revision/...
+  predecessor_route_binding_ref?
+  route_binding_hash
+  environment_ref
+  session_ref?
+  system_ref?
+  service_ref?
+  port_ref
+  target_endpoint_ref
+  target_port
+  target_protocol
+  hostname_or_address
+  path_prefix?
+  network_scope
+  route_provider_ref?
+  dns_provider_ref?
+  certificate_provider_ref?
+  port_exposure_policy_ref
+  ownership_proof_requirement_ref?
+  tls_policy_ref
+  renewal_policy_ref?
+  traffic_policy_ref
+  privacy_and_information_flow_policy_refs
+  authority_requirement_refs
+  budget_or_quote_ref?
+  expected_active_head_ref?
+  activation_generation
+  expected_receipt_contract_refs
+```
+
+The owner allocates `route_binding_ref` before hashing.
+`route_binding_hash` covers the complete immutable body through
+`expected_receipt_contract_refs`, including the allocated ref and exact nullable
+fields, while excluding only `route_binding_hash`. Desired activation, attach,
+cutover, detach, replacement, and certificate renewal flow through
+`HypervisorTargetState` and an admitted `HypervisorChangePlan`; provider probes,
+DNS resolution, certificate status, endpoint health, and actual traffic posture
+flow through `HypervisorObservedState`. Multiple routes may bind one port, and
+one route may be replaced only by an explicit successor. TLS-required routes
+fail closed rather than silently downgrade. Neither a reachable URL nor a
+provider-issued certificate proves admitted exposure, authority, privacy,
+readiness, or application correctness.
 
 The status object streams to clients as session events, not a one-shot poll:
 
@@ -653,6 +721,71 @@ The status object is a projection of Agentgres-admitted truth: component phases,
 ports, and initializer state are not authoritative until the daemon records the
 operation, state root, authority context, and receipt that produced them.
 
+## Evidenced Project Discovery
+
+Project, repository, monorepo, service, stack, Compose, host, and runtime
+discovery is a read-only proposal stage before Project or recipe admission:
+
+```text
+policy-bound source snapshot
+  -> HypervisorProjectDiscoveryProposal
+  -> explicit candidate selection plus admitted overrides
+  -> HypervisorProject and/or HypervisorDevelopmentEnvironmentRecipe
+  -> HypervisorDevelopmentEnvironmentRecipeResolution or refusal
+  -> HypervisorEnvironmentStartupPlan
+  -> startup admission and execution
+```
+
+```text
+HypervisorProjectDiscoveryProposal
+  schema_version
+  project_discovery_proposal_ref:
+    project-discovery-proposal://.../revision/...
+  proposal_hash
+  source_ref
+  source_snapshot_ref
+  source_snapshot_hash
+  discovery_engine_revision_ref
+  discovery_engine_hash
+  discovery_policy_ref
+  observed_marker_refs
+  evidence_refs
+  candidate_roots:
+    - candidate_id
+      root_ref
+      proposed_project_kind
+      proposed_stack_or_runtime
+      proposed_initializer_inputs
+      proposed_task_inputs
+      proposed_service_inputs
+      proposed_port_inputs
+      proposed_dependency_inputs
+      confidence
+      uncertainty
+      conflict_refs
+      alternative_candidate_refs
+      missing_requirement_refs
+      reason_codes
+  information_flow_label_ref
+  custody_posture_ref
+  permitted_override_schema_ref
+```
+
+The owner allocates `project_discovery_proposal_ref` before hashing.
+`proposal_hash` covers the complete immutable proposal through
+`permitted_override_schema_ref`, including the allocated ref and exact ordered
+candidate set, while excluding only `proposal_hash`.
+
+Repository files, manifests, comments, scripts, detector output, and host probes
+remain untrusted evidence. Static discovery executes no project code, package
+install, network call, or secret access. A dynamic probe requires its own
+sandbox, information-flow policy, authority, and receipts and still remains
+evidence. Confidence is neither correctness nor authority; ambiguity, conflicts,
+alternatives, and unknowns remain visible. Discovery cannot mint `project_id`,
+author a canonical recipe, resolve placement, install components, grant a lease,
+or start work. Explicit acceptance freezes the exact proposal, selected
+candidate, and admitted override set into the Project or recipe lineage.
+
 ## Development Environment Recipe
 
 `HypervisorDevelopmentEnvironmentRecipe` is the reusable setup contract for
@@ -671,6 +804,11 @@ HypervisorDevelopmentEnvironmentRecipe
   development_environment_recipe_ref: development-environment-recipe://.../revision/...
   content_hash
   project_ref?
+  project_discovery_proposal_ref?
+  project_discovery_proposal_hash?
+  selected_discovery_candidate_id?
+  admitted_discovery_override_set_ref?
+  admitted_discovery_override_set_hash?
   environment_class_ref?
   substrate: host | devcontainer | container | microvm | wasm |
              browser_sandbox | vm | hypervisoros_node
@@ -711,6 +849,14 @@ HypervisorDevelopmentEnvironmentRecipe
   authority_scope_templates
   receipt_policy_ref
 ```
+
+Discovery lineage fields are all absent for a manually authored recipe. When
+present, proposal ref/hash and override-set ref/hash are paired, the selected
+candidate must exist in the exact proposal, and the accepted override set must
+conform to that proposal's permitted schema. A changed source snapshot,
+discovery-engine revision, selected candidate, or override set requires new
+proposal or recipe content; no compatibility adapter may silently re-run
+discovery behind an admitted recipe.
 
 `HypervisorDevelopmentEnvironmentRecipeResolution` is the daemon-produced,
 Agentgres-recorded decision that turns a recipe into concrete
@@ -1030,6 +1176,146 @@ Archive
 Snapshot or backup bytes may live in local disk, object storage, CAS/Filecoin,
 or provider storage. They are restore material only. Restore validity remains
 Agentgres-operation-backed.
+
+`HypervisorEnvironmentBackup` is one durable Agentgres-backed lifecycle
+aggregate for an environment backup. It reuses artifact and storage owners
+rather than creating provider-specific backup truth:
+
+```text
+HypervisorEnvironmentBackup
+  schema_version
+  backup_ref: environment-backup://...
+  environment_ref
+  session_ref?
+  system_ref?
+  work_subject_ref?
+  backup_policy_ref
+  trigger:
+    manual | scheduled | webhook | pre_change | shutdown | policy
+  actor_ref?
+  schedule_or_change_plan_ref?
+  source_state_root_ref
+  source_object_head_refs
+  source_checkpoint_or_suffix_boundary_refs
+  capture_profile_ref
+  execution_substrate_ref
+  destination_ref
+  custody_profile_ref
+  artifact_refs
+  manifest_artifact_ref
+  manifest_root
+  content_commitment_refs
+  encryption_ref
+  key_epoch_ref
+  retention_policy_ref
+  expires_at?
+  hold_refs
+  authority_requirement_refs
+  authority_grant_refs
+  daemon_operation_refs
+  provider_operation_refs
+  lifecycle_head_ref
+  status:
+    requested | capturing | finalizing | complete |
+    failed | cancelled | expired | pruned
+  evidence_refs
+  receipt_refs
+```
+
+Lifecycle transitions append under `lifecycle_head_ref`; they do not rewrite
+history. Only `complete` is eligible restore material. Completion requires the
+complete manifest and every referenced artifact commitment to be durably
+admitted. Partial bytes, a provider object's existence, an object-size match, or
+a manifest written before its referenced artifacts cannot produce `complete`.
+Verification retrieves and hashes the actual bytes; a checksum delivered only
+beside the same untrusted payload is not independent release or custody proof.
+
+Restore reuses `HypervisorChangePlan` rather than creating a parallel restore
+plan family. When `plan_type = environment_restore`, the immutable plan also
+binds:
+
+```text
+source_backup_or_snapshot_or_archive_ref
+restore_manifest_ref
+restore_manifest_root
+restore_scope:
+  whole_environment | workspace | service | volume | declared_objects
+target_environment_ref
+target_generation_or_writer_fence_ref
+pre_restore_checkpoint_ref?
+overwrite_or_clear_policy_ref
+compatibility_validation_refs
+source_root_and_head_expectations
+suffix_disposition:
+  replay | import | explicitly_lost | not_applicable
+target_read_only_preflight_ref
+target_read_only_preflight_hash
+target_preflight_valid_until
+post_restore_readiness_gate_ref
+post_restore_root_validation_contract_ref
+```
+
+Prepare validates and freezes that plan, reports all known failed gates, and
+performs no target stop, clear, write, or authority-consuming effect. It
+retrieves and hashes every artifact byte, validates manifest completeness,
+decryptability, checkpoint/root lineage, suffix coverage, destination allowed
+roots and symlink confinement, target read/write/delete posture, capacity,
+compatibility, and current authority evidence. Apply creates the ordinary
+`HypervisorChangePlanAdmission` and `HypervisorChangePlanExecution`, rechecking
+preflight freshness, authority, lease, target head, content commitments,
+overwrite policy, and writer fence immediately before mutation. It then
+recomputes the target root and establishes application readiness.
+
+Cancellation before any effect emits a typed cancellation receipt, discards
+staged material, and leaves the target unchanged. Cancellation after an effect
+may have begun is only a cancellation request; it enters rollback,
+reconciliation, or cleanup-obligation state and cannot claim clean
+cancellation. Missing manifests, same-size byte substitution, wrong decryption
+material, stale preparation, failed root recomputation, or failed readiness
+cannot become restore success through a provider response or service restart.
+
+`HypervisorResourceCleanupObligation` preserves provider-resource cleanup after
+its originating environment, Session, Project, plan, or provider connection is
+deleted or unreachable:
+
+```text
+HypervisorResourceCleanupObligation
+  schema_version
+  cleanup_obligation_ref
+  originating_plan_ref?
+  originating_execution_ref?
+  originating_daemon_or_provider_operation_ref?
+  environment_ref?
+  session_ref?
+  provider_ref
+  resource_refs:
+    - resource_kind
+      canonical_resource_ref?
+      provider_native_evidence_ref?
+      identity_commitment
+  required_disposition:
+    destroy | detach | revoke | release | verify_absent | quarantine
+  cause:
+    owner_deleted | rollback_incomplete | provider_unreachable |
+    partial_execution | unknown_effect | superseded_change | policy
+  reclaim_policy_ref
+  required_authority_refs
+  lifecycle_head_ref
+  status:
+    pending | retry_scheduled | blocked | reconciling |
+    completed | quarantined | abandoned
+  attempt_count
+  last_attempt_ref?
+  next_attempt_after?
+  evidence_refs
+  receipt_refs
+```
+
+Deleting the parent never deletes the obligation. Provider `not found` closes
+it only when the exact provider namespace and resource identity commitment were
+queried; otherwise absence remains ambiguous. Completion, quarantine, or
+authorized abandonment is an admitted, receipted disposition rather than
+garbage-collection inference.
 
 ## Agent Work Services In Environments
 
@@ -1702,25 +1988,62 @@ lifecycle_continuity_floor_ref?
 ordering_finality_profile_ref?
 expected spend and risk posture
 privacy and cTEE posture
+when the plan changes an active binding:
+  activation_target_ref
+  expected_active_head_ref
+  candidate_ref
+  candidate_generation
+  adjudication_requirement_ref?
+when plan_type = environment_restore:
+  source_backup_or_snapshot_or_archive_ref
+  restore_manifest_ref
+  restore_manifest_root
+  restore_scope:
+    whole_environment | workspace | service | volume | declared_objects
+  target_environment_ref
+  target_generation_or_writer_fence_ref
+  pre_restore_checkpoint_ref?
+  overwrite_or_clear_policy_ref
+  compatibility_validation_refs
+  source_root_and_head_expectations
+  suffix_disposition:
+    replay | import | explicitly_lost | not_applicable
+  target_read_only_preflight_ref
+  target_read_only_preflight_hash
+  target_preflight_valid_until
+  post_restore_readiness_gate_ref
+  post_restore_root_validation_contract_ref
 when placement or custody changes:
   source_authoritative_refs
   target_candidate_refs
   export_or_checkpoint_ref
+  target_read_only_preflight_ref
+  target_read_only_preflight_hash
+  target_preflight_valid_until
   target_import_and_validation_ref
   quiescence_policy_ref
   cutover_epoch_and_writer_fence_ref |
     native_membership_quorum_finality_transition_ref
   rollback_window_ref
   source_retention_replica_archive_or_teardown_policy_ref
+  secret_and_credential_dispositions:
+    - secret_or_credential_ref
+      disposition:
+        retain_at_source | reissue_at_target | rewrap_for_target |
+        require_user_relink | exclude_from_transfer | revoke_at_source
+      source_custody_ref
+      target_custody_requirement_ref?
+      authority_requirement_refs
+      completion_evidence_requirement_ref
   expected_portability_receipt_contract_refs
 ```
 
 The owner allocates `plan_ref` independently before hashing. `plan_hash` covers
 the complete canonical immutable plan body above, including the allocated ref,
 exact nullable System/work-subject and temporal/continuity fields, and every
-ordered step, gate, rollback, and migration input; it excludes only
-`plan_hash`. State roots, receipts, observations, execution output, and refusal
-reasons are never members of that preimage.
+ordered step, gate, rollback, conditional restore, activation, and migration
+input; it excludes only `plan_hash`. State roots, receipts, observations,
+execution output, and refusal reasons are never members of that preimage.
 
 Change plans may be proposed by Automations, Developer Workspace, Foundry, ioi.ai,
 provider views, scanner findings, policy engines, or human operators. They are
@@ -1753,6 +2076,11 @@ HypervisorChangePlanExecution
   applied_step_refs
   resulting_state_refs
   canary_or_validation_refs
+  activation_outcome:
+    advanced | not_attempted | refused_failed |
+    refused_partial | refused_unknown | refused_superseded
+  resulting_active_head_ref?
+  cleanup_obligation_refs
   rollback_or_reconciliation_refs
   state_root_ref / receipt_refs
 
@@ -1775,6 +2103,22 @@ and hash externally; they are never inputs to the hash they attest. Admission
 and execution never rewrite the immutable plan or launder an execution result
 into its proposal hash.
 
+Active binding selection is a monotonic compare-and-swap. A failed, unknown,
+reconciliation-required, partial, or superseded execution cannot advance the
+active head. Partial health requires explicit adjudication and a successor
+decision; it never becomes success by projection. A late successful observation
+for an older plan cannot reclaim the active target after a newer admitted
+successor. Expected-active-head or generation mismatch fails closed into a new
+plan or reconciliation.
+
+Cleanup duties outlive the object whose deletion requested them. VMs, volumes,
+routes, certificates, leases, reservations, credentials, storage material,
+provider resources, or embodied allocations that cannot be proven reclaimed
+create or retain `HypervisorResourceCleanupObligation` records until an
+admitted retry, quarantine, retention, transfer, or manual-disposal decision
+closes them. Deleting a Project, Session, environment, installation, plan, or UI
+row may hide none of those obligations.
+
 Placement or custody migration preserves a `system_id` only when the applicable
 governed-System `LifecycleTransitionEnvelope.identity_continuity_decision_ref`
 authorizes that identity-preserving transition. Providers and Environments own
@@ -1785,6 +2129,17 @@ provider readiness, or possession of the prior bytes cannot make that
 decision. The portability and migration receipt chain described here is target
 contract only; no current end-to-end migration producer or evaluator is
 claimed.
+
+Migration preflight is read-only and aggregate: it evaluates every independent
+target prerequisite, returns all known blockers together, freezes evidence
+refs, hashes, observation times, and a validity window into the plan, and
+mutates neither source nor target. Apply rechecks every expiring fact. Secrets
+are excluded from ordinary copied state and follow their explicit per-secret
+dispositions; copied ciphertext is never presumed usable at the target. Wrong
+decryption or rewrap material, incomplete secret-registry coverage, failed
+preflight or fence observation, concurrent mutation that cannot be fenced, or
+background work that cannot be drained blocks cutover before a second writer or
+target mutation can appear.
 
 `ChangePlanGate` covers constraints that must be satisfied before execution:
 
@@ -1888,9 +2243,10 @@ Provider
 Services
 Tasks
 Ports
+Routes / Domains / TLS
 Logs
 Cost
-Archive / Restore
+Backup / Archive / Restore
 cTEE posture
 Access leases
 SCM auth
@@ -1973,22 +2329,24 @@ Running and monitoring
   stream into projections
 
 Snapshotting or backing up
-  forkable workspace material, durability material, initializer metrics,
-  finalization state, and provider/storage evidence are recorded as restore
-  material, not restore truth
+  forkable workspace material, durability material, complete artifact manifests,
+  content commitments, initializer metrics, finalization state, and
+  provider/storage evidence are recorded as restore material, not restore truth
 
 Archiving or zero-to-idle
   session pauses, seals outputs, updates archive refs, writes restore receipts,
   and releases provider resources according to policy
 
 Restoring or reinitializing
-  Hypervisor replays Agentgres truth, validates restore receipts and state
-  roots, resolves archive/payload refs, rehydrates provider material, then
-  re-admits access and execution contracts
+  Hypervisor prepares and byte-verifies exact archive/payload refs without
+  touching the live target; an admitted change plan then applies the prepared
+  result, recomputes roots and readiness, and re-admits access and execution
+  contracts, or cancellation discards staging without target mutation
 
 Shutting down
   leases are revoked or expired, ports close, transcripts seal, receipts commit,
-  and provider resources stop or delete by policy
+  and provider resources stop or delete by policy; any unproven reclamation
+  remains a durable cleanup obligation
 ```
 
 Provider logs, container IDs, SSH readiness, devcontainer output, file watcher
@@ -2025,6 +2383,11 @@ restore/import receipt chain.
   truth without daemon admission, the applicable local/domain/protocol
   authority, including wallet.network where its scopes apply, and Agentgres
   operation/receipt refs.
+- Project and environment discovery must remain inspectable pre-admission
+  evidence with exact source and detector revisions, candidates, confidence,
+  conflicts, alternatives, unknowns, and override provenance. Discovery cannot
+  silently install, authorize, create a Project/recipe, or execute detected
+  code.
 - Agent-ready recipes must compile into typed tasks, services, readiness gates,
   resource-isolation profiles, connectivity profiles, and lifecycle
   observations. "Container started" or "shell attached" is not sufficient
@@ -2050,8 +2413,17 @@ restore/import receipt chain.
 - Snapshot, backup, and archive semantics must remain distinct. Snapshots are
   forkable point-in-time material, backups are durability material, and archives
   are policy-bound restore chains with Agentgres refs and receipts.
+- A complete backup binds its manifest and every artifact commitment. Restore
+  preparation must perform actual-byte verification with zero target mutation;
+  apply must consume that exact plan through current authority, fencing, root
+  recomputation, readiness, and receipts; clean cancellation is available only
+  before a possible effect.
 - Encrypted blobs may be restore material, but restore validity must be
   operation-backed through Agentgres.
+- External route exposure must use an admitted
+  `HypervisorEnvironmentRouteBinding` and explicit target/observed state.
+  Reachability, DNS, TLS issuance, CDN state, or port openness alone is neither
+  exposure authority nor application readiness.
 - Access, logs, support, ports, SCM auth, archive, restore, service, and task
   actions must be policy-bound and receipted when they affect authority,
   privacy, replay, cost, or restore.
@@ -2078,6 +2450,12 @@ restore/import receipt chain.
 - Active recalls must block affected versions, routes, workers, connectors,
   images, datasets, or placements until an admitted clearance or authorized
   exception exists.
+- Failed, unknown, partial, late, or superseded executions must not advance or
+  reclaim an active binding. Unfinished provider-resource cleanup survives
+  owner-object deletion as a durable `HypervisorResourceCleanupObligation`.
+- Placement/custody migration must use read-only aggregate preflight, revalidate
+  evidence at apply, bind every secret/credential disposition, and fail closed
+  when quiescence, fencing, secret handling, or target observation is uncertain.
 - Deployed-where indexes must derive from admitted environment/session/project
   refs and receipts, not provider inventory alone.
 - Cheap DePIN compute must not be described as private unless cTEE, TEE,
@@ -2097,6 +2475,10 @@ provider posture = storage truth
 cloud provider catalog = compute provider
 provider lifecycle state = restore truth
 encrypted blob = restore truth
+backup object exists = backup artifact bytes verified
+restore prepare = destructive target mutation
+service restarted = restore valid and ready
+reachable URL or certificate = admitted route exposure
 provider recovery = invisible restart
 environment restore = proof that an external outcome committed or did not commit
 automatic retry of reconciliation-required or non-retryable effects
@@ -2119,6 +2501,9 @@ observed state = Agentgres truth without admission
 scanner output = authority
 rollout = wallet.network bypass
 release channel = blind auto-upgrade
+late deployment success = permission to steal active binding
+owner deletion = cleanup obligation erased
+copied ciphertext = target-usable secret
 maintenance window = calendar note outside policy
 suppression window = hidden provider flag
 recall = unreceipted provider toggle

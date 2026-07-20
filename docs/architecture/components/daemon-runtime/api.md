@@ -6,7 +6,7 @@ streaming, run lifecycle, OutcomeRoom/GoalRun execution APIs, structured errors,
 and client-vs-runtime ownership.
 Supersedes: older daemon/SDK/CLI endpoint lists when endpoint shape conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-20.
 Doctrine status: reference
 Implementation status: partial (many route families live; the registered information-flow/declassification contracts are schema/projection substrate, while production propagation and enforcement remain planned; the shared work-lifecycle integrity/replay kernel, local append store, projection repair, cancellation planner, archive/snapshot writer, and status route are target-only; generalized GoalRunProfile resolution, local-agent pairing, OutcomeRoom discussion/artifact resolution, native Embodied Runtime APIs, non-tool MCP normalization, production browser-context propagation, and remaining browser/computer-use IFC are also target-only; source of truth is the daemon route registry)
 Implementation refs:
@@ -2283,6 +2283,9 @@ APIs, but they must not maintain parallel lifecycle truth.
 ### Projects
 
 ```http
+POST /v1/project-discovery-proposals
+GET  /v1/project-discovery-proposals/{proposal_id}
+POST /v1/project-discovery-proposals/{proposal_id}/accept
 GET  /v1/projects
 POST /v1/projects
 GET  /v1/projects/{project_id}
@@ -2318,27 +2321,53 @@ GET  /v1/sessions/{session_id}/ssh-config
 POST /v1/sessions/{session_id}/stop
 POST /v1/sessions/{session_id}/snapshots
 POST /v1/sessions/{session_id}/backups
+GET  /v1/sessions/{session_id}/backups
+GET  /v1/sessions/{session_id}/backups/{backup_ref}
+POST /v1/sessions/{session_id}/backups/{backup_ref}/cancel
+POST /v1/sessions/{session_id}/route-bindings
+GET  /v1/sessions/{session_id}/route-bindings
+GET  /v1/sessions/{session_id}/route-bindings/{binding_ref}
 POST /v1/sessions/{session_id}/archive
 POST /v1/sessions/{session_id}/unarchive
 POST /v1/sessions/{session_id}/restore
 DELETE /v1/sessions/{session_id}
+
+POST /v1/change-plans/prepare
+GET  /v1/change-plans/{plan_ref}
+POST /v1/change-plans/{plan_ref}/apply
+POST /v1/change-plans/{plan_ref}/cancel
+
+GET  /v1/cleanup-obligations
+GET  /v1/cleanup-obligations/{obligation_ref}
+POST /v1/cleanup-obligations/{obligation_ref}/retry
+POST /v1/cleanup-obligations/{obligation_ref}/quarantine
 ```
 
 External agent harnesses should use the session/environment-ops API for
 structured command execution, readiness polling, logs, and cleanup. They should
 not scrape Hypervisor product UI.
 
+Project discovery creates an immutable, read-only
+`HypervisorProjectDiscoveryProposal`. Acceptance must bind its exact proposal
+ref/hash, selected candidate, and admitted override-set ref/hash into the
+created Project and/or development recipe. The discovery call executes no
+repository code, install, secret access, or environment mutation; a dynamic
+probe is a separate sandboxed and governed operation.
+
 Environment lifecycle responses should expose `HypervisorEnvironmentClass`,
-`HypervisorEnvironmentOpsProfile`, `HypervisorDevelopmentEnvironmentRecipe`,
+`HypervisorEnvironmentOpsProfile`, `HypervisorProjectDiscoveryProposal`,
+`HypervisorDevelopmentEnvironmentRecipe`,
 `HypervisorDevelopmentEnvironmentRecipeResolution`,
 `HypervisorEnvironmentStartupPlan`,
 `HypervisorEnvironmentLifecycleState`, activity signal refs, lifecycle
 observation refs, snapshot refs, backup refs, archive refs, restore refs,
-state-root refs, and receipt refs when present.
+route-binding refs, cleanup-obligation refs, state-root refs, and receipt refs
+when present.
 Provider lifecycle state may be evidence, but it is not Agentgres truth.
 
 Canonical session/environment API objects include
 `HypervisorEnvironmentClass`, `HypervisorEnvironmentOpsProfile`,
+`HypervisorProjectDiscoveryProposal`,
 `HypervisorDevelopmentEnvironmentRecipe`,
 `HypervisorDevelopmentEnvironmentRecipeResolution`,
 `HypervisorEnvironmentStartupPlan`,
@@ -2346,8 +2375,10 @@ Canonical session/environment API objects include
 `HypervisorEnvironmentLifecycleObservation`,
 `HypervisorEnvironmentActivitySignal`, `HypervisorEnvironmentStopPolicy`,
 `HypervisorEnvironmentSnapshot`, `HypervisorEnvironmentBackup`,
+`HypervisorResourceCleanupObligation`,
 `HypervisorSessionAccessLease`, `HypervisorEnvironmentService`,
 `HypervisorEnvironmentTask`, `HypervisorEnvironmentPort`,
+`HypervisorEnvironmentRouteBinding`,
 `HypervisorScmAuthRequirement`, `HypervisorWorkQueue`,
 `HypervisorWorkItem`, `HypervisorWorkRun`,
 `HypervisorWorkRunConversationProjection`,
@@ -2369,6 +2400,15 @@ local or provider files as canonical state. Snapshot and backup payloads are
 restore material. Archive payloads are policy-bound restore material. Restore
 validity is operation-backed through Agentgres, artifact refs, state-root refs,
 policy refs, authority refs, and receipts.
+
+`POST /v1/sessions/{session_id}/restore` is a compatibility alias for preparing
+an `environment_restore` `HypervisorChangePlan`; it never combines preparation
+and apply. Preparation is read-only and target-nonmutating. Apply revalidates
+the exact prepared plan, authority, content commitments, target head, and writer
+fence. Cancellation after a possible effect begins is a request that produces
+rollback, reconciliation, or cleanup obligations, not a clean-cancel claim.
+Route attach/cutover/renewal/detach and cleanup retries likewise execute through
+admitted change plans and current authority rather than direct client mutation.
 
 `POST /v1/sessions/{session_id}/stop` accepts a stop policy such as
 `graceful`, `immediate`, or `abort`. The selected policy is lifecycle evidence

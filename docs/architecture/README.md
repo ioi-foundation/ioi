@@ -4,7 +4,7 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-20.
 Doctrine status: canonical
 Implementation status: mixed (navigation index over built, partial, planned, and speculative subjects)
 Last implementation audit: 2026-07-19
@@ -169,6 +169,23 @@ Package = distribution/lifecycle composition without ownership transfer
 Domain object = owner of the actual artifact, campaign, fleet, business, or system state
 ```
 
+The environment-composition spine is equally explicit:
+
+```text
+source snapshot + detector revision
+  -> HypervisorProjectDiscoveryProposal
+  -> explicit candidate and override acceptance
+  -> HypervisorProject + HypervisorDevelopmentEnvironmentRecipe
+  -> recipe resolution + HypervisorEnvironmentStartupPlan
+  -> environment lifecycle, route bindings, backups, restore ChangePlans,
+     and cleanup obligations
+```
+
+Discovery never executes source, grants authority, installs dependencies, or
+starts an environment. Ports, route bindings, backups, restore activation, and
+provider cleanup remain independently typed so convenience cannot erase their
+different authority, evidence, or recovery boundaries.
+
 “Recipe” is product/package language over one of the owner-qualified reusable
 objects: DataRecipe, HypervisorDevelopmentEnvironmentRecipe,
 HypervisorSessionLaunchRecipe, WorkflowTemplate, AutomationSpec, or
@@ -246,6 +263,18 @@ first-party managed dependency. Unavailable connected capabilities remain
 typed unavailable rather than becoming hidden prerequisites or simulated
 local parity. The conformance contract is defined; no current end-to-end
 standalone product pass is claimed.
+
+The product-level proof is one non-object zero-to-operable journey shared by
+App and CLI/headless: verify the selected release and supply-chain evidence;
+preview paths, endpoints, custody, supervision, egress, and effects; install;
+bootstrap deployment-local identity and authority; start the client, daemon,
+and declared Agentgres posture; pass bounded readiness; open the product;
+inspect status, doctor findings, and logs; update or roll back through an
+admitted `HypervisorChangePlan`; stop or uninstall without implicit data wipe;
+and export, back up, or restore through the owning contracts. This journey is
+distinct from zero-to-idle posture and from an environment StartupPlan. It is
+a target conformance claim, not a statement that the current estate has
+shipped it.
 
 Managed attachment may extend placement, collaboration, backup, support, model
 supply, routing, and assurance, but it never silently uploads, owns, meters,
