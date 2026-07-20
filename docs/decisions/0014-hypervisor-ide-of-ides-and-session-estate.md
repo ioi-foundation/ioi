@@ -147,6 +147,12 @@ Provider/environment views
   Cross-session estate views over sessions, environments, providers, costs,
   health, storage, access, and restore posture.
 
+Current-canon refinement (2026-07-19): the wallet boundary below is the
+portable delegated and wallet-owned high-risk boundary, not a universal claim
+over ordinary deployment-local authority. Local/domain governance may select a
+different permitted provider for ordinary local scopes; the daemon remains the
+effect-admission owner.
+
 wallet.network
   Authority, approvals, secrets, capability leases, spend, SCM credential
   release, access leases, declassification, and revocation.

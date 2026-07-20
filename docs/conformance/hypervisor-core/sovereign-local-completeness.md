@@ -158,6 +158,11 @@ optional planes return typed unavailable or degraded dispositions.
 The runner bootstraps a deployment-local operator and admits one locally
 permitted exact-effect authority path. An authenticated administrator without
 effect authority is refused before the invoker and produces zero effect calls.
+The admitted path binds the provider and snapshot hash, the authority decision
+ref and hash, a mandatory scoped `AuthorityGrant` ref and hash, and either a
+paired derived lease ref/hash or an explicit null lease pair. A provider may
+materialize a lease from the grant, but the absence of that provider-specific
+lease never means that consequential authority is optional.
 An exposed binding retains fail-safe authentication. This fixture makes no
 portable delegated-authority claim.
 
@@ -187,6 +192,11 @@ Crashes before and after admission and around a possible effect must recover
 the exact admitted heads and roots, reject changed-body replay, and prevent
 duplicate effects. An effect whose outcome cannot be established remains
 reconciliation-required and never becomes success through retry or restart.
+The changed-body case is explicit: body A executes once; after restart the
+same idempotency key plus body A returns the original result without invoking
+the effect again, while that key plus body B refuses before the invoker.
+Refusal auditing may advance its own log, but it cannot alter the admitted
+operation head or effect state.
 
 ### SLC-06 — Backup, clean restore, and offline proof
 
@@ -312,6 +322,30 @@ Fixture rows are target evidence only. Current master has no
 sovereign-local-completeness execution tier, so valid JSON and documentation
 links do not establish a product pass.
 
+The matrix identity is
+`ioi.sovereign-local-completeness-matrix.v1`, and its declared hash profile is
+`ioi.sovereign-local-completeness-matrix-jcs-sha256.v1`. Matrix, claim-profile,
+fixture-profile, overlay, network-policy, and execution-case hashes use the
+same closed construction:
+
+```text
+"sha256:" + lowercase_hex(
+  SHA-256(UTF8(RFC8785_JCS({
+    "domain": "ioi.sovereign-local-completeness-" + kind + "-jcs-sha256.v1",
+    "value": exact_value
+  })))
+)
+```
+
+The permitted `kind` values are `matrix`, `claim-profile`,
+`fixture-profile`, `overlay`, `network-policy`, and `execution-case`. Arrays
+retain declared order. The matrix hash covers the complete parsed matrix,
+including identity, hash profile, and status; the matrix does not embed or
+exclude a self-hash. `claim_profile_hash` covers the exact selected
+claim-profile object. Execution-case hashing uses fixture and overlay hash
+maps keyed by ID and explicit null predecessor and case-parameter fields when
+those bindings do not apply.
+
 ## Required machine report
 
 A future runner emits a report with at least:
@@ -338,7 +372,7 @@ durability_profile_ref
 custody_profile_ref
 assurance_profile_ref
 identity_profile_ref
-authority_profile_refs
+authority_profile_ref_hash_pairs
 evidence_window
 scenario_results:
   - execution_case_id

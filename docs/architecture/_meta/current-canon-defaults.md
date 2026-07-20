@@ -915,14 +915,16 @@ applicable;
   state. ioi.ai connector/auth escalation is a handoff through these
   contracts, wallet.network authority, daemon admission, and Agentgres
   receipts, not a direct provider path;
-- wallet.network is the autonomous-work authority wallet and gateway for
-  identity, auth factors, guardian surfaces, key shards, provider credential
-  bindings, delegated authority, leases, approvals, secrets, spend, data-use
-  permission, declassification, revocation, policy simulation inputs,
-  gateway decisions, risk labels, portable authority refs for training-data
-  use, and authority receipts. Hypervisor/Foundry/Data/Agentgres own local
-  governance and eligibility state; wallet.network supplies delegated
-  authority when that state needs secrets, spend, decryption,
+- wallet.network is the portable delegated-authority wallet and gateway for
+  connected identity, auth factors, guardian surfaces, key shards, provider
+  credential bindings, delegated authority, leases, approvals, secrets,
+  spend, data-use permission, declassification, revocation, policy simulation
+  inputs, gateway decisions, risk labels, portable authority refs for
+  training-data use, and authority receipts.
+  Hypervisor/Foundry/Data/Agentgres own local governance and eligibility state,
+  and applicable local/domain policy may select another permitted provider for
+  ordinary local authority; wallet.network supplies delegated authority when
+  that state needs secrets, spend, decryption,
   declassification, provider trust, publication/export, cross-domain reuse,
   or autonomous-agent-executable power. Agents and workers do not receive
   raw secrets as product doctrine; they receive scoped, revocable authority

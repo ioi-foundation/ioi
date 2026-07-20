@@ -252,7 +252,7 @@ The architecture docs already name the intended boundaries:
 | `docs/architecture/foundations/domain-kernels.md` | IOI kernel / L0 substrate creates and operates many domain kernels and governed chains. |
 | `docs/architecture/foundations/governed-autonomous-systems.md` | Serious autonomous systems are governed execution objects whose service modules produce receipted transitions. |
 | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md` | Private Workspace backed by cTEE is the daemon profile for no-plaintext-custody work on rented GPU nodes. |
-| `docs/architecture/components/wallet-network/doctrine.md` | wallet.network owns authority, secrets, approvals, decryption leases, cTEE authority view, and capability exit authorization. |
+| `docs/architecture/components/wallet-network/doctrine.md` | wallet.network owns portable delegated authority plus its designated secret, spend, decryption, declassification, external-effect, and high-risk scopes; applicable local/domain policy may select another permitted provider for ordinary local governance. |
 
 ### Current product runtime
 

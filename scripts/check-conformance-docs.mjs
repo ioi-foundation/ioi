@@ -17,7 +17,12 @@ console.log(
     {
       ok: true,
       scope: "docs/conformance/**",
-      checks: ["local-link-targets", "local-markdown-anchors"],
+      checks: [
+        "local-link-targets",
+        "local-markdown-anchors",
+        "sovereign-local-completeness-matrix-contract",
+        "sovereign-local-completeness-jcs-sha256-profile",
+      ],
     },
     null,
     2,

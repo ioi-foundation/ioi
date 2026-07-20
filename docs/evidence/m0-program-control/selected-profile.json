@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-19",
-  "build_fingerprint": "5a72d5bb62e9298e50b61958ca56ac3b2247cbde605740a45dcce32ad9f3c66b",
+  "build_fingerprint": "694b6469bae0e1bce1fafc5f2af5e16d94a474325a860fd5b813be910d83968f",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -57,6 +57,11 @@
         "object_set": "Deployment-local identity, product access, account and entitlement boundaries, and metering posture",
         "owner": "Hypervisor identity, access, and metering",
         "owner_doc": "docs/architecture/components/hypervisor/identity-access-and-metering.md"
+      },
+      {
+        "object_set": "Deployment-local policy and locally permitted exact-effect authority provider selection",
+        "owner": "Local/domain governance and the selected authority provider",
+        "owner_doc": "docs/architecture/foundations/invariants.md"
       },
       {
         "object_set": "Connected product-session binding, portable approval and grant, revocation, and step-up",
@@ -126,7 +131,7 @@
       "rule": "Additive proof-lane target overlay only; it does not rewrite the frozen 2026-07-18 M0 baselines.",
       "status": "not_measured"
     },
-    "proof_lane_validation_posture": "structurally validated lane ids, order, prerequisites, required evidence, route selection or typed empty-route blockers, and deployment-local identity owner source; named blockers remain open until the product journeys pass",
+    "proof_lane_validation_posture": "semantically validated exact lane ids, order, prerequisites, evidence sets, blocker identities, route sets, and canon-anchored owner sources; named blockers remain open until the product journeys pass",
     "proof_lanes": [
       {
         "authority_posture": "deployment-local authentication remains distinct from locally permitted exact-effect authority; no portable delegated-authority claim",

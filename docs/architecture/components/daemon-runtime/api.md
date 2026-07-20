@@ -324,8 +324,8 @@ The response is an `ioi.hypervisor.project_operation_proposal.v1` object:
   "workspace_ref": "workspace://...",
   "operation_kind": "restore",
   "admission_state": "requires_authority_lease",
-  "authority_provider_ref": "authority-provider:deployment-local-or-portable",
-  "authority_lease_ref": "lease:authority/project/...",
+  "authority_profile_ref": "policy://authority-profile/project-restore/...",
+  "authority_profile_hash": "sha256:...",
   "required_scope_refs": ["scope:agentgres.restore", "scope:artifact.decrypt"],
   "agentgres_operation_ref": "agentgres://operation/project/...",
   "receipt_ref": "receipt://project/...",
@@ -1532,9 +1532,14 @@ Request body:
   "direct_provider_ref": "provider://...",
   "operation_kind": "restore_session | zero_to_idle | activate_occurrence | ...",
   "target_ref": "agentgres://restore/...",
-  "authority_provider_ref": "authority-provider:...",
-  "authority_approval_ref": "approval://authority/...",
-  "authority_lease_ref": "lease:authority/...",
+  "authority_provider_ref": "authority://provider/...",
+  "approval_authority_snapshot_hash": "sha256:...",
+  "authority_decision_ref": "authority://decision/...",
+  "authority_decision_hash": "sha256:...",
+  "authority_grant_ref": "grant://...",
+  "authority_grant_hash": "sha256:...",
+  "authority_lease_ref": "lease://authority/... | null",
+  "authority_lease_hash": "sha256:... | null",
   "required_scope_refs": ["scope:..."],
   "authority_receipt_refs": ["receipt://authority/..."],
   "agentgres_operation_ref": "agentgres://operation/...",
@@ -1552,6 +1557,9 @@ The target response is an
 {
   "schema_version": "ioi.runtime.hypervisor_approved_operation_admission.v2",
   "admission_id": "hypervisor-approved-operation:...",
+  "admission_ref": "hypervisor-approved-operation:...",
+  "admission_hash_profile": "ioi.runtime.hypervisor-approved-operation-admission-jcs-sha256.v1",
+  "admission_hash": "sha256:...",
   "operation_family": "session",
   "proposal_ref": "session-operation:...",
   "proposal_schema_version": "ioi.hypervisor.session_operation_proposal.v1",
@@ -1570,12 +1578,20 @@ The target response is an
     "schema_version": "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
     "execution_plan_ref": "execution-plan://hypervisor/...",
     "dispatch_ref": "dispatch://hypervisor/...",
+    "admission_ref": "hypervisor-approved-operation:...",
+    "admission_hash_profile": "ioi.runtime.hypervisor-approved-operation-admission-jcs-sha256.v1",
+    "admission_hash": "sha256:...",
     "executor_kind": "session_lifecycle_adapter",
     "dispatch_status": "awaiting_executor"
   },
-  "authority_provider_ref": "authority-provider:...",
-  "authority_approval_ref": "approval://authority/...",
-  "authority_lease_ref": "lease:authority/...",
+  "authority_provider_ref": "authority://provider/...",
+  "approval_authority_snapshot_hash": "sha256:...",
+  "authority_decision_ref": "authority://decision/...",
+  "authority_decision_hash": "sha256:...",
+  "authority_grant_ref": "grant://...",
+  "authority_grant_hash": "sha256:...",
+  "authority_lease_ref": "lease://authority/... | null",
+  "authority_lease_hash": "sha256:... | null",
   "required_scope_refs": ["scope:..."],
   "agentgres_operation_refs": ["agentgres://operation/..."],
   "receipt_refs": ["receipt://..."],
@@ -1586,14 +1602,42 @@ The target response is an
 }
 ```
 
+Every admitted consequential operation carries a mandatory scoped
+`authority_grant_ref`/`authority_grant_hash` pair. A provider may additionally
+materialize an operation-scoped lease; `authority_lease_ref` and
+`authority_lease_hash` are either both non-null or both null. Null means that
+the exact grant is itself the execution binding, never that authority was not
+required.
+
+`admission_hash_profile` is the closed profile
+`ioi.runtime.hypervisor-approved-operation-admission-jcs-sha256.v1`.
+`admission_hash` is exactly:
+
+```text
+"sha256:" + lowercase_hex(
+  SHA-256(UTF8(RFC8785_JCS({
+    "domain": "ioi.runtime.hypervisor-approved-operation-admission-jcs-sha256.v1",
+    "value": admission_without_only_the_top_level_admission_hash_and_the_nested_execution_plan_admission_ref_hash_profile_and_hash
+  })))
+)
+```
+
+The `value` is the complete target v2 response object. The only exclusions are
+the top-level `admission_hash` and the nested execution plan's
+`admission_ref`, `admission_hash_profile`, and `admission_hash` binding fields;
+no provider, decision, grant, optional lease, scope, proposal, or
+Agentgres-evidence fact is excluded. The execution plan retains that exact
+admission ref, profile, and hash without a circular self-hash.
+
 The live Rust v1 handler still requires `wallet_approval_ref` and
 `wallet_lease_ref` for every admitted operation and emits
 `ioi.runtime.hypervisor_approved_operation_admission.v1`. That is a partial
 wallet-specific precursor, not proof of the provider-neutral target. A v1
 boundary adapter may map those fields into the target authority fields only
-when wallet.network actually owns the requested scopes; ordinary local/domain
-authority requires the v2 successor path and must remain typed unavailable
-until it exists.
+when wallet.network actually owns the requested scopes and can resolve the
+mandatory grant pair plus the paired optional lease representation. Ordinary
+local/domain authority requires the v2 successor path and must remain typed
+unavailable until it exists.
 
 For `operation_family: automation`, `proposal_revision_ref` and
 `proposal_resolution_receipt_ref` are null. The exact

@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fromMarkdown } from "mdast-util-from-markdown";
+import {
+  parseSovereignLocalCompletenessJson,
+  SLC_REQUIREMENT_IDS,
+  validateSovereignLocalCompletenessMatrix,
+} from "./sovereign-local-completeness-matrix.mjs";
 
 function markdownFilesUnder(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -285,6 +290,50 @@ export function checkConformanceDocsIntegrity({
       ) {
         failures.push(`${relativeFile} has broken local anchor: ${link.display}`);
       }
+    }
+  }
+  const sovereignLocalMatrix = path.join(
+    conformanceRoot,
+    "hypervisor-core",
+    "sovereign-local-completeness-matrix.v1.json",
+  );
+  if (fs.existsSync(sovereignLocalMatrix)) {
+    let matrix;
+    try {
+      matrix = parseSovereignLocalCompletenessJson(
+        fs.readFileSync(sovereignLocalMatrix, "utf8"),
+      );
+    } catch (error) {
+      failures.push(
+        `docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json is invalid JSON: ${error.message}`,
+      );
+    }
+    if (matrix !== undefined) {
+      failures.push(
+        ...validateSovereignLocalCompletenessMatrix(matrix).map((failure) => (
+          `docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json: ${failure}`
+        )),
+      );
+    }
+  }
+  const sovereignLocalContract = path.join(
+    conformanceRoot,
+    "hypervisor-core",
+    "sovereign-local-completeness.md",
+  );
+  if (fs.existsSync(sovereignLocalContract)) {
+    const requirementHeadings = [
+      ...fs.readFileSync(sovereignLocalContract, "utf8").matchAll(
+        /^### (SLC-\d{2})\s+—/gmu,
+      ),
+    ].map((match) => match[1]);
+    if (
+      JSON.stringify(requirementHeadings)
+        !== JSON.stringify(SLC_REQUIREMENT_IDS)
+    ) {
+      failures.push(
+        "docs/conformance/hypervisor-core/sovereign-local-completeness.md must define exactly SLC-01 through SLC-12 in order",
+      );
     }
   }
   return failures;
