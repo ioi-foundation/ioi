@@ -215,6 +215,33 @@ fn hash_bytes_from_ref(value: &str, field: &str) -> Result<[u8; 32], VErr> {
     Ok(bytes)
 }
 
+fn canonical_effective_max_usages(max_usages: Option<u32>) -> Option<u32> {
+    match max_usages {
+        Some(0) => None,
+        Some(value) => Some(value),
+        None => Some(1),
+    }
+}
+
+fn require_m1_4_single_use_grant(authorized: &AuthorizedDecision) -> Result<(), VErr> {
+    let grant: ApprovalGrant = serde_json::from_value(
+        authorized.evidence.wallet_approval_grant.clone(),
+    )
+    .map_err(|error| {
+        verr(
+            "system_genesis_authority_evidence_invalid",
+            format!("wallet approval grant is malformed ({error})"),
+        )
+    })?;
+    if grant.max_usages != Some(1) {
+        return Err(verr(
+            "system_genesis_authority_evidence_invalid",
+            "new System genesis admission requires an explicit single-use grant",
+        ));
+    }
+    Ok(())
+}
+
 fn wallet_consumption_coordinates(
     authorized: &AuthorizedDecision,
     system_id: &str,
@@ -238,12 +265,13 @@ fn wallet_consumption_coordinates(
             format!("wallet approval grant cannot be hashed ({error})"),
         )
     })?;
-    if grant.max_usages != Some(1) {
-        return Err(verr(
-            "system_genesis_authority_evidence_invalid",
-            "System genesis admission requires a separately consumed single-use grant",
-        ));
-    }
+    let expected_max_usages =
+        canonical_effective_max_usages(grant.max_usages).ok_or_else(|| {
+            verr(
+                "system_genesis_authority_evidence_invalid",
+                "wallet approval grant max_usages must be positive",
+            )
+        })?;
     let expected_principal_authority: ExpectedPrincipalAuthorityBinding =
         serde_json::from_value(authorized.evidence.authority_binding.clone()).map_err(|error| {
             verr(
@@ -279,7 +307,7 @@ fn wallet_consumption_coordinates(
             consumption_id,
             expected_principal_authority,
             expected_target_label: AUTHORITY.operation_scope("genesis_admit"),
-            expected_max_usages: 1,
+            expected_max_usages,
         },
         consumption_ref,
     ))
@@ -1549,6 +1577,12 @@ fn validate_wallet_consumption_receipt(
         )
     })?;
     let expected_receipt_hash: [u8; 32] = Sha256::digest(&canonical_receipt).into();
+    let max_usages = canonical_effective_max_usages(grant.max_usages).ok_or_else(|| {
+        verr(
+            "system_genesis_wallet_consumption_invalid",
+            "sealed wallet approval grant max_usages must be positive",
+        )
+    })?;
     let expected_scope = AUTHORITY.operation_scope("genesis_admit");
     let expected_ref = format!(
         "wallet.network://approval-effect-consumption/{}/{}",
@@ -1571,9 +1605,12 @@ fn validate_wallet_consumption_receipt(
         || wallet_receipt.grant_counter != grant.counter
         || wallet_receipt.grant_hash != grant_hash
         || wallet_receipt.consumed_at_ms > grant.expires_at
-        || grant.max_usages != Some(1)
-        || wallet_receipt.usage_ordinal != 1
-        || wallet_receipt.remaining_usages != 0
+        || wallet_receipt.usage_ordinal == 0
+        || wallet_receipt.usage_ordinal > max_usages
+        || wallet_receipt
+            .remaining_usages
+            .checked_add(wallet_receipt.usage_ordinal)
+            != Some(max_usages)
     {
         return Err(verr(
             "system_genesis_wallet_consumption_invalid",
@@ -1805,6 +1842,9 @@ pub(crate) async fn handle_admit(
         Ok(value) => value,
         Err(response) => return response,
     };
+    if let Err(error) = require_m1_4_single_use_grant(&authorized) {
+        return classify(error);
+    }
     let admitted_at = match ms_to_rfc3339(authorized.resolved_at_ms) {
         Ok(value) => value,
         Err(error) => return classify(error),
@@ -2237,6 +2277,10 @@ mod system_genesis_tests {
     }
 
     fn fake_authorized() -> AuthorizedDecision {
+        fake_authorized_with_max_usages(Some(1))
+    }
+
+    fn fake_authorized_with_max_usages(max_usages: Option<u32>) -> AuthorizedDecision {
         use ioi_api::crypto::{SerializableKey, SigningKeyPair};
         use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
         use ioi_types::app::{
@@ -2260,7 +2304,7 @@ mod system_genesis_tests {
             nonce: [0x55u8; 32],
             counter: 1,
             expires_at: 1_850_000_000_000,
-            max_usages: Some(1),
+            max_usages,
             window_id: None,
             pii_action: None,
             scoped_exception: None,
@@ -2309,6 +2353,155 @@ mod system_genesis_tests {
                 authority_binding: serde_json::to_value(expected_principal_authority).unwrap(),
             },
             resolved_at_ms: 1_784_395_200_000,
+        }
+    }
+
+    fn wallet_receipt_fixture(
+        authorized: &AuthorizedDecision,
+        consumption: &ConsumeApprovalGrantForEffectV2Params,
+        usage_ordinal: u32,
+        remaining_usages: u32,
+    ) -> ApprovalGrantConsumptionReceipt {
+        let grant: ApprovalGrant =
+            serde_json::from_value(authorized.evidence.wallet_approval_grant.clone()).unwrap();
+        let mut receipt = ApprovalGrantConsumptionReceipt {
+            schema_version: 1,
+            receipt_hash: [0u8; 32],
+            request_hash: consumption.request_hash,
+            grant_hash: consumption.grant_hash,
+            consumption_id: consumption.consumption_id,
+            principal_authority: consumption.expected_principal_authority.clone(),
+            policy_hash: grant.policy_hash,
+            authority_id: grant.authority_id,
+            target: ioi_types::app::ActionTarget::Custom(
+                AUTHORITY.operation_scope("genesis_admit"),
+            ),
+            session_id: None,
+            audience: grant.audience,
+            issued_revocation_epoch: 0,
+            grant_nonce: grant.nonce,
+            grant_counter: grant.counter,
+            consumed_at_ms: authorized.resolved_at_ms,
+            usage_ordinal,
+            remaining_usages,
+        };
+        let mut material = serde_json::to_value(&receipt).unwrap();
+        material["receipt_hash"] = json!(vec![0u8; 32]);
+        receipt.receipt_hash = Sha256::digest(serde_jcs::to_vec(&material).unwrap()).into();
+        receipt
+    }
+
+    fn pending_intent_fixture(authorized: &AuthorizedDecision) -> (String, Value) {
+        let (release, proposed) = valid_inputs();
+        let compiled = compile_or_error(&release, &proposed).unwrap();
+        let admitted_at = ms_to_rfc3339(authorized.resolved_at_ms).unwrap();
+        let (
+            receipt_tail,
+            intent_tail,
+            wallet_consumption_tail,
+            wallet_consumption,
+            wallet_consumption_ref,
+        ) = deterministic_evidence_tails(
+            authorized,
+            compiled.proposed_genesis["system_id"].as_str().unwrap(),
+            compiled.proposed_genesis["genesis_id"].as_str().unwrap(),
+            &compiled.proposal_root,
+        )
+        .unwrap();
+        let receipt_ref = format!("receipt://{receipt_tail}");
+        let final_record = build_record(&compiled, &receipt_ref, authorized, &admitted_at).unwrap();
+        let receipt = build_receipt(&receipt_tail, &final_record, authorized, &admitted_at);
+        let intent = seal_intent(
+            json!({
+                "kind": "admit_genesis",
+                "op": "genesis_admit",
+                "phase": "prepared_for_authority_consumption",
+                "system_id": compiled.proposed_genesis["system_id"],
+                "genesis_ref": compiled.proposed_genesis["genesis_id"],
+                "proposal_root": compiled.proposal_root,
+                "required_authority_ref": governing_authority_ref(&compiled).unwrap(),
+                "record_tail": record_tail(compiled.proposed_genesis["system_id"].as_str().unwrap()),
+                "receipt_tail": receipt_tail,
+                "wallet_consumption_tail": wallet_consumption_tail,
+                "wallet_consumption_request_hash": format!("sha256:{}", hex::encode(wallet_consumption.request_hash)),
+                "wallet_consumption_grant_hash": format!("sha256:{}", hex::encode(wallet_consumption.grant_hash)),
+                "wallet_consumption_id": hex::encode(wallet_consumption.consumption_id),
+                "wallet_grant_consumption_ref": wallet_consumption_ref,
+                "release": release,
+                "proposed_instantiation": proposed,
+                "receipt": receipt,
+                "final_record": final_record
+            }),
+            &intent_tail,
+        );
+        (intent_tail, intent)
+    }
+
+    #[test]
+    fn pre_m1_4_converged_omitted_and_multi_use_evidence_remains_reconstructable() {
+        for (max_usages, expected_max) in [(None, 1), (Some(3), 3)] {
+            let (release, proposed) = valid_inputs();
+            let compiled = compile_or_error(&release, &proposed).unwrap();
+            let authorized = fake_authorized_with_max_usages(max_usages);
+            let admitted_at = ms_to_rfc3339(authorized.resolved_at_ms).unwrap();
+            let receipt_tail = format!("asgr_{}", "9".repeat(64));
+            let receipt_ref = format!("receipt://{receipt_tail}");
+            let record = build_record(&compiled, &receipt_ref, &authorized, &admitted_at).unwrap();
+            let receipt = build_receipt(&receipt_tail, &record, &authorized, &admitted_at);
+            let tail = record_tail(record["system_id"].as_str().unwrap());
+
+            let (consumption, consumption_ref, _) =
+                reconstruct_converged_local_evidence(&tail, &record, &receipt_tail, &receipt)
+                    .expect("pre-M1.4 converged evidence remains readable");
+            assert_eq!(consumption.expected_max_usages, expected_max);
+            let wallet_receipt =
+                wallet_receipt_fixture(&authorized, &consumption, 1, expected_max - 1);
+            validate_wallet_consumption_receipt(
+                &receipt,
+                &consumption,
+                &consumption_ref,
+                &wallet_receipt,
+            )
+            .expect("pre-M1.4 converged wallet evidence remains replayable");
+        }
+    }
+
+    #[test]
+    fn pre_m1_4_pending_post_consumption_evidence_preserves_recorded_usage_semantics() {
+        for (max_usages, expected_max, usage_ordinal, remaining_usages) in
+            [(None, 1, 1, 0), (Some(3), 3, 2, 1)]
+        {
+            let authorized = fake_authorized_with_max_usages(max_usages);
+            let (intent_tail, intent) = pending_intent_fixture(&authorized);
+            let reconstructed = reconstruct_intent(&intent, &intent_tail)
+                .expect("pre-M1.4 pending intent remains reconstructable");
+            assert_eq!(
+                reconstructed.wallet_consumption.expected_max_usages,
+                expected_max
+            );
+            let wallet_receipt = wallet_receipt_fixture(
+                &authorized,
+                &reconstructed.wallet_consumption,
+                usage_ordinal,
+                remaining_usages,
+            );
+            validate_wallet_consumption_receipt(
+                &reconstructed.receipt,
+                &reconstructed.wallet_consumption,
+                &reconstructed.wallet_consumption_ref,
+                &wallet_receipt,
+            )
+            .expect("post-consumption evidence retains its historical usage ordinal and remainder");
+        }
+    }
+
+    #[test]
+    fn fresh_m1_4_admission_requires_explicit_single_use_even_when_legacy_is_readable() {
+        require_m1_4_single_use_grant(&fake_authorized()).expect("explicit single-use grant");
+        for max_usages in [None, Some(2)] {
+            let error = require_m1_4_single_use_grant(&fake_authorized_with_max_usages(max_usages))
+                .expect_err("fresh M1.4 admission must reject legacy grant ceilings");
+            assert_eq!(error.0, "system_genesis_authority_evidence_invalid");
         }
     }
 
