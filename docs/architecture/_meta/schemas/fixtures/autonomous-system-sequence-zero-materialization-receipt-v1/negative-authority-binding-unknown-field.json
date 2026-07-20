@@ -2,7 +2,7 @@
   "schema_version": "ioi.autonomous-system-sequence-zero-materialization-receipt.v1",
   "receipt_id": "receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "receipt_ref": "receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "receipt_type": "AutonomousSystemSequenceZeroMaterializationReceipt",
+  "receipt_type": "autonomous_system_sequence_zero_materialization",
   "receipt_profile_ref": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
   "actor_id": "runtime://hypervisor-runtime",
   "subject_ref": "system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111",
@@ -652,7 +652,8 @@
         7,
         7
       ]
-    }
+    },
+    "private_key": "forbidden"
   },
   "authority_resolved_at_ms": 1784462400000,
   "hash_scope_excludes": [],

@@ -63,7 +63,7 @@
       "const": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1"
     },
     "actor_id": {
-      "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+      "const": "runtime://hypervisor-runtime"
     },
     "subject_ref": {
       "$ref": "#/$defs/materializationRef"
@@ -96,16 +96,13 @@
       "$ref": "#/$defs/hash"
     },
     "authorized_effect": {
-      "description": "Exact owner-plane authority effect retained for replay. Its internal contract remains owned by the governed runtime authority plane.",
-      "type": "object"
+      "$ref": "#/$defs/authorizedEffect"
     },
     "wallet_approval_grant": {
-      "description": "Exact wallet.network approval grant retained for replay. This profile does not redefine the wallet-owned grant schema.",
-      "type": "object"
+      "$ref": "#/$defs/walletApprovalGrant"
     },
     "principal_authority_binding": {
-      "description": "Exact wallet.network principal-authority resolution retained for replay. This profile does not redefine the wallet-owned binding schema.",
-      "type": "object"
+      "$ref": "#/$defs/principalAuthorityBinding"
     },
     "authority_resolved_at_ms": {
       "$ref": "#/$defs/portableInteger"
@@ -165,7 +162,7 @@
       "items": {
         "$ref": "#/$defs/artifactRef"
       },
-      "maxItems": 32,
+      "maxItems": 0,
       "uniqueItems": true
     },
     "evidence_bundle_refs": {
@@ -173,7 +170,7 @@
       "items": {
         "$ref": "#/$defs/evidenceRef"
       },
-      "maxItems": 32,
+      "maxItems": 0,
       "uniqueItems": true
     },
     "adjudication_ref": {
@@ -186,14 +183,7 @@
       "type": "null"
     },
     "public_commitment_ref": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/publicCommitmentRef"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "type": "null"
     },
     "timestamp": {
       "$ref": "#/$defs/canonicalDateTime"
@@ -206,10 +196,629 @@
     }
   },
   "$defs": {
+    "authorizedEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "materialization",
+        "activation_admitted",
+        "runtime_effect_admitted"
+      ],
+      "properties": {
+        "operation": {
+          "const": "materialize_sequence_zero"
+        },
+        "materialization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "materialization_id",
+            "system_id",
+            "genesis_ref",
+            "genesis_admission_receipt_ref",
+            "genesis_admission_record_root",
+            "genesis_admission_receipt_root",
+            "proposed_initial_state_root",
+            "proposed_initial_receipt_root",
+            "package_id",
+            "manifest_ref",
+            "admitted_manifest_root",
+            "constitution_ref",
+            "constitution_root",
+            "profile_bundle_root",
+            "profile_materialization_root",
+            "deployment_profile_root",
+            "profile_refs",
+            "component_registry_ref",
+            "component_registry_root",
+            "component_binding_count",
+            "component_bindings",
+            "sequence",
+            "predecessor_transition_commitment_ref",
+            "operation_commitment",
+            "transition_commitment_ref",
+            "initial_state_root",
+            "initial_receipt_root",
+            "materialization_receipt_ref",
+            "activation_receipt_ref",
+            "status"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "ioi.autonomous-system-sequence-zero-materialization.v1"
+            },
+            "materialization_id": {
+              "$ref": "#/$defs/materializationRef"
+            },
+            "system_id": {
+              "$ref": "#/$defs/systemRef"
+            },
+            "genesis_ref": {
+              "$ref": "#/$defs/genesisRef"
+            },
+            "genesis_admission_record_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "genesis_admission_receipt_ref": {
+              "$ref": "#/$defs/receiptRef"
+            },
+            "genesis_admission_receipt_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "proposed_initial_state_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "proposed_initial_receipt_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "package_id": {
+              "$ref": "#/$defs/packageRef"
+            },
+            "manifest_ref": {
+              "$ref": "#/$defs/packageReleaseRef"
+            },
+            "admitted_manifest_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "constitution_ref": {
+              "$ref": "#/$defs/constitutionRef"
+            },
+            "constitution_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "profile_bundle_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "profile_materialization_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "deployment_profile_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "profile_refs": {
+              "$ref": "#/$defs/profileRefs"
+            },
+            "component_registry_ref": {
+              "$ref": "#/$defs/componentRegistryRef"
+            },
+            "component_registry_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "component_binding_count": {
+              "$ref": "#/$defs/portableInteger"
+            },
+            "component_bindings": {
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "binding_ref",
+                  "binding_hash",
+                  "evidence_refs",
+                  "evidence_hashes"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "goal_run_profile",
+                      "workflow_template",
+                      "automation_spec",
+                      "automation_installation",
+                      "harness_profile",
+                      "agent_harness_adapter",
+                      "skill_entry",
+                      "data_recipe",
+                      "runtime_tool_contract",
+                      "mcp_gateway_profile"
+                    ]
+                  },
+                  "binding_ref": {
+                    "$ref": "#/$defs/canonicalRef"
+                  },
+                  "binding_hash": {
+                    "$ref": "#/$defs/hash"
+                  },
+                  "evidence_refs": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/canonicalRef"
+                    },
+                    "maxItems": 128,
+                    "uniqueItems": true
+                  },
+                  "evidence_hashes": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/hash"
+                    },
+                    "maxItems": 16,
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "sequence": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 0
+            },
+            "predecessor_transition_commitment_ref": {
+              "type": "null"
+            },
+            "operation_commitment": {
+              "$ref": "#/$defs/hash"
+            },
+            "transition_commitment_ref": {
+              "$ref": "#/$defs/transitionCommitmentRef"
+            },
+            "initial_state_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "initial_receipt_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "materialization_receipt_ref": {
+              "$ref": "#/$defs/materializationReceiptRef"
+            },
+            "activation_receipt_ref": {
+              "type": "null"
+            },
+            "status": {
+              "const": "materialized_pending_activation"
+            }
+          }
+        },
+        "activation_admitted": {
+          "const": false
+        },
+        "runtime_effect_admitted": {
+          "const": false
+        }
+      }
+    },
+    "walletApprovalGrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "authority_id",
+        "request_hash",
+        "policy_hash",
+        "audience",
+        "nonce",
+        "counter",
+        "expires_at",
+        "max_usages",
+        "approver_public_key",
+        "approver_sig",
+        "approver_suite"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "authority_id": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "request_hash": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "policy_hash": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "audience": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "nonce": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "counter": {
+          "$ref": "#/$defs/portableInteger"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/portableInteger"
+        },
+        "max_usages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "window_id": {
+          "$ref": "#/$defs/portableInteger"
+        },
+        "pii_action": {
+          "enum": [
+            "approve_transform",
+            "deny",
+            "grant_scoped_exception"
+          ]
+        },
+        "scoped_exception": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "exception_id",
+            "allowed_classes",
+            "destination_hash",
+            "action_hash",
+            "expires_at",
+            "max_uses",
+            "justification_hash"
+          ],
+          "properties": {
+            "exception_id": {
+              "type": "string"
+            },
+            "allowed_classes": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "api_key",
+                      "secret_token",
+                      "email",
+                      "phone",
+                      "ssn",
+                      "card_pan",
+                      "name",
+                      "address"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "custom"
+                    ],
+                    "properties": {
+                      "custom": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "destination_hash": {
+              "$ref": "#/$defs/bytes32"
+            },
+            "action_hash": {
+              "$ref": "#/$defs/bytes32"
+            },
+            "expires_at": {
+              "$ref": "#/$defs/portableInteger"
+            },
+            "max_uses": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "justification_hash": {
+              "$ref": "#/$defs/bytes32"
+            }
+          }
+        },
+        "review_request_hash": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "approver_public_key": {
+          "$ref": "#/$defs/nonEmptyBytes"
+        },
+        "approver_sig": {
+          "$ref": "#/$defs/nonEmptyBytes"
+        },
+        "approver_suite": {
+          "$ref": "#/$defs/signatureSuite"
+        }
+      }
+    },
+    "principalAuthorityBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "principal_ref",
+        "authority_kind",
+        "coordinates",
+        "required_scope",
+        "matched_scope",
+        "approval_authority",
+        "approval_authority_snapshot_hash",
+        "binding_proof"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "principal_ref": {
+          "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+        },
+        "authority_kind": {
+          "const": "approval"
+        },
+        "coordinates": {
+          "$ref": "#/$defs/principalAuthorityCoordinates"
+        },
+        "required_scope": {
+          "const": "scope:autonomous_system.genesis_materialize"
+        },
+        "matched_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approval_authority": {
+          "$ref": "#/$defs/approvalAuthority"
+        },
+        "approval_authority_snapshot_hash": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "binding_proof": {
+          "$ref": "#/$defs/principalAuthorityBindingProof"
+        }
+      }
+    },
+    "principalAuthorityCoordinates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_ref",
+        "binding_version",
+        "binding_hash"
+      ],
+      "properties": {
+        "binding_ref": {
+          "$ref": "#/$defs/principalAuthorityBindingRef"
+        },
+        "binding_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "binding_hash": {
+          "$ref": "#/$defs/bytes32"
+        }
+      }
+    },
+    "approvalAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "authority_id",
+        "public_key",
+        "signature_suite",
+        "expires_at",
+        "revoked",
+        "scope_allowlist"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "authority_id": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "public_key": {
+          "$ref": "#/$defs/nonEmptyBytes"
+        },
+        "signature_suite": {
+          "$ref": "#/$defs/signatureSuite"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/portableInteger"
+        },
+        "revoked": {
+          "const": false
+        },
+        "scope_allowlist": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true
+        }
+      }
+    },
+    "principalAuthorityBindingProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "statement",
+        "statement_hash",
+        "issuer_signature_proof",
+        "binding_ref",
+        "binding_hash"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "statement": {
+          "$ref": "#/$defs/principalAuthorityBindingStatement"
+        },
+        "statement_hash": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "issuer_signature_proof": {
+          "$ref": "#/$defs/signatureProof"
+        },
+        "binding_ref": {
+          "$ref": "#/$defs/principalAuthorityBindingRef"
+        },
+        "binding_hash": {
+          "$ref": "#/$defs/bytes32"
+        }
+      }
+    },
+    "principalAuthorityBindingStatement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "principal_ref",
+        "authority_kind",
+        "binding_version",
+        "status",
+        "authority_id",
+        "authority_public_key",
+        "authority_signature_suite",
+        "approval_authority_snapshot_hash",
+        "signed_at_ms",
+        "issuer_root_account_id"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "principal_ref": {
+          "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+        },
+        "authority_kind": {
+          "const": "approval"
+        },
+        "binding_version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "status": {
+          "const": "active"
+        },
+        "authority_id": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "authority_public_key": {
+          "$ref": "#/$defs/nonEmptyBytes"
+        },
+        "authority_signature_suite": {
+          "$ref": "#/$defs/signatureSuite"
+        },
+        "approval_authority_snapshot_hash": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "previous_binding_ref": {
+          "$ref": "#/$defs/principalAuthorityBindingRef"
+        },
+        "previous_binding_hash": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "signed_at_ms": {
+          "$ref": "#/$defs/portableInteger"
+        },
+        "expires_at_ms": {
+          "$ref": "#/$defs/portableInteger"
+        },
+        "issuer_root_account_id": {
+          "$ref": "#/$defs/bytes32"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "signatureProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "suite",
+        "public_key",
+        "signature"
+      ],
+      "properties": {
+        "suite": {
+          "$ref": "#/$defs/signatureSuite"
+        },
+        "public_key": {
+          "$ref": "#/$defs/nonEmptyBytes"
+        },
+        "signature": {
+          "$ref": "#/$defs/nonEmptyBytes"
+        }
+      }
+    },
+    "signatureSuite": {
+      "type": "integer",
+      "enum": [
+        -200,
+        -17,
+        -8
+      ]
+    },
+    "byte": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
+    "bytes32": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/byte"
+      },
+      "minItems": 32,
+      "maxItems": 32
+    },
+    "nonEmptyBytes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/byte"
+      },
+      "minItems": 1,
+      "maxItems": 8192
+    },
+    "principalAuthorityBindingRef": {
+      "type": "string",
+      "pattern": "^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$"
+    },
     "materializationFacts": {
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "materialization_id",
+        "materialization_output_hash",
+        "governing_authority_ref",
+        "authority_effect_hash",
         "system_id",
         "genesis_ref",
         "genesis_admission_record_root",
@@ -247,6 +856,18 @@
         "runtime_effect_admitted"
       ],
       "properties": {
+        "materialization_id": {
+          "$ref": "#/$defs/materializationRef"
+        },
+        "materialization_output_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "governing_authority_ref": {
+          "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+        },
+        "authority_effect_hash": {
+          "$ref": "#/$defs/hash"
+        },
         "system_id": {
           "$ref": "#/$defs/systemRef"
         },
@@ -479,7 +1100,8 @@
     },
     "protocolPrincipalOrRuntimeRef": {
       "type": "string",
-      "pattern": "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,248}$"
+      "maxLength": 300,
+      "pattern": "^(?:(?:worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$"
     },
     "grantRef": {
       "type": "string",

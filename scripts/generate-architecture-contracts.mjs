@@ -148,6 +148,7 @@ const SCHEMA_SEMANTIC_KEYWORDS = new Set([
   "if",
   "items",
   "maximum",
+  "maxLength",
   "maxItems",
   "minimum",
   "minItems",
@@ -171,6 +172,7 @@ const RUST_ECMA_WHITESPACE_CLASS =
   "\\u{3000}\\u{FEFF}";
 const PORTABLE_INTEGER_MINIMUM = 0;
 const PORTABLE_INTEGER_MAXIMUM = Number.MAX_SAFE_INTEGER;
+const PORTABLE_SIGNED_INTEGER_MINIMUM = -Number.MAX_SAFE_INTEGER;
 const PORTABLE_CANONICAL_DATE_TIME_PATTERN =
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$";
 
@@ -448,9 +450,14 @@ function inventorySchemaKeywords(schema, at) {
         `${at}.format: unsupported format ${JSON.stringify(value)}`,
       );
     } else if (
-      ["minimum", "maximum", "minLength", "minItems", "maxItems"].includes(
-        keyword,
-      ) &&
+      [
+        "minimum",
+        "maximum",
+        "minLength",
+        "maxLength",
+        "minItems",
+        "maxItems",
+      ].includes(keyword) &&
       (typeof value !== "number" || !Number.isFinite(value))
     ) {
       throw new Error(`${at}.${keyword}: expected a finite number`);
@@ -465,15 +472,24 @@ function inventorySchemaKeywords(schema, at) {
       );
     } else if (keyword === "required" && !Array.isArray(value)) {
       throw new Error(`${at}.${keyword}: expected an array`);
-    } else if (
-      keyword === "enum" &&
-      (!Array.isArray(value) ||
-        value.length === 0 ||
-        !value.every((candidate) => typeof candidate === "string"))
-    ) {
-      throw new Error(
-        `${at}.enum: architecture projections currently require a non-empty string enum`,
-      );
+    } else if (keyword === "enum") {
+      const strings =
+        Array.isArray(value) &&
+        value.length > 0 &&
+        value.every((candidate) => typeof candidate === "string");
+      const integers =
+        Array.isArray(value) &&
+        value.length > 0 &&
+        value.every((candidate) => Number.isSafeInteger(candidate));
+      if (
+        (!strings && !integers) ||
+        new Set(value.map((candidate) => JSON.stringify(candidate))).size !==
+          value.length
+      ) {
+        throw new Error(
+          `${at}.enum: architecture projections require unique, non-empty string or portable-integer enums`,
+        );
+      }
     } else if (
       keyword === "const" &&
       !(typeof value === "string" || typeof value === "boolean")
@@ -491,16 +507,26 @@ function inventorySchemaKeywords(schema, at) {
     }
   }
   if (schema.type === "integer") {
+    const finiteEnum =
+      Array.isArray(schema.enum) &&
+      schema.enum.length > 0 &&
+      schema.enum.every(
+        (candidate) =>
+          Number.isSafeInteger(candidate) &&
+          candidate >= PORTABLE_SIGNED_INTEGER_MINIMUM &&
+          candidate <= PORTABLE_INTEGER_MAXIMUM,
+      );
     if (
-      !Number.isSafeInteger(schema.minimum) ||
-      !Number.isSafeInteger(schema.maximum) ||
-      schema.minimum < PORTABLE_INTEGER_MINIMUM ||
-      schema.maximum > PORTABLE_INTEGER_MAXIMUM ||
-      schema.minimum > schema.maximum
+      !finiteEnum &&
+      (!Number.isSafeInteger(schema.minimum) ||
+        !Number.isSafeInteger(schema.maximum) ||
+        schema.minimum < PORTABLE_SIGNED_INTEGER_MINIMUM ||
+        schema.maximum > PORTABLE_INTEGER_MAXIMUM ||
+        schema.minimum > schema.maximum)
     ) {
       throw new Error(
-        `${at}: integer schemas must declare a semantic minimum/maximum within the portable unsigned JS-safe domain ` +
-          `${PORTABLE_INTEGER_MINIMUM}..${PORTABLE_INTEGER_MAXIMUM}`,
+        `${at}: integer schemas must declare a finite enum or semantic minimum/maximum within the portable JS-safe domain ` +
+          `${PORTABLE_SIGNED_INTEGER_MINIMUM}..${PORTABLE_INTEGER_MAXIMUM}`,
       );
     }
   }
@@ -583,6 +609,23 @@ function closedStringValues(schema, rootSchema) {
   );
   if (branchValues.some((values) => values === null)) return null;
   return [...new Set(branchValues.flat())];
+}
+
+function closedIntegerValues(schema, rootSchema) {
+  if (schema.$ref) {
+    return closedIntegerValues(
+      resolveLocalRef(rootSchema, schema.$ref),
+      rootSchema,
+    );
+  }
+  if (
+    Array.isArray(schema.enum) &&
+    schema.enum.length > 0 &&
+    schema.enum.every((value) => Number.isSafeInteger(value))
+  ) {
+    return [...new Set(schema.enum)];
+  }
+  return null;
 }
 
 function tsLiteralType(value) {
@@ -734,6 +777,57 @@ const componentLaneSchemeMutationDefinitions = [
 ];
 
 const mutationDefinitions = [
+  {
+    id: "sequence-zero-receipt-unsupported-signature-suite",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    keywords: ["enum"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/wallet_approval_grant/approver_suite",
+      value: -100,
+    },
+  },
+  {
+    id: "sequence-zero-receipt-oversized-principal",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    keywords: ["maxLength"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/principal_authority_binding/principal_ref",
+      value: `domain://${"a".repeat(301)}`,
+    },
+  },
+  {
+    id: "sequence-zero-receipt-nested-authority-claim",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    keywords: ["additionalProperties"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/wallet_approval_grant/scoped_exception",
+      value: {
+        exception_id: "exception-1",
+        allowed_classes: ["email"],
+        destination_hash: Array(32).fill(7),
+        action_hash: Array(32).fill(8),
+        expires_at: 1,
+        max_uses: 1,
+        justification_hash: Array(32).fill(9),
+        forged_context: "claim-inflation",
+      },
+    },
+  },
   {
     id: "type-number-for-string",
     contractId: "schema://ioi/foundations/receipt-envelope/v1",
@@ -1740,6 +1834,9 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
     if (typeof schema.minLength === "number" && [...value].length < schema.minLength) {
       return [at + ": string shorter than minLength"];
     }
+    if (typeof schema.maxLength === "number" && [...value].length > schema.maxLength) {
+      return [at + ": string longer than maxLength"];
+    }
     if (typeof schema.pattern === "string" && !new RegExp(schema.pattern, "u").test(value)) {
       return [at + ": string failed pattern"];
     }
@@ -2037,6 +2134,93 @@ function rustStructsFor(entry, schema) {
     }
     return nameHint;
   }
+  function rustClosedIntegerEnum(nameHint, values) {
+    if (!definitions.has(nameHint)) {
+      const accepted = values
+        .map((value) => `value.0 == ${value}_i64`)
+        .join(" || ");
+      definitions.set(
+        nameHint,
+        `#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ${nameHint}(pub i64);
+
+impl serde::Serialize for ${nameHint} {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.0)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ${nameHint} {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value =
+            <ArchitectureContractSignedInteger as serde::Deserialize>::deserialize(deserializer)?;
+        if ${accepted} {
+            Ok(Self(value.0))
+        } else {
+            Err(serde::de::Error::custom(${rustString(
+              `expected one of the closed integer values ${values.join(", ")}`,
+            )}))
+        }
+    }
+}`,
+      );
+    }
+    return nameHint;
+  }
+  function rustDisjointAnyOf(nameHint, branches, rootSchema) {
+    function branchJsonType(branch) {
+      if (branch.$ref) {
+        return branchJsonType(resolveLocalRef(rootSchema, branch.$ref));
+      }
+      if (Object.hasOwn(branch, "const")) {
+        return branch.const === null ? "null" : typeof branch.const;
+      }
+      if (Array.isArray(branch.enum) && branch.enum.length > 0) {
+        const types = new Set(
+          branch.enum.map((value) => (value === null ? "null" : typeof value)),
+        );
+        return types.size === 1 ? [...types][0] : null;
+      }
+      if (branch.type === "integer") return "number";
+      return typeof branch.type === "string" ? branch.type : null;
+    }
+
+    const jsonTypes = branches.map(branchJsonType);
+    if (
+      jsonTypes.some((value) => value === null) ||
+      new Set(jsonTypes).size !== jsonTypes.length
+    ) {
+      throw new Error(
+        `${entry.contract_id}:${nameHint}: Rust projection requires anyOf branches with distinct JSON types`,
+      );
+    }
+    if (!definitions.has(nameHint)) {
+      definitions.set(nameHint, null);
+      const variants = branches.map((branch, index) => {
+        const fieldType = rustType(
+          branch,
+          rootSchema,
+          `${nameHint}Branch${index + 1}`,
+        );
+        return `    Branch${index + 1}(${fieldType}),`;
+      });
+      definitions.set(
+        nameHint,
+        `#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum ${nameHint} {
+${variants.join("\n")}
+}`,
+      );
+    }
+    return nameHint;
+  }
   function rustBooleanLiteral(nameHint, value) {
     if (!definitions.has(nameHint)) {
       const variant = value ? "True" : "False";
@@ -2089,7 +2273,14 @@ impl<'de> serde::Deserialize<'de> for ${nameHint} {
     if (closedStrings !== null) {
       return rustClosedStringEnum(nameHint, closedStrings);
     }
-    if (node.oneOf || node.anyOf) {
+    const closedIntegers = closedIntegerValues(node, rootSchema);
+    if (closedIntegers !== null) {
+      return rustClosedIntegerEnum(nameHint, closedIntegers);
+    }
+    if (node.anyOf) {
+      return rustDisjointAnyOf(nameHint, node.anyOf, rootSchema);
+    }
+    if (node.oneOf) {
       throw new Error(
         `${entry.contract_id}:${nameHint}: Rust projection cannot represent this union exactly`,
       );
@@ -2098,7 +2289,9 @@ impl<'de> serde::Deserialize<'de> for ${nameHint} {
       case "string":
         return "String";
       case "integer":
-        return "ArchitectureContractInteger";
+        return node.minimum < 0
+          ? "ArchitectureContractSignedInteger"
+          : "ArchitectureContractInteger";
       case "number":
         return "f64";
       case "boolean":
@@ -2317,6 +2510,8 @@ use std::cmp::Ordering;
 pub const ARCHITECTURE_CONTRACT_REGISTRY_VERSION: &str = ${JSON.stringify(registry.registry_version)};
 pub const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM: u64 = ${PORTABLE_INTEGER_MINIMUM};
 pub const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM: u64 = ${PORTABLE_INTEGER_MAXIMUM};
+pub const ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MINIMUM: i64 = ${PORTABLE_SIGNED_INTEGER_MINIMUM};
+pub const ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MAXIMUM: i64 = ${PORTABLE_INTEGER_MAXIMUM};
 pub const ARCHITECTURE_CONTRACT_PORTABLE_DATE_TIME_PATTERN: &str = ${rustString(PORTABLE_CANONICAL_DATE_TIME_PATTERN)};
 pub const ARCHITECTURE_CONTRACT_ORACLE_PROFILE: &str =
     "ajv-2020-12-plus-portable-invariants-and-canonical-rfc3339";
@@ -2363,6 +2558,40 @@ impl<'de> serde::Deserialize<'de> for ArchitectureContractInteger {
             .ok_or_else(|| {
                 serde::de::Error::custom(
                     "expected an integral JSON number in the portable unsigned JS-safe domain",
+                )
+            })?;
+        Ok(Self(number))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ArchitectureContractSignedInteger(pub i64);
+
+impl serde::Serialize for ArchitectureContractSignedInteger {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.0)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ArchitectureContractSignedInteger {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        let number = value
+            .as_number()
+            .and_then(json_number_as_i64)
+            .filter(|number| {
+                *number >= ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MINIMUM
+                    && *number <= ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MAXIMUM
+            })
+            .ok_or_else(|| {
+                serde::de::Error::custom(
+                    "expected an integral JSON number in the portable signed JS-safe domain",
                 )
             })?;
         Ok(Self(number))
@@ -2499,6 +2728,23 @@ fn json_number_as_u64(number: &serde_json::Number) -> Option<u64> {
     let mut integer = digits;
     integer.extend(std::iter::repeat_n('0', zero_count));
     integer.parse::<u64>().ok()
+}
+
+fn json_number_as_i64(number: &serde_json::Number) -> Option<i64> {
+    let (negative, digits, decimal_exponent) = normalized_json_number(number);
+    if decimal_exponent < 0 {
+        return None;
+    }
+    let zero_count = usize::try_from(decimal_exponent).ok()?;
+    let total_length = digits.len().checked_add(zero_count)?;
+    if total_length > 19 {
+        return None;
+    }
+    let mut integer = digits;
+    integer.extend(std::iter::repeat_n('0', zero_count));
+    let magnitude = integer.parse::<i128>().ok()?;
+    let signed = if negative { -magnitude } else { magnitude };
+    i64::try_from(signed).ok()
 }
 
 fn compare_json_numbers(
@@ -2684,6 +2930,11 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
         if let Some(min_length) = schema.get("minLength").and_then(Value::as_u64) {
             if text.chars().count() < min_length as usize {
                 return Err(format!("{at}: string shorter than minLength"));
+            }
+        }
+        if let Some(max_length) = schema.get("maxLength").and_then(Value::as_u64) {
+            if text.chars().count() > max_length as usize {
+                return Err(format!("{at}: string longer than maxLength"));
             }
         }
         if let Some(pattern) = schema.get("pattern").and_then(Value::as_str) {
@@ -3993,7 +4244,7 @@ function runGeneratorCapabilityRegressions() {
   let rejectedUnsupportedAssertion = false;
   try {
     inventorySchemaKeywords(
-      { type: "string", maxLength: 1 },
+      { type: "string", minProperties: 1 },
       "generator-regression.unsupported",
     );
   } catch (error) {
@@ -4017,7 +4268,14 @@ function runGeneratorCapabilityRegressions() {
         maximum: PORTABLE_INTEGER_MAXIMUM + 1,
       },
     ],
-    ["negative-domain", { type: "integer", minimum: -1, maximum: 1 }],
+    [
+      "below-domain",
+      {
+        type: "integer",
+        minimum: PORTABLE_SIGNED_INTEGER_MINIMUM - 1,
+        maximum: 0,
+      },
+    ],
   ]) {
     let rejected = false;
     try {
@@ -4025,7 +4283,7 @@ function runGeneratorCapabilityRegressions() {
     } catch (error) {
       rejected =
         error instanceof Error &&
-        error.message.includes("portable unsigned JS-safe domain");
+        error.message.includes("portable JS-safe domain");
     }
     if (!rejected) {
       throw new Error(
@@ -4033,6 +4291,11 @@ function runGeneratorCapabilityRegressions() {
       );
     }
   }
+
+  inventorySchemaKeywords(
+    { type: "integer", minimum: -8, maximum: -8 },
+    "generator-regression.integer.signed",
+  );
 
   let rejectedNonCanonicalDateTime = false;
   try {

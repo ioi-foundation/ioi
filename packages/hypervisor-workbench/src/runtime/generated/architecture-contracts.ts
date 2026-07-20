@@ -924,11 +924,15 @@ export type AutonomousSystemSequenceZeroMaterializationReceiptV1 = {
   receipt_ref: string;
   receipt_type: "autonomous_system_sequence_zero_materialization";
   receipt_profile_ref: "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1";
-  actor_id: string;
+  actor_id: "runtime://hypervisor-runtime";
   subject_ref: string;
   op: "materialized";
   attested_boundary_fact_refs: Array<string>;
   bound_facts: {
+      materialization_id: string;
+      materialization_output_hash: string;
+      governing_authority_ref: string;
+      authority_effect_hash: string;
       system_id: string;
       genesis_ref: string;
       genesis_admission_record_root: string;
@@ -975,9 +979,134 @@ export type AutonomousSystemSequenceZeroMaterializationReceiptV1 = {
   output_hash: string;
   policy_hash: string;
   effect_hash: string;
-  authorized_effect: Record<string, unknown>;
-  wallet_approval_grant: Record<string, unknown>;
-  principal_authority_binding: Record<string, unknown>;
+  authorized_effect: {
+      operation: "materialize_sequence_zero";
+      materialization: {
+            schema_version: "ioi.autonomous-system-sequence-zero-materialization.v1";
+            materialization_id: string;
+            system_id: string;
+            genesis_ref: string;
+            genesis_admission_record_root: string;
+            genesis_admission_receipt_ref: string;
+            genesis_admission_receipt_root: string;
+            proposed_initial_state_root: string;
+            proposed_initial_receipt_root: string;
+            package_id: string;
+            manifest_ref: string;
+            admitted_manifest_root: string;
+            constitution_ref: string;
+            constitution_root: string;
+            profile_bundle_root: string;
+            profile_materialization_root: string;
+            deployment_profile_root: string;
+            profile_refs: {
+                    deployment_profile_ref: string;
+                    ordering_admission_finality_profile_ref: string;
+                    oracle_evidence_profile_refs: Array<string>;
+                    lifecycle_continuity_profile_ref: string;
+                    network_enrollment_ref: string | null;
+                  };
+            component_registry_ref: string;
+            component_registry_root: string;
+            component_binding_count: number;
+            component_bindings: Array<{
+                      kind: "goal_run_profile" | "workflow_template" | "automation_spec" | "automation_installation" | "harness_profile" | "agent_harness_adapter" | "skill_entry" | "data_recipe" | "runtime_tool_contract" | "mcp_gateway_profile";
+                      binding_ref: string;
+                      binding_hash: string;
+                      evidence_refs: Array<string>;
+                      evidence_hashes: Array<string>;
+                    }>;
+            sequence: number;
+            predecessor_transition_commitment_ref: null;
+            operation_commitment: string;
+            transition_commitment_ref: string;
+            initial_state_root: string;
+            initial_receipt_root: string;
+            materialization_receipt_ref: string;
+            activation_receipt_ref: null;
+            status: "materialized_pending_activation";
+          };
+      activation_admitted: false;
+      runtime_effect_admitted: false;
+    };
+  wallet_approval_grant: {
+      schema_version: number;
+      authority_id: Array<number>;
+      request_hash: Array<number>;
+      policy_hash: Array<number>;
+      audience: Array<number>;
+      nonce: Array<number>;
+      counter: number;
+      expires_at: number;
+      max_usages: number;
+      window_id?: number;
+      pii_action?: "approve_transform" | "deny" | "grant_scoped_exception";
+      scoped_exception?: {
+            exception_id: string;
+            allowed_classes: Array<"api_key" | "secret_token" | "email" | "phone" | "ssn" | "card_pan" | "name" | "address" | {
+                      custom: string;
+                    }>;
+            destination_hash: Array<number>;
+            action_hash: Array<number>;
+            expires_at: number;
+            max_uses: number;
+            justification_hash: Array<number>;
+          };
+      review_request_hash?: Array<number>;
+      approver_public_key: Array<number>;
+      approver_sig: Array<number>;
+      approver_suite: -200 | -17 | -8;
+    };
+  principal_authority_binding: {
+      schema_version: number;
+      principal_ref: string;
+      authority_kind: "approval";
+      coordinates: {
+            binding_ref: string;
+            binding_version: number;
+            binding_hash: Array<number>;
+          };
+      required_scope: "scope:autonomous_system.genesis_materialize";
+      matched_scope: string;
+      approval_authority: {
+            schema_version: number;
+            authority_id: Array<number>;
+            public_key: Array<number>;
+            signature_suite: -200 | -17 | -8;
+            expires_at: number;
+            revoked: false;
+            scope_allowlist: Array<string>;
+          };
+      approval_authority_snapshot_hash: Array<number>;
+      binding_proof: {
+            schema_version: number;
+            statement: {
+                    schema_version: number;
+                    principal_ref: string;
+                    authority_kind: "approval";
+                    binding_version: number;
+                    status: "active";
+                    authority_id: Array<number>;
+                    authority_public_key: Array<number>;
+                    authority_signature_suite: -200 | -17 | -8;
+                    approval_authority_snapshot_hash: Array<number>;
+                    previous_binding_ref?: string;
+                    previous_binding_hash?: Array<number>;
+                    signed_at_ms: number;
+                    expires_at_ms?: number;
+                    issuer_root_account_id: Array<number>;
+                    reason?: string;
+                  };
+            statement_hash: Array<number>;
+            issuer_signature_proof: {
+                    suite: -200 | -17 | -8;
+                    public_key: Array<number>;
+                    signature: Array<number>;
+                  };
+            binding_ref: string;
+            binding_hash: Array<number>;
+          };
+    };
   authority_resolved_at_ms: number;
   hash_scope_excludes: Array<string>;
   assurance_posture: "sequence_zero_materialized_not_activated";
@@ -995,7 +1124,7 @@ export type AutonomousSystemSequenceZeroMaterializationReceiptV1 = {
   adjudication_ref: null;
   settlement_ref: null;
   signature: null;
-  public_commitment_ref: string | null;
+  public_commitment_ref: null;
   timestamp: string;
   outcome: "ok";
   at: string;
@@ -1909,6 +2038,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "sequence_zero_materialization_receipt.identity.matches_ref"
   },
   {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-detached-subject.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "sequence_zero_materialization_receipt.subject.matches_bound_materialization"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-output-hash-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "sequence_zero_materialization_receipt.output_hash.matches_bound_output"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-authority-binding-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-activation-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
     "expected": "accept",
@@ -2037,6 +2198,161 @@ export type ArchitectureContractMutation = {
 };
 
 export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContractMutation> = [
+  {
+    "id": "sequence-zero-receipt-unsupported-signature-suite",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    "covered_keywords": [
+      "enum"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/wallet_approval_grant/approver_suite",
+      "value": -100
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-oversized-principal",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    "covered_keywords": [
+      "maxLength"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/principal_ref",
+      "value": "domain://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-nested-authority-claim",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    "covered_keywords": [
+      "additionalProperties"
+    ],
+    "ajv_expected_accept": false,
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/wallet_approval_grant/scoped_exception",
+      "value": {
+        "exception_id": "exception-1",
+        "allowed_classes": [
+          "email"
+        ],
+        "destination_hash": [
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7
+        ],
+        "action_hash": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "expires_at": 1,
+        "max_uses": 1,
+        "justification_hash": [
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9,
+          9
+        ],
+        "forged_context": "claim-inflation"
+      }
+    }
+  },
   {
     "id": "type-number-for-string",
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
@@ -3419,6 +3735,34 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-detached-subject.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-detached-subject.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-output-hash-binding.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-output-hash-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-authority-binding-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-authority-binding-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-activation-claim.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-activation-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
     "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
@@ -3514,6 +3858,27 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json",
     "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-unsupported-signature-suite",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-unsupported-signature-suite",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-oversized-principal",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-oversized-principal",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-nested-authority-claim",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-nested-authority-claim",
     "value_json": null
   },
   {
@@ -3965,6 +4330,7 @@ export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = [
   "if",
   "items",
   "maxItems",
+  "maxLength",
   "maximum",
   "minItems",
   "minLength",
@@ -3979,6 +4345,7 @@ export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = [
 ] as const;
 
 export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
+  "^(?:(?:worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
   "^(?:artifact|cid)://[^\\s]{1,248}$",
   "^(?:commitment|settlement|tx)://[^\\s]+$",
   "^(?:commitment|settlement|tx)://[^\\s]{1,248}$",
@@ -3997,7 +4364,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|agent|worker|runtime)://[^\\s]+$",
   "^(?:system|agent|worker|runtime|wallet|org)://[^\\s]+$",
   "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$",
-  "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,248}$",
   "^(?:system|wallet|org|policy)://[^\\s]+$",
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
@@ -4119,6 +4485,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^transition://[^\\s]{1,248}$",
   "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$",
+  "^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$",
   "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^zone://[^\\s]+$"
@@ -4142,7 +4509,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1": "sha256:448e4c665241863cc775ada805e2ca73ff4fc9cbd29a58118722e9fefe0b3397",
   "schema://ioi/foundations/autonomous-system-genesis/v1": "sha256:843897a91ec65f41c794cb01ddeca43b91bd6c3586cd3d392d1643efb938acc5",
   "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1": "sha256:0a9d7b65c19517fc262f418dade61045576870c16bbe5aedf361de756904934c",
-  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1": "sha256:6871d0e72cf8153d9ca1f6e1505bd49c16b74dbdfaf23d83faf61aaf974137ae",
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1": "sha256:5c2b92e46afbb548fdd790cc5a581a5e6821e6ee074773db167b8d4d7ff308eb",
   "schema://ioi/foundations/autonomous-system-constitution/v1": "sha256:ac6b394c4664e90cece1792eeb6857d99087a56e019368b70077001dffc4e36c",
   "schema://ioi/foundations/autonomous-system-constitution-amendment/v1": "sha256:d84937bb5651c4c4dabae249b639928b61bb3e5b950b00151df4bbbe2996a67b",
   "schema://ioi/foundations/ordering-admission-finality-profile/v1": "sha256:c2cf0f68516971e4bd87938da7bee04bac25a5995c501044bf3a2a0da5e65af3",
@@ -10749,7 +11116,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "const": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1"
       },
       "actor_id": {
-        "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+        "const": "runtime://hypervisor-runtime"
       },
       "subject_ref": {
         "$ref": "#/$defs/materializationRef"
@@ -10782,16 +11149,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "$ref": "#/$defs/hash"
       },
       "authorized_effect": {
-        "description": "Exact owner-plane authority effect retained for replay. Its internal contract remains owned by the governed runtime authority plane.",
-        "type": "object"
+        "$ref": "#/$defs/authorizedEffect"
       },
       "wallet_approval_grant": {
-        "description": "Exact wallet.network approval grant retained for replay. This profile does not redefine the wallet-owned grant schema.",
-        "type": "object"
+        "$ref": "#/$defs/walletApprovalGrant"
       },
       "principal_authority_binding": {
-        "description": "Exact wallet.network principal-authority resolution retained for replay. This profile does not redefine the wallet-owned binding schema.",
-        "type": "object"
+        "$ref": "#/$defs/principalAuthorityBinding"
       },
       "authority_resolved_at_ms": {
         "$ref": "#/$defs/portableInteger"
@@ -10851,7 +11215,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "items": {
           "$ref": "#/$defs/artifactRef"
         },
-        "maxItems": 32,
+        "maxItems": 0,
         "uniqueItems": true
       },
       "evidence_bundle_refs": {
@@ -10859,7 +11223,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "items": {
           "$ref": "#/$defs/evidenceRef"
         },
-        "maxItems": 32,
+        "maxItems": 0,
         "uniqueItems": true
       },
       "adjudication_ref": {
@@ -10872,14 +11236,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "null"
       },
       "public_commitment_ref": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/publicCommitmentRef"
-          },
-          {
-            "type": "null"
-          }
-        ]
+        "type": "null"
       },
       "timestamp": {
         "$ref": "#/$defs/canonicalDateTime"
@@ -10892,10 +11249,629 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     },
     "$defs": {
+      "authorizedEffect": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "materialization",
+          "activation_admitted",
+          "runtime_effect_admitted"
+        ],
+        "properties": {
+          "operation": {
+            "const": "materialize_sequence_zero"
+          },
+          "materialization": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema_version",
+              "materialization_id",
+              "system_id",
+              "genesis_ref",
+              "genesis_admission_receipt_ref",
+              "genesis_admission_record_root",
+              "genesis_admission_receipt_root",
+              "proposed_initial_state_root",
+              "proposed_initial_receipt_root",
+              "package_id",
+              "manifest_ref",
+              "admitted_manifest_root",
+              "constitution_ref",
+              "constitution_root",
+              "profile_bundle_root",
+              "profile_materialization_root",
+              "deployment_profile_root",
+              "profile_refs",
+              "component_registry_ref",
+              "component_registry_root",
+              "component_binding_count",
+              "component_bindings",
+              "sequence",
+              "predecessor_transition_commitment_ref",
+              "operation_commitment",
+              "transition_commitment_ref",
+              "initial_state_root",
+              "initial_receipt_root",
+              "materialization_receipt_ref",
+              "activation_receipt_ref",
+              "status"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "ioi.autonomous-system-sequence-zero-materialization.v1"
+              },
+              "materialization_id": {
+                "$ref": "#/$defs/materializationRef"
+              },
+              "system_id": {
+                "$ref": "#/$defs/systemRef"
+              },
+              "genesis_ref": {
+                "$ref": "#/$defs/genesisRef"
+              },
+              "genesis_admission_record_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "genesis_admission_receipt_ref": {
+                "$ref": "#/$defs/receiptRef"
+              },
+              "genesis_admission_receipt_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "proposed_initial_state_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "proposed_initial_receipt_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "package_id": {
+                "$ref": "#/$defs/packageRef"
+              },
+              "manifest_ref": {
+                "$ref": "#/$defs/packageReleaseRef"
+              },
+              "admitted_manifest_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "constitution_ref": {
+                "$ref": "#/$defs/constitutionRef"
+              },
+              "constitution_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "profile_bundle_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "profile_materialization_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "deployment_profile_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "profile_refs": {
+                "$ref": "#/$defs/profileRefs"
+              },
+              "component_registry_ref": {
+                "$ref": "#/$defs/componentRegistryRef"
+              },
+              "component_registry_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "component_binding_count": {
+                "$ref": "#/$defs/portableInteger"
+              },
+              "component_bindings": {
+                "type": "array",
+                "maxItems": 1024,
+                "uniqueItems": true,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "binding_ref",
+                    "binding_hash",
+                    "evidence_refs",
+                    "evidence_hashes"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "goal_run_profile",
+                        "workflow_template",
+                        "automation_spec",
+                        "automation_installation",
+                        "harness_profile",
+                        "agent_harness_adapter",
+                        "skill_entry",
+                        "data_recipe",
+                        "runtime_tool_contract",
+                        "mcp_gateway_profile"
+                      ]
+                    },
+                    "binding_ref": {
+                      "$ref": "#/$defs/canonicalRef"
+                    },
+                    "binding_hash": {
+                      "$ref": "#/$defs/hash"
+                    },
+                    "evidence_refs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/canonicalRef"
+                      },
+                      "maxItems": 128,
+                      "uniqueItems": true
+                    },
+                    "evidence_hashes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/hash"
+                      },
+                      "maxItems": 16,
+                      "uniqueItems": true
+                    }
+                  }
+                }
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 0
+              },
+              "predecessor_transition_commitment_ref": {
+                "type": "null"
+              },
+              "operation_commitment": {
+                "$ref": "#/$defs/hash"
+              },
+              "transition_commitment_ref": {
+                "$ref": "#/$defs/transitionCommitmentRef"
+              },
+              "initial_state_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "initial_receipt_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "materialization_receipt_ref": {
+                "$ref": "#/$defs/materializationReceiptRef"
+              },
+              "activation_receipt_ref": {
+                "type": "null"
+              },
+              "status": {
+                "const": "materialized_pending_activation"
+              }
+            }
+          },
+          "activation_admitted": {
+            "const": false
+          },
+          "runtime_effect_admitted": {
+            "const": false
+          }
+        }
+      },
+      "walletApprovalGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "authority_id",
+          "request_hash",
+          "policy_hash",
+          "audience",
+          "nonce",
+          "counter",
+          "expires_at",
+          "max_usages",
+          "approver_public_key",
+          "approver_sig",
+          "approver_suite"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "authority_id": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "request_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "policy_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "audience": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "nonce": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "counter": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "expires_at": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "max_usages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "window_id": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "pii_action": {
+            "enum": [
+              "approve_transform",
+              "deny",
+              "grant_scoped_exception"
+            ]
+          },
+          "scoped_exception": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "exception_id",
+              "allowed_classes",
+              "destination_hash",
+              "action_hash",
+              "expires_at",
+              "max_uses",
+              "justification_hash"
+            ],
+            "properties": {
+              "exception_id": {
+                "type": "string"
+              },
+              "allowed_classes": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "api_key",
+                        "secret_token",
+                        "email",
+                        "phone",
+                        "ssn",
+                        "card_pan",
+                        "name",
+                        "address"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "custom"
+                      ],
+                      "properties": {
+                        "custom": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "destination_hash": {
+                "$ref": "#/$defs/bytes32"
+              },
+              "action_hash": {
+                "$ref": "#/$defs/bytes32"
+              },
+              "expires_at": {
+                "$ref": "#/$defs/portableInteger"
+              },
+              "max_uses": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "justification_hash": {
+                "$ref": "#/$defs/bytes32"
+              }
+            }
+          },
+          "review_request_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "approver_public_key": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          },
+          "approver_sig": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          },
+          "approver_suite": {
+            "$ref": "#/$defs/signatureSuite"
+          }
+        }
+      },
+      "principalAuthorityBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "principal_ref",
+          "authority_kind",
+          "coordinates",
+          "required_scope",
+          "matched_scope",
+          "approval_authority",
+          "approval_authority_snapshot_hash",
+          "binding_proof"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "principal_ref": {
+            "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+          },
+          "authority_kind": {
+            "const": "approval"
+          },
+          "coordinates": {
+            "$ref": "#/$defs/principalAuthorityCoordinates"
+          },
+          "required_scope": {
+            "const": "scope:autonomous_system.genesis_materialize"
+          },
+          "matched_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approval_authority": {
+            "$ref": "#/$defs/approvalAuthority"
+          },
+          "approval_authority_snapshot_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "binding_proof": {
+            "$ref": "#/$defs/principalAuthorityBindingProof"
+          }
+        }
+      },
+      "principalAuthorityCoordinates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "binding_ref",
+          "binding_version",
+          "binding_hash"
+        ],
+        "properties": {
+          "binding_ref": {
+            "$ref": "#/$defs/principalAuthorityBindingRef"
+          },
+          "binding_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "binding_hash": {
+            "$ref": "#/$defs/bytes32"
+          }
+        }
+      },
+      "approvalAuthority": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "authority_id",
+          "public_key",
+          "signature_suite",
+          "expires_at",
+          "revoked",
+          "scope_allowlist"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "authority_id": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "public_key": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          },
+          "signature_suite": {
+            "$ref": "#/$defs/signatureSuite"
+          },
+          "expires_at": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "revoked": {
+            "const": false
+          },
+          "scope_allowlist": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "maxItems": 256,
+            "uniqueItems": true
+          }
+        }
+      },
+      "principalAuthorityBindingProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "statement",
+          "statement_hash",
+          "issuer_signature_proof",
+          "binding_ref",
+          "binding_hash"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "statement": {
+            "$ref": "#/$defs/principalAuthorityBindingStatement"
+          },
+          "statement_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "issuer_signature_proof": {
+            "$ref": "#/$defs/signatureProof"
+          },
+          "binding_ref": {
+            "$ref": "#/$defs/principalAuthorityBindingRef"
+          },
+          "binding_hash": {
+            "$ref": "#/$defs/bytes32"
+          }
+        }
+      },
+      "principalAuthorityBindingStatement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "principal_ref",
+          "authority_kind",
+          "binding_version",
+          "status",
+          "authority_id",
+          "authority_public_key",
+          "authority_signature_suite",
+          "approval_authority_snapshot_hash",
+          "signed_at_ms",
+          "issuer_root_account_id"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "principal_ref": {
+            "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+          },
+          "authority_kind": {
+            "const": "approval"
+          },
+          "binding_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "const": "active"
+          },
+          "authority_id": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "authority_public_key": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          },
+          "authority_signature_suite": {
+            "$ref": "#/$defs/signatureSuite"
+          },
+          "approval_authority_snapshot_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "previous_binding_ref": {
+            "$ref": "#/$defs/principalAuthorityBindingRef"
+          },
+          "previous_binding_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "signed_at_ms": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "expires_at_ms": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "issuer_root_account_id": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "signatureProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "suite",
+          "public_key",
+          "signature"
+        ],
+        "properties": {
+          "suite": {
+            "$ref": "#/$defs/signatureSuite"
+          },
+          "public_key": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          },
+          "signature": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          }
+        }
+      },
+      "signatureSuite": {
+        "type": "integer",
+        "enum": [
+          -200,
+          -17,
+          -8
+        ]
+      },
+      "byte": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255
+      },
+      "bytes32": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/byte"
+        },
+        "minItems": 32,
+        "maxItems": 32
+      },
+      "nonEmptyBytes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/byte"
+        },
+        "minItems": 1,
+        "maxItems": 8192
+      },
+      "principalAuthorityBindingRef": {
+        "type": "string",
+        "pattern": "^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$"
+      },
       "materializationFacts": {
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "materialization_id",
+          "materialization_output_hash",
+          "governing_authority_ref",
+          "authority_effect_hash",
           "system_id",
           "genesis_ref",
           "genesis_admission_record_root",
@@ -10933,6 +11909,18 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "runtime_effect_admitted"
         ],
         "properties": {
+          "materialization_id": {
+            "$ref": "#/$defs/materializationRef"
+          },
+          "materialization_output_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "governing_authority_ref": {
+            "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+          },
+          "authority_effect_hash": {
+            "$ref": "#/$defs/hash"
+          },
           "system_id": {
             "$ref": "#/$defs/systemRef"
           },
@@ -11165,7 +12153,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "protocolPrincipalOrRuntimeRef": {
         "type": "string",
-        "pattern": "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,248}$"
+        "maxLength": 300,
+        "pattern": "^(?:(?:worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$"
       },
       "grantRef": {
         "type": "string",
@@ -14741,6 +15730,160 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
           "$.at"
         ]
       }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.subject.matches_bound_materialization",
+      "description": "The receipt subject is the exact materialization identity bound by the receipt.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.subject_ref",
+          "$.bound_facts.materialization_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.subject.matches_authorized_effect",
+      "description": "The governed effect addresses the exact receipt subject.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.subject_ref",
+          "$.authorized_effect.materialization.materialization_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.output_hash.matches_bound_output",
+      "description": "The ReceiptEnvelope output hash mirrors the owner-plane hash computed over the finalized materialization.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.output_hash",
+          "$.bound_facts.materialization_output_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_hash.matches_bound_effect",
+      "description": "The governed effect hash mirrors the owner-plane effect commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.effect_hash",
+          "$.bound_facts.authority_effect_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority.matches_binding",
+      "description": "The retained authority binding resolves the receipt's exact governing authority.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.governing_authority_ref",
+          "$.principal_authority_binding.principal_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_authority.matches_snapshot",
+      "description": "The retained grant signer identity equals the root-bound ApprovalAuthority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.authority_id",
+          "$.principal_authority_binding.approval_authority.authority_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_key.matches_snapshot",
+      "description": "The retained grant signer key equals the root-bound ApprovalAuthority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.approver_public_key",
+          "$.principal_authority_binding.approval_authority.public_key"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_suite.matches_snapshot",
+      "description": "The retained grant signature suite equals the root-bound ApprovalAuthority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.approver_suite",
+          "$.principal_authority_binding.approval_authority.signature_suite"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_principal.matches_statement",
+      "description": "The stable binding projection and immutable root-signed statement name one principal.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.principal_ref",
+          "$.principal_authority_binding.binding_proof.statement.principal_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_snapshot.matches_statement",
+      "description": "The stable binding projection and immutable root-signed statement bind one authority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.approval_authority_snapshot_hash",
+          "$.principal_authority_binding.binding_proof.statement.approval_authority_snapshot_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.system.matches_effect",
+      "description": "The receipt's bound System is the System in the authorized materialization.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.system_id",
+          "$.authorized_effect.materialization.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.genesis.matches_effect",
+      "description": "The receipt's bound genesis is the genesis in the authorized materialization.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.genesis_ref",
+          "$.authorized_effect.materialization.genesis_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.operation_commitment.matches_effect",
+      "description": "The receipt and authorized materialization carry one operation commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.operation_commitment",
+          "$.authorized_effect.materialization.operation_commitment"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.transition_commitment.matches_effect",
+      "description": "The receipt and authorized materialization carry one transition commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.transition_commitment_ref",
+          "$.authorized_effect.materialization.transition_commitment_ref"
+        ]
+      }
     }
   ],
   "schema://ioi/foundations/autonomous-system-constitution/v1": [
@@ -15010,6 +16153,9 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
   if (typeof value === "string") {
     if (typeof schema.minLength === "number" && [...value].length < schema.minLength) {
       return [at + ": string shorter than minLength"];
+    }
+    if (typeof schema.maxLength === "number" && [...value].length > schema.maxLength) {
+      return [at + ": string longer than maxLength"];
     }
     if (typeof schema.pattern === "string" && !new RegExp(schema.pattern, "u").test(value)) {
       return [at + ": string failed pattern"];

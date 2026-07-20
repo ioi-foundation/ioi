@@ -32,6 +32,160 @@
           "$.at"
         ]
       }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.subject.matches_bound_materialization",
+      "description": "The receipt subject is the exact materialization identity bound by the receipt.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.subject_ref",
+          "$.bound_facts.materialization_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.subject.matches_authorized_effect",
+      "description": "The governed effect addresses the exact receipt subject.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.subject_ref",
+          "$.authorized_effect.materialization.materialization_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.output_hash.matches_bound_output",
+      "description": "The ReceiptEnvelope output hash mirrors the owner-plane hash computed over the finalized materialization.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.output_hash",
+          "$.bound_facts.materialization_output_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_hash.matches_bound_effect",
+      "description": "The governed effect hash mirrors the owner-plane effect commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.effect_hash",
+          "$.bound_facts.authority_effect_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority.matches_binding",
+      "description": "The retained authority binding resolves the receipt's exact governing authority.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.governing_authority_ref",
+          "$.principal_authority_binding.principal_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_authority.matches_snapshot",
+      "description": "The retained grant signer identity equals the root-bound ApprovalAuthority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.authority_id",
+          "$.principal_authority_binding.approval_authority.authority_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_key.matches_snapshot",
+      "description": "The retained grant signer key equals the root-bound ApprovalAuthority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.approver_public_key",
+          "$.principal_authority_binding.approval_authority.public_key"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_suite.matches_snapshot",
+      "description": "The retained grant signature suite equals the root-bound ApprovalAuthority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.approver_suite",
+          "$.principal_authority_binding.approval_authority.signature_suite"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_principal.matches_statement",
+      "description": "The stable binding projection and immutable root-signed statement name one principal.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.principal_ref",
+          "$.principal_authority_binding.binding_proof.statement.principal_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_snapshot.matches_statement",
+      "description": "The stable binding projection and immutable root-signed statement bind one authority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.approval_authority_snapshot_hash",
+          "$.principal_authority_binding.binding_proof.statement.approval_authority_snapshot_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.system.matches_effect",
+      "description": "The receipt's bound System is the System in the authorized materialization.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.system_id",
+          "$.authorized_effect.materialization.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.genesis.matches_effect",
+      "description": "The receipt's bound genesis is the genesis in the authorized materialization.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.genesis_ref",
+          "$.authorized_effect.materialization.genesis_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.operation_commitment.matches_effect",
+      "description": "The receipt and authorized materialization carry one operation commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.operation_commitment",
+          "$.authorized_effect.materialization.operation_commitment"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.transition_commitment.matches_effect",
+      "description": "The receipt and authorized materialization carry one transition commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.transition_commitment_ref",
+          "$.authorized_effect.materialization.transition_commitment_ref"
+        ]
+      }
     }
   ]
 }
