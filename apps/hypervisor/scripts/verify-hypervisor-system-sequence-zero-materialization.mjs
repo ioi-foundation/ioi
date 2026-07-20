@@ -142,6 +142,7 @@ const JOURNEY_PROOF_CENSUS = new Map([
       resources: 1,
       proofs: [
         "REPLAY PREPARE: interruption after wallet consumption retains only the durable intent",
+        "REPLAY GUARD: a structurally rebound but cryptographically forged retained binding is quarantined byte-exactly",
         "REPLAY: an already-consumed grant converges after binding revocation without re-authoring",
       ],
     },
@@ -528,6 +529,15 @@ async function stableDataPlaneSnapshot(call, dataDir) {
     status.status === 200,
     `data-plane snapshot warmup failed: ${status.status}/${status.body.error?.code || "no-code"}`,
   );
+  const missingSource = await call(
+    "GET",
+    `${GENESIS_ROUTE}/asg_${"0".repeat(64)}`,
+  );
+  requireValue(
+    missingSource.status === 404 &&
+      missingSource.body.error?.code === "system_genesis_not_found",
+    `Agentgres snapshot warmup failed: ${missingSource.status}/${missingSource.body.error?.code || "no-code"}`,
+  );
   let previous = recursiveBytesSnapshot(dataDir);
   for (let attempt = 0; attempt < 20; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -536,6 +546,30 @@ async function stableDataPlaneSnapshot(call, dataDir) {
     previous = current;
   }
   throw new Error("data-plane snapshot did not become byte-stable");
+}
+
+async function dataPlaneStayedByteExact(call, dataDir, before) {
+  const after = await stableDataPlaneSnapshot(call, dataDir);
+  if (before === after) return true;
+  const beforeRows = new Map(
+    JSON.parse(before).map(([kind, path, bytes]) => [
+      path,
+      canonicalJson([kind, bytes]),
+    ]),
+  );
+  const afterRows = new Map(
+    JSON.parse(after).map(([kind, path, bytes]) => [
+      path,
+      canonicalJson([kind, bytes]),
+    ]),
+  );
+  const changedPaths = [...new Set([...beforeRows.keys(), ...afterRows.keys()])]
+    .filter((path) => beforeRows.get(path) !== afterRows.get(path))
+    .sort();
+  console.error(
+    `data-plane byte delta (${changedPaths.length}): ${changedPaths.join(", ")}`,
+  );
+  return false;
 }
 
 function loadPublicApiConstructor() {
@@ -869,8 +903,11 @@ async function admitGenesis(
     );
     const walletStateUnchanged =
       walletStateBeforeWrongScope.equals(walletStateAfterWrongScope);
-    const dataPlaneUnchanged =
-      beforeWrongScope === recursiveBytesSnapshot(dataDir);
+    const dataPlaneUnchanged = await dataPlaneStayedByteExact(
+      call,
+      dataDir,
+      beforeWrongScope,
+    );
     ok(
       "M1.3 AUTHORITY: a wallet-proven materialization-scope grant is discarded unspent",
       wrongScope.status === 422 &&
@@ -1241,7 +1278,7 @@ async function runPrimaryJourney() {
       unknown.status === 422 &&
         unknown.body.error?.code ===
           "system_sequence_zero_request_field_unknown" &&
-        unknownBefore === recursiveBytesSnapshot(dataDir),
+        (await dataPlaneStayedByteExact(call, dataDir, unknownBefore)),
       `${unknown.status}/${unknown.body.error?.code || "no-code"}`,
     );
 
@@ -1255,7 +1292,7 @@ async function runPrimaryJourney() {
         secret.body.error?.code ===
           "system_sequence_zero_sensitive_field_rejected" &&
         !JSON.stringify(secret.body).includes("SEQUENCE_ZERO_SECRET_SENTINEL") &&
-        unknownBefore === recursiveBytesSnapshot(dataDir),
+        (await dataPlaneStayedByteExact(call, dataDir, unknownBefore)),
       `${secret.status}/${secret.body.error?.code || "no-code"}`,
     );
 
@@ -1268,7 +1305,7 @@ async function runPrimaryJourney() {
       "CAS: stale M1.3 source roots refuse before authority with zero mutation",
       conflict.status === 409 &&
         conflict.body.error?.code === "system_sequence_zero_source_conflict" &&
-        unknownBefore === recursiveBytesSnapshot(dataDir),
+        (await dataPlaneStayedByteExact(call, dataDir, unknownBefore)),
       `${conflict.status}/${conflict.body.error?.code || "no-code"}`,
     );
 
@@ -1328,8 +1365,11 @@ async function runPrimaryJourney() {
     );
     const walletStateUnchanged =
       walletStateBeforeWrongScope.equals(walletStateAfterWrongScope);
-    const dataPlaneUnchanged =
-      wrongScopePlaneBefore === recursiveBytesSnapshot(dataDir);
+    const dataPlaneUnchanged = await dataPlaneStayedByteExact(
+      call,
+      dataDir,
+      wrongScopePlaneBefore,
+    );
     ok(
       "AUTHORITY: a wallet-proven wrong-scope grant is discarded unspent with zero mutation",
       wrongScope.status === 422 &&
@@ -1365,7 +1405,7 @@ async function runPrimaryJourney() {
       malformedOccupied.status === 500 &&
         malformedOccupied.body.error?.code ===
           "system_sequence_zero_materialization_invalid" &&
-        correctPlaneBefore === recursiveBytesSnapshot(dataDir),
+        (await dataPlaneStayedByteExact(call, dataDir, correctPlaneBefore)),
       `${malformedOccupied.status}/${malformedOccupied.body.error?.code || "no-code"}`,
     );
 
@@ -1387,7 +1427,7 @@ async function runPrimaryJourney() {
         challenge.body.error?.required_scope === MATERIALIZE_SCOPE &&
         challenge.body.error?.required_authority_ref === OWNER &&
         grant &&
-        correctPlaneBefore === recursiveBytesSnapshot(dataDir),
+        (await dataPlaneStayedByteExact(call, dataDir, correctPlaneBefore)),
       `${challenge.status}/${challenge.body.error?.required_scope || "no-scope"}`,
     );
     requireValue(grant, "M1.4 challenge did not produce a grant");
@@ -1416,7 +1456,7 @@ async function runPrimaryJourney() {
         !JSON.stringify(nonCanonical.body).includes(
           "sk-live-SEQUENCE_ZERO-SENTINEL",
         ) &&
-        correctPlaneBefore === recursiveBytesSnapshot(dataDir),
+        (await dataPlaneStayedByteExact(call, dataDir, correctPlaneBefore)),
       `${nonCanonical.status}/${nonCanonical.body.error?.code || "no-code"}`,
     );
 
@@ -1435,7 +1475,7 @@ async function runPrimaryJourney() {
       foreign.status === 403 &&
         foreign.body.error?.code ===
           "system_sequence_zero_host_authority_required" &&
-        correctPlaneBefore === recursiveBytesSnapshot(dataDir),
+        (await dataPlaneStayedByteExact(call, dataDir, correctPlaneBefore)),
       `${foreign.status}/${foreign.body.error?.code || "no-code"}`,
     );
 
@@ -1455,7 +1495,7 @@ async function runPrimaryJourney() {
       multiUse.status === 422 &&
         multiUse.body.error?.code ===
           "system_sequence_zero_authority_evidence_invalid" &&
-        correctPlaneBefore === recursiveBytesSnapshot(dataDir),
+        (await dataPlaneStayedByteExact(call, dataDir, correctPlaneBefore)),
       `${multiUse.status}/${multiUse.body.error?.code || "no-code"}`,
     );
 
@@ -1783,6 +1823,58 @@ async function runCrashReplayJourney() {
       `${interrupted.status}/${interrupted.body.error?.code || "no-code"}`,
     );
     await plane.stop();
+    plane = undefined;
+    const intentName = requireValue(
+      familyFiles(dataDir, INTENT_FAMILY)[0],
+      "replay guard lacks its durable intent",
+    );
+    const intentPath = join(dataDir, INTENT_FAMILY, intentName);
+    const pristineIntentBytes = readFileSync(intentPath);
+    const forgedIntent = JSON.parse(pristineIntentBytes.toString("utf8"));
+    const forgedBinding = forgedIntent.receipt.principal_authority_binding;
+    const forgedProof = forgedBinding.binding_proof;
+    forgedProof.issuer_signature_proof.signature[0] ^= 1;
+    const forgedBindingHash = createHash("sha256")
+      .update(
+        canonicalJson({
+          domain: "ioi.wallet-network.principal-authority-binding-proof.v1",
+          schema_version: forgedProof.schema_version,
+          statement: forgedProof.statement,
+          statement_hash: forgedProof.statement_hash,
+          issuer_signature_proof: forgedProof.issuer_signature_proof,
+        }),
+      )
+      .digest();
+    const forgedBindingRef =
+      `wallet.network://principal-authority-binding/${forgedBindingHash.toString("hex")}`;
+    forgedProof.binding_hash = [...forgedBindingHash];
+    forgedProof.binding_ref = forgedBindingRef;
+    forgedBinding.coordinates.binding_hash = [...forgedBindingHash];
+    forgedBinding.coordinates.binding_ref = forgedBindingRef;
+    delete forgedIntent.intent_hash;
+    forgedIntent.intent_hash = recordOutputHash(forgedIntent);
+    const forgedIntentBytes = Buffer.from(JSON.stringify(forgedIntent));
+    writeFileSync(intentPath, forgedIntentBytes);
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) throw new Error("BLOCKED: forged-intent replay daemon is not built");
+    call = (method, route, body) =>
+      jsonCall(plane.daemonUrl, method, route, body);
+    const forgedRead = await call("GET", path);
+    ok(
+      "REPLAY GUARD: a structurally rebound but cryptographically forged retained binding is quarantined byte-exactly",
+      forgedRead.status === 500 &&
+        forgedRead.body.error?.code ===
+          "system_sequence_zero_pending_convergence" &&
+        familyFiles(dataDir, INTENT_FAMILY).length === 1 &&
+        readFileSync(intentPath).equals(forgedIntentBytes) &&
+        MATERIALIZATION_FAMILIES.every(
+          (family) => familyFiles(dataDir, family).length === 0,
+        ),
+      `${forgedRead.status}/${forgedRead.body.error?.code || "no-code"} intent-retained=${familyFiles(dataDir, INTENT_FAMILY).length}`,
+    );
+    await plane.stop();
+    plane = undefined;
+    writeFileSync(intentPath, pristineIntentBytes);
     await resolver.revokePrincipalAuthority(OWNER);
     plane = await startVerifierPlane({ dataDir, env: resolver.env });
     if (!plane) throw new Error("BLOCKED: restart daemon is not built");
