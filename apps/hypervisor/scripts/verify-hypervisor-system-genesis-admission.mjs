@@ -64,8 +64,8 @@ const EXPECTED = {
   releaseRoot: "sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b",
   bundleRoot: "sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48",
   operationCommitment:
-    "sha256:37b92d683d7b543a26e1e82ab80c54bb4609119047b0957437c52d14cc0bce9d",
-  proposalRoot: "sha256:1d337b534c9ee000ba3dafffb86b00ff727e0d58d05468595d037514e43c29c6",
+    "sha256:f25a67924f9ed21cd5a14a1fb2a4116eb7a365f047bb62fd09db39bf4ce946c0",
+  proposalRoot: "sha256:b361b4f59e3486dbae2204fd40fabf50956ba881e3aa0c8706a069f4605d6e72",
 };
 
 const results = [];
@@ -1133,11 +1133,11 @@ async function runRequiredAdmissionBoundary(resolver) {
     );
     const pendingByKey = await call("GET", `${ROUTE}/${recordKey}`);
     ok(
-      "AGENTGRES: all three mandatory evidence domains are admitted without soak while exact GETs remain pending",
+      "AGENTGRES: all three M1.3 evidence domains are mandatory and admitted without soak while exact GETs remain pending",
       statusBefore?.status === 200 &&
-        sameJson(
-          [...requiredDomains].sort(),
-          [RECORD_FAMILY, RECEIPT_FAMILY, CONSUMPTION_FAMILY].sort(),
+        new Set(requiredDomains).size === requiredDomains.length &&
+        [RECORD_FAMILY, RECEIPT_FAMILY, CONSUMPTION_FAMILY].every(
+          (family) => requiredDomains.includes(family),
         ) &&
         !soakDomains.includes(RECORD_FAMILY) &&
         !soakDomains.includes(RECEIPT_FAMILY) &&
@@ -1194,7 +1194,7 @@ async function runRequiredAdmissionBoundary(resolver) {
       statusAfter?.body?.required_admission_domains || [];
     const soakDomainsAfter = statusAfter?.body?.soak?.domains || [];
     ok(
-      "AGENTGRES REPLAY: SIGKILL restart converges without advancing either required domain",
+      "AGENTGRES REPLAY: SIGKILL restart converges without advancing any M1.3 required domain",
       getAfter?.status === 200 &&
         sameJson(getAfter.body.autonomous_system_genesis_admission, record) &&
         getAfterBySystem.status === 200 &&
@@ -1202,9 +1202,9 @@ async function runRequiredAdmissionBoundary(resolver) {
           getAfterBySystem.body.autonomous_system_genesis_admission,
           record,
         ) &&
-        sameJson(
-          [...requiredDomainsAfter].sort(),
-          [RECORD_FAMILY, RECEIPT_FAMILY, CONSUMPTION_FAMILY].sort(),
+        sameJson([...requiredDomainsAfter].sort(), [...requiredDomains].sort()) &&
+        [RECORD_FAMILY, RECEIPT_FAMILY, CONSUMPTION_FAMILY].every(
+          (family) => requiredDomainsAfter.includes(family),
         ) &&
         !soakDomainsAfter.includes(RECORD_FAMILY) &&
         !soakDomainsAfter.includes(RECEIPT_FAMILY) &&

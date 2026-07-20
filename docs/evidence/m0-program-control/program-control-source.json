@@ -342,22 +342,22 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "194d58d56aa1bfab9a11097798da7fe576a7ffa05cc49c8a1a37c5fa178f6e4f"
+      "source_sha256": "9095195bdc3aea237d09ec66ca1e811ea2bd9497400eb68d1ad6c7d500479a2d"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "d84bee1b79a44033ecfb69badc64f971636af1b8055443d5cd760ee72b282d4d"
+      "source_sha256": "212c0116a33a6e52d32df8515f85767a1f05f4ba223b4a44f8d88422873c5a4a"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "0eae9cb06e3e6222117fc0e200d2e48be4a42926885fd6138877161ea1f32b6a"
+      "source_sha256": "0ed2fed99ff374a21b1ebb5ac16243100c36a479493e112c9934961998821da1"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/governed-autonomous-systems.md",
-      "source_sha256": "e12a014149dadb78b97b9d057384eb156c2756de7528cafdae34d409617d69cd"
+      "source_sha256": "713f5ffdf7f5bdfbfdd5d25651695419bb224f299518d92128b53de8427f70e0"
     },
     {
       "role": "landed owner canon",
@@ -377,7 +377,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/api.md",
-      "source_sha256": "31c6c68df493c3cfccb9778c27dc385ed8a60a122bde87d2273f19412776bfc3"
+      "source_sha256": "38df19d2d94e0a7eaefa95c61f569966614375166df92752e1c2550a048acba6"
     },
     {
       "role": "landed owner canon",
@@ -397,7 +397,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/api-authority-scopes.md",
-      "source_sha256": "1dd581a3df9c19cead21bb204e2472bc6e106a912089c5c12863e7ff62314f24"
+      "source_sha256": "2cc7e9b86bcbf7543543569e8955658e2f5a36729ea8fba26c3104114e3057df"
     },
     {
       "role": "landed owner canon",
@@ -454,7 +454,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "4a4f7f76ab808b30628267f00a1e62c1008995498be56968e35a035171adc598"
+            "source_sha256": "7be02ed62b8643adcdb167c389261b81a5abebd224e7f0c49a438856faafe94d"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -524,7 +524,7 @@
           {
             "note": "enumerated wallet.network service registry",
             "source_file": "crates/services/src/wallet_network/mod.rs",
-            "source_sha256": "9116f3af8d96d2d7d123144da6e8ece6d708ed13abed2342dcdd1e084239cdd8"
+            "source_sha256": "f44d95b585997e9b842d7abe2203653e988ed3e4f5867187a48ae7433d324780"
           },
           {
             "note": "no externally callable service method; transaction decorator and end-block hooks only",
@@ -629,7 +629,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "4a4f7f76ab808b30628267f00a1e62c1008995498be56968e35a035171adc598"
+            "source_sha256": "7be02ed62b8643adcdb167c389261b81a5abebd224e7f0c49a438856faafe94d"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -839,7 +839,7 @@
           {
             "note": "explicit test-signer child-process crossing, dynamically loaded only by the development flag",
             "source_file": "scripts/lib/mint-approval-grant.mjs",
-            "source_sha256": "b24deae5b30fa054c3f68cf003b053783dd0470f721487547b42e6c4e99647c5"
+            "source_sha256": "f78c822247a6abecfbe1ec1e8c0efc1f52fc25029a4a72a388a2cf68f77b1ba3"
           }
         ]
       },
@@ -974,7 +974,7 @@
             ],
             "identity": "js-system-effect:scripts/lib/mint-approval-grant.mjs#mintApprovalGrant",
             "operation": "PROCESS_EXEC build and invoke deterministic test approval signer",
-            "source_anchor_sha256": "cf916799ed65196c6531f3a9060c6a4459ffe6398a03f414aee8da59be139ee9",
+            "source_anchor_sha256": "8adb367797854fdfc860b3c123348e91533d57442ebc29a3f7e1157eb0aef0b3",
             "source_file": "scripts/lib/mint-approval-grant.mjs",
             "source_line": 16
           }
