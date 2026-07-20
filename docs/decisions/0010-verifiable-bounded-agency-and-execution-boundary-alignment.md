@@ -4,6 +4,14 @@
 - Date: 2026-05-22
 - Owners: IOI architecture / daemon runtime / wallet.network / Agentgres / policy
 
+Current-canon refinement (2026-07-19): the ownership list below records the
+decision's original wallet-centered context. Under `INV-10`, local/domain
+governance selects the applicable authority provider for ordinary local
+authority; wallet.network owns portable principal-to-approval-authority binding
+and is mandatory only for portable delegated authority and designated
+high-risk external scopes. The bounded-agency decision is unchanged: every
+consequential action still requires exact scoped authority and a receipt.
+
 ## Context
 
 IOI needs a precise canonical claim for alignment security. Product and

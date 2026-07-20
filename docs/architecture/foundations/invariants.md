@@ -79,11 +79,16 @@ certainty. Neither events, analytics, self-report, nor a receipt alone may
 substitute for the state actually claimed.
 Owner application: [`../components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md).
 
-**INV-10 — The quadrant.** wallet.network owns authority; Agentgres owns
-admitted operational truth; storage backends own payload bytes; a selected
-settlement service, including IOI L1 when enrolled, settles triggered public
-commitments. No layer absorbs another's role.
-Owner application: [`../components/agentgres/doctrine.md`](../components/agentgres/doctrine.md),
+**INV-10 — The quadrant.** Local/domain governance owns local policy, and the
+applicable authority provider issues authority under that policy.
+wallet.network owns portable principal-to-approval-authority binding and is
+mandatory for portable delegated authority and designated high-risk external
+effects; it does not absorb ordinary deployment-local governance. Agentgres
+owns admitted operational truth; storage backends own payload bytes; a
+selected settlement service, including IOI L1 when enrolled, settles triggered
+public commitments. No layer absorbs another's role.
+Owner application: [`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md),
+[`../components/agentgres/doctrine.md`](../components/agentgres/doctrine.md),
 [`../components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md).
 
 **INV-11 — Sparse settlement.** When selected, IOI L1 stores commitments,

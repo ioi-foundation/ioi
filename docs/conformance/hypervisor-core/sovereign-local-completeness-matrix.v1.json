@@ -1,5 +1,7 @@
 {
   "schema_version": "ioi.sovereign-local-completeness-scenario.v1",
+  "matrix_id": "ioi.sovereign-local-completeness-matrix.v1",
+  "hash_profile": "ioi.sovereign-local-completeness-matrix-jcs-sha256.v1",
   "status": "target_fixture_only",
   "claim_profiles": [
     {
@@ -272,8 +274,11 @@
       "expected_report_verdict": "pass",
       "required_evidence": [
         "identity_session_ref",
-        "authority_decision_ref",
-        "effect_admission_receipt"
+        "authority_provider_ref_and_snapshot_hash",
+        "authority_decision_ref_and_hash",
+        "authority_grant_ref_and_hash",
+        "authority_lease_ref_and_hash_or_explicit_null",
+        "effect_admission_receipt_ref_and_hash"
       ],
       "forbidden_observations": ["portable_authority_claim"]
     },
@@ -440,6 +445,52 @@
         "effect_invocation_count"
       ],
       "forbidden_observations": ["duplicate_effect", "changed_body_replay_accepted"]
+    },
+    {
+      "scenario_id": "slc-05-changed-body-replay-is-refused",
+      "requirement_id": "SLC-05",
+      "fixture_profile_ids": [
+        "embedded_single_operator_offline",
+        "self_hosted_org_single_node"
+      ],
+      "scenario_kind": "adversarial",
+      "required_for_claims": [
+        "minimum_l0_local_completeness",
+        "production_self_hosted"
+      ],
+      "input": {
+        "idempotency_key": "slc-05/repository-effect/1",
+        "first_body": {
+          "operation_kind": "repository.apply_patch",
+          "target_ref": "workspace://slc/repository",
+          "base_revision_ref": "git://slc/base/1",
+          "patch_ref": "artifact://slc/patch-a"
+        },
+        "changed_body": {
+          "operation_kind": "repository.apply_patch",
+          "target_ref": "workspace://slc/repository",
+          "base_revision_ref": "git://slc/base/1",
+          "patch_ref": "artifact://slc/patch-b"
+        },
+        "fault_point": "after_effect_before_response"
+      },
+      "expected_operation_disposition": "fail_closed",
+      "expected_report_verdict": "pass",
+      "required_reason_codes": ["idempotency_key_body_mismatch"],
+      "required_evidence": [
+        "first_request_body_hash",
+        "changed_request_body_hash",
+        "same_body_replay_receipt",
+        "changed_body_refusal_receipt",
+        "effect_invocation_count_one",
+        "changed_body_invocation_count_zero"
+      ],
+      "forbidden_observations": [
+        "idempotency_binding_rewritten",
+        "original_success_returned_for_changed_body",
+        "second_effect_invoked",
+        "changed_body_success_receipt"
+      ]
     },
     {
       "scenario_id": "slc-05-unknown-effect-requires-reconciliation",
@@ -642,7 +693,7 @@
         "reviewed_representation_hash",
         "approval_ceremony_context_hash",
         "passkey_factor_receipt",
-        "authority_grant_envelope_v3_ref",
+        "authority_grant_envelope_v3_ref_and_hash",
         "daemon_revalidation_receipt"
       ],
       "forbidden_observations": [

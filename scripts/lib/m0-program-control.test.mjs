@@ -29,9 +29,11 @@ import {
   README_FILE,
   assertRenderedArtifactsCurrent,
   buildM0Fingerprint,
+  createInitialProgramSource,
   createInitialReview,
   discoverRepositorySurface,
   loadM0Sources,
+  stableStringify,
   validateProgramSource,
   validateReviewLock,
 } from "./m0-program-control-model.mjs";
@@ -1067,12 +1069,195 @@ test("proof lanes, lane bindings, and local identity ownership fail closed", () 
   );
   expectProgramFailure(
     (fixture) => {
+      fixture.selected_profile.proof_lanes[0].required_evidence[0] =
+        "placeholder-evidence";
+    },
+    /substituted required-evidence set/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.proof_lanes[1].required_evidence.push(
+        "placeholder-evidence",
+      );
+    },
+    /substituted required-evidence set/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.proof_lanes[0].required_evidence.pop();
+    },
+    /substituted required-evidence set/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      const evidence =
+        fixture.selected_profile.proof_lanes[0].required_evidence;
+      evidence.push(evidence[0]);
+    },
+    /lacks unique required evidence|substituted required-evidence set/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.visible_terminal_journey[0]
+        .lane_bindings[0].route_identities = [];
+    },
+    /substituted route set/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.visible_terminal_journey[8]
+        .lane_bindings[0].route_identities = [
+          "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+        ];
+    },
+    /substituted route set/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.visible_terminal_journey[8]
+        .lane_bindings[1].route_identities.push(
+          "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+        );
+    },
+    /substituted route set/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.visible_terminal_journey[0]
+        .lane_bindings[0].blocker_ref =
+          "BLK-M0-SELECTED-IDENTITY-STEP-UP";
+    },
+    /substituted blocker|blocker type or state/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.blocker_ledger.find((entry) => (
+        entry.blocker_id === "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY"
+      )).type = "authority_path_unavailable";
+    },
+    /blocker type or state does not match/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.blocker_ledger.find((entry) => (
+        entry.blocker_id === "BLK-M0-SELECTED-MANAGED-DETACH"
+      )).state = "closed";
+    },
+    /blocker type or state does not match/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
       const owner = fixture.selected_profile.object_owners.find((entry) => (
         entry.object_set.startsWith("Deployment-local identity")
       ));
       owner.owner_doc = "docs/architecture/components/wallet-network/doctrine.md";
     },
-    /lacks its canonical identity owner source/u,
+    /canonical owner tuple|canonical identity owner source/u,
+  );
+  for (const sourceFile of [
+    "docs/architecture/components/hypervisor/identity-access-and-metering.md",
+    "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
+    "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
+  ]) {
+    expectProgramFailure(
+      (fixture) => {
+        fixture.canon_basis = fixture.canon_basis.filter(
+          (entry) => entry.source_file !== sourceFile,
+        );
+      },
+      /canon basis count is stale|omits canon basis/u,
+    );
+  }
+  expectProgramFailure(
+    (fixture) => {
+      fixture.canon_basis.find((entry) => (
+        entry.source_file
+          === "docs/conformance/hypervisor-core/sovereign-local-completeness.md"
+      )).source_sha256 = "0".repeat(64);
+    },
+    /stale source anchor/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.canon_basis.splice(
+        fixture.canon_basis.findIndex((entry) => (
+          entry.source_file
+            === "docs/conformance/hypervisor-core/sovereign-local-completeness.md"
+        )),
+        0,
+        {
+          role: "landed owner canon",
+          source_file:
+            "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
+          source_sha256: "0".repeat(64),
+        },
+      );
+    },
+    /duplicates canon basis|canon basis count is stale/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.visible_terminal_journey[1].route_identities = [
+        "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+      ];
+    },
+    /visible journey does not match the canonical/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.visible_terminal_journey[1].blocker_ref =
+        "BLK-M0-SELECTED-INSPECTION-CHAIN";
+    },
+    /visible journey does not match the canonical/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.blocker_ledger.find((entry) => (
+        entry.blocker_id === "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY"
+      )).summary = "This authority path is terminal and closed.";
+    },
+    /blocker ledger does not match the canonical/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.pg_gate_map.entries.find((entry) => (
+        entry.pg_id === "PG-2.1"
+      )).disposition = "required_now";
+    },
+    /PG map does not match the canonical/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.selected_profile.object_owners = fixture.selected_profile
+        .object_owners
+        .filter((entry) => !entry.object_set.startsWith(
+          "Deployment-local policy and locally permitted",
+        ));
+    },
+    /object-owner set is incomplete|local authority-provider owner source/u,
+  );
+
+  const reordered = structuredClone(programSource);
+  reordered.selected_profile.proof_lanes[0].required_evidence.reverse();
+  reordered.selected_profile.visible_terminal_journey[0]
+    .lane_bindings[0].route_identities.reverse();
+  assert.doesNotThrow(() => validateProgramSource(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    reordered,
+  ));
+  const initialized = createInitialProgramSource(repoRoot);
+  assert.doesNotThrow(() => validateProgramSource(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    initialized,
+  ));
+  assert.equal(
+    stableStringify(initialized),
+    stableStringify(programSource),
+    "the initializer and reviewed program source must be byte-stable semantic equivalents",
   );
 });
 

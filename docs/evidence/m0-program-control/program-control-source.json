@@ -361,6 +361,11 @@
     },
     {
       "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/invariants.md",
+      "source_sha256": "4caae2e869661e08b5998f325b7d425e3b600fc81d84314890e3867727710749"
+    },
+    {
+      "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/institutional-learning-boundary.md",
       "source_sha256": "b2b2980b017c3259e616470044179c60878947aad9bc4d3427f8e4b7f5fa3d3c"
     },
@@ -372,7 +377,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/api.md",
-      "source_sha256": "c948773a2fdba4365fbfa4126d2cea01891d375834f47a4fc0807c8d8cc97467"
+      "source_sha256": "31c6c68df493c3cfccb9778c27dc385ed8a60a122bde87d2273f19412776bfc3"
     },
     {
       "role": "landed owner canon",
@@ -387,7 +392,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/doctrine.md",
-      "source_sha256": "3cfca45acefd7bf6823bcf992c67fc78fcb8b6882ccc5a72605f37c005dba57a"
+      "source_sha256": "7fee1911042b7d2220beb54b916e59326c8c02be92cae17cbb96cfc13d308c50"
     },
     {
       "role": "landed owner canon",
@@ -411,6 +416,11 @@
     },
     {
       "role": "landed owner canon",
+      "source_file": "docs/architecture/components/hypervisor/identity-access-and-metering.md",
+      "source_sha256": "5c8c86e34c6631090326dbdd0f05403e8c2cf92d0255975be8888907be5261a2"
+    },
+    {
+      "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/providers-and-environments.md",
       "source_sha256": "c28b3b65c7c4a78914ee40adf64b2b3bf4b88ab03048d7786ef38fbcc9e09270"
     },
@@ -418,6 +428,16 @@
       "role": "landed owner canon",
       "source_file": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
       "source_sha256": "348f0f485746089a80cb76e33422cddd49067b519632d2a6980d575750cefa42"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
+      "source_sha256": "fdd6719e206c3623db34f8654090cad05ee3297ebe6a98c7e2d499a0be0f8a16"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
+      "source_sha256": "c38d0e7da3ea49fda7979baada6aed711800442c6fe4fb3f20145b7ca5337d59"
     }
   ],
   "canon_contradictions": [],
@@ -1568,6 +1588,11 @@
         "owner_doc": "docs/architecture/components/hypervisor/identity-access-and-metering.md"
       },
       {
+        "object_set": "Deployment-local policy and locally permitted exact-effect authority provider selection",
+        "owner": "Local/domain governance and the selected authority provider",
+        "owner_doc": "docs/architecture/foundations/invariants.md"
+      },
+      {
         "object_set": "Connected product-session binding, portable approval and grant, revocation, and step-up",
         "owner": "wallet.network authority",
         "owner_doc": "docs/architecture/components/wallet-network/api-authority-scopes.md"
@@ -1635,7 +1660,7 @@
       "rule": "Additive proof-lane target overlay only; it does not rewrite the frozen 2026-07-18 M0 baselines.",
       "status": "not_measured"
     },
-    "proof_lane_validation_posture": "structurally validated lane ids, order, prerequisites, required evidence, route selection or typed empty-route blockers, and deployment-local identity owner source; named blockers remain open until the product journeys pass",
+    "proof_lane_validation_posture": "semantically validated exact lane ids, order, prerequisites, evidence sets, blocker identities, route sets, and canon-anchored owner sources; named blockers remain open until the product journeys pass",
     "proof_lanes": [
       {
         "authority_posture": "deployment-local authentication remains distinct from locally permitted exact-effect authority; no portable delegated-authority claim",

@@ -38,6 +38,12 @@ Adapters submit action requests, previews, observations, and approval decisions.
 The daemon owns policy, authority scopes, effect execution, receipts, replay,
 settlement hooks, secrets, and durable runtime state.
 
+Current canon refines that historical shorthand without changing this
+sidecar decision: local/domain governance owns local policy, the applicable
+authority provider issues authority under that policy, the daemon enforces the
+selected policy and exact-effect boundary, and wallet.network is mandatory for
+portable delegated authority and designated high-risk external effects.
+
 ## Consequences
 
 - IOI can support users who keep existing IDEs, models, and agent tools while
@@ -77,3 +83,7 @@ Workers/models/tools/connectors = guest workloads/capabilities
 wallet.network = authority/secrets/payment
 IOI mainnet = settlement/reputation/dispute/proof anchoring
 ```
+
+Here `wallet.network = authority/secrets/payment` names its portable delegated
+and designated high-risk authority role. It does not make wallet.network the
+owner of every deployment-local product permission.

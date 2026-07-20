@@ -102,6 +102,9 @@ const rustHypervisorDaemonSource = read(
 const rustHypervisorLifecycleRoutesSource = read(
   "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
 );
+const rustHypervisorApprovedOperationAdmissionSource = read(
+  "crates/services/src/agentic/runtime/kernel/runtime_hypervisor_approved_operation_admission.rs",
+);
 const hypervisorProvidersEnvironmentsDoc = read(
   "docs/architecture/components/hypervisor/providers-and-environments.md",
 );
@@ -1181,28 +1184,84 @@ assert(
 assert(
   "hypervisor-approved-operation-admission",
     daemonRuntimeApiDoc.includes("POST /v1/hypervisor/approved-operations") &&
+    rustHypervisorDaemonSource.includes(
+      '"/v1/hypervisor/approved-operations"',
+    ) &&
+    rustHypervisorDaemonSource.includes(
+      "post(lifecycle_routes::handle_approved_operation_admission)",
+    ) &&
+    rustHypervisorLifecycleRoutesSource.includes(
+      "pub(crate) async fn handle_approved_operation_admission(",
+    ) &&
+    rustHypervisorApprovedOperationAdmissionSource.includes(
+      '"ioi.runtime.hypervisor_approved_operation_admission.v1"',
+    ) &&
+    rustHypervisorApprovedOperationAdmissionSource.includes(
+      'request.get("wallet_approval_ref")',
+    ) &&
+    rustHypervisorApprovedOperationAdmissionSource.includes(
+      'request.get("wallet_lease_ref")',
+    ) &&
+    rustHypervisorApprovedOperationAdmissionSource.includes(
+      '"wallet_approval_ref".to_string()',
+    ) &&
+    rustHypervisorApprovedOperationAdmissionSource.includes(
+      '"wallet_lease_ref".to_string()',
+    ) &&
+    daemonRuntimeApiDoc.includes(
+      "ioi.runtime.hypervisor_approved_operation_admission.v1",
+    ) &&
     daemonRuntimeApiDoc.includes(
       "ioi.runtime.hypervisor_approved_operation_admission.v2",
     ) &&
     daemonRuntimeApiDoc.includes(
       "ioi.runtime.hypervisor_approved_operation_execution_plan.v1",
     ) &&
-    daemonRuntimeApiDoc.includes("\"authority_provider_ref\": \"authority-provider:...\"") &&
-    daemonRuntimeApiDoc.includes("\"authority_approval_ref\": \"approval://authority/...\"") &&
-    daemonRuntimeApiDoc.includes("\"authority_lease_ref\": \"lease:authority/...\"") &&
+    daemonRuntimeApiDoc.includes("\"authority_provider_ref\": \"authority://provider/...\"") &&
+    daemonRuntimeApiDoc.includes("\"approval_authority_snapshot_hash\": \"sha256:...\"") &&
+    daemonRuntimeApiDoc.includes("\"authority_decision_ref\": \"authority://decision/...\"") &&
+    daemonRuntimeApiDoc.includes("\"authority_decision_hash\": \"sha256:...\"") &&
+    daemonRuntimeApiDoc.includes("\"authority_grant_ref\": \"grant://...\"") &&
+    daemonRuntimeApiDoc.includes("\"authority_grant_hash\": \"sha256:...\"") &&
+    daemonRuntimeApiDoc.includes("\"authority_lease_ref\": \"lease://authority/... | null\"") &&
+    daemonRuntimeApiDoc.includes("\"authority_lease_hash\": \"sha256:... | null\"") &&
+    daemonRuntimeApiDoc.includes("\"admission_ref\": \"hypervisor-approved-operation:...\"") &&
+    daemonRuntimeApiDoc.includes(
+      "\"admission_hash_profile\": \"ioi.runtime.hypervisor-approved-operation-admission-jcs-sha256.v1\"",
+    ) &&
+    daemonRuntimeApiDoc.includes("\"admission_hash\": \"sha256:...\"") &&
+    daemonRuntimeApiDoc.includes(
+      '"domain": "ioi.runtime.hypervisor-approved-operation-admission-jcs-sha256.v1"',
+    ) &&
+    daemonRuntimeApiDoc.includes("The only exclusions are") &&
+    !daemonRuntimeApiDoc.includes("authority-provider:") &&
+    !daemonRuntimeApiDoc.includes("approval://authority/") &&
+    !daemonRuntimeApiDoc.includes("lease:authority/") &&
+    !rustHypervisorDaemonSource.includes(
+      "ioi.runtime.hypervisor_approved_operation_admission.v2",
+    ) &&
+    !rustHypervisorLifecycleRoutesSource.includes(
+      "ioi.runtime.hypervisor_approved_operation_admission.v2",
+    ) &&
+    !rustHypervisorApprovedOperationAdmissionSource.includes(
+      "ioi.runtime.hypervisor_approved_operation_admission.v2",
+    ) &&
     daemonRuntimeApiDoc.includes(
       "The live Rust v1 handler still requires `wallet_approval_ref` and",
     ) &&
     daemonRuntimeApiDoc.includes(
       "wallet-specific precursor, not proof of the provider-neutral target",
     ) &&
-    daemonRuntimeApiDoc.includes(
-      "authority requires the v2 successor path and must remain typed unavailable",
+    normalizedDaemonRuntimeApiDoc.includes(
+      "local/domain authority requires the v2 successor path and must remain typed unavailable",
     ),
   [
     "docs/architecture/components/daemon-runtime/api.md",
+    "crates/node/src/bin/hypervisor-daemon.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+    "crates/services/src/agentic/runtime/kernel/runtime_hypervisor_approved_operation_admission.rs",
   ],
-  "Approved Hypervisor operation admission must bind daemon-authored proposals to the owning provider-neutral authority approval and lease plus Agentgres evidence before emitting a daemon-owned execution plan; the live wallet-specific v1 precursor must remain explicitly partial.",
+  "Approved Hypervisor operation admission must bind daemon-authored proposals to the owning provider-neutral authority decision, mandatory scoped grant, optional paired lease, and Agentgres evidence before emitting a daemon-owned execution plan; the live wallet-specific v1 precursor must remain mounted and explicitly partial.",
 );
 assert(
   "hypervisor-approved-operation-dispatch",

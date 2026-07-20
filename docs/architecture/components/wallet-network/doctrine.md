@@ -876,12 +876,16 @@ See [`product-exchange-risk.md`](./product-exchange-risk.md) for:
 
 Core invariant:
 
-> **wallet.network owns authority. Route, venue, and resource sources produce
-> candidates. Liquidity lives in pools and venues. Provider resources live with
-> selected providers. Hypervisor executes runtime/provider lifecycle. Execution
-> lives onchain, in the chosen venue, or at the selected provider boundary.
-> Agentgres records receipts and evidence. No quote, route source, venue
-> source, or resource candidate is a trust root.**
+> **wallet.network owns portable delegated authority and the designated
+> spend, secret/decryption, declassification, external-effect, and high-risk
+> scopes assigned to it. Applicable local or domain policy may select another
+> permitted authority provider for ordinary local governance. Route, venue,
+> and resource sources produce candidates. Liquidity lives in pools and
+> venues. Provider resources live with selected providers. Hypervisor executes
+> runtime/provider lifecycle. Execution lives onchain, in the chosen venue, or
+> at the selected provider boundary. Agentgres records receipts and evidence.
+> No quote, route source, venue source, or resource candidate is a trust
+> root.**
 
 ## Repository and Contract Boundary
 

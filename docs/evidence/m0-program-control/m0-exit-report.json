@@ -1,7 +1,7 @@
 {
   "architecture_or_production_capability_closure": false,
   "as_of_date": "2026-07-19",
-  "build_fingerprint": "5a72d5bb62e9298e50b61958ca56ac3b2247cbde605740a45dcce32ad9f3c66b",
+  "build_fingerprint": "694b6469bae0e1bce1fafc5f2af5e16d94a474325a860fd5b813be910d83968f",
   "census_counts": {
     "consequential": 962,
     "partial_consequential": 944,
@@ -18,7 +18,7 @@
     "every_selected_object_has_owner": true,
     "evidence_items_are_current_or_honestly_open": true,
     "legacy_sequencing_is_non_authoritative": true,
-    "proof_lanes_and_bindings_structurally_validated": true,
+    "proof_lanes_and_bindings_semantically_validated": true,
     "repository_validation_baseline_recorded": true,
     "selected_effect_has_leaf_or_unavailable_blocker": true
   },

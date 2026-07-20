@@ -74,38 +74,123 @@ const REVIEW_DIMENSIONS = [
   "durable_evidence_idempotency_and_recovery",
   "selected_profile_applicability_and_typed_blocker",
 ];
+const REQUIRED_PROOF_LANE_VALIDATION_POSTURE =
+  "semantically validated exact lane ids, order, prerequisites, evidence sets, blocker identities, route sets, and canon-anchored owner sources; named blockers remain open until the product journeys pass";
+const REQUIRED_PROOF_LANES = Object.freeze([
+  Object.freeze({
+    lane_id: "sovereign_local_completeness",
+    order: 1,
+    prerequisite_lane_id: undefined,
+    starting_state: "fresh standalone deployment",
+    claim_requirement:
+      "required for the minimum-L0 local-completeness claim and every stronger claim that depends on it",
+    authority_posture:
+      "deployment-local authentication remains distinct from locally permitted exact-effect authority; no portable delegated-authority claim",
+    endpoint_posture:
+      "all IOI-managed endpoints denied; loopback and declared local IPC allowed",
+    required_evidence: Object.freeze([
+      "network-blocked terminal product journey",
+      "restart and replay",
+      "backup and clean restore",
+      "offline evidence export and independent verification",
+    ]),
+  }),
+  Object.freeze({
+    lane_id: "managed_optionality_overlay",
+    order: 2,
+    prerequisite_lane_id: "sovereign_local_completeness",
+    starting_state:
+      "the same independently operable System after a passing sovereign-local lane",
+    claim_requirement:
+      "required only for managed-optionality claims and claims that depend on managed attachment",
+    authority_posture:
+      "provider-neutral account authentication plus passkey-capable context-bound portable authority when connected policy requires it",
+    connection_posture:
+      "explicitly attach one named managed service, execute one admitted operation, prove no implicit transfer or unnamed-use billing, then revoke or detach it",
+    required_evidence: Object.freeze([
+      "explicit attachment receipt",
+      "connected identity and context-bound portable authority when required",
+      "one explicitly leased and receipted named managed-service use",
+      "exact binding, data-view, lease, RuntimeAssignment, custody, usage, charge, and receipt inspection",
+      "zero implicit transfer or charge without named service use",
+      "detach or revocation receipt",
+      "post-detach continuation for locally satisfied dependencies",
+    ]),
+  }),
+]);
 const REQUIRED_PROOF_LANE_BINDINGS = Object.freeze([
   Object.freeze({
     binding_id: "sovereign-local-identity",
     lane_id: "sovereign_local_completeness",
     step: 1,
+    blocker_ref: "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+    blocker_type: "local_authority_path_unavailable",
+    blocker_state: "open",
+    route_identities: Object.freeze([
+      "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
+      "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami",
+    ]),
   }),
   Object.freeze({
     binding_id: "managed-connected-identity",
     lane_id: "managed_optionality_overlay",
     step: 1,
+    blocker_ref: "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+    blocker_type: "authority_path_unavailable",
+    blocker_state: "open",
+    route_identities: Object.freeze([]),
   }),
   Object.freeze({
     binding_id: "sovereign-local-effect-authority",
     lane_id: "sovereign_local_completeness",
     step: 9,
+    blocker_ref: "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+    blocker_type: "local_authority_path_unavailable",
+    blocker_state: "open",
+    route_identities: Object.freeze([
+      "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight",
+    ]),
   }),
   Object.freeze({
     binding_id: "managed-portable-effect-authority",
     lane_id: "managed_optionality_overlay",
     step: 9,
+    blocker_ref: "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+    blocker_type: "authority_path_unavailable",
+    blocker_state: "open",
+    route_identities: Object.freeze([
+      "service:wallet.network:issue_session_grant@v1",
+      "service:wallet.network:issue_principal_authority_binding@v1",
+    ]),
   }),
   Object.freeze({
     binding_id: "managed-attach-and-use",
     lane_id: "managed_optionality_overlay",
     step: 13,
+    blocker_ref: "BLK-M0-SELECTED-MANAGED-ATTACH-USE",
+    blocker_type: "managed_service_use_proof_unavailable",
+    blocker_state: "open",
+    route_identities: Object.freeze([]),
   }),
   Object.freeze({
     binding_id: "managed-detach-and-continue",
     lane_id: "managed_optionality_overlay",
     step: 13,
+    blocker_ref: "BLK-M0-SELECTED-MANAGED-DETACH",
+    blocker_type: "managed_detach_continuity_unavailable",
+    blocker_state: "open",
+    route_identities: Object.freeze([]),
   }),
 ]);
+
+function hasExactStringSet(actual, expected) {
+  return Array.isArray(actual)
+    && actual.length === expected.length
+    && new Set(actual).size === actual.length
+    && [...actual].sort().every((value, index) => (
+      value === [...expected].sort()[index]
+    ));
+}
 
 export const PG_IDS = [
   "PG-0.1", "PG-0.2", "PG-0.3",
@@ -129,6 +214,7 @@ const CANON_BASIS_FILES = [
   "docs/architecture/_meta/source-of-truth-map.md",
   "docs/architecture/foundations/common-objects-and-envelopes.md",
   "docs/architecture/foundations/governed-autonomous-systems.md",
+  "docs/architecture/foundations/invariants.md",
   "docs/architecture/foundations/institutional-learning-boundary.md",
   "docs/architecture/components/daemon-runtime/doctrine.md",
   "docs/architecture/components/daemon-runtime/api.md",
@@ -139,8 +225,11 @@ const CANON_BASIS_FILES = [
   "docs/architecture/components/agentgres/doctrine.md",
   "docs/architecture/components/agentgres/api-object-model.md",
   "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+  "docs/architecture/components/hypervisor/identity-access-and-metering.md",
   "docs/architecture/components/hypervisor/providers-and-environments.md",
   "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+  "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
+  "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
 ];
 
 const DISCOVERY_COVERAGE = Object.freeze({
@@ -2896,7 +2985,17 @@ const SELECTED_OBJECT_OWNERS = [
     owner_doc: "docs/architecture/components/daemon-runtime/api.md",
   },
   {
-    object_set: "Account identity, product session, approval, portable grant, revocation, and step-up",
+    object_set: "Deployment-local identity, product access, account and entitlement boundaries, and metering posture",
+    owner: "Hypervisor identity, access, and metering",
+    owner_doc: "docs/architecture/components/hypervisor/identity-access-and-metering.md",
+  },
+  {
+    object_set: "Deployment-local policy and locally permitted exact-effect authority provider selection",
+    owner: "Local/domain governance and the selected authority provider",
+    owner_doc: "docs/architecture/foundations/invariants.md",
+  },
+  {
+    object_set: "Connected product-session binding, portable approval and grant, revocation, and step-up",
     owner: "wallet.network authority",
     owner_doc: "docs/architecture/components/wallet-network/api-authority-scopes.md",
   },
@@ -2927,16 +3026,28 @@ const SELECTED_OBJECT_OWNERS = [
   },
 ];
 
+function selectedLaneBindingsForStep(step) {
+  return REQUIRED_PROOF_LANE_BINDINGS
+    .filter((binding) => binding.step === step)
+    .map((binding) => ({
+      binding_id: binding.binding_id,
+      blocker_ref: binding.blocker_ref,
+      lane_id: binding.lane_id,
+      route_identities: [...binding.route_identities],
+    }));
+}
+
 const SELECTED_JOURNEY = [
   {
     step: 1,
-    visible_action: "Continue with an eligible identity or passkey.",
+    visible_action: "Authenticate through deployment-local identity with every IOI-managed endpoint denied; in the ordered managed overlay, begin from the same independently operable System, link an eligible provider-neutral account, and explicitly enable one named managed service.",
     route_identities: [
       "http:hypervisor-daemon:POST /v1/hypervisor/auth/login",
       "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami",
     ],
     state: "unavailable",
-    blocker_ref: "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+    blocker_ref: "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+    lane_bindings: selectedLaneBindingsForStep(1),
   },
   {
     step: 2,
@@ -3004,13 +3115,13 @@ const SELECTED_JOURNEY = [
   },
   {
     step: 9,
-    visible_action: "Unlock a scoped grant with a passkey when policy requires it.",
+    visible_action: "Satisfy the lane's exact scoped authority ceremony: locally permitted nonportable authority in the sovereign-local lane, and context-bound portable authority with passkey step-up only when connected policy requires it.",
     route_identities: [
-      "service:wallet.network:issue_session_grant@v1",
-      "service:wallet.network:issue_principal_authority_binding@v1",
+      "http:hypervisor-daemon:POST /v1/hypervisor/authority/preflight",
     ],
     state: "unavailable",
-    blocker_ref: "BLK-M0-SELECTED-IDENTITY-STEP-UP",
+    blocker_ref: "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+    lane_bindings: selectedLaneBindingsForStep(9),
   },
   {
     step: 10,
@@ -3024,7 +3135,7 @@ const SELECTED_JOURNEY = [
   },
   {
     step: 11,
-    visible_action: "Inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility.",
+    visible_action: "Inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility; in the managed overlay also inspect the named service's exact bindings, data views, leases, RuntimeAssignment, custody, usage, charges, and receipts.",
     route_identities: [
       "http:hypervisor-daemon:GET /v1/runs/:id/inspect",
       "http:hypervisor-daemon:GET /v1/hypervisor/authority/receipts",
@@ -3034,34 +3145,58 @@ const SELECTED_JOURNEY = [
   },
   {
     step: 12,
-    visible_action: "Replay the decision and effect from exported evidence.",
+    visible_action: "Restart and replay the decision and effect; back up, restore, export, and independently verify the evidence offline.",
     route_identities: [
       "http:hypervisor-daemon:GET /v1/runs/:id/replay",
+      "http:hypervisor-daemon:POST /v1/hypervisor/backups",
+      "http:hypervisor-daemon:POST /v1/hypervisor/snapshots/:id/restore",
+      "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-preview",
+      "http:hypervisor-daemon:POST /v1/threads/:id/snapshots/:snapshot_id/restore-apply",
     ],
     state: "unavailable",
-    blocker_ref: "BLK-M0-SELECTED-INSPECTION-CHAIN",
+    blocker_ref: "BLK-M0-SELECTED-BACKUP-RESTORE",
   },
   {
     step: 13,
-    visible_action: "Propose an upgrade, exercise rollback or recall, and retire the System.",
+    visible_action: "In the managed overlay, revoke or disconnect the named service and prove locally satisfiable continuation; in both lanes, propose an upgrade, exercise rollback or recall, and retire the System.",
     route_identities: [],
     state: "unavailable",
     blocker_ref: "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
+    lane_bindings: selectedLaneBindingsForStep(13),
   },
 ];
+
+function normalizeSelectedJourney(journey) {
+  if (!Array.isArray(journey)) return [];
+  return journey.map((step) => ({
+    ...step,
+    route_identities: [...(step.route_identities ?? [])].sort(),
+    lane_bindings: [...(step.lane_bindings ?? [])]
+      .map((binding) => ({
+        ...binding,
+        route_identities: [...(binding.route_identities ?? [])].sort(),
+      }))
+      .sort((left, right) => left.binding_id.localeCompare(right.binding_id)),
+  }));
+}
+
+function selectedJourneyMatchesCanonical(journey) {
+  return stableStringify(normalizeSelectedJourney(journey))
+    === stableStringify(normalizeSelectedJourney(SELECTED_JOURNEY));
+}
 
 const PG_DISPOSITION_GROUPS = {
   required_now: [
     "PG-0.2",
     "PG-1.1", "PG-1.2",
-    "PG-2.1", "PG-2.2", "PG-2.3", "PG-2.4",
+    "PG-2.2", "PG-2.3", "PG-2.4",
     "PG-3.1", "PG-3.5", "PG-3.6",
     "PG-4A.5",
     "PG-4B.1", "PG-4B.2", "PG-4B.3", "PG-4B.4", "PG-4B.5",
     "PG-7.1", "PG-7.2", "PG-7.3", "PG-7.4", "PG-7.7", "PG-7.8",
   ],
   conditional: [
-    "PG-0.1", "PG-0.3", "PG-1.3", "PG-2.6",
+    "PG-0.1", "PG-0.3", "PG-1.3", "PG-2.1", "PG-2.6",
     "PG-3.2", "PG-3.3", "PG-3.4", "PG-4B.6",
     "PG-6A.1", "PG-6A.4",
     "PG-6C.1", "PG-6C.2", "PG-6C.3",
@@ -3095,6 +3230,17 @@ function pgTopic(id) {
 }
 
 function pgRationale(id, disposition) {
+  const overrides = {
+    "PG-2.1":
+      "Portable delegated authority is required only for the managed-optionality overlay. The sovereign-local lane uses locally permitted nonportable authority and makes no portable-authority claim.",
+    "PG-2.2":
+      "Every selected consequential local or managed policy-enforcement point must verify its lane's current authority before the final invocation; copied authority fields are insufficient.",
+    "PG-2.3":
+      "The selected sovereign-local journey requires ordinary and consequential receipts through Agentgres-owned append, scheduled checkpoints, and crash-safe inclusion and consistency evidence.",
+    "PG-2.4":
+      "The selected local export must verify offline integrity and valid-as-of posture from declared signer, key, revocation, and temporal inputs without confusing authentic historical proof with current authority.",
+  };
+  if (overrides[id]) return overrides[id];
   const topic = pgTopic(id);
   if (disposition === "required_now") {
     return `The selected single-node software-change profile directly needs ${topic}; the gate remains open.`;
@@ -3347,13 +3493,19 @@ const BLOCKERS = [
     blocker_id: "BLK-M0-SELECTED-JOURNEY-BINDING",
     type: "cross_owner_binding_unavailable",
     state: "open",
-    summary: "Live partial objects are not bound into the selected immutable profile and complete journey.",
+    summary: "Live partial objects are not bound into the selected immutable profile, complete network-blocked local journey, and conditional attach, use, inspect, detach, and continuation overlay.",
+  },
+  {
+    blocker_id: "BLK-M0-SELECTED-LOCAL-IDENTITY-AUTHORITY",
+    type: "local_authority_path_unavailable",
+    state: "open",
+    summary: "Deployment-local authentication and locally permitted exact-effect authority remain separate in canon but are not terminal through the selected product and final-invoker path.",
   },
   {
     blocker_id: "BLK-M0-SELECTED-IDENTITY-STEP-UP",
     type: "authority_path_unavailable",
     state: "open",
-    summary: "Provider-neutral sign-in, passkey step-up, portable grant, and final-invoker revalidation are not terminal.",
+    summary: "The optional connected provider-neutral sign-in, passkey step-up, context-bound portable grant, and final-invoker revalidation path is not terminal.",
   },
   {
     blocker_id: "BLK-M0-SELECTED-REPO-EFFECT",
@@ -3365,13 +3517,31 @@ const BLOCKERS = [
     blocker_id: "BLK-M0-SELECTED-INSPECTION-CHAIN",
     type: "evidence_chain_unavailable",
     state: "open",
-    summary: "No one selected inspection/export reconstructs diff, tests, evidence, receipts, root, costs, route, and learning eligibility.",
+    summary: "No one selected inspection/export reconstructs diff, tests, evidence, receipts, root, costs, route, learning eligibility, restart, backup, restore, offline verification, and managed binding, data-view, lease, custody, usage, and charge evidence.",
+  },
+  {
+    blocker_id: "BLK-M0-SELECTED-BACKUP-RESTORE",
+    type: "backup_restore_proof_unavailable",
+    state: "open",
+    summary: "Backup, restore preview, restore application, clean-target reconstruction, and offline verification exist only as adjacent routes; they are not bound into one selected-profile proof with authority, currentness, checkpoint equivalence, valid successor-root lineage, and typed refusal evidence.",
+  },
+  {
+    blocker_id: "BLK-M0-SELECTED-MANAGED-ATTACH-USE",
+    type: "managed_service_use_proof_unavailable",
+    state: "open",
+    summary: "The optional managed overlay has no one selected route set that explicitly attaches a named service, admits one use, and reconstructs its binding, data-view, lease, RuntimeAssignment, custody, usage, charge, and receipt evidence.",
+  },
+  {
+    blocker_id: "BLK-M0-SELECTED-MANAGED-DETACH",
+    type: "managed_detach_continuity_unavailable",
+    state: "open",
+    summary: "The optional managed overlay has no one selected revoke or detach path proving that locally satisfied dependencies continue without hidden managed authority, custody, execution, or billing.",
   },
   {
     blocker_id: "BLK-M0-SELECTED-UPGRADE-LIFECYCLE",
     type: "system_lifecycle_unavailable",
     state: "open",
-    summary: "Selected package/profile proposal, activation, rollback or recall, and System retirement are not terminal.",
+    summary: "Managed revoke or detach with post-detach continuation and selected package/profile proposal, activation, rollback or recall, and System retirement are not terminal.",
   },
   {
     blocker_id: "BLK-M0-WALLET-PRODUCTION-PEP",
@@ -3465,6 +3635,16 @@ const BLOCKERS = [
   })),
 ];
 
+function blockerLedgerMatchesCanonical(blockers) {
+  if (!Array.isArray(blockers) || blockers.length !== BLOCKERS.length) {
+    return false;
+  }
+  const normalize = (entries) => [...entries]
+    .sort((left, right) => left.blocker_id.localeCompare(right.blocker_id));
+  return stableStringify(normalize(blockers))
+    === stableStringify(normalize(BLOCKERS));
+}
+
 export function createInitialProgramSource(repoRoot) {
   const canonBasis = CANON_BASIS_FILES.map((relativePath) => {
     const { source } = readRepoFile(repoRoot, relativePath);
@@ -3513,9 +3693,9 @@ export function createInitialProgramSource(repoRoot) {
         "one immutable GoalRunProfile and durable GoalRun in an OutcomeRoom",
         "disclosed first-party worker roles plus an independent deterministic verifier",
         "one isolated sandbox repository and branch",
-        "provider-neutral account and low-risk product session with passkey-capable step-up",
+        "deployment-local identity and a low-risk local product session with locally permitted authority, plus an optional provider-neutral connected overlay with passkey-capable portable authority",
         "exact authority, revocation, IFC, budget, fence, idempotency, recovery, and receipt checks",
-        "Agentgres operations, heads, roots, receipts, replay, evidence admission, and export",
+        "Agentgres operations, heads, roots, receipts, restart, replay, backup, restore, evidence admission, export, and offline verification",
         "private evaluation and model routes with measured internal cost only",
         "proposal-mediated improvement with target-owner activation, rollback or recall, suspension, and retirement",
       ],
@@ -3524,14 +3704,59 @@ export function createInitialProgramSource(repoRoot) {
         "no public marketplace, payment, payout, settlement, IOI Network, IOI L1, or native asset",
         "no physical actuation, cTEE claim, public certification, or generalized recursive improvement",
         "no autonomous production access, universal correctness, universal factual truth, or hidden provider non-learning",
+        "minimum L0 proves only the sovereign-local lane; managed optionality remains unclaimed until its ordered connected overlay passes",
         "no architecture or production capability closes merely because M0 program control verifies",
       ],
       object_owners: SELECTED_OBJECT_OWNERS,
+      proof_lanes: REQUIRED_PROOF_LANES,
+      proof_lane_validation_posture: REQUIRED_PROOF_LANE_VALIDATION_POSTURE,
+      proof_lane_baseline_extension: {
+        baseline_extension_id:
+          "BASE-M0-SOVEREIGN-LOCAL-MANAGED-OPTIONALITY",
+        blocker_refs: [
+          "BLK-M0-BASELINE-PRODUCT",
+          "BLK-M0-BASELINE-RELIABILITY",
+          "BLK-M0-BASELINE-COST",
+          "BLK-M0-BASELINE-COMPREHENSION",
+        ],
+        cohort:
+          "Fresh standalone deployments complete the sovereign-local lane with every IOI-managed endpoint denied; the same Systems enter the connected lane only for managed-optionality claims.",
+        frozen_as_of: AS_OF_DATE,
+        measurements: {
+          comprehension: {
+            correct_connect_use_transfer_distinction_rate_min: 0.9,
+            correct_local_identity_vs_machine_authority_interpretation_rate_min:
+              0.9,
+            correct_managed_dependency_unavailable_interpretation_rate_min: 0.9,
+          },
+          cost: {
+            implicit_or_unnamed_managed_charge_count_max: 0,
+            managed_charge_without_quote_and_use_receipts_count_max: 0,
+          },
+          product: {
+            managed_attach_named_use_inspect_detach_completion_rate_min_when_claimed:
+              0.9,
+            network_blocked_terminal_journey_completion_rate_min: 0.9,
+            offline_export_and_independent_verification_rate_min: 0.9,
+            post_detach_local_continuation_rate_min_when_claimed: 0.9,
+          },
+          reliability: {
+            authentic_stale_restore_authority_reactivation_count_max: 0,
+            backup_clean_restore_checkpoint_equivalence_rate_min: 1,
+            post_detach_hidden_managed_dependency_count_max_when_claimed: 0,
+            restart_replay_duplicate_effect_count_max: 0,
+          },
+        },
+        rule:
+          "Additive proof-lane target overlay only; it does not rewrite the frozen 2026-07-18 M0 baselines.",
+        status: "not_measured",
+      },
       visible_terminal_journey: SELECTED_JOURNEY,
       rollback_stop_rules: [
         "Stop on any hidden database edit, privileged one-off script, copied bearer authority, prompt-only transition, fabricated success, or manually reconstructed evidence chain.",
         "An unavailable owner step remains a typed blocker; compatibility output never substitutes for it.",
         "Revoke or fence authority before recovery, preserve ambiguous effects, and require explicit reconciliation before retry.",
+        "Stop on any silent truth, authority, custody, writer, execution, or billing transfer, or when detachment breaks work whose complete dependency closure remains locally satisfied.",
       ],
     },
     pg_gate_map: {
@@ -4084,12 +4309,18 @@ export function validateProgramSource(
     "program source records a canon contradiction; stop before changing canon",
   );
 
-  const canonByPath = new Map(
-    (programSource?.canon_basis ?? []).map((entry) => [entry.source_file, entry]),
-  );
+  const canonBasis = programSource?.canon_basis ?? [];
+  const canonByPath = new Map();
+  for (const entry of canonBasis) {
+    if (canonByPath.has(entry.source_file)) {
+      errors.push(`program source duplicates canon basis ${entry.source_file}`);
+    }
+    canonByPath.set(entry.source_file, entry);
+  }
   addError(
     errors,
-    canonByPath.size === CANON_BASIS_FILES.length,
+    canonBasis.length === CANON_BASIS_FILES.length
+      && canonByPath.size === CANON_BASIS_FILES.length,
     "program source canon basis count is stale",
   );
   for (const relativePath of CANON_BASIS_FILES) {
@@ -4160,6 +4391,11 @@ export function validateProgramSource(
       `blocker ${blocker.blocker_id} lacks a summary`,
     );
   }
+  addError(
+    errors,
+    blockerLedgerMatchesCanonical(programSource?.blocker_ledger),
+    "program source blocker ledger does not match the canonical blocker identities, types, states, and summaries",
+  );
 
   const selectedProfile = programSource?.selected_profile;
   addError(
@@ -4176,7 +4412,16 @@ export function validateProgramSource(
     "selected minimum-L0 topology changed",
   );
   const objectOwners = selectedProfile?.object_owners ?? [];
-  addError(errors, objectOwners.length > 0, "selected profile has no object owner sets");
+  addError(
+    errors,
+    objectOwners.length === SELECTED_OBJECT_OWNERS.length,
+    "selected profile object-owner set is incomplete or expanded",
+  );
+  const requiredOwnerByObjectSet = new Map(
+    SELECTED_OBJECT_OWNERS.map((entry) => [entry.object_set, entry]),
+  );
+  const observedObjectSets = new Set();
+  const observedOwnerDocs = new Set();
   for (const [index, objectOwner] of objectOwners.entries()) {
     addError(
       errors,
@@ -4190,9 +4435,28 @@ export function validateProgramSource(
     );
     addError(
       errors,
+      !observedObjectSets.has(objectOwner.object_set),
+      `selected object owner ${index} duplicates object_set ${objectOwner.object_set}`,
+    );
+    observedObjectSets.add(objectOwner.object_set);
+    addError(
+      errors,
+      !observedOwnerDocs.has(objectOwner.owner_doc),
+      `selected object owner ${index} duplicates owner_doc ${objectOwner.owner_doc}`,
+    );
+    observedOwnerDocs.add(objectOwner.owner_doc);
+    const requiredOwner = requiredOwnerByObjectSet.get(objectOwner.object_set);
+    addError(
+      errors,
+      requiredOwner?.owner === objectOwner.owner
+        && requiredOwner?.owner_doc === objectOwner.owner_doc,
+      `selected object owner ${index} does not match the canonical owner tuple`,
+    );
+    addError(
+      errors,
       isNonEmptyString(objectOwner.owner_doc)
-        && fs.existsSync(path.join(repoRoot, objectOwner.owner_doc)),
-      `selected object owner ${index} lacks a live owner document`,
+        && canonByPath.has(objectOwner.owner_doc),
+      `selected object owner ${index} is not anchored in canon_basis`,
     );
   }
   const localIdentityOwner = objectOwners.find((entry) => (
@@ -4206,9 +4470,28 @@ export function validateProgramSource(
         === "docs/architecture/components/hypervisor/identity-access-and-metering.md",
     "selected sovereign-local identity lane lacks its canonical identity owner source",
   );
+  const localAuthorityOwner = objectOwners.find((entry) => (
+    entry.object_set
+      === "Deployment-local policy and locally permitted exact-effect authority provider selection"
+  ));
+  addError(
+    errors,
+    localAuthorityOwner?.owner
+      === "Local/domain governance and the selected authority provider"
+      && localAuthorityOwner?.owner_doc
+        === "docs/architecture/foundations/invariants.md",
+    "selected sovereign-local lane lacks its canonical local authority-provider owner source",
+  );
 
   const proofLanes = selectedProfile?.proof_lanes ?? [];
-  addError(errors, proofLanes.length === 2, "selected profile must define exactly two proof lanes");
+  addError(
+    errors,
+    proofLanes.length === REQUIRED_PROOF_LANES.length,
+    "selected profile must define exactly the canonical proof lanes",
+  );
+  const requiredProofLaneById = new Map(
+    REQUIRED_PROOF_LANES.map((lane) => [lane.lane_id, lane]),
+  );
   const proofLaneById = new Map();
   for (const [index, lane] of proofLanes.entries()) {
     addError(
@@ -4240,6 +4523,29 @@ export function validateProgramSource(
         && new Set(lane.required_evidence).size === lane.required_evidence.length,
       `selected proof lane ${lane.lane_id} lacks unique required evidence`,
     );
+    const requiredLane = requiredProofLaneById.get(lane.lane_id);
+    addError(
+      errors,
+      requiredLane !== undefined,
+      `selected proof lane ${lane.lane_id} is not canonical`,
+    );
+    addError(
+      errors,
+      requiredLane?.order === lane.order
+        && requiredLane?.prerequisite_lane_id === lane.prerequisite_lane_id
+        && requiredLane?.starting_state === lane.starting_state
+        && requiredLane?.claim_requirement === lane.claim_requirement
+        && requiredLane?.authority_posture === lane.authority_posture
+        && requiredLane?.endpoint_posture === lane.endpoint_posture
+        && requiredLane?.connection_posture === lane.connection_posture,
+      `selected proof lane ${lane.lane_id} has substituted semantic fields`,
+    );
+    addError(
+      errors,
+      requiredLane !== undefined
+        && hasExactStringSet(lane.required_evidence, requiredLane.required_evidence),
+      `selected proof lane ${lane.lane_id} has a substituted required-evidence set`,
+    );
   }
   addError(
     errors,
@@ -4256,7 +4562,7 @@ export function validateProgramSource(
   addError(
     errors,
     selectedProfile?.proof_lane_validation_posture
-      === "structurally validated lane ids, order, prerequisites, required evidence, route selection or typed empty-route blockers, and deployment-local identity owner source; named blockers remain open until the product journeys pass",
+      === REQUIRED_PROOF_LANE_VALIDATION_POSTURE,
     "selected proof-lane validation posture is stale or overclaims closure",
   );
 
@@ -4292,6 +4598,11 @@ export function validateProgramSource(
 
   const journey = selectedProfile?.visible_terminal_journey ?? [];
   addError(errors, journey.length === 13, "selected visible journey must contain exactly 13 steps");
+  addError(
+    errors,
+    selectedJourneyMatchesCanonical(journey),
+    "selected visible journey does not match the canonical actions, states, blockers, routes, and lane bindings",
+  );
   const requiredLaneBindingById = new Map(
     REQUIRED_PROOF_LANE_BINDINGS.map((binding) => [binding.binding_id, binding]),
   );
@@ -4353,6 +4664,20 @@ export function validateProgramSource(
           && requiredBinding?.lane_id === binding.lane_id,
         `${label} is assigned to the wrong journey step or proof lane`,
       );
+      addError(
+        errors,
+        requiredBinding?.blocker_ref === binding.blocker_ref,
+        `${label} has a substituted blocker`,
+      );
+      addError(
+        errors,
+        requiredBinding !== undefined
+          && hasExactStringSet(
+            binding.route_identities,
+            requiredBinding.route_identities,
+          ),
+        `${label} has a substituted route set`,
+      );
       if (proofLaneById.has(binding.lane_id)) {
         observedBindingCountByLane.set(
           binding.lane_id,
@@ -4363,6 +4688,13 @@ export function validateProgramSource(
         errors,
         blockerById.has(binding.blocker_ref),
         `${label} lacks a typed blocker`,
+      );
+      const bindingBlocker = blockerById.get(binding.blocker_ref);
+      addError(
+        errors,
+        bindingBlocker?.type === requiredBinding?.blocker_type
+          && bindingBlocker?.state === requiredBinding?.blocker_state,
+        `${label} blocker type or state does not match the canonical open blocker`,
       );
       addError(
         errors,
@@ -4387,6 +4719,12 @@ export function validateProgramSource(
           || (step.state === "unavailable" && blockerById.has(binding.blocker_ref)),
         `${label} has neither selected routes nor a typed unavailable contract`,
       );
+      addError(
+        errors,
+        (requiredBinding?.route_identities.length ?? 0) > 0
+          || step.state === "unavailable",
+        `${label} has an empty route set outside an unavailable parent step`,
+      );
     }
   }
   addError(
@@ -4410,6 +4748,11 @@ export function validateProgramSource(
   }
 
   const pgEntries = programSource?.pg_gate_map?.entries ?? [];
+  addError(
+    errors,
+    stableStringify(pgEntries) === stableStringify(createPgMap()),
+    "PG map does not match the canonical selected-profile dispositions and rationales",
+  );
   const pgById = new Map();
   for (const entry of pgEntries) {
     if (pgById.has(entry.pg_id)) {
@@ -4815,9 +5158,18 @@ export function buildM0Artifacts(
         && entry.owner_doc
           === "docs/architecture/components/hypervisor/identity-access-and-metering.md"
       )),
-    proof_lanes_and_bindings_structurally_validated:
-      programSource.selected_profile.proof_lane_validation_posture
-        === "structurally validated lane ids, order, prerequisites, required evidence, route selection or typed empty-route blockers, and deployment-local identity owner source; named blockers remain open until the product journeys pass",
+    proof_lanes_and_bindings_semantically_validated:
+      selectedJourneyMatchesCanonical(
+        programSource.selected_profile.visible_terminal_journey,
+      )
+      && blockerLedgerMatchesCanonical(programSource.blocker_ledger)
+      && programSource.selected_profile.object_owners.some((entry) => (
+        entry.object_set
+          === "Deployment-local policy and locally permitted exact-effect authority provider selection"
+        && entry.owner
+          === "Local/domain governance and the selected authority provider"
+        && entry.owner_doc === "docs/architecture/foundations/invariants.md"
+      )),
     selected_effect_has_leaf_or_unavailable_blocker:
       isNonEmptyString(programSource.selected_profile.exact_effect.final_invoker_symbol)
       && (

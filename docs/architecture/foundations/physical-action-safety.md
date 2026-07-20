@@ -567,8 +567,11 @@ The daemon owns later reconciliation and may pause execution, quarantine,
 require operator handoff, or deny admission of the next segment; it is not in
 the servo loop and does not itself revoke authority.
 
-wallet.network owns authority scopes, leases, step-up, emergency revoke, and
-payment authorization. Physical-action scopes must stay explicit, such as
+For portable delegated or designated high-risk physical-action authority,
+wallet.network owns scopes, leases, step-up, emergency revoke, and payment
+authorization. A deployment-local safety authority may govern ordinary local
+permissions when canon and policy explicitly permit it, but it cannot claim
+portable authority. Physical-action scopes must stay explicit, such as
 `scope:physical.actuate`, `scope:robot.navigate`, or
 `scope:facility.control`.
 

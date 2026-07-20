@@ -66,6 +66,13 @@ hosted coding agents are Agent Harness Adapters. They may propose work through
 Hypervisor Core and the Hypervisor Daemon, but they do not become Hypervisor
 clients or runtime truth.
 
+Current-canon refinement (2026-07-19): the wallet ownership shorthand in the
+original boundary below applies to portable delegated authority and
+wallet-owned spend, secret/decryption, declassification, external-effect, and
+designated high-risk scopes. Ordinary deployment-local authority may be issued
+by another locally permitted provider under local/domain governance; the daemon
+still admits the exact effect and never originates that authority.
+
 The daemon remains the execution owner. Agentgres owns admitted operational
 truth. wallet.network owns authority, secrets, leases, approvals,
 declassification, spend, revocation, and step-up. Storage backends hold bytes.
