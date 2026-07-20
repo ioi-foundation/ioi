@@ -28,6 +28,7 @@ import {
   PG_IDS,
   README_FILE,
   assertRenderedArtifactsCurrent,
+  buildM0Artifacts,
   buildM0Fingerprint,
   createInitialProgramSource,
   createInitialReview,
@@ -94,6 +95,25 @@ function expectProgramFailure(mutator, pattern) {
     ),
     pattern,
   );
+}
+
+function reviewSetSha256(value) {
+  return crypto.createHash("sha256").update(stableStringify(value)).digest("hex");
+}
+
+function recomputeReviewEpoch(fixture, reviewedAsOf) {
+  const epoch = fixture.review_attestation.review_epochs.find(
+    (candidate) => candidate.reviewed_as_of === reviewedAsOf,
+  );
+  assert.ok(epoch, `missing review epoch ${reviewedAsOf}`);
+  const entries = fixture.entries
+    .filter((entry) => entry.reviewed_as_of === reviewedAsOf)
+    .sort((left, right) => left.identity.localeCompare(right.identity));
+  const identities = entries.map((entry) => entry.identity);
+  epoch.identity_refs = identities;
+  epoch.identity_set_sha256 = reviewSetSha256(identities);
+  epoch.reviewed_entry_count = entries.length;
+  epoch.reviewed_entry_set_sha256 = reviewSetSha256(entries);
 }
 
 test("structured discovery finds every literal Axum method and route identity", () => {
@@ -911,7 +931,7 @@ test("a newly discovered or changed mutation fails until explicitly classified",
   );
 });
 
-test("a newly reviewed identity cannot inherit an older review epoch date", () => {
+test("reviewer reproduction cannot backdate a new identity by recomputing old epochs", () => {
   const newRouteIdentity =
     "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization";
   const newRouteIndex = reviewLock.entries.findIndex(
@@ -921,8 +941,58 @@ test("a newly reviewed identity cannot inherit an older review epoch date", () =
   expectReviewFailure(
     (fixture) => {
       fixture.entries[newRouteIndex].reviewed_as_of = "2026-07-18";
+      recomputeReviewEpoch(fixture, "2026-07-18");
+      recomputeReviewEpoch(fixture, "2026-07-20");
     },
-    /review epoch m0-initial-review-2026-07-18 has a stale reviewed entry count/u,
+    new RegExp(
+      `new or materially changed review entry ${newRouteIdentity.replaceAll("/", "\\/")} must bind the latest review epoch 2026-07-20`,
+      "u",
+    ),
+  );
+});
+
+test("an anchor-changed identity cannot be backdated with recomputed epochs", () => {
+  const changedIdentity =
+    "http:hypervisor-daemon:GET /v1/hypervisor/attempts/overview";
+  const changedIndex = reviewLock.entries.findIndex(
+    (entry) => entry.identity === changedIdentity,
+  );
+  assert.notEqual(changedIndex, -1, `missing ${changedIdentity}`);
+  expectReviewFailure(
+    (fixture) => {
+      fixture.entries[changedIndex].reviewed_as_of = "2026-07-18";
+      recomputeReviewEpoch(fixture, "2026-07-18");
+      recomputeReviewEpoch(fixture, "2026-07-20");
+    },
+    /new or materially changed review entry .*attempts\/overview must bind the latest review epoch 2026-07-20/u,
+  );
+});
+
+test("unchanged entries cannot be stamped into the latest epoch", () => {
+  const unchangedIndex = reviewLock.entries.findIndex(
+    (entry) => entry.reviewed_as_of === "2026-07-18",
+  );
+  assert.notEqual(unchangedIndex, -1, "missing an unchanged baseline entry");
+  const unchangedIdentity = reviewLock.entries[unchangedIndex].identity;
+  expectReviewFailure(
+    (fixture) => {
+      fixture.entries[unchangedIndex].reviewed_as_of = "2026-07-20";
+      recomputeReviewEpoch(fixture, "2026-07-18");
+      recomputeReviewEpoch(fixture, "2026-07-20");
+    },
+    new RegExp(
+      `unchanged review entry ${unchangedIdentity.replaceAll("/", "\\/")} must preserve immutable baseline epoch 2026-07-18`,
+      "u",
+    ),
+  );
+});
+
+test("review epochs commit complete reviewed entries and anchors", () => {
+  expectReviewFailure(
+    (fixture) => {
+      fixture.entries[0].owner = `${fixture.entries[0].owner} fixture`;
+    },
+    /stale complete reviewed-entry commitment/u,
   );
 });
 
@@ -1299,6 +1369,49 @@ test("stale generated artifacts fail before consumption", () => {
         ["fixture.json"],
       ),
       /stale generated artifact/u,
+    );
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("generated artifact dates derive from the latest validated review epoch", () => {
+  const latestReviewDate = reviewLock.review_attestation.review_epochs
+    .map((epoch) => epoch.reviewed_as_of)
+    .sort()
+    .at(-1);
+  const built = buildM0Artifacts(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    programSource,
+  );
+  for (const [name, source] of built.rendered) {
+    assert.equal(
+      JSON.parse(source).as_of_date,
+      latestReviewDate,
+      `${name} does not bind the latest review epoch`,
+    );
+  }
+});
+
+test("generated artifacts older than bound inputs fail explicitly", () => {
+  const root = temporaryRepository({
+    [`${EVIDENCE_DIR}/fixture.json`]: stableStringify({
+      as_of_date: "2026-07-19",
+    }),
+  });
+  try {
+    assert.throws(
+      () => assertRenderedArtifactsCurrent(
+        root,
+        new Map([[
+          "fixture.json",
+          stableStringify({ as_of_date: "2026-07-20" }),
+        ]]),
+        ["fixture.json"],
+      ),
+      /date 2026-07-19 is older than bound input date 2026-07-20/u,
     );
   } finally {
     fs.rmSync(root, { force: true, recursive: true });

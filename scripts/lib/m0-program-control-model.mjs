@@ -34,6 +34,15 @@ export const README_FILE = `${EVIDENCE_DIR}/README.md`;
 export const M0_BASELINE_AS_OF_DATE = "2026-07-18";
 export const AS_OF_DATE = "2026-07-19";
 
+const REVIEW_COMPARISON_BASELINE = Object.freeze({
+  baseline_id: "m0-review-lock-branch-point-2026-07-18",
+  source_commit: "562d1b08999be2e9bbb967ef60bb250f440452e5",
+  reviewed_as_of: "2026-07-18",
+  reviewed_entry_count: 1538,
+  entry_commitments_sha256:
+    "5241809de8f95ca1e9ec020bc9f98c73688865c163102944e259a8c59bdb19f0",
+});
+
 export const GENERATED_ARTIFACT_FILES = [
   "effect-census.json",
   "selected-profile.json",
@@ -3895,6 +3904,63 @@ function reviewIdentitySetSha256(identities) {
   return sha256(stableStringify([...identities].sort()));
 }
 
+const DISCOVERY_REVIEW_BINDING_FIELDS = [
+  "identity",
+  "kind",
+  "surface",
+  "operation",
+  "active_state",
+  "source_file",
+  "source_symbol",
+  "handler",
+  "handler_source_file",
+  "handler_source_symbol",
+  "handler_resolution",
+  "method",
+  "path",
+  "rpc_service",
+  "rpc_method",
+  "service_method",
+  "command",
+  "storage_method",
+  "storage_key_expression",
+];
+
+function reviewBoundDiscoveryProjection(entry) {
+  return {
+    ...Object.fromEntries(
+      DISCOVERY_REVIEW_BINDING_FIELDS.map((field) => [
+        field,
+        entry?.[field] ?? null,
+      ]),
+    ),
+    registration_anchor_sha256: entry?.source_anchor?.sha256 ?? null,
+    handler_anchor_sha256: entry?.handler_anchor?.sha256 ?? null,
+  };
+}
+
+function reviewEntryMaterialSha256(entry) {
+  const material = structuredClone(entry);
+  delete material.reviewed_as_of;
+  return sha256(stableStringify(material));
+}
+
+function discoveredEntryMaterialSha256(entry) {
+  return sha256(stableStringify(reviewBoundDiscoveryProjection(entry)));
+}
+
+function reviewedEntrySetSha256(entries) {
+  return sha256(stableStringify(
+    [...entries].sort((left, right) => left.identity.localeCompare(right.identity)),
+  ));
+}
+
+function comparisonBaselineCommitmentsSha256(entries) {
+  return sha256(stableStringify(
+    [...entries].sort((left, right) => left.identity.localeCompare(right.identity)),
+  ));
+}
+
 function validationFailure(label, errors) {
   if (errors.length > 0) {
     throw new Error(
@@ -4041,6 +4107,11 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
     );
     addError(
       errors,
+      /^[0-9a-f]{64}$/u.test(epoch?.reviewed_entry_set_sha256 ?? ""),
+      `${label} lacks a complete reviewed-entry commitment`,
+    );
+    addError(
+      errors,
       isNonEmptyString(epoch?.provenance),
       `${label} lacks explicit review provenance`,
     );
@@ -4072,6 +4143,7 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
   for (const epoch of reviewEpochs ?? []) {
     const label = `review epoch ${epoch?.epoch_id ?? "<missing>"}`;
     const identities = identitiesByReviewDate.get(epoch?.reviewed_as_of) ?? [];
+    const reviewedEntries = identities.map((identity) => reviewByIdentity.get(identity));
     addError(
       errors,
       identities.length === epoch?.reviewed_entry_count,
@@ -4081,6 +4153,12 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
       errors,
       reviewIdentitySetSha256(identities) === epoch?.identity_set_sha256,
       `${label} has a stale identity set commitment`,
+    );
+    addError(
+      errors,
+      reviewedEntrySetSha256(reviewedEntries)
+        === epoch?.reviewed_entry_set_sha256,
+      `${label} has a stale complete reviewed-entry commitment`,
     );
     if (Array.isArray(epoch?.identity_refs)) {
       addError(
@@ -4104,6 +4182,95 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
     reviewLock?.review_attestation?.reviewed_as_of === latestReviewDate,
     "review attestation date does not match its latest declared review epoch",
   );
+
+  const comparisonBaseline =
+    reviewLock?.review_attestation?.comparison_baseline;
+  const baselineLabel = "review comparison baseline";
+  for (const [field, expected] of Object.entries(
+    REVIEW_COMPARISON_BASELINE,
+  )) {
+    if (field === "entry_commitments_sha256") {
+      continue;
+    }
+    addError(
+      errors,
+      comparisonBaseline?.[field] === expected,
+      `${baselineLabel} has stale or mismatched ${field}`,
+    );
+  }
+  addError(
+    errors,
+    Array.isArray(comparisonBaseline?.entry_commitments),
+    `${baselineLabel} entry commitments must be an array`,
+  );
+  const baselineByIdentity = new Map();
+  for (const commitment of comparisonBaseline?.entry_commitments ?? []) {
+    const label =
+      `${baselineLabel} entry ${commitment?.identity ?? "<missing>"}`;
+    addError(errors, isNonEmptyString(commitment?.identity), `${label} lacks an identity`);
+    addError(
+      errors,
+      !baselineByIdentity.has(commitment?.identity),
+      `${label} duplicates an identity`,
+    );
+    baselineByIdentity.set(commitment?.identity, commitment);
+    addError(
+      errors,
+      /^[0-9a-f]{64}$/u.test(commitment?.discovered_entry_sha256 ?? ""),
+      `${label} lacks a discovered-entry commitment`,
+    );
+    addError(
+      errors,
+      /^[0-9a-f]{64}$/u.test(commitment?.reviewed_entry_sha256 ?? ""),
+      `${label} lacks a reviewed-entry commitment`,
+    );
+    addError(
+      errors,
+      isIsoDate(commitment?.reviewed_as_of),
+      `${label} lacks an immutable review date`,
+    );
+  }
+  addError(
+    errors,
+    baselineByIdentity.size
+      === REVIEW_COMPARISON_BASELINE.reviewed_entry_count,
+    `${baselineLabel} has a stale reviewed entry count`,
+  );
+  const baselineCommitment = comparisonBaselineCommitmentsSha256(
+    comparisonBaseline?.entry_commitments ?? [],
+  );
+  addError(
+    errors,
+    comparisonBaseline?.entry_commitments_sha256 === baselineCommitment,
+    `${baselineLabel} has a stale entry commitment set`,
+  );
+  addError(
+    errors,
+    baselineCommitment
+      === REVIEW_COMPARISON_BASELINE.entry_commitments_sha256,
+    `${baselineLabel} does not match the immutable comparison commitment`,
+  );
+
+  for (const [identity, reviewed] of reviewByIdentity) {
+    const discovered = discoveredByIdentity.get(identity);
+    const baseline = baselineByIdentity.get(identity);
+    const materiallyChanged = baseline === undefined
+      || baseline.discovered_entry_sha256
+        !== discoveredEntryMaterialSha256(discovered)
+      || baseline.reviewed_entry_sha256
+        !== reviewEntryMaterialSha256(reviewed);
+    addError(
+      errors,
+      !materiallyChanged || reviewed.reviewed_as_of === latestReviewDate,
+      `new or materially changed review entry ${identity} must bind the latest review epoch ${latestReviewDate}`,
+    );
+    addError(
+      errors,
+      materiallyChanged
+        || reviewed.reviewed_as_of === baseline.reviewed_as_of,
+      `unchanged review entry ${identity} must preserve immutable baseline epoch ${baseline?.reviewed_as_of}`,
+    );
+  }
 
   const expectedSurfaceCounts = new Map();
   for (const entry of reviewByIdentity.values()) {
@@ -5060,10 +5227,10 @@ function countBy(entries, selector) {
   )));
 }
 
-function artifactEnvelope(fingerprint, artifact, body) {
+function artifactEnvelope(asOfDate, fingerprint, artifact, body) {
   return {
     evidence_format: `ioi.m0.${artifact}.v1`,
-    as_of_date: AS_OF_DATE,
+    as_of_date: asOfDate,
     build_fingerprint: fingerprint,
     ...body,
   };
@@ -5104,6 +5271,27 @@ export function buildM0Artifacts(
     discoveredEntries,
     reviewLock,
     programSource,
+  );
+  const artifactAsOfDate = [...reviewLock.review_attestation.review_epochs]
+    .map((epoch) => epoch.reviewed_as_of)
+    .sort()
+    .at(-1);
+  for (const [label, inputDate] of [
+    ["review lock", reviewLock.as_of_date],
+    ["review attestation", reviewLock.review_attestation.reviewed_as_of],
+    ["program source", programSource.as_of_date],
+  ]) {
+    if (artifactAsOfDate < inputDate) {
+      throw new Error(
+        `M0 artifact date ${artifactAsOfDate} is older than bound ${label} date ${inputDate}`,
+      );
+    }
+  }
+  const envelope = (artifact, body) => artifactEnvelope(
+    artifactAsOfDate,
+    fingerprint,
+    artifact,
+    body,
   );
   const reviewedEntries = discoveredEntries.map((discovered) => {
     const discoveryProjection = { ...discovered };
@@ -5152,7 +5340,7 @@ export function buildM0Artifacts(
   }
 
   const documents = new Map();
-  documents.set("effect-census.json", artifactEnvelope(fingerprint, "effect_census", {
+  documents.set("effect-census.json", envelope("effect_census", {
     discovery_rule: reviewLock.discovery_scope.rule,
     counts: {
       total: reviewedEntries.length,
@@ -5162,7 +5350,7 @@ export function buildM0Artifacts(
     },
     entries: reviewedEntries,
   }));
-  documents.set("selected-profile.json", artifactEnvelope(fingerprint, "selected_profile", {
+  documents.set("selected-profile.json", envelope("selected_profile", {
     claim_scope: "M0 program control only; no architecture or production capability closure",
     profile: programSource.selected_profile,
     selected_entry_counts: {
@@ -5181,13 +5369,13 @@ export function buildM0Artifacts(
       blocker_or_nonclaim_ref: entry.blocker_or_nonclaim_ref,
     })),
   }));
-  documents.set("pg-gate-map.json", artifactEnvelope(fingerprint, "pg_gate_map", {
+  documents.set("pg-gate-map.json", envelope("pg_gate_map", {
     definition_owner: programSource.pg_gate_map.definition_owner,
     closure_claimed: false,
     counts: countBy(programSource.pg_gate_map.entries, (entry) => entry.disposition),
     entries: programSource.pg_gate_map.entries,
   }));
-  documents.set("current-baselines.json", artifactEnvelope(fingerprint, "current_baselines", {
+  documents.set("current-baselines.json", envelope("current_baselines", {
     observation_rule:
       "Cohort, method, and threshold are frozen before observation; not_measured is evidence of absence, never zero.",
     counts: countBy(programSource.baselines, (entry) => entry.status),
@@ -5195,7 +5383,7 @@ export function buildM0Artifacts(
     repository_validation_baselines:
       programSource.repository_validation_baselines,
   }));
-  documents.set("blocker-ledger.json", artifactEnvelope(fingerprint, "blocker_ledger", {
+  documents.set("blocker-ledger.json", envelope("blocker_ledger", {
     counts: {
       by_state: countBy(programSource.blocker_ledger, (entry) => entry.state),
       by_type: countBy(programSource.blocker_ledger, (entry) => entry.type),
@@ -5206,7 +5394,7 @@ export function buildM0Artifacts(
       references: [...(blockerUsage.get(blocker.blocker_id) ?? [])].sort(),
     })),
   }));
-  documents.set("release-ladder.json", artifactEnvelope(fingerprint, "release_ladder", {
+  documents.set("release-ladder.json", envelope("release_ladder", {
     current_program_level: "M0 only; below P0 runtime proof",
     ladder: programSource.release_ladder,
   }));
@@ -5239,7 +5427,7 @@ export function buildM0Artifacts(
   ];
   documents.set(
     "program-evidence-index.json",
-    artifactEnvelope(fingerprint, "program_evidence_index", {
+    envelope("program_evidence_index", {
       consumption_rule:
         "Evidence is current only when the read-only checker reproduces this fingerprint and every manifest hash.",
       evidence_items: indexItems,
@@ -5303,7 +5491,7 @@ export function buildM0Artifacts(
       indexItems.every((entry) => entry.state === "closed_current"),
   };
   const exitState = Object.values(exitConditions).every(Boolean) ? "verified" : "blocked";
-  documents.set("m0-exit-report.json", artifactEnvelope(fingerprint, "exit_report", {
+  documents.set("m0-exit-report.json", envelope("exit_report", {
     m0_exit_state: exitState,
     claim_scope: "M0 program control and claim lock only",
     architecture_or_production_capability_closure: false,
@@ -5350,7 +5538,7 @@ export function buildM0Artifacts(
     path: `${EVIDENCE_DIR}/${name}`,
     sha256: sha256(source),
   }));
-  const manifest = artifactEnvelope(fingerprint, "manifest", {
+  const manifest = envelope("manifest", {
     consumption_rule:
       "Consumers must run scripts/m0-program-control.mjs --check; matching filenames without matching hashes are stale.",
     source_files: sourceFiles,
@@ -5397,7 +5585,21 @@ export function assertRenderedArtifactsCurrent(
     }
     const expected = rendered.get(name);
     if (actual !== expected) {
-      errors.push(`stale generated artifact ${relativePath}`);
+      let actualDate;
+      let expectedDate;
+      try {
+        actualDate = JSON.parse(actual)?.as_of_date;
+        expectedDate = JSON.parse(expected)?.as_of_date;
+      } catch {
+        // Generic freshness validation below covers malformed artifacts.
+      }
+      errors.push(
+        isIsoDate(actualDate)
+          && isIsoDate(expectedDate)
+          && actualDate < expectedDate
+          ? `generated artifact ${relativePath} date ${actualDate} is older than bound input date ${expectedDate}`
+          : `stale generated artifact ${relativePath}`,
+      );
     }
   }
   validationFailure("M0 generated artifacts", errors);
