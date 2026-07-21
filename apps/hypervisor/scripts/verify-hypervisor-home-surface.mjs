@@ -105,7 +105,15 @@ async function run() {
   ok("app catalog endpoint serves the matrix projection", catRes.status === 200 && catalog && catalog.schema === "ioi.hypervisor.app-catalog.v1", `status ${catRes.status}`);
   const catRoutes = [...new Set(((catalog && catalog.apps) || []).map((a) => a.route))];
   ok("catalog lists every certified seed", portedSeeds.length > 0 && portedSeeds.every((s) => catRoutes.includes(s.candidate_surface.split("?")[0])), `${catRoutes.length} catalog apps vs ${portedSeeds.length} certified seeds`);
-  ok("catalog invents no apps beyond the matrix", ((catalog && catalog.apps) || []).length === portedSeeds.length);
+  // The catalog is DERIVED truth: certified matrix seeds ⊕ contract-admitted registry surfaces
+  // (read_only_by_contract with verified operational-depth evidence — the #65+ lane that admitted
+  // missions). Rebuild it from the same inputs and require the served projection to match exactly —
+  // an app beyond that derivation is an invention, a missing one is a dropped port.
+  const { buildAppCatalog } = await import("./app-catalog.mjs");
+  const atlas = JSON.parse(readFileSync(join(HERE, "..", "application-operational-depth.json"), "utf8"));
+  const expectedApps = buildAppCatalog({ matrix, atlas }).apps.map((a) => `${a.slug}|${a.route}`).sort();
+  const servedApps = ((catalog && catalog.apps) || []).map((a) => `${a.slug}|${a.route}`).sort();
+  ok("catalog invents no apps beyond the matrix + verified contract evidence (served == derived, both directions)", JSON.stringify(servedApps) === JSON.stringify(expectedApps), `served ${servedApps.length} vs derived ${expectedApps.length}`);
   ok("catalog apps carry title + family", ((catalog && catalog.apps) || []).every((a) => a.title && a.family && a.slug));
   ok("estate page lists every catalog app", catRoutes.every((r) => apps.text.includes(`href="${r}"`)), "/__ioi/applications renders the same projection");
   const aiHtml = await sGet("/ai");

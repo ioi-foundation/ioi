@@ -1,13 +1,13 @@
 {
  "schema": "ioi.hypervisor.reference-clean-sweep.v1",
- "swept_at": "2026-07-11T12:08:55.146Z",
+ "swept_at": "2026-07-21T00:25:21.037Z",
  "serve": "http://127.0.0.1:4173",
  "mirror": "http://127.0.0.1:9225",
  "total_seeds": 39,
  "by_state": {
-  "data_clean": 13,
+  "data_clean": 14,
   "errored_reference": 6,
-  "needs_origin_alignment": 6,
+  "needs_origin_alignment": 5,
   "shell_clean_only": 10,
   "data_failed": 4
  },
@@ -2738,14 +2738,14 @@
   {
    "slug": "workspaces",
    "owner": "Workbench",
-   "parity_class": "reference_capture",
+   "parity_class": "reference_ported",
    "grammar": "editor_canvas",
    "reference_path": "http://localhost:9225/workspace/code-workspaces/",
-   "candidate_surface": null,
+   "candidate_surface": "/__ioi/workbench/workspaces",
    "substrate_surface": null,
-   "clean_state": "needs_origin_alignment",
-   "reason": "proxy lane renders no data (score 1), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 3/4 · nodes 0 · cards 5 · lines 26) — align the reference URL like pipeline #38/#39",
-   "lane_used": "origin",
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 3/4 · nodes 0 · cards 5 · lists 0 · lines 26)",
+   "lane_used": "override",
    "shell_regions": [
     "rail",
     "header",
@@ -2771,7 +2771,19 @@
     "Support",
     "Account"
    ],
-   "matrix_landmarks_present": [],
+   "matrix_landmarks_present": [
+    "Code Workspaces",
+    "Running workspaces",
+    "Launch code workspaces that run open-source IDEs and notebooks.",
+    "Recents",
+    "Favorites",
+    "Created by me",
+    "VS Code",
+    "Jupyter",
+    "RStudio",
+    "New workspace",
+    "Explore reference examples"
+   ],
    "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nCode Workspaces\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nCode Workspaces\nNew workspace\nHelp\nCode Workspaces\nLaunch code workspaces that run open-source IDEs and notebooks.\nRunning workspaces\nYou have no running workspaces. Create or open a workspace to get started.\nView\nRecents\nFavorites\nAll\nCreated by me\nVS Code\nJupyter\nRStudio\nWORKSPACES\nCREATOR\nLAST EDITED BY\nLAST EDITED\n[Template] Dash App\n/test-ab81f6/test4/AIP Chatbot with transcribed video context (2026-04-26 22:",
    "data_evidence": {
     "table_rows": 3,
@@ -2834,9 +2846,27 @@
      "cors_signals": 0,
      "console_errors": 0,
      "screenshot": ".artifacts/reference-clean-sweep/workspaces-origin.png"
+    },
+    {
+     "lane": "override",
+     "url": "http://localhost:9225/workspace/code-workspaces/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 10,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/workspaces-override.png"
     }
    ],
-   "screenshot": ".artifacts/reference-clean-sweep/workspaces-origin.png"
+   "screenshot": ".artifacts/reference-clean-sweep/workspaces-override.png"
   },
   {
    "slug": "repositories",
@@ -3754,7 +3784,7 @@
     "Labels",
     "Support types"
    ],
-   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nIssues\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nIssues\nNew\nOpen\n0\nClosed\n5\nAll\n5\nFILTERS\nClear filters\nPriority\nHigh\nMedium\nLow\nAssignees\ninclude\nReporters\ninclude\nMentions\ninclude\nLabels\ninclude\nSupport types\ninclude\nReported on\nReported on MM-DD-YYYY\nReported on MM-DD-YYYY\nLast updated\nLast updated MM-DD-YYYY\nLast updated MM-DD-YYYY\n5 closed issues\nfiltered by\nselect filter\nSort by\nMost recently updated\n\t\nvm_lost · env_18bceb4d757a82be\nCreated 14 days ago\n\t\t\nHigh\nPrio",
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nIssues\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nIssues\nNew\nOpen\n0\nClosed\n5\nAll\n5\nFILTERS\nClear filters\nPriority\nHigh\nMedium\nLow\nAssignees\ninclude\nReporters\ninclude\nMentions\ninclude\nLabels\ninclude\nSupport types\ninclude\nReported on\nReported on MM-DD-YYYY\nReported on MM-DD-YYYY\nLast updated\nLast updated MM-DD-YYYY\nLast updated MM-DD-YYYY\n5 closed issues\nfiltered by\nselect filter\nSort by\nMost recently updated\n\t\nvm_lost · env_18bceb4d757a82be\nCreated 23 days ago\n\t\t\nHigh\nPrio",
    "data_evidence": {
     "table_rows": 5,
     "graph_nodes": 0,
@@ -3988,7 +4018,7 @@
     "UPGRADE TYPE",
     "SORT"
    ],
-   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nUpgrade Assistant\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nUpgrade Assistant\n1 organization\nAdmin view\nAssignee view\nHelp\nYou are viewing resources for which you are personally assigned actions. Enable Admin view to help manage upgrades for organizations where you are a Maintenance Operator.\nActive\nPast due\nArchived\nFilters\nUPGRADE PROGRESS\nAll upgrades\n13\nUpgrades requiring my action\n1\nUPGRADE TYPE\nAdmin action\n1\nModel migration\n0\nPlatform change\n0\nRemediation\n0\nSecuri",
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nUpgrade Assistant\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nUpgrade Assistant\n1 organization\nAdmin view\nAssignee view\nHelp\nYou are viewing resources for which you are personally assigned actions. Enable Admin view to help manage upgrades for organizations where you are a Maintenance Operator.\nActive\nPast due\nArchived\nFilters\nUPGRADE PROGRESS\nAll upgrades\n12\nUpgrades requiring my action\n1\nUPGRADE TYPE\nAdmin action\n1\nModel migration\n0\nPlatform change\n0\nRemediation\n0\nSecuri",
    "data_evidence": {
     "table_rows": 4,
     "graph_nodes": 0,
