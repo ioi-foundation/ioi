@@ -1,7 +1,9 @@
 import {
+  closeSync,
   existsSync,
+  fsyncSync,
   mkdirSync,
-  mkdtempSync,
+  openSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -19,6 +21,10 @@ import { createServer as createTlsServer } from "node:tls";
 import { mintApprovalGrant } from "../../../../scripts/lib/mint-approval-grant.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
+const guardianPath = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "wallet-network-fixture-guardian.mjs",
+);
 const seeds = new Map([
   ["domain://acme-host", "07".repeat(32)],
   ["org://acme/research", "07".repeat(32)],
@@ -32,6 +38,95 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_PENDING_COMMANDS = 64;
 const MAX_COMMAND_BYTES = 64 * 1024;
 const COMMAND_TIMEOUT_MS = 180_000;
+
+function publishFixtureOwnerMarker(
+  fixtureDir,
+  ownerPid,
+  ownerStartTimeTicks,
+) {
+  const markerPath = path.join(fixtureDir, ".ioi-verifier-owner.json");
+  const temporary = `${markerPath}.${process.pid}.${randomUUID()}.tmp`;
+  writeFileSync(
+    temporary,
+    JSON.stringify({
+      schema_version: 2,
+      owner_pid: ownerPid,
+      owner_start_time_ticks: ownerStartTimeTicks,
+      owner_kind: "wallet-network-principal-authority-fixture",
+      process_group_id: null,
+      process_group_start_time_ticks: null,
+    }),
+    {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600,
+    },
+  );
+  const temporaryFd = openSync(temporary, "r");
+  try {
+    fsyncSync(temporaryFd);
+  } finally {
+    closeSync(temporaryFd);
+  }
+  renameSync(temporary, markerPath);
+  const directoryFd = openSync(fixtureDir, "r");
+  try {
+    fsyncSync(directoryFd);
+  } finally {
+    closeSync(directoryFd);
+  }
+}
+
+export function walletFixtureProcessGroupAlive(processGroupId) {
+  if (!Number.isInteger(processGroupId) || processGroupId <= 0) return false;
+  try {
+    process.kill(-processGroupId, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === "ESRCH") return false;
+    throw error;
+  }
+}
+
+export function walletFixtureProcessGroupStartTimeTicks(processGroupId) {
+  if (!Number.isInteger(processGroupId) || processGroupId <= 0) return null;
+  try {
+    const stat = readFileSync(`/proc/${processGroupId}/stat`, "utf8");
+    const commandEnd = stat.lastIndexOf(") ");
+    if (commandEnd < 0) return null;
+    const fieldsAfterCommand = stat
+      .slice(commandEnd + 2)
+      .trim()
+      .split(/\s+/);
+    const startTimeTicks = fieldsAfterCommand[19];
+    return /^[0-9]+$/.test(startTimeTicks || "") ? startTimeTicks : null;
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+export function walletFixtureProcessGroupIdentityMatches(marker) {
+  return (
+    Number.isInteger(marker?.process_group_id) &&
+    marker.process_group_id > 0 &&
+    typeof marker?.process_group_start_time_ticks === "string" &&
+    /^[0-9]+$/.test(marker.process_group_start_time_ticks) &&
+    walletFixtureProcessGroupStartTimeTicks(marker.process_group_id) ===
+      marker.process_group_start_time_ticks
+  );
+}
+
+export function walletFixtureOwnerIdentityMatches(marker) {
+  return (
+    Number.isInteger(marker?.owner_pid) &&
+    marker.owner_pid > 0 &&
+    typeof marker?.owner_start_time_ticks === "string" &&
+    /^[0-9]+$/.test(marker.owner_start_time_ticks) &&
+    walletFixtureProcessGroupStartTimeTicks(marker.owner_pid) ===
+      marker.owner_start_time_ticks
+  );
+}
 
 function exactHex32(value, label) {
   const normalized = String(value || "").trim().replace(/^sha256:/, "").toLowerCase();
@@ -125,86 +220,212 @@ async function startPinnedTlsProxy(upstreamAddr, fixtureDir) {
     server.listen(0, "127.0.0.1", resolve);
   });
   server.on("error", () => {});
+  const destroy = () => {
+    for (const socket of sockets) socket.destroy();
+    try { server.close(); } catch { /* already closed */ }
+  };
   return {
     rpcAddr: `https://127.0.0.1:${server.address().port}`,
     caPath: path.join(fixtureDir, "wallet-network-ca.pem"),
     serverName: "wallet-network.fixture",
+    destroy,
     async stop() {
       for (const socket of sockets) socket.destroy();
-      await new Promise((resolve) => server.close(resolve));
+      await new Promise((resolve) => {
+        try {
+          server.close(resolve);
+        } catch {
+          resolve();
+        }
+      });
     },
   };
 }
 
-export async function startRealWalletNetworkPrincipalAuthorityFixture() {
-  const fixtureDir = mkdtempSync(path.join(tmpdir(), "ioi-wallet-network-pa-"));
+export async function startRealWalletNetworkPrincipalAuthorityFixture({
+  baseEnv = process.env,
+  rootSeedHex,
+} = {}) {
+  const normalizedRootSeed = rootSeedHex == null
+    ? null
+    : exactHex32(rootSeedHex, "rootSeedHex");
+  const ownerStartTimeTicks = walletFixtureProcessGroupStartTimeTicks(
+    process.pid,
+  );
+  if (ownerStartTimeTicks === null) {
+    throw new Error("wallet.network fixture parent lacks a process identity");
+  }
+  const fixtureDir = path.join(
+    tmpdir(),
+    `ioi-wallet-network-pa-${process.pid}-${ownerStartTimeTicks}-${randomUUID()}`,
+  );
+  mkdirSync(fixtureDir, { mode: 0o700 });
+  try {
+    publishFixtureOwnerMarker(
+      fixtureDir,
+      process.pid,
+      ownerStartTimeTicks,
+    );
+  } catch (error) {
+    rmSync(fixtureDir, { recursive: true, force: true });
+    throw error;
+  }
   let output = "";
   let exited = null;
+  let tlsProxy;
+  let cleanupFinished = false;
+  let stopPromise = null;
+  const cargoArgs = [
+    "test", "-p", "ioi-cli",
+    "--test", "hypervisor_wallet_network_fixture",
+    "wallet_network_principal_authority_fixture",
+    "--", "--ignored", "--nocapture",
+  ];
   const child = spawn(
-    "cargo",
-    [
-      "test", "-p", "ioi-cli",
-      "--test", "hypervisor_wallet_network_fixture",
-      "wallet_network_principal_authority_fixture",
-      "--", "--ignored", "--nocapture",
-    ],
+    process.execPath,
+    [guardianPath],
     {
       cwd: repoRoot,
       env: {
-        ...process.env,
+        ...baseEnv,
         CARGO_TERM_COLOR: "never",
         IOI_HYPERVISOR_WALLET_FIXTURE_DIR: fixtureDir,
+        IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_PID: String(process.pid),
+        IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_START_TIME_TICKS:
+          ownerStartTimeTicks,
+        IOI_WALLET_FIXTURE_GUARDIAN_CARGO_ARGS: JSON.stringify(cargoArgs),
+        IOI_WALLET_FIXTURE_GUARDIAN_CARGO_CWD: repoRoot,
+        ...(normalizedRootSeed
+          ? { IOI_HYPERVISOR_WALLET_FIXTURE_ROOT_SEED_HEX: normalizedRootSeed }
+          : {}),
         IOI_GUARDIAN_KEY_PASS: "hypervisor-held-bar",
       },
+      detached: true,
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
+  const processGroupId = child.pid;
+  const processGroupStartTimeTicks =
+    walletFixtureProcessGroupStartTimeTicks(processGroupId);
+  if (processGroupStartTimeTicks === null) {
+    try { child.kill("SIGKILL"); } catch { /* child already exited */ }
+    rmSync(fixtureDir, { recursive: true, force: true });
+    throw new Error(
+      "wallet.network fixture guardian lacks a process-group identity",
+    );
+  }
+  const ownedProcessGroupIdentityMatches = () =>
+    walletFixtureProcessGroupStartTimeTicks(processGroupId) ===
+      processGroupStartTimeTicks;
   const capture = (chunk) => {
     output = `${output}${chunk}`;
     if (output.length > 32_000) output = output.slice(-32_000);
   };
   child.stdout.on("data", capture);
   child.stderr.on("data", capture);
-  child.once("exit", (code, signal) => { exited = { code, signal }; });
+  const exitPromise = new Promise((resolve) => {
+    let settled = false;
+    const finish = (code, signal) => {
+      if (settled) return;
+      settled = true;
+      exited = { code, signal };
+      resolve(exited);
+    };
+    child.once("exit", finish);
+    child.once("error", (error) => {
+      finish(null, `spawn-error:${error.code || error.message}`);
+    });
+  });
+  const killOwnedProcessGroupAndWait = async () => {
+    if (ownedProcessGroupIdentityMatches()) {
+      try { process.kill(-processGroupId, "SIGKILL"); } catch (error) {
+        if (error?.code !== "ESRCH") throw error;
+      }
+    }
+    await exitPromise;
+    const deadline = Date.now() + 30_000;
+    while (ownedProcessGroupIdentityMatches() && Date.now() < deadline) {
+      await delay(25);
+    }
+    if (ownedProcessGroupIdentityMatches()) {
+      throw new Error(
+        `wallet.network fixture process group ${processGroupId} still has owned descendants after SIGKILL`,
+      );
+    }
+  };
   const exitCleanup = () => {
+    if (cleanupFinished) return;
     if (!exited) {
       try { writeFileSync(path.join(fixtureDir, "shutdown"), "parent-exit\n"); } catch { /* best effort */ }
+      if (ownedProcessGroupIdentityMatches()) {
+        try { process.kill(-processGroupId, "SIGKILL"); } catch { /* already gone */ }
+      }
     }
+    try { tlsProxy?.destroy(); } catch { /* best effort */ }
+    try { rmSync(fixtureDir, { recursive: true, force: true }); } catch { /* best effort */ }
   };
   process.on("exit", exitCleanup);
 
-  const readyPath = path.join(fixtureDir, "ready.json");
-  const deadline = Date.now() + 600_000;
-  while (!existsSync(readyPath)) {
-    if (exited) {
-      process.off("exit", exitCleanup);
-      rmSync(fixtureDir, { recursive: true, force: true });
-      throw new Error(`real wallet.network fixture exited before readiness (${JSON.stringify(exited)}):\n${output}`);
-    }
-    if (Date.now() >= deadline) {
-      process.off("exit", exitCleanup);
-      child.kill("SIGKILL");
-      rmSync(fixtureDir, { recursive: true, force: true });
-      throw new Error(`real wallet.network fixture did not become ready:\n${output}`);
-    }
-    await delay(50);
-  }
-  const manifest = JSON.parse(readFileSync(readyPath, "utf8"));
-  const capabilityAccountId = exactHex32(manifest.capability_account_id, "capability_account_id");
-  const commandsDir = path.resolve(String(manifest.commands_dir || ""));
-  if (commandsDir !== path.join(fixtureDir, "commands")) {
-    process.off("exit", exitCleanup);
-    child.kill("SIGKILL");
-    rmSync(fixtureDir, { recursive: true, force: true });
-    throw new Error("real wallet.network fixture returned an unexpected command directory");
-  }
-  let tlsProxy;
+  let manifest;
+  let capabilityAccountId;
+  let commandsDir;
   try {
+    const readyPath = path.join(fixtureDir, "ready.json");
+    const deadline = Date.now() + 600_000;
+    while (!existsSync(readyPath)) {
+      if (exited) {
+        throw new Error(`real wallet.network fixture exited before readiness (${JSON.stringify(exited)}):\n${output}`);
+      }
+      if (Date.now() >= deadline) {
+        throw new Error(`real wallet.network fixture did not become ready:\n${output}`);
+      }
+      await delay(50);
+    }
+    manifest = JSON.parse(readFileSync(readyPath, "utf8"));
+    const ownerMarker = JSON.parse(
+      readFileSync(
+        path.join(fixtureDir, ".ioi-verifier-owner.json"),
+        "utf8",
+      ),
+    );
+    if (
+      ownerMarker.schema_version !== 2 ||
+      ownerMarker.owner_pid !== process.pid ||
+      ownerMarker.owner_start_time_ticks !== ownerStartTimeTicks ||
+      ownerMarker.owner_kind !==
+        "wallet-network-principal-authority-fixture" ||
+      ownerMarker.process_group_id !== processGroupId ||
+      ownerMarker.process_group_start_time_ticks !==
+        processGroupStartTimeTicks ||
+      !walletFixtureProcessGroupIdentityMatches(ownerMarker)
+    ) {
+      throw new Error(
+        "real wallet.network fixture did not publish its exact process-group ownership before readiness",
+      );
+    }
+    capabilityAccountId = exactHex32(
+      manifest.capability_account_id,
+      "capability_account_id",
+    );
+    commandsDir = path.resolve(String(manifest.commands_dir || ""));
+    if (commandsDir !== path.join(fixtureDir, "commands")) {
+      throw new Error("real wallet.network fixture returned an unexpected command directory");
+    }
     tlsProxy = await startPinnedTlsProxy(manifest.rpc_addr, fixtureDir);
   } catch (error) {
     process.off("exit", exitCleanup);
-    child.kill("SIGKILL");
+    let cleanupError;
+    try {
+      await killOwnedProcessGroupAndWait();
+    } catch (failure) {
+      cleanupError = failure;
+    }
+    try { tlsProxy?.destroy(); } catch { /* best effort */ }
     rmSync(fixtureDir, { recursive: true, force: true });
+    error.processGroupId = processGroupId;
+    error.processGroupStartTimeTicks = processGroupStartTimeTicks;
+    error.cleanupConfirmed = !ownedProcessGroupIdentityMatches();
+    if (cleanupError) error.cause = cleanupError;
     throw error;
   }
   async function runCommand(payload) {
@@ -314,6 +535,9 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
     return response;
   }
   return {
+    resourceDir: fixtureDir,
+    processGroupId,
+    processGroupStartTimeTicks,
     env: {
       IOI_WALLET_NETWORK_URL: "",
       IOI_WALLET_NETWORK_RPC_ADDR: tlsProxy.rpcAddr,
@@ -347,14 +571,44 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture() {
     },
     recordApproval,
     revokePrincipalAuthority,
-    async stop() {
-      process.off("exit", exitCleanup);
-      await tlsProxy.stop();
-      if (!exited) writeFileSync(path.join(fixtureDir, "shutdown"), "stop\n");
-      const stopDeadline = Date.now() + 30_000;
-      while (!exited && Date.now() < stopDeadline) await delay(25);
-      if (!exited) child.kill("SIGKILL");
-      rmSync(fixtureDir, { recursive: true, force: true });
+    stop() {
+      if (cleanupFinished) return Promise.resolve();
+      if (stopPromise) return stopPromise;
+      stopPromise = (async () => {
+        let stopError;
+        let treeError;
+        try {
+          await tlsProxy.stop();
+          if (!exited) writeFileSync(path.join(fixtureDir, "shutdown"), "stop\n");
+          const stopDeadline = Date.now() + 30_000;
+          while (!exited && Date.now() < stopDeadline) await delay(25);
+        } catch (error) {
+          stopError = error;
+        } finally {
+          try {
+            await killOwnedProcessGroupAndWait();
+          } catch (error) {
+            treeError = error;
+          }
+          try { tlsProxy.destroy(); } catch { /* best effort */ }
+          // The fixture directory is removed only after cargo has emitted exit, so a subsequent
+          // fixture cannot overlap a still-exiting process that retains handles into this tree.
+          rmSync(fixtureDir, { recursive: true, force: true });
+          process.off("exit", exitCleanup);
+        }
+        if (ownedProcessGroupIdentityMatches()) {
+          throw new Error(
+            `wallet.network fixture process group ${processGroupId} survived teardown`,
+          );
+        }
+        cleanupFinished = true;
+        if (treeError) throw treeError;
+        if (stopError) throw stopError;
+      })().catch((error) => {
+        stopPromise = null;
+        throw error;
+      });
+      return stopPromise;
     },
   };
 }

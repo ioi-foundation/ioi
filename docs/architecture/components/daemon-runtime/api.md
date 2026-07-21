@@ -2970,12 +2970,15 @@ statefully consumes that grant, and admits the materialization, receipt,
 component registry, and wallet-use evidence into four mandatory Agentgres
 domains. The M1.3 aggregate is never mutated. The materialization retains the
 M1.3 proposal's initial state/receipt roots only as named `proposed_initial_*`
-trace fields; its operational roots are independently derived. Because M1.3
-does not persist a deployment-profile body, this route additionally requires a
+trace fields; its operational roots are independently derived. A
 content-addressed `deployment_profile_ref` ending in
-`/revision/sha256:<hash>` and binds that hash as
-`deployment_profile_root`; an unversioned legacy M1.3 ref refuses here. Exact
-GET reconstructs all evidence before returning it.
+`/revision/sha256:<hash>` binds that hash as `deployment_profile_root`.
+Immutable master-era M1.3 records with an unversioned deployment ref instead
+bind a domain-separated compatibility commitment to the exact admitted ref.
+That compatibility form may materialize but does not claim captured profile
+content and cannot authorize activation; a later governed transition must
+supply a content-addressed revision. Exact GET reconstructs all evidence before
+returning it.
 
 The following wider bounded-System control routes remain target-only. They
 expose constitution, deployment, observed membership, failover, lifecycle, and

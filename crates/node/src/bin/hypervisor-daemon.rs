@@ -155,6 +155,7 @@ mod work_result_routes;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use axum::{
@@ -331,6 +332,109 @@ fn main() -> anyhow::Result<()> {
         .block_on(async_main())
 }
 
+#[derive(Clone, Default)]
+struct GovernedCompleterSlot {
+    running: Arc<AtomicBool>,
+}
+
+struct GovernedCompleterGuard {
+    label: &'static str,
+    running: Arc<AtomicBool>,
+}
+
+impl Drop for GovernedCompleterGuard {
+    fn drop(&mut self) {
+        self.running.store(false, Ordering::Release);
+        eprintln!(
+            "governed completer '{}': isolated worker exited; owner slot released",
+            self.label
+        );
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GovernedCompleterOutcome {
+    Completed,
+    WatchdogElapsedWorkerContinues,
+    StillRunning,
+    WorkerFailed,
+}
+
+async fn run_governed_completer_with_watchdog<F, Fut>(
+    label: &'static str,
+    watchdog_ms: u64,
+    slot: GovernedCompleterSlot,
+    work: F,
+) -> GovernedCompleterOutcome
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = ()> + 'static,
+{
+    if slot.running.swap(true, Ordering::AcqRel) {
+        eprintln!(
+            "governed completer '{label}': prior isolated worker is still running; no overlapping pass spawned"
+        );
+        return GovernedCompleterOutcome::StillRunning;
+    }
+    let forced_watchdog = std::env::var("IOI_TEST_FORCE_GOVERNED_REPLAY_WATCHDOG_FAMILY")
+        .ok()
+        .is_some_and(|value| {
+            value
+                .split(',')
+                .map(str::trim)
+                .any(|candidate| candidate == label)
+        });
+    let effective_watchdog_ms = if forced_watchdog {
+        std::env::var("IOI_TEST_FORCE_GOVERNED_REPLAY_WATCHDOG_MS")
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .unwrap_or(250)
+            .clamp(25, watchdog_ms)
+    } else {
+        watchdog_ms
+    };
+    let runtime = tokio::runtime::Handle::current();
+    let running = slot.running.clone();
+    let mut worker = tokio::task::spawn_blocking(move || {
+        let _guard = GovernedCompleterGuard { label, running };
+        if forced_watchdog {
+            // A synchronous sleep deliberately models the blocking-filesystem class the worker
+            // isolates. Sleeping on the async executor would not prove the syscall boundary.
+            let work_ms = std::env::var("IOI_TEST_FORCE_GOVERNED_REPLAY_WORK_MS")
+                .ok()
+                .and_then(|value| value.trim().parse::<u64>().ok())
+                .unwrap_or_else(|| effective_watchdog_ms.saturating_add(100));
+            std::thread::sleep(std::time::Duration::from_millis(work_ms));
+        }
+        runtime.block_on(work());
+    });
+    match tokio::time::timeout(
+        std::time::Duration::from_millis(effective_watchdog_ms),
+        &mut worker,
+    )
+    .await
+    {
+        Ok(Ok(())) => GovernedCompleterOutcome::Completed,
+        Ok(Err(error)) => {
+            eprintln!("governed completer '{label}': isolated worker failed ({error})");
+            GovernedCompleterOutcome::WorkerFailed
+        }
+        Err(_) => {
+            eprintln!(
+                "governed completer '{label}': watchdog elapsed after {effective_watchdog_ms} ms; isolated owner work continues and its slot remains held"
+            );
+            tokio::spawn(async move {
+                if let Err(error) = worker.await {
+                    eprintln!(
+                        "governed completer '{label}': continuing isolated worker failed ({error})"
+                    );
+                }
+            });
+            GovernedCompleterOutcome::WatchdogElapsedWorkerContinues
+        }
+    }
+}
+
 async fn async_main() -> anyhow::Result<()> {
     let _ = ioi_telemetry::init::init_tracing();
 
@@ -348,7 +452,17 @@ async fn async_main() -> anyhow::Result<()> {
 
     let data_dir = std::env::var("IOI_HYPERVISOR_DATA_DIR")
         .unwrap_or_else(|_| ".ioi/hypervisor/data".to_string());
-    let _ = std::fs::create_dir_all(&data_dir);
+    std::fs::create_dir_all(&data_dir)?;
+    // The System replay registries are daemon-owned infrastructure, not request effects. Create
+    // and durably pin them before startup convergence so crash recovery only ever adds/removes
+    // intent records; it never has to pretend unlink(file)+rmdir(family) is one atomic action.
+    durable_fs::precreate_family_dirs_durable(
+        &data_dir,
+        &[
+            system_genesis_routes::INTENT_DIR,
+            system_sequence_zero_routes::INTENT_DIR,
+        ],
+    )?;
     seed_default_state(&data_dir);
     // WS-3r — reconcile editor services on boot: a runtime persisted `ready` did not survive the
     // restart, so mark it degraded (restart required) rather than claim a phantom-ready editor.
@@ -3038,75 +3152,137 @@ async fn async_main() -> anyhow::Result<()> {
     ));
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    // Bounded post-readiness governed convergence. Each pass has both an intent-count ceiling and
-    // a wall-clock deadline; pending intents already refuse every online mutation fail-closed, so
-    // timeout leaves their exact bytes untouched for a later boot/pass.
+    // Post-readiness governed convergence is owner-isolated. Each pass cooperatively bounds its
+    // batch by intent count; the watchdog reports latency but cannot cancel blocking owner work.
+    // A held owner slot prevents duplicate overlap while unrelated owners run concurrently. M1.3
+    // and M1.4 share one owner worker and always run in dependency order.
     let governed_data_dir = state.data_dir.clone();
     let governed_max_intents = std::env::var("IOI_HYPERVISOR_GOVERNED_REPLAY_MAX_INTENTS")
         .ok()
         .and_then(|value| value.trim().parse::<usize>().ok())
         .unwrap_or(32)
         .clamp(1, 1_024);
-    let governed_timeout_ms = std::env::var("IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS")
+    let governed_watchdog_ms = std::env::var("IOI_HYPERVISOR_GOVERNED_REPLAY_WATCHDOG_MS")
+        .or_else(|_| std::env::var("IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS"))
         .ok()
         .and_then(|value| value.trim().parse::<u64>().ok())
         .unwrap_or(10_000)
         .clamp(250, 60_000);
+    let governed_interval_ms = std::env::var("IOI_HYPERVISOR_GOVERNED_REPLAY_INTERVAL_MS")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(30_000)
+        .clamp(100, 300_000);
+    let participation_slot = GovernedCompleterSlot::default();
+    let frontier_slot = GovernedCompleterSlot::default();
+    let offers_slot = GovernedCompleterSlot::default();
+    let attempts_slot = GovernedCompleterSlot::default();
+    let challenges_slot = GovernedCompleterSlot::default();
+    let system_slot = GovernedCompleterSlot::default();
     let governed_pass = async move {
-        if tokio::time::timeout(
-            std::time::Duration::from_millis(governed_timeout_ms),
-            async {
-                tokio::join!(
+        loop {
+            let participation_data_dir = governed_data_dir.clone();
+            let participation = run_governed_completer_with_watchdog(
+                "room-participation",
+                governed_watchdog_ms,
+                participation_slot.clone(),
+                move || async move {
                     room_participation_routes::complete_governed_participation_intents(
-                        &governed_data_dir,
+                        &participation_data_dir,
                         governed_max_intents,
-                    ),
-                    work_frontier_claim_routes::complete_governed_frontier_claim_intents(
-                        &governed_data_dir,
-                        governed_max_intents,
-                    ),
-                    resource_capability_offer_routes::complete_governed_offer_intents(
-                        &governed_data_dir,
-                        governed_max_intents,
-                    ),
-                    attempt_finding_routes::complete_governed_attempt_finding_intents(
-                        &governed_data_dir,
-                        governed_max_intents,
-                    ),
-                    verifier_challenge_routes::complete_governed_verifier_challenge_intents(
-                        &governed_data_dir,
-                        governed_max_intents,
-                    ),
-                );
-                // Sequence-zero reconstruction consumes exact M1.3 evidence. Preserve that
-                // dependency explicitly so a boot with both intents converges genesis first and
-                // materialization second rather than requiring another restart.
-                system_genesis_routes::complete_governed_system_genesis_intents(
-                    &governed_data_dir,
-                    governed_max_intents,
-                )
-                .await;
-                system_sequence_zero_routes::complete_governed_system_sequence_zero_intents(
-                    &governed_data_dir,
-                    governed_max_intents,
-                )
-                .await;
-                // A participation terminal intent can materialize its separately authorized
-                // work-claim intent during the joined pass. Re-scan once in the same bounded
-                // post-readiness pass so one boot can clear the claim and then the room slot.
-                work_frontier_claim_routes::complete_governed_frontier_claim_intents(
-                    &governed_data_dir,
-                    governed_max_intents,
-                )
-                .await;
-            },
-        )
-        .await
-        .is_err()
-        {
-            eprintln!(
-                "governed completers: bounded pass timed out after {governed_timeout_ms} ms; remaining intents retained"
+                    )
+                    .await;
+                },
             );
+            let frontier_data_dir = governed_data_dir.clone();
+            let frontier = run_governed_completer_with_watchdog(
+                "work-frontier-claim",
+                governed_watchdog_ms,
+                frontier_slot.clone(),
+                move || async move {
+                    work_frontier_claim_routes::complete_governed_frontier_claim_intents(
+                        &frontier_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
+                    // A participation terminal intent can materialize its separately authorized
+                    // work-claim intent during the first pass. Re-scan once inside the SAME
+                    // isolated owner worker so first-pass -> follow-up ordering is strict.
+                    work_frontier_claim_routes::complete_governed_frontier_claim_intents(
+                        &frontier_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
+                },
+            );
+            let offers_data_dir = governed_data_dir.clone();
+            let offers = run_governed_completer_with_watchdog(
+                "resource-capability-offer",
+                governed_watchdog_ms,
+                offers_slot.clone(),
+                move || async move {
+                    resource_capability_offer_routes::complete_governed_offer_intents(
+                        &offers_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
+                },
+            );
+            let attempts_data_dir = governed_data_dir.clone();
+            let attempts = run_governed_completer_with_watchdog(
+                "attempt-finding",
+                governed_watchdog_ms,
+                attempts_slot.clone(),
+                move || async move {
+                    attempt_finding_routes::complete_governed_attempt_finding_intents(
+                        &attempts_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
+                },
+            );
+            let challenges_data_dir = governed_data_dir.clone();
+            let challenges = run_governed_completer_with_watchdog(
+                "verifier-challenge",
+                governed_watchdog_ms,
+                challenges_slot.clone(),
+                move || async move {
+                    verifier_challenge_routes::complete_governed_verifier_challenge_intents(
+                        &challenges_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
+                },
+            );
+            let system_data_dir = governed_data_dir.clone();
+            let system = run_governed_completer_with_watchdog(
+                "system-genesis-sequence-zero",
+                governed_watchdog_ms,
+                system_slot.clone(),
+                move || async move {
+                    system_genesis_routes::complete_governed_system_genesis_intents(
+                        &system_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
+                    // M1.4 consumes exact M1.3 evidence. Run it only after the M1.3 pass has
+                    // returned, inside the SAME isolated owner worker.
+                    system_sequence_zero_routes::complete_governed_system_sequence_zero_intents(
+                        &system_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
+                },
+            );
+            tokio::join!(
+                participation,
+                frontier,
+                offers,
+                attempts,
+                challenges,
+                system
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(governed_interval_ms)).await;
         }
     };
     // Opt-in auto-failover evaluator: IOI_FAILOVER_AUTO_EVALUATE_SECS > 0
@@ -3991,9 +4167,9 @@ async fn scheduler_tick(data_dir: &str, base_url: &str, client: &reqwest::Client
 /// Seed the baseline provider + backend catalog as Agentgres-admitted records:
 /// author each through the kernel (plan_provider_control / plan_backend_lifecycle)
 /// and persist plan.record under state_dir — NOT a raw fs::write of fixtures.
-/// Idempotent (re-seeding overwrites the same content-addressed records).
+/// Idempotent: the fixed seed epoch keeps content-addressed identities stable, so re-seeding overwrites the same records instead of leaking one record per daemon boot.
 fn seed_catalog(st: &DaemonState) {
-    let generated_at = iso_now();
+    let generated_at = "2026-06-15T00:00:00.000Z".to_string();
     for kind in PROVIDER_KINDS {
         let mut body = json!({
             "kind": kind,
@@ -7491,6 +7667,89 @@ async fn handle_session_turn(
         }
     }
     ([(header::CONTENT_TYPE, "text/event-stream")], sse)
+}
+
+#[cfg(test)]
+mod governed_completer_tests {
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn watchdog_is_honest_prevents_overlap_and_does_not_starve_other_owners() {
+        let blocked_slot = GovernedCompleterSlot::default();
+        let system_slot = GovernedCompleterSlot::default();
+        let system_completed = Arc::new(AtomicBool::new(false));
+        let completed = system_completed.clone();
+        let started = std::time::Instant::now();
+
+        let (blocked, system) = tokio::join!(
+            run_governed_completer_with_watchdog(
+                "blocked-owner",
+                50,
+                blocked_slot.clone(),
+                || async {
+                    // This blocks the isolated worker thread before its first await, just like a
+                    // synchronous filesystem syscall. It must not occupy the async executor.
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                }
+            ),
+            run_governed_completer_with_watchdog("system", 500, system_slot, move || async move {
+                completed.store(true, Ordering::Release);
+            })
+        );
+
+        assert_eq!(
+            blocked,
+            GovernedCompleterOutcome::WatchdogElapsedWorkerContinues
+        );
+        assert_eq!(system, GovernedCompleterOutcome::Completed);
+        assert!(system_completed.load(Ordering::Acquire));
+        assert!(
+            started.elapsed() < std::time::Duration::from_millis(150),
+            "the unrelated blocking owner delayed System convergence"
+        );
+        assert!(
+            blocked_slot.running.load(Ordering::Acquire),
+            "a worker still executing after its watchdog remains registered"
+        );
+        let duplicate = run_governed_completer_with_watchdog(
+            "blocked-owner",
+            50,
+            blocked_slot.clone(),
+            || async {},
+        )
+        .await;
+        assert_eq!(duplicate, GovernedCompleterOutcome::StillRunning);
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert!(
+            !blocked_slot.running.load(Ordering::Acquire),
+            "the non-overlap slot releases only when the continuing worker actually exits"
+        );
+        assert_eq!(
+            run_governed_completer_with_watchdog("blocked-owner", 500, blocked_slot, || async {},)
+                .await,
+            GovernedCompleterOutcome::Completed,
+            "the owner may run again after its prior worker exits"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dependent_subpasses_keep_owner_local_order() {
+        let slot = GovernedCompleterSlot::default();
+        let order = Arc::new(Mutex::new(Vec::new()));
+        let observed = order.clone();
+        let outcome =
+            run_governed_completer_with_watchdog("system", 500, slot, move || async move {
+                observed.lock().unwrap().push("system-genesis");
+                tokio::task::yield_now().await;
+                observed.lock().unwrap().push("system-sequence-zero");
+            })
+            .await;
+        assert_eq!(outcome, GovernedCompleterOutcome::Completed);
+        assert_eq!(
+            *order.lock().unwrap(),
+            vec!["system-genesis", "system-sequence-zero"]
+        );
+    }
 }
 
 #[cfg(test)]

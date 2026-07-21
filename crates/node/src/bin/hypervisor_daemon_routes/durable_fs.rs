@@ -46,6 +46,20 @@ pub(crate) enum PersistFailure {
     RenamedDurabilityUnconfirmed(std::io::Error),
 }
 
+/// Outcome of deleting a terminal replay anchor.
+///
+/// `Durable` is returned only after the parent directory fsync confirms absence. A real fsync
+/// failure leaves durability unknown. The deterministic test fault instead re-links the pinned
+/// inode and fsyncs that restoration, giving restart tests a byte-exact replay anchor without
+/// claiming what an unconfirmed same-kernel namespace observation cannot prove.
+#[derive(Debug)]
+pub(crate) enum UnlinkOutcome {
+    Absent,
+    Durable,
+    ReplayAnchorRestoredAfterUnconfirmedRemoval(std::io::Error),
+    RemovedDurabilityUnconfirmed(std::io::Error),
+}
+
 impl PersistFailure {
     pub(crate) fn visible(&self) -> bool {
         matches!(self, PersistFailure::RenamedDurabilityUnconfirmed(_))
@@ -261,6 +275,165 @@ pub(crate) fn unlink_at(
     Ok(())
 }
 
+fn write_test_crash_marker(path: &std::path::Path, marker: &str) -> std::io::Result<()> {
+    use std::io::Write;
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(path)?;
+    file.write_all(marker.as_bytes())?;
+    file.write_all(b"\n")?;
+    file.sync_all()?;
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        std::fs::File::open(parent)?.sync_all()?;
+    }
+    Ok(())
+}
+
+/// Deterministic process-crash coordination used only by live fault verifiers.
+///
+/// The hook is completely inert unless the selector environment variable exactly matches
+/// `expected`. Once selected, it durably writes the marker named by `marker_path_env` and parks
+/// forever so the verifier can SIGKILL at that precise persistence boundary.
+pub(crate) fn test_crash_pause_if_selected(
+    selector_env: &str,
+    expected: &str,
+    marker_path_env: &str,
+    marker: &str,
+) -> std::io::Result<()> {
+    if std::env::var(selector_env).ok().as_deref() != Some(expected) {
+        return Ok(());
+    }
+    let marker_path = std::env::var(marker_path_env).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("test crash pause '{selector_env}={expected}' requires '{marker_path_env}'"),
+        )
+    })?;
+    write_test_crash_marker(std::path::Path::new(&marker_path), marker)?;
+    loop {
+        std::thread::park_timeout(std::time::Duration::from_secs(60));
+    }
+}
+
+pub(crate) fn unlink_durable_at(
+    parent: &std::fs::File,
+    name: impl AsRef<std::ffi::OsStr>,
+    fault_selector: &str,
+) -> std::io::Result<UnlinkOutcome> {
+    let force_unconfirmed_restore = std::env::var("IOI_TEST_FORCE_UNLINK_DIRSYNC_UNCONFIRMED")
+        .ok()
+        .is_some_and(|value| value == fault_selector);
+    unlink_durable_at_with_restore(
+        parent,
+        name.as_ref(),
+        fault_selector,
+        force_unconfirmed_restore,
+    )
+}
+
+fn unlink_durable_at_with_restore(
+    parent: &std::fs::File,
+    name: &std::ffi::OsStr,
+    fault_selector: &str,
+    force_unconfirmed_restore: bool,
+) -> std::io::Result<UnlinkOutcome> {
+    let pinned_replay_anchor = if force_unconfirmed_restore {
+        let mut source = open_file_at(parent, name)?;
+        if !source.metadata()?.is_file() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "terminal replay anchor is not a regular file",
+            ));
+        }
+        let mut anchor = open_tmpfile_at(parent)?;
+        std::io::copy(&mut source, &mut anchor)?;
+        anchor.sync_all()?;
+        Some(anchor)
+    } else {
+        None
+    };
+    match unlink_at(parent, name) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(UnlinkOutcome::Absent)
+        }
+        Err(error) => return Err(error),
+    }
+    if let Some(anchor) = pinned_replay_anchor {
+        let name = name.to_str().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "test replay-anchor name is not UTF-8",
+            )
+        })?;
+        link_tmpfile_at(&anchor, parent, name)?;
+        parent.sync_all()?;
+        test_crash_pause_if_selected(
+            "IOI_TEST_PAUSE_AFTER_UNCONFIRMED_INTENT_RESTORE_FAMILY",
+            fault_selector,
+            "IOI_TEST_UNCONFIRMED_INTENT_RESTORED_MARKER_PATH",
+            &format!(
+                "byte-exact replay anchor durably restored after unconfirmed removal: {fault_selector}"
+            ),
+        )?;
+        return Ok(UnlinkOutcome::ReplayAnchorRestoredAfterUnconfirmedRemoval(
+            std::io::Error::other(
+                "test-forced pre-directory-fsync uncertainty with durable replay-anchor restoration",
+            ),
+        ));
+    }
+    match parent.sync_all() {
+        Ok(()) => {
+            test_crash_pause_if_selected(
+                "IOI_TEST_PAUSE_AFTER_TERMINAL_INTENT_UNLINK_FAMILY",
+                fault_selector,
+                "IOI_TEST_TERMINAL_INTENT_UNLINKED_MARKER_PATH",
+                &format!("terminal intent durably absent after directory fsync: {fault_selector}"),
+            )?;
+            Ok(UnlinkOutcome::Durable)
+        }
+        Err(error) => Ok(UnlinkOutcome::RemovedDurabilityUnconfirmed(error)),
+    }
+}
+
+/// Ensure daemon-owned record families exist durably before listener readiness.
+///
+/// Every family is validated and every preexisting name is pinned as a directory before any
+/// missing family is created. After creation, each family and the data-dir parent are fsynced
+/// unconditionally so a prior interrupted create is also brought to a confirmed durable state.
+pub(crate) fn precreate_family_dirs_durable(
+    data_dir: &str,
+    families: &[&str],
+) -> std::io::Result<()> {
+    for family in families {
+        component_cstr(family)?;
+    }
+
+    let root = open_dir_pinned(std::path::Path::new(data_dir))?;
+    let mut missing = Vec::new();
+    for family in families {
+        match open_dir_at(&root, family) {
+            Ok(directory) => drop(directory),
+            Err(error) if error.raw_os_error() == Some(libc::ENOENT) => missing.push(*family),
+            Err(error) => return Err(error),
+        }
+    }
+
+    for family in missing {
+        mkdir_at(&root, family)?;
+    }
+    for family in families {
+        open_dir_at(&root, family)?.sync_all()?;
+    }
+    root.sync_all()
+}
+
 /// Remove a record-family directory only when it is still empty, then make the parent-directory
 /// deletion durable. Callers use this to restore a pre-request data-dir shape when an append-only
 /// writer had to create a family before a fail-closed operation could prove its preconditions.
@@ -268,10 +441,7 @@ pub(crate) fn unlink_at(
 /// The family is pinned and enumerated before `AT_REMOVEDIR`; a nonempty or unreadable family
 /// refuses rather than deleting evidence. API-level callers must hold their owning plane lock
 /// while deciding that this request created the family and while invoking this helper.
-pub(crate) fn remove_empty_family_durable(
-    data_dir: &str,
-    family: &str,
-) -> std::io::Result<()> {
+pub(crate) fn remove_empty_family_durable(data_dir: &str, family: &str) -> std::io::Result<()> {
     use std::os::unix::io::AsRawFd;
     let root = open_dir_pinned(std::path::Path::new(data_dir))?;
     let directory = open_dir_at(&root, family)?;
@@ -802,6 +972,18 @@ mod durable_fs_tests {
     }
 
     #[test]
+    fn crash_pause_marker_is_durable_and_exact() {
+        let dir = temp_dir("crash-marker");
+        let marker = dir.join("ready.marker");
+        write_test_crash_marker(&marker, "wallet evidence durable").unwrap();
+        assert_eq!(
+            std::fs::read(&marker).unwrap(),
+            b"wallet evidence durable\n"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn enumeration_distinguishes_eof_from_error_deterministically() {
         // #73 named-gap fix, WITHOUT process-global environment faults:
         // (a) EOF on a valid directory is Ok even when errno enters the call ALREADY polluted —
@@ -882,6 +1064,75 @@ mod durable_fs_tests {
     }
 
     #[test]
+    fn daemon_family_precreation_is_durable_contained_and_preserves_existing_evidence() {
+        let dir = temp_dir("precreate-families");
+        let data_dir = dir.to_str().unwrap();
+        std::fs::create_dir(dir.join("existing-intents")).unwrap();
+        std::fs::write(
+            dir.join("existing-intents").join("intent.json"),
+            b"{\"retained\":true}",
+        )
+        .unwrap();
+
+        precreate_family_dirs_durable(
+            data_dir,
+            &[
+                "existing-intents",
+                "genesis-intents",
+                "sequence-zero-intents",
+            ],
+        )
+        .unwrap();
+        for family in [
+            "existing-intents",
+            "genesis-intents",
+            "sequence-zero-intents",
+        ] {
+            assert!(
+                dir.join(family).is_dir(),
+                "daemon-owned family {family} exists"
+            );
+        }
+        assert_eq!(
+            std::fs::read(dir.join("existing-intents").join("intent.json")).unwrap(),
+            b"{\"retained\":true}",
+            "precreation preserves existing evidence byte-exactly"
+        );
+
+        let before = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert!(
+            precreate_family_dirs_durable(data_dir, &["would-create", "../outside"]).is_err(),
+            "all names are validated before any family is created"
+        );
+        assert_eq!(
+            std::fs::read_dir(&dir)
+                .unwrap()
+                .map(|entry| entry.unwrap().file_name())
+                .collect::<std::collections::BTreeSet<_>>(),
+            before,
+            "invalid family input has zero mutation"
+        );
+
+        std::fs::write(dir.join("non-directory-family"), b"residue").unwrap();
+        assert!(
+            precreate_family_dirs_durable(
+                data_dir,
+                &["not-created-after-preflight", "non-directory-family"],
+            )
+            .is_err(),
+            "non-directory residue fails closed during preflight"
+        );
+        assert!(
+            !dir.join("not-created-after-preflight").exists(),
+            "all existing names are preflighted before creation"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn empty_family_removal_is_pinned_durable_and_refuses_nonempty_evidence() {
         let dir = temp_dir("remove-empty-family");
         let data_dir = dir.to_str().unwrap();
@@ -907,6 +1158,41 @@ mod durable_fs_tests {
             remove_empty_family_durable(data_dir, "../outside").is_err(),
             "the family boundary remains non-traversing"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn unconfirmed_unlink_restores_a_byte_exact_durable_replay_anchor() {
+        use std::os::unix::fs::MetadataExt;
+
+        let dir = temp_dir("unlink-restore");
+        let pinned = open_dir_pinned(&dir).unwrap();
+        let name = std::ffi::OsStr::new("intent.json");
+        let expected = b"{\"intent\":\"retained-byte-exactly\"}";
+        std::fs::write(dir.join(name), expected).unwrap();
+        std::fs::File::open(&dir).unwrap().sync_all().unwrap();
+
+        assert!(matches!(
+            unlink_durable_at_with_restore(&pinned, name, "test-intents", true).unwrap(),
+            UnlinkOutcome::ReplayAnchorRestoredAfterUnconfirmedRemoval(_)
+        ));
+        assert_eq!(
+            std::fs::read(dir.join(name)).unwrap(),
+            expected,
+            "the restored replay anchor preserves the exact original bytes"
+        );
+        assert_eq!(
+            std::fs::metadata(dir.join(name)).unwrap().nlink(),
+            1,
+            "the restored O_TMPFILE inode has one canonical name"
+        );
+        assert!(
+            std::fs::read_dir(&dir)
+                .unwrap()
+                .all(|entry| entry.unwrap().file_name() == name),
+            "restoration leaves no named staging residue"
+        );
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -945,6 +1231,15 @@ mod durable_fs_tests {
         assert!(read_slot_strict(&pinned, "../escape.json").is_err());
         assert!(unlink_at(&pinned, "..").is_err());
         assert!(open_file_at(&pinned, "a/b.json").is_err());
+        std::fs::write(fam.join("terminal.json"), b"{}").unwrap();
+        assert!(matches!(
+            unlink_durable_at(&pinned, "terminal.json", "unused").unwrap(),
+            UnlinkOutcome::Durable
+        ));
+        assert!(matches!(
+            unlink_durable_at(&pinned, "terminal.json", "unused").unwrap(),
+            UnlinkOutcome::Absent
+        ));
         // (c) noncanonical relative paths are REFUSED by the walk, not silently skipped —
         // INCLUDING a noncanonical TERMINAL (#73 round 2): `a/..` must not validate-and-create
         // `a` and then "succeed" because only the parent was checked.

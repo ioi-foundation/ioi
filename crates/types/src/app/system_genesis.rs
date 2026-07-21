@@ -30,6 +30,10 @@ pub const SYSTEM_COMPONENT_REGISTRY_HASH_PROFILE: &str =
 /// RFC 8785 JCS + SHA-256 profile for the exact profile refs and candidate bundle.
 pub const SYSTEM_PROFILE_MATERIALIZATION_HASH_PROFILE: &str =
     "ioi.autonomous-system-profile-materialization-jcs-sha256.v1";
+/// RFC 8785 JCS + SHA-256 compatibility commitment for an immutable M1.3 deployment-profile ref
+/// that predates content-addressed deployment-profile revisions.
+pub const SYSTEM_LEGACY_DEPLOYMENT_PROFILE_REF_HASH_PROFILE: &str =
+    "ioi.autonomous-system-legacy-deployment-profile-ref-jcs-sha256.v1";
 /// RFC 8785 JCS + SHA-256 profile for the separately governed M1.4 operation.
 pub const SYSTEM_SEQUENCE_ZERO_OPERATION_HASH_PROFILE: &str =
     "ioi.autonomous-system-sequence-zero-operation-jcs-sha256.v1";
@@ -649,28 +653,32 @@ fn normalize_component_bindings(genesis: &Value) -> Result<Vec<Value>, String> {
 
 fn deployment_profile_root(profile_refs: &Value) -> Result<String, String> {
     let deployment_profile_ref = required_string(profile_refs, "/deployment_profile_ref")?;
-    let (identity, hash) = deployment_profile_ref
+    let versioned = deployment_profile_ref
         .strip_prefix("deployment-profile://")
-        .and_then(|value| value.rsplit_once("/revision/sha256:"))
-        .ok_or_else(|| {
-            "M1.4 requires deployment_profile_ref to end in /revision/sha256:<64 lowercase hex>"
-                .to_owned()
-        })?;
-    if identity.is_empty()
-        || identity
-            .chars()
-            .any(|ch| ch.is_whitespace() || matches!(ch, '?' | '#' | '\\'))
-        || hash.len() != 64
-        || !hash
-            .chars()
-            .all(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_uppercase())
-    {
-        return Err(
-            "M1.4 requires deployment_profile_ref to end in /revision/sha256:<64 lowercase hex>"
-                .to_owned(),
-        );
+        .and_then(|value| value.rsplit_once("/revision/sha256:"));
+    if let Some((identity, hash)) = versioned {
+        if !identity.is_empty()
+            && !identity
+                .chars()
+                .any(|ch| ch.is_whitespace() || matches!(ch, '?' | '#' | '\\'))
+            && hash.len() == 64
+            && hash
+                .chars()
+                .all(|ch| ch.is_ascii_hexdigit() && !ch.is_ascii_uppercase())
+        {
+            return Ok(format!("sha256:{hash}"));
+        }
     }
-    Ok(format!("sha256:{hash}"))
+
+    // M1.3 admitted deployment-profile refs before revisions were required. Those immutable
+    // records cannot be rewritten, so M1.4 freezes the exact legacy ref under a separate domain
+    // instead of stranding the System or misrepresenting the result as a profile-content hash.
+    // Activation must still replace this compatibility commitment with a content-addressed
+    // revision through a separately governed later transition.
+    domain_hash(
+        SYSTEM_LEGACY_DEPLOYMENT_PROFILE_REF_HASH_PROFILE,
+        &Value::String(deployment_profile_ref),
+    )
 }
 
 /// Derive the complete M1.4 effect without trusting caller-authored root values.
@@ -2794,20 +2802,40 @@ mod tests {
     }
 
     #[test]
-    fn sequence_zero_refuses_an_unversioned_deployment_candidate() {
+    fn sequence_zero_materializes_a_legacy_m1_3_deployment_ref_without_claiming_content() {
         let (mut genesis, bundle, record_root, receipt_ref, receipt_root) =
             valid_sequence_zero_inputs();
         genesis["initial_profile_refs"]["deployment_profile_ref"] =
             json!("deployment-profile://acme/system-alpha/local");
-        let error = compile_system_sequence_zero_plan(
+        let first = compile_system_sequence_zero_plan(
             &genesis,
             &bundle,
             &record_root,
             &receipt_ref,
             &receipt_root,
         )
-        .expect_err("M1.3 legacy ref cannot cross M1.4 without immutable identity");
-        assert!(error.contains("/revision/sha256:<64 lowercase hex>"));
+        .expect("an immutable master-era M1.3 ref remains materializable");
+        let second = compile_system_sequence_zero_plan(
+            &genesis,
+            &bundle,
+            &record_root,
+            &receipt_ref,
+            &receipt_root,
+        )
+        .expect("legacy projection is deterministic");
+        assert_eq!(
+            first.materialization_body["deployment_profile_root"],
+            second.materialization_body["deployment_profile_root"]
+        );
+        assert_eq!(
+            first.materialization_body["profile_refs"]["deployment_profile_ref"],
+            "deployment-profile://acme/system-alpha/local"
+        );
+        assert_ne!(
+            first.materialization_body["deployment_profile_root"],
+            format!("sha256:{}", "d".repeat(64)),
+            "the compatibility commitment is not represented as deployment-profile content"
+        );
     }
 
     #[test]

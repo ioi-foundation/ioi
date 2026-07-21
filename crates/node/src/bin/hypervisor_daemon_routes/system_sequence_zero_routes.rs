@@ -4,6 +4,7 @@
 //! M1.3 aggregate and does not initialize, activate, enroll, or create a live System chain.
 
 use std::collections::BTreeSet;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use axum::{
@@ -37,10 +38,15 @@ const RECORD_DIR: &str = "autonomous-system-sequence-zero-materializations";
 const RECEIPT_DIR: &str = "autonomous-system-sequence-zero-materialization-receipts";
 const COMPONENT_DIR: &str = "autonomous-system-sequence-zero-component-registries";
 const CONSUMPTION_DIR: &str = "autonomous-system-sequence-zero-authority-consumptions";
-const INTENT_DIR: &str = "autonomous-system-sequence-zero-materialization-intents";
-const RECEIPT_SCHEMA: &str = "ioi.autonomous-system-sequence-zero-materialization-receipt.v1";
-const RECEIPT_CONTRACT: &str =
+pub(crate) const INTENT_DIR: &str = "autonomous-system-sequence-zero-materialization-intents";
+const LEGACY_RECEIPT_SCHEMA: &str =
+    "ioi.autonomous-system-sequence-zero-materialization-receipt.v1";
+const LEGACY_RECEIPT_CONTRACT: &str =
     "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1";
+const CURRENT_RECEIPT_SCHEMA: &str =
+    "ioi.autonomous-system-sequence-zero-materialization-receipt.v2";
+const CURRENT_RECEIPT_CONTRACT: &str =
+    "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2";
 const RECEIPT_TYPE: &str = "autonomous_system_sequence_zero_materialization";
 const INTENT_SCHEMA: &str =
     "ioi.hypervisor.autonomous-system-sequence-zero-materialization-intent.v1";
@@ -59,6 +65,7 @@ const AUTHORITY: AuthorityContract = AuthorityContract {
 
 static SYSTEM_SEQUENCE_ZERO_LOCK: Mutex<()> = Mutex::new(());
 static SYSTEM_SEQUENCE_ZERO_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+static SYSTEM_SEQUENCE_ZERO_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone)]
 struct SourcePlan {
@@ -79,11 +86,36 @@ struct ReconstructedIntent {
     materialization_tail: String,
     receipt: Value,
     receipt_tail: String,
+    receipt_version: ReceiptVersion,
     component_registry: Value,
     component_tail: String,
     wallet_consumption: ConsumeApprovalGrantForEffectV2Params,
     wallet_consumption_ref: String,
     wallet_consumption_tail: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReceiptVersion {
+    /// Frozen PR #91 predecessor bytes, retained for read compatibility only.
+    LegacyV1,
+    /// Current contract identity and exact retained signed-grant binding.
+    CurrentV2,
+}
+
+impl ReceiptVersion {
+    fn schema(self) -> &'static str {
+        match self {
+            Self::LegacyV1 => LEGACY_RECEIPT_SCHEMA,
+            Self::CurrentV2 => CURRENT_RECEIPT_SCHEMA,
+        }
+    }
+
+    fn contract(self) -> &'static str {
+        match self {
+            Self::LegacyV1 => LEGACY_RECEIPT_CONTRACT,
+            Self::CurrentV2 => CURRENT_RECEIPT_CONTRACT,
+        }
+    }
 }
 
 fn verr(code: &str, message: impl Into<String>) -> VErr {
@@ -112,6 +144,7 @@ fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
         || code.contains("durability")
         || code.contains("swapped")
         || code.contains("agentgres")
+        || code.contains("authority_root_invalid")
         || code.contains("materialization_invalid")
         || code.contains("evidence_mismatch")
         || code.contains("evidence_missing")
@@ -504,11 +537,24 @@ fn wallet_consumption_coordinates(
     ))
 }
 
-fn canonical_grant_ref(wallet_grant_ref: &str) -> String {
+fn legacy_canonical_grant_ref(wallet_grant_ref: &str) -> String {
     format!(
         "grant://wallet.network/approval/sha256:{:x}",
         Sha256::digest(wallet_grant_ref.as_bytes())
     )
+}
+
+fn canonical_grant_ref(grant: &ApprovalGrant) -> Result<String, VErr> {
+    let artifact_hash = grant.artifact_hash().map_err(|error| {
+        verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            format!("retained wallet approval grant cannot be hashed ({error})"),
+        )
+    })?;
+    Ok(format!(
+        "grant://wallet.network/approval/sha256:{}",
+        hex::encode(artifact_hash)
+    ))
 }
 
 fn reconstruct_sealed_authority_context(
@@ -557,6 +603,7 @@ fn sealed_sequence_zero_authorized_decision(
     receipt: &Value,
     source: &SourcePlan,
     resolved_at_ms: u64,
+    receipt_version: ReceiptVersion,
 ) -> Result<AuthorizedDecision, VErr> {
     let wallet_approval_grant = receipt
         .get("wallet_approval_grant")
@@ -591,13 +638,21 @@ fn sealed_sequence_zero_authorized_decision(
                 format!("sealed wallet approval grant does not verify ({error})"),
             )
         })?;
-    let portable_grant_ref = canonical_grant_ref(&binding.grant_ref);
+    let exact_grant_ref = canonical_grant_ref(&grant)?;
+    let legacy_grant_ref = legacy_canonical_grant_ref(&binding.grant_ref);
+    let expected_grant_ref = match receipt_version {
+        ReceiptVersion::LegacyV1 => legacy_grant_ref,
+        ReceiptVersion::CurrentV2 => exact_grant_ref,
+    };
     if receipt.get("authority_grant_id").and_then(Value::as_str)
-        != Some(portable_grant_ref.as_str())
+        != Some(expected_grant_ref.as_str())
     {
         return Err(verr(
             "system_sequence_zero_receipt_evidence_mismatch",
-            "portable authority_grant_id does not bind the retained signed wallet grant",
+            format!(
+                "{} authority_grant_id does not match its versioned retained-grant identity",
+                receipt_version.schema()
+            ),
         ));
     }
     let authority_binding = governed::canonicalize_authority_binding(
@@ -700,7 +755,7 @@ fn profile_boundary_refs(materialization: &Value) -> Vec<Value> {
     refs
 }
 
-fn build_receipt(
+fn build_receipt_for_version(
     receipt_tail: &str,
     materialization: &Value,
     source: &SourcePlan,
@@ -708,15 +763,32 @@ fn build_receipt(
     wallet_consumption_ref: &str,
     wallet_consumption_tail: &str,
     created_at: &str,
+    receipt_version: ReceiptVersion,
 ) -> Result<Value, VErr> {
     let receipt_ref = format!("receipt://{receipt_tail}");
     let materialization_output_hash =
         super::outcome_room_routes::record_output_hash(materialization, &[]);
+    let retained_grant: ApprovalGrant = serde_json::from_value(
+        authorized.evidence.wallet_approval_grant.clone(),
+    )
+    .map_err(|error| {
+        verr(
+            "system_sequence_zero_receipt_evidence_mismatch",
+            format!("retained wallet approval grant is malformed ({error})"),
+        )
+    })?;
+    let portable_grant_ref = match receipt_version {
+        ReceiptVersion::LegacyV1 => legacy_canonical_grant_ref(&authorized.evidence.grant_ref),
+        ReceiptVersion::CurrentV2 => canonical_grant_ref(&retained_grant)?,
+    };
     let mut boundary_refs = profile_boundary_refs(materialization);
-    boundary_refs.push(json!(format!(
-        "system-genesis-admission://{}",
-        source.source_record_tail
-    )));
+    match receipt_version {
+        ReceiptVersion::LegacyV1 => boundary_refs.push(json!(format!(
+            "system-genesis-admission://{}",
+            source.source_record_tail
+        ))),
+        ReceiptVersion::CurrentV2 => boundary_refs.push(json!(source.source_record_root)),
+    }
     boundary_refs.push(
         source
             .source_record
@@ -725,16 +797,19 @@ fn build_receipt(
             .unwrap_or(Value::Null),
     );
     boundary_refs.push(json!(source.governing_authority_ref));
-    boundary_refs.push(json!(canonical_grant_ref(&authorized.evidence.grant_ref)));
+    boundary_refs.push(json!(portable_grant_ref.clone()));
+    if receipt_version == ReceiptVersion::CurrentV2 {
+        boundary_refs.push(json!(wallet_consumption_ref));
+    }
     boundary_refs.push(json!(format!(
         "system-sequence-zero-authority-consumption://{wallet_consumption_tail}"
     )));
     let mut receipt = json!({
-        "schema_version": RECEIPT_SCHEMA,
+        "schema_version": receipt_version.schema(),
         "receipt_id": receipt_ref,
         "receipt_ref": receipt_ref,
         "receipt_type": RECEIPT_TYPE,
-        "receipt_profile_ref": RECEIPT_CONTRACT,
+        "receipt_profile_ref": receipt_version.contract(),
         "actor_id": "runtime://hypervisor-runtime",
         "subject_ref": materialization.get("materialization_id"),
         "op": "materialized",
@@ -808,14 +883,38 @@ fn build_receipt(
     });
     governed::append_evidence(&mut receipt, authorized);
     receipt["actor_id"] = json!("runtime://hypervisor-runtime");
-    receipt["authority_grant_id"] = json!(canonical_grant_ref(&authorized.evidence.grant_ref));
-    validate_architecture_contract(RECEIPT_CONTRACT, &receipt).map_err(|error| {
+    receipt["authority_grant_id"] = json!(portable_grant_ref);
+    validate_architecture_contract(receipt_version.contract(), &receipt).map_err(|error| {
         verr(
             "system_sequence_zero_receipt_evidence_mismatch",
-            format!("materialization receipt contract invalid ({error})"),
+            format!(
+                "{} materialization receipt contract invalid ({error})",
+                receipt_version.schema()
+            ),
         )
     })?;
     Ok(receipt)
+}
+
+fn build_receipt(
+    receipt_tail: &str,
+    materialization: &Value,
+    source: &SourcePlan,
+    authorized: &AuthorizedDecision,
+    wallet_consumption_ref: &str,
+    wallet_consumption_tail: &str,
+    created_at: &str,
+) -> Result<Value, VErr> {
+    build_receipt_for_version(
+        receipt_tail,
+        materialization,
+        source,
+        authorized,
+        wallet_consumption_ref,
+        wallet_consumption_tail,
+        created_at,
+        ReceiptVersion::CurrentV2,
+    )
 }
 
 fn map_commit_failure(failure: super::durable_fs::CommitFailure) -> VErr {
@@ -851,9 +950,27 @@ fn persist_immutable(data_dir: &str, family: &str, tail: &str, value: &Value) ->
     })
 }
 
-fn persist_intent(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
-    super::durable_fs::persist_receipt_no_clobber(data_dir, INTENT_DIR, tail, intent)
-        .map_err(map_commit_failure)
+fn persist_intent(
+    data_dir: &str,
+    tail: &str,
+    intent: &Value,
+    cleanup_request_created_family: bool,
+) -> Result<(), VErr> {
+    let failure =
+        match super::durable_fs::persist_receipt_no_clobber(data_dir, INTENT_DIR, tail, intent) {
+            Ok(()) => return Ok(()),
+            Err(failure) => failure,
+        };
+    let intent_is_provably_absent = matches!(
+        &failure,
+        super::durable_fs::CommitFailure::KeyInvalid(_)
+            | super::durable_fs::CommitFailure::NotCommitted(_)
+            | super::durable_fs::CommitFailure::Conflict(_)
+    );
+    if intent_is_provably_absent && cleanup_request_created_family {
+        remove_request_created_family_if_empty(data_dir)?;
+    }
+    Err(map_commit_failure(failure))
 }
 
 fn load_value(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>, String> {
@@ -893,6 +1010,21 @@ fn persist_wallet_consumption(
     persist_immutable(data_dir, CONSUMPTION_DIR, tail, &value)
 }
 
+fn test_pause_after_durable_wallet_consumption_evidence() -> Result<(), VErr> {
+    super::durable_fs::test_crash_pause_if_selected(
+        "IOI_TEST_PAUSE_SYSTEM_SEQUENCE_ZERO_AFTER_WALLET_CONSUMPTION_EVIDENCE",
+        "1",
+        "IOI_TEST_SYSTEM_SEQUENCE_ZERO_WALLET_EVIDENCE_MARKER_PATH",
+        "system sequence-zero wallet consumption and intent evidence durable before finalization",
+    )
+    .map_err(|error| {
+        verr(
+            "system_sequence_zero_pending_convergence",
+            format!("test crash-pause marker could not be signaled ({error})"),
+        )
+    })
+}
+
 fn load_wallet_consumption(
     data_dir: &str,
     tail: &str,
@@ -925,9 +1057,24 @@ fn consume_intent(
             ))
         }
     };
-    match super::durable_fs::unlink_at(&directory, &format!("{tail}.json")) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+    match super::durable_fs::unlink_durable_at(&directory, &format!("{tail}.json"), INTENT_DIR) {
+        Ok(super::durable_fs::UnlinkOutcome::Absent)
+        | Ok(super::durable_fs::UnlinkOutcome::Durable) => {}
+        Ok(super::durable_fs::UnlinkOutcome::ReplayAnchorRestoredAfterUnconfirmedRemoval(
+            error,
+        )) => {
+            return Err(verr(
+                "system_sequence_zero_pending_convergence",
+                format!(
+                    "intent removal durability was unconfirmed; the byte-exact replay anchor was restored ({error})"
+                ),
+            ))
+        }
+        Ok(super::durable_fs::UnlinkOutcome::RemovedDurabilityUnconfirmed(error)) => {
+            eprintln!(
+                "SystemSequenceZero intent '{tail}' is absent from the live namespace but its directory durability is unconfirmed ({error}); terminal evidence remains authoritative and replay is idempotent"
+            );
+        }
         Err(error) => {
             return Err(verr(
                 "system_sequence_zero_pending_convergence",
@@ -935,22 +1082,53 @@ fn consume_intent(
             ))
         }
     }
-    directory.sync_all().map_err(|error| {
-        verr(
-            "system_sequence_zero_pending_convergence",
-            format!("intent directory sync failed ({error})"),
-        )
-    })?;
     drop(directory);
     if remove_request_created_family {
-        super::durable_fs::remove_empty_family_durable(data_dir, INTENT_DIR).map_err(|error| {
-            verr(
-                "system_sequence_zero_pending_convergence",
-                format!("request-created empty intent family cleanup failed ({error})"),
-            )
-        })?;
+        remove_request_created_family_if_empty(data_dir)?;
     }
     Ok(())
+}
+
+fn remove_request_created_family_if_empty(data_dir: &str) -> Result<(), VErr> {
+    match super::durable_fs::remove_empty_family_durable(data_dir, INTENT_DIR) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) if error.raw_os_error() == Some(libc::ENOTEMPTY) => {
+            // Another governed intent now shares the family. The transitive cleanup marker on
+            // that intent carries the obligation until the last owner converges.
+            Ok(())
+        }
+        Err(error) => Err(verr(
+            "system_sequence_zero_pending_convergence",
+            format!("request-created empty intent family cleanup failed ({error})"),
+        )),
+    }
+}
+
+fn intent_created_family(intent: &Value) -> Result<bool, VErr> {
+    match intent.get("intent_family_created_by_request") {
+        None => Ok(false),
+        Some(value) => value.as_bool().ok_or_else(|| {
+            verr(
+                "system_sequence_zero_intent_unreadable",
+                "intent has malformed request-created-family provenance",
+            )
+        }),
+    }
+}
+
+fn inherited_family_cleanup_obligation(
+    family_preexisted: bool,
+    existing_intents: &[(String, Value)],
+) -> Result<bool, VErr> {
+    if !family_preexisted {
+        return Ok(true);
+    }
+    existing_intents
+        .iter()
+        .try_fold(false, |required, (_, intent)| {
+            Ok(required || intent_created_family(intent)?)
+        })
 }
 
 fn touched_refs(
@@ -1025,6 +1203,12 @@ fn validate_intent_seal(intent: &Value, tail: &str) -> Result<(), String> {
     {
         return Err("intent storage-key/hash binding failed".to_owned());
     }
+    if intent
+        .get("intent_family_created_by_request")
+        .is_some_and(|value| !value.is_boolean())
+    {
+        return Err("intent has malformed request-created-family provenance".to_owned());
+    }
     Ok(())
 }
 
@@ -1038,11 +1222,13 @@ fn scan_intents(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
         .map_err(|error| format!("intent family cannot be enumerated ({error})"))?;
     let mut intents = Vec::new();
     for name in names {
-        let Some(tail) = name.strip_suffix(".json") else {
-            continue;
-        };
+        let tail = name.strip_suffix(".json").ok_or_else(|| {
+            format!("unexpected non-JSON entry '{name}' exists in the intent family")
+        })?;
         if !canonical_tail(tail, "aszmi_") {
-            continue;
+            return Err(format!(
+                "unexpected noncanonical JSON entry '{name}' exists in the intent family"
+            ));
         }
         let bytes = match super::durable_fs::read_slot_strict(&directory, &name) {
             Ok(Some((_file, bytes))) => bytes,
@@ -1055,6 +1241,22 @@ fn scan_intents(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
         intents.push((tail.to_owned(), intent));
     }
     Ok(intents)
+}
+
+fn fair_replay_window(
+    mut intents: Vec<(String, Value)>,
+    max_intents: usize,
+    cursor: &AtomicUsize,
+) -> Vec<(String, Value)> {
+    if intents.is_empty() || max_intents == 0 {
+        return Vec::new();
+    }
+    intents.sort_by(|left, right| left.0.cmp(&right.0));
+    let count = max_intents.min(intents.len());
+    let start = cursor.fetch_add(1, Ordering::Relaxed) % intents.len();
+    (0..count)
+        .map(|offset| intents[(start + offset) % intents.len()].clone())
+        .collect()
 }
 
 fn load_intent(data_dir: &str, tail: &str) -> Result<Option<Value>, String> {
@@ -1141,19 +1343,36 @@ fn validate_component_identity(tail: &str, value: &Value) -> Result<(), String> 
     Ok(())
 }
 
-fn validate_receipt_identity(tail: &str, value: &Value) -> Result<(), String> {
+fn validate_receipt_identity(tail: &str, value: &Value) -> Result<ReceiptVersion, String> {
     if !canonical_tail(tail, "aszmr_")
         || value.get("receipt_ref").and_then(Value::as_str)
             != Some(format!("receipt://{tail}").as_str())
         || value.get("receipt_id") != value.get("receipt_ref")
-        || value.get("schema_version").and_then(Value::as_str) != Some(RECEIPT_SCHEMA)
         || value.get("receipt_type").and_then(Value::as_str) != Some(RECEIPT_TYPE)
-        || value.get("receipt_profile_ref").and_then(Value::as_str) != Some(RECEIPT_CONTRACT)
     {
         return Err("materialization receipt storage-key identity failed".to_owned());
     }
-    validate_architecture_contract(RECEIPT_CONTRACT, value)
-        .map_err(|error| format!("materialization receipt contract invalid ({error})"))
+    let identity = (
+        value.get("schema_version").and_then(Value::as_str),
+        value.get("receipt_profile_ref").and_then(Value::as_str),
+    );
+    let receipt_version = match identity {
+        (Some(LEGACY_RECEIPT_SCHEMA), Some(LEGACY_RECEIPT_CONTRACT)) => ReceiptVersion::LegacyV1,
+        (Some(CURRENT_RECEIPT_SCHEMA), Some(CURRENT_RECEIPT_CONTRACT)) => ReceiptVersion::CurrentV2,
+        _ => {
+            return Err(
+                "materialization receipt has an unknown or mixed versioned contract identity"
+                    .to_owned(),
+            )
+        }
+    };
+    validate_architecture_contract(receipt_version.contract(), value).map_err(|error| {
+        format!(
+            "{} materialization receipt contract invalid ({error})",
+            receipt_version.schema()
+        )
+    })?;
+    Ok(receipt_version)
 }
 
 fn validate_wallet_consumption_receipt(
@@ -1230,7 +1449,7 @@ fn validate_wallet_consumption_receipt(
 
 fn reconstruct_artifacts(source: SourcePlan, receipt: Value) -> Result<ReconstructedIntent, VErr> {
     let receipt_tail = receipt_tail(&source.plan)?;
-    validate_receipt_identity(&receipt_tail, &receipt)
+    let receipt_version = validate_receipt_identity(&receipt_tail, &receipt)
         .map_err(|message| verr("system_sequence_zero_receipt_evidence_mismatch", message))?;
     let resolved_at_ms = receipt
         .get("authority_resolved_at_ms")
@@ -1242,7 +1461,12 @@ fn reconstruct_artifacts(source: SourcePlan, receipt: Value) -> Result<Reconstru
             )
         })?;
     let created_at = ms_to_rfc3339(resolved_at_ms)?;
-    let authorized = sealed_sequence_zero_authorized_decision(&receipt, &source, resolved_at_ms)?;
+    let authorized = sealed_sequence_zero_authorized_decision(
+        &receipt,
+        &source,
+        resolved_at_ms,
+        receipt_version,
+    )?;
     governed::validate_sealed_effect(AUTHORITY, &receipt, &source.plan.authority_effect)
         .map_err(|message| verr("system_sequence_zero_receipt_evidence_mismatch", message))?;
     let finalized = finalize_system_sequence_zero_materialization(&source.plan, &created_at)
@@ -1281,7 +1505,7 @@ fn reconstruct_artifacts(source: SourcePlan, receipt: Value) -> Result<Reconstru
         wallet_consumption_coordinates(&authorized, &source)?;
     let wallet_consumption_tail =
         format!("aszmc_{}", hex::encode(wallet_consumption.consumption_id));
-    let expected_receipt = build_receipt(
+    let expected_receipt = build_receipt_for_version(
         &receipt_tail,
         &materialization,
         &source,
@@ -1289,6 +1513,7 @@ fn reconstruct_artifacts(source: SourcePlan, receipt: Value) -> Result<Reconstru
         &wallet_consumption_ref,
         &wallet_consumption_tail,
         &created_at,
+        receipt_version,
     )?;
     if receipt != expected_receipt {
         return Err(verr(
@@ -1302,11 +1527,31 @@ fn reconstruct_artifacts(source: SourcePlan, receipt: Value) -> Result<Reconstru
         materialization_tail,
         receipt,
         receipt_tail,
+        receipt_version,
         component_registry,
         component_tail,
         wallet_consumption,
         wallet_consumption_ref,
         wallet_consumption_tail,
+    })
+}
+
+fn verify_converged_receipt_authority_root_with<F>(receipt: &Value, verify: F) -> Result<(), VErr>
+where
+    F: FnOnce(&Value) -> Result<(), String>,
+{
+    verify(
+        receipt
+            .get("principal_authority_binding")
+            .unwrap_or(&Value::Null),
+    )
+    .map_err(|message| {
+        verr(
+            "system_sequence_zero_receipt_authority_root_invalid",
+            format!(
+                "retained principal-authority binding is not signed by the configured pinned wallet root ({message})"
+            ),
+        )
     })
 }
 
@@ -1417,6 +1662,9 @@ fn reconstruct_intent_locked(
             )
         })?;
     let reconstructed = reconstruct_artifacts(source, receipt)?;
+    verify_converged_receipt_authority_root_with(&reconstructed.receipt, |binding| {
+        governed::verify_retained_authority_binding_root(binding)
+    })?;
     validate_reconstructed_intent(intent, tail, &reconstructed)?;
     Ok(reconstructed)
 }
@@ -1500,12 +1748,41 @@ fn preflight_locked(data_dir: &str, source: &SourcePlan) -> Result<(), VErr> {
     Ok(())
 }
 
+fn require_legacy_receipt_preexisting(
+    data_dir: &str,
+    receipt_version: ReceiptVersion,
+    receipt_tail: &str,
+    receipt: &Value,
+) -> Result<(), VErr> {
+    if receipt_version == ReceiptVersion::CurrentV2 {
+        return Ok(());
+    }
+    let local = load_value(data_dir, RECEIPT_DIR, receipt_tail)
+        .map_err(|message| verr("system_sequence_zero_registry_unreadable", message))?;
+    let required_matches =
+        super::substrate_store::verify_required_exact(data_dir, RECEIPT_DIR, receipt_tail, receipt)
+            .is_ok();
+    if local.as_ref() == Some(receipt) && required_matches {
+        return Ok(());
+    }
+    Err(verr(
+        "system_sequence_zero_legacy_receipt_write_unavailable",
+        "the current daemon reads frozen v1 receipts but never creates or backfills them; converge this interrupted historical intent with its pinned historical writer",
+    ))
+}
+
 fn complete_intent_locked(
     data_dir: &str,
     tail: &str,
     intent: &Value,
 ) -> Result<ReconstructedIntent, VErr> {
     let reconstructed = reconstruct_intent_locked(data_dir, tail, intent)?;
+    require_legacy_receipt_preexisting(
+        data_dir,
+        reconstructed.receipt_version,
+        &reconstructed.receipt_tail,
+        &reconstructed.receipt,
+    )?;
     let wallet_receipt = load_wallet_consumption(data_dir, &reconstructed.wallet_consumption_tail)
         .map_err(|message| verr("system_sequence_zero_wallet_consumption_invalid", message))?
         .ok_or_else(|| {
@@ -1568,7 +1845,7 @@ fn complete_intent_locked(
             "test-forced interruption after materialization admission",
         ));
     }
-    consume_intent(data_dir, tail, false)?;
+    consume_intent(data_dir, tail, intent_created_family(intent)?)?;
     Ok(reconstructed)
 }
 
@@ -1618,7 +1895,6 @@ fn consume_unspent_precondition_intent_locked(
     tail: &str,
     expected_intent: &Value,
     wallet_consumption_tail: &str,
-    remove_request_created_family: bool,
 ) -> Result<(), VErr> {
     let stored = load_intent(data_dir, tail)
         .map_err(|message| verr("system_sequence_zero_intent_unreadable", message))?
@@ -1648,7 +1924,7 @@ fn consume_unspent_precondition_intent_locked(
         CONSUMPTION_DIR,
         wallet_consumption_tail,
     ) {
-        Ok(None) => consume_intent(data_dir, tail, remove_request_created_family),
+        Ok(None) => consume_intent(data_dir, tail, intent_created_family(&stored)?),
         Ok(Some(_)) => Err(verr(
             "system_sequence_zero_pending_convergence",
             "Agentgres wallet-consumption evidence exists for a precondition-refused intent",
@@ -1776,8 +2052,7 @@ pub(crate) async fn handle_materialize(
         "aszmi_{}",
         hex::encode(reconstructed.wallet_consumption.request_hash)
     );
-    let intent = seal_intent(
-        json!({
+    let intent_body = json!({
             "kind": "materialize_sequence_zero",
             "op": OP,
             "phase": "prepared_for_authority_consumption",
@@ -1807,11 +2082,8 @@ pub(crate) async fn handle_materialize(
             "materialization": reconstructed.materialization,
             "receipt": reconstructed.receipt,
             "component_registry": reconstructed.component_registry
-        }),
-        &intent_tail,
-        &reconstructed.source,
-    );
-    let remove_request_created_intent_family = match with_plane_locks(|| {
+    });
+    let intent = match with_plane_locks(|| {
         let current = source_plan_locked(&state.data_dir, &source_record_tail)?;
         compare_expected_source(&current, &expected_record_root, &expected_receipt_root)?;
         if current.source_record != source.source_record
@@ -1826,7 +2098,10 @@ pub(crate) async fn handle_materialize(
         preflight_locked(&state.data_dir, &current)?;
         let family_preexisted =
             match super::durable_fs::open_family_dir_pinned(&state.data_dir, INTENT_DIR) {
-                Ok(_) => true,
+                Ok(directory) => {
+                    drop(directory);
+                    true
+                }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
                 Err(error) => {
                     return Err(verr(
@@ -1835,8 +2110,21 @@ pub(crate) async fn handle_materialize(
                     ))
                 }
             };
-        persist_intent(&state.data_dir, &intent_tail, &intent)?;
-        Ok(!family_preexisted)
+        let existing_intents = if family_preexisted {
+            scan_intents(&state.data_dir)
+                .map_err(|message| verr("system_sequence_zero_intent_unreadable", message))?
+        } else {
+            Vec::new()
+        };
+        let cleanup_required =
+            inherited_family_cleanup_obligation(family_preexisted, &existing_intents)?;
+        let mut intent_body = intent_body;
+        // Propagate the cleanup obligation across concurrent intents. The last surviving intent
+        // must still restore an originally absent family after the first creator has converged.
+        intent_body["intent_family_created_by_request"] = json!(cleanup_required);
+        let intent = seal_intent(intent_body, &intent_tail, &reconstructed.source);
+        persist_intent(&state.data_dir, &intent_tail, &intent, cleanup_required)?;
+        Ok(intent)
     }) {
         Ok(value) => value,
         Err(error) => return classify(error),
@@ -1880,7 +2168,6 @@ pub(crate) async fn handle_materialize(
                     &intent_tail,
                     &intent,
                     &reconstructed.wallet_consumption_tail,
-                    remove_request_created_intent_family,
                 )
             }) {
                 return classify(cleanup_error);
@@ -1919,6 +2206,7 @@ pub(crate) async fn handle_materialize(
             &reconstructed.wallet_consumption_tail,
             &wallet_receipt,
         )?;
+        test_pause_after_durable_wallet_consumption_evidence()?;
         complete_intent_locked(&state.data_dir, &intent_tail, &stored)
     });
     match completed {
@@ -1996,6 +2284,9 @@ fn load_converged_materialization_locked(
             )
         })?;
     let reconstructed = reconstruct_artifacts(source, receipt)?;
+    verify_converged_receipt_authority_root_with(&reconstructed.receipt, |binding| {
+        governed::verify_retained_authority_binding_root(binding)
+    })?;
     if reconstructed.materialization != materialization {
         return Err(verr(
             "system_sequence_zero_materialization_evidence_mismatch",
@@ -2124,7 +2415,7 @@ pub(crate) async fn complete_governed_system_sequence_zero_intents(
 ) {
     let _gate = SYSTEM_SEQUENCE_ZERO_GATE.lock().await;
     let intents = match with_plane_locks(|| scan_intents(data_dir)) {
-        Ok(value) => value,
+        Ok(value) => fair_replay_window(value, max_intents, &SYSTEM_SEQUENCE_ZERO_REPLAY_CURSOR),
         Err(message) => {
             eprintln!("SystemSequenceZero completer: scan failed ({message})");
             return;
@@ -2178,7 +2469,6 @@ pub(crate) async fn complete_governed_system_sequence_zero_intents(
                             &tail,
                             &intent,
                             &reconstructed.wallet_consumption_tail,
-                            false,
                         )
                     }) {
                         Ok(()) => eprintln!(
@@ -2218,6 +2508,7 @@ pub(crate) async fn complete_governed_system_sequence_zero_intents(
                 &reconstructed.wallet_consumption_tail,
                 &wallet_receipt,
             )?;
+            test_pause_after_durable_wallet_consumption_evidence()?;
             complete_intent_locked(data_dir, &tail, &stored)
         });
         if let Err((_, message)) = result {
@@ -2229,9 +2520,133 @@ pub(crate) async fn complete_governed_system_sequence_zero_intents(
 #[cfg(test)]
 mod system_sequence_zero_tests {
     use super::*;
+    use ioi_types::app::{
+        account_id_from_key_material, PrincipalAuthorityBindingProofV1, SignatureSuite,
+        WalletControlPlaneRootRecord,
+    };
+    use std::collections::BTreeMap;
 
     const ZERO_HASH: &str =
         "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+
+    fn receipt_fixture_source(materialization: &Value, receipt: &Value) -> SourcePlan {
+        let source_record_root = s(materialization, "genesis_admission_record_root");
+        let source_record_tail = format!(
+            "asg_{}",
+            source_record_root
+                .strip_prefix("sha256:")
+                .expect("fixture genesis record root")
+        );
+        SourcePlan {
+            source_record_tail,
+            source_record: json!({
+                "admission_receipt_ref": materialization["genesis_admission_receipt_ref"]
+            }),
+            source_receipt: Value::Null,
+            source_record_root,
+            source_receipt_root: s(materialization, "genesis_admission_receipt_root"),
+            system_id: s(materialization, "system_id"),
+            genesis_ref: s(materialization, "genesis_ref"),
+            governing_authority_ref: s(&receipt["bound_facts"], "governing_authority_ref"),
+            plan: CompiledSystemSequenceZeroPlan {
+                component_registry_snapshot: Value::Null,
+                materialization_body: materialization.clone(),
+                authority_effect: receipt["authorized_effect"].clone(),
+                component_registry_root: String::new(),
+                profile_materialization_root: String::new(),
+                operation_commitment: String::new(),
+                initial_state_root: String::new(),
+                initial_receipt_root: String::new(),
+                transition_commitment_ref: String::new(),
+            },
+        }
+    }
+
+    fn receipt_fixture_coordinates(receipt: &Value) -> (&str, &str, &str, &str) {
+        (
+            receipt["receipt_ref"]
+                .as_str()
+                .and_then(|value| value.strip_prefix("receipt://"))
+                .expect("fixture receipt tail"),
+            receipt["bound_facts"]["wallet_grant_consumption_ref"]
+                .as_str()
+                .expect("fixture wallet consumption ref"),
+            receipt["bound_facts"]["wallet_grant_consumption_evidence_ref"]
+                .as_str()
+                .and_then(|value| {
+                    value.strip_prefix("system-sequence-zero-authority-consumption://")
+                })
+                .expect("fixture wallet consumption tail"),
+            receipt["timestamp"].as_str().expect("fixture timestamp"),
+        )
+    }
+
+    #[test]
+    fn bounded_replay_window_rotates_past_a_retained_prefix() {
+        let cursor = AtomicUsize::new(0);
+        let intents = vec![
+            ("aszmi_a".to_string(), json!({"slot": "a"})),
+            ("aszmi_b".to_string(), json!({"slot": "b"})),
+        ];
+        assert_eq!(
+            fair_replay_window(intents.clone(), 1, &cursor)[0].0,
+            "aszmi_a"
+        );
+        assert_eq!(
+            fair_replay_window(intents, 1, &cursor)[0].0,
+            "aszmi_b",
+            "a retained first intent cannot starve the next consumed intent"
+        );
+    }
+
+    #[test]
+    fn default_ceiling_still_rotates_the_first_replayed_intent() {
+        let cursor = AtomicUsize::new(0);
+        let intents = vec![
+            ("aszmi_a".to_string(), json!({"slot": "a"})),
+            ("aszmi_b".to_string(), json!({"slot": "b"})),
+            ("aszmi_c".to_string(), json!({"slot": "c"})),
+        ];
+        let starts = (0..3)
+            .map(|_| {
+                fair_replay_window(intents.clone(), 32, &cursor)[0]
+                    .0
+                    .clone()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            starts,
+            vec!["aszmi_a", "aszmi_b", "aszmi_c"],
+            "a slow first intent cannot monopolize the first wall-clock slot when len <= ceiling"
+        );
+    }
+
+    #[test]
+    fn request_created_family_cleanup_obligation_follows_the_last_concurrent_intent() {
+        let inherited = vec![(
+            "aszmi_a".to_string(),
+            json!({"intent_family_created_by_request": true}),
+        )];
+        assert!(inherited_family_cleanup_obligation(true, &inherited).unwrap());
+        assert!(inherited_family_cleanup_obligation(false, &[]).unwrap());
+        assert!(!inherited_family_cleanup_obligation(true, &[]).unwrap());
+    }
+
+    #[test]
+    fn legacy_pending_intent_without_family_provenance_remains_readable() {
+        let tail = format!("aszmi_{}", "a".repeat(64));
+        let mut intent = json!({
+            "schema_version": INTENT_SCHEMA,
+            "intent_id": format!(
+                "system-sequence-zero-materialization-intent://{tail}"
+            )
+        });
+        let hash = crate::outcome_room_routes::record_output_hash(&intent, &[]);
+        intent["intent_hash"] = json!(hash);
+
+        validate_intent_seal(&intent, &tail).expect("legacy sealed bytes remain readable");
+        assert!(!intent_created_family(&intent).unwrap());
+    }
 
     #[test]
     fn request_shape_is_closed_bounded_and_secret_free() {
@@ -2312,6 +2727,219 @@ mod system_sequence_zero_tests {
                 .expect("fixture authority time"),
         )
         .is_err());
+    }
+
+    #[test]
+    fn portable_grant_ref_binds_the_exact_retained_signed_artifact() {
+        let receipt: Value = serde_json::from_str(include_str!(
+            "../../../../../docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json"
+        ))
+        .expect("registered positive receipt fixture");
+        let grant: ApprovalGrant = serde_json::from_value(receipt["wallet_approval_grant"].clone())
+            .expect("fixture grant projection");
+        let expected = format!(
+            "grant://wallet.network/approval/sha256:{}",
+            hex::encode(grant.artifact_hash().expect("grant artifact hash"))
+        );
+        assert_eq!(canonical_grant_ref(&grant).unwrap(), expected);
+
+        let mut altered = grant;
+        altered.counter += 1;
+        assert_ne!(
+            canonical_grant_ref(&altered).unwrap(),
+            expected,
+            "changing retained signed grant material must change its portable identity"
+        );
+    }
+
+    #[test]
+    fn converged_get_gate_rejects_coherent_evidence_from_a_foreign_wallet_root() {
+        let receipt: Value = serde_json::from_str(include_str!(
+            "../../../../../docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json"
+        ))
+        .expect("registered current receipt fixture");
+        let proof: PrincipalAuthorityBindingProofV1 =
+            serde_json::from_value(receipt["principal_authority_binding"]["binding_proof"].clone())
+                .expect("retained binding proof");
+        let issuer_root = WalletControlPlaneRootRecord {
+            account_id: proof.statement.issuer_root_account_id,
+            signature_suite: proof.issuer_signature_proof.suite,
+            public_key: proof.issuer_signature_proof.public_key.clone(),
+            registered_at_ms: 0,
+            updated_at_ms: 0,
+            metadata: BTreeMap::new(),
+        };
+        let foreign_public_key = receipt["wallet_approval_grant"]["approver_public_key"]
+            .as_array()
+            .expect("foreign public key")
+            .iter()
+            .map(|value| value.as_u64().expect("public-key byte") as u8)
+            .collect::<Vec<_>>();
+        let foreign_root = WalletControlPlaneRootRecord {
+            account_id: account_id_from_key_material(SignatureSuite::ED25519, &foreign_public_key)
+                .expect("foreign root id"),
+            signature_suite: SignatureSuite::ED25519,
+            public_key: foreign_public_key,
+            registered_at_ms: 0,
+            updated_at_ms: 0,
+            metadata: BTreeMap::new(),
+        };
+
+        verify_converged_receipt_authority_root_with(&receipt, |_| {
+            super::super::wallet_network_capability_client::verify_retained_principal_authority_binding_proof_with_root(
+                &proof,
+                &issuer_root,
+            )
+            .map_err(|error| format!("{error:?}"))
+        })
+        .expect("coherent issuer-root evidence");
+        let error = verify_converged_receipt_authority_root_with(&receipt, |_| {
+            super::super::wallet_network_capability_client::verify_retained_principal_authority_binding_proof_with_root(
+                &proof,
+                &foreign_root,
+            )
+            .map_err(|error| format!("{error:?}"))
+        })
+        .expect_err("foreign-root evidence must fail the converged GET gate");
+        assert_eq!(
+            error.0,
+            "system_sequence_zero_receipt_authority_root_invalid"
+        );
+    }
+
+    #[test]
+    fn receipt_reader_pins_current_v2_and_frozen_legacy_v1_bytes() {
+        let registered_fixture: Value = serde_json::from_str(include_str!(
+            "../../../../../docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json"
+        ))
+        .expect("registered current receipt fixture");
+        let materialization = registered_fixture["authorized_effect"]["materialization"].clone();
+        let source = receipt_fixture_source(&materialization, &registered_fixture);
+        let resolved_at_ms = registered_fixture["authority_resolved_at_ms"]
+            .as_u64()
+            .expect("fixture authority time");
+        let (receipt_tail, wallet_ref, wallet_tail, created_at) =
+            receipt_fixture_coordinates(&registered_fixture);
+        let authorized = sealed_sequence_zero_authorized_decision(
+            &registered_fixture,
+            &source,
+            resolved_at_ms,
+            ReceiptVersion::CurrentV2,
+        )
+        .expect("fixture retained authority evidence");
+        let current = build_receipt_for_version(
+            receipt_tail,
+            &materialization,
+            &source,
+            &authorized,
+            wallet_ref,
+            wallet_tail,
+            created_at,
+            ReceiptVersion::CurrentV2,
+        )
+        .expect("build current receipt");
+        assert_eq!(
+            validate_receipt_identity(receipt_tail, &current),
+            Ok(ReceiptVersion::CurrentV2)
+        );
+        let current_authorized = sealed_sequence_zero_authorized_decision(
+            &current,
+            &source,
+            resolved_at_ms,
+            ReceiptVersion::CurrentV2,
+        )
+        .expect("current retained authority evidence");
+        let rebuilt_current = build_receipt_for_version(
+            receipt_tail,
+            &materialization,
+            &source,
+            &current_authorized,
+            wallet_ref,
+            wallet_tail,
+            created_at,
+            ReceiptVersion::CurrentV2,
+        )
+        .expect("rebuild current receipt");
+        assert_eq!(rebuilt_current, current);
+        assert_eq!(
+            hex::encode(Sha256::digest(
+                serde_jcs::to_vec(&rebuilt_current).expect("current JCS")
+            )),
+            "378c8636bcac1807828ff4b49e576a0b87716efa76e1c8ba42028acd96afa166",
+            "current v2 bytes are pinned"
+        );
+
+        let historical = build_receipt_for_version(
+            receipt_tail,
+            &materialization,
+            &source,
+            &authorized,
+            wallet_ref,
+            wallet_tail,
+            created_at,
+            ReceiptVersion::LegacyV1,
+        )
+        .expect("build historical receipt");
+        let mut mixed_identity = historical.clone();
+        mixed_identity["receipt_profile_ref"] = json!(CURRENT_RECEIPT_CONTRACT);
+        assert!(
+            validate_receipt_identity(receipt_tail, &mixed_identity).is_err(),
+            "legacy bytes cannot claim the current contract identity"
+        );
+        assert_eq!(
+            validate_receipt_identity(receipt_tail, &historical),
+            Ok(ReceiptVersion::LegacyV1)
+        );
+        let historical_authorized = sealed_sequence_zero_authorized_decision(
+            &historical,
+            &source,
+            resolved_at_ms,
+            ReceiptVersion::LegacyV1,
+        )
+        .expect("historical retained authority evidence");
+        assert_eq!(historical_authorized, authorized);
+        let rebuilt_historical = build_receipt_for_version(
+            receipt_tail,
+            &materialization,
+            &source,
+            &historical_authorized,
+            wallet_ref,
+            wallet_tail,
+            created_at,
+            ReceiptVersion::LegacyV1,
+        )
+        .expect("rebuild historical receipt");
+        assert_eq!(rebuilt_historical, historical);
+        let data_dir = tempfile::tempdir().expect("legacy replay test data dir");
+        let data_dir = data_dir.path().to_str().expect("utf8 data dir");
+        let missing = require_legacy_receipt_preexisting(
+            data_dir,
+            ReceiptVersion::LegacyV1,
+            receipt_tail,
+            &historical,
+        )
+        .expect_err("current replay must not author a missing historical receipt");
+        assert_eq!(
+            missing.0,
+            "system_sequence_zero_legacy_receipt_write_unavailable"
+        );
+        persist_immutable(data_dir, RECEIPT_DIR, receipt_tail, &historical)
+            .expect("pinned historical writer fixture persists its own receipt");
+        require_legacy_receipt_preexisting(
+            data_dir,
+            ReceiptVersion::LegacyV1,
+            receipt_tail,
+            &historical,
+        )
+        .expect("current replay may consume an already-durable historical receipt");
+        assert_ne!(historical, current);
+        assert_eq!(
+            hex::encode(Sha256::digest(
+                serde_jcs::to_vec(&rebuilt_historical).expect("historical JCS")
+            )),
+            "1d80772f57195d90f9b14f0fcee171fa050acd092c03cecd7dc40f9bd1cbe063",
+            "historical v1 bytes are pinned"
+        );
     }
 
     #[test]

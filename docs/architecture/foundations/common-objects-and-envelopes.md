@@ -1442,18 +1442,24 @@ transition must consume this exact artifact and receipt before it may populate
 the live chain fields.
 
 The daemon derives every operational root from the converged M1.3 admission and
-exact normalized component/profile material. Because the M1.3 profile bundle
-does not persist a deployment-profile body, M1.4 admits only a content-addressed
-`deployment_profile_ref` ending in `/revision/sha256:<hash>` and carries that
-hash separately as `deployment_profile_root`; a legacy unversioned deployment
-candidate remains valid M1.3 evidence but cannot cross M1.4. The M1.3 genesis
-`initial_state_root` and `initial_receipt_root` survive only as the explicitly
-named `proposed_initial_*` trace fields; they are never copied into the
-operational `initial_state_root` or `initial_receipt_root`. The hash domains
+exact normalized component/profile material. A content-addressed
+`deployment_profile_ref` ending in `/revision/sha256:<hash>` contributes that
+content hash directly as `deployment_profile_root`. M1.3 also admitted
+unversioned refs before this requirement existed; because those predecessor
+records are immutable, M1.4 preserves them through a domain-separated
+compatibility commitment to the exact admitted ref. That commitment allows the
+System to cross materialization without pretending a deployment-profile body
+was captured, and it remains ineligible for activation until a separately
+governed later transition supplies a content-addressed revision. The M1.3
+genesis `initial_state_root` and `initial_receipt_root` survive only as the
+explicitly named `proposed_initial_*` trace fields; they are never copied into
+the operational `initial_state_root` or `initial_receipt_root`. The hash domains
 are:
 
 - `ioi.autonomous-system-component-registry-jcs-sha256.v1`;
 - `ioi.autonomous-system-profile-materialization-jcs-sha256.v1`;
+- `ioi.autonomous-system-legacy-deployment-profile-ref-jcs-sha256.v1`
+  (compatibility only);
 - `ioi.autonomous-system-sequence-zero-operation-jcs-sha256.v1`;
 - `ioi.autonomous-system-sequence-zero-state-jcs-sha256.v1`;
 - `ioi.autonomous-system-sequence-zero-receipt-jcs-sha256.v1`; and

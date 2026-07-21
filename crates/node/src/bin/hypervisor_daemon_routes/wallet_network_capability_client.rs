@@ -118,8 +118,15 @@ pub(crate) fn verify_retained_principal_authority_binding_proof(
     proof: &PrincipalAuthorityBindingProofV1,
 ) -> Result<(), ResolveError> {
     let root = load_pinned_root()?;
+    verify_retained_principal_authority_binding_proof_with_root(proof, &root)
+}
+
+pub(crate) fn verify_retained_principal_authority_binding_proof_with_root(
+    proof: &PrincipalAuthorityBindingProofV1,
+    root: &WalletControlPlaneRootRecord,
+) -> Result<(), ResolveError> {
     proof
-        .verify_root_signature_with(&root, |suite, public_key, message, signature| {
+        .verify_root_signature_with(root, |suite, public_key, message, signature| {
             verify_wallet_signature_proof(
                 &SignatureProof {
                     suite,
