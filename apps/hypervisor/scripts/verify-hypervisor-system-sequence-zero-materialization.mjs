@@ -89,6 +89,8 @@ const OWNER_APPROVER_SEED = "07".repeat(32);
 const FOREIGN_WALLET_ROOT_SEED = "42".repeat(32);
 const GENESIS_SCOPE = "scope:autonomous_system.genesis_admit";
 const MATERIALIZE_SCOPE = "scope:autonomous_system.genesis_materialize";
+const INITIALIZE_SCOPE = "scope:autonomous_system.lifecycle.initialize";
+const ACTIVATE_SCOPE = "scope:autonomous_system.lifecycle.activate";
 const LEGACY_RECEIPT_SCHEMA =
   "ioi.autonomous-system-sequence-zero-materialization-receipt.v1";
 const LEGACY_RECEIPT_PROFILE =
@@ -145,6 +147,23 @@ const MATERIALIZATION_RESPONSE_FIELDS = [
   "component_registry_snapshot",
   "wallet_grant_consumption_receipt",
 ];
+const INITIALIZE_INTENT_FAMILY = "autonomous-system-initialize-intents";
+const ACTIVATE_INTENT_FAMILY = "autonomous-system-activate-intents";
+const LIFECYCLE_FAMILIES = [
+  "autonomous-system-deployment-profile-revisions",
+  "autonomous-system-lifecycle-authority-evidence",
+  "autonomous-system-lifecycle-authority-consumptions",
+  "autonomous-system-lifecycle-proposals",
+  "autonomous-system-lifecycle-authority-decisions",
+  "autonomous-system-lifecycle-transitions",
+  "autonomous-system-initialize-transition-receipts",
+  "autonomous-system-activation-receipts",
+  "autonomous-system-activation-states",
+  "autonomous-system-active-profile-sets",
+  "autonomous-system-home-bindings",
+  "autonomous-system-operation-log-revisions",
+  "autonomous-system-chain-revisions",
+];
 const EXACT_FALSE_NONCLAIMS = {
   active_profile_admission: false,
   initialize: false,
@@ -188,6 +207,21 @@ const localCorruptionProofName = (family) =>
 const agentgresCorruptionProofName = (family) =>
   `GET PROOF: isolated ${family} Agentgres corruption refuses the M1.4 code and restores exactly`;
 const JOURNEY_PROOF_CENSUS = new Map([
+  [
+    "system-activation",
+    {
+      resources: 2,
+      proofs: [
+        "M1.5a INTAKE: embedded sensitive-key aliases refuse before authority with zero lifecycle evidence",
+        "M1.5a INITIALIZE: twelve real-wallet requests linearize to one initialized sequence-one graph",
+        "M1.5a INITIALIZE GET: complete graph is exact and carries no active set or chain",
+        "M1.5a ACTIVATE PARTIAL: activation parks after a real wallet use and one local write while the competing lifecycle operation refuses",
+        "M1.5a ACTIVATE REPLAY: restart reuses the consumed grant and converges exactly one sequence-two graph",
+        "M1.5a ACTIVATE GET: exact 0/1/2 log and compact non-runtime chain are fully durable",
+        "M1.5a SOURCE: real M1.3/M1.4 bytes remain unchanged across initialize and activate",
+      ],
+    },
+  ],
   [
     "primary",
     {
@@ -1244,6 +1278,40 @@ function domainHash(domain, value) {
   return `sha256:${createHash("sha256")
     .update(canonicalJson({ domain, value }))
     .digest("hex")}`;
+}
+
+function artifactHash(domain, artifact) {
+  return `sha256:${createHash("sha256")
+    .update(canonicalJson({ domain, artifact }))
+    .digest("hex")}`;
+}
+
+function lifecycleDeploymentRevisionForGenesis(genesis) {
+  const revision = fixture(
+    "autonomous-system-deployment-profile-revision-v1/positive-candidate.json",
+  );
+  revision.profile.system_id = genesis.system_id;
+  revision.profile.constitution_ref = genesis.constitution_ref;
+  revision.profile.manifest_ref = genesis.manifest_ref;
+  revision.profile.ordering_admission_finality_profile_ref =
+    genesis.initial_profile_refs.ordering_admission_finality_profile_ref;
+  const root = `sha256:${createHash("sha256")
+    .update(canonicalJson({
+      domain:
+        "ioi.autonomous-system-deployment-profile-revision-jcs-sha256.v1",
+      profile: revision.profile,
+    }))
+    .digest("hex")}`;
+  revision.deployment_profile_root = root;
+  revision.deployment_profile_ref =
+    `${revision.profile.deployment_profile_id}/revision/${root}`;
+  return revision;
+}
+
+function lifecycleDeploymentRevision(source) {
+  return lifecycleDeploymentRevisionForGenesis(
+    source.record.authorized_genesis,
+  );
 }
 
 function deploymentProfileRoot(profileRefs) {
@@ -5054,6 +5122,302 @@ async function runTerminalIntentDurabilityJourney() {
   }
 }
 
+async function runSystemActivationJourney() {
+  const resolver = await startOwnedWalletResolver();
+  const dataDir = createOwnedTempDir("ioi-system-activation-");
+  let plane;
+  try {
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5a Hypervisor daemon is not built");
+    }
+    let call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+    const genesisBody = exactGenesisBody(
+      "genesis://acme/system-alpha/m1-5a",
+    );
+    const pinnedDeploymentRevision = lifecycleDeploymentRevisionForGenesis(
+      genesisBody.proposed_instantiation.candidate,
+    );
+    genesisBody.proposed_instantiation.candidate.initial_profile_refs.deployment_profile_ref =
+      pinnedDeploymentRevision.deployment_profile_ref;
+    const source = await admitGenesis(call, resolver, dataDir, {
+      genesisBody,
+    });
+    const materializePath =
+      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const materializeRequest = {
+      expected_genesis_admission_record_root: source.recordRoot,
+      expected_genesis_admission_receipt_root: source.receiptRoot,
+    };
+    const materializeAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      materializePath,
+      materializeRequest,
+      MATERIALIZE_SCOPE,
+    );
+    const materialized = await call("POST", materializePath, {
+      ...materializeRequest,
+      wallet_approval_grant: requireValue(
+        materializeAuthority.grant,
+        "M1.5a setup lacks M1.4 grant",
+      ),
+    });
+    requireValue(
+      materialized.status === 201,
+      `M1.5a setup failed M1.4: ${materialized.status}/${materialized.body.error?.code || "no-code"}`,
+    );
+    const materialization = requireValue(
+      materialized.body.autonomous_system_sequence_zero_materialization,
+      "M1.5a setup lacks M1.4 materialization",
+    );
+    const materializationReceipt = requireValue(
+      materialized.body.autonomous_system_sequence_zero_materialization_receipt,
+      "M1.5a setup lacks M1.4 receipt",
+    );
+    const predecessorBytes = familiesSnapshot(
+      dataDir,
+      [...SOURCE_FAMILIES, ...MATERIALIZATION_FAMILIES],
+    );
+
+    const revision = lifecycleDeploymentRevision(source);
+    const initializePath = `${GENESIS_ROUTE}/${source.sourceTail}/initialize`;
+    const initializeRequest = {
+      expected_sequence_zero_materialization_root: artifactHash(
+        "ioi.autonomous-system-sequence-zero-materialization-artifact-jcs-sha256.v1",
+        materialization,
+      ),
+      expected_sequence_zero_materialization_receipt_root: artifactHash(
+        "ioi.autonomous-system-sequence-zero-materialization-receipt-artifact-jcs-sha256.v1",
+        materializationReceipt,
+      ),
+      deployment_profile_revision: revision,
+    };
+    const lifecycleBeforeSensitive = familiesSnapshot(dataDir, [
+      INITIALIZE_INTENT_FAMILY,
+      ACTIVATE_INTENT_FAMILY,
+      ...LIFECYCLE_FAMILIES,
+    ]);
+    const sensitiveSentinel = "m1-5a-never-store";
+    const sensitive = await call("POST", initializePath, {
+      ...initializeRequest,
+      deployment_profile_revision: {
+        ...revision,
+        operatorPasswordHint: sensitiveSentinel,
+      },
+    });
+    ok(
+      "M1.5a INTAKE: embedded sensitive-key aliases refuse before authority with zero lifecycle evidence",
+      sensitive.status === 422 &&
+        sensitive.body.error?.code ===
+          "system_lifecycle_sensitive_field_rejected" &&
+        !JSON.stringify(sensitive.body).includes(sensitiveSentinel) &&
+        lifecycleBeforeSensitive ===
+          familiesSnapshot(dataDir, [
+            INITIALIZE_INTENT_FAMILY,
+            ACTIVATE_INTENT_FAMILY,
+            ...LIFECYCLE_FAMILIES,
+          ]),
+      `${sensitive.status}/${sensitive.body.error?.code || "no-code"}`,
+    );
+    const initializeAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      initializePath,
+      initializeRequest,
+      INITIALIZE_SCOPE,
+    );
+    const initializeGrant = requireValue(
+      initializeAuthority.grant,
+      `M1.5a initialize challenge lacks a grant: ${JSON.stringify(initializeAuthority.challenge)} m1.4=${materialization.profile_refs?.deployment_profile_ref} revision=${revision.deployment_profile_ref}`,
+    );
+    const initializeResponses = await Promise.all(
+      Array.from({ length: 12 }, () =>
+        call("POST", initializePath, {
+          ...initializeRequest,
+          wallet_approval_grant: initializeGrant,
+        }),
+      ),
+    );
+    const initializeWinners = initializeResponses.filter(
+      (response) => response.status === 200,
+    );
+    const initializeConflicts = initializeResponses.filter(
+      (response) => response.status === 409,
+    );
+    ok(
+      "M1.5a INITIALIZE: twelve real-wallet requests linearize to one initialized sequence-one graph",
+      initializeWinners.length === 1 &&
+        initializeConflicts.length === 11 &&
+        initializeConflicts.every(
+          (response) =>
+            response.body.error?.code === "system_lifecycle_sequence_conflict",
+        ) &&
+        familyFiles(dataDir, INITIALIZE_INTENT_FAMILY).length === 0,
+      `winners=${initializeWinners.length} conflicts=${initializeConflicts.length} responses=${initializeResponses.map((response) => `${response.status}/${response.body.operation || response.body.error?.code || "no-code"}`).join(",")}`,
+    );
+    requireValue(
+      initializeWinners.length === 1,
+      `M1.5a initialize did not produce one winner: ${JSON.stringify(initializeResponses)}`,
+    );
+    const initializeGet = await call("GET", initializePath);
+    const initializedState = initializeGet.body.autonomous_system_activation_state;
+    const initializedReceipt = initializeGet.body.lifecycle_receipt;
+    ok(
+      "M1.5a INITIALIZE GET: complete graph is exact and carries no active set or chain",
+      initializeGet.status === 200 &&
+        initializedState?.sequence === 1 &&
+        initializedState?.status === "initialized" &&
+        initializedState?.active_profile_set_ref === null &&
+        initializedState?.chain_ref === null &&
+        initializeGet.body.active_profile_set === null &&
+        initializeGet.body.autonomous_system_chain === null,
+      `${initializeGet.status}/${initializeGet.body.error?.code || initializedState?.status}`,
+    );
+
+    const activatePath = `${GENESIS_ROUTE}/${source.sourceTail}/activate`;
+    const activateRequest = {
+      expected_initialize_proposal_root:
+        initializedReceipt.bound_facts.proposal_root,
+      expected_initialize_decision_root:
+        initializedReceipt.bound_facts.decision_root,
+      expected_initialize_state_root: initializedState.activation_state_root,
+      expected_initialize_transition_root: initializedState.transition_root,
+      expected_initialize_receipt_root:
+        initializedState.transition_receipt_root,
+    };
+    await plane.stop();
+    plane = await startVerifierPlane({
+      dataDir,
+      env: {
+        ...resolver.env,
+        IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_LOCAL_PERSIST:
+          "autonomous-system-lifecycle-authority-consumptions",
+      },
+    });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5a fault plane is not built");
+    }
+    call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+    const activateAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      activatePath,
+      activateRequest,
+      ACTIVATE_SCOPE,
+    );
+    const activateGrant = requireValue(
+      activateAuthority.grant,
+      `M1.5a activate challenge lacks a grant: ${JSON.stringify(activateAuthority.challenge)}`,
+    );
+    const race = await Promise.all([
+      call("POST", initializePath, {
+        ...initializeRequest,
+        wallet_approval_grant: initializeGrant,
+      }),
+      call("POST", activatePath, {
+        ...activateRequest,
+        wallet_approval_grant: activateGrant,
+      }),
+    ]);
+    const competingInitialize = race[0];
+    const interruptedActivation = race[1];
+    ok(
+      "M1.5a ACTIVATE PARTIAL: activation parks after a real wallet use and one local write while the competing lifecycle operation refuses",
+      interruptedActivation?.body.error?.code ===
+        "system_lifecycle_pending_convergence" &&
+        ((competingInitialize?.status === 409 &&
+          competingInitialize.body.error?.code ===
+            "system_lifecycle_sequence_conflict") ||
+          (competingInitialize?.status === 500 &&
+            competingInitialize.body.error?.code ===
+              "system_lifecycle_pending_convergence")) &&
+        familyFiles(dataDir, ACTIVATE_INTENT_FAMILY).length === 1 &&
+        familyFiles(
+          dataDir,
+          "autonomous-system-lifecycle-authority-consumptions",
+        ).length === 2 &&
+        familyFiles(dataDir, "autonomous-system-activation-states").length ===
+          1,
+      race.map((response) => `${response.status}/${response.body.operation || response.body.error?.code}`).join(","),
+    );
+
+    await plane.stop();
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5a replay plane is not built");
+    }
+    call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+    const activationIntentCleared = await waitForIntentRecordsToClear(
+      dataDir,
+      ACTIVATE_INTENT_FAMILY,
+    );
+    const replayedActivation = await call("GET", activatePath);
+    ok(
+      "M1.5a ACTIVATE REPLAY: restart reuses the consumed grant and converges exactly one sequence-two graph",
+      activationIntentCleared &&
+        replayedActivation.status === 200 &&
+        replayedActivation.body.autonomous_system_activation_state?.sequence ===
+          2 &&
+        familyFiles(dataDir, ACTIVATE_INTENT_FAMILY).length === 0,
+      `${replayedActivation.status}/${replayedActivation.body.error?.code || replayedActivation.body.autonomous_system_activation_state?.status} intent-cleared=${activationIntentCleared}`,
+    );
+
+    const activateGet = await call("GET", activatePath);
+    const activeState = activateGet.body.autonomous_system_activation_state;
+    const operationLog = activateGet.body.operation_log;
+    const chain = activateGet.body.autonomous_system_chain;
+    const substrateStatus = await call("GET", "/v1/hypervisor/substrate/status");
+    const expectedCounts = new Map([
+      ["autonomous-system-deployment-profile-revisions", 1],
+      ["autonomous-system-lifecycle-authority-evidence", 2],
+      ["autonomous-system-lifecycle-authority-consumptions", 2],
+      ["autonomous-system-lifecycle-proposals", 2],
+      ["autonomous-system-lifecycle-authority-decisions", 2],
+      ["autonomous-system-lifecycle-transitions", 2],
+      ["autonomous-system-initialize-transition-receipts", 1],
+      ["autonomous-system-activation-receipts", 1],
+      ["autonomous-system-activation-states", 2],
+      ["autonomous-system-active-profile-sets", 1],
+      ["autonomous-system-home-bindings", 1],
+      ["autonomous-system-operation-log-revisions", 1],
+      ["autonomous-system-chain-revisions", 1],
+    ]);
+    ok(
+      "M1.5a ACTIVATE GET: exact 0/1/2 log and compact non-runtime chain are fully durable",
+      activateGet.status === 200 &&
+        activeState?.sequence === 2 &&
+        activeState?.status === "active" &&
+        sameJson(operationLog?.entries?.map((entry) => entry.sequence), [0, 1, 2]) &&
+        sameJson(chain?.node_membership_refs, []) &&
+        sameJson(chain?.worker_instance_refs, []) &&
+        sameJson(chain?.workflow_refs, []) &&
+        sameJson(chain?.pending_proposal_refs, []) &&
+        chain?.active_writer_epoch === null &&
+        chain?.latest_transition_commitment_ref === null &&
+        LIFECYCLE_FAMILIES.every(
+          (family) =>
+            familyFiles(dataDir, family).length === expectedCounts.get(family) &&
+            requiredDomainIsNonVacuous(substrateStatus, family),
+        ),
+      `${activateGet.status}/${activateGet.body.error?.code || activeState?.status}`,
+    );
+    ok(
+      "M1.5a SOURCE: real M1.3/M1.4 bytes remain unchanged across initialize and activate",
+      predecessorBytes ===
+        familiesSnapshot(dataDir, [...SOURCE_FAMILIES, ...MATERIALIZATION_FAMILIES]),
+      `byte-exact=${predecessorBytes === familiesSnapshot(dataDir, [...SOURCE_FAMILIES, ...MATERIALIZATION_FAMILIES])}`,
+    );
+  } finally {
+    if (plane) await plane.stop();
+    await resolver.stop();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
 function selectJourneys(rawSelection, journeyNames) {
   const available = [...journeyNames];
   if (rawSelection === undefined) return available;
@@ -5174,6 +5538,7 @@ async function run() {
       ).length}/${MATERIALIZATION_FAMILIES.length} current-write-only=${productionReceiptBuilder.includes("ReceiptVersion::CurrentV2") && productionIntentCompleter.includes("require_legacy_receipt_preexisting")}`,
     );
     const journeys = new Map([
+      ["system-activation", runSystemActivationJourney],
       ["primary", runPrimaryJourney],
       ["wallet-replay", runCrashReplayJourney],
       ["partial-prefix-replay", runPartialPrefixReplayJourney],

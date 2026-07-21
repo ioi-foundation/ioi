@@ -21,6 +21,7 @@ use ioi_types::app::{
     compile_system_sequence_zero_plan, compute_system_genesis_admission_receipt_root,
     compute_system_genesis_admission_record_root, finalize_system_sequence_zero_materialization,
     validate_principal_authority_ref, ApprovalGrant, CompiledSystemSequenceZeroPlan,
+    UnverifiedSystemSequenceZeroActivationSource,
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -63,7 +64,7 @@ const AUTHORITY: AuthorityContract = AuthorityContract {
     participant_label: "not_applicable",
 };
 
-static SYSTEM_SEQUENCE_ZERO_LOCK: Mutex<()> = Mutex::new(());
+pub(crate) static SYSTEM_SEQUENCE_ZERO_LOCK: Mutex<()> = Mutex::new(());
 static SYSTEM_SEQUENCE_ZERO_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 static SYSTEM_SEQUENCE_ZERO_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 
@@ -2366,6 +2367,43 @@ fn load_converged_materialization_locked(
         )
     })?;
     Ok(Some((reconstructed, wallet_receipt)))
+}
+
+/// Current-contract M1.4 projection for the M1.5a owner. The caller must hold
+/// `SYSTEM_GENESIS_LOCK` and `SYSTEM_SEQUENCE_ZERO_LOCK`, in that order. This deliberately uses
+/// the same byte/root/authority/Agentgres verified loader as the M1.4 GET path; legacy receipts
+/// remain readable there but cannot become an activation predecessor.
+pub(crate) fn load_current_v2_activation_source_locked(
+    data_dir: &str,
+    source_record_tail: &str,
+) -> Result<Option<UnverifiedSystemSequenceZeroActivationSource>, (String, String)> {
+    let Some((reconstructed, wallet_receipt)) =
+        load_converged_materialization_locked(data_dir, source_record_tail)?
+    else {
+        return Ok(None);
+    };
+    if reconstructed.receipt_version != ReceiptVersion::CurrentV2 {
+        return Err(verr(
+            "system_sequence_zero_legacy_activation_source_refused",
+            "legacy M1.4 evidence remains readable but is not an activation predecessor",
+        ));
+    }
+    let materialization_wallet_consumption =
+        serde_json::to_value(wallet_receipt).map_err(|error| {
+            verr(
+                "system_sequence_zero_wallet_consumption_invalid",
+                format!("wallet consumption receipt cannot be projected ({error})"),
+            )
+        })?;
+    Ok(Some(UnverifiedSystemSequenceZeroActivationSource {
+        source_governing_authority_ref: reconstructed.source.governing_authority_ref,
+        genesis_admission_record: reconstructed.source.source_record,
+        genesis_admission_receipt: reconstructed.source.source_receipt,
+        materialization: reconstructed.materialization,
+        materialization_receipt: reconstructed.receipt,
+        component_registry: reconstructed.component_registry,
+        materialization_wallet_consumption,
+    }))
 }
 
 pub(crate) async fn handle_get(

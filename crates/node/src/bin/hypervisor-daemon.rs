@@ -136,6 +136,8 @@ mod storage_backend_routes;
 mod substrate_store;
 #[path = "hypervisor_daemon_routes/supervisor_routes.rs"]
 mod supervisor_routes;
+#[path = "hypervisor_daemon_routes/system_activation_routes.rs"]
+mod system_activation_routes;
 #[path = "hypervisor_daemon_routes/system_genesis_routes.rs"]
 mod system_genesis_routes;
 #[path = "hypervisor_daemon_routes/system_sequence_zero_routes.rs"]
@@ -160,7 +162,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::{
     body::Body,
-    extract::{Path as AxumPath, Query, State},
+    extract::{DefaultBodyLimit, Path as AxumPath, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{delete, get, patch, post},
@@ -461,6 +463,8 @@ async fn async_main() -> anyhow::Result<()> {
         &[
             system_genesis_routes::INTENT_DIR,
             system_sequence_zero_routes::INTENT_DIR,
+            system_activation_routes::INITIALIZE_INTENT_DIR,
+            system_activation_routes::ACTIVATE_INTENT_DIR,
         ],
     )?;
     seed_default_state(&data_dir);
@@ -2067,6 +2071,22 @@ async fn async_main() -> anyhow::Result<()> {
                 .post(system_sequence_zero_routes::handle_materialize),
         )
         .route(
+            "/v1/hypervisor/autonomous-systems/:id/initialize",
+            get(system_activation_routes::handle_get_initialize)
+                .post(system_activation_routes::handle_initialize)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/activate",
+            get(system_activation_routes::handle_get_activate)
+                .post(system_activation_routes::handle_activate)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
             "/v1/hypervisor/work-results",
             get(work_result_routes::handle_work_results_list)
                 .post(work_result_routes::handle_work_result_create),
@@ -3268,6 +3288,16 @@ async fn async_main() -> anyhow::Result<()> {
                     // M1.4 consumes exact M1.3 evidence. Run it only after the M1.3 pass has
                     // returned, inside the SAME isolated owner worker.
                     system_sequence_zero_routes::complete_governed_system_sequence_zero_intents(
+                        &system_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
+                    system_activation_routes::complete_initialize_intents(
+                        &system_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
+                    system_activation_routes::complete_activate_intents(
                         &system_data_dir,
                         governed_max_intents,
                     )

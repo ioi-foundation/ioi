@@ -25,6 +25,10 @@ use ioi_cli::testing::{
 };
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
 use ioi_services::wallet_network::RegisterApprovalAuthorityParams;
+use ioi_services::wallet_network::{
+    ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
+    ExpectedPrincipalAuthorityBinding,
+};
 use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
 use ioi_types::app::wallet_network::{
     IssuePrincipalAuthorityBindingParams, PrincipalAuthorityBindingHeadV1,
@@ -60,9 +64,13 @@ const MAX_COMMAND_BYTES: u64 = 64 * 1024;
 const MAX_PENDING_COMMANDS: usize = 64;
 const SYSTEM_GENESIS_SCOPE: &str = "scope:autonomous_system.genesis_admit";
 const SYSTEM_SEQUENCE_ZERO_SCOPE: &str = "scope:autonomous_system.genesis_materialize";
+const SYSTEM_INITIALIZE_SCOPE: &str = "scope:autonomous_system.lifecycle.initialize";
+const SYSTEM_ACTIVATE_SCOPE: &str = "scope:autonomous_system.lifecycle.activate";
 const SYSTEM_GENESIS_APPROVAL_REASON: &str = "System genesis admission fixture approval";
 const SYSTEM_SEQUENCE_ZERO_APPROVAL_REASON: &str =
     "System sequence-zero materialization fixture approval";
+const SYSTEM_INITIALIZE_APPROVAL_REASON: &str = "System lifecycle initialize fixture approval";
+const SYSTEM_ACTIVATE_APPROVAL_REASON: &str = "System lifecycle activate fixture approval";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -196,6 +204,8 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             "verifier_challenge.*".to_string(),
             SYSTEM_GENESIS_SCOPE.to_string(),
             SYSTEM_SEQUENCE_ZERO_SCOPE.to_string(),
+            SYSTEM_INITIALIZE_SCOPE.to_string(),
+            SYSTEM_ACTIVATE_SCOPE.to_string(),
         ],
     )
 }
@@ -318,6 +328,52 @@ fn wallet_approval_key(request_hash: &[u8; 32]) -> Vec<u8> {
         request_hash.as_slice(),
     ]
     .concat()
+}
+
+fn wallet_effect_receipt_key(consumption_id: &[u8; 32]) -> Vec<u8> {
+    [
+        service_namespace_prefix("wallet_network").as_slice(),
+        b"approval_effect_consumption_receipt::",
+        consumption_id.as_slice(),
+    ]
+    .concat()
+}
+
+fn signed_lifecycle_grant(
+    signer: &Ed25519KeyPair,
+    authority: &ApprovalAuthority,
+    request_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    audience: [u8; 32],
+    nonce: [u8; 32],
+    counter: u64,
+) -> Result<ApprovalGrant> {
+    let mut grant = ApprovalGrant {
+        schema_version: 1,
+        authority_id: authority.authority_id,
+        request_hash,
+        policy_hash,
+        audience,
+        nonce,
+        counter,
+        expires_at: EXPIRES_AT_MS,
+        max_usages: Some(1),
+        window_id: None,
+        pii_action: None,
+        scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: authority.public_key.clone(),
+        approver_sig: Vec::new(),
+        approver_suite: authority.signature_suite,
+    };
+    grant.approver_sig = signer
+        .private_key()
+        .sign(&grant.signing_bytes()?)
+        .map_err(|error| anyhow!(error.to_string()))?
+        .to_bytes()
+        .to_vec();
+    grant.verify()?;
+    Ok(grant)
 }
 
 fn principal_authority_head_key(principal_ref: &str) -> Vec<u8> {
@@ -544,6 +600,8 @@ async fn submit_record_approval(
     let reason = match target_scope {
         SYSTEM_GENESIS_SCOPE => SYSTEM_GENESIS_APPROVAL_REASON,
         SYSTEM_SEQUENCE_ZERO_SCOPE => SYSTEM_SEQUENCE_ZERO_APPROVAL_REASON,
+        SYSTEM_INITIALIZE_SCOPE => SYSTEM_INITIALIZE_APPROVAL_REASON,
+        SYSTEM_ACTIVATE_SCOPE => SYSTEM_ACTIVATE_APPROVAL_REASON,
         _ => {
             return Err(anyhow!(
                 "record_approval target_scope is not one of the fixture's governed System scopes"
@@ -878,6 +936,275 @@ fn fixture_command_contract_is_canonical_and_bounded() {
         .scope_allowlist
         .iter()
         .any(|scope| scope == SYSTEM_SEQUENCE_ZERO_SCOPE));
+    assert!(host
+        .scope_allowlist
+        .iter()
+        .any(|scope| scope == SYSTEM_INITIALIZE_SCOPE));
+    assert!(host
+        .scope_allowlist
+        .iter()
+        .any(|scope| scope == SYSTEM_ACTIVATE_SCOPE));
+}
+
+#[tokio::test]
+#[ignore = "isolated real-wallet M1.5a verifier; run explicitly"]
+async fn system_activation_real_wallet_verifier() -> Result<()> {
+    build_test_artifacts();
+    let cluster = TestCluster::builder()
+        .with_validators(1)
+        .with_consensus_type("Aft")
+        .with_state_tree("IAVL")
+        .with_service_policy("wallet_network", wallet_policy())
+        .build()
+        .await?;
+    let verification: Result<()> = async {
+        let rpc_addr = cluster.validators[0].validator().rpc_addr.clone();
+        let chain_id = ChainId(1);
+        wait_for_height(&rpc_addr, 1, Duration::from_secs(30)).await?;
+        let root = keypair(&ROOT_SEED)?;
+        let root_public_key = root.public_key().to_bytes();
+        let root_record = WalletControlPlaneRootRecord {
+            account_id: account_id_from_key_material(SignatureSuite::ED25519, &root_public_key)?,
+            signature_suite: SignatureSuite::ED25519,
+            public_key: root_public_key,
+            registered_at_ms: 0,
+            updated_at_ms: 0,
+            metadata: BTreeMap::from([(
+                "fixture".to_owned(),
+                "system-activation-real-wallet-verifier".to_owned(),
+            )]),
+        };
+        submit(
+            &rpc_addr,
+            &root,
+            chain_id,
+            0,
+            "configure_control_root@v1",
+            &WalletConfigureControlRootParams {
+                root: root_record.clone(),
+            },
+        )
+        .await?;
+        let capability = keypair(&CAPABILITY_SEED)?;
+        let capability_public_key = capability.public_key().to_bytes();
+        let capability_account_id =
+            account_id_from_key_material(SignatureSuite::ED25519, &capability_public_key)?;
+        submit(
+            &rpc_addr,
+            &root,
+            chain_id,
+            1,
+            "register_client@v1",
+            &WalletRegisterClientParams {
+                client: WalletRegisteredClientRecord {
+                    client_id: capability_account_id,
+                    label: "M1.5a lifecycle verifier".to_owned(),
+                    surface: VaultSurface::Desktop,
+                    signature_suite: SignatureSuite::ED25519,
+                    public_key: capability_public_key,
+                    role: WalletClientRole::Capability,
+                    state: WalletClientState::Active,
+                    registered_at_ms: 0,
+                    updated_at_ms: 0,
+                    expires_at_ms: Some(EXPIRES_AT_MS),
+                    allowed_provider_families: Vec::new(),
+                    metadata: BTreeMap::new(),
+                },
+            },
+        )
+        .await?;
+        let approver = keypair(&HOST_SEED)?;
+        let authority = approval_authority(&HOST_SEED)?;
+        submit(
+            &rpc_addr,
+            &root,
+            chain_id,
+            2,
+            "register_approval_authority@v1",
+            &RegisterApprovalAuthorityParams {
+                authority: authority.clone(),
+            },
+        )
+        .await?;
+        let binding = signed_binding(&root, &root_record, "org://acme/research", &authority)?;
+        submit(
+            &rpc_addr,
+            &root,
+            chain_id,
+            3,
+            "issue_principal_authority_binding@v1",
+            &IssuePrincipalAuthorityBindingParams {
+                proof: binding.clone(),
+            },
+        )
+        .await?;
+
+        for (index, scope) in [SYSTEM_INITIALIZE_SCOPE, SYSTEM_ACTIVATE_SCOPE]
+            .into_iter()
+            .enumerate()
+        {
+            let request_hash = [0x51 + index as u8; 32];
+            let policy_hash = [0x61 + index as u8; 32];
+            let grant = signed_lifecycle_grant(
+                &approver,
+                &authority,
+                request_hash,
+                policy_hash,
+                capability_account_id,
+                [0x71 + index as u8; 32],
+                index as u64 + 1,
+            )?;
+            submit_record_approval(
+                &rpc_addr,
+                chain_id,
+                &capability,
+                capability_account_id,
+                FixtureCommand {
+                    schema_version: COMMAND_SCHEMA_VERSION,
+                    operation: "record_approval".to_owned(),
+                    principal_ref: "org://acme/research".to_owned(),
+                    policy_hash: Some(format!("sha256:{}", hex::encode(policy_hash))),
+                    request_hash: Some(format!("sha256:{}", hex::encode(request_hash))),
+                    approval_grant: Some(grant.clone()),
+                    target_scope: Some(scope.to_owned()),
+                },
+            )
+            .await?;
+            let expected = ExpectedPrincipalAuthorityBinding {
+                principal_ref: "org://acme/research".to_owned(),
+                required_scope: scope.to_owned(),
+                coordinates: binding.coordinates(),
+                approval_authority: authority.clone(),
+                approval_authority_snapshot_hash: binding
+                    .statement
+                    .approval_authority_snapshot_hash,
+            };
+            let consumption_id = [0x81 + index as u8; 32];
+            let params = ConsumeApprovalGrantForEffectV2Params {
+                request_hash,
+                grant_hash: grant.artifact_hash()?,
+                consumption_id,
+                expected_principal_authority: expected,
+                expected_target_label: scope.to_owned(),
+                expected_max_usages: 1,
+            };
+            let invalid_base = 0xa0u8.saturating_add((index as u8) * 8);
+            let mut wrong_target = params.clone();
+            wrong_target.consumption_id = [invalid_base; 32];
+            wrong_target.expected_target_label = if scope == SYSTEM_INITIALIZE_SCOPE {
+                SYSTEM_ACTIVATE_SCOPE.to_owned()
+            } else {
+                SYSTEM_INITIALIZE_SCOPE.to_owned()
+            };
+            let mut wrong_max_usage = params.clone();
+            wrong_max_usage.consumption_id = [invalid_base + 1; 32];
+            wrong_max_usage.expected_max_usages = 2;
+            let mut wrong_principal = params.clone();
+            wrong_principal.consumption_id = [invalid_base + 2; 32];
+            wrong_principal.expected_principal_authority.principal_ref =
+                "org://foreign/principal".to_owned();
+            let mut wrong_scope = params.clone();
+            wrong_scope.consumption_id = [invalid_base + 3; 32];
+            wrong_scope.expected_principal_authority.required_scope =
+                "scope:autonomous_system.lifecycle.foreign".to_owned();
+            for invalid in [wrong_target, wrong_max_usage, wrong_principal, wrong_scope] {
+                let invalid_nonce = account_nonce(&rpc_addr, &capability_account_id).await?;
+                let _ = submit(
+                    &rpc_addr,
+                    &capability,
+                    chain_id,
+                    invalid_nonce,
+                    "consume_approval_grant_for_effect@v2",
+                    &invalid,
+                )
+                .await;
+                if query_state_key(
+                    &rpc_addr,
+                    &wallet_effect_receipt_key(&invalid.consumption_id),
+                )
+                .await?
+                .is_some()
+                {
+                    return Err(anyhow!(
+                        "real wallet admitted a wrong target, usage ceiling, principal, or scope"
+                    ));
+                }
+            }
+            let nonce = account_nonce(&rpc_addr, &capability_account_id).await?;
+            submit(
+                &rpc_addr,
+                &capability,
+                chain_id,
+                nonce,
+                "consume_approval_grant_for_effect@v2",
+                &params,
+            )
+            .await?;
+            let receipt_bytes =
+                query_state_key(&rpc_addr, &wallet_effect_receipt_key(&consumption_id))
+                    .await?
+                    .ok_or_else(|| {
+                        anyhow!("real wallet emitted no lifecycle consumption receipt")
+                    })?;
+            let receipt: ApprovalGrantConsumptionReceipt =
+                decode_state_value(&receipt_bytes, "lifecycle consumption receipt")?;
+            if receipt.request_hash != request_hash
+                || receipt.grant_hash != params.grant_hash
+                || receipt.consumption_id != consumption_id
+                || receipt.principal_authority != params.expected_principal_authority
+                || receipt.target.canonical_label() != scope
+                || receipt.usage_ordinal != 1
+                || receipt.remaining_usages != 0
+            {
+                return Err(anyhow!(
+                    "real wallet receipt did not bind the exact lifecycle tuple"
+                ));
+            }
+            let replay_nonce = account_nonce(&rpc_addr, &capability_account_id).await?;
+            submit(
+                &rpc_addr,
+                &capability,
+                chain_id,
+                replay_nonce,
+                "consume_approval_grant_for_effect@v2",
+                &params,
+            )
+            .await?;
+            let replayed = query_state_key(&rpc_addr, &wallet_effect_receipt_key(&consumption_id))
+                .await?
+                .ok_or_else(|| anyhow!("idempotent wallet receipt vanished"))?;
+            if replayed != receipt_bytes {
+                return Err(anyhow!("idempotent wallet replay changed receipt bytes"));
+            }
+
+            let unrelated_id = [0x91 + index as u8; 32];
+            let mut unrelated = params.clone();
+            unrelated.consumption_id = unrelated_id;
+            let unrelated_nonce = account_nonce(&rpc_addr, &capability_account_id).await?;
+            let _ = submit(
+                &rpc_addr,
+                &capability,
+                chain_id,
+                unrelated_nonce,
+                "consume_approval_grant_for_effect@v2",
+                &unrelated,
+            )
+            .await;
+            if query_state_key(&rpc_addr, &wallet_effect_receipt_key(&unrelated_id))
+                .await?
+                .is_some()
+            {
+                return Err(anyhow!(
+                    "one-use lifecycle grant admitted an unrelated second consumption"
+                ));
+            }
+        }
+        Ok(())
+    }
+    .await;
+    let shutdown = cluster.shutdown().await;
+    shutdown?;
+    verification
 }
 
 #[tokio::test]
