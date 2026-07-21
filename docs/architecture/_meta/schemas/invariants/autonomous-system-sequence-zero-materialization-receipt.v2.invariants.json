@@ -1,0 +1,745 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/exact-boundary/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+  "rules": [
+    {
+      "rule_id": "sequence_zero_materialization_receipt.identity.matches_ref",
+      "description": "The storage-facing receipt_ref exactly mirrors canonical ReceiptEnvelope receipt_id.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.timestamp.matches_at",
+      "description": "The storage-facing at field exactly mirrors canonical ReceiptEnvelope timestamp.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.timestamp",
+          "$.at"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.subject.matches_bound_materialization",
+      "description": "The receipt subject is the exact materialization identity bound by the receipt.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.subject_ref",
+          "$.bound_facts.materialization_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.subject.matches_authorized_effect",
+      "description": "The governed effect addresses the exact receipt subject.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.subject_ref",
+          "$.authorized_effect.materialization.materialization_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.output_hash.matches_bound_output",
+      "description": "The ReceiptEnvelope output hash mirrors the finalized materialization hash.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.output_hash",
+          "$.bound_facts.materialization_output_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_hash.matches_bound_effect",
+      "description": "The governed effect hash mirrors the bound owner-plane effect commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.effect_hash",
+          "$.bound_facts.authority_effect_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority.matches_binding",
+      "description": "The retained authority binding resolves the receipt's exact governing authority.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.governing_authority_ref",
+          "$.principal_authority_binding.principal_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_authority.matches_snapshot",
+      "description": "The retained grant authority equals the root-bound ApprovalAuthority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.authority_id",
+          "$.principal_authority_binding.approval_authority.authority_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_key.matches_snapshot",
+      "description": "The retained grant key equals the root-bound ApprovalAuthority key.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.approver_public_key",
+          "$.principal_authority_binding.approval_authority.public_key"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_suite.matches_snapshot",
+      "description": "The retained grant suite equals the root-bound ApprovalAuthority suite.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.approver_suite",
+          "$.principal_authority_binding.approval_authority.signature_suite"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_principal.matches_statement",
+      "description": "The stable binding projection and immutable statement name one principal.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.principal_ref",
+          "$.principal_authority_binding.binding_proof.statement.principal_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_snapshot.matches_statement",
+      "description": "The stable binding projection and immutable statement bind one authority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.approval_authority_snapshot_hash",
+          "$.principal_authority_binding.binding_proof.statement.approval_authority_snapshot_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+      "description": "Every materialization field duplicated into bound_facts exactly matches the authorized materialization.",
+      "expression": {
+        "operator": "object_fields_equal",
+        "object_paths": [
+          "$.bound_facts",
+          "$.authorized_effect.materialization"
+        ],
+        "fields": [
+          "materialization_id",
+          "system_id",
+          "genesis_ref",
+          "genesis_admission_receipt_ref",
+          "genesis_admission_record_root",
+          "genesis_admission_receipt_root",
+          "proposed_initial_state_root",
+          "proposed_initial_receipt_root",
+          "package_id",
+          "manifest_ref",
+          "admitted_manifest_root",
+          "constitution_ref",
+          "constitution_root",
+          "profile_bundle_root",
+          "profile_materialization_root",
+          "deployment_profile_root",
+          "profile_refs",
+          "component_registry_ref",
+          "component_registry_root",
+          "component_binding_count",
+          "sequence",
+          "predecessor_transition_commitment_ref",
+          "operation_commitment",
+          "transition_commitment_ref",
+          "initial_state_root",
+          "initial_receipt_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_receipt_ref.matches_receipt",
+      "description": "The embedded materialization names this exact materialization receipt.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.authorized_effect.materialization.materialization_receipt_ref",
+          "$.receipt_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_materialization_id.binds_genesis_root",
+      "description": "The embedded materialization identity binds its admitted genesis record root.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.authorized_effect.materialization.materialization_id",
+        "prefix": "system-materialization://sequence-zero/",
+        "expected_path": "$.authorized_effect.materialization.genesis_admission_record_root"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_registry_ref.binds_registry_root",
+      "description": "The embedded component registry reference binds its exact registry root.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.authorized_effect.materialization.component_registry_ref",
+        "prefix": "agentgres://object-set/autonomous-system-components/",
+        "expected_path": "$.authorized_effect.materialization.component_registry_root"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_component_count.matches_array",
+      "description": "The embedded component binding count equals its exact component array length.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.authorized_effect.materialization.component_bindings",
+        "count_path": "$.authorized_effect.materialization.component_binding_count"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_component_identities.unique",
+      "description": "The embedded materialization cannot duplicate a component kind and reference identity.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.authorized_effect.materialization.component_bindings",
+        "fields": [
+          "kind",
+          "binding_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_deployment_ref.binds_root",
+      "description": "The embedded deployment root is either the direct content-addressed revision digest or the domain-separated compatibility commitment over the exact retained legacy reference.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "field_suffix_equals_prefixed_field",
+            "source_path": "$.authorized_effect.materialization.profile_refs.deployment_profile_ref",
+            "delimiter": "/revision/sha256:",
+            "target_path": "$.authorized_effect.materialization.deployment_profile_root",
+            "target_prefix": "sha256:"
+          },
+          {
+            "operator": "jcs_sha256_equals",
+            "algorithm": "jcs_sha256",
+            "material_fields": {
+              "domain": {
+                "value": "ioi.autonomous-system-legacy-deployment-profile-ref-jcs-sha256.v1"
+              },
+              "value": {
+                "path": "$.authorized_effect.materialization.profile_refs.deployment_profile_ref"
+              }
+            },
+            "expected_path": "$.authorized_effect.materialization.deployment_profile_root",
+            "expected_encoding": "sha256_string"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_hash.recomputes",
+      "description": "The effect hash is SHA-256 over JCS of the exact domain-separated authorized effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-sequence-zero.decision.request.v1.effect.v1"
+          },
+          "effect": {
+            "path": "$.authorized_effect"
+          }
+        },
+        "expected_path": "$.effect_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.policy_hash.recomputes",
+      "description": "The policy hash is SHA-256 over JCS of the exact owner-governed materialization policy.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-sequence-zero.decision.policy.v1"
+          },
+          "governance": {
+            "value": "system_owner"
+          },
+          "genesis_id": {
+            "path": "$.bound_facts.genesis_ref"
+          },
+          "system_id": {
+            "path": "$.bound_facts.system_id"
+          },
+          "required_authority_ref": {
+            "path": "$.bound_facts.governing_authority_ref"
+          },
+          "required_scope": {
+            "path": "$.principal_authority_binding.required_scope"
+          }
+        },
+        "expected_path": "$.policy_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.request_hash.recomputes",
+      "description": "The input hash is SHA-256 over JCS of the exact owner-governed materialization request.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-sequence-zero.decision.request.v1"
+          },
+          "governance": {
+            "value": "system_owner"
+          },
+          "subject_ref": {
+            "path": "$.subject_ref"
+          },
+          "op": {
+            "value": "genesis_materialize"
+          },
+          "revision": {
+            "value": 0
+          },
+          "required_authority_ref": {
+            "path": "$.bound_facts.governing_authority_ref"
+          },
+          "required_scope": {
+            "path": "$.principal_authority_binding.required_scope"
+          },
+          "effect_hash": {
+            "path": "$.effect_hash"
+          }
+        },
+        "expected_path": "$.input_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_request_hash.recomputes",
+      "description": "The retained signed grant authorizes the exact recomputed request commitment.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-sequence-zero.decision.request.v1"
+          },
+          "governance": {
+            "value": "system_owner"
+          },
+          "subject_ref": {
+            "path": "$.subject_ref"
+          },
+          "op": {
+            "value": "genesis_materialize"
+          },
+          "revision": {
+            "value": 0
+          },
+          "required_authority_ref": {
+            "path": "$.bound_facts.governing_authority_ref"
+          },
+          "required_scope": {
+            "path": "$.principal_authority_binding.required_scope"
+          },
+          "effect_hash": {
+            "path": "$.effect_hash"
+          }
+        },
+        "expected_path": "$.wallet_approval_grant.request_hash",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_policy_hash.recomputes",
+      "description": "The retained signed grant authorizes the exact recomputed policy commitment.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-sequence-zero.decision.policy.v1"
+          },
+          "governance": {
+            "value": "system_owner"
+          },
+          "genesis_id": {
+            "path": "$.bound_facts.genesis_ref"
+          },
+          "system_id": {
+            "path": "$.bound_facts.system_id"
+          },
+          "required_authority_ref": {
+            "path": "$.bound_facts.governing_authority_ref"
+          },
+          "required_scope": {
+            "path": "$.principal_authority_binding.required_scope"
+          }
+        },
+        "expected_path": "$.wallet_approval_grant.policy_hash",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_identity.recomputes",
+      "description": "The authority_grant_id is the canonical prefixed SHA-256 over JCS of the exact retained signed ApprovalGrant.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_path": "$.wallet_approval_grant",
+        "expected_path": "$.authority_grant_id",
+        "expected_encoding": "prefixed_ref",
+        "prefix": "grant://wallet.network/approval/sha256:"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.wallet_consumption.binds_request",
+      "description": "The retained wallet consumption reference begins with the exact request digest.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.bound_facts.wallet_grant_consumption_ref",
+        "prefix": "wallet.network://approval-effect-consumption/",
+        "expected_path": "$.input_hash",
+        "strip_prefix": "sha256:",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.wallet_consumption.matches_evidence_id",
+      "description": "The wallet consumption reference and local consumption evidence reference carry one exact consumption identifier.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.bound_facts.wallet_grant_consumption_ref",
+        "delimiter": "/",
+        "target_path": "$.bound_facts.wallet_grant_consumption_evidence_ref",
+        "target_prefix": "system-sequence-zero-authority-consumption://aszmc_"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+      "description": "The retained ApprovalAuthority snapshot hash is SHA-256 over JCS of the exact snapshot.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_path": "$.principal_authority_binding.approval_authority",
+        "expected_path": "$.principal_authority_binding.approval_authority_snapshot_hash",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.statement_hash.recomputes",
+      "description": "The statement hash is SHA-256 over JCS of the exact domain-separated binding statement.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.wallet-network.principal-authority-binding.v1"
+          },
+          "statement": {
+            "path": "$.principal_authority_binding.binding_proof.statement"
+          }
+        },
+        "expected_path": "$.principal_authority_binding.binding_proof.statement_hash",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_hash.recomputes",
+      "description": "The binding hash is SHA-256 over JCS of the exact statement and issuer proof.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.wallet-network.principal-authority-binding-proof.v1"
+          },
+          "schema_version": {
+            "path": "$.principal_authority_binding.binding_proof.schema_version"
+          },
+          "statement": {
+            "path": "$.principal_authority_binding.binding_proof.statement"
+          },
+          "statement_hash": {
+            "path": "$.principal_authority_binding.binding_proof.statement_hash"
+          },
+          "issuer_signature_proof": {
+            "path": "$.principal_authority_binding.binding_proof.issuer_signature_proof"
+          }
+        },
+        "expected_path": "$.principal_authority_binding.binding_proof.binding_hash",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_ref.recomputes",
+      "description": "The binding reference is content-addressed by the recomputed complete proof hash.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.wallet-network.principal-authority-binding-proof.v1"
+          },
+          "schema_version": {
+            "path": "$.principal_authority_binding.binding_proof.schema_version"
+          },
+          "statement": {
+            "path": "$.principal_authority_binding.binding_proof.statement"
+          },
+          "statement_hash": {
+            "path": "$.principal_authority_binding.binding_proof.statement_hash"
+          },
+          "issuer_signature_proof": {
+            "path": "$.principal_authority_binding.binding_proof.issuer_signature_proof"
+          }
+        },
+        "expected_path": "$.principal_authority_binding.binding_proof.binding_ref",
+        "expected_encoding": "prefixed_ref",
+        "prefix": "wallet.network://principal-authority-binding/"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.coordinates_ref.matches_proof",
+      "description": "Stable binding coordinates name the exact retained proof reference.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.coordinates.binding_ref",
+          "$.principal_authority_binding.binding_proof.binding_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.coordinates_hash.matches_proof",
+      "description": "Stable binding coordinates carry the exact retained proof hash.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.coordinates.binding_hash",
+          "$.principal_authority_binding.binding_proof.binding_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.coordinates_version.matches_statement",
+      "description": "Stable binding coordinates carry the exact statement version.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.coordinates.binding_version",
+          "$.principal_authority_binding.binding_proof.statement.binding_version"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority_kind.matches_statement",
+      "description": "The projected binding and signed statement carry one authority kind.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.authority_kind",
+          "$.principal_authority_binding.binding_proof.statement.authority_kind"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority_id.matches_statement",
+      "description": "The ApprovalAuthority snapshot and statement carry one authority identity.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.approval_authority.authority_id",
+          "$.principal_authority_binding.binding_proof.statement.authority_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority_key.matches_statement",
+      "description": "The ApprovalAuthority snapshot and statement carry one authority key.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.approval_authority.public_key",
+          "$.principal_authority_binding.binding_proof.statement.authority_public_key"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority_suite.matches_statement",
+      "description": "The ApprovalAuthority snapshot and statement carry one authority suite.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.approval_authority.signature_suite",
+          "$.principal_authority_binding.binding_proof.statement.authority_signature_suite"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority_id.derives_from_key",
+      "description": "The ApprovalAuthority identity is domain-separated SHA-256 of its suite and key material.",
+      "expression": {
+        "operator": "sha256_parts_equals",
+        "parts": [
+          {
+            "utf8": "IOI-ACCOUNT-ID::V1"
+          },
+          {
+            "signed_i32_be_path": "$.principal_authority_binding.approval_authority.signature_suite"
+          },
+          {
+            "bytes_path": "$.principal_authority_binding.approval_authority.public_key"
+          }
+        ],
+        "expected_path": "$.principal_authority_binding.approval_authority.authority_id",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.issuer_root_id.derives_from_key",
+      "description": "The statement's issuer root identity is domain-separated SHA-256 of the retained issuer suite and key.",
+      "expression": {
+        "operator": "sha256_parts_equals",
+        "parts": [
+          {
+            "utf8": "IOI-ACCOUNT-ID::V1"
+          },
+          {
+            "signed_i32_be_path": "$.principal_authority_binding.binding_proof.issuer_signature_proof.suite"
+          },
+          {
+            "bytes_path": "$.principal_authority_binding.binding_proof.issuer_signature_proof.public_key"
+          }
+        ],
+        "expected_path": "$.principal_authority_binding.binding_proof.statement.issuer_root_account_id",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.scope.required_matches_resolution",
+      "description": "The authority resolver's retained exact allowlist pattern covers the required operation scope.",
+      "expression": {
+        "operator": "scope_pattern_matches",
+        "pattern_path": "$.principal_authority_binding.matched_scope",
+        "value_path": "$.principal_authority_binding.required_scope"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.scope.covered_by_authority",
+      "description": "The exact matched scope is present in the retained ApprovalAuthority allowlist.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.principal_authority_binding.approval_authority.scope_allowlist",
+        "expected_path": "$.principal_authority_binding.matched_scope"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.scope.covered_by_receipt",
+      "description": "The exact matched scope is present in the receipt authority scopes.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.authority_scopes",
+        "expected_path": "$.principal_authority_binding.required_scope"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding.signed_before_resolution",
+      "description": "The binding statement was signed no later than authority resolution.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.principal_authority_binding.binding_proof.statement.signed_at_ms",
+          "$.authority_resolved_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding.unexpired_at_resolution",
+      "description": "The binding statement was unexpired when authority resolved.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.authority_resolved_at_ms",
+          "$.principal_authority_binding.binding_proof.statement.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority.unexpired_at_resolution",
+      "description": "The ApprovalAuthority snapshot was unexpired when authority resolved.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.authority_resolved_at_ms",
+          "$.principal_authority_binding.approval_authority.expires_at"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant.unexpired_at_resolution",
+      "description": "The signed wallet grant was unexpired when authority resolved.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.authority_resolved_at_ms",
+          "$.wallet_approval_grant.expires_at"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.boundary_fact.exact_coverage",
+      "description": "Boundary facts are exactly the required materialization, profile, authority, admission, grant, and consumption references with no omission or inflation.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.attested_boundary_fact_refs",
+        "required_paths": [
+          "$.bound_facts.system_id",
+          "$.bound_facts.genesis_ref",
+          "$.bound_facts.manifest_ref",
+          "$.bound_facts.constitution_ref",
+          "$.bound_facts.component_registry_ref",
+          "$.bound_facts.profile_refs.deployment_profile_ref",
+          "$.bound_facts.profile_refs.ordering_admission_finality_profile_ref",
+          "$.bound_facts.profile_refs.lifecycle_continuity_profile_ref",
+          "$.bound_facts.profile_refs.network_enrollment_ref",
+          "$.bound_facts.genesis_admission_record_root",
+          "$.bound_facts.genesis_admission_receipt_ref",
+          "$.bound_facts.governing_authority_ref",
+          "$.authority_grant_id",
+          "$.bound_facts.wallet_grant_consumption_ref",
+          "$.bound_facts.wallet_grant_consumption_evidence_ref"
+        ],
+        "required_array_paths": [
+          "$.bound_facts.profile_refs.oracle_evidence_profile_refs"
+        ]
+      }
+    }
+  ]
+}
