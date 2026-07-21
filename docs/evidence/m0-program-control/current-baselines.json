@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-20",
+  "as_of_date": "2026-07-21",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -71,7 +71,7 @@
       "status": "not_measured"
     }
   ],
-  "build_fingerprint": "950438e79fa905890719df69637bf875dde03256b8d9b41bedb7f0189dad3136",
+  "build_fingerprint": "42225b4d477047009777440fe0afb08386b31ff9b091116b87dc2dd4d0f29757",
   "counts": {
     "not_measured": 4
   },

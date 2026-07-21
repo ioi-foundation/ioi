@@ -1,6 +1,6 @@
 {
-  "as_of_date": "2026-07-20",
-  "build_fingerprint": "950438e79fa905890719df69637bf875dde03256b8d9b41bedb7f0189dad3136",
+  "as_of_date": "2026-07-21",
+  "build_fingerprint": "42225b4d477047009777440fe0afb08386b31ff9b091116b87dc2dd4d0f29757",
   "closure_claimed": false,
   "counts": {
     "conditional": 16,
@@ -8,7 +8,6 @@
     "out_of_scope": 15,
     "required_now": 21
   },
-  "definition_owner": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
   "entries": [
     {
       "closure_claimed": false,
@@ -417,5 +416,11 @@
       "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
     }
   ],
-  "evidence_format": "ioi.m0.pg_gate_map.v1"
+  "evidence_format": "ioi.m0.pg_gate_map.v1",
+  "external_definition_input": {
+    "evidence_binding": "not_read_not_hashed_not_bound",
+    "path": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+    "tracking_posture": "ignored_untracked"
+  },
+  "tracked_selected_profile_authority": "docs/architecture/_meta/execution-horizons.md"
 }

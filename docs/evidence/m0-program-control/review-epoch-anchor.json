@@ -1,0 +1,159 @@
+{
+  "assurance_posture": {
+    "accepted_head_currentness": "not_established",
+    "chain_integrity_within_snapshot": "verified",
+    "coherent_snapshot_rollback_resistance": "not_established",
+    "repository_baseline_present": true,
+    "signature_key_possession": "verified",
+    "signer_principal_isolation": "not_established",
+    "snapshot_head_binding": "verified"
+  },
+  "chain_policy": {
+    "accepted_head_currentness": "not_established_without_outside_rollback_domain_checkpoint",
+    "coherent_snapshot_rollback_resistance": "not_established",
+    "head_binding": "supplied_snapshot_complete_lock_latest_epoch_and_program_source",
+    "historical_validation": "signed_claim_and_predecessor_within_supplied_snapshot",
+    "monotonicity": "strict_sequence_and_nondecreasing_review_date_within_supplied_snapshot",
+    "predecessor_rule": "sha256_of_complete_predecessor_anchor_entry",
+    "repository_baseline": {
+      "entry_sha256": "c2624cdd359487b3cde76b107b467dd610f6fd80166b065baf653cf68fa7e50d",
+      "epoch_id": "pr-91-integrated-authority-and-m1-4-review-2026-07-20",
+      "sequence": 2
+    },
+    "signature_authentication": "ed25519_key_possession_for_signed_claim",
+    "signer_principal_isolation": "not_established"
+  },
+  "epochs": [
+    {
+      "epoch_id": "m0-initial-review-2026-07-18",
+      "latest_epoch_identity_set_sha256": "71cdc7086f36ff95b3aae89d067769b0b943096a03cf7799bb97c090b7aef7f6",
+      "latest_epoch_reviewed_entry_count": 1538,
+      "latest_epoch_reviewed_entry_set_sha256": "9320405b70ac2aebd3343b706dcc97fa99379c0cda8521eb10dc283576d2936a",
+      "predecessor_entry_sha256": null,
+      "program_source_material_sha256": "5515bbc7b80243d9040211b212cf936c45b56bed90851c6730a709b6e6741985",
+      "review_lock_sha256": "876bb05d3c002e9d7ddbdc7736b15e138791a49d270e648850044338979a6e11",
+      "reviewed_as_of": "2026-07-18",
+      "reviewer_evidence": {
+        "algorithm": "Ed25519",
+        "evidence_format": "ioi.m0.detached_review_signature.v1",
+        "evidence_ref": "review-evidence://m0/program-control/m0-initial-review-2026-07-18",
+        "issued_at": "2026-07-20T16:00:00.000Z",
+        "public_key_spki_der_base64": "MCowBQYDK2VwAyEAkOJI2u49NzPITKwxBpvOx6HoW1RDw52A9ctpAfMY4KY=",
+        "signature_base64": "bYQ00FG9bOniWcAWoOjBKseRxlboQaazQ411oSuVLzFvtZ+Ju9f9bVHyk222cwlGN4TFLL25nCxyK/LtjIMwDQ==",
+        "signed_payload_sha256": "f91226ac23b2c3e829acd4bb4e241b0ec83db4c262b6dc1589573ae2c8d438ba"
+      },
+      "reviewer_id": "reviewer://ioi/m0-program-control-independent-review",
+      "reviewer_key_id": "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26",
+      "sequence": 1,
+      "total_reviewed_entry_count": 1538,
+      "total_reviewed_entry_set_sha256": "9320405b70ac2aebd3343b706dcc97fa99379c0cda8521eb10dc283576d2936a",
+      "total_reviewed_identity_set_sha256": "71cdc7086f36ff95b3aae89d067769b0b943096a03cf7799bb97c090b7aef7f6"
+    },
+    {
+      "epoch_id": "pr-91-integrated-authority-and-m1-4-review-2026-07-20",
+      "latest_epoch_identity_set_sha256": "f7cf0b516f0a960122c2a984a715decfbf9c1db5d7d097dfe292a321512414b6",
+      "latest_epoch_reviewed_entry_count": 771,
+      "latest_epoch_reviewed_entry_set_sha256": "d3bf2c82b7804925c87c4770063d1e444c147a270cada6d8ac8976080e1ed03c",
+      "predecessor_entry_sha256": "7fdeb6b9908da73c55a6e63deb904d25292c2892a9331bfc4569754f645a05aa",
+      "program_source_material_sha256": "1ff216ab48d62043cf232413896802fb3d374def8629502a922cdd003cb28cb5",
+      "review_lock_sha256": "2ca1c919f5ef710ea12d1c060cf5019e2bad035fcf6ae8d4adcecb5de47c100d",
+      "reviewed_as_of": "2026-07-20",
+      "reviewer_evidence": {
+        "algorithm": "Ed25519",
+        "evidence_format": "ioi.m0.detached_review_signature.v1",
+        "evidence_ref": "review-evidence://m0/program-control/pr-91-integrated-authority-and-m1-4-review-2026-07-20",
+        "issued_at": "2026-07-20T20:00:00.000Z",
+        "public_key_spki_der_base64": "MCowBQYDK2VwAyEAkOJI2u49NzPITKwxBpvOx6HoW1RDw52A9ctpAfMY4KY=",
+        "signature_base64": "yDGMGQnemFt2AdPrVqivBphNQs+JTBMX0kRPDkE+Gebt7zc6/UIpbuTtNgXb1ur9cVnhUlNCJydEvptlzYirBA==",
+        "signed_payload_sha256": "0eebbd7851c94eb9174e2f773fd40c507a320b5cd0904e10ce2a1435d454db48"
+      },
+      "reviewer_id": "reviewer://ioi/m0-program-control-independent-review",
+      "reviewer_key_id": "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26",
+      "sequence": 2,
+      "total_reviewed_entry_count": 1541,
+      "total_reviewed_entry_set_sha256": "ead55b7e09ba2b9a1c5c2e7309d28835245180f39d7e8c326758e26b2358bd30",
+      "total_reviewed_identity_set_sha256": "df3ab91ebe5378e240adab2275cced3e32e74a14ed6c2f122d5381f6b760cf1f"
+    },
+    {
+      "epoch_id": "pr-91-final-contract-runtime-and-m1-4-review-2026-07-20",
+      "latest_epoch_identity_set_sha256": "fd8f3d7db7e951da1ed61a451133aeb2ab8279154c22f4a9c3f428f00cf737a6",
+      "latest_epoch_reviewed_entry_count": 1064,
+      "latest_epoch_reviewed_entry_set_sha256": "15eefe8e418fb74d2bc4b1d9b482aca407b12909202a9beaad4de6edb7ceb08a",
+      "predecessor_entry_sha256": "c2624cdd359487b3cde76b107b467dd610f6fd80166b065baf653cf68fa7e50d",
+      "program_source_material_sha256": "36e70179d3bd7fcd7e28a4b6a5413eab9ae5711c2f5cf397193c55373e7dab55",
+      "review_lock_sha256": "1c9d597473678d6f1979da11bad276438170e5582d26a6c5afa4e93f480de724",
+      "reviewed_as_of": "2026-07-20",
+      "reviewer_evidence": {
+        "algorithm": "Ed25519",
+        "evidence_format": "ioi.m0.detached_review_signature.v1",
+        "evidence_ref": "review-evidence://m0/program-control/pr-91-final-contract-runtime-and-m1-4-review-2026-07-20",
+        "issued_at": "2026-07-20T22:45:45.223Z",
+        "public_key_spki_der_base64": "MCowBQYDK2VwAyEAkOJI2u49NzPITKwxBpvOx6HoW1RDw52A9ctpAfMY4KY=",
+        "signature_base64": "t16p3ZZoCAn7HRdus1I0GtWrYzTAYAy+I4cki/03omxQtaKTfziAOgbNkfyXB6hOaHkbLLmq62cHcxb5wG83Bw==",
+        "signed_payload_sha256": "a4d4f0e003a10ea9d813500e8d17747b29e201e4b685ebc287f3eb88f095e0d7"
+      },
+      "reviewer_id": "reviewer://ioi/m0-program-control-independent-review",
+      "reviewer_key_id": "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26",
+      "sequence": 3,
+      "total_reviewed_entry_count": 1541,
+      "total_reviewed_entry_set_sha256": "800f26244cd462117580655b667206da782fd8d5ab218328f12850087908e6fa",
+      "total_reviewed_identity_set_sha256": "df3ab91ebe5378e240adab2275cced3e32e74a14ed6c2f122d5381f6b760cf1f"
+    },
+    {
+      "epoch_id": "pr-91-final-adversarial-class-fixes-2026-07-20",
+      "latest_epoch_identity_set_sha256": "fd8f3d7db7e951da1ed61a451133aeb2ab8279154c22f4a9c3f428f00cf737a6",
+      "latest_epoch_reviewed_entry_count": 1064,
+      "latest_epoch_reviewed_entry_set_sha256": "627331665f6e3db4cd0e10744e324c702dc88ce608952b40812973811bbd992d",
+      "predecessor_entry_sha256": "f60f277e3e3bb03b2e0f3322d9bdff19a411553c0f9f1e49e52b9e89d58df750",
+      "program_source_material_sha256": "d70def463295d61e6e314580441972564f625fb09dc948f4bd109cee5f274ec2",
+      "review_lock_sha256": "3654c57af675cd374629ed185b75c995d9433fe412ffefbbbca64c7e8db522fe",
+      "reviewed_as_of": "2026-07-20",
+      "reviewer_evidence": {
+        "algorithm": "Ed25519",
+        "evidence_format": "ioi.m0.detached_review_signature.v1",
+        "evidence_ref": "review-evidence://m0/program-control/pr-91-final-adversarial-class-fixes-2026-07-20",
+        "issued_at": "2026-07-21T01:32:41.649Z",
+        "public_key_spki_der_base64": "MCowBQYDK2VwAyEAkOJI2u49NzPITKwxBpvOx6HoW1RDw52A9ctpAfMY4KY=",
+        "signature_base64": "kGX7xaFh7IQjCKNZ9DbD4T6H3xMDNuE+IDlF9rsf0/4G17bxCfohgbVoy4TbFZGh9yYnz7tOFBlWqfYZDH4TAQ==",
+        "signed_payload_sha256": "43e9f71880d85f7c0ef9d381874a87a92f40984cb7c9ee3590438a726ac386ff"
+      },
+      "reviewer_id": "reviewer://ioi/m0-program-control-independent-review",
+      "reviewer_key_id": "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26",
+      "sequence": 4,
+      "total_reviewed_entry_count": 1541,
+      "total_reviewed_entry_set_sha256": "27a75ef488254cc80ccbc55602a991e407aec351bfb55520d26a1b9710be5c73",
+      "total_reviewed_identity_set_sha256": "df3ab91ebe5378e240adab2275cced3e32e74a14ed6c2f122d5381f6b760cf1f"
+    },
+    {
+      "epoch_id": "pr-91-final-canon-count-correction-2026-07-21",
+      "latest_epoch_identity_set_sha256": "fd8f3d7db7e951da1ed61a451133aeb2ab8279154c22f4a9c3f428f00cf737a6",
+      "latest_epoch_reviewed_entry_count": 1064,
+      "latest_epoch_reviewed_entry_set_sha256": "99e49c58c67d5338586dc1004bab951532918c74d85773abf435282de5eb7510",
+      "predecessor_entry_sha256": "4e70d63147b4671133acd0cd8ded727c9df98a48ac7f7fc19c9b69ad4cdcc51f",
+      "program_source_material_sha256": "4e2f5864f3aebcd7f0cde8bce7456104ffabdcff43bab004a9521793347b6e0c",
+      "review_lock_sha256": "1f7670a1cbc2afa435f8521e9b495dc66030f195070fd3de9972031c56e14c90",
+      "reviewed_as_of": "2026-07-21",
+      "reviewer_evidence": {
+        "algorithm": "Ed25519",
+        "evidence_format": "ioi.m0.detached_review_signature.v1",
+        "evidence_ref": "review-evidence://m0/program-control/pr-91-final-canon-count-correction-2026-07-21",
+        "issued_at": "2026-07-21T03:08:11.533Z",
+        "public_key_spki_der_base64": "MCowBQYDK2VwAyEAkOJI2u49NzPITKwxBpvOx6HoW1RDw52A9ctpAfMY4KY=",
+        "signature_base64": "5PTClP6iTkF0FNcFQqnhvEu9D+AX7ZwKzm1votCi1o/b98xx+NO85+xBY1A2y96mkc4rYOy5k86/0c2pPLWPDg==",
+        "signed_payload_sha256": "32e620b9ceca9da6198aa6adc3806f731a124999746588965bae2cdaa9010360"
+      },
+      "reviewer_id": "reviewer://ioi/m0-program-control-independent-review",
+      "reviewer_key_id": "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26",
+      "sequence": 5,
+      "total_reviewed_entry_count": 1541,
+      "total_reviewed_entry_set_sha256": "16402740dd82d4b0ea84b874dd529fa191387835806ed7fd8eeaf882ce424de7",
+      "total_reviewed_identity_set_sha256": "df3ab91ebe5378e240adab2275cced3e32e74a14ed6c2f122d5381f6b760cf1f"
+    }
+  ],
+  "evidence_format": "ioi.m0.review_epoch_anchor.v2",
+  "head": {
+    "entry_sha256": "b6827b79252eabcbe09924757f66302597467355bb7c63ecb447b2f387a4c6ea",
+    "epoch_id": "pr-91-final-canon-count-correction-2026-07-21",
+    "sequence": 5
+  }
+}

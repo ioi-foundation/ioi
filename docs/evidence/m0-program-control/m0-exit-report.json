@@ -1,10 +1,19 @@
 {
   "architecture_or_production_capability_closure": false,
-  "as_of_date": "2026-07-20",
-  "build_fingerprint": "950438e79fa905890719df69637bf875dde03256b8d9b41bedb7f0189dad3136",
+  "as_of_date": "2026-07-21",
+  "assurance_posture": {
+    "accepted_head_currentness": "not_established",
+    "chain_integrity_within_snapshot": "verified",
+    "coherent_snapshot_rollback_resistance": "not_established",
+    "repository_baseline_present": true,
+    "signature_key_possession": "verified",
+    "signer_principal_isolation": "not_established",
+    "snapshot_head_binding": "verified"
+  },
+  "build_fingerprint": "42225b4d477047009777440fe0afb08386b31ff9b091116b87dc2dd4d0f29757",
   "census_counts": {
-    "consequential": 964,
-    "partial_consequential": 946,
+    "consequential": 967,
+    "partial_consequential": 949,
     "terminal_consequential": 0,
     "total": 1541,
     "unavailable_consequential": 18
@@ -14,20 +23,26 @@
     "all_58_pg_ids_mapped_once": true,
     "all_discovered_entries_explicitly_reviewed": true,
     "baselines_are_measured_or_honestly_named": true,
+    "bounded_snapshot_assurance_is_exact": true,
     "deployment_local_identity_owner_source_validated": true,
     "every_selected_object_has_owner": true,
-    "evidence_items_are_current_or_honestly_open": true,
-    "legacy_sequencing_is_non_authoritative": true,
+    "evidence_items_match_supplied_snapshot_or_are_honestly_open": true,
     "proof_lanes_and_bindings_semantically_validated": true,
     "repository_validation_baseline_recorded": true,
-    "selected_effect_has_leaf_or_unavailable_blocker": true
+    "selected_effect_has_leaf_or_unavailable_blocker": true,
+    "sequencing_inputs_are_honestly_bounded": true,
+    "verification_scope_is_supplied_repository_snapshot": true
   },
   "evidence_format": "ioi.m0.exit_report.v1",
   "m0_exit_state": "verified",
   "nonclaims": [
     "M0 does not close any architecture production-status claim.",
     "M0 does not provide runtime capability, authority, product UX, or a canonical wire contract.",
-    "Every production gate remains owned by the read-only PG ledger."
+    "Ignored internal sequencing and PG inputs are external operator pointers, not read, hashed, or bound evidence.",
+    "The repository does not establish signer-principal isolation; the signed reviewer_id is a self-declared label only.",
+    "The repository does not establish that the accepted snapshot head is current without an outside rollback-domain checkpoint.",
+    "The repository does not establish resistance to rollback between internally coherent supplied snapshots."
   ],
-  "open_blocker_count": 23
+  "open_blocker_count": 23,
+  "verification_scope": "supplied_repository_snapshot"
 }
