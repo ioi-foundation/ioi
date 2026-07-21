@@ -257,6 +257,7 @@ const CANON_BASIS_FILES = [
   "docs/architecture/components/daemon-runtime/doctrine.md",
   "docs/architecture/components/daemon-runtime/api.md",
   "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+  "docs/architecture/components/daemon-runtime/platform-operability.md",
   "docs/architecture/components/daemon-runtime/improvement-governance-gates.md",
   "docs/architecture/components/wallet-network/doctrine.md",
   "docs/architecture/components/wallet-network/api-authority-scopes.md",
@@ -266,6 +267,8 @@ const CANON_BASIS_FILES = [
   "docs/architecture/components/hypervisor/identity-access-and-metering.md",
   "docs/architecture/components/hypervisor/providers-and-environments.md",
   "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+  "docs/conformance/hypervisor-core/platform-operability.md",
+  "docs/conformance/hypervisor-core/platform-fault-matrix.v1.json",
   "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
   "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
 ];

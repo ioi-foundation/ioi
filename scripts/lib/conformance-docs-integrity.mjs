@@ -320,6 +320,10 @@ export function checkConformanceDocsIntegrity({
         )),
       );
     }
+  } else {
+    failures.push(
+      "docs/conformance/hypervisor-core/platform-fault-matrix.v1.json is required",
+    );
   }
   const platformOperabilityContract = path.join(
     conformanceRoot,
@@ -340,6 +344,10 @@ export function checkConformanceDocsIntegrity({
         "docs/conformance/hypervisor-core/platform-operability.md must define exactly CPO-1 through CPO-12 in order",
       );
     }
+  } else {
+    failures.push(
+      "docs/conformance/hypervisor-core/platform-operability.md is required",
+    );
   }
   const sovereignLocalMatrix = path.join(
     conformanceRoot,

@@ -148,12 +148,37 @@
       "total_reviewed_entry_count": 1541,
       "total_reviewed_entry_set_sha256": "16402740dd82d4b0ea84b874dd529fa191387835806ed7fd8eeaf882ce424de7",
       "total_reviewed_identity_set_sha256": "df3ab91ebe5378e240adab2275cced3e32e74a14ed6c2f122d5381f6b760cf1f"
+    },
+    {
+      "epoch_id": "pr-92-platform-operability-canon-review-2026-07-21",
+      "latest_epoch_identity_set_sha256": "fd8f3d7db7e951da1ed61a451133aeb2ab8279154c22f4a9c3f428f00cf737a6",
+      "latest_epoch_reviewed_entry_count": 1064,
+      "latest_epoch_reviewed_entry_set_sha256": "99e49c58c67d5338586dc1004bab951532918c74d85773abf435282de5eb7510",
+      "predecessor_entry_sha256": "b6827b79252eabcbe09924757f66302597467355bb7c63ecb447b2f387a4c6ea",
+      "program_source_material_sha256": "0bfa49fdac5db4a1cad5ff12490a01ba27ab89260598eaf6cbc31892cc0e888e",
+      "review_lock_sha256": "8ca62bd54ecdf4a5094a27c55959f236f26e884d200361a9c4699fbb2c2003e8",
+      "reviewed_as_of": "2026-07-21",
+      "reviewer_evidence": {
+        "algorithm": "Ed25519",
+        "evidence_format": "ioi.m0.detached_review_signature.v1",
+        "evidence_ref": "review-evidence://m0/program-control/pr-92-platform-operability-canon-review-2026-07-21",
+        "issued_at": "2026-07-21T03:32:43.580Z",
+        "public_key_spki_der_base64": "MCowBQYDK2VwAyEAkOJI2u49NzPITKwxBpvOx6HoW1RDw52A9ctpAfMY4KY=",
+        "signature_base64": "hL7cigwdVRATJq1er7ItTs4a3EyanV/5zLvf/vPskK+BWVHZvrEvyLFu2zajVCaEGyIn8r0EYhrZvOVc09NqCg==",
+        "signed_payload_sha256": "357b234c8c5126267fcf1f0282716a3a747b74bb7dded3cb92a2b964614bfdbd"
+      },
+      "reviewer_id": "reviewer://ioi/m0-program-control-independent-review",
+      "reviewer_key_id": "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26",
+      "sequence": 6,
+      "total_reviewed_entry_count": 1541,
+      "total_reviewed_entry_set_sha256": "16402740dd82d4b0ea84b874dd529fa191387835806ed7fd8eeaf882ce424de7",
+      "total_reviewed_identity_set_sha256": "df3ab91ebe5378e240adab2275cced3e32e74a14ed6c2f122d5381f6b760cf1f"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v2",
   "head": {
-    "entry_sha256": "b6827b79252eabcbe09924757f66302597467355bb7c63ecb447b2f387a4c6ea",
-    "epoch_id": "pr-91-final-canon-count-correction-2026-07-21",
-    "sequence": 5
+    "entry_sha256": "5399fa33f1082e0afb4878fba7c8a03084a8a2b1a9570f3e5518d6963f8c80c6",
+    "epoch_id": "pr-92-platform-operability-canon-review-2026-07-21",
+    "sequence": 6
   }
 }

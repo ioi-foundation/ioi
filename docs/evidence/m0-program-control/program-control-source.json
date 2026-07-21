@@ -337,17 +337,17 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/execution-horizons.md",
-      "source_sha256": "1dbc38f8501395a8454462895a59c9c1062c93ee52f29367a88e89b9acd2c216"
+      "source_sha256": "22b3a024d041479e187c32f78b5f139354797d9f63bd7f290b1b53377b788d77"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "2157fe1061bd9fd17418d830c037f73ca979a8a6cff17de5e6ceca543d686e80"
+      "source_sha256": "469a5414a1fc2ceb8e4fd0006aa87c5b63abb3f0c04b4997e4d71764d1888c15"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "212c0116a33a6e52d32df8515f85767a1f05f4ba223b4a44f8d88422873c5a4a"
+      "source_sha256": "ff33edca9ae54cf6ab388576bcdfc749a2d746dffc7eed217dfe595fb2562a88"
     },
     {
       "role": "landed owner canon",
@@ -372,17 +372,22 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/doctrine.md",
-      "source_sha256": "011853454e8e1d13dcedf6f1b82a977177c1929b64be018c27f3bd46e4a907cc"
+      "source_sha256": "e07e7b6d53a071cb4c0981a50d185f4614c17fd23331df0e5703a01615568a44"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/api.md",
-      "source_sha256": "f70cd3a0f5fa82a5cc7d00228799461f4d12480e824144eeaf3ed25e85f8c699"
+      "source_sha256": "a1ac9a7fb904c78f51ddbeef33594fac8cd71b2e68c869b5fc04fd1f633b5c5a"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
-      "source_sha256": "5202cd16e7f3134829f86d4d96d2e72013a9643d6176cea2d495f169fdea97f9"
+      "source_sha256": "0870893dcf815a397c39a6bf78337bacc509d7788fc53f4b6453b4ffe4dd9a96"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/components/daemon-runtime/platform-operability.md",
+      "source_sha256": "138308e9848e8ce564693208ed84073f087adf9adafe4815ceb9605124910d91"
     },
     {
       "role": "landed owner canon",
@@ -412,7 +417,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
-      "source_sha256": "d07d0fbf6f072a5a288a4a07ab165f714a41706003f2251e013fc988b68c2748"
+      "source_sha256": "01d970d06d6a83ef609a4e91e03554d5459630bca314ed06eb7649725f78f772"
     },
     {
       "role": "landed owner canon",
@@ -422,7 +427,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/providers-and-environments.md",
-      "source_sha256": "c28b3b65c7c4a78914ee40adf64b2b3bf4b88ab03048d7786ef38fbcc9e09270"
+      "source_sha256": "ba68e3f7e8ddf19bea8365a67c53974701e283e9bc5f25117bfc35a37fb6d47f"
     },
     {
       "role": "landed owner canon",
@@ -431,13 +436,23 @@
     },
     {
       "role": "landed owner canon",
+      "source_file": "docs/conformance/hypervisor-core/platform-operability.md",
+      "source_sha256": "f336450d13dfb0f447a79834d4d6b78f301bc24e2c0162072379c89217dd6e53"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/conformance/hypervisor-core/platform-fault-matrix.v1.json",
+      "source_sha256": "e82f31caa040fd8ad4e661091ce94c725307f4428191318cc8dcd7a039613894"
+    },
+    {
+      "role": "landed owner canon",
       "source_file": "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
-      "source_sha256": "fdd6719e206c3623db34f8654090cad05ee3297ebe6a98c7e2d499a0be0f8a16"
+      "source_sha256": "91074b64317590f3910243c6685c29db2f18a26e90eb339009f21fbb5ccc13f8"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
-      "source_sha256": "c38d0e7da3ea49fda7979baada6aed711800442c6fe4fb3f20145b7ca5337d59"
+      "source_sha256": "165ba189e757c3f09081e9ac023316d1ea0084ee384747cdebeddc75a9c9950d"
     }
   ],
   "canon_contradictions": [],
@@ -1548,22 +1563,22 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v3",
-    "detached_signature_sha256": "c66316c7b046683c0a61ec06a7b1ca5ba852e186345848c3dd0d9a2c15dc66a0",
-    "program_source_material_sha256": "4e2f5864f3aebcd7f0cde8bce7456104ffabdcff43bab004a9521793347b6e0c",
-    "review_epoch_id": "pr-91-final-canon-count-correction-2026-07-21",
-    "review_lock_sha256": "1f7670a1cbc2afa435f8521e9b495dc66030f195070fd3de9972031c56e14c90",
+    "detached_signature_sha256": "cd886fcdd89ff15b5300f079041568371e73e7a49afd2da328507459563c60fc",
+    "program_source_material_sha256": "0bfa49fdac5db4a1cad5ff12490a01ba27ab89260598eaf6cbc31892cc0e888e",
+    "review_epoch_id": "pr-92-platform-operability-canon-review-2026-07-21",
+    "review_lock_sha256": "8ca62bd54ecdf4a5094a27c55959f236f26e884d200361a9c4699fbb2c2003e8",
     "review_method": "detached_ed25519_signature_and_supplied_snapshot_consistency",
     "reviewed_as_of": "2026-07-21",
     "reviewed_entry_set_sha256": "99e49c58c67d5338586dc1004bab951532918c74d85773abf435282de5eb7510",
     "reviewed_identity_set_sha256": "fd8f3d7db7e951da1ed61a451133aeb2ab8279154c22f4a9c3f428f00cf737a6",
-    "signature_evidence_ref": "review-evidence://m0/program-control/pr-91-final-canon-count-correction-2026-07-21",
+    "signature_evidence_ref": "review-evidence://m0/program-control/pr-92-platform-operability-canon-review-2026-07-21",
     "signature_key_id": "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26",
     "signed_reviewer_label": "reviewer://ioi/m0-program-control-independent-review",
     "signed_reviewer_label_status": "self_declared_not_identity_verified",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "b6827b79252eabcbe09924757f66302597467355bb7c63ecb447b2f387a4c6ea",
-    "snapshot_head_sequence": 5,
-    "snapshot_predecessor_entry_sha256": "4e70d63147b4671133acd0cd8ded727c9df98a48ac7f7fc19c9b69ad4cdcc51f",
+    "snapshot_head_entry_sha256": "5399fa33f1082e0afb4878fba7c8a03084a8a2b1a9570f3e5518d6963f8c80c6",
+    "snapshot_head_sequence": 6,
+    "snapshot_predecessor_entry_sha256": "b6827b79252eabcbe09924757f66302597467355bb7c63ecb447b2f387a4c6ea",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },
