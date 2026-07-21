@@ -77,14 +77,21 @@ const REFERENCE_PORT_PENDING = {};
 // ported IOI surface; `parity_blocked` names why. `reference_landmarks` (when present) is the IA
 // label set the hardened harness requires in BOTH the reference and the candidate.
 const REFERENCE_PORTED = {
-  // (explorer #46, monitors #51, sources #52, changes #53 each passed through this stage on their
-  // way to certification + daemon_wired promotion. The stage exists for ports-in-flight.)
+  // (explorer #46, monitors #51, sources #52, changes #53, workspaces each passed through this
+  // stage on their way to certification + daemon_wired promotion. The stage exists for
+  // ports-in-flight.)
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
 // daemon truth, that PASSES the HARDENED Playwright harness (visual_parity: region geometry + theme
 // match + reproduction of the reference's IA landmarks) against a VALID (non-errored) reference.
 // `reference_landmarks` = the reference's IA label set the hardened harness requires in BOTH sides.
 const DAEMON_WIRED = {
+  // Workspaces (workspaces): the FOURTEENTH faithful port — the SEVENTH from the origin-alignment
+  // queue and the FIRST Workbench-family certified surface. The #44 sweep proved the Code
+  // Workspaces launchpad data-bearing on the capture-origin lane while the proxy renders no data;
+  // reference_url_override stamps the honest lane. A READ-ONLY launchpad projection over the
+  // estate's real session plane (no creation/provisioning semantics on this surface).
+  workspaces: { port_surface: "/__ioi/workbench/workspaces", surface_name: "Workbench", reference_url_override: "http://localhost:9225/workspace/code-workspaces/", reference_landmarks: ["Code Workspaces", "Running workspaces", "Launch code workspaces that run open-source IDEs and notebooks.", "Recents", "Favorites", "Created by me", "VS Code", "Jupyter", "RStudio", "New workspace", "Explore reference examples"], binding: "faithful port of the reference Code Workspaces launchpad over the estate's real session projection — dark global rail + topbar (orange workspace tile · Code Workspaces · store dropdown / New-workspace-to-owner / Help) + white h1 band + the overlapping Running-workspaces card whose interior is the projection's REAL non-terminal census (provisioned sessions with refs; the reference's empty-state copy renders only when truly empty) + the View pill row (Recents active · All wired to ?view=all · Favorites / Created-by-me / VS Code / Jupyter / RStudio as named-gap chrome — foreign editor taxonomy) + the sources-family table whose rows are REAL sessions (session ref · lifecycle pill · workspace root · environment/editor refs · created date; creator/edited columns HONEST em-dashes — no principal or edit tracking on the projection) + the marketplace-examples band (verbatim capture chrome) + below-the-fold the session-catalog census (daemon total · lifecycle chips · the estate's REAL editor kinds from the probed editor-target registry)", note: "TRUE parity under the HARDENED gate: light Code-Workspaces launchpad reference-faithful shell at /__ioi/workbench/workspaces against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/code-workspaces/ — the #44 needs_origin_alignment finding; the /__apps/workspaces proxy lane stays documented-insufficient: renders no data); the SEVENTH origin-alignment-queue port and the FIRST Workbench-family certified surface — a NEW dedicated port route over the EXISTING session projection; a READ-ONLY launchpad — THE BOUNDARY IS THE HARD LINE: no session creation, no environment provisioning, no editor-open semantics on this surface (New workspace ROUTES to the /__ioi/workbench owner surface, linked first-class both ways with /__ioi/sessions + /__ioi/environments); the reference's VS Code/Jupyter/RStudio filter taxonomy is FOREIGN — named-gap chrome, with the estate's real editor kinds rendered from the daemon editor-target registry (probed open posture); favorites / identity-scoped filters / marketplace installs / Help = named gaps disabled in place" },
   // #34 — Ontology Manager (schema): a FAITHFUL source-neutral port of the reference Ontology Manager —
   // a DARK global platform rail + a LIGHT app rail (Discover / Proposals / History · Resources: object/
   // property/link/action/value types + functions · Health issues / Cleanup / Ontology configuration) +
@@ -330,6 +337,7 @@ const SHELL_PIXEL_CERTIFIED = {
   // centered block). 1440x900 dilated 1.17% / raw 1.52%, 1920x1080 dilated 1.11% / raw 1.45%,
   // bbox <= 3 — no threshold movement.
   listings: "pixel-certifications/listings.json",
+  workspaces: "pixel-certifications/workspaces.json",
 };
 
 // ---- PR #44: the ESTATE REFERENCE CLEAN SWEEP (committed evidence written by

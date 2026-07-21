@@ -2049,7 +2049,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
   const targets = (editorTargets && editorTargets.targets) || [];
   const vb = targets.find((t) => t.target_id === "vscode-browser");
   const vbOpenable = vb?.open_posture?.openable === true;
-  const head = `<h1>Workbench</h1><p class="sub">Enter an environment's live console — files, terminal, ports, and tasks. Pick an active environment to get to work, or open its session or run timeline. <a href="/__ioi/environments">Environment posture →</a> · <a href="/__ioi/code">Code Repositories →</a></p>`;
+  const head = `<h1>Workbench</h1><p class="sub">Enter an environment's live console — files, terminal, ports, and tasks. Pick an active environment to get to work, or open its session or run timeline. <a href="/__ioi/workbench/workspaces">Code Workspaces launchpad →</a> · <a href="/__ioi/environments">Environment posture →</a> · <a href="/__ioi/code">Code Repositories →</a></p>`;
   // Editor targets — the daemon registry with PROBED open posture. An editor that cannot open on
   // this host renders disabled WITH the probe's reason (never hidden, never a dead link).
   const etRows = targets.map((t) => {

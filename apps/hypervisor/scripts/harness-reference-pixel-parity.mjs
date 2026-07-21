@@ -348,6 +348,50 @@ export const SURFACE_SHELL = {
     },
     data: { ref: [], ioi: [] },
   },
+  workspaces: {
+    // Code Workspaces launchpad (Workbench — the first Workbench-family port): certified shell =
+    // rail + 50px+hairline topbar (50x50 orange chip · title · store dropdown / New workspace /
+    // Help right cluster) + the 143px white band (h1 + subtitle, bottom hairline) + the content
+    // column as a 1000px block centered right of the rail (offset 0 @1440, +240 @1920): the
+    // overlapping Running-workspaces card FRAME (its interior is masked data — the capture's
+    // empty-state copy vs live provisioned sessions), the View pill row (Recents/Favorites/All/
+    // Created-by-me + VS Code/Jupyter/RStudio icon pills — foreign-editor named-gap chrome), the
+    // table ring + header row (the sources table family: name 50% + 3 × 16.667% cols; container
+    // height follows max(360px, 100vh − 648px) — the sources rule), and the examples band
+    // (heading/sub + the VERBATIM marketplace strip reused from #50). Session ROWS are masked
+    // data (captured workspace rows vs the estate's live session projection).
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+      { key: "band", anchor: "topbar", x: 230, y: 51, w: 0, h: 144 },
+      { key: "runcard", anchor: "content", x: 330, y: 134, w: 1010, h: 140 },
+      { key: "viewrow", anchor: "content", x: 335, y: 297, w: 1000, h: 34 },
+      { key: "tablehead", anchor: "content", x: 330, y: 332, w: 1010, h: 38 },
+      { key: "examples", anchor: "content", x: 330, y: 720, w: 1010, h: 180 },
+    ],
+    rects_by_viewport: {
+      "1920x1080": [
+        { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+        { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+        { key: "band", anchor: "topbar", x: 230, y: 51, w: 0, h: 144 },
+        { key: "runcard", anchor: "content", x: 330, y: 134, w: 1010, h: 140 },
+        { key: "viewrow", anchor: "content", x: 335, y: 297, w: 1000, h: 34 },
+        { key: "tablehead", anchor: "content", x: 330, y: 332, w: 1010, h: 38 },
+        { key: "examples", anchor: "content", x: 330, y: 792, w: 1010, h: 288 },
+      ],
+    },
+    // Masked DATA: the Running-workspaces card interior (reference empty-state copy vs live
+    // provisioned sessions) + the session-row region below the table header (captured workspace
+    // rows vs the live session projection). Ref-side rects are applied to BOTH images (the
+    // ioi-side scroll container would over-mask — the #52 lesson).
+    data: {
+      ref: [
+        { rect: { x: 336, y: 185, w: 998, h: 82 }, anchor: "content", label: "running-workspaces card interior (captured empty state vs live provisioned sessions)" },
+        { rect: { x: 336, y: 367, w: 998, h: 330 }, anchor: "content", label: "session rows (captured workspace rows vs the live session projection)" },
+      ],
+      ioi: [],
+    },
+  },
   machinery: {
     // Machinery landing (#50 — the second origin-alignment-queue port): certified shell = rail +
     // header (machinery tile · Recent-installations store dropdown · New graph · Help) + the
