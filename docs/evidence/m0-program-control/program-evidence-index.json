@@ -1,63 +1,77 @@
 {
-  "as_of_date": "2026-07-20",
-  "build_fingerprint": "950438e79fa905890719df69637bf875dde03256b8d9b41bedb7f0189dad3136",
-  "consumption_rule": "Evidence is current only when the read-only checker reproduces this fingerprint and every manifest hash.",
+  "as_of_date": "2026-07-21",
+  "assurance_posture": {
+    "accepted_head_currentness": "not_established",
+    "chain_integrity_within_snapshot": "verified",
+    "coherent_snapshot_rollback_resistance": "not_established",
+    "repository_baseline_present": true,
+    "signature_key_possession": "verified",
+    "signer_principal_isolation": "not_established",
+    "snapshot_head_binding": "verified"
+  },
+  "build_fingerprint": "42225b4d477047009777440fe0afb08386b31ff9b091116b87dc2dd4d0f29757",
+  "consumption_rule": "Evidence matches the supplied repository snapshot only when the read-only checker reproduces this fingerprint and every manifest hash; currentness requires an outside rollback-domain checkpoint.",
   "evidence_format": "ioi.m0.program_evidence_index.v1",
   "evidence_items": [
     {
+      "path": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+      "role": "detached-signature supplied-snapshot consistency chain and repository baseline",
+      "state": "matches_supplied_snapshot"
+    },
+    {
       "path": "docs/evidence/m0-program-control/reviewed-entry-lock.json",
       "role": "explicit reviewed claim lock",
-      "state": "closed_current"
+      "state": "matches_supplied_snapshot"
     },
     {
       "path": "docs/evidence/m0-program-control/program-control-source.json",
-      "role": "reviewed selected-profile, PG, baseline, release, and blocker source",
-      "state": "closed_current"
+      "role": "supplied-snapshot-attested selected-profile, PG, baseline, release, and blocker source",
+      "state": "matches_supplied_snapshot"
     },
     {
       "path": "docs/evidence/m0-program-control/README.md",
       "role": "human consumption and M0 claim boundary",
-      "state": "closed_current"
+      "state": "matches_supplied_snapshot"
     },
     {
       "path": "docs/evidence/m0-program-control/effect-census.json",
       "role": "deterministic M0 evidence projection",
-      "state": "closed_current"
+      "state": "matches_supplied_snapshot"
     },
     {
       "path": "docs/evidence/m0-program-control/selected-profile.json",
       "role": "deterministic M0 evidence projection",
-      "state": "closed_current"
+      "state": "matches_supplied_snapshot"
     },
     {
       "path": "docs/evidence/m0-program-control/pg-gate-map.json",
       "role": "deterministic M0 evidence projection",
-      "state": "closed_current"
+      "state": "matches_supplied_snapshot"
     },
     {
       "path": "docs/evidence/m0-program-control/current-baselines.json",
       "role": "deterministic M0 evidence projection",
-      "state": "closed_current"
+      "state": "matches_supplied_snapshot"
     },
     {
       "path": "docs/evidence/m0-program-control/blocker-ledger.json",
       "role": "deterministic M0 evidence projection",
-      "state": "closed_current"
+      "state": "matches_supplied_snapshot"
     },
     {
       "path": "docs/evidence/m0-program-control/release-ladder.json",
       "role": "deterministic M0 evidence projection",
-      "state": "closed_current"
+      "state": "matches_supplied_snapshot"
     },
     {
       "path": "docs/evidence/m0-program-control/m0-exit-report.json",
       "role": "deterministic M0 evidence projection",
-      "state": "closed_current"
+      "state": "matches_supplied_snapshot"
     },
     {
       "path": "docs/evidence/m0-program-control/manifest.json",
-      "role": "artifact integrity and freshness lock",
-      "state": "closed_current"
+      "role": "artifact integrity and supplied-snapshot consistency lock",
+      "state": "matches_supplied_snapshot"
     }
   ],
   "honestly_open_evidence": [
@@ -81,5 +95,6 @@
       "blocker_ref": "BLK-M0-BASELINE-COMPREHENSION",
       "status": "not_measured"
     }
-  ]
+  ],
+  "verification_scope": "supplied_repository_snapshot"
 }

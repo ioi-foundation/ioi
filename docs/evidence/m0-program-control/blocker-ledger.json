@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-20",
+  "as_of_date": "2026-07-21",
   "blockers": [
     {
       "blocker_id": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -306,7 +306,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 660,
+      "reference_count": 663,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -385,6 +385,9 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/automations",
         "http:hypervisor-daemon:GET /v1/hypervisor/automations/:id/runs",
         "http:hypervisor-daemon:GET /v1/hypervisor/automations/:id/webhook-events",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
         "http:hypervisor-daemon:GET /v1/hypervisor/budget",
         "http:hypervisor-daemon:GET /v1/hypervisor/capability-leases",
         "http:hypervisor-daemon:GET /v1/hypervisor/cloud-candidates/candidate-sources",
@@ -1549,7 +1552,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "950438e79fa905890719df69637bf875dde03256b8d9b41bedb7f0189dad3136",
+  "build_fingerprint": "42225b4d477047009777440fe0afb08386b31ff9b091116b87dc2dd4d0f29757",
   "counts": {
     "by_state": {
       "open": 23,

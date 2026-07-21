@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-19",
+  "as_of_date": "2026-07-21",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -342,7 +342,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "9095195bdc3aea237d09ec66ca1e811ea2bd9497400eb68d1ad6c7d500479a2d"
+      "source_sha256": "2157fe1061bd9fd17418d830c037f73ca979a8a6cff17de5e6ceca543d686e80"
     },
     {
       "role": "landed owner canon",
@@ -352,7 +352,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "0ed2fed99ff374a21b1ebb5ac16243100c36a479493e112c9934961998821da1"
+      "source_sha256": "4f0038d492b8d58c4fdbb3b4556c4576ba9a1211680c95deaed2c35cf0f9b62c"
     },
     {
       "role": "landed owner canon",
@@ -377,7 +377,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/api.md",
-      "source_sha256": "38df19d2d94e0a7eaefa95c61f569966614375166df92752e1c2550a048acba6"
+      "source_sha256": "f70cd3a0f5fa82a5cc7d00228799461f4d12480e824144eeaf3ed25e85f8c699"
     },
     {
       "role": "landed owner canon",
@@ -454,7 +454,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "7be02ed62b8643adcdb167c389261b81a5abebd224e7f0c49a438856faafe94d"
+            "source_sha256": "64cd257f0603a5fc307d461fa02f3d768b3c4bee305f126672717f0e8c41dd40"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -629,7 +629,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "7be02ed62b8643adcdb167c389261b81a5abebd224e7f0c49a438856faafe94d"
+            "source_sha256": "64cd257f0603a5fc307d461fa02f3d768b3c4bee305f126672717f0e8c41dd40"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -1000,7 +1000,6 @@
   },
   "pg_gate_map": {
     "closure_claimed": false,
-    "definition_owner": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
     "entries": [
       {
         "closure_claimed": false,
@@ -1408,7 +1407,13 @@
         "pg_id": "PG-7.8",
         "selected_profile_rationale": "The selected single-node software-change profile directly needs production operability; the gate remains open."
       }
-    ]
+    ],
+    "external_definition_input": {
+      "evidence_binding": "not_read_not_hashed_not_bound",
+      "path": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+      "tracking_posture": "ignored_untracked"
+    },
+    "tracked_selected_profile_authority": "docs/architecture/_meta/execution-horizons.md"
   },
   "program_state": "reviewed",
   "release_ladder": [
@@ -1532,6 +1537,36 @@
       "worktree_mutated": false
     }
   ],
+  "review_attestation": {
+    "assurance_posture": {
+      "accepted_head_currentness": "not_established",
+      "chain_integrity_within_snapshot": "verified",
+      "coherent_snapshot_rollback_resistance": "not_established",
+      "repository_baseline_present": true,
+      "signature_key_possession": "verified",
+      "signer_principal_isolation": "not_established",
+      "snapshot_head_binding": "verified"
+    },
+    "attestation_format": "ioi.m0.program_control_source_review.v3",
+    "detached_signature_sha256": "c66316c7b046683c0a61ec06a7b1ca5ba852e186345848c3dd0d9a2c15dc66a0",
+    "program_source_material_sha256": "4e2f5864f3aebcd7f0cde8bce7456104ffabdcff43bab004a9521793347b6e0c",
+    "review_epoch_id": "pr-91-final-canon-count-correction-2026-07-21",
+    "review_lock_sha256": "1f7670a1cbc2afa435f8521e9b495dc66030f195070fd3de9972031c56e14c90",
+    "review_method": "detached_ed25519_signature_and_supplied_snapshot_consistency",
+    "reviewed_as_of": "2026-07-21",
+    "reviewed_entry_set_sha256": "99e49c58c67d5338586dc1004bab951532918c74d85773abf435282de5eb7510",
+    "reviewed_identity_set_sha256": "fd8f3d7db7e951da1ed61a451133aeb2ab8279154c22f4a9c3f428f00cf737a6",
+    "signature_evidence_ref": "review-evidence://m0/program-control/pr-91-final-canon-count-correction-2026-07-21",
+    "signature_key_id": "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26",
+    "signed_reviewer_label": "reviewer://ioi/m0-program-control-independent-review",
+    "signed_reviewer_label_status": "self_declared_not_identity_verified",
+    "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
+    "snapshot_head_entry_sha256": "b6827b79252eabcbe09924757f66302597467355bb7c63ecb447b2f387a4c6ea",
+    "snapshot_head_sequence": 5,
+    "snapshot_predecessor_entry_sha256": "4e70d63147b4671133acd0cd8ded727c9df98a48ac7f7fc19c9b69ad4cdcc51f",
+    "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
+    "verification_scope": "supplied_repository_snapshot"
+  },
   "selected_profile": {
     "exact_effect": {
       "blocker_ref": "BLK-M0-SELECTED-REPO-EFFECT",
@@ -1885,10 +1920,33 @@
     ]
   },
   "sequencing_authority": {
+    "external_untracked_operator_inputs": [
+      {
+        "evidence_binding": "not_read_not_hashed_not_bound",
+        "input_id": "target_end_state_master_implementation_guide",
+        "path": "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
+        "role": "external operator sequencing input",
+        "tracking_posture": "ignored_untracked"
+      },
+      {
+        "evidence_binding": "not_read_not_hashed_not_bound",
+        "input_id": "canon_mechanism_hardening_action_plan",
+        "path": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+        "role": "external operator production-gate input",
+        "tracking_posture": "ignored_untracked"
+      }
+    ],
     "legacy_default": "non_authoritative",
-    "pg_ledger_read_only_path": "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
-    "rule": "No capture, legacy app plan, prompt, harness, or evidence file schedules work or creates owner truth.",
-    "sole_sequencer_read_only_path": "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
-    "tracked_canon_role": "architecture owner and status authority, not an alternate implementation sequence"
+    "rule": "External untracked operator inputs may sequence work, but only tracked canon and conformance sources bound in canon_basis provide committed M0 evidence.",
+    "tracked_architecture_evidence_authority": {
+      "binding": "program_control_source.canon_basis_sha256",
+      "role": "committed architecture and status evidence authority",
+      "root": "docs/architecture/"
+    },
+    "tracked_conformance_evidence": {
+      "binding": "program_control_source.canon_basis_sha256",
+      "role": "committed selected-profile conformance evidence",
+      "root": "docs/conformance/"
+    }
   }
 }
