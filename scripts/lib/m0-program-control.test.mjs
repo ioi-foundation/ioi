@@ -1178,8 +1178,8 @@ test("supplied signed entries form an internally coherent chain with the reposit
     reviewAnchor,
     programSource,
   ));
-  assert.equal(reviewAnchor.head.sequence, 5);
-  assert.equal(reviewAnchor.epochs.length, 5);
+  assert.equal(reviewAnchor.head.sequence, 6);
+  assert.equal(reviewAnchor.epochs.length, 6);
   assert.deepEqual(
     reviewAnchor.assurance_posture,
     SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
@@ -1655,7 +1655,10 @@ test("proof lanes, lane bindings, and local identity ownership fail closed", () 
     /canonical owner tuple|canonical identity owner source/u,
   );
   for (const sourceFile of [
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
     "docs/architecture/components/hypervisor/identity-access-and-metering.md",
+    "docs/conformance/hypervisor-core/platform-operability.md",
+    "docs/conformance/hypervisor-core/platform-fault-matrix.v1.json",
     "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
     "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
   ]) {

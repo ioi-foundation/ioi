@@ -17,6 +17,25 @@ import {
   validateSovereignLocalCompletenessMatrix,
 } from "./lib/sovereign-local-completeness-matrix.mjs";
 
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
+const platformFaultMatrix = parsePlatformFaultMatrixJson(fs.readFileSync(
+  path.join(
+    repoRoot,
+    "docs/conformance/hypervisor-core/platform-fault-matrix.v1.json",
+  ),
+  "utf8",
+));
+const sovereignLocalMatrix = JSON.parse(fs.readFileSync(
+  path.join(
+    repoRoot,
+    "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
+  ),
+  "utf8",
+));
+
 test("attestation assurance broken links fail the conformance docs tier", () => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), "ioi-conformance-docs-regression-"),
@@ -25,6 +44,17 @@ test("attestation assurance broken links fail the conformance docs tier", () => 
     const conformanceRoot = path.join(root, "docs/conformance");
     const hypervisorCore = path.join(conformanceRoot, "hypervisor-core");
     fs.mkdirSync(hypervisorCore, { recursive: true });
+    fs.writeFileSync(
+      path.join(hypervisorCore, "platform-fault-matrix.v1.json"),
+      `${JSON.stringify(platformFaultMatrix, null, 2)}\n`,
+    );
+    fs.writeFileSync(
+      path.join(hypervisorCore, "platform-operability.md"),
+      Array.from(
+        { length: 12 },
+        (_, index) => `### CPO-${index + 1} — Requirement`,
+      ).join("\n\n"),
+    );
     const assurance = path.join(hypervisorCore, "attestation-assurance.md");
     fs.writeFileSync(
       assurance,
@@ -204,25 +234,6 @@ test("attestation assurance broken links fail the conformance docs tier", () => 
   }
 });
 
-const repoRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-);
-const platformFaultMatrix = parsePlatformFaultMatrixJson(fs.readFileSync(
-  path.join(
-    repoRoot,
-    "docs/conformance/hypervisor-core/platform-fault-matrix.v1.json",
-  ),
-  "utf8",
-));
-const sovereignLocalMatrix = JSON.parse(fs.readFileSync(
-  path.join(
-    repoRoot,
-    "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
-  ),
-  "utf8",
-));
-
 function expectPlatformMatrixFailure(mutator, pattern) {
   const fixture = structuredClone(platformFaultMatrix);
   mutator(fixture);
@@ -380,6 +391,26 @@ test("conformance docs integrity enforces the platform matrix and CPO roster", (
     assert.match(failures, /status must remain target_fixture_only/u);
     assert.match(failures, /reviewed semantic fingerprint/u);
     assert.match(failures, /must define exactly CPO-1 through CPO-12/u);
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("conformance docs integrity fails when the platform contract is absent", () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "ioi-platform-conformance-absence-"),
+  );
+  try {
+    fs.mkdirSync(path.join(root, "docs/conformance"), { recursive: true });
+    const failures = checkConformanceDocsIntegrity({ root }).join("\n");
+    assert.match(
+      failures,
+      /platform-fault-matrix\.v1\.json is required/u,
+    );
+    assert.match(
+      failures,
+      /platform-operability\.md is required/u,
+    );
   } finally {
     fs.rmSync(root, { force: true, recursive: true });
   }
