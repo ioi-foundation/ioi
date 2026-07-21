@@ -348,6 +348,33 @@ export const SURFACE_SHELL = {
     },
     data: { ref: [], ioi: [] },
   },
+  widgets: {
+    // Custom Widgets landing (Developer Console — the first Developer-Console-family port):
+    // certified shell = rail + 50px+hairline topbar (50x50 violet chip · title · New-widget-set /
+    // Help right cluster — NO store dropdown on this capture) + the 88px white band (h1 +
+    // subtitle, bottom hairline) + the content column as a 1000px block centered right of the
+    // rail (offset 0 @1440, +240 @1920): the View pill row (Recents/Favorites only; 10px pill
+    // margins on this capture) and the table ring + header row (the sources table family; the
+    // container follows 100vh − 249px, so all shell rects are viewport-stable — no fold-dependent
+    // band on this landing). The file ROWS are masked data (the capture's borrowed compass
+    // walkthrough rows vs the estate's registered surface descriptors).
+    rects: [
+      { key: "rail", anchor: "left", x: 0, y: 0, w: 230, h: 0 },
+      { key: "header", anchor: "topbar", x: 230, y: 0, w: 0, h: 51 },
+      { key: "band", anchor: "topbar", x: 230, y: 51, w: 0, h: 89 },
+      { key: "viewrow", anchor: "content", x: 335, y: 177, w: 1000, h: 34 },
+      { key: "tablehead", anchor: "content", x: 330, y: 214, w: 1010, h: 38 },
+    ],
+    // Masked DATA: the descriptor-row region below the table header (the capture's borrowed
+    // walkthrough rows vs the live registry). Ref-side rect applied to BOTH images; the @1920 row
+    // tail beyond the 1440-sized mask sits outside every shell rect (excluded body).
+    data: {
+      ref: [
+        { rect: { x: 336, y: 249, w: 998, h: 621 }, anchor: "content", label: "widget-set rows (captured walkthrough resources vs live surface-descriptor registrations)" },
+      ],
+      ioi: [],
+    },
+  },
   workspaces: {
     // Code Workspaces launchpad (Workbench — the first Workbench-family port): certified shell =
     // rail + 50px+hairline topbar (50x50 orange chip · title · store dropdown / New workspace /

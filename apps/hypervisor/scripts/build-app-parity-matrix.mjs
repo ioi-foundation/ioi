@@ -86,6 +86,14 @@ const REFERENCE_PORTED = {
 // match + reproduction of the reference's IA landmarks) against a VALID (non-errored) reference.
 // `reference_landmarks` = the reference's IA label set the hardened harness requires in BOTH sides.
 const DAEMON_WIRED = {
+  // Widgets (widgets): the FIFTEENTH faithful port — the EIGHTH from the origin-alignment queue
+  // and the FIRST Developer-Console-family certified surface. The #44 sweep proved the Custom
+  // Widgets landing data-bearing on the capture-origin lane while the proxy renders no data
+  // (origin baked into a JS chunk the index-fold cannot reach — the documented adopt-lane gap);
+  // reference_url_override stamps the honest lane. A READ-ONLY registry lens over the ODK
+  // surface-descriptor plane (registration itself stays an ODK dev-kit lane).
+  widgets: { port_surface: "/__ioi/developer-console/widgets", surface_name: "Developer Console", reference_url_override: "http://localhost:9225/workspace/custom-widgets/", reference_landmarks: ["Custom Widgets", "New widget set", "Develop custom frontend widgets for use within Foundry applications.", "Recents", "Favorites", "Files", "Creator", "Last edited by", "Last viewed"], binding: "faithful port of the reference Custom Widgets landing over the estate's real widget/extension registration plane — dark global rail + topbar (violet widgets tile · Custom Widgets · New-widget-set-to-ODK / Help) + white h1 band + the View pill row (Recents active · Favorites named-gap) + the sources-family table whose rows are REAL ODK surface descriptors (name · ref · composition pattern · ontology binding · status · created date; creator/edited/viewed columns HONEST em-dashes — no principal or view tracking on the registry; honest empty state when nothing is registered) + below-the-fold the registry census (patterns/status chips from the records) with the registration boundary declared", note: "TRUE parity under the HARDENED gate: light Custom-Widgets landing reference-faithful shell at /__ioi/developer-console/widgets against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/custom-widgets/ — the #44 needs_origin_alignment finding; the /__apps/widgets proxy lane stays documented-insufficient: the capture bakes its origin into a JS chunk the index-fold cannot reach, so the proxy renders no data); the EIGHTH origin-alignment-queue port and the FIRST Developer-Console-family certified surface — a NEW dedicated port route over the EXISTING ODK surface-descriptor registry; a READ-ONLY registration lens — THE BOUNDARY IS THE HARD LINE: no descriptor authoring, no widget building, no generated UI artifact on this surface (New widget set ROUTES to the /__ioi/odk dev kit where the daemon's ontology-bound descriptor-create authority lives; the Developer Console owner surface is the /__ioi/connections cockpit, linked first-class both ways); the reference's build-in-environment vs scaffold-externally dev-kit fork (generated SDK/CLI) is vendor chrome the estate does not bind — a named gap declared in place; favorites / principal + view tracking / Help = named gaps disabled in place" },
+
   // Workspaces (workspaces): the FOURTEENTH faithful port — the SEVENTH from the origin-alignment
   // queue and the FIRST Workbench-family certified surface. The #44 sweep proved the Code
   // Workspaces launchpad data-bearing on the capture-origin lane while the proxy renders no data;
@@ -338,6 +346,7 @@ const SHELL_PIXEL_CERTIFIED = {
   // bbox <= 3 — no threshold movement.
   listings: "pixel-certifications/listings.json",
   workspaces: "pixel-certifications/workspaces.json",
+  widgets: "pixel-certifications/widgets.json",
 };
 
 // ---- PR #44: the ESTATE REFERENCE CLEAN SWEEP (committed evidence written by

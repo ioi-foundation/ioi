@@ -17,8 +17,8 @@
   ],
   "total_seeds": 39,
   "by_parity_class": {
-    "daemon_wired": 14,
-    "reference_capture": 22,
+    "daemon_wired": 15,
+    "reference_capture": 21,
     "substrate_bound": 3
   },
   "legend": {
@@ -615,14 +615,32 @@
       "capture_base": "/workspace/custom-widgets/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "reference_capture",
+      "parity_class": "daemon_wired",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/widgets",
       "reference_workspace": "/workspace/custom-widgets/",
-      "note": "widget-set authoring (self-bootstrapped)",
-      "reference_clean_state": "needs_origin_alignment",
-      "reference_clean_reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 0 · lines 47) — align the reference URL like pipeline #38/#39",
-      "reference_clean_artifact": "reference-clean-sweep.json"
+      "note": "TRUE parity under the HARDENED gate: light Custom-Widgets landing reference-faithful shell at /__ioi/developer-console/widgets against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/custom-widgets/ — the #44 needs_origin_alignment finding; the /__apps/widgets proxy lane stays documented-insufficient: the capture bakes its origin into a JS chunk the index-fold cannot reach, so the proxy renders no data); the EIGHTH origin-alignment-queue port and the FIRST Developer-Console-family certified surface — a NEW dedicated port route over the EXISTING ODK surface-descriptor registry; a READ-ONLY registration lens — THE BOUNDARY IS THE HARD LINE: no descriptor authoring, no widget building, no generated UI artifact on this surface (New widget set ROUTES to the /__ioi/odk dev kit where the daemon's ontology-bound descriptor-create authority lives; the Developer Console owner surface is the /__ioi/connections cockpit, linked first-class both ways); the reference's build-in-environment vs scaffold-externally dev-kit fork (generated SDK/CLI) is vendor chrome the estate does not bind — a named gap declared in place; favorites / principal + view tracking / Help = named gaps disabled in place",
+      "reference_clean_state": "data_clean",
+      "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 0 · lists 0 · lines 47)",
+      "reference_clean_artifact": "reference-clean-sweep.json",
+      "port_surface": "/__ioi/developer-console/widgets",
+      "surface_name": "Developer Console",
+      "reference_url_override": "http://localhost:9225/workspace/custom-widgets/",
+      "reference_landmarks": [
+        "Custom Widgets",
+        "New widget set",
+        "Develop custom frontend widgets for use within Foundry applications.",
+        "Recents",
+        "Favorites",
+        "Files",
+        "Creator",
+        "Last edited by",
+        "Last viewed"
+      ],
+      "binding": "faithful port of the reference Custom Widgets landing over the estate's real widget/extension registration plane — dark global rail + topbar (violet widgets tile · Custom Widgets · New-widget-set-to-ODK / Help) + white h1 band + the View pill row (Recents active · Favorites named-gap) + the sources-family table whose rows are REAL ODK surface descriptors (name · ref · composition pattern · ontology binding · status · created date; creator/edited/viewed columns HONEST em-dashes — no principal or view tracking on the registry; honest empty state when nothing is registered) + below-the-fold the registry census (patterns/status chips from the records) with the registration boundary declared",
+      "candidate_surface": "/__ioi/developer-console/widgets",
+      "shell_pixel_certified": true,
+      "shell_pixel_certification_artifact": "pixel-certifications/widgets.json"
     },
     {
       "owner": "Developer Console",
