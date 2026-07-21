@@ -5,6 +5,7 @@
 //! active profiles, create node membership, or expose a Systems product surface.
 
 use std::collections::{BTreeSet, HashMap};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use axum::{
@@ -34,7 +35,7 @@ pub(crate) type VErr = (String, String);
 
 const RECORD_DIR: &str = "autonomous-system-genesis-registry";
 const RECEIPT_DIR: &str = "autonomous-system-genesis-receipts";
-const INTENT_DIR: &str = "autonomous-system-genesis-intents";
+pub(crate) const INTENT_DIR: &str = "autonomous-system-genesis-intents";
 const CONSUMPTION_DIR: &str = "autonomous-system-genesis-authority-consumptions";
 const AGGREGATE_SCHEMA: &str = "ioi.hypervisor.autonomous-system-genesis-admission.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.autonomous-system-genesis-receipt.v1";
@@ -54,6 +55,7 @@ const AUTHORITY: AuthorityContract = AuthorityContract {
 
 pub(crate) static SYSTEM_GENESIS_LOCK: Mutex<()> = Mutex::new(());
 static SYSTEM_GENESIS_ADMISSION_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+static SYSTEM_GENESIS_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone)]
 struct CompiledAdmission {
@@ -221,25 +223,6 @@ fn canonical_effective_max_usages(max_usages: Option<u32>) -> Option<u32> {
         Some(value) => Some(value),
         None => Some(1),
     }
-}
-
-fn require_m1_4_single_use_grant(authorized: &AuthorizedDecision) -> Result<(), VErr> {
-    let grant: ApprovalGrant = serde_json::from_value(
-        authorized.evidence.wallet_approval_grant.clone(),
-    )
-    .map_err(|error| {
-        verr(
-            "system_genesis_authority_evidence_invalid",
-            format!("wallet approval grant is malformed ({error})"),
-        )
-    })?;
-    if grant.max_usages != Some(1) {
-        return Err(verr(
-            "system_genesis_authority_evidence_invalid",
-            "new System genesis admission requires an explicit single-use grant",
-        ));
-    }
-    Ok(())
 }
 
 fn wallet_consumption_coordinates(
@@ -1149,9 +1132,27 @@ fn persist_immutable(data_dir: &str, family: &str, tail: &str, value: &Value) ->
     })
 }
 
-fn persist_intent(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
-    super::durable_fs::persist_receipt_no_clobber(data_dir, INTENT_DIR, tail, intent)
-        .map_err(map_commit_failure)
+fn persist_intent(
+    data_dir: &str,
+    tail: &str,
+    intent: &Value,
+    cleanup_request_created_family: bool,
+) -> Result<(), VErr> {
+    let failure =
+        match super::durable_fs::persist_receipt_no_clobber(data_dir, INTENT_DIR, tail, intent) {
+            Ok(()) => return Ok(()),
+            Err(failure) => failure,
+        };
+    let intent_is_provably_absent = matches!(
+        &failure,
+        super::durable_fs::CommitFailure::KeyInvalid(_)
+            | super::durable_fs::CommitFailure::NotCommitted(_)
+            | super::durable_fs::CommitFailure::Conflict(_)
+    );
+    if intent_is_provably_absent && cleanup_request_created_family {
+        remove_request_created_family_if_empty(data_dir)?;
+    }
+    Err(map_commit_failure(failure))
 }
 
 fn persist_wallet_consumption_evidence(
@@ -1217,9 +1218,24 @@ fn consume_intent(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
         Err(error) => return Err(verr("system_genesis_intent_unreadable", error.to_string())),
     };
-    match super::durable_fs::unlink_at(&directory, &format!("{tail}.json")) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+    match super::durable_fs::unlink_durable_at(&directory, &format!("{tail}.json"), INTENT_DIR) {
+        Ok(super::durable_fs::UnlinkOutcome::Absent)
+        | Ok(super::durable_fs::UnlinkOutcome::Durable) => {}
+        Ok(super::durable_fs::UnlinkOutcome::ReplayAnchorRestoredAfterUnconfirmedRemoval(
+            error,
+        )) => {
+            return Err(verr(
+                "system_genesis_pending_convergence",
+                format!(
+                    "intent removal durability was unconfirmed; the byte-exact replay anchor was restored ({error})"
+                ),
+            ))
+        }
+        Ok(super::durable_fs::UnlinkOutcome::RemovedDurabilityUnconfirmed(error)) => {
+            eprintln!(
+                "SystemGenesis intent '{tail}' is absent from the live namespace but its directory durability is unconfirmed ({error}); terminal evidence remains authoritative and replay is idempotent"
+            );
+        }
         Err(error) => {
             return Err(verr(
                 "system_genesis_pending_convergence",
@@ -1227,22 +1243,53 @@ fn consume_intent(
             ))
         }
     }
-    directory.sync_all().map_err(|error| {
-        verr(
-            "system_genesis_pending_convergence",
-            format!("intent directory sync failed ({error})"),
-        )
-    })?;
     drop(directory);
     if remove_request_created_family {
-        super::durable_fs::remove_empty_family_durable(data_dir, INTENT_DIR).map_err(|error| {
-            verr(
-                "system_genesis_pending_convergence",
-                format!("request-created empty intent family cleanup failed ({error})"),
-            )
-        })?;
+        remove_request_created_family_if_empty(data_dir)?;
     }
     Ok(())
+}
+
+fn remove_request_created_family_if_empty(data_dir: &str) -> Result<(), VErr> {
+    match super::durable_fs::remove_empty_family_durable(data_dir, INTENT_DIR) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) if error.raw_os_error() == Some(libc::ENOTEMPTY) => {
+            // Another governed intent now shares the family. The transitive cleanup marker on
+            // that intent carries the obligation until the last owner converges.
+            Ok(())
+        }
+        Err(error) => Err(verr(
+            "system_genesis_pending_convergence",
+            format!("request-created empty intent family cleanup failed ({error})"),
+        )),
+    }
+}
+
+fn intent_created_family(intent: &Value) -> Result<bool, VErr> {
+    match intent.get("intent_family_created_by_request") {
+        None => Ok(false),
+        Some(value) => value.as_bool().ok_or_else(|| {
+            verr(
+                "system_genesis_intent_unreadable",
+                "intent has malformed request-created-family provenance",
+            )
+        }),
+    }
+}
+
+fn inherited_family_cleanup_obligation(
+    family_preexisted: bool,
+    existing_intents: &[(String, Value)],
+) -> Result<bool, VErr> {
+    if !family_preexisted {
+        return Ok(true);
+    }
+    existing_intents
+        .iter()
+        .try_fold(false, |required, (_, intent)| {
+            Ok(required || intent_created_family(intent)?)
+        })
 }
 
 fn touched_refs(
@@ -1315,6 +1362,12 @@ fn validate_intent_seal(intent: &Value, tail: &str) -> Result<(), String> {
     if intent.get("touched_refs") != Some(&json!(expected)) {
         return Err("intent touched_refs differs from the exact admission coordinates".to_string());
     }
+    if intent
+        .get("intent_family_created_by_request")
+        .is_some_and(|value| !value.is_boolean())
+    {
+        return Err("intent has malformed request-created-family provenance".to_string());
+    }
     Ok(())
 }
 
@@ -1328,11 +1381,13 @@ fn scan_intents(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
         .map_err(|error| format!("intent family cannot be enumerated ({error})"))?;
     let mut intents = Vec::new();
     for name in names {
-        let Some(tail) = name.strip_suffix(".json") else {
-            continue;
-        };
+        let tail = name.strip_suffix(".json").ok_or_else(|| {
+            format!("unexpected non-JSON entry '{name}' exists in the intent family")
+        })?;
         if !canonical_intent_tail(tail) {
-            continue;
+            return Err(format!(
+                "unexpected noncanonical JSON entry '{name}' exists in the intent family"
+            ));
         }
         let bytes = match super::durable_fs::read_slot_strict(&directory, &name) {
             Ok(Some((_file, bytes))) => bytes,
@@ -1345,6 +1400,22 @@ fn scan_intents(data_dir: &str) -> Result<Vec<(String, Value)>, String> {
         intents.push((tail.to_string(), intent));
     }
     Ok(intents)
+}
+
+fn fair_replay_window(
+    mut intents: Vec<(String, Value)>,
+    max_intents: usize,
+    cursor: &AtomicUsize,
+) -> Vec<(String, Value)> {
+    if intents.is_empty() || max_intents == 0 {
+        return Vec::new();
+    }
+    intents.sort_by(|left, right| left.0.cmp(&right.0));
+    let count = max_intents.min(intents.len());
+    let start = cursor.fetch_add(1, Ordering::Relaxed) % intents.len();
+    (0..count)
+        .map(|offset| intents[(start + offset) % intents.len()].clone())
+        .collect()
 }
 
 fn load_intent(data_dir: &str, tail: &str) -> Result<Option<Value>, String> {
@@ -1682,7 +1753,6 @@ fn consume_unspent_precondition_intent_locked(
     tail: &str,
     expected_intent: &Value,
     wallet_consumption_tail: &str,
-    remove_request_created_family: bool,
 ) -> Result<(), VErr> {
     let stored = load_intent(data_dir, tail)
         .map_err(|message| verr("system_genesis_intent_unreadable", message))?
@@ -1712,7 +1782,7 @@ fn consume_unspent_precondition_intent_locked(
         CONSUMPTION_DIR,
         wallet_consumption_tail,
     ) {
-        Ok(None) => consume_intent(data_dir, tail, remove_request_created_family),
+        Ok(None) => consume_intent(data_dir, tail, intent_created_family(&stored)?),
         Ok(Some(_)) => Err(verr(
             "system_genesis_pending_convergence",
             "Agentgres wallet-consumption evidence exists for a precondition-refused genesis intent",
@@ -1769,7 +1839,7 @@ fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<
             "test-forced interruption after required Agentgres admission",
         ));
     }
-    consume_intent(data_dir, tail, false)
+    consume_intent(data_dir, tail, intent_created_family(intent)?)
 }
 
 pub(crate) async fn handle_admit(
@@ -1857,9 +1927,6 @@ pub(crate) async fn handle_admit(
         Ok(value) => value,
         Err(response) => return response,
     };
-    if let Err(error) = require_m1_4_single_use_grant(&authorized) {
-        return classify(error);
-    }
     let admitted_at = match ms_to_rfc3339(authorized.resolved_at_ms) {
         Ok(value) => value,
         Err(error) => return classify(error),
@@ -1885,8 +1952,7 @@ pub(crate) async fn handle_admit(
         Err(error) => return classify(error),
     };
     let receipt = build_receipt(&receipt_tail, &final_record, &authorized, &admitted_at);
-    let intent = seal_intent(
-        json!({
+    let intent_body = json!({
             "kind": "admit_genesis",
             "op": "genesis_admit",
             "phase": "prepared_for_authority_consumption",
@@ -1905,11 +1971,9 @@ pub(crate) async fn handle_admit(
             "proposed_instantiation": compiled.proposed_instantiation,
             "receipt": receipt,
             "final_record": final_record
-        }),
-        &intent_tail,
-    );
+    });
 
-    let remove_request_created_intent_family = {
+    let intent = {
         let _plane = SYSTEM_GENESIS_LOCK
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -1925,7 +1989,10 @@ pub(crate) async fn handle_admit(
         }
         let family_preexisted =
             match super::durable_fs::open_family_dir_pinned(&state.data_dir, INTENT_DIR) {
-                Ok(_) => true,
+                Ok(directory) => {
+                    drop(directory);
+                    true
+                }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
                 Err(error) => {
                     return classify(verr(
@@ -1934,10 +2001,29 @@ pub(crate) async fn handle_admit(
                     ))
                 }
             };
-        if let Err(error) = persist_intent(&state.data_dir, &intent_tail, &intent) {
+        let existing_intents = if family_preexisted {
+            match scan_intents(&state.data_dir) {
+                Ok(value) => value,
+                Err(message) => return classify(verr("system_genesis_intent_unreadable", message)),
+            }
+        } else {
+            Vec::new()
+        };
+        let cleanup_required =
+            match inherited_family_cleanup_obligation(family_preexisted, &existing_intents) {
+                Ok(value) => value,
+                Err(error) => return classify(error),
+            };
+        let mut intent_body = intent_body;
+        // Propagate the cleanup obligation across concurrent intents. The last surviving intent
+        // must still restore an originally absent family after the first creator has converged.
+        intent_body["intent_family_created_by_request"] = json!(cleanup_required);
+        let intent = seal_intent(intent_body, &intent_tail);
+        if let Err(error) = persist_intent(&state.data_dir, &intent_tail, &intent, cleanup_required)
+        {
             return classify(error);
         }
-        !family_preexisted
+        intent
     };
     if std::env::var("IOI_TEST_FORCE_SYSTEM_GENESIS_AFTER_PREPARE")
         .ok()
@@ -1968,7 +2054,6 @@ pub(crate) async fn handle_admit(
                     &intent_tail,
                     &intent,
                     &reconstructed.wallet_consumption_tail,
-                    remove_request_created_intent_family,
                 )
             };
             if let Err(cleanup_error) = cleanup {
@@ -2155,7 +2240,7 @@ pub(crate) async fn complete_governed_system_genesis_intents(data_dir: &str, max
         }
     }
     let intents = match scan_intents(data_dir) {
-        Ok(value) => value,
+        Ok(value) => fair_replay_window(value, max_intents, &SYSTEM_GENESIS_REPLAY_CURSOR),
         Err(message) => {
             eprintln!("SystemGenesis completer: scan failed ({message})");
             return;
@@ -2200,7 +2285,6 @@ pub(crate) async fn complete_governed_system_genesis_intents(data_dir: &str, max
                         &tail,
                         &intent,
                         &reconstructed.wallet_consumption_tail,
-                        false,
                     ) {
                         Ok(()) => eprintln!(
                             "SystemGenesis completer: '{tail}' discarded after wallet precondition refusal ({message})"
@@ -2445,6 +2529,7 @@ mod system_genesis_tests {
                 "kind": "admit_genesis",
                 "op": "genesis_admit",
                 "phase": "prepared_for_authority_consumption",
+                "intent_family_created_by_request": false,
                 "system_id": compiled.proposed_genesis["system_id"],
                 "genesis_ref": compiled.proposed_genesis["genesis_id"],
                 "proposal_root": compiled.proposal_root,
@@ -2525,13 +2610,89 @@ mod system_genesis_tests {
     }
 
     #[test]
-    fn fresh_m1_4_admission_requires_explicit_single_use_even_when_legacy_is_readable() {
-        require_m1_4_single_use_grant(&fake_authorized()).expect("explicit single-use grant");
-        for max_usages in [None, Some(2)] {
-            let error = require_m1_4_single_use_grant(&fake_authorized_with_max_usages(max_usages))
-                .expect_err("fresh M1.4 admission must reject legacy grant ceilings");
-            assert_eq!(error.0, "system_genesis_authority_evidence_invalid");
+    fn legacy_pending_intent_without_family_provenance_remains_replayable() {
+        let authorized = fake_authorized_with_max_usages(None);
+        let (intent_tail, mut intent) = pending_intent_fixture(&authorized);
+        intent
+            .as_object_mut()
+            .unwrap()
+            .remove("intent_family_created_by_request");
+        let hash =
+            crate::outcome_room_routes::record_output_hash(&without(&intent, "intent_hash"), &[]);
+        intent["intent_hash"] = json!(hash);
+
+        validate_intent_seal(&intent, &intent_tail).expect("legacy sealed bytes remain readable");
+        assert!(!intent_created_family(&intent).unwrap());
+        reconstruct_intent(&intent, &intent_tail)
+            .expect("legacy pending intent remains reconstructable");
+    }
+
+    #[test]
+    fn unchanged_m1_3_admission_preserves_omitted_and_multi_use_grant_semantics() {
+        for (max_usages, expected) in [(None, 1), (Some(2), 2)] {
+            let authorized = fake_authorized_with_max_usages(max_usages);
+            let (release, proposed) = valid_inputs();
+            let compiled = compile_or_error(&release, &proposed).unwrap();
+            let (_, _, _, consumption, _) = deterministic_evidence_tails(
+                &authorized,
+                compiled.proposed_genesis["system_id"].as_str().unwrap(),
+                compiled.proposed_genesis["genesis_id"].as_str().unwrap(),
+                &compiled.proposal_root,
+            )
+            .expect("legacy-compatible M1.3 grant encoding");
+            assert_eq!(consumption.expected_max_usages, expected);
         }
+    }
+
+    #[test]
+    fn bounded_replay_window_rotates_past_a_retained_prefix() {
+        let cursor = AtomicUsize::new(0);
+        let intents = vec![
+            ("asg_a".to_string(), json!({"slot": "a"})),
+            ("asg_b".to_string(), json!({"slot": "b"})),
+        ];
+        assert_eq!(
+            fair_replay_window(intents.clone(), 1, &cursor)[0].0,
+            "asg_a"
+        );
+        assert_eq!(
+            fair_replay_window(intents, 1, &cursor)[0].0,
+            "asg_b",
+            "a retained first intent cannot starve the next authorized intent"
+        );
+    }
+
+    #[test]
+    fn default_ceiling_still_rotates_the_first_replayed_intent() {
+        let cursor = AtomicUsize::new(0);
+        let intents = vec![
+            ("asg_a".to_string(), json!({"slot": "a"})),
+            ("asg_b".to_string(), json!({"slot": "b"})),
+            ("asg_c".to_string(), json!({"slot": "c"})),
+        ];
+        let starts = (0..3)
+            .map(|_| {
+                fair_replay_window(intents.clone(), 32, &cursor)[0]
+                    .0
+                    .clone()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            starts,
+            vec!["asg_a", "asg_b", "asg_c"],
+            "a slow first intent cannot monopolize the first wall-clock slot when len <= ceiling"
+        );
+    }
+
+    #[test]
+    fn request_created_family_cleanup_obligation_follows_the_last_concurrent_intent() {
+        let inherited = vec![(
+            "asgi_a".to_string(),
+            json!({"intent_family_created_by_request": true}),
+        )];
+        assert!(inherited_family_cleanup_obligation(true, &inherited).unwrap());
+        assert!(inherited_family_cleanup_obligation(false, &[]).unwrap());
+        assert!(!inherited_family_cleanup_obligation(true, &[]).unwrap());
     }
 
     #[test]
@@ -2770,6 +2931,7 @@ mod system_genesis_tests {
                 "kind": "admit_genesis",
                 "op": "genesis_admit",
                 "phase": "prepared_for_authority_consumption",
+                "intent_family_created_by_request": false,
                 "system_id": compiled.proposed_genesis["system_id"],
                 "genesis_ref": compiled.proposed_genesis["genesis_id"],
                 "proposal_root": compiled.proposal_root,

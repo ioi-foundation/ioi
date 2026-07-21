@@ -104,6 +104,38 @@ fn stale_generated_wallet_method_map_requires_typed_config_migration_with_existi
         state_sentinel,
         "required config migration must fail before existing state is mutated"
     );
+
+    for (v1_permission, v2_permission) in [
+        (MethodPermission::User, MethodPermission::Internal),
+        (MethodPermission::Internal, MethodPermission::User),
+    ] {
+        let mut mismatched = parsed.clone();
+        let methods = &mut mismatched
+            .service_policies
+            .get_mut("wallet_network")
+            .expect("wallet policy")
+            .methods;
+        methods.insert(
+            "consume_approval_grant_for_effect@v1".to_string(),
+            v1_permission,
+        );
+        methods.insert(
+            "consume_approval_grant_for_effect@v2".to_string(),
+            v2_permission,
+        );
+        let error = mismatched
+            .validate()
+            .expect_err("mismatched v1/v2 permissions must fail before startup");
+        assert!(
+            error.starts_with(WALLET_EFFECT_V2_CONFIG_MIGRATION_CODE),
+            "permission mismatch must expose the stable migration code: {error}"
+        );
+        assert_eq!(
+            std::fs::read(&state_path).expect("read old state after mismatch refusal"),
+            state_sentinel,
+            "permission mismatch must fail before existing state is mutated"
+        );
+    }
     std::fs::remove_dir_all(fixture_dir).expect("remove upgrade fixture");
 }
 

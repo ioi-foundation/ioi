@@ -26,7 +26,13 @@
 // stop() is idempotent, runs on success or failure (call it in `finally`), and a best-effort
 // process-exit hook covers crashes between spawn and finally.
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, readdirSync, openSync } from "node:fs";
+import {
+  closeSync,
+  mkdtempSync,
+  rmSync,
+  readdirSync,
+  openSync,
+} from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -77,48 +83,97 @@ export function receiptFileCount(dataDir, family) {
 const EXIT_CLEANUPS = new Set();
 process.on("exit", () => { for (const fn of EXIT_CLEANUPS) fn(); });
 
-export async function startIsolatedPlane({ serve = false, env = {}, dataDir: reuseDataDir = null } = {}) {
+export async function startIsolatedPlane({
+  serve = false,
+  env = {},
+  dataDir: reuseDataDir = null,
+  baseEnv = process.env,
+} = {}) {
   const { existsSync } = await import("node:fs");
   if (!existsSync(DAEMON_BINARY)) return null;
   const reused = !!reuseDataDir;
   const dataDir = reuseDataDir || mkdtempSync(join(tmpdir(), "ioi-isolated-plane-"));
   const daemonPort = await freePort();
   const daemonUrl = `http://127.0.0.1:${daemonPort}`;
-  const logFd = openSync(join(dataDir, reused ? `isolated-daemon-restart-${Date.now()}.log` : "isolated-daemon.log"), "w");
+  const logPath = join(
+    dataDir,
+    reused ? `isolated-daemon-restart-${Date.now()}.log` : "isolated-daemon.log",
+  );
+  const logFd = openSync(logPath, "w");
   const children = [];
-  const daemon = spawn(DAEMON_BINARY, [], {
+  const childExits = new Map();
+  const trackChild = (child) => {
+    children.push(child);
+    childExits.set(
+      child,
+      new Promise((resolve) => {
+        let settled = false;
+        const finish = (code, signal) => {
+          if (settled) return;
+          settled = true;
+          resolve({ code, signal });
+        };
+        if (child.exitCode !== null || child.signalCode !== null) {
+          finish(child.exitCode, child.signalCode);
+          return;
+        }
+        child.once("exit", finish);
+        child.once("error", (error) => finish(null, `spawn-error:${error.code || error.message}`));
+      }),
+    );
+    return child;
+  };
+  const daemon = trackChild(spawn(DAEMON_BINARY, [], {
     env: {
-      ...process.env,
+      ...baseEnv,
       IOI_HYPERVISOR_DATA_DIR: dataDir,
       IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${daemonPort}`,
-      IOI_WALLET_SECRET_PASS: process.env.IOI_WALLET_SECRET_PASS || "ioi-isolated-verifier-pass",
+      IOI_WALLET_SECRET_PASS:
+        baseEnv.IOI_WALLET_SECRET_PASS || "ioi-isolated-verifier-pass",
       ...env,
     },
     stdio: ["ignore", logFd, logFd],
-  });
-  children.push(daemon);
+  }));
+  closeSync(logFd);
 
-  let stopped = false;
+  let cleanupFinished = false;
+  let stopPromise = null;
   // Crash cover between spawn and the caller's finally: kill children, drop only OUR temp dir.
   // ONE shared exit hook for every plane (a per-plane listener trips MaxListenersExceeded once
   // fault/restart lanes spawn a dozen planes), and stop() DEREGISTERS the plane's cleanup so a
   // long verifier process retains no dead child/data-dir closures (#72 round 12 finding 3).
   const cleanup = () => {
-    if (stopped) return;
+    if (cleanupFinished) return;
     for (const c of children) { try { c.kill("SIGKILL"); } catch { /* already gone */ } }
     if (!reused) { try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ } }
   };
   EXIT_CLEANUPS.add(cleanup);
-  const stop = async () => {
-    if (stopped) return;
-    stopped = true;
-    EXIT_CLEANUPS.delete(cleanup);
-    for (const c of children) { try { c.kill("SIGTERM"); } catch { /* already gone */ } }
-    await new Promise((r) => setTimeout(r, 400));
-    for (const c of children) { try { c.kill("SIGKILL"); } catch { /* already gone */ } }
-    // OWNERSHIP (#72 round 6 finding 5): only directories THIS helper created are deleted; a
-    // reused dataDir is caller-owned and survives stop and startup failure alike.
-    if (!reused) { try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ } }
+  const stop = () => {
+    if (cleanupFinished) return Promise.resolve();
+    if (stopPromise) return stopPromise;
+    stopPromise = (async () => {
+      for (const c of children) { try { c.kill("SIGTERM"); } catch { /* already gone */ } }
+      await Promise.race([
+        Promise.all([...childExits.values()]),
+        new Promise((r) => setTimeout(r, 400)),
+      ]);
+      for (const c of children) {
+        if (c.exitCode === null && c.signalCode === null) {
+          try { c.kill("SIGKILL"); } catch { /* already gone */ }
+        }
+      }
+      await Promise.all([...childExits.values()]);
+      // OWNERSHIP (#72 round 6 finding 5): only directories THIS helper created are deleted; a
+      // reused dataDir is caller-owned and survives stop and startup failure alike. Removal or
+      // reuse happens only after every child has emitted exit, so no old daemon can overlap it.
+      if (!reused) rmSync(dataDir, { recursive: true, force: true });
+      cleanupFinished = true;
+      EXIT_CLEANUPS.delete(cleanup);
+    })().catch((error) => {
+      stopPromise = null;
+      throw error;
+    });
+    return stopPromise;
   };
 
   if (!(await waitFor(`${daemonUrl}/v1/hypervisor/data-sources`))) {
@@ -131,19 +186,22 @@ export async function startIsolatedPlane({ serve = false, env = {}, dataDir: reu
     const servePort = await freePort();
     const mirrorPort = await freePort(); // the serve spawns its own mock mirror — keep it off :9301
     serveUrl = `http://127.0.0.1:${servePort}`;
-    const child = spawn(process.execPath, [join(APP, "scripts", "serve-product-ui.mjs")], {
+    const serveLogFd = openSync(logPath, "a");
+    const child = trackChild(spawn(process.execPath, [join(APP, "scripts", "serve-product-ui.mjs")], {
       env: {
-        ...process.env,
+        ...baseEnv,
         PORT: String(servePort), PRODUCT_UI_PORT: String(mirrorPort),
         IOI_HYPERVISOR_DAEMON_URL: daemonUrl, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${daemonPort}`,
         IOI_HYPERVISOR_DATA_DIR: dataDir,
-        IOI_PRODUCT_UI_PUBLIC: process.env.IOI_PRODUCT_UI_PUBLIC || join(APP, "product-ui", "owned", "public"),
+        IOI_PRODUCT_UI_PUBLIC:
+          baseEnv.IOI_PRODUCT_UI_PUBLIC ||
+          join(APP, "product-ui", "owned", "public"),
         IOI_WALLET_TEST_SIGNER: "", IOI_APP_RUNTIME_TEST_ROUTE: "",
         ...env,
       },
-      stdio: ["ignore", logFd, logFd],
-    });
-    children.push(child);
+      stdio: ["ignore", serveLogFd, serveLogFd],
+    }));
+    closeSync(serveLogFd);
     if (!(await waitFor(`${serveUrl}/__ioi/data/sources`))) {
       await stop();
       throw new Error(`isolated serve never became healthy on ${serveUrl}`);

@@ -348,6 +348,97 @@ fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
+fn fixture_root_seed() -> Result<[u8; 32]> {
+    match std::env::var("IOI_HYPERVISOR_WALLET_FIXTURE_ROOT_SEED_HEX") {
+        Ok(value) => exact_hash32(&value, "IOI_HYPERVISOR_WALLET_FIXTURE_ROOT_SEED_HEX"),
+        Err(std::env::VarError::NotPresent) => Ok(ROOT_SEED),
+        Err(error) => Err(anyhow!(error)),
+    }
+}
+
+fn write_atomic_durable(path: &Path, bytes: &[u8]) -> Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow!("atomic fixture publication requires a parent directory"))?;
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| anyhow!("atomic fixture publication requires a UTF-8 filename"))?;
+    let temporary = parent.join(format!(
+        ".{file_name}.{}.{}.tmp",
+        std::process::id(),
+        now_ms()
+    ));
+    let result = (|| -> Result<()> {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        std::fs::rename(&temporary, path)?;
+        std::fs::File::open(parent)?.sync_all()?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    result
+}
+
+fn process_start_time_ticks(pid: i32) -> Result<String> {
+    let stat = std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        .with_context(|| format!("read process identity for process group {pid}"))?;
+    let (_, fields) = stat
+        .rsplit_once(") ")
+        .ok_or_else(|| anyhow!("process stat for {pid} has no command terminator"))?;
+    let start_time_ticks = fields
+        .split_whitespace()
+        .nth(19)
+        .ok_or_else(|| anyhow!("process stat for {pid} has no start-time field"))?;
+    if !start_time_ticks.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(anyhow!(
+            "process stat for {pid} has a nonnumeric start-time field"
+        ));
+    }
+    Ok(start_time_ticks.to_string())
+}
+
+fn publish_verifier_owner_marker(fixture_dir: &Path) -> Result<()> {
+    let owner_pid = std::env::var("IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_PID")
+        .context("IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_PID is required")?
+        .parse::<u32>()
+        .context("IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_PID must be a u32")?;
+    let owner_start_time_ticks =
+        std::env::var("IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_START_TIME_TICKS")
+            .context("IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_START_TIME_TICKS is required")?;
+    if owner_start_time_ticks.is_empty()
+        || !owner_start_time_ticks
+            .bytes()
+            .all(|byte| byte.is_ascii_digit())
+    {
+        return Err(anyhow!(
+            "IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_START_TIME_TICKS must be numeric"
+        ));
+    }
+    let process_group_id = unsafe { libc::getpgrp() };
+    if process_group_id <= 0 {
+        return Err(anyhow!("wallet fixture process group id must be positive"));
+    }
+    let marker = serde_json::json!({
+        "schema_version": 2,
+        "owner_pid": owner_pid,
+        "owner_start_time_ticks": owner_start_time_ticks,
+        "owner_kind": "wallet-network-principal-authority-fixture",
+        "process_group_id": process_group_id,
+        "process_group_start_time_ticks": process_start_time_ticks(process_group_id)?,
+    });
+    write_atomic_durable(
+        &fixture_dir.join(".ioi-verifier-owner.json"),
+        &serde_json::to_vec(&marker)?,
+    )
+}
+
 fn signed_revocation(
     root: &Ed25519KeyPair,
     root_record: &WalletControlPlaneRootRecord,
@@ -797,6 +888,7 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
             .context("IOI_HYPERVISOR_WALLET_FIXTURE_DIR is required")?,
     );
     std::fs::create_dir_all(&fixture_dir)?;
+    publish_verifier_owner_marker(&fixture_dir)?;
     build_test_artifacts();
     let cluster = TestCluster::builder()
         .with_validators(1)
@@ -812,7 +904,8 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         let chain_id = ChainId(1);
         wait_for_height(&rpc_addr, 1, Duration::from_secs(30)).await?;
 
-        let root = keypair(&ROOT_SEED)?;
+        let root_seed = fixture_root_seed()?;
+        let root = keypair(&root_seed)?;
         let root_public_key = root.public_key().to_bytes();
         let root_record = WalletControlPlaneRootRecord {
             account_id: account_id_from_key_material(SignatureSuite::ED25519, &root_public_key)?,
@@ -957,9 +1050,10 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         let capability_key_path = fixture_dir.join("hypervisor-capability.key");
         GuardianContainer::save_encrypted_file(&capability_key_path, &CAPABILITY_SEED)?;
         let root_record_path = fixture_dir.join("wallet-control-root.json");
-        std::fs::write(&root_record_path, serde_json::to_vec_pretty(&root_record)?)?;
+        write_atomic_durable(&root_record_path, &serde_json::to_vec_pretty(&root_record)?)?;
         let commands_dir = fixture_dir.join("commands");
         std::fs::create_dir(&commands_dir)?;
+        std::fs::File::open(&fixture_dir)?.sync_all()?;
         let manifest = serde_json::json!({
             "rpc_addr": rpc_addr,
             "chain_id": chain_id.0,
@@ -969,10 +1063,16 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
             "commands_dir": commands_dir,
             "guardian_key_pass": "hypervisor-held-bar",
         });
-        std::fs::write(
-            fixture_dir.join("ready.json"),
-            serde_json::to_vec_pretty(&manifest)?,
-        )?;
+        let ready_bytes = if std::env::var("IOI_TEST_WALLET_FIXTURE_MALFORMED_READY")
+            .ok()
+            .as_deref()
+            == Some("1")
+        {
+            b"{".to_vec()
+        } else {
+            serde_json::to_vec_pretty(&manifest)?
+        };
+        write_atomic_durable(&fixture_dir.join("ready.json"), &ready_bytes)?;
 
         let shutdown = fixture_dir.join("shutdown");
         while !shutdown.exists() {
