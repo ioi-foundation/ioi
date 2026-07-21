@@ -27,15 +27,24 @@ import {
   EVIDENCE_DIR,
   PG_IDS,
   README_FILE,
+  REVIEW_ANCHOR_FILE,
+  SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
   assertRenderedArtifactsCurrent,
+  attestProgramSourceReview,
   buildM0Artifacts,
   buildM0Fingerprint,
   createInitialProgramSource,
   createInitialReview,
   discoverRepositorySurface,
   loadM0Sources,
+  programSourceMaterialSha256,
+  reviewAnchorEntrySha256,
+  reviewAnchorSignedPayload,
+  reviewSnapshotCommitments,
   stableStringify,
+  validateSuppliedReviewSnapshot,
   validateProgramSource,
+  validateReviewAnchor,
   validateReviewLock,
 } from "./m0-program-control-model.mjs";
 
@@ -43,7 +52,14 @@ const testFile = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(testFile), "../..");
 const cli = "scripts/m0-program-control.mjs";
 const discoveredEntries = discoverRepositorySurface(repoRoot);
-const { reviewLock, programSource } = loadM0Sources(repoRoot);
+const { reviewAnchor, reviewLock, programSource } = loadM0Sources(repoRoot);
+const latestReviewDate = [...reviewLock.review_attestation.review_epochs]
+  .map((epoch) => epoch.reviewed_as_of)
+  .sort()
+  .at(-1);
+const nextReviewDate = new Date(`${latestReviewDate}T00:00:00.000Z`);
+nextReviewDate.setUTCDate(nextReviewDate.getUTCDate() + 1);
+const simulatedLaterReviewDate = nextReviewDate.toISOString().slice(0, 10);
 
 function temporaryRepository(files) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-m0-fixture-"));
@@ -72,6 +88,28 @@ function hashEvidenceTree() {
         ];
       }),
   );
+}
+
+function javascriptImportClosure(entryRelativePath) {
+  const pending = [entryRelativePath];
+  const visited = new Map();
+  while (pending.length > 0) {
+    const relativePath = pending.pop();
+    if (visited.has(relativePath)) {
+      continue;
+    }
+    const source = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+    visited.set(relativePath, source);
+    const importPattern = /(?:\bfrom\s+|\bimport\s+)["'](\.[^"']+)["']/gu;
+    for (const match of source.matchAll(importPattern)) {
+      let imported = path.normalize(path.join(path.dirname(relativePath), match[1]));
+      if (path.extname(imported) === "") {
+        imported = `${imported}.mjs`;
+      }
+      pending.push(imported);
+    }
+  }
+  return visited;
 }
 
 function expectReviewFailure(mutator, pattern) {
@@ -111,9 +149,122 @@ function recomputeReviewEpoch(fixture, reviewedAsOf) {
     .sort((left, right) => left.identity.localeCompare(right.identity));
   const identities = entries.map((entry) => entry.identity);
   epoch.identity_refs = identities;
-  epoch.identity_set_sha256 = reviewSetSha256(identities);
+  epoch.identity_set_sha256 = reviewSetSha256([...identities].sort());
   epoch.reviewed_entry_count = entries.length;
   epoch.reviewed_entry_set_sha256 = reviewSetSha256(entries);
+}
+
+function collapseReviewLockToBaseline(fixture) {
+  for (const entry of fixture.entries) {
+    entry.reviewed_as_of = "2026-07-18";
+  }
+  recomputeReviewEpoch(fixture, "2026-07-18");
+  fixture.review_attestation.review_epochs = fixture.review_attestation
+    .review_epochs
+    .filter((epoch) => epoch.reviewed_as_of === "2026-07-18");
+  fixture.as_of_date = "2026-07-18";
+  fixture.review_attestation.reviewed_as_of = "2026-07-18";
+  return fixture;
+}
+
+function signAnchorEntryWithDifferentKey(entry) {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
+  const publicDer = publicKey.export({ format: "der", type: "spki" });
+  entry.reviewer_key_id = `ed25519:sha256:${
+    crypto.createHash("sha256").update(publicDer).digest("hex")
+  }`;
+  entry.reviewer_evidence.public_key_spki_der_base64 =
+    publicDer.toString("base64");
+  const payload = reviewAnchorSignedPayload(entry);
+  entry.reviewer_evidence.signed_payload_sha256 =
+    crypto.createHash("sha256").update(payload).digest("hex");
+  entry.reviewer_evidence.signature_base64 = crypto.sign(
+    null,
+    Buffer.from(payload),
+    privateKey,
+  ).toString("base64");
+}
+
+function fixtureSignatureContext(publicKey, baseline) {
+  const publicDer = publicKey.export({ format: "der", type: "spki" });
+  return {
+    public_key_spki_der_base64: publicDer.toString("base64"),
+    repository_baseline: baseline,
+    signature_key_id: `ed25519:sha256:${
+      crypto.createHash("sha256").update(publicDer).digest("hex")
+    }`,
+  };
+}
+
+function signFixtureSnapshotEntry({
+  lock,
+  predecessor,
+  privateKey,
+  program,
+  publicKey,
+  sequence,
+}) {
+  const context = fixtureSignatureContext(publicKey, {});
+  const commitments = reviewSnapshotCommitments(lock, program);
+  const entry = {
+    ...commitments,
+    predecessor_entry_sha256: predecessor === null
+      ? null
+      : reviewAnchorEntrySha256(predecessor),
+    reviewer_evidence: {
+      algorithm: "Ed25519",
+      evidence_format: "ioi.m0.detached_review_signature.v1",
+      evidence_ref:
+        `review-evidence://m0/program-control/${commitments.epoch_id}`,
+      issued_at: `${commitments.reviewed_as_of}T00:00:00.000Z`,
+      public_key_spki_der_base64: context.public_key_spki_der_base64,
+      signature_base64: "",
+      signed_payload_sha256: "",
+    },
+    reviewer_id: "reviewer://fixture/self-declared-label",
+    reviewer_key_id: context.signature_key_id,
+    sequence,
+  };
+  const payload = reviewAnchorSignedPayload(entry);
+  entry.reviewer_evidence.signed_payload_sha256 = crypto
+    .createHash("sha256")
+    .update(payload)
+    .digest("hex");
+  entry.reviewer_evidence.signature_base64 = crypto.sign(
+    null,
+    Buffer.from(payload),
+    privateKey,
+  ).toString("base64");
+  return entry;
+}
+
+function fixtureSnapshotAnchor(entries, repositoryBaseline) {
+  const head = entries.at(-1);
+  return {
+    assurance_posture: SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
+    chain_policy: {
+      accepted_head_currentness:
+        "not_established_without_outside_rollback_domain_checkpoint",
+      coherent_snapshot_rollback_resistance: "not_established",
+      head_binding:
+        "supplied_snapshot_complete_lock_latest_epoch_and_program_source",
+      historical_validation:
+        "signed_claim_and_predecessor_within_supplied_snapshot",
+      monotonicity:
+        "strict_sequence_and_nondecreasing_review_date_within_supplied_snapshot",
+      predecessor_rule: "sha256_of_complete_predecessor_anchor_entry",
+      repository_baseline: repositoryBaseline,
+      signature_authentication: "ed25519_key_possession_for_signed_claim",
+      signer_principal_isolation: "not_established",
+    },
+    epochs: entries,
+    evidence_format: "ioi.m0.review_epoch_anchor.v2",
+    head: {
+      entry_sha256: reviewAnchorEntrySha256(head),
+      epoch_id: head.epoch_id,
+      sequence: head.sequence,
+    },
+  };
 }
 
 test("structured discovery finds every literal Axum method and route identity", () => {
@@ -273,6 +424,7 @@ test("transitive Rust effects change unchanged GET classification and freshness"
       readEntries,
       { fixture: "review" },
       { fixture: "program" },
+      { fixture: "anchor" },
     );
 
     fs.writeFileSync(path.join(root, "helpers.rs"), persistHelper);
@@ -284,6 +436,7 @@ test("transitive Rust effects change unchanged GET classification and freshness"
       persistEntries,
       { fixture: "review" },
       { fixture: "program" },
+      { fixture: "anchor" },
     );
 
     assert.equal(readClassification, "read_only");
@@ -483,6 +636,7 @@ test("external filesystem mutators are effects while read-only opens stay reads"
       readEntries,
       { fixture: "review" },
       { fixture: "program" },
+      { fixture: "anchor" },
     );
     assert.deepEqual(readEntries[0].handler_effect_calls, []);
     assert.equal(
@@ -498,6 +652,7 @@ test("external filesystem mutators are effects while read-only opens stay reads"
         effectEntries,
         { fixture: "review" },
         { fixture: "program" },
+        { fixture: "anchor" },
       );
       assert.ok(effectEntries[0].handler_effect_calls.includes(variant.effect));
       assert.equal(
@@ -894,6 +1049,9 @@ test("proven stateful GETs are consequential after transitive review", () => {
     "http:hypervisor-daemon:GET /v1/hypervisor/cloud-candidates/placement-advisory",
     "http:hypervisor-daemon:GET /v1/hypervisor/placement/preview",
     "http:hypervisor-daemon:GET /v1/hypervisor/placement/venues",
+    "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems",
+    "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id",
+    "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
   ];
   const reviewByIdentity = new Map(reviewLock.entries.map((entry) => (
     [entry.identity, entry]
@@ -904,6 +1062,21 @@ test("proven stateful GETs are consequential after transitive review", () => {
     assert.ok(discovered.handler_effect_calls.length > 0, `no effect for ${identity}`);
     assert.equal(reviewByIdentity.get(identity).classification, "consequential");
   }
+});
+
+test("a read-only review cannot validate when discovery observes handler effects", () => {
+  const identity =
+    "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization";
+  const targetIndex = reviewLock.entries.findIndex(
+    (entry) => entry.identity === identity,
+  );
+  assert.notEqual(targetIndex, -1, `missing ${identity}`);
+  expectReviewFailure(
+    (fixture) => {
+      fixture.entries[targetIndex].classification = "read_only";
+    },
+    /is read_only despite observed handler effect calls/u,
+  );
 });
 
 test("discovery and the committed review lock are complete and explicitly reviewed", () => {
@@ -942,10 +1115,10 @@ test("reviewer reproduction cannot backdate a new identity by recomputing old ep
     (fixture) => {
       fixture.entries[newRouteIndex].reviewed_as_of = "2026-07-18";
       recomputeReviewEpoch(fixture, "2026-07-18");
-      recomputeReviewEpoch(fixture, "2026-07-20");
+      recomputeReviewEpoch(fixture, latestReviewDate);
     },
     new RegExp(
-      `new or materially changed review entry ${newRouteIdentity.replaceAll("/", "\\/")} must bind the latest review epoch 2026-07-20`,
+      `new or materially changed review entry ${newRouteIdentity.replaceAll("/", "\\/")} must bind the latest review epoch ${latestReviewDate}`,
       "u",
     ),
   );
@@ -962,9 +1135,12 @@ test("an anchor-changed identity cannot be backdated with recomputed epochs", ()
     (fixture) => {
       fixture.entries[changedIndex].reviewed_as_of = "2026-07-18";
       recomputeReviewEpoch(fixture, "2026-07-18");
-      recomputeReviewEpoch(fixture, "2026-07-20");
+      recomputeReviewEpoch(fixture, latestReviewDate);
     },
-    /new or materially changed review entry .*attempts\/overview must bind the latest review epoch 2026-07-20/u,
+    new RegExp(
+      `new or materially changed review entry .*attempts\\/overview must bind the latest review epoch ${latestReviewDate}`,
+      "u",
+    ),
   );
 });
 
@@ -976,9 +1152,9 @@ test("unchanged entries cannot be stamped into the latest epoch", () => {
   const unchangedIdentity = reviewLock.entries[unchangedIndex].identity;
   expectReviewFailure(
     (fixture) => {
-      fixture.entries[unchangedIndex].reviewed_as_of = "2026-07-20";
+      fixture.entries[unchangedIndex].reviewed_as_of = latestReviewDate;
       recomputeReviewEpoch(fixture, "2026-07-18");
-      recomputeReviewEpoch(fixture, "2026-07-20");
+      recomputeReviewEpoch(fixture, latestReviewDate);
     },
     new RegExp(
       `unchanged review entry ${unchangedIdentity.replaceAll("/", "\\/")} must preserve immutable baseline epoch 2026-07-18`,
@@ -994,6 +1170,245 @@ test("review epochs commit complete reviewed entries and anchors", () => {
     },
     /stale complete reviewed-entry commitment/u,
   );
+});
+
+test("supplied signed entries form an internally coherent chain with the repository baseline", () => {
+  assert.doesNotThrow(() => validateReviewAnchor(
+    reviewLock,
+    reviewAnchor,
+    programSource,
+  ));
+  assert.equal(reviewAnchor.head.sequence, 5);
+  assert.equal(reviewAnchor.epochs.length, 5);
+  assert.deepEqual(
+    reviewAnchor.assurance_posture,
+    SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
+  );
+  assert.equal(
+    reviewAnchor.chain_policy.accepted_head_currentness,
+    "not_established_without_outside_rollback_domain_checkpoint",
+  );
+  assert.equal(
+    reviewAnchor.head.entry_sha256,
+    reviewAnchorEntrySha256(reviewAnchor.epochs.at(-1)),
+  );
+  for (let index = 1; index < reviewAnchor.epochs.length; index += 1) {
+    assert.equal(
+      reviewAnchor.epochs[index].predecessor_entry_sha256,
+      reviewAnchorEntrySha256(reviewAnchor.epochs[index - 1]),
+    );
+  }
+  assert.equal(reviewAnchor.epochs[0].total_reviewed_entry_count, 1538);
+  assert.equal(
+    reviewAnchor.epochs.at(-1).total_reviewed_entry_count,
+    reviewLock.entries.length,
+  );
+  assert.ok(
+    reviewAnchor.epochs[0].total_reviewed_entry_count
+      > reviewLock.review_attestation.review_epochs[0].reviewed_entry_count,
+    "historical complete-lock evidence must not collapse to today's date partition",
+  );
+});
+
+test("a later supplied lock mismatch leaves every prior signed entry immutable", () => {
+  const priorEntryBytes = reviewAnchor.epochs.map(stableStringify);
+  const priorSignatures = reviewAnchor.epochs.map(
+    (entry) => entry.reviewer_evidence.signature_base64,
+  );
+  const evolvedLock = structuredClone(reviewLock);
+  const movedEntry = evolvedLock.entries.find(
+    (entry) => entry.reviewed_as_of === latestReviewDate,
+  );
+  assert.ok(movedEntry, "missing a currently latest-epoch entry");
+  movedEntry.reviewed_as_of = simulatedLaterReviewDate;
+  recomputeReviewEpoch(evolvedLock, latestReviewDate);
+  evolvedLock.review_attestation.review_epochs.push({
+    epoch_id: `simulated-later-review-${simulatedLaterReviewDate}`,
+    identity_refs: [],
+    identity_set_sha256: "",
+    provenance:
+      "Test-only later review point proving historical signatures remain immutable.",
+    reviewed_as_of: simulatedLaterReviewDate,
+    reviewed_entry_count: 0,
+    reviewed_entry_set_sha256: "",
+  });
+  recomputeReviewEpoch(evolvedLock, simulatedLaterReviewDate);
+  evolvedLock.as_of_date = simulatedLaterReviewDate;
+  evolvedLock.review_attestation.reviewed_as_of =
+    simulatedLaterReviewDate;
+
+  assert.throws(
+    () => validateReviewAnchor(evolvedLock, reviewAnchor, programSource),
+    (error) => {
+      assert.match(error.message, /head does not bind supplied/u);
+      assert.doesNotMatch(
+        error.message,
+        /review anchor sequence [1-5].*(signature|predecessor|review-point)/u,
+      );
+      return true;
+    },
+  );
+  assert.deepEqual(reviewAnchor.epochs.map(stableStringify), priorEntryBytes);
+  assert.deepEqual(
+    reviewAnchor.epochs.map(
+      (entry) => entry.reviewer_evidence.signature_base64,
+    ),
+    priorSignatures,
+  );
+});
+
+test("collapsing the supplied lock cannot validate or re-attest against its unchanged head", () => {
+  const collapsed = collapseReviewLockToBaseline(structuredClone(reviewLock));
+  assert.throws(
+    () => validateReviewLock(
+      repoRoot,
+      discoveredEntries,
+      collapsed,
+      reviewAnchor,
+    ),
+    /review snapshot|repository baseline|supplied review lock/u,
+  );
+
+  const worksheet = structuredClone(programSource);
+  worksheet.as_of_date = null;
+  worksheet.program_state = "worksheet_unreviewed";
+  worksheet.review_attestation = null;
+  assert.throws(
+    () => attestProgramSourceReview(
+      repoRoot,
+      discoveredEntries,
+      collapsed,
+      worksheet,
+      reviewAnchor,
+    ),
+    /review snapshot|repository baseline|supplied review lock/u,
+  );
+});
+
+test("a signature from a different key cannot authenticate as the repository key", () => {
+  const selfIssued = structuredClone(reviewAnchor);
+  const head = selfIssued.epochs.at(-1);
+  signAnchorEntryWithDifferentKey(head);
+  selfIssued.head.entry_sha256 = reviewAnchorEntrySha256(head);
+  assert.throws(
+    () => validateReviewAnchor(reviewLock, selfIssued, programSource),
+    /repository signature key|repository signature public key/u,
+  );
+});
+
+test("forged signatures and predecessor substitutions fail before attestation", () => {
+  const forged = structuredClone(reviewAnchor);
+  forged.epochs.at(-1).reviewer_evidence.signature_base64 =
+    `A${forged.epochs.at(-1).reviewer_evidence.signature_base64.slice(1)}`;
+  forged.head.entry_sha256 =
+    reviewAnchorEntrySha256(forged.epochs.at(-1));
+  assert.throws(
+    () => validateReviewAnchor(reviewLock, forged, programSource),
+    /detached signature is invalid/u,
+  );
+
+  const detached = structuredClone(reviewAnchor);
+  detached.epochs.at(-1).predecessor_entry_sha256 = "0".repeat(64);
+  detached.head.entry_sha256 =
+    reviewAnchorEntrySha256(detached.epochs.at(-1));
+  assert.throws(
+    () => validateReviewAnchor(reviewLock, detached, programSource),
+    /complete predecessor anchor entry|signature evidence does not bind|signature is invalid/u,
+  );
+});
+
+test("the repository baseline rejects a supplied snapshot that omits its baseline entry", () => {
+  const rolledBack = structuredClone(reviewAnchor);
+  rolledBack.epochs.pop();
+  rolledBack.head = {
+    sequence: rolledBack.epochs[0].sequence,
+    epoch_id: rolledBack.epochs[0].epoch_id,
+    entry_sha256: reviewAnchorEntrySha256(rolledBack.epochs[0]),
+  };
+  assert.throws(
+    () => validateReviewAnchor(reviewLock, rolledBack, programSource),
+    /repository baseline anchor|head does not bind supplied/u,
+  );
+});
+
+test("two coherent same-day signed snapshots validate without establishing which head is current", () => {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
+  const firstEpoch = {
+    epoch_id: "fixture-snapshot-a",
+    identity_refs: ["fixture:a"],
+    identity_set_sha256: "1".repeat(64),
+    provenance: "fixture",
+    reviewed_as_of: "2026-07-20",
+    reviewed_entry_count: 1,
+    reviewed_entry_set_sha256: "2".repeat(64),
+  };
+  const lockA = {
+    entries: [{ identity: "fixture:a" }],
+    review_attestation: { review_epochs: [firstEpoch] },
+  };
+  const programA = { payload: "snapshot-a" };
+  const entryA = signFixtureSnapshotEntry({
+    lock: lockA,
+    predecessor: null,
+    privateKey,
+    program: programA,
+    publicKey,
+    sequence: 1,
+  });
+  const baseline = {
+    entry_sha256: reviewAnchorEntrySha256(entryA),
+    epoch_id: entryA.epoch_id,
+    sequence: 1,
+  };
+  const context = fixtureSignatureContext(publicKey, baseline);
+  const snapshotA = fixtureSnapshotAnchor([entryA], baseline);
+
+  const secondEpoch = {
+    epoch_id: "fixture-snapshot-b",
+    identity_refs: ["fixture:b"],
+    identity_set_sha256: "3".repeat(64),
+    provenance: "fixture",
+    reviewed_as_of: "2026-07-20",
+    reviewed_entry_count: 1,
+    reviewed_entry_set_sha256: "4".repeat(64),
+  };
+  const lockB = {
+    entries: [{ identity: "fixture:a" }, { identity: "fixture:b" }],
+    review_attestation: { review_epochs: [firstEpoch, secondEpoch] },
+  };
+  const programB = { payload: "snapshot-b" };
+  const entryB = signFixtureSnapshotEntry({
+    lock: lockB,
+    predecessor: entryA,
+    privateKey,
+    program: programB,
+    publicKey,
+    sequence: 2,
+  });
+  const snapshotB = fixtureSnapshotAnchor([entryA, entryB], baseline);
+
+  assert.doesNotThrow(() => validateSuppliedReviewSnapshot(
+    lockA,
+    snapshotA,
+    programA,
+    context,
+  ));
+  assert.doesNotThrow(() => validateSuppliedReviewSnapshot(
+    lockB,
+    snapshotB,
+    programB,
+    context,
+  ));
+  for (const snapshot of [snapshotA, snapshotB]) {
+    assert.equal(
+      snapshot.assurance_posture.accepted_head_currentness,
+      "not_established",
+    );
+    assert.equal(
+      snapshot.assurance_posture.coherent_snapshot_rollback_resistance,
+      "not_established",
+    );
+  }
 });
 
 test("omission and duplicate identities fail closed", () => {
@@ -1326,23 +1741,198 @@ test("proof lanes, lane bindings, and local identity ownership fail closed", () 
   reordered.selected_profile.proof_lanes[0].required_evidence.reverse();
   reordered.selected_profile.visible_terminal_journey[0]
     .lane_bindings[0].route_identities.reverse();
+  assert.throws(
+    () => attestProgramSourceReview(
+      repoRoot,
+      discoveredEntries,
+      reviewLock,
+      {
+        ...reordered,
+        as_of_date: null,
+        program_state: "worksheet_unreviewed",
+        review_attestation: null,
+      },
+    ),
+    /review snapshot head does not bind supplied program_source_material_sha256/u,
+  );
+});
+
+test("program source review is a bounded supplied-snapshot material attestation", () => {
+  const worksheet = createInitialProgramSource(repoRoot);
+  assert.equal(worksheet.program_state, "worksheet_unreviewed");
+  assert.equal(worksheet.as_of_date, null);
+  assert.equal(worksheet.review_attestation, null);
+  assert.throws(
+    () => validateProgramSource(
+      repoRoot,
+      discoveredEntries,
+      reviewLock,
+      worksheet,
+    ),
+    /not supplied-snapshot attested|cannot self-promote|transition attestation/u,
+  );
+
+  const selfPromoted = structuredClone(worksheet);
+  selfPromoted.program_state = "reviewed";
+  selfPromoted.as_of_date = reviewLock.review_attestation.reviewed_as_of;
+  assert.throws(
+    () => validateProgramSource(
+      repoRoot,
+      discoveredEntries,
+      reviewLock,
+      selfPromoted,
+    ),
+    /transition attestation|supplied snapshot epoch|supplied material/u,
+  );
+
+  const attested = attestProgramSourceReview(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    worksheet,
+  );
   assert.doesNotThrow(() => validateProgramSource(
     repoRoot,
     discoveredEntries,
     reviewLock,
-    reordered,
-  ));
-  const initialized = createInitialProgramSource(repoRoot);
-  assert.doesNotThrow(() => validateProgramSource(
-    repoRoot,
-    discoveredEntries,
-    reviewLock,
-    initialized,
+    attested,
   ));
   assert.equal(
-    stableStringify(initialized),
+    attested.review_attestation.program_source_material_sha256,
+    programSourceMaterialSha256(worksheet),
+  );
+  assert.equal(
+    attested.review_attestation.verification_scope,
+    "supplied_repository_snapshot",
+  );
+  assert.deepEqual(
+    attested.review_attestation.assurance_posture,
+    SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
+  );
+  assert.equal(
+    attested.review_attestation.signed_reviewer_label_status,
+    "self_declared_not_identity_verified",
+  );
+  assert.equal(
+    stableStringify(attested),
     stableStringify(programSource),
-    "the initializer and reviewed program source must be byte-stable semantic equivalents",
+    "the explicit review transition must reproduce the committed reviewed source",
+  );
+  assert.throws(
+    () => attestProgramSourceReview(
+      repoRoot,
+      discoveredEntries,
+      reviewLock,
+      attested,
+    ),
+    /requires an unreviewed worksheet/u,
+  );
+
+  const staleEpoch = structuredClone(attested);
+  const priorEpoch = reviewLock.review_attestation.review_epochs[0];
+  staleEpoch.as_of_date = priorEpoch.reviewed_as_of;
+  staleEpoch.review_attestation.review_epoch_id = priorEpoch.epoch_id;
+  staleEpoch.review_attestation.reviewed_as_of = priorEpoch.reviewed_as_of;
+  staleEpoch.review_attestation.reviewed_identity_set_sha256 =
+    priorEpoch.identity_set_sha256;
+  staleEpoch.review_attestation.reviewed_entry_set_sha256 =
+    priorEpoch.reviewed_entry_set_sha256;
+  assert.throws(
+    () => validateProgramSource(
+      repoRoot,
+      discoveredEntries,
+      reviewLock,
+      staleEpoch,
+    ),
+    /supplied snapshot epoch/u,
+  );
+
+  const staleHash = structuredClone(attested);
+  staleHash.review_attestation.program_source_material_sha256 = "0".repeat(64);
+  assert.throws(
+    () => validateProgramSource(
+      repoRoot,
+      discoveredEntries,
+      reviewLock,
+      staleHash,
+    ),
+    /does not match supplied material/u,
+  );
+
+  const staleReviewLock = structuredClone(attested);
+  staleReviewLock.review_attestation.review_lock_sha256 = "0".repeat(64);
+  assert.throws(
+    () => validateProgramSource(
+      repoRoot,
+      discoveredEntries,
+      reviewLock,
+      staleReviewLock,
+    ),
+    /does not bind the supplied review lock/u,
+  );
+});
+
+test("ignored internal sequencers remain unbound external pointers", () => {
+  const tracked = spawnSync(
+    "git",
+    ["ls-files", "--", "internal-docs/implementation"],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(tracked.status, 0, tracked.stderr);
+  assert.equal(tracked.stdout, "");
+  for (const input of (
+    programSource.sequencing_authority.external_untracked_operator_inputs
+  )) {
+    const ignored = spawnSync(
+      "git",
+      ["check-ignore", "--quiet", "--", input.path],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.equal(ignored.status, 0, `${input.path} is not ignored`);
+  }
+  assert.equal(
+    programSource.canon_basis.some((entry) => (
+      entry.source_file.startsWith("internal-docs/implementation/")
+    )),
+    false,
+  );
+  assert.deepEqual(
+    programSource.sequencing_authority.external_untracked_operator_inputs
+      .map((entry) => entry.evidence_binding),
+    ["not_read_not_hashed_not_bound", "not_read_not_hashed_not_bound"],
+  );
+  assert.equal(
+    programSource.sequencing_authority
+      .tracked_architecture_evidence_authority.root,
+    "docs/architecture/",
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.sequencing_authority.external_untracked_operator_inputs[0]
+        .evidence_binding = "read_and_bound";
+    },
+    /ignored internal guides as unbound external operator inputs/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.pg_gate_map.external_definition_input.evidence_binding =
+        "read_and_bound";
+    },
+    /ignored ledger as an unbound external pointer/u,
+  );
+  expectProgramFailure(
+    (fixture) => {
+      fixture.pg_gate_map.definition_owner =
+        "internal-docs/implementation/canon-mechanism-hardening-action-plan.md";
+    },
+    /cannot claim the ignored external ledger as a committed definition owner/u,
+  );
+
+  const readme = fs.readFileSync(path.join(repoRoot, README_FILE), "utf8");
+  assert.doesNotMatch(readme, /were read only/iu);
+  assert.match(
+    readme,
+    /does not read, hash, require, or bind them as evidence/iu,
   );
 });
 
@@ -1357,6 +1947,80 @@ test("bare invocation exits 2 with usage and writes nothing", () => {
   assert.deepEqual(hashEvidenceTree(), before);
 });
 
+test("--attest-review accepts only the tracked supplied snapshot and never signs", () => {
+  for (const args of [
+    ["--attest-review"],
+    ["--attest-review", "self-issued-review.json"],
+  ]) {
+    const before = hashEvidenceTree();
+    const result = spawnSync(process.execPath, [cli, ...args], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(
+      `${result.stdout}\n${result.stderr}`,
+      /Usage:|requires the tracked external evidence path/u,
+    );
+    assert.match(`${result.stdout}\n${result.stderr}`, new RegExp(
+      REVIEW_ANCHOR_FILE.replaceAll(".", "\\."),
+      "u",
+    ));
+    assert.deepEqual(hashEvidenceTree(), before);
+  }
+  const closure = javascriptImportClosure(cli);
+  assert.ok(closure.size >= 3, "CLI import closure was not traversed");
+  const closureSource = [...closure.entries()]
+    .map(([relativePath, source]) => `// ${relativePath}\n${source}`)
+    .join("\n");
+  assert.doesNotMatch(
+    closureSource,
+    /createPrivateKey|generateKeyPair|crypto\.sign\s*\(|IOI_M0_REVIEW_SIGNING_KEY|pkeyutl\s+-sign/u,
+  );
+  assert.doesNotMatch(
+    closureSource,
+    /(?:from|import\s+)["']node:child_process["']/u,
+  );
+  assert.match(closure.get(cli), /REVIEW_ANCHOR_FILE/u);
+});
+
+test("snapshot checking does not auto-discover HOME checkpoints or ignored sequencer freshness", () => {
+  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-m0-home-"));
+  try {
+    fs.mkdirSync(path.join(fakeHome, "internal-docs/implementation"), {
+      recursive: true,
+    });
+    fs.writeFileSync(
+      path.join(fakeHome, "accepted-head-checkpoint.json"),
+      '{"head":"newer-but-untrusted"}\n',
+    );
+    fs.writeFileSync(
+      path.join(fakeHome, "internal-docs/implementation/freshness.json"),
+      '{"claim":"newer"}\n',
+    );
+    const baseline = spawnSync(process.execPath, [cli, "--check"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    const isolated = spawnSync(process.execPath, [cli, "--check"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        HOME: fakeHome,
+        IOI_M0_ACCEPTED_HEAD_CHECKPOINT:
+          path.join(fakeHome, "accepted-head-checkpoint.json"),
+      },
+    });
+    assert.equal(baseline.status, 0, baseline.stderr);
+    assert.equal(isolated.status, 0, isolated.stderr);
+    assert.equal(isolated.stdout, baseline.stdout);
+    assert.match(isolated.stdout, /currentness not established/u);
+  } finally {
+    fs.rmSync(fakeHome, { force: true, recursive: true });
+  }
+});
+
 test("stale generated artifacts fail before consumption", () => {
   const root = temporaryRepository({
     [`${EVIDENCE_DIR}/fixture.json`]: "stale\n",
@@ -1369,6 +2033,25 @@ test("stale generated artifacts fail before consumption", () => {
         ["fixture.json"],
       ),
       /stale generated artifact/u,
+    );
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test("unexpected stale evidence artifacts fail before consumption", () => {
+  const root = temporaryRepository({
+    [`${EVIDENCE_DIR}/fixture.json`]: "expected\n",
+    [`${EVIDENCE_DIR}/obsolete-generated.json`]: "obsolete\n",
+  });
+  try {
+    assert.throws(
+      () => assertRenderedArtifactsCurrent(
+        root,
+        new Map([["fixture.json", "expected\n"]]),
+        ["fixture.json"],
+      ),
+      /unexpected stale evidence artifact/u,
     );
   } finally {
     fs.rmSync(root, { force: true, recursive: true });
@@ -1393,6 +2076,47 @@ test("generated artifact dates derive from the latest validated review epoch", (
       `${name} does not bind the latest review epoch`,
     );
   }
+});
+
+test("exit report and evidence index project only bounded supplied-snapshot assurance", () => {
+  const built = buildM0Artifacts(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    programSource,
+  );
+  const report = JSON.parse(built.rendered.get("m0-exit-report.json"));
+  const index = JSON.parse(built.rendered.get("program-evidence-index.json"));
+  for (const document of [report, index]) {
+    assert.equal(document.verification_scope, "supplied_repository_snapshot");
+    assert.deepEqual(
+      document.assurance_posture,
+      SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
+    );
+  }
+  assert.equal(report.m0_exit_state, "verified");
+  assert.equal(
+    report.conditions.evidence_items_match_supplied_snapshot_or_are_honestly_open,
+    true,
+  );
+  assert.equal(report.conditions.verification_scope_is_supplied_repository_snapshot, true);
+  assert.equal(report.conditions.bounded_snapshot_assurance_is_exact, true);
+  assert.ok(report.nonclaims.some((entry) => /signer-principal isolation/u.test(entry)));
+  assert.ok(report.nonclaims.some((entry) => /accepted snapshot head is current/u.test(entry)));
+  assert.ok(report.nonclaims.some((entry) => /rollback/u.test(entry)));
+  assert.ok(index.evidence_items.every((entry) => (
+    entry.state === "matches_supplied_snapshot"
+  )));
+  assert.match(index.consumption_rule, /currentness requires an outside rollback-domain checkpoint/u);
+});
+
+test("README names no local signer custody and makes no independent-review or freshness claim", () => {
+  const source = fs.readFileSync(path.join(repoRoot, README_FILE), "utf8");
+  assert.doesNotMatch(source, /\$HOME|mode `0700`|mode `0600`|reviewer-controlled host/u);
+  assert.doesNotMatch(source, /append-only review chain|minimum accepted head/u);
+  assert.match(source, /self-declared label, not verified reviewer identity or independence/u);
+  assert.match(source, /does not establish signer-principal isolation/u);
+  assert.match(source, /outside rollback-domain checkpoint/u);
 });
 
 test("generated artifacts older than bound inputs fail explicitly", () => {
@@ -1538,6 +2262,6 @@ test("--check accepts current artifacts and remains read-only", () => {
     encoding: "utf8",
   });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.match(result.stdout, /M0 check passed/u);
+  assert.match(result.stdout, /M0 supplied-snapshot check passed/u);
   assert.deepEqual(hashEvidenceTree(), before);
 });

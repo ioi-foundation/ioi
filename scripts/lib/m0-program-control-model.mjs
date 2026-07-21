@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -29,10 +30,38 @@ import {
 
 export const EVIDENCE_DIR = "docs/evidence/m0-program-control";
 export const REVIEW_FILE = `${EVIDENCE_DIR}/reviewed-entry-lock.json`;
+export const REVIEW_ANCHOR_FILE = `${EVIDENCE_DIR}/review-epoch-anchor.json`;
 export const PROGRAM_SOURCE_FILE = `${EVIDENCE_DIR}/program-control-source.json`;
 export const README_FILE = `${EVIDENCE_DIR}/README.md`;
 export const M0_BASELINE_AS_OF_DATE = "2026-07-18";
 export const AS_OF_DATE = "2026-07-19";
+
+const SIGNATURE_KEY_ID =
+  "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26";
+const SIGNATURE_PUBLIC_KEY_SPKI_DER_BASE64 =
+  "MCowBQYDK2VwAyEAkOJI2u49NzPITKwxBpvOx6HoW1RDw52A9ctpAfMY4KY=";
+const REPOSITORY_BASELINE_ANCHOR = Object.freeze({
+  sequence: 2,
+  epoch_id: "pr-91-integrated-authority-and-m1-4-review-2026-07-20",
+  entry_sha256:
+    "c2624cdd359487b3cde76b107b467dd610f6fd80166b065baf653cf68fa7e50d",
+});
+
+export const SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE = Object.freeze({
+  signature_key_possession: "verified",
+  chain_integrity_within_snapshot: "verified",
+  snapshot_head_binding: "verified",
+  repository_baseline_present: true,
+  signer_principal_isolation: "not_established",
+  accepted_head_currentness: "not_established",
+  coherent_snapshot_rollback_resistance: "not_established",
+});
+
+const REPOSITORY_SIGNATURE_CONTEXT = Object.freeze({
+  public_key_spki_der_base64: SIGNATURE_PUBLIC_KEY_SPKI_DER_BASE64,
+  repository_baseline: REPOSITORY_BASELINE_ANCHOR,
+  signature_key_id: SIGNATURE_KEY_ID,
+});
 
 const REVIEW_COMPARISON_BASELINE = Object.freeze({
   baseline_id: "m0-review-lock-branch-point-2026-07-18",
@@ -240,6 +269,58 @@ const CANON_BASIS_FILES = [
   "docs/conformance/hypervisor-core/sovereign-local-completeness.md",
   "docs/conformance/hypervisor-core/sovereign-local-completeness-matrix.v1.json",
 ];
+
+const EXTERNAL_UNTRACKED_OPERATOR_INPUTS = [
+  {
+    input_id: "target_end_state_master_implementation_guide",
+    path:
+      "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
+    role: "external operator sequencing input",
+    tracking_posture: "ignored_untracked",
+    evidence_binding: "not_read_not_hashed_not_bound",
+  },
+  {
+    input_id: "canon_mechanism_hardening_action_plan",
+    path:
+      "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+    role: "external operator production-gate input",
+    tracking_posture: "ignored_untracked",
+    evidence_binding: "not_read_not_hashed_not_bound",
+  },
+];
+
+function createSequencingAuthority() {
+  return {
+    external_untracked_operator_inputs:
+      EXTERNAL_UNTRACKED_OPERATOR_INPUTS.map((entry) => ({ ...entry })),
+    legacy_default: "non_authoritative",
+    tracked_architecture_evidence_authority: {
+      root: "docs/architecture/",
+      binding: "program_control_source.canon_basis_sha256",
+      role: "committed architecture and status evidence authority",
+    },
+    tracked_conformance_evidence: {
+      root: "docs/conformance/",
+      binding: "program_control_source.canon_basis_sha256",
+      role: "committed selected-profile conformance evidence",
+    },
+    rule:
+      "External untracked operator inputs may sequence work, but only tracked canon and conformance sources bound in canon_basis provide committed M0 evidence.",
+  };
+}
+
+function createPgGateMetadata() {
+  return {
+    external_definition_input: {
+      path:
+        "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+      tracking_posture: "ignored_untracked",
+      evidence_binding: "not_read_not_hashed_not_bound",
+    },
+    tracked_selected_profile_authority:
+      "docs/architecture/_meta/execution-horizons.md",
+  };
+}
 
 const DISCOVERY_COVERAGE = Object.freeze({
   axum_route_registry: Object.freeze({
@@ -3665,19 +3746,12 @@ export function createInitialProgramSource(repoRoot) {
   });
   return {
     evidence_format: "ioi.m0.program_control_source.v1",
-    as_of_date: AS_OF_DATE,
-    program_state: "reviewed",
+    as_of_date: null,
+    program_state: "worksheet_unreviewed",
+    review_attestation: null,
     canon_basis: canonBasis,
     canon_contradictions: [],
-    sequencing_authority: {
-      sole_sequencer_read_only_path:
-        "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
-      pg_ledger_read_only_path:
-        "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
-      legacy_default: "non_authoritative",
-      tracked_canon_role: "architecture owner and status authority, not an alternate implementation sequence",
-      rule: "No capture, legacy app plan, prompt, harness, or evidence file schedules work or creates owner truth.",
-    },
+    sequencing_authority: createSequencingAuthority(),
     discovery_source_coverage: createDiscoverySourceCoverage(repoRoot),
     selected_profile: {
       profile_id: "selected-minimum-l0-outcome-room-bounded-software-change",
@@ -3769,8 +3843,7 @@ export function createInitialProgramSource(repoRoot) {
       ],
     },
     pg_gate_map: {
-      definition_owner:
-        "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
+      ...createPgGateMetadata(),
       closure_claimed: false,
       entries: createPgMap(),
     },
@@ -3838,6 +3911,546 @@ export function createInitialProgramSource(repoRoot) {
       architecture_or_production_capability_closure: false,
     },
   };
+}
+
+function programSourceReviewMaterial(programSource) {
+  const material = structuredClone(programSource ?? {});
+  delete material.as_of_date;
+  delete material.program_state;
+  delete material.review_attestation;
+  return material;
+}
+
+export function programSourceMaterialSha256(programSource) {
+  return sha256(stableStringify(programSourceReviewMaterial(programSource)));
+}
+
+export function reviewSnapshotCommitments(
+  reviewLock,
+  programSource = undefined,
+) {
+  const epoch = latestReviewEpoch(reviewLock);
+  if (epoch === undefined) {
+    throw new Error("cannot anchor a review lock without a review epoch");
+  }
+  const entries = [...(reviewLock?.entries ?? [])]
+    .sort((left, right) => left.identity.localeCompare(right.identity));
+  return {
+    epoch_id: epoch.epoch_id,
+    latest_epoch_identity_set_sha256: epoch.identity_set_sha256,
+    latest_epoch_reviewed_entry_count: epoch.reviewed_entry_count,
+    latest_epoch_reviewed_entry_set_sha256:
+      epoch.reviewed_entry_set_sha256,
+    program_source_material_sha256: programSource === undefined
+      ? undefined
+      : programSourceMaterialSha256(programSource),
+    review_lock_sha256: sha256(stableStringify(reviewLock)),
+    reviewed_as_of: epoch.reviewed_as_of,
+    total_reviewed_entry_count: entries.length,
+    total_reviewed_entry_set_sha256: reviewedEntrySetSha256(entries),
+    total_reviewed_identity_set_sha256:
+      reviewIdentitySetSha256(entries.map((entry) => entry.identity)),
+  };
+}
+
+function reviewAnchorClaim(entry) {
+  const claim = structuredClone(entry ?? {});
+  if (
+    claim.reviewer_evidence !== null
+    && typeof claim.reviewer_evidence === "object"
+    && !Array.isArray(claim.reviewer_evidence)
+  ) {
+    delete claim.reviewer_evidence.signature_base64;
+    delete claim.reviewer_evidence.signed_payload_sha256;
+  }
+  return claim;
+}
+
+export function reviewAnchorSignedPayload(entry) {
+  return stableStringify(reviewAnchorClaim(entry));
+}
+
+export function reviewAnchorEntrySha256(entry) {
+  return sha256(stableStringify(entry));
+}
+
+function latestReviewAnchorEntry(reviewAnchor) {
+  return [...(reviewAnchor?.epochs ?? [])]
+    .sort((left, right) => left.sequence - right.sequence)
+    .at(-1);
+}
+
+function hasExactObjectKeys(value, expected) {
+  return value !== null
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && stableStringify(Object.keys(value).sort())
+      === stableStringify([...expected].sort());
+}
+
+function isRfc3339(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.valueOf())
+    && parsed.toISOString() === value;
+}
+
+export function validateSuppliedReviewSnapshot(
+  reviewLock,
+  reviewAnchor,
+  programSource = undefined,
+  signatureContext = REPOSITORY_SIGNATURE_CONTEXT,
+) {
+  const errors = [];
+  const anchorEntries = reviewAnchor?.epochs;
+  addError(
+    errors,
+    hasExactObjectKeys(reviewAnchor, [
+      "assurance_posture",
+      "chain_policy",
+      "epochs",
+      "evidence_format",
+      "head",
+    ]),
+    "review anchor has incomplete or unbound top-level fields",
+  );
+  addError(
+    errors,
+    reviewAnchor?.evidence_format === "ioi.m0.review_epoch_anchor.v2",
+    "review anchor has an unsafe or unknown evidence_format",
+  );
+  addError(
+    errors,
+    stableStringify(reviewAnchor?.assurance_posture)
+      === stableStringify(SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE),
+    "review snapshot does not carry the exact bounded assurance posture",
+  );
+  addError(
+    errors,
+    hasExactObjectKeys(reviewAnchor?.chain_policy, [
+      "accepted_head_currentness",
+      "coherent_snapshot_rollback_resistance",
+      "head_binding",
+      "historical_validation",
+      "monotonicity",
+      "predecessor_rule",
+      "repository_baseline",
+      "signature_authentication",
+      "signer_principal_isolation",
+    ]),
+    "review anchor has an incomplete or extended chain policy",
+  );
+  addError(
+    errors,
+    reviewAnchor?.chain_policy?.monotonicity
+      === "strict_sequence_and_nondecreasing_review_date_within_supplied_snapshot",
+    "review snapshot does not require internally ordered epochs",
+  );
+  addError(
+    errors,
+    reviewAnchor?.chain_policy?.predecessor_rule
+      === "sha256_of_complete_predecessor_anchor_entry",
+    "review anchor does not bind complete predecessor entries",
+  );
+  addError(
+    errors,
+    reviewAnchor?.chain_policy?.signature_authentication
+      === "ed25519_key_possession_for_signed_claim",
+    "review snapshot does not declare detached-signature authentication",
+  );
+  addError(
+    errors,
+    reviewAnchor?.chain_policy?.historical_validation
+      === "signed_claim_and_predecessor_within_supplied_snapshot",
+    "review snapshot history is not scoped to supplied signed claims",
+  );
+  addError(
+    errors,
+    reviewAnchor?.chain_policy?.head_binding
+      === "supplied_snapshot_complete_lock_latest_epoch_and_program_source",
+    "review snapshot head does not declare complete supplied-state binding",
+  );
+  addError(
+    errors,
+    reviewAnchor?.chain_policy?.signer_principal_isolation
+      === "not_established",
+    "review snapshot overclaims signer-principal isolation",
+  );
+  addError(
+    errors,
+    reviewAnchor?.chain_policy?.accepted_head_currentness
+      === "not_established_without_outside_rollback_domain_checkpoint",
+    "review snapshot overclaims accepted-head currentness",
+  );
+  addError(
+    errors,
+    reviewAnchor?.chain_policy?.coherent_snapshot_rollback_resistance
+      === "not_established",
+    "review snapshot overclaims coherent-snapshot rollback resistance",
+  );
+  addError(
+    errors,
+    stableStringify(reviewAnchor?.chain_policy?.repository_baseline)
+      === stableStringify(signatureContext.repository_baseline),
+    "review snapshot declares a different repository baseline",
+  );
+  addError(
+    errors,
+    Array.isArray(anchorEntries) && anchorEntries.length > 0,
+    "review anchor must contain at least one epoch",
+  );
+
+  const expectedEntryKeys = [
+    "epoch_id",
+    "latest_epoch_identity_set_sha256",
+    "latest_epoch_reviewed_entry_count",
+    "latest_epoch_reviewed_entry_set_sha256",
+    "predecessor_entry_sha256",
+    "program_source_material_sha256",
+    "review_lock_sha256",
+    "reviewed_as_of",
+    "reviewer_evidence",
+    "reviewer_id",
+    "reviewer_key_id",
+    "sequence",
+    "total_reviewed_entry_count",
+    "total_reviewed_entry_set_sha256",
+    "total_reviewed_identity_set_sha256",
+  ];
+  const expectedEvidenceKeys = [
+    "algorithm",
+    "evidence_format",
+    "evidence_ref",
+    "issued_at",
+    "public_key_spki_der_base64",
+    "signature_base64",
+    "signed_payload_sha256",
+  ];
+  const anchoredEpochIds = new Set();
+  let predecessor = null;
+  let previousReviewDate = null;
+  let reviewerPublicKey = null;
+  try {
+    const reviewerPublicKeyBytes =
+      Buffer.from(signatureContext.public_key_spki_der_base64, "base64");
+    addError(
+      errors,
+      signatureContext.signature_key_id
+        === `ed25519:sha256:${sha256(reviewerPublicKeyBytes)}`,
+      "repository signature key id does not match its public key",
+    );
+    reviewerPublicKey = crypto.createPublicKey({
+      key: reviewerPublicKeyBytes,
+      format: "der",
+      type: "spki",
+    });
+  } catch (error) {
+    errors.push(`repository signature public key is invalid: ${error.message}`);
+  }
+
+  const sortedEntries = [...(anchorEntries ?? [])]
+    .sort((left, right) => left.sequence - right.sequence);
+  for (const [index, entry] of sortedEntries.entries()) {
+    const label = `review anchor sequence ${entry?.sequence ?? "<missing>"}`;
+    const evidence = entry?.reviewer_evidence;
+    addError(
+      errors,
+      hasExactObjectKeys(entry, expectedEntryKeys),
+      `${label} has incomplete or unbound fields`,
+    );
+    addError(
+      errors,
+      entry?.sequence === index + 1,
+      `${label} is not a contiguous monotonic sequence`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(entry?.epoch_id),
+      `${label} lacks a review-point epoch`,
+    );
+    addError(
+      errors,
+      !anchoredEpochIds.has(entry?.epoch_id),
+      `${label} duplicates an anchored epoch`,
+    );
+    anchoredEpochIds.add(entry?.epoch_id);
+    addError(
+      errors,
+      Number.isInteger(entry?.total_reviewed_entry_count)
+        && entry.total_reviewed_entry_count > 0
+        && Number.isInteger(entry?.latest_epoch_reviewed_entry_count)
+        && entry.latest_epoch_reviewed_entry_count > 0
+        && entry.latest_epoch_reviewed_entry_count
+          <= entry.total_reviewed_entry_count,
+      `${label} lacks coherent complete-lock and latest-epoch counts`,
+    );
+    for (const [field, description] of [
+      ["review_lock_sha256", "complete review-lock"],
+      ["total_reviewed_identity_set_sha256", "total identity-set"],
+      ["total_reviewed_entry_set_sha256", "total reviewed-entry-set"],
+      ["latest_epoch_identity_set_sha256", "latest-epoch identity-set"],
+      ["latest_epoch_reviewed_entry_set_sha256", "latest-epoch entry-set"],
+      ["program_source_material_sha256", "program-source material"],
+    ]) {
+      addError(
+        errors,
+        /^[0-9a-f]{64}$/u.test(entry?.[field] ?? ""),
+        `${label} lacks a ${description} commitment`,
+      );
+    }
+    addError(
+      errors,
+      isIsoDate(entry?.reviewed_as_of),
+      `${label} lacks a valid review date`,
+    );
+    addError(
+      errors,
+      isIsoDate(entry?.reviewed_as_of)
+        && (
+          previousReviewDate === null
+          || previousReviewDate <= entry.reviewed_as_of
+        ),
+      `${label} regresses the review date`,
+    );
+    previousReviewDate = entry?.reviewed_as_of ?? previousReviewDate;
+    const expectedPredecessor = predecessor === null
+      ? null
+      : reviewAnchorEntrySha256(predecessor);
+    addError(
+      errors,
+      entry?.predecessor_entry_sha256 === expectedPredecessor,
+      `${label} does not bind the complete predecessor anchor entry`,
+    );
+    addError(
+      errors,
+      isNonEmptyString(entry?.reviewer_id),
+      `${label} lacks its self-declared signed reviewer label`,
+    );
+    addError(
+      errors,
+      entry?.reviewer_key_id === signatureContext.signature_key_id,
+      `${label} does not use the repository signature key`,
+    );
+    addError(
+      errors,
+      hasExactObjectKeys(evidence, expectedEvidenceKeys),
+      `${label} has incomplete or extended reviewer evidence`,
+    );
+    addError(
+      errors,
+      evidence?.evidence_format === "ioi.m0.detached_review_signature.v1"
+        && evidence?.algorithm === "Ed25519",
+      `${label} has unsupported reviewer evidence`,
+    );
+    addError(
+      errors,
+      evidence?.evidence_ref
+        === `review-evidence://m0/program-control/${entry?.epoch_id}`,
+      `${label} has a mismatched reviewer evidence ref`,
+    );
+    addError(
+      errors,
+      isRfc3339(evidence?.issued_at),
+      `${label} lacks a valid externally supplied evidence timestamp`,
+    );
+    addError(
+      errors,
+      evidence?.public_key_spki_der_base64
+        === signatureContext.public_key_spki_der_base64,
+      `${label} does not carry the repository signature public key`,
+    );
+    const signedPayload = reviewAnchorSignedPayload(entry);
+    addError(
+      errors,
+      evidence?.signed_payload_sha256 === sha256(signedPayload),
+      `${label} signature evidence does not bind the complete claim`,
+    );
+    let signatureValid = false;
+    if (
+      reviewerPublicKey !== null
+      && typeof evidence?.signature_base64 === "string"
+    ) {
+      try {
+        const signature = Buffer.from(evidence.signature_base64, "base64");
+        if (signature.toString("base64") !== evidence.signature_base64) {
+          throw new Error("noncanonical base64");
+        }
+        signatureValid = crypto.verify(
+          null,
+          Buffer.from(signedPayload),
+          reviewerPublicKey,
+          signature,
+        );
+      } catch {
+        signatureValid = false;
+      }
+    }
+    addError(
+      errors,
+      signatureValid,
+      `${label} detached signature is invalid for the repository key`,
+    );
+    predecessor = entry;
+  }
+
+  const head = sortedEntries.at(-1);
+  const expectedHeadHash = head === undefined
+    ? undefined
+    : reviewAnchorEntrySha256(head);
+  addError(
+    errors,
+    hasExactObjectKeys(reviewAnchor?.head, [
+      "entry_sha256",
+      "epoch_id",
+      "sequence",
+    ])
+      && reviewAnchor?.head?.sequence === head?.sequence
+      && reviewAnchor?.head?.epoch_id === head?.epoch_id
+      && reviewAnchor?.head?.entry_sha256 === expectedHeadHash,
+    "review anchor head does not bind the latest complete entry",
+  );
+  const baselineEntry = sortedEntries.find((entry) => (
+    entry.sequence === signatureContext.repository_baseline.sequence
+  ));
+  addError(
+    errors,
+    baselineEntry?.epoch_id === signatureContext.repository_baseline.epoch_id
+      && reviewAnchorEntrySha256(baselineEntry ?? {})
+        === signatureContext.repository_baseline.entry_sha256,
+    "review snapshot does not contain the repository baseline anchor",
+  );
+  addError(
+    errors,
+    head !== undefined,
+    "review snapshot lacks a supplied head entry",
+  );
+  const snapshotCommitments =
+    reviewSnapshotCommitments(reviewLock, programSource);
+  for (const [field, expected] of Object.entries(snapshotCommitments)) {
+    if (expected === undefined) {
+      continue;
+    }
+    addError(
+      errors,
+      head?.[field] === expected,
+      `review snapshot head does not bind supplied ${field}`,
+    );
+  }
+  validationFailure("M0 detached-signature supplied snapshot", errors);
+  return head;
+}
+
+export function validateReviewAnchor(
+  reviewLock,
+  reviewAnchor,
+  programSource = undefined,
+) {
+  return validateSuppliedReviewSnapshot(
+    reviewLock,
+    reviewAnchor,
+    programSource,
+    REPOSITORY_SIGNATURE_CONTEXT,
+  );
+}
+
+function latestReviewEpoch(reviewLock) {
+  return [...(reviewLock?.review_attestation?.review_epochs ?? [])]
+    .sort((left, right) => (
+      left.reviewed_as_of.localeCompare(right.reviewed_as_of)
+    ))
+    .at(-1);
+}
+
+function expectedProgramSourceReviewAttestation(
+  programSource,
+  reviewLock,
+  reviewAnchor,
+) {
+  const epoch = latestReviewEpoch(reviewLock);
+  if (epoch === undefined) {
+    throw new Error("cannot attest program source without a review epoch");
+  }
+  const anchorHead = latestReviewAnchorEntry(reviewAnchor);
+  return {
+    attestation_format: "ioi.m0.program_control_source_review.v3",
+    transition: "worksheet_unreviewed_to_supplied_snapshot_attested",
+    verification_scope: "supplied_repository_snapshot",
+    review_method:
+      "detached_ed25519_signature_and_supplied_snapshot_consistency",
+    snapshot_anchor_file: REVIEW_ANCHOR_FILE,
+    snapshot_head_sequence: anchorHead.sequence,
+    snapshot_head_entry_sha256: reviewAnchorEntrySha256(anchorHead),
+    snapshot_predecessor_entry_sha256:
+      anchorHead.predecessor_entry_sha256,
+    signed_reviewer_label: anchorHead.reviewer_id,
+    signed_reviewer_label_status: "self_declared_not_identity_verified",
+    signature_key_id: anchorHead.reviewer_key_id,
+    signature_evidence_ref: anchorHead.reviewer_evidence.evidence_ref,
+    detached_signature_sha256:
+      sha256(anchorHead.reviewer_evidence.signature_base64),
+    review_lock_sha256: sha256(stableStringify(reviewLock)),
+    review_epoch_id: epoch.epoch_id,
+    reviewed_as_of: epoch.reviewed_as_of,
+    reviewed_identity_set_sha256: epoch.identity_set_sha256,
+    reviewed_entry_set_sha256: epoch.reviewed_entry_set_sha256,
+    program_source_material_sha256:
+      programSourceMaterialSha256(programSource),
+    assurance_posture: SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
+  };
+}
+
+export function attestProgramSourceReview(
+  repoRoot,
+  discoveredEntries,
+  reviewLock,
+  worksheet,
+  reviewAnchor = readJsonFile(repoRoot, REVIEW_ANCHOR_FILE),
+) {
+  validateReviewLock(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    reviewAnchor,
+  );
+  const errors = [];
+  addError(
+    errors,
+    worksheet?.program_state === "worksheet_unreviewed",
+    "program source review transition requires an unreviewed worksheet",
+  );
+  addError(
+    errors,
+    worksheet?.as_of_date === null,
+    "unreviewed program source worksheet must not carry a review date",
+  );
+  addError(
+    errors,
+    worksheet?.review_attestation === null,
+    "unreviewed program source worksheet must not carry a review attestation",
+  );
+  validationFailure("M0 program source review transition", errors);
+  validateReviewAnchor(reviewLock, reviewAnchor, worksheet);
+
+  const reviewed = structuredClone(worksheet);
+  const epoch = latestReviewEpoch(reviewLock);
+  reviewed.as_of_date = epoch.reviewed_as_of;
+  reviewed.program_state = "reviewed";
+  reviewed.review_attestation =
+    expectedProgramSourceReviewAttestation(
+      reviewed,
+      reviewLock,
+      reviewAnchor,
+    );
+  validateProgramSource(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    reviewed,
+    reviewAnchor,
+  );
+  return reviewed;
 }
 
 function canonicalJsonValue(value) {
@@ -3989,7 +4602,12 @@ function validateAnchoredFile(repoRoot, relativePath, expectedHash, label, error
 
 const REQUIRED_GATE_NAMES = ["authority", "fence", "ifc", "policy", "revocation"];
 
-export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
+export function validateReviewLock(
+  repoRoot,
+  discoveredEntries,
+  reviewLock,
+  reviewAnchor = readJsonFile(repoRoot, REVIEW_ANCHOR_FILE),
+) {
   const errors = [];
   addError(
     errors,
@@ -4346,7 +4964,6 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
       "kind",
       "surface",
       "operation",
-      "active_state",
       "source_file",
       "source_symbol",
       "handler_resolution",
@@ -4357,7 +4974,12 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
         `${label} has stale or mismatched ${field}`,
       );
     }
-    for (const field of ["handler", "handler_source_file", "handler_source_symbol"]) {
+    for (const field of [
+      "active_state",
+      "handler",
+      "handler_source_file",
+      "handler_source_symbol",
+    ]) {
       addError(
         errors,
         (reviewed[field] ?? null) === (discovered[field] ?? null),
@@ -4394,6 +5016,12 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
       errors,
       ENTRY_CLASSIFICATIONS.has(reviewed.classification),
       `${label} has unknown classification ${reviewed.classification}`,
+    );
+    const handlerEffectCalls = discovered.handler_effect_calls ?? [];
+    addError(
+      errors,
+      reviewed.classification !== "read_only" || handlerEffectCalls.length === 0,
+      `${label} is read_only despite observed handler effect calls: ${handlerEffectCalls.join(", ")}`,
     );
     addError(errors, isNonEmptyString(reviewed.effect_class), `${label} lacks an effect class`);
     addError(errors, isNonEmptyString(reviewed.owner), `${label} lacks an owner`);
@@ -4561,6 +5189,7 @@ export function validateReviewLock(repoRoot, discoveredEntries, reviewLock) {
   }
 
   validationFailure("M0 reviewed entry lock", errors);
+  validateReviewAnchor(reviewLock, reviewAnchor);
   return reviewByIdentity;
 }
 
@@ -4569,16 +5198,84 @@ export function validateProgramSource(
   discoveredEntries,
   reviewLock,
   programSource,
+  reviewAnchor = readJsonFile(repoRoot, REVIEW_ANCHOR_FILE),
 ) {
-  const reviewByIdentity = validateReviewLock(repoRoot, discoveredEntries, reviewLock);
+  const reviewByIdentity = validateReviewLock(
+    repoRoot,
+    discoveredEntries,
+    reviewLock,
+    reviewAnchor,
+  );
   const errors = [];
+  const latestEpoch = latestReviewEpoch(reviewLock);
+  const expectedReviewAttestation =
+    expectedProgramSourceReviewAttestation(
+      programSource,
+      reviewLock,
+      reviewAnchor,
+    );
+  const anchorHead = latestReviewAnchorEntry(reviewAnchor);
   addError(
     errors,
     programSource?.evidence_format === "ioi.m0.program_control_source.v1",
     "program source has an unsafe or unknown evidence_format",
   );
-  addError(errors, programSource?.as_of_date === AS_OF_DATE, "program source has wrong as_of_date");
-  addError(errors, programSource?.program_state === "reviewed", "program source is not reviewed");
+  addError(
+    errors,
+    programSource?.program_state === "reviewed",
+    "program source is not supplied-snapshot attested; an unreviewed worksheet cannot self-promote",
+  );
+  addError(
+    errors,
+    programSource?.as_of_date === latestEpoch.reviewed_as_of,
+    "program source date does not match the supplied snapshot epoch",
+  );
+  addError(
+    errors,
+    programSource?.review_attestation?.attestation_format
+      === "ioi.m0.program_control_source_review.v3"
+      && programSource?.review_attestation?.transition
+        === "worksheet_unreviewed_to_supplied_snapshot_attested"
+      && programSource?.review_attestation?.verification_scope
+        === "supplied_repository_snapshot",
+    "program source lacks the explicit supplied-snapshot transition attestation",
+  );
+  addError(
+    errors,
+    programSource?.review_attestation?.review_epoch_id
+      === latestEpoch.epoch_id
+      && programSource?.review_attestation?.reviewed_as_of
+        === latestEpoch.reviewed_as_of
+      && programSource?.review_attestation?.reviewed_identity_set_sha256
+        === latestEpoch.identity_set_sha256
+      && programSource?.review_attestation?.reviewed_entry_set_sha256
+        === latestEpoch.reviewed_entry_set_sha256,
+    "program source attestation does not bind the supplied snapshot epoch",
+  );
+  addError(
+    errors,
+    programSource?.review_attestation?.review_lock_sha256
+      === expectedReviewAttestation.review_lock_sha256,
+    "program source attestation does not bind the supplied review lock",
+  );
+  addError(
+    errors,
+    programSource?.review_attestation?.program_source_material_sha256
+      === expectedReviewAttestation.program_source_material_sha256,
+    "program source attestation does not match supplied material",
+  );
+  addError(
+    errors,
+    anchorHead?.program_source_material_sha256
+      === programSourceMaterialSha256(programSource),
+    "review snapshot head does not bind supplied program-source material",
+  );
+  addError(
+    errors,
+    stableStringify(programSource?.review_attestation)
+      === stableStringify(expectedReviewAttestation),
+    "program source supplied-snapshot attestation is incomplete or contains unbound fields",
+  );
   addError(
     errors,
     Array.isArray(programSource?.canon_contradictions)
@@ -4623,20 +5320,23 @@ export function validateProgramSource(
 
   addError(
     errors,
-    programSource?.sequencing_authority?.legacy_default === "non_authoritative",
-    "legacy sequencing is not explicitly non-authoritative",
+    stableStringify(programSource?.sequencing_authority)
+      === stableStringify(createSequencingAuthority()),
+    "sequencing authority must keep ignored internal guides as unbound external operator inputs and tracked canon as committed evidence authority",
   );
   addError(
     errors,
-    programSource?.sequencing_authority?.sole_sequencer_read_only_path
-      === "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
-    "sole read-only sequencer path is missing or changed",
+    canonBasis.some((entry) => (
+      entry.source_file.startsWith("docs/architecture/")
+    )),
+    "program source lacks tracked docs/architecture evidence authority",
   );
   addError(
     errors,
-    programSource?.sequencing_authority?.pg_ledger_read_only_path
-      === "internal-docs/implementation/canon-mechanism-hardening-action-plan.md",
-    "read-only PG ledger path is missing or changed",
+    canonBasis.every((entry) => (
+      !entry.source_file.startsWith("internal-docs/implementation/")
+    )),
+    "ignored internal implementation guidance cannot be bound as M0 evidence",
   );
   let expectedDiscoveryCoverage;
   try {
@@ -5025,6 +5725,22 @@ export function validateProgramSource(
   }
 
   const pgEntries = programSource?.pg_gate_map?.entries ?? [];
+  const pgMetadata = {
+    external_definition_input:
+      programSource?.pg_gate_map?.external_definition_input,
+    tracked_selected_profile_authority:
+      programSource?.pg_gate_map?.tracked_selected_profile_authority,
+  };
+  addError(
+    errors,
+    stableStringify(pgMetadata) === stableStringify(createPgGateMetadata()),
+    "PG metadata must keep the ignored ledger as an unbound external pointer and tracked canon as selected-profile authority",
+  );
+  addError(
+    errors,
+    !Object.hasOwn(programSource?.pg_gate_map ?? {}, "definition_owner"),
+    "PG metadata cannot claim the ignored external ledger as a committed definition owner",
+  );
   addError(
     errors,
     stableStringify(pgEntries) === stableStringify(createPgMap()),
@@ -5241,11 +5957,13 @@ export function buildM0Fingerprint(
   discoveredEntries,
   reviewLock,
   programSource,
+  reviewAnchor = readJsonFile(repoRoot, REVIEW_ANCHOR_FILE),
 ) {
   const readmeSource = fs.readFileSync(path.join(repoRoot, README_FILE), "utf8");
   return sha256(stableStringify({
     discovered_entries: discoveredEntries,
     program_source: programSource,
+    review_epoch_anchor: reviewAnchor,
     readme: {
       path: README_FILE,
       sha256: sha256(readmeSource),
@@ -5259,18 +5977,21 @@ export function buildM0Artifacts(
   discoveredEntries,
   reviewLock,
   programSource,
+  reviewAnchor = readJsonFile(repoRoot, REVIEW_ANCHOR_FILE),
 ) {
   const { blockerById, reviewByIdentity } = validateProgramSource(
     repoRoot,
     discoveredEntries,
     reviewLock,
     programSource,
+    reviewAnchor,
   );
   const fingerprint = buildM0Fingerprint(
     repoRoot,
     discoveredEntries,
     reviewLock,
     programSource,
+    reviewAnchor,
   );
   const artifactAsOfDate = [...reviewLock.review_attestation.review_epochs]
     .map((epoch) => epoch.reviewed_as_of)
@@ -5370,7 +6091,10 @@ export function buildM0Artifacts(
     })),
   }));
   documents.set("pg-gate-map.json", envelope("pg_gate_map", {
-    definition_owner: programSource.pg_gate_map.definition_owner,
+    external_definition_input:
+      programSource.pg_gate_map.external_definition_input,
+    tracked_selected_profile_authority:
+      programSource.pg_gate_map.tracked_selected_profile_authority,
     closure_claimed: false,
     counts: countBy(programSource.pg_gate_map.entries, (entry) => entry.disposition),
     entries: programSource.pg_gate_map.entries,
@@ -5401,35 +6125,44 @@ export function buildM0Artifacts(
 
   const indexItems = [
     {
+      path: REVIEW_ANCHOR_FILE,
+      role:
+        "detached-signature supplied-snapshot consistency chain and repository baseline",
+      state: "matches_supplied_snapshot",
+    },
+    {
       path: REVIEW_FILE,
       role: "explicit reviewed claim lock",
-      state: "closed_current",
+      state: "matches_supplied_snapshot",
     },
     {
       path: PROGRAM_SOURCE_FILE,
-      role: "reviewed selected-profile, PG, baseline, release, and blocker source",
-      state: "closed_current",
+      role:
+        "supplied-snapshot-attested selected-profile, PG, baseline, release, and blocker source",
+      state: "matches_supplied_snapshot",
     },
     {
       path: README_FILE,
       role: "human consumption and M0 claim boundary",
-      state: "closed_current",
+      state: "matches_supplied_snapshot",
     },
     ...GENERATED_ARTIFACT_FILES
       .filter((name) => name !== "program-evidence-index.json")
       .map((name) => ({
         path: `${EVIDENCE_DIR}/${name}`,
         role: name === "manifest.json"
-          ? "artifact integrity and freshness lock"
+          ? "artifact integrity and supplied-snapshot consistency lock"
           : "deterministic M0 evidence projection",
-        state: "closed_current",
+        state: "matches_supplied_snapshot",
       })),
   ];
   documents.set(
     "program-evidence-index.json",
     envelope("program_evidence_index", {
+      verification_scope: "supplied_repository_snapshot",
+      assurance_posture: SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
       consumption_rule:
-        "Evidence is current only when the read-only checker reproduces this fingerprint and every manifest hash.",
+        "Evidence matches the supplied repository snapshot only when the read-only checker reproduces this fingerprint and every manifest hash; currentness requires an outside rollback-domain checkpoint.",
       evidence_items: indexItems,
       honestly_open_evidence: programSource.baselines
         .filter((entry) => entry.status === "not_measured")
@@ -5474,8 +6207,9 @@ export function buildM0Artifacts(
         programSource.selected_profile.exact_effect.implementation_state === "terminal"
         || blockerById.has(programSource.selected_profile.exact_effect.blocker_ref)
       ),
-    legacy_sequencing_is_non_authoritative:
-      programSource.sequencing_authority.legacy_default === "non_authoritative",
+    sequencing_inputs_are_honestly_bounded:
+      stableStringify(programSource.sequencing_authority)
+        === stableStringify(createSequencingAuthority()),
     all_58_pg_ids_mapped_once: programSource.pg_gate_map.entries.length === PG_IDS.length,
     baselines_are_measured_or_honestly_named: programSource.baselines.every((entry) => (
       entry.status === "measured"
@@ -5487,12 +6221,20 @@ export function buildM0Artifacts(
     )),
     repository_validation_baseline_recorded:
       programSource.repository_validation_baselines.length > 0,
-    evidence_items_are_current_or_honestly_open:
-      indexItems.every((entry) => entry.state === "closed_current"),
+    evidence_items_match_supplied_snapshot_or_are_honestly_open:
+      indexItems.every((entry) => entry.state === "matches_supplied_snapshot"),
+    verification_scope_is_supplied_repository_snapshot:
+      programSource.review_attestation.verification_scope
+        === "supplied_repository_snapshot",
+    bounded_snapshot_assurance_is_exact:
+      stableStringify(reviewAnchor.assurance_posture)
+        === stableStringify(SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE),
   };
   const exitState = Object.values(exitConditions).every(Boolean) ? "verified" : "blocked";
   documents.set("m0-exit-report.json", envelope("exit_report", {
     m0_exit_state: exitState,
+    verification_scope: "supplied_repository_snapshot",
+    assurance_posture: SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
     claim_scope: "M0 program control and claim lock only",
     architecture_or_production_capability_closure: false,
     conditions: exitConditions,
@@ -5520,14 +6262,22 @@ export function buildM0Artifacts(
     nonclaims: [
       "M0 does not close any architecture production-status claim.",
       "M0 does not provide runtime capability, authority, product UX, or a canonical wire contract.",
-      "Every production gate remains owned by the read-only PG ledger.",
+      "Ignored internal sequencing and PG inputs are external operator pointers, not read, hashed, or bound evidence.",
+      "The repository does not establish signer-principal isolation; the signed reviewer_id is a self-declared label only.",
+      "The repository does not establish that the accepted snapshot head is current without an outside rollback-domain checkpoint.",
+      "The repository does not establish resistance to rollback between internally coherent supplied snapshots.",
     ],
   }));
 
   const rendered = new Map(
     [...documents].map(([name, document]) => [name, stableStringify(document)]),
   );
-  const sourceFiles = [REVIEW_FILE, PROGRAM_SOURCE_FILE, README_FILE].map((relativePath) => {
+  const sourceFiles = [
+    REVIEW_ANCHOR_FILE,
+    REVIEW_FILE,
+    PROGRAM_SOURCE_FILE,
+    README_FILE,
+  ].map((relativePath) => {
     const source = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
     return {
       path: relativePath,
@@ -5559,6 +6309,7 @@ export function buildM0Artifacts(
 
 export function loadM0Sources(repoRoot) {
   return {
+    reviewAnchor: readJsonFile(repoRoot, REVIEW_ANCHOR_FILE),
     reviewLock: readJsonFile(repoRoot, REVIEW_FILE),
     programSource: readJsonFile(repoRoot, PROGRAM_SOURCE_FILE),
   };
@@ -5570,6 +6321,35 @@ export function assertRenderedArtifactsCurrent(
   artifactFiles = GENERATED_ARTIFACT_FILES,
 ) {
   const errors = [];
+  const allowedNames = new Set([
+    path.basename(REVIEW_ANCHOR_FILE),
+    path.basename(REVIEW_FILE),
+    path.basename(PROGRAM_SOURCE_FILE),
+    path.basename(README_FILE),
+    ...artifactFiles,
+  ]);
+  try {
+    for (const entry of fs.readdirSync(
+      path.join(repoRoot, EVIDENCE_DIR),
+      { withFileTypes: true },
+    )) {
+      if (!entry.isFile()) {
+        errors.push(
+          `unexpected non-file evidence entry ${EVIDENCE_DIR}/${entry.name}`,
+        );
+      } else if (!allowedNames.has(entry.name)) {
+        errors.push(
+          `unexpected stale evidence artifact ${EVIDENCE_DIR}/${entry.name}`,
+        );
+      }
+    }
+  } catch (error) {
+    errors.push(
+      error?.code === "ENOENT"
+        ? `missing evidence directory ${EVIDENCE_DIR}`
+        : `cannot enumerate evidence directory ${EVIDENCE_DIR}: ${error.message}`,
+    );
+  }
   for (const name of artifactFiles) {
     const relativePath = `${EVIDENCE_DIR}/${name}`;
     let actual;
@@ -5607,17 +6387,19 @@ export function assertRenderedArtifactsCurrent(
 
 export function checkM0Artifacts(repoRoot) {
   const discoveredEntries = discoverRepositorySurface(repoRoot);
-  const { reviewLock, programSource } = loadM0Sources(repoRoot);
+  const { reviewAnchor, reviewLock, programSource } = loadM0Sources(repoRoot);
   const built = buildM0Artifacts(
     repoRoot,
     discoveredEntries,
     reviewLock,
     programSource,
+    reviewAnchor,
   );
   assertRenderedArtifactsCurrent(repoRoot, built.rendered);
   return {
     ...built,
     discoveredEntries,
+    reviewAnchor,
     reviewLock,
     programSource,
   };
