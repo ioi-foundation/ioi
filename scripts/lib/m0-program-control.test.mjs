@@ -297,6 +297,49 @@ test("structured discovery finds every literal Axum method and route identity", 
   }
 });
 
+test("Axum discovery preserves literal methods behind one route-local layer", () => {
+  const root = temporaryRepository({
+    "routes.rs": `
+      fn app() {
+        Router::new().route(
+          "/v1/bounded",
+          get(read_bounded)
+            .post(write_bounded)
+            .layer(DefaultBodyLimit::max(MAX_REQUEST_BYTES)),
+        );
+      }
+    `,
+  });
+  try {
+    const entries = discoverAxumRoutes({
+      repoRoot: root,
+      relativePath: "routes.rs",
+      surface: "fixture",
+    });
+    assert.deepEqual(
+      entries.map((entry) => entry.identity),
+      [
+        "http:fixture:GET /v1/bounded",
+        "http:fixture:POST /v1/bounded",
+      ],
+    );
+    assert.equal(entries[0].source_anchor.sha256, entries[1].source_anchor.sha256);
+    const routePath = path.join(root, "routes.rs");
+    fs.writeFileSync(
+      routePath,
+      fs.readFileSync(routePath, "utf8").replace("MAX_REQUEST_BYTES", "OTHER_LIMIT"),
+    );
+    const changed = discoverAxumRoutes({
+      repoRoot: root,
+      relativePath: "routes.rs",
+      surface: "fixture",
+    });
+    assert.notEqual(changed[0].source_anchor.sha256, entries[0].source_anchor.sha256);
+  } finally {
+    fs.rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test("Axum discovery resolves aliases, on filters, and any handlers", () => {
   const root = temporaryRepository({
     "handlers.rs": `
@@ -358,6 +401,10 @@ test("unsupported Axum registration forms fail discovery explicitly", () => {
     [
       'Router::new().route("/x", get_service(service))',
       /unsupported Axum service router/u,
+    ],
+    [
+      'Router::new().route("/x", get(handler).layer())',
+      /layer\(\.\.\.\) must have one layer/u,
     ],
     [
       'Router::route(router, "/x", get(handler))',

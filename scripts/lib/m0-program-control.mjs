@@ -36,6 +36,9 @@ const AXUM_SERVICE_ROUTER_METHODS = new Set([
   "put_service",
   "trace_service",
 ]);
+const AXUM_METHOD_ROUTER_DECORATORS = new Set([
+  "layer",
+]);
 const RUST_EFFECT_CALL = /(?:^|::|\.)(?:persist(?:_|$)|persist_record$|persist_env$|persist_availability_locked$|persist_runnability_locked$|write(?:_|$)|write_all$|remove_record$|remove_file$|remove_dir_all$|create_dir(?:_all)?$|rename$|save(?:_|$)|store(?:_|$)|store_typed$|append(?:_|$)|append_audit_event(?:_with_records)?$|state\.insert$|state\.delete$|state\.batch_apply$|admit_and_persist|apply_workspace_patch$|Command::new$|spawn$|send$|try_send$|submit_ibc_messages$|set_secret$|provision_with_domain$|perform_sign$|sync_all$|register_service$)/u;
 const RUST_EXTERNAL_EFFECT_CALLS = new Set([
   "MuxEngine::open",
@@ -884,6 +887,12 @@ export function discoverAxumRoutes({ repoRoot, relativePath, surface }) {
                 argumentRanges[1][1],
               ),
             });
+          }
+        } else if (AXUM_METHOD_ROUTER_DECORATORS.has(value)) {
+          if (argumentRanges.length !== 1) {
+            throw new Error(
+              `${relativePath}:${tokens[cursor].line}: ${value}(...) must have one layer`,
+            );
           }
         } else if (AXUM_SERVICE_ROUTER_METHODS.has(value)) {
           throw new Error(
