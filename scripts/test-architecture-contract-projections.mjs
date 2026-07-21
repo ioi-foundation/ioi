@@ -4,20 +4,28 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createHash, createPublicKey, verify } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import ts from "typescript";
 import {
+  invariantPathFiniteDomain,
+  validateInvariantProfile,
+} from "./lib/architecture-invariant-dsl.mjs";
+import {
   ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS,
   ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES,
   ARCHITECTURE_CONTRACT_FIXTURES,
+  ARCHITECTURE_CONTRACT_JCS_DIFFERENTIAL_CASES,
   ARCHITECTURE_CONTRACT_MUTATIONS,
   ARCHITECTURE_CONTRACT_ORACLE_PROFILE,
   ARCHITECTURE_CONTRACT_PATTERN_SOURCES,
   ARCHITECTURE_CONTRACT_PORTABLE_DATE_TIME_PATTERN,
   ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM,
   ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM,
+  ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MAXIMUM,
+  ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MINIMUM,
   architectureContractInvariantErrors,
   architectureContractSchemaDocument,
   validateArchitectureContract,
@@ -39,9 +47,222 @@ assert.equal(
   Number.MAX_SAFE_INTEGER,
 );
 assert.equal(
+  ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MINIMUM,
+  -Number.MAX_SAFE_INTEGER,
+);
+assert.equal(
+  ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MAXIMUM,
+  Number.MAX_SAFE_INTEGER,
+);
+assert.equal(
   ARCHITECTURE_CONTRACT_ORACLE_PROFILE,
   "ajv-2020-12-plus-portable-invariants-and-canonical-rfc3339",
 );
+const invariantDslSchema = architectureContractSchemaDocument(
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+);
+assert.match(
+  validateInvariantProfile(invariantDslSchema, {
+    rules: [{
+      rule_id: "test.any_of_all_branches_are_validated",
+      expression: {
+        operator: "any_of",
+        expressions: [
+          { operator: "non_empty", path: "$.receipt_ref" },
+          { operator: "fields_equal", paths: [
+            "$.bound_facts.missing_nested_path",
+            "$.receipt_ref",
+          ] },
+        ],
+      },
+    }],
+  }).join("\n"),
+  /missing_nested_path/u,
+  "a valid any_of sibling must not hide a malformed invariant branch",
+);
+assert.match(
+  validateInvariantProfile(invariantDslSchema, {
+    rules: [{
+      rule_id: "test.fields_equal_shape",
+      expression: {
+        operator: "fields_equal",
+        paths: ["$.receipt_ref"],
+      },
+    }],
+  }).join("\n"),
+  /length 2/u,
+  "malformed operator arguments must fail before invariant evaluation",
+);
+const finiteDomainSchema = {
+  type: "object",
+  properties: {
+    direct_suite: { $ref: "#/$defs/signature_suite" },
+  },
+  allOf: [{
+    if: {
+      properties: { direct_suite: { enum: [-8] } },
+    },
+    then: {
+      properties: { public_key: { minItems: 32 } },
+    },
+  }],
+  $defs: {
+    signature_suite: {
+      type: "integer",
+      enum: [-200, -17, -8],
+    },
+  },
+};
+assert.deepEqual(
+  invariantPathFiniteDomain(finiteDomainSchema, "$.direct_suite"),
+  [-200, -17, -8],
+  "a sibling conditional must not be intersected into a false singleton domain",
+);
+assert.equal(
+  invariantPathFiniteDomain(
+    {
+      type: "object",
+      allOf: [{
+        properties: { branch_only_suite: { const: -8 } },
+      }],
+    },
+    "$.branch_only_suite",
+  ),
+  null,
+  "a finite domain available only through composition must not prove entailment",
+);
+const branchVariantSchema = {
+  type: "object",
+  oneOf: [
+    {
+      type: "object",
+      required: ["variant", "left", "right"],
+      properties: {
+        variant: { const: "bound" },
+        left: { type: "string" },
+        right: { type: "string" },
+      },
+    },
+    {
+      type: "object",
+      required: ["variant"],
+      properties: {
+        variant: { const: "unbound" },
+      },
+    },
+  ],
+};
+assert.match(
+  validateInvariantProfile(branchVariantSchema, {
+    rules: [{
+      rule_id: "test.branch_only_paths",
+      expression: {
+        operator: "fields_equal",
+        paths: ["$.left", "$.right"],
+      },
+    }],
+  }).join("\n"),
+  /does not resolve through every reachable schema alternative/u,
+  "branch-only paths must not enter a portable invariant profile",
+);
+const conditionalVariantSchema = {
+  type: "object",
+  properties: {
+    variant: { enum: ["bound", "unbound"] },
+  },
+  if: {
+    properties: { variant: { const: "bound" } },
+    required: ["variant"],
+  },
+  then: {
+    properties: {
+      left: { type: "string" },
+      right: { type: "string" },
+    },
+  },
+  else: {
+    properties: {
+      fallback: { type: "string" },
+    },
+  },
+};
+assert.match(
+  validateInvariantProfile(conditionalVariantSchema, {
+    rules: [{
+      rule_id: "test.conditional_branch_only_paths",
+      expression: {
+        operator: "fields_equal",
+        paths: ["$.left", "$.right"],
+      },
+    }],
+  }).join("\n"),
+  /does not resolve through every reachable schema alternative/u,
+  "conditional-only paths must not enter a portable invariant profile",
+);
+const portableConditionSchema = {
+  type: "object",
+  properties: {
+    evidence: { type: "array", items: { type: "string" } },
+    mode: {},
+    hash: { type: "string" },
+  },
+};
+for (const compositeValue of [
+  { mode: "required" },
+  ["required"],
+]) {
+  assert.match(
+    validateInvariantProfile(portableConditionSchema, {
+      rules: [{
+        rule_id: "test.composite_condition",
+        expression: {
+          operator: "non_empty_when_in",
+          path: "$.evidence",
+          when_path: "$.mode",
+          values: [compositeValue],
+        },
+      }],
+    }).join("\n"),
+    /only portable JSON scalars/u,
+    "non_empty_when_in must reject composite equality values",
+  );
+}
+assert.deepEqual(
+  validateInvariantProfile(portableConditionSchema, {
+    rules: [{
+      rule_id: "test.scalar_condition",
+      expression: {
+        operator: "non_empty_when_in",
+        path: "$.evidence",
+        when_path: "$.mode",
+        values: [null, false, "required", 0],
+      },
+    }],
+  }),
+  [],
+  "non_empty_when_in accepts only the portable JSON scalar equality domain",
+);
+for (const unsafeField of ["__proto__", "prototype", "constructor"]) {
+  const materialFields = JSON.parse(
+    `{"${unsafeField}":{"value":"unsafe"}}`,
+  );
+  assert.match(
+    validateInvariantProfile(portableConditionSchema, {
+      rules: [{
+        rule_id: `test.unsafe_material_field.${unsafeField}`,
+        expression: {
+          operator: "jcs_sha256_equals",
+          algorithm: "jcs_sha256",
+          material_fields: materialFields,
+          expected_path: "$.hash",
+          expected_encoding: "sha256_string",
+        },
+      }],
+    }).join("\n"),
+    /prototype-sensitive/u,
+    `material field ${unsafeField} must be rejected before code generation`,
+  );
+}
 assert.equal(
   new RegExp(ARCHITECTURE_CONTRACT_PORTABLE_DATE_TIME_PATTERN, "u").test(
     "2025-01-01T23:59:60Z",
@@ -145,6 +366,188 @@ for (const fixture of ARCHITECTURE_CONTRACT_FIXTURES) {
   }
 }
 
+function canonicalJson(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
+    .join(",")}}`;
+}
+
+assert.deepEqual(
+  ARCHITECTURE_CONTRACT_JCS_DIFFERENTIAL_CASES.map((candidate) => {
+    const value = JSON.parse(candidate.value_json);
+    assert.ok(
+      Object.keys(value).indexOf("\u{1F600}") >
+        Object.keys(value).indexOf("\uE000"),
+      `${candidate.id}: source order must oppose RFC 8785 UTF-16 order`,
+    );
+    return {
+      id: candidate.id,
+      expected_canonical: canonicalJson(value),
+    };
+  }),
+  [{
+    id: "jcs-non-bmp-key-order",
+    expected_canonical:
+      ARCHITECTURE_CONTRACT_JCS_DIFFERENTIAL_CASES[0].expected_canonical,
+  }],
+  "non-BMP JCS differential must use ECMAScript UTF-16 key ordering",
+);
+assert.ok(
+  ARCHITECTURE_CONTRACT_JCS_DIFFERENTIAL_CASES[0].expected_canonical.indexOf(
+    JSON.stringify("\u{1F600}"),
+  ) <
+    ARCHITECTURE_CONTRACT_JCS_DIFFERENTIAL_CASES[0].expected_canonical.indexOf(
+      JSON.stringify("\uE000"),
+    ),
+  "RFC 8785 orders the astral key before the BMP private-use key by UTF-16 code units",
+);
+
+function ed25519PublicKey(rawBytes) {
+  return createPublicKey({
+    key: Buffer.concat([
+      Buffer.from("302a300506032b6570032100", "hex"),
+      Buffer.from(rawBytes),
+    ]),
+    format: "der",
+    type: "spki",
+  });
+}
+
+{
+  const fixture = JSON.parse(
+    fs.readFileSync(
+      path.join(
+        root,
+        "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+      ),
+      "utf8",
+    ),
+  );
+  const legacyFixture = JSON.parse(
+    fs.readFileSync(
+      path.join(
+        root,
+        "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+      ),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    validateArchitectureContract(
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+      legacyFixture,
+    ).ok,
+    true,
+    "the frozen v1 receipt remains readable under its own identity",
+  );
+  assert.equal(
+    validateArchitectureContract(
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+      fixture,
+    ).ok,
+    true,
+    "the current v2 receipt validates under its own identity",
+  );
+  assert.equal(
+    validateArchitectureContract(
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+      fixture,
+    ).ok,
+    false,
+    "the current receipt is not accepted as frozen v1",
+  );
+  assert.equal(
+    validateArchitectureContract(
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+      legacyFixture,
+    ).ok,
+    false,
+    "the frozen receipt is not accepted as current v2",
+  );
+  const grant = fixture.wallet_approval_grant;
+  const grantSigningMaterial = {
+    schema_version: grant.schema_version,
+    authority_id: grant.authority_id,
+    request_hash: grant.request_hash,
+    policy_hash: grant.policy_hash,
+    audience: grant.audience,
+    nonce: grant.nonce,
+    counter: grant.counter,
+    expires_at: grant.expires_at,
+    max_usages: grant.max_usages ?? null,
+    window_id: grant.window_id ?? null,
+    pii_action: grant.pii_action ?? null,
+    scoped_exception: grant.scoped_exception ?? null,
+    review_request_hash: grant.review_request_hash ?? null,
+    approver_public_key: grant.approver_public_key,
+    approver_suite: grant.approver_suite,
+  };
+  assert.equal(
+    verify(
+      null,
+      Buffer.from(canonicalJson(grantSigningMaterial)),
+      ed25519PublicKey(grant.approver_public_key),
+      Buffer.from(grant.approver_sig),
+    ),
+    true,
+    "positive sequence-zero fixture carries a valid retained ApprovalGrant signature",
+  );
+
+  const proof = fixture.principal_authority_binding.binding_proof;
+  const statementSigningMaterial = {
+    domain: "ioi.wallet-network.principal-authority-binding.v1",
+    statement: proof.statement,
+  };
+  assert.equal(
+    verify(
+      null,
+      Buffer.from(canonicalJson(statementSigningMaterial)),
+      ed25519PublicKey(proof.issuer_signature_proof.public_key),
+      Buffer.from(proof.issuer_signature_proof.signature),
+    ),
+    true,
+    "positive sequence-zero fixture carries a valid retained binding signature",
+  );
+
+  const tamperedGrantSignature = Buffer.from(grant.approver_sig);
+  tamperedGrantSignature[0] ^= 1;
+  assert.equal(
+    verify(
+      null,
+      Buffer.from(canonicalJson(grantSigningMaterial)),
+      ed25519PublicKey(grant.approver_public_key),
+      tamperedGrantSignature,
+    ),
+    false,
+    "tampered retained ApprovalGrant signature is cryptographically invalid",
+  );
+  const tamperedRootSignature = Buffer.from(
+    proof.issuer_signature_proof.signature,
+  );
+  tamperedRootSignature[0] ^= 1;
+  assert.equal(
+    verify(
+      null,
+      Buffer.from(canonicalJson(statementSigningMaterial)),
+      ed25519PublicKey(proof.issuer_signature_proof.public_key),
+      tamperedRootSignature,
+    ),
+    false,
+    "tampered retained binding signature is cryptographically invalid",
+  );
+  const grantHash = createHash("sha256")
+    .update(canonicalJson(grant))
+    .digest("hex");
+  assert.equal(
+    fixture.authority_grant_id,
+    `grant://wallet.network/approval/sha256:${grantHash}`,
+    "portable grant identity is the exact retained signed grant artifact hash",
+  );
+}
+
 const coveredKeywords = new Set();
 for (const mutation of ARCHITECTURE_CONTRACT_MUTATIONS) {
   for (const keyword of mutation.covered_keywords) coveredKeywords.add(keyword);
@@ -162,8 +565,16 @@ for (const mutation of ARCHITECTURE_CONTRACT_MUTATIONS) {
   );
   assert.equal(
     result.ok,
-    ajvAccepted,
-    `${mutation.id}: generated TypeScript validator disagreed with Ajv: ${result.errors.join(", ")}`,
+    mutation.oracle_contract_accept,
+    `${mutation.id}: generated TypeScript validator disagreed with Ajv plus portable invariants: ${result.errors.join(", ")}`,
+  );
+  assert.deepEqual(
+    result.errors
+      .filter((error) => error.startsWith("invariant:"))
+      .map((error) => error.slice("invariant:".length))
+      .sort(),
+    [...mutation.expected_rule_ids].sort(),
+    `${mutation.id}: invariant rejection set differs from the independent declaration`,
   );
 }
 assert.deepEqual(
@@ -184,6 +595,35 @@ for (const requiredRegression of [
   "ecma-non-whitespace-next-line-accepted",
   "required-nullable-claim-scope-missing",
   "optional-non-nullable-input-hash-null",
+  "sequence-zero-receipt-truncated-grant-signature",
+  "sequence-zero-receipt-truncated-root-signature",
+  "sequence-zero-receipt-grant-suite-mismatch",
+  "sequence-zero-receipt-authority-suite-mismatch",
+  "sequence-zero-receipt-duplicated-materialization-field-detached",
+  "sequence-zero-receipt-embedded-component-count-detached",
+  "sequence-zero-receipt-embedded-component-identity-duplicate",
+  "sequence-zero-receipt-embedded-component-kind-ref-substitution",
+  "sequence-zero-receipt-embedded-deployment-root-detached",
+  "sequence-zero-receipt-legacy-deployment-compatibility-root-detached",
+  "sequence-zero-receipt-grant-request-detached",
+  "sequence-zero-receipt-consumption-evidence-id-detached",
+  "sequence-zero-receipt-grant-policy-detached",
+  "sequence-zero-receipt-effect-hash-self-attestation",
+  "sequence-zero-receipt-grant-identity-detached",
+  "sequence-zero-receipt-snapshot-hash-self-attestation",
+  "sequence-zero-receipt-statement-hash-self-attestation",
+  "sequence-zero-receipt-binding-hash-self-attestation",
+  "sequence-zero-receipt-binding-coordinates-detached",
+  "sequence-zero-receipt-authority-tuple-detached",
+  "sequence-zero-receipt-scope-uncovered",
+  "sequence-zero-receipt-matched-scope-does-not-cover",
+  "sequence-zero-receipt-binding-signed-after-resolution",
+  "sequence-zero-receipt-binding-expired-at-resolution",
+  "sequence-zero-receipt-authority-expired-at-resolution",
+  "sequence-zero-receipt-grant-expired-at-resolution",
+  "sequence-zero-receipt-boundary-required-ref-missing",
+  "sequence-zero-receipt-boundary-extra-ref-injected",
+  "sequence-zero-materialization-broad-receipt-ref",
 ]) {
   assert.ok(
     ARCHITECTURE_CONTRACT_MUTATIONS.some(
@@ -347,6 +787,7 @@ for (const requiredDifferential of [
   "differential:noncanonical-space-separator",
   "differential:noncanonical-compact-offset",
   "differential:noncanonical-hour-offset",
+  "differential:object-valued-invariant-key-order",
 ]) {
   assert.ok(
     ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES.some(
@@ -562,6 +1003,54 @@ assert.match(
   /pub mod generated \{[\s\S]*pub mod architecture_contracts;/u,
   "Rust app module must bind the canonical generated projection",
 );
+const generatedTypeScriptSource = fs.readFileSync(
+  path.join(root, CANONICAL_TYPESCRIPT_TARGET),
+  "utf8",
+);
+assert.match(
+  generatedTypeScriptSource,
+  /const material: JsonObject = Object\.create\(null\);/u,
+  "generated TypeScript hash material must not inherit prototype setters",
+);
+assert.match(
+  generatedTypeScriptSource,
+  /left !== undefined &&\s+right !== undefined &&\s+jsonSchemaEqual\(left, right\)/u,
+  "generated TypeScript fields_equal must reject absent operands",
+);
+assert.match(
+  generatedTypeScriptSource,
+  /jsonSchemaEqual\(valueAtPath\(value, expression\.when_path\), expected\)/u,
+  "generated TypeScript conditional equality must use portable JSON equality",
+);
+const generatedRustSource = fs.readFileSync(
+  path.join(root, CANONICAL_RUST_TARGET),
+  "utf8",
+);
+assert.match(
+  generatedRustSource,
+  /expected\s+\.iter\(\)\s+\.any\(\|candidate\| json_schema_equal\(actual, candidate\)\)/u,
+  "generated Rust conditional equality must use portable JSON equality",
+);
+assert.match(
+  generatedRustSource,
+  /pub predecessor_transition_commitment_ref: \(\),/u,
+  "required schema null must project to Rust unit",
+);
+assert.match(
+  generatedRustSource,
+  /pub verification_ref: \(\),/u,
+  "required receipt null must project to Rust unit",
+);
+assert.doesNotMatch(
+  generatedRustSource,
+  /pub struct AutonomousSystemSequenceZeroMaterializationReceiptV2WalletApprovalGrantApproverSuite\(pub i64\);/u,
+  "closed integer enum must not expose a forgeable public integer constructor",
+);
+assert.match(
+  generatedRustSource,
+  /pub enum AutonomousSystemSequenceZeroMaterializationReceiptV2WalletApprovalGrantApproverSuite \{[\s\S]*Negative8,/u,
+  "closed integer enum exposes only generated valid variants",
+);
 assert.equal(
   generatedTypePath,
   path.join(root, CANONICAL_TYPESCRIPT_BARREL),
@@ -748,6 +1237,7 @@ function runRejectedRegistryProbe(
     for (const helper of [
       "architecture-contract-consumer-bindings.mjs",
       "architecture-contract-consumer-targets.mjs",
+      "architecture-invariant-dsl.mjs",
       "repository-path-boundary.mjs",
     ]) {
       fs.copyFileSync(
@@ -983,6 +1473,7 @@ function runSymlinkBoundaryProbe(id, setup, generatorMode = "--check") {
     for (const helper of [
       "architecture-contract-consumer-bindings.mjs",
       "architecture-contract-consumer-targets.mjs",
+      "architecture-invariant-dsl.mjs",
       "repository-path-boundary.mjs",
     ]) {
       fs.copyFileSync(

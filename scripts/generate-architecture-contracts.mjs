@@ -31,6 +31,8 @@ const { ARCHITECTURE_CONTRACT_CONSUMER_TARGETS } =
   await import("./lib/architecture-contract-consumer-targets.mjs");
 const { architectureContractConsumerBindingFailures } =
   await import("./lib/architecture-contract-consumer-bindings.mjs");
+const { invariantPathFiniteDomain, validateInvariantProfile } =
+  await import("./lib/architecture-invariant-dsl.mjs");
 const { safeRepositoryPath } =
   await import("./lib/repository-path-boundary.mjs");
 const PINNED_CONSUMER_TARGETS = Object.freeze([
@@ -126,6 +128,16 @@ const contracts = registry.contracts.map((entry) => ({
     ),
   ),
 }));
+for (const { entry, schema, invariants } of contracts) {
+  for (const profile of invariants) {
+    const errors = validateInvariantProfile(schema, profile);
+    if (errors.length > 0) {
+      throw new Error(
+        `${entry.contract_id}: malformed invariant profile ${profile.$id}:\n${errors.join("\n")}`,
+      );
+    }
+  }
+}
 
 const SCHEMA_METADATA_KEYWORDS = new Set([
   "$defs",
@@ -206,10 +218,26 @@ function canonicalJson(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   return `{${Object.keys(value)
-    .sort(codePointCompare)
+    .sort()
     .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
     .join(",")}}`;
 }
+
+const JCS_DIFFERENTIAL_CASES = Object.freeze([
+  Object.freeze({
+    id: "jcs-non-bmp-key-order",
+    value: Object.freeze({
+      "\uE000": "private-use-bmp",
+      "\u{1F600}": "astral",
+    }),
+  }),
+].map((candidate) =>
+  Object.freeze({
+    ...candidate,
+    value_json: JSON.stringify(candidate.value),
+    expected_canonical: canonicalJson(candidate.value),
+  })
+));
 
 function schemaHash(schema) {
   return `sha256:${createHash("sha256").update(canonicalJson(schema)).digest("hex")}`;
@@ -778,11 +806,219 @@ const componentLaneSchemeMutationDefinitions = [
 
 const mutationDefinitions = [
   {
+    id: "sequence-zero-receipt-timestamp-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/at",
+      value: "2026-07-19T12:00:01Z",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-authorized-materialization-id-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/authorized_effect/materialization/materialization_id",
+      value:
+        "system-materialization://sequence-zero/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-authority-principal-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/principal_authority_binding/principal_ref",
+      value: "agentgres://domain/acme/foreign",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-grant-authority-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const authorityId = [...value.wallet_approval_grant.authority_id];
+      authorityId[0] ^= 1;
+      return {
+        operation: "set",
+        pointer: "/wallet_approval_grant/authority_id",
+        value: authorityId,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-grant-key-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const publicKey = [...value.wallet_approval_grant.approver_public_key];
+      publicKey[0] ^= 1;
+      return {
+        operation: "set",
+        pointer: "/wallet_approval_grant/approver_public_key",
+        value: publicKey,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-effect-receipt-ref-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer:
+        "/authorized_effect/materialization/materialization_receipt_ref",
+      value:
+        "receipt://aszmr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-effect-registry-ref-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer:
+        "/authorized_effect/materialization/component_registry_ref",
+      value:
+        "agentgres://object-set/autonomous-system-components/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-policy-hash-self-attestation",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/policy_hash",
+      value:
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-wallet-consumption-request-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/bound_facts/wallet_grant_consumption_ref",
+      value:
+        "wallet.network://approval-effect-consumption/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/2020202020202020202020202020202020202020202020202020202020202020",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-coordinates-ref-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/principal_authority_binding/coordinates/binding_ref",
+      value:
+        "wallet.network://principal-authority-binding/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-authority-key-statement-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const publicKey = [
+        ...value.principal_authority_binding.binding_proof.statement
+          .authority_public_key,
+      ];
+      publicKey[0] ^= 1;
+      return {
+        operation: "set",
+        pointer:
+          "/principal_authority_binding/binding_proof/statement/authority_public_key",
+        value: publicKey,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-authority-id-self-attestation",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const authorityId = [
+        ...value.principal_authority_binding.approval_authority.authority_id,
+      ];
+      authorityId[0] ^= 1;
+      return {
+        operation: "set",
+        pointer:
+          "/principal_authority_binding/approval_authority/authority_id",
+        value: authorityId,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-issuer-root-id-self-attestation",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const issuerId = [
+        ...value.principal_authority_binding.binding_proof.statement
+          .issuer_root_account_id,
+      ];
+      issuerId[0] ^= 1;
+      return {
+        operation: "set",
+        pointer:
+          "/principal_authority_binding/binding_proof/statement/issuer_root_account_id",
+        value: issuerId,
+      };
+    },
+  },
+  {
     id: "sequence-zero-receipt-unsupported-signature-suite",
     contractId:
-      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     fixture:
-      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
     keywords: ["enum"],
     directProjectionRejection: true,
     patch: {
@@ -792,11 +1028,38 @@ const mutationDefinitions = [
     },
   },
   {
+    id: "sequence-zero-receipt-grant-suite-mismatch",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/wallet_approval_grant/approver_suite",
+      value: -17,
+    },
+  },
+  {
+    id: "sequence-zero-receipt-authority-suite-mismatch",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer:
+        "/principal_authority_binding/approval_authority/signature_suite",
+      value: -17,
+    },
+  },
+  {
     id: "sequence-zero-receipt-oversized-principal",
     contractId:
-      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     fixture:
-      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
     keywords: ["maxLength"],
     directProjectionRejection: true,
     patch: {
@@ -808,9 +1071,9 @@ const mutationDefinitions = [
   {
     id: "sequence-zero-receipt-nested-authority-claim",
     contractId:
-      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     fixture:
-      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
     keywords: ["additionalProperties"],
     directProjectionRejection: true,
     patch: {
@@ -826,6 +1089,432 @@ const mutationDefinitions = [
         justification_hash: Array(32).fill(9),
         forged_context: "claim-inflation",
       },
+    },
+  },
+  {
+    id: "sequence-zero-receipt-truncated-grant-signature",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: ["allOf", "if", "then", "minItems"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/wallet_approval_grant/approver_sig",
+      value: [3],
+    },
+  },
+  {
+    id: "sequence-zero-receipt-truncated-root-signature",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: ["allOf", "if", "then", "minItems"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer:
+        "/principal_authority_binding/binding_proof/issuer_signature_proof/signature",
+      value: [12],
+    },
+  },
+  {
+    id: "sequence-zero-receipt-duplicated-materialization-field-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/bound_facts/package_id",
+      value: "package://acme/detached-package",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-embedded-component-count-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      return {
+        operation: "set",
+        pointer: "/authorized_effect/materialization/component_bindings",
+        value: value.authorized_effect.materialization.component_bindings.slice(
+          0,
+          -1,
+        ),
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-embedded-component-identity-duplicate",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const bindings = structuredClone(
+        value.authorized_effect.materialization.component_bindings,
+      );
+      bindings[1].kind = bindings[0].kind;
+      bindings[1].binding_ref = bindings[0].binding_ref;
+      return {
+        operation: "set",
+        pointer: "/authorized_effect/materialization/component_bindings",
+        value: bindings,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-embedded-component-kind-ref-substitution",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: ["allOf", "if", "then", "$ref", "pattern"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer:
+        "/authorized_effect/materialization/component_bindings/0/binding_ref",
+      value:
+        "workflow-template://acme/system-alpha/default/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-embedded-deployment-root-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer:
+        "/authorized_effect/materialization/profile_refs/deployment_profile_ref",
+      value:
+        "deployment-profile://acme/system-alpha/local/revision/sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-legacy-deployment-compatibility-root-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer:
+        "/authorized_effect/materialization/profile_refs/deployment_profile_ref",
+      value:
+        "deployment-profile://acme/system-alpha/local",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-grant-request-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const requestHash = [...value.wallet_approval_grant.request_hash];
+      requestHash[0] ^= 1;
+      return {
+        operation: "set",
+        pointer: "/wallet_approval_grant/request_hash",
+        value: requestHash,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-consumption-evidence-id-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/bound_facts/wallet_grant_consumption_evidence_ref",
+      value:
+        "system-sequence-zero-authority-consumption://aszmc_2121212121212121212121212121212121212121212121212121212121212121",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-grant-policy-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const policyHash = [...value.wallet_approval_grant.policy_hash];
+      policyHash[0] ^= 1;
+      return {
+        operation: "set",
+        pointer: "/wallet_approval_grant/policy_hash",
+        value: policyHash,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-effect-hash-self-attestation",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/effect_hash",
+      value:
+        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-grant-identity-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/authority_grant_id",
+      value:
+        "grant://wallet.network/approval/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-snapshot-hash-self-attestation",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const snapshotHash = [
+        ...value.principal_authority_binding.approval_authority_snapshot_hash,
+      ];
+      snapshotHash[0] ^= 1;
+      return {
+        operation: "set",
+        pointer:
+          "/principal_authority_binding/approval_authority_snapshot_hash",
+        value: snapshotHash,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-statement-hash-self-attestation",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const statementHash = [
+        ...value.principal_authority_binding.binding_proof.statement_hash,
+      ];
+      statementHash[0] ^= 1;
+      return {
+        operation: "set",
+        pointer:
+          "/principal_authority_binding/binding_proof/statement_hash",
+        value: statementHash,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-binding-hash-self-attestation",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const bindingHash = [
+        ...value.principal_authority_binding.binding_proof.binding_hash,
+      ];
+      bindingHash[0] ^= 1;
+      return {
+        operation: "set",
+        pointer: "/principal_authority_binding/binding_proof/binding_hash",
+        value: bindingHash,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-binding-coordinates-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/principal_authority_binding/coordinates/binding_version",
+      value: 2,
+    },
+  },
+  {
+    id: "sequence-zero-receipt-authority-tuple-detached",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      const authorityId = [
+        ...value.principal_authority_binding.binding_proof.statement
+          .authority_id,
+      ];
+      authorityId[0] ^= 1;
+      return {
+        operation: "set",
+        pointer:
+          "/principal_authority_binding/binding_proof/statement/authority_id",
+        value: authorityId,
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-scope-uncovered",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer:
+        "/principal_authority_binding/approval_authority/scope_allowlist",
+      value: ["scope:unrelated"],
+    },
+  },
+  {
+    id: "sequence-zero-receipt-matched-scope-does-not-cover",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/principal_authority_binding/matched_scope",
+      value: "scope:unrelated.*",
+    },
+  },
+  {
+    id: "sequence-zero-receipt-binding-signed-after-resolution",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer:
+        "/principal_authority_binding/binding_proof/statement/signed_at_ms",
+      value: 1784462400001,
+    },
+  },
+  {
+    id: "sequence-zero-receipt-binding-expired-at-resolution",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer:
+        "/principal_authority_binding/binding_proof/statement/expires_at_ms",
+      value: 1784462399999,
+    },
+  },
+  {
+    id: "sequence-zero-receipt-authority-expired-at-resolution",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/principal_authority_binding/approval_authority/expires_at",
+      value: 1784462399999,
+    },
+  },
+  {
+    id: "sequence-zero-receipt-grant-expired-at-resolution",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/wallet_approval_grant/expires_at",
+      value: 1784462399999,
+    },
+  },
+  {
+    id: "sequence-zero-receipt-boundary-required-ref-missing",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      return {
+        operation: "set",
+        pointer: "/attested_boundary_fact_refs",
+        value: value.attested_boundary_fact_refs.filter(
+          (reference) =>
+            reference !== value.bound_facts.wallet_grant_consumption_ref,
+        ),
+      };
+    },
+  },
+  {
+    id: "sequence-zero-receipt-boundary-extra-ref-injected",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    keywords: [],
+    buildPatch(value) {
+      return {
+        operation: "set",
+        pointer: "/attested_boundary_fact_refs",
+        value: [
+          ...value.attested_boundary_fact_refs,
+          "policy://acme/injected-boundary",
+        ],
+      };
+    },
+  },
+  {
+    id: "sequence-zero-materialization-broad-receipt-ref",
+    contractId:
+      "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+    fixture:
+      "fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json",
+    keywords: ["$ref", "pattern"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/materialization_receipt_ref",
+      value: "receipt://broad-but-no-longer-valid",
     },
   },
   {
@@ -1152,6 +1841,353 @@ const mutationDefinitions = [
   ...componentLaneSchemeMutationDefinitions,
 ];
 
+const MUTATION_SCHEMA_REJECTIONS = new Set([
+  "sequence-zero-receipt-unsupported-signature-suite",
+  "sequence-zero-receipt-oversized-principal",
+  "sequence-zero-receipt-nested-authority-claim",
+  "sequence-zero-receipt-truncated-grant-signature",
+  "sequence-zero-receipt-truncated-root-signature",
+  "sequence-zero-receipt-embedded-component-kind-ref-substitution",
+  "sequence-zero-materialization-broad-receipt-ref",
+  "type-number-for-string",
+  "required-property-removed",
+  "required-nullable-claim-scope-missing",
+  "additional-property-injected",
+  "referenced-pattern-violated",
+  "ecma-whitespace-byte-order-mark-rejected",
+  "nullable-any-of-violated",
+  "optional-non-nullable-input-hash-null",
+  "unicode-aware-min-length-violated",
+  "closed-enum-violated-with-raw-string-sentinel",
+  "minimum-violated",
+  "array-items-schema-violated",
+  "deep-unique-items-key-order-duplicate",
+  "impossible-rfc3339-calendar-date",
+  "closed-const-violated",
+  "one-of-violated",
+  "maximum-safe-integer-violated",
+  "minimum-array-size-violated",
+  "type-less-if-then-max-items-violated",
+  "nested-all-of-contains-member-missing",
+  "type-less-if-else-required-hash-violated",
+  "boolean-const-self-authority-violated",
+  "genesis-authorized-without-admission-authority-status-evidence",
+  "genesis-activated-without-activation-lifecycle-evidence",
+  "constitution-active-without-activation-receipt",
+  "constitution-draft-with-activation-residue",
+  "constitution-draft-with-public-commitment-residue",
+  "ordering-active-without-conformance-evidence",
+  "ordering-draft-with-conformance-residue",
+  "lifecycle-committed-without-terminal-proof-set",
+  "lifecycle-proposed-with-decision-residue",
+  "manifest-goal-run-profiles-cross-category-ref",
+  "manifest-workflow-templates-cross-category-ref",
+  "manifest-automation-specs-cross-category-ref",
+  "manifest-harness-profiles-cross-category-ref",
+  "manifest-agent-harness-adapters-cross-category-ref",
+  "manifest-skill-manifests-cross-category-ref",
+  "manifest-data-recipes-cross-category-ref",
+  "manifest-runtime-tool-contracts-cross-category-ref",
+  "manifest-mcp-gateway-requirements-cross-category-ref",
+  "genesis-goal-run-profiles-cross-category-ref",
+  "genesis-workflow-templates-cross-category-ref",
+  "genesis-automation-specs-cross-category-ref",
+  "genesis-harness-profiles-cross-category-ref",
+  "genesis-agent-harness-adapters-cross-category-ref",
+  "genesis-data-recipes-cross-category-ref",
+  "genesis-runtime-tool-contracts-cross-category-ref",
+]);
+const MUTATION_INVARIANT_REJECTIONS = new Map([
+  ["sequence-zero-receipt-grant-suite-mismatch", [
+    "sequence_zero_materialization_receipt.grant_suite.matches_snapshot",
+    "sequence_zero_materialization_receipt.grant_identity.recomputes",
+  ]],
+  ["sequence-zero-receipt-authority-suite-mismatch", [
+    "sequence_zero_materialization_receipt.grant_suite.matches_snapshot",
+    "sequence_zero_materialization_receipt.authority_suite.matches_statement",
+    "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+    "sequence_zero_materialization_receipt.authority_id.derives_from_key",
+  ]],
+  ["sequence-zero-receipt-timestamp-detached", [
+    "sequence_zero_materialization_receipt.timestamp.matches_at",
+  ]],
+  ["sequence-zero-receipt-authorized-materialization-id-detached", [
+    "sequence_zero_materialization_receipt.subject.matches_authorized_effect",
+    "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+    "sequence_zero_materialization_receipt.effect_materialization_id.binds_genesis_root",
+    "sequence_zero_materialization_receipt.effect_hash.recomputes",
+  ]],
+  ["sequence-zero-receipt-authority-principal-detached", [
+    "sequence_zero_materialization_receipt.authority.matches_binding",
+    "sequence_zero_materialization_receipt.binding_principal.matches_statement",
+  ]],
+  ["sequence-zero-receipt-grant-authority-detached", [
+    "sequence_zero_materialization_receipt.grant_authority.matches_snapshot",
+    "sequence_zero_materialization_receipt.grant_identity.recomputes",
+  ]],
+  ["sequence-zero-receipt-grant-key-detached", [
+    "sequence_zero_materialization_receipt.grant_key.matches_snapshot",
+    "sequence_zero_materialization_receipt.grant_identity.recomputes",
+  ]],
+  ["sequence-zero-receipt-effect-receipt-ref-detached", [
+    "sequence_zero_materialization_receipt.effect_receipt_ref.matches_receipt",
+    "sequence_zero_materialization_receipt.effect_hash.recomputes",
+  ]],
+  ["sequence-zero-receipt-effect-registry-ref-detached", [
+    "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+    "sequence_zero_materialization_receipt.effect_registry_ref.binds_registry_root",
+    "sequence_zero_materialization_receipt.effect_hash.recomputes",
+  ]],
+  ["sequence-zero-receipt-policy-hash-self-attestation", [
+    "sequence_zero_materialization_receipt.policy_hash.recomputes",
+  ]],
+  ["sequence-zero-receipt-wallet-consumption-request-detached", [
+    "sequence_zero_materialization_receipt.wallet_consumption.binds_request",
+    "sequence_zero_materialization_receipt.boundary_fact.exact_coverage",
+  ]],
+  ["sequence-zero-receipt-coordinates-ref-detached", [
+    "sequence_zero_materialization_receipt.coordinates_ref.matches_proof",
+  ]],
+  ["sequence-zero-receipt-authority-key-statement-detached", [
+    "sequence_zero_materialization_receipt.statement_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_ref.recomputes",
+    "sequence_zero_materialization_receipt.authority_key.matches_statement",
+  ]],
+  ["sequence-zero-receipt-authority-id-self-attestation", [
+    "sequence_zero_materialization_receipt.grant_authority.matches_snapshot",
+    "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+    "sequence_zero_materialization_receipt.authority_id.matches_statement",
+    "sequence_zero_materialization_receipt.authority_id.derives_from_key",
+  ]],
+  ["sequence-zero-receipt-issuer-root-id-self-attestation", [
+    "sequence_zero_materialization_receipt.statement_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_ref.recomputes",
+    "sequence_zero_materialization_receipt.issuer_root_id.derives_from_key",
+  ]],
+  ["sequence-zero-receipt-duplicated-materialization-field-detached", [
+    "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+  ]],
+  ["sequence-zero-receipt-embedded-component-count-detached", [
+    "sequence_zero_materialization_receipt.effect_component_count.matches_array",
+    "sequence_zero_materialization_receipt.effect_hash.recomputes",
+  ]],
+  ["sequence-zero-receipt-embedded-component-identity-duplicate", [
+    "sequence_zero_materialization_receipt.effect_component_identities.unique",
+    "sequence_zero_materialization_receipt.effect_hash.recomputes",
+  ]],
+  ["sequence-zero-receipt-embedded-deployment-root-detached", [
+    "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+    "sequence_zero_materialization_receipt.effect_deployment_ref.binds_root",
+    "sequence_zero_materialization_receipt.effect_hash.recomputes",
+  ]],
+  ["sequence-zero-receipt-legacy-deployment-compatibility-root-detached", [
+    "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+    "sequence_zero_materialization_receipt.effect_deployment_ref.binds_root",
+    "sequence_zero_materialization_receipt.effect_hash.recomputes",
+  ]],
+  ["sequence-zero-receipt-grant-request-detached", [
+    "sequence_zero_materialization_receipt.grant_request_hash.recomputes",
+    "sequence_zero_materialization_receipt.grant_identity.recomputes",
+  ]],
+  ["sequence-zero-receipt-consumption-evidence-id-detached", [
+    "sequence_zero_materialization_receipt.wallet_consumption.matches_evidence_id",
+    "sequence_zero_materialization_receipt.boundary_fact.exact_coverage",
+  ]],
+  ["sequence-zero-receipt-grant-policy-detached", [
+    "sequence_zero_materialization_receipt.grant_policy_hash.recomputes",
+    "sequence_zero_materialization_receipt.grant_identity.recomputes",
+  ]],
+  ["sequence-zero-receipt-effect-hash-self-attestation", [
+    "sequence_zero_materialization_receipt.effect_hash.matches_bound_effect",
+    "sequence_zero_materialization_receipt.effect_hash.recomputes",
+    "sequence_zero_materialization_receipt.request_hash.recomputes",
+    "sequence_zero_materialization_receipt.grant_request_hash.recomputes",
+  ]],
+  ["sequence-zero-receipt-grant-identity-detached", [
+    "sequence_zero_materialization_receipt.grant_identity.recomputes",
+    "sequence_zero_materialization_receipt.boundary_fact.exact_coverage",
+  ]],
+  ["sequence-zero-receipt-snapshot-hash-self-attestation", [
+    "sequence_zero_materialization_receipt.binding_snapshot.matches_statement",
+    "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+  ]],
+  ["sequence-zero-receipt-statement-hash-self-attestation", [
+    "sequence_zero_materialization_receipt.statement_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_ref.recomputes",
+  ]],
+  ["sequence-zero-receipt-binding-hash-self-attestation", [
+    "sequence_zero_materialization_receipt.binding_hash.recomputes",
+    "sequence_zero_materialization_receipt.coordinates_hash.matches_proof",
+  ]],
+  ["sequence-zero-receipt-binding-coordinates-detached", [
+    "sequence_zero_materialization_receipt.coordinates_version.matches_statement",
+  ]],
+  ["sequence-zero-receipt-authority-tuple-detached", [
+    "sequence_zero_materialization_receipt.statement_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_ref.recomputes",
+    "sequence_zero_materialization_receipt.authority_id.matches_statement",
+  ]],
+  ["sequence-zero-receipt-scope-uncovered", [
+    "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+    "sequence_zero_materialization_receipt.scope.covered_by_authority",
+  ]],
+  ["sequence-zero-receipt-matched-scope-does-not-cover", [
+    "sequence_zero_materialization_receipt.scope.required_matches_resolution",
+    "sequence_zero_materialization_receipt.scope.covered_by_authority",
+  ]],
+  ["sequence-zero-receipt-binding-signed-after-resolution", [
+    "sequence_zero_materialization_receipt.statement_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_ref.recomputes",
+    "sequence_zero_materialization_receipt.binding.signed_before_resolution",
+  ]],
+  ["sequence-zero-receipt-binding-expired-at-resolution", [
+    "sequence_zero_materialization_receipt.statement_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_hash.recomputes",
+    "sequence_zero_materialization_receipt.binding_ref.recomputes",
+    "sequence_zero_materialization_receipt.binding.unexpired_at_resolution",
+  ]],
+  ["sequence-zero-receipt-authority-expired-at-resolution", [
+    "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+    "sequence_zero_materialization_receipt.authority.unexpired_at_resolution",
+  ]],
+  ["sequence-zero-receipt-grant-expired-at-resolution", [
+    "sequence_zero_materialization_receipt.grant_identity.recomputes",
+    "sequence_zero_materialization_receipt.grant.unexpired_at_resolution",
+  ]],
+  ["sequence-zero-receipt-boundary-required-ref-missing", [
+    "sequence_zero_materialization_receipt.boundary_fact.exact_coverage",
+  ]],
+  ["sequence-zero-receipt-boundary-extra-ref-injected", [
+    "sequence_zero_materialization_receipt.boundary_fact.exact_coverage",
+  ]],
+]);
+const MUTATION_ACCEPTS = new Set([
+  "ecma-non-whitespace-next-line-accepted",
+]);
+
+function declaredMutationExpectation(id) {
+  if (MUTATION_SCHEMA_REJECTIONS.has(id)) {
+    return { schemaAccept: false, contractAccept: false, ruleIds: [] };
+  }
+  if (MUTATION_INVARIANT_REJECTIONS.has(id)) {
+    return {
+      schemaAccept: true,
+      contractAccept: false,
+      ruleIds: MUTATION_INVARIANT_REJECTIONS.get(id),
+    };
+  }
+  if (MUTATION_ACCEPTS.has(id)) {
+    return { schemaAccept: true, contractAccept: true, ruleIds: [] };
+  }
+  throw new Error(`Mutation ${id} has no independent declared expectation`);
+}
+
+const declaredMutationIds = new Set([
+  ...MUTATION_SCHEMA_REJECTIONS,
+  ...MUTATION_INVARIANT_REJECTIONS.keys(),
+  ...MUTATION_ACCEPTS,
+]);
+if (
+  declaredMutationIds.size !== mutationDefinitions.length ||
+  mutationDefinitions.some(({ id }) => !declaredMutationIds.has(id))
+) {
+  throw new Error(
+    "Architecture mutation expectations do not exactly cover the mutation definitions",
+  );
+}
+
+const SEQUENCE_ZERO_RECEIPT_CONTRACT_ID =
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2";
+const SEQUENCE_ZERO_RECEIPT_SCHEMA_ENTAILMENTS = new Map([
+  [
+    "sequence_zero_materialization_receipt.authority_kind.matches_statement",
+    {
+      paths: [
+        "$.principal_authority_binding.authority_kind",
+        "$.principal_authority_binding.binding_proof.statement.authority_kind",
+      ],
+      domain: ["approval"],
+    },
+  ],
+  [
+    "sequence_zero_materialization_receipt.scope.covered_by_receipt",
+    {
+      paths: [
+        { pointer: "$.authority_scopes", arrayItems: true },
+        "$.principal_authority_binding.required_scope",
+      ],
+      domain: ["scope:autonomous_system.genesis_materialize"],
+    },
+  ],
+]);
+{
+  const contract = contracts.find(
+    ({ entry }) => entry.contract_id === SEQUENCE_ZERO_RECEIPT_CONTRACT_ID,
+  );
+  if (!contract) {
+    throw new Error("Sequence-zero receipt contract is absent from the registry");
+  }
+  const ruleIds = contract.invariants.flatMap((profile) =>
+    profile.rules.map((rule) => rule.rule_id)
+  );
+  if (new Set(ruleIds).size !== ruleIds.length) {
+    throw new Error("Sequence-zero receipt invariant rule ids are not unique");
+  }
+  const coveredRuleIds = new Set([
+    ...contract.entry.negative_fixture_refs
+      .map((fixture) => fixture.expected_rule_id)
+      .filter((ruleId) => typeof ruleId === "string"),
+    ...mutationDefinitions
+      .filter(
+        (definition) =>
+          definition.contractId === SEQUENCE_ZERO_RECEIPT_CONTRACT_ID,
+      )
+      .flatMap(
+        (definition) =>
+          declaredMutationExpectation(definition.id).ruleIds,
+      ),
+  ]);
+  for (const [ruleId, entailment] of SEQUENCE_ZERO_RECEIPT_SCHEMA_ENTAILMENTS) {
+    if (!ruleIds.includes(ruleId)) {
+      throw new Error(`Schema entailment names an unknown invariant ${ruleId}`);
+    }
+    for (const pathSpec of entailment.paths) {
+      const pointer = typeof pathSpec === "string"
+        ? pathSpec
+        : pathSpec.pointer;
+      const domain = invariantPathFiniteDomain(contract.schema, pointer, {
+        arrayItems:
+          typeof pathSpec === "object" && pathSpec.arrayItems === true,
+      });
+      if (canonicalJson(domain) !== canonicalJson(entailment.domain)) {
+        throw new Error(
+          `${ruleId}: schema entailment at ${pointer} drifted: ` +
+            `expected=${canonicalJson(entailment.domain)} observed=${canonicalJson(domain)}`,
+        );
+      }
+    }
+    coveredRuleIds.add(ruleId);
+  }
+  const unknownCoveredRuleIds = [...coveredRuleIds].filter(
+    (ruleId) => !ruleIds.includes(ruleId),
+  );
+  const uncoveredRuleIds = ruleIds.filter(
+    (ruleId) => !coveredRuleIds.has(ruleId),
+  );
+  if (unknownCoveredRuleIds.length > 0 || uncoveredRuleIds.length > 0) {
+    throw new Error(
+      "Sequence-zero receipt invariant coverage is not exact: " +
+        `unknown=${canonicalJson(unknownCoveredRuleIds)} ` +
+        `uncovered=${canonicalJson(uncoveredRuleIds)}`,
+    );
+  }
+}
+
 const generatorAjv = new Ajv2020({
   allErrors: true,
   strict: true,
@@ -1211,13 +2247,201 @@ function generatorNonEmpty(value) {
   );
 }
 
+function generatorInvariantMaterial(value, expression) {
+  if (typeof expression.material_path === "string") {
+    return generatorValueAtPath(value, expression.material_path);
+  }
+  if (!isPlainObject(expression.material_fields)) return undefined;
+  const material = Object.create(null);
+  for (const [field, descriptor] of Object.entries(
+    expression.material_fields,
+  )) {
+    if (!isPlainObject(descriptor)) return undefined;
+    if (typeof descriptor.path === "string") {
+      const candidate = generatorValueAtPath(value, descriptor.path);
+      if (candidate === undefined) return undefined;
+      material[field] = candidate;
+    } else if (Object.hasOwn(descriptor, "value")) {
+      material[field] = descriptor.value;
+    } else {
+      return undefined;
+    }
+  }
+  return material;
+}
+
+function generatorBytesFromValue(value) {
+  return Array.isArray(value) &&
+    value.every(
+      (byte) =>
+        typeof byte === "number" &&
+        Number.isInteger(byte) &&
+        byte >= 0 &&
+        byte <= 255,
+    )
+    ? Buffer.from(value)
+    : null;
+}
+
+function generatorDigestMatches(value, expression, digest) {
+  const expected = generatorValueAtPath(value, expression.expected_path);
+  const hex = digest.toString("hex");
+  if (expression.expected_encoding === "bytes32") {
+    const expectedBytes = generatorBytesFromValue(expected);
+    return expectedBytes !== null && expectedBytes.equals(digest);
+  }
+  if (expression.expected_encoding === "sha256_string") {
+    return expected === `sha256:${hex}`;
+  }
+  if (
+    expression.expected_encoding === "prefixed_ref" &&
+    typeof expression.prefix === "string"
+  ) {
+    return expected === `${expression.prefix}${hex}`;
+  }
+  return false;
+}
+
+function generatorJcsSha256Matches(value, expression) {
+  const material = generatorInvariantMaterial(value, expression);
+  if (material === undefined) return false;
+  let digest = createHash("sha256").update(canonicalJson(material)).digest();
+  if (expression.algorithm === "jcs_sha256_then_utf8_sha256") {
+    if (typeof expression.intermediate_prefix !== "string") return false;
+    digest = createHash("sha256")
+      .update(`${expression.intermediate_prefix}${digest.toString("hex")}`)
+      .digest();
+  } else if (
+    expression.algorithm !== undefined &&
+    expression.algorithm !== "jcs_sha256"
+  ) {
+    return false;
+  }
+  return generatorDigestMatches(value, expression, digest);
+}
+
+function generatorSha256PartsMatch(value, expression) {
+  if (!Array.isArray(expression.parts)) return false;
+  const parts = [];
+  for (const part of expression.parts) {
+    if (!isPlainObject(part)) return false;
+    if (typeof part.utf8 === "string") {
+      parts.push(Buffer.from(part.utf8, "utf8"));
+    } else if (typeof part.signed_i32_be_path === "string") {
+      const integer = generatorValueAtPath(value, part.signed_i32_be_path);
+      if (
+        typeof integer !== "number" ||
+        !Number.isInteger(integer) ||
+        integer < -2147483648 ||
+        integer > 2147483647
+      ) {
+        return false;
+      }
+      const encoded = Buffer.alloc(4);
+      encoded.writeInt32BE(integer);
+      parts.push(encoded);
+    } else if (typeof part.bytes_path === "string") {
+      const encoded = generatorBytesFromValue(
+        generatorValueAtPath(value, part.bytes_path),
+      );
+      if (encoded === null) return false;
+      parts.push(encoded);
+    } else {
+      return false;
+    }
+  }
+  const digest = createHash("sha256").update(Buffer.concat(parts)).digest();
+  return generatorDigestMatches(value, expression, digest);
+}
+
+function generatorExactRefCoverage(value, expression) {
+  const actual = generatorValueAtPath(value, expression.array_path);
+  if (!Array.isArray(actual) || actual.some((item) => typeof item !== "string"))
+    return false;
+  const required = [];
+  for (const pointer of expression.required_paths ?? []) {
+    const candidate = generatorValueAtPath(value, pointer);
+    if (candidate === null) continue;
+    if (typeof candidate !== "string") return false;
+    required.push(candidate);
+  }
+  for (const pointer of expression.required_array_paths ?? []) {
+    const candidates = generatorValueAtPath(value, pointer);
+    if (
+      !Array.isArray(candidates) ||
+      candidates.some((candidate) => typeof candidate !== "string")
+    ) {
+      return false;
+    }
+    required.push(...candidates);
+  }
+  for (const derived of expression.required_derived_refs ?? []) {
+    if (
+      !isPlainObject(derived) ||
+      typeof derived.path !== "string" ||
+      typeof derived.prefix !== "string"
+    ) {
+      return false;
+    }
+    const candidate = generatorValueAtPath(value, derived.path);
+    if (typeof candidate !== "string") return false;
+    const suffix =
+      typeof derived.strip_prefix === "string"
+        ? candidate.startsWith(derived.strip_prefix)
+          ? candidate.slice(derived.strip_prefix.length)
+          : null
+        : candidate;
+    if (suffix === null) return false;
+    required.push(`${derived.prefix}${suffix}`);
+  }
+  return (
+    actual.length === required.length &&
+    canonicalJson([...actual].sort(codePointCompare)) ===
+      canonicalJson([...required].sort(codePointCompare))
+  );
+}
+
+function generatorScopePatternMatches(pattern, value) {
+  if (typeof pattern !== "string" || typeof value !== "string") return false;
+  const normalizedPattern = pattern.trim().toLowerCase();
+  const normalizedValue = value.trim().toLowerCase();
+  if (normalizedPattern === "*" || normalizedPattern === normalizedValue)
+    return true;
+  for (const suffix of ["::*", ":*", "*"]) {
+    if (!normalizedPattern.endsWith(suffix)) continue;
+    return normalizedValue.startsWith(normalizedPattern.slice(0, -1));
+  }
+  return false;
+}
+
 function generatorInvariantErrors(contract, value) {
   const expectedSchemaHash = schemaHash(contract.schema);
   return contract.invariants.flatMap((profile) =>
     (profile.rules ?? []).flatMap((rule) => {
       const expression = rule.expression ?? {};
       let valid = false;
-      if (expression.operator === "non_empty") {
+      if (
+        expression.operator === "any_of" &&
+        Array.isArray(expression.expressions) &&
+        expression.expressions.length > 0
+      ) {
+        valid =
+          expression.expressions.every(isPlainObject) &&
+          expression.expressions.some(
+            (candidate) =>
+              generatorInvariantErrors(
+                {
+                  ...contract,
+                  invariants: [
+                    {
+                      rules: [{ rule_id: rule.rule_id, expression: candidate }],
+                    },
+                  ],
+                },
+                value,
+              ).length === 0,
+          );
+      } else if (expression.operator === "non_empty") {
         valid = generatorNonEmpty(generatorValueAtPath(value, expression.path));
       } else if (
         expression.operator === "any_non_empty" &&
@@ -1232,16 +2456,21 @@ function generatorInvariantErrors(contract, value) {
       ) {
         const actual = generatorValueAtPath(value, expression.when_path);
         valid =
-          !expression.values.some((expected) => Object.is(actual, expected)) ||
+          !expression.values.some(
+            (expected) => canonicalJson(actual) === canonicalJson(expected),
+          ) ||
           generatorNonEmpty(generatorValueAtPath(value, expression.path));
       } else if (
         expression.operator === "fields_equal" &&
         Array.isArray(expression.paths) &&
         expression.paths.length === 2
       ) {
+        const left = generatorValueAtPath(value, expression.paths[0]);
+        const right = generatorValueAtPath(value, expression.paths[1]);
         valid =
-          canonicalJson(generatorValueAtPath(value, expression.paths[0])) ===
-          canonicalJson(generatorValueAtPath(value, expression.paths[1]));
+          left !== undefined &&
+          right !== undefined &&
+          canonicalJson(left) === canonicalJson(right);
       } else if (
         expression.operator === "array_field_equals" &&
         typeof expression.array_path === "string" &&
@@ -1337,6 +2566,96 @@ function generatorInvariantErrors(contract, value) {
                   ),
               ),
           );
+      } else if (
+        expression.operator === "object_fields_equal" &&
+        Array.isArray(expression.object_paths) &&
+        expression.object_paths.length === 2 &&
+        Array.isArray(expression.fields) &&
+        expression.fields.length > 0
+      ) {
+        const left = generatorValueAtPath(value, expression.object_paths[0]);
+        const right = generatorValueAtPath(value, expression.object_paths[1]);
+        valid =
+          isPlainObject(left) &&
+          isPlainObject(right) &&
+          expression.fields.every(
+            (field) =>
+              typeof field === "string" &&
+              Object.hasOwn(left, field) &&
+              Object.hasOwn(right, field) &&
+              canonicalJson(left[field]) === canonicalJson(right[field]),
+          );
+      } else if (expression.operator === "jcs_sha256_equals") {
+        valid = generatorJcsSha256Matches(value, expression);
+      } else if (expression.operator === "sha256_parts_equals") {
+        valid = generatorSha256PartsMatch(value, expression);
+      } else if (
+        expression.operator === "array_contains_value" &&
+        typeof expression.array_path === "string" &&
+        typeof expression.expected_path === "string"
+      ) {
+        const values = generatorValueAtPath(value, expression.array_path);
+        const expected = generatorValueAtPath(value, expression.expected_path);
+        valid =
+          Array.isArray(values) &&
+          expected !== undefined &&
+          values.some(
+            (candidate) => canonicalJson(candidate) === canonicalJson(expected),
+          );
+      } else if (expression.operator === "array_exact_ref_coverage") {
+        valid = generatorExactRefCoverage(value, expression);
+      } else if (
+        expression.operator === "scope_pattern_matches" &&
+        typeof expression.pattern_path === "string" &&
+        typeof expression.value_path === "string"
+      ) {
+        valid = generatorScopePatternMatches(
+          generatorValueAtPath(value, expression.pattern_path),
+          generatorValueAtPath(value, expression.value_path),
+        );
+      } else if (
+        expression.operator === "field_starts_with_path" &&
+        typeof expression.path === "string" &&
+        typeof expression.expected_path === "string" &&
+        typeof expression.prefix === "string"
+      ) {
+        const actual = generatorValueAtPath(value, expression.path);
+        const expected = generatorValueAtPath(value, expression.expected_path);
+        const stripped =
+          typeof expected === "string" &&
+          typeof expression.strip_prefix === "string"
+            ? expected.startsWith(expression.strip_prefix)
+              ? expected.slice(expression.strip_prefix.length)
+              : null
+            : expected;
+        valid =
+          typeof actual === "string" &&
+          typeof stripped === "string" &&
+          actual.startsWith(
+            `${expression.prefix}${stripped}${expression.suffix ?? ""}`,
+          );
+      } else if (
+        expression.operator === "field_suffix_equals_prefixed_field" &&
+        typeof expression.source_path === "string" &&
+        typeof expression.delimiter === "string" &&
+        expression.delimiter.length > 0 &&
+        typeof expression.target_path === "string" &&
+        typeof expression.target_prefix === "string"
+      ) {
+        const source = generatorValueAtPath(value, expression.source_path);
+        const target = generatorValueAtPath(value, expression.target_path);
+        const delimiterIndex =
+          typeof source === "string"
+            ? source.lastIndexOf(expression.delimiter)
+            : -1;
+        const suffix =
+          typeof source === "string" && delimiterIndex >= 0
+            ? source.slice(delimiterIndex + expression.delimiter.length)
+            : "";
+        valid =
+          suffix.length > 0 &&
+          typeof target === "string" &&
+          target === `${expression.target_prefix}${suffix}`;
       } else if (expression.operator === "matches_contract_schema_hash") {
         valid =
           generatorValueAtPath(value, expression.path) === expectedSchemaHash;
@@ -1392,12 +2711,41 @@ function mutationCorpus() {
     if (!validate) {
       throw new Error(`Mutation ${definition.id} names an unknown contract`);
     }
+    const expectation = declaredMutationExpectation(definition.id);
+    const observedSchemaAccept = Boolean(validate(value));
+    const evaluatedRuleIds = generatorInvariantErrors(
+      contracts.find(
+        (contract) =>
+          contract.entry.contract_id === definition.contractId,
+      ),
+      value,
+    );
+    const observedRuleIds = observedSchemaAccept ? evaluatedRuleIds : [];
+    const observedContractAccept =
+      observedSchemaAccept && observedRuleIds.length === 0;
+    if (
+      observedSchemaAccept !== expectation.schemaAccept ||
+      observedContractAccept !== expectation.contractAccept ||
+      canonicalJson([...observedRuleIds].sort(codePointCompare)) !==
+        canonicalJson([...expectation.ruleIds].sort(codePointCompare))
+    ) {
+      throw new Error(
+        `Mutation ${definition.id} differs from its independent declared expectation: ` +
+          `expected=${canonicalJson(expectation)} observed=${canonicalJson({
+            schemaAccept: observedSchemaAccept,
+            contractAccept: observedContractAccept,
+            ruleIds: observedRuleIds,
+          })}`,
+      );
+    }
     return {
       id: definition.id,
       contract_id: definition.contractId,
       source_fixture_path: `docs/architecture/_meta/schemas/${definition.fixture}`,
       covered_keywords: definition.keywords,
-      ajv_expected_accept: Boolean(validate(value)),
+      ajv_expected_accept: expectation.schemaAccept,
+      oracle_contract_accept: expectation.contractAccept,
+      expected_rule_ids: expectation.ruleIds,
       direct_projection_rejection:
         definition.directProjectionRejection === true,
       patch,
@@ -1529,6 +2877,24 @@ function differentialCorpus() {
     });
   }
 
+  const objectEqualityFixture = readJson(
+    safeSchemaPath(
+      "fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+      "object-valued invariant differential fixture",
+    ),
+  );
+  const profileRefs =
+    objectEqualityFixture.authorized_effect.materialization.profile_refs;
+  objectEqualityFixture.authorized_effect.materialization.profile_refs =
+    Object.fromEntries(Object.entries(profileRefs).reverse());
+  cases.push({
+    id: "differential:object-valued-invariant-key-order",
+    contract_id: SEQUENCE_ZERO_RECEIPT_CONTRACT_ID,
+    source_fixture_path: null,
+    mutation_id: null,
+    value_json: JSON.stringify(objectEqualityFixture),
+  });
+
   const contractsById = new Map(
     contracts.map((contract) => [contract.entry.contract_id, contract]),
   );
@@ -1542,13 +2908,34 @@ function differentialCorpus() {
     }
     const value = candidate.value ?? JSON.parse(candidate.value_json);
     const ajvSchemaAccept = Boolean(validate(value));
+    const declaredMutation = candidate.mutation_id === null
+      ? null
+      : declaredMutationExpectation(candidate.mutation_id);
+    if (
+      declaredMutation !== null &&
+      (
+        ajvSchemaAccept !== declaredMutation.schemaAccept ||
+        (
+          ajvSchemaAccept &&
+          generatorInvariantErrors(contract, value).length === 0
+        ) !== declaredMutation.contractAccept
+      )
+    ) {
+      throw new Error(
+        `Differential mutation ${candidate.mutation_id} differs from its declared expectation`,
+      );
+    }
     const { value: _value, ...serializable } = candidate;
     return {
       ...serializable,
-      ajv_schema_accept: ajvSchemaAccept,
+      ajv_schema_accept:
+        declaredMutation?.schemaAccept ?? ajvSchemaAccept,
       oracle_contract_accept:
-        ajvSchemaAccept &&
-        generatorInvariantErrors(contract, value).length === 0,
+        declaredMutation?.contractAccept ??
+        (
+          ajvSchemaAccept &&
+          generatorInvariantErrors(contract, value).length === 0
+        ),
     };
   });
 }
@@ -1612,6 +2999,13 @@ function renderTypescript() {
     mutation_id: candidate.mutation_id,
     value_json: candidate.value_json,
   }));
+  const jcsDifferentialCases = JCS_DIFFERENTIAL_CASES.map(
+    ({ id, value_json, expected_canonical }) => ({
+      id,
+      value_json,
+      expected_canonical,
+    }),
+  );
   const wrappers = contracts
     .map(
       ({ entry }) => `export function validate${projectionSymbol(entry)}(
@@ -1630,6 +3024,8 @@ export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = ${JSON.stringify(registry.
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = ${PORTABLE_INTEGER_MINIMUM} as const;
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM = ${PORTABLE_INTEGER_MAXIMUM} as const;
+export const ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MINIMUM = ${PORTABLE_SIGNED_INTEGER_MINIMUM} as const;
+export const ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MAXIMUM = ${PORTABLE_INTEGER_MAXIMUM} as const;
 export const ARCHITECTURE_CONTRACT_PORTABLE_DATE_TIME_PATTERN = ${JSON.stringify(PORTABLE_CANONICAL_DATE_TIME_PATTERN)} as const;
 export const ARCHITECTURE_CONTRACT_ORACLE_PROFILE = "ajv-2020-12-plus-portable-invariants-and-canonical-rfc3339" as const;
 
@@ -1641,6 +3037,8 @@ export type ArchitectureContractMutation = {
   source_fixture_path: string;
   covered_keywords: string[];
   ajv_expected_accept: boolean;
+  oracle_contract_accept: boolean;
+  expected_rule_ids: string[];
   direct_projection_rejection: boolean;
   patch: {
     operation: "set" | "remove";
@@ -1660,6 +3058,14 @@ export type ArchitectureContractDifferentialCase = {
 };
 
 export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<ArchitectureContractDifferentialCase> = ${JSON.stringify(differentialCases, null, 2)};
+
+export type ArchitectureContractJcsDifferentialCase = {
+  id: string;
+  value_json: string;
+  expected_canonical: string;
+};
+
+export const ARCHITECTURE_CONTRACT_JCS_DIFFERENTIAL_CASES: ReadonlyArray<ArchitectureContractJcsDifferentialCase> = ${JSON.stringify(jcsDifferentialCases, null, 2)};
 
 export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = ${JSON.stringify([...usedSchemaKeywords].sort(codePointCompare), null, 2)} as const;
 
@@ -1929,12 +3335,326 @@ function valueAtPath(value: unknown, path: unknown): unknown {
   );
 }
 
+function canonicalJsonForHash(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    const encoded = JSON.stringify(value);
+    return encoded === undefined ? "" : encoded;
+  }
+  if (Array.isArray(value)) {
+    return "[" + value.map(canonicalJsonForHash).join(",") + "]";
+  }
+  const object = value as JsonObject;
+  return (
+    "{" +
+    Object.keys(object)
+      .sort()
+      .map((key) => JSON.stringify(key) + ":" + canonicalJsonForHash(object[key]))
+      .join(",") +
+    "}"
+  );
+}
+
+const SHA256_ROUND_CONSTANTS = new Uint32Array([
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
+  0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+  0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
+  0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+  0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+  0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
+  0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
+  0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+  0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+]);
+
+function rotateRight(value: number, amount: number): number {
+  return (value >>> amount) | (value << (32 - amount));
+}
+
+function sha256Bytes(input: Uint8Array): Uint8Array {
+  const bitLength = input.length * 8;
+  const paddedLength = Math.ceil((input.length + 9) / 64) * 64;
+  const message = new Uint8Array(paddedLength);
+  message.set(input);
+  message[input.length] = 0x80;
+  const messageView = new DataView(message.buffer);
+  messageView.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000));
+  messageView.setUint32(paddedLength - 4, bitLength >>> 0);
+
+  const state = new Uint32Array([
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+  ]);
+  const words = new Uint32Array(64);
+  for (let offset = 0; offset < message.length; offset += 64) {
+    for (let index = 0; index < 16; index += 1) {
+      words[index] = messageView.getUint32(offset + index * 4);
+    }
+    for (let index = 16; index < 64; index += 1) {
+      const left =
+        rotateRight(words[index - 15], 7) ^
+        rotateRight(words[index - 15], 18) ^
+        (words[index - 15] >>> 3);
+      const right =
+        rotateRight(words[index - 2], 17) ^
+        rotateRight(words[index - 2], 19) ^
+        (words[index - 2] >>> 10);
+      words[index] =
+        (words[index - 16] + left + words[index - 7] + right) >>> 0;
+    }
+    let [a, b, c, d, e, f, g, h] = state;
+    for (let index = 0; index < 64; index += 1) {
+      const upper =
+        rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
+      const choose = (e & f) ^ (~e & g);
+      const first =
+        (h + upper + choose + SHA256_ROUND_CONSTANTS[index] + words[index]) >>>
+        0;
+      const lower =
+        rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22);
+      const majority = (a & b) ^ (a & c) ^ (b & c);
+      const second = (lower + majority) >>> 0;
+      h = g;
+      g = f;
+      f = e;
+      e = (d + first) >>> 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (first + second) >>> 0;
+    }
+    state[0] = (state[0] + a) >>> 0;
+    state[1] = (state[1] + b) >>> 0;
+    state[2] = (state[2] + c) >>> 0;
+    state[3] = (state[3] + d) >>> 0;
+    state[4] = (state[4] + e) >>> 0;
+    state[5] = (state[5] + f) >>> 0;
+    state[6] = (state[6] + g) >>> 0;
+    state[7] = (state[7] + h) >>> 0;
+  }
+  const digest = new Uint8Array(32);
+  const digestView = new DataView(digest.buffer);
+  state.forEach((word, index) => digestView.setUint32(index * 4, word));
+  return digest;
+}
+
+function bytesFromValue(value: unknown): Uint8Array | null {
+  return Array.isArray(value) &&
+    value.every(
+      (byte) =>
+        typeof byte === "number" &&
+        Number.isInteger(byte) &&
+        byte >= 0 &&
+        byte <= 255,
+    )
+    ? Uint8Array.from(value)
+    : null;
+}
+
+function digestHex(digest: Uint8Array): string {
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function invariantMaterial(value: unknown, expression: JsonObject): unknown {
+  if (typeof expression.material_path === "string") {
+    return valueAtPath(value, expression.material_path);
+  }
+  if (!isObject(expression.material_fields)) return undefined;
+  const material: JsonObject = Object.create(null);
+  for (const [field, descriptor] of Object.entries(expression.material_fields)) {
+    if (!isObject(descriptor)) return undefined;
+    if (typeof descriptor.path === "string") {
+      const candidate = valueAtPath(value, descriptor.path);
+      if (candidate === undefined) return undefined;
+      material[field] = candidate;
+    } else if (Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+      material[field] = descriptor.value;
+    } else {
+      return undefined;
+    }
+  }
+  return material;
+}
+
+function digestMatchesExpression(
+  value: unknown,
+  expression: JsonObject,
+  digest: Uint8Array,
+): boolean {
+  const expected = valueAtPath(value, expression.expected_path);
+  const hex = digestHex(digest);
+  if (expression.expected_encoding === "bytes32") {
+    const expectedBytes = bytesFromValue(expected);
+    return (
+      expectedBytes !== null &&
+      expectedBytes.every((byte, index) => byte === digest[index])
+    );
+  }
+  if (expression.expected_encoding === "sha256_string") {
+    return expected === "sha256:" + hex;
+  }
+  return (
+    expression.expected_encoding === "prefixed_ref" &&
+    typeof expression.prefix === "string" &&
+    expected === expression.prefix + hex
+  );
+}
+
+function jcsSha256Matches(value: unknown, expression: JsonObject): boolean {
+  const material = invariantMaterial(value, expression);
+  if (material === undefined) return false;
+  const encoder = new TextEncoder();
+  let digest = sha256Bytes(encoder.encode(canonicalJsonForHash(material)));
+  if (expression.algorithm === "jcs_sha256_then_utf8_sha256") {
+    if (typeof expression.intermediate_prefix !== "string") return false;
+    digest = sha256Bytes(
+      encoder.encode(expression.intermediate_prefix + digestHex(digest)),
+    );
+  } else if (
+    expression.algorithm !== undefined &&
+    expression.algorithm !== "jcs_sha256"
+  ) {
+    return false;
+  }
+  return digestMatchesExpression(value, expression, digest);
+}
+
+function sha256PartsMatch(value: unknown, expression: JsonObject): boolean {
+  if (!Array.isArray(expression.parts)) return false;
+  const encodedParts: Uint8Array[] = [];
+  for (const part of expression.parts) {
+    if (!isObject(part)) return false;
+    if (typeof part.utf8 === "string") {
+      encodedParts.push(new TextEncoder().encode(part.utf8));
+    } else if (typeof part.signed_i32_be_path === "string") {
+      const integer = valueAtPath(value, part.signed_i32_be_path);
+      if (
+        typeof integer !== "number" ||
+        !Number.isInteger(integer) ||
+        integer < -2147483648 ||
+        integer > 2147483647
+      ) {
+        return false;
+      }
+      const encoded = new Uint8Array(4);
+      new DataView(encoded.buffer).setInt32(0, integer);
+      encodedParts.push(encoded);
+    } else if (typeof part.bytes_path === "string") {
+      const encoded = bytesFromValue(valueAtPath(value, part.bytes_path));
+      if (encoded === null) return false;
+      encodedParts.push(encoded);
+    } else {
+      return false;
+    }
+  }
+  const input = new Uint8Array(
+    encodedParts.reduce((length, part) => length + part.length, 0),
+  );
+  let offset = 0;
+  for (const part of encodedParts) {
+    input.set(part, offset);
+    offset += part.length;
+  }
+  return digestMatchesExpression(value, expression, sha256Bytes(input));
+}
+
+function exactRefCoverage(value: unknown, expression: JsonObject): boolean {
+  const actual = valueAtPath(value, expression.array_path);
+  if (!Array.isArray(actual) || actual.some((item) => typeof item !== "string")) {
+    return false;
+  }
+  const required: string[] = [];
+  const requiredPaths = Array.isArray(expression.required_paths)
+    ? expression.required_paths
+    : [];
+  for (const pointer of requiredPaths) {
+    const candidate = valueAtPath(value, pointer);
+    if (candidate === null) continue;
+    if (typeof candidate !== "string") return false;
+    required.push(candidate);
+  }
+  const arrayPaths = Array.isArray(expression.required_array_paths)
+    ? expression.required_array_paths
+    : [];
+  for (const pointer of arrayPaths) {
+    const candidates = valueAtPath(value, pointer);
+    if (
+      !Array.isArray(candidates) ||
+      candidates.some((candidate) => typeof candidate !== "string")
+    ) {
+      return false;
+    }
+    required.push(...candidates);
+  }
+  const derivedRefs = Array.isArray(expression.required_derived_refs)
+    ? expression.required_derived_refs
+    : [];
+  for (const derived of derivedRefs) {
+    if (
+      !isObject(derived) ||
+      typeof derived.path !== "string" ||
+      typeof derived.prefix !== "string"
+    ) {
+      return false;
+    }
+    const candidate = valueAtPath(value, derived.path);
+    if (typeof candidate !== "string") return false;
+    const suffix =
+      typeof derived.strip_prefix === "string"
+        ? candidate.startsWith(derived.strip_prefix)
+          ? candidate.slice(derived.strip_prefix.length)
+          : null
+        : candidate;
+    if (suffix === null) return false;
+    required.push(derived.prefix + suffix);
+  }
+  return (
+    actual.length === required.length &&
+    jsonSchemaEqual([...actual].sort(), [...required].sort())
+  );
+}
+
+function scopePatternMatches(pattern: unknown, value: unknown): boolean {
+  if (typeof pattern !== "string" || typeof value !== "string") return false;
+  const normalizedPattern = pattern.trim().toLowerCase();
+  const normalizedValue = value.trim().toLowerCase();
+  if (normalizedPattern === "*" || normalizedPattern === normalizedValue) {
+    return true;
+  }
+  for (const suffix of ["::*", ":*", "*"]) {
+    if (!normalizedPattern.endsWith(suffix)) continue;
+    return normalizedValue.startsWith(normalizedPattern.slice(0, -1));
+  }
+  return false;
+}
+
 function invariantErrors(contractId: string, rules: Array<JsonObject>, value: unknown): string[] {
   return rules.flatMap((rule) => {
     const expression = isObject(rule.expression) ? rule.expression : {};
     const operator = expression.operator;
     let valid = false;
-    if (operator === "non_empty") {
+    if (
+      operator === "any_of" &&
+      Array.isArray(expression.expressions) &&
+      expression.expressions.length > 0
+    ) {
+      valid =
+        expression.expressions.every(isObject) &&
+        expression.expressions.some(
+          (candidate) =>
+            invariantErrors(
+              contractId,
+              [{ rule_id: rule.rule_id, expression: candidate }],
+              value,
+            ).length === 0,
+        );
+    } else if (operator === "non_empty") {
       const candidate = valueAtPath(value, expression.path);
       valid = Array.isArray(candidate) ? candidate.length > 0 : typeof candidate === "string" && candidate.length > 0;
     } else if (operator === "any_non_empty" && Array.isArray(expression.paths)) {
@@ -1949,7 +3669,7 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
       Array.isArray(expression.values)
     ) {
       const applies = expression.values.some((expected) =>
-        Object.is(valueAtPath(value, expression.when_path), expected),
+        jsonSchemaEqual(valueAtPath(value, expression.when_path), expected),
       );
       const candidate = valueAtPath(value, expression.path);
       valid =
@@ -1958,10 +3678,12 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
           ? candidate.length > 0
           : typeof candidate === "string" && candidate.length > 0);
     } else if (operator === "fields_equal" && Array.isArray(expression.paths) && expression.paths.length === 2) {
-      valid = jsonSchemaEqual(
-        valueAtPath(value, expression.paths[0]),
-        valueAtPath(value, expression.paths[1]),
-      );
+      const left = valueAtPath(value, expression.paths[0]);
+      const right = valueAtPath(value, expression.paths[1]);
+      valid =
+        left !== undefined &&
+        right !== undefined &&
+        jsonSchemaEqual(left, right);
     } else if (
       operator === "array_field_equals" &&
       typeof expression.array_path === "string" &&
@@ -2058,6 +3780,94 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
                 ),
             ),
         );
+    } else if (
+      operator === "object_fields_equal" &&
+      Array.isArray(expression.object_paths) &&
+      expression.object_paths.length === 2 &&
+      Array.isArray(expression.fields) &&
+      expression.fields.length > 0
+    ) {
+      const left = valueAtPath(value, expression.object_paths[0]);
+      const right = valueAtPath(value, expression.object_paths[1]);
+      valid =
+        isObject(left) &&
+        isObject(right) &&
+        expression.fields.every(
+          (field) =>
+            typeof field === "string" &&
+            Object.prototype.hasOwnProperty.call(left, field) &&
+            Object.prototype.hasOwnProperty.call(right, field) &&
+            jsonSchemaEqual(left[field], right[field]),
+        );
+    } else if (operator === "jcs_sha256_equals") {
+      valid = jcsSha256Matches(value, expression);
+    } else if (operator === "sha256_parts_equals") {
+      valid = sha256PartsMatch(value, expression);
+    } else if (
+      operator === "array_contains_value" &&
+      typeof expression.array_path === "string" &&
+      typeof expression.expected_path === "string"
+    ) {
+      const values = valueAtPath(value, expression.array_path);
+      const expected = valueAtPath(value, expression.expected_path);
+      valid =
+        Array.isArray(values) &&
+        expected !== undefined &&
+        values.some((candidate) => jsonSchemaEqual(candidate, expected));
+    } else if (operator === "array_exact_ref_coverage") {
+      valid = exactRefCoverage(value, expression);
+    } else if (
+      operator === "scope_pattern_matches" &&
+      typeof expression.pattern_path === "string" &&
+      typeof expression.value_path === "string"
+    ) {
+      valid = scopePatternMatches(
+        valueAtPath(value, expression.pattern_path),
+        valueAtPath(value, expression.value_path),
+      );
+    } else if (
+      operator === "field_starts_with_path" &&
+      typeof expression.path === "string" &&
+      typeof expression.expected_path === "string" &&
+      typeof expression.prefix === "string"
+    ) {
+      const actual = valueAtPath(value, expression.path);
+      const expected = valueAtPath(value, expression.expected_path);
+      const stripped =
+        typeof expected === "string" &&
+        typeof expression.strip_prefix === "string"
+          ? expected.startsWith(expression.strip_prefix)
+            ? expected.slice(expression.strip_prefix.length)
+            : null
+          : expected;
+      valid =
+        typeof actual === "string" &&
+        typeof stripped === "string" &&
+        actual.startsWith(
+          expression.prefix + stripped + String(expression.suffix ?? ""),
+        );
+    } else if (
+      operator === "field_suffix_equals_prefixed_field" &&
+      typeof expression.source_path === "string" &&
+      typeof expression.delimiter === "string" &&
+      expression.delimiter.length > 0 &&
+      typeof expression.target_path === "string" &&
+      typeof expression.target_prefix === "string"
+    ) {
+      const source = valueAtPath(value, expression.source_path);
+      const target = valueAtPath(value, expression.target_path);
+      const delimiterIndex =
+        typeof source === "string"
+          ? source.lastIndexOf(expression.delimiter)
+          : -1;
+      const suffix =
+        typeof source === "string" && delimiterIndex >= 0
+          ? source.slice(delimiterIndex + expression.delimiter.length)
+          : "";
+      valid =
+        suffix.length > 0 &&
+        typeof target === "string" &&
+        target === expression.target_prefix + suffix;
     } else if (operator === "matches_contract_schema_hash") {
       valid = valueAtPath(value, expression.path) === architectureContractSchemaHash(contractId);
     } else if (
@@ -2136,20 +3946,48 @@ function rustStructsFor(entry, schema) {
   }
   function rustClosedIntegerEnum(nameHint, values) {
     if (!definitions.has(nameHint)) {
-      const accepted = values
-        .map((value) => `value.0 == ${value}_i64`)
-        .join(" || ");
+      const variantFor = (value) =>
+        value < 0
+          ? `Negative${Math.abs(value)}`
+          : value === 0
+            ? "Zero"
+            : `Positive${value}`;
+      const variants = values
+        .map((value) => `    ${variantFor(value)},`)
+        .join("\n");
+      const serializeArms = values
+        .map(
+          (value) =>
+            `            Self::${variantFor(value)} => ${value}_i64,`,
+        )
+        .join("\n");
+      const deserializeArms = values
+        .map(
+          (value) =>
+            `            ${value}_i64 => Ok(Self::${variantFor(value)}),`,
+        )
+        .join("\n");
       definitions.set(
         nameHint,
         `#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ${nameHint}(pub i64);
+pub enum ${nameHint} {
+${variants}
+}
+
+impl ${nameHint} {
+    pub const fn as_i64(self) -> i64 {
+        match self {
+${serializeArms}
+        }
+    }
+}
 
 impl serde::Serialize for ${nameHint} {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        serializer.serialize_i64(self.0)
+        serializer.serialize_i64(self.as_i64())
     }
 }
 
@@ -2160,12 +3998,11 @@ impl<'de> serde::Deserialize<'de> for ${nameHint} {
     {
         let value =
             <ArchitectureContractSignedInteger as serde::Deserialize>::deserialize(deserializer)?;
-        if ${accepted} {
-            Ok(Self(value.0))
-        } else {
-            Err(serde::de::Error::custom(${rustString(
+        match value.0 {
+${deserializeArms}
+            _ => Err(serde::de::Error::custom(${rustString(
               `expected one of the closed integer values ${values.join(", ")}`,
-            )}))
+            )})),
         }
     }
 }`,
@@ -2296,6 +4133,8 @@ impl<'de> serde::Deserialize<'de> for ${nameHint} {
         return "f64";
       case "boolean":
         return "bool";
+      case "null":
+        return "()";
       case "array":
         return `Vec<${rustType(node.items ?? {}, rootSchema, `${nameHint}Item`)}>`;
       case "object": {
@@ -2430,6 +4269,15 @@ function renderRust() {
     },`,
     )
     .join("\n");
+  const jcsDifferentialEntries = JCS_DIFFERENTIAL_CASES
+    .map(
+      (candidate) => `    ArchitectureContractJcsDifferentialCase {
+        id: ${rustString(candidate.id)},
+        value_json: ${rustRawText(candidate.value_json)},
+        expected_canonical: ${rustRawText(candidate.expected_canonical)},
+    },`,
+    )
+    .join("\n");
   const patternTranslationEntries = [...registeredPatternTranslations]
     .sort(([left], [right]) => codePointCompare(left, right))
     .map(
@@ -2471,6 +4319,8 @@ function renderRust() {
         source_fixture_path: ${rustString(mutation.source_fixture_path)},
         covered_keywords: &[${mutation.covered_keywords.map(rustString).join(", ")}],
         ajv_expected_accept: ${mutation.ajv_expected_accept},
+        oracle_contract_accept: ${mutation.oracle_contract_accept},
+        expected_rule_ids: &[${mutation.expected_rule_ids.map(rustString).join(", ")}],
         direct_projection_rejection: ${mutation.direct_projection_rejection},
         patch_operation: ${rustString(mutation.patch.operation)},
         patch_pointer: ${rustString(mutation.patch.pointer)},
@@ -2503,6 +4353,7 @@ function renderRust() {
   return `//! Generated by scripts/generate-architecture-contracts.mjs. Do not edit.
 #![allow(missing_docs)]
 
+use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use regex::Regex;
 use serde_json::Value;
 use std::cmp::Ordering;
@@ -2621,6 +4472,8 @@ pub struct ArchitectureContractMutation {
     pub source_fixture_path: &'static str,
     pub covered_keywords: &'static [&'static str],
     pub ajv_expected_accept: bool,
+    pub oracle_contract_accept: bool,
+    pub expected_rule_ids: &'static [&'static str],
     pub direct_projection_rejection: bool,
     pub patch_operation: &'static str,
     pub patch_pointer: &'static str,
@@ -2644,6 +4497,17 @@ pub struct ArchitectureContractDifferentialCase {
 
 pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDifferentialCase] = &[
 ${differentialEntries}
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ArchitectureContractJcsDifferentialCase {
+    pub id: &'static str,
+    pub value_json: &'static str,
+    pub expected_canonical: &'static str,
+}
+
+pub const ARCHITECTURE_CONTRACT_JCS_DIFFERENTIAL_CASES: &[ArchitectureContractJcsDifferentialCase] = &[
+${jcsDifferentialEntries}
 ];
 
 const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
@@ -2802,6 +4666,30 @@ fn json_schema_equal(left: &Value, right: &Value) -> bool {
                 })
         }
         _ => false,
+    }
+}
+
+fn canonical_json_for_hash(value: &Value) -> Option<String> {
+    match value {
+        Value::Array(items) => {
+            let items = items
+                .iter()
+                .map(canonical_json_for_hash)
+                .collect::<Option<Vec<_>>>()?;
+            Some(format!("[{}]", items.join(",")))
+        }
+        Value::Object(object) => {
+            let mut keys = object.keys().collect::<Vec<_>>();
+            keys.sort_by(|left, right| left.encode_utf16().cmp(right.encode_utf16()));
+            let mut fields = Vec::with_capacity(keys.len());
+            for key in keys {
+                let encoded_key = serde_jcs::to_string(key).ok()?;
+                let encoded_value = canonical_json_for_hash(object.get(key)?)?;
+                fields.push(format!("{encoded_key}:{encoded_value}"));
+            }
+            Some(format!("{{{}}}", fields.join(",")))
+        }
+        _ => serde_jcs::to_string(value).ok(),
     }
 }
 
@@ -3045,6 +4933,238 @@ fn non_empty(value: Option<&Value>) -> bool {
     })
 }
 
+fn bytes_from_value(value: Option<&Value>) -> Option<Vec<u8>> {
+    value?
+        .as_array()?
+        .iter()
+        .map(|byte| u8::try_from(byte.as_u64()?).ok())
+        .collect()
+}
+
+fn lower_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
+}
+
+fn invariant_material(value: &Value, expression: &Value) -> Option<Value> {
+    if let Some(path) = expression.get("material_path").and_then(Value::as_str) {
+        return value_at_path(value, path).cloned();
+    }
+    let fields = expression.get("material_fields")?.as_object()?;
+    let mut material = serde_json::Map::new();
+    for (field, descriptor) in fields {
+        let descriptor = descriptor.as_object()?;
+        let candidate = if let Some(path) = descriptor.get("path").and_then(Value::as_str) {
+            value_at_path(value, path)?.clone()
+        } else {
+            descriptor.get("value")?.clone()
+        };
+        material.insert(field.clone(), candidate);
+    }
+    Some(Value::Object(material))
+}
+
+fn sha256_digest(bytes: &[u8]) -> Option<Vec<u8>> {
+    Sha256::digest(bytes).ok().map(|digest| digest.as_ref().to_vec())
+}
+
+fn digest_matches_expression(value: &Value, expression: &Value, digest: &[u8]) -> bool {
+    let expected = expression
+        .get("expected_path")
+        .and_then(Value::as_str)
+        .and_then(|path| value_at_path(value, path));
+    match expression.get("expected_encoding").and_then(Value::as_str) {
+        Some("bytes32") => bytes_from_value(expected).is_some_and(|bytes| bytes == digest),
+        Some("sha256_string") => expected
+            .and_then(Value::as_str)
+            .is_some_and(|actual| actual == format!("sha256:{}", lower_hex(digest))),
+        Some("prefixed_ref") => expression
+            .get("prefix")
+            .and_then(Value::as_str)
+            .zip(expected.and_then(Value::as_str))
+            .is_some_and(|(prefix, actual)| actual == format!("{prefix}{}", lower_hex(digest))),
+        _ => false,
+    }
+}
+
+fn jcs_sha256_matches(value: &Value, expression: &Value) -> bool {
+    let Some(material) = invariant_material(value, expression) else {
+        return false;
+    };
+    let Some(canonical) = canonical_json_for_hash(&material) else {
+        return false;
+    };
+    let Some(mut digest) = sha256_digest(canonical.as_bytes()) else {
+        return false;
+    };
+    match expression.get("algorithm").and_then(Value::as_str) {
+        None | Some("jcs_sha256") => {}
+        Some("jcs_sha256_then_utf8_sha256") => {
+            let Some(prefix) = expression.get("intermediate_prefix").and_then(Value::as_str) else {
+                return false;
+            };
+            let intermediate = format!("{prefix}{}", lower_hex(&digest));
+            let Some(next) = sha256_digest(intermediate.as_bytes()) else {
+                return false;
+            };
+            digest = next;
+        }
+        _ => return false,
+    }
+    digest_matches_expression(value, expression, &digest)
+}
+
+fn sha256_parts_match(value: &Value, expression: &Value) -> bool {
+    let Some(parts) = expression.get("parts").and_then(Value::as_array) else {
+        return false;
+    };
+    let mut bytes = Vec::new();
+    for part in parts {
+        let Some(part) = part.as_object() else {
+            return false;
+        };
+        if let Some(text) = part.get("utf8").and_then(Value::as_str) {
+            bytes.extend_from_slice(text.as_bytes());
+        } else if let Some(path) = part.get("signed_i32_be_path").and_then(Value::as_str) {
+            let Some(integer) = value_at_path(value, path)
+                .and_then(Value::as_i64)
+                .and_then(|integer| i32::try_from(integer).ok())
+            else {
+                return false;
+            };
+            bytes.extend_from_slice(&integer.to_be_bytes());
+        } else if let Some(path) = part.get("bytes_path").and_then(Value::as_str) {
+            let Some(part_bytes) = bytes_from_value(value_at_path(value, path)) else {
+                return false;
+            };
+            bytes.extend_from_slice(&part_bytes);
+        } else {
+            return false;
+        }
+    }
+    sha256_digest(&bytes)
+        .is_some_and(|digest| digest_matches_expression(value, expression, &digest))
+}
+
+fn exact_ref_coverage(value: &Value, expression: &Value) -> bool {
+    let Some(actual) = expression
+        .get("array_path")
+        .and_then(Value::as_str)
+        .and_then(|path| value_at_path(value, path))
+        .and_then(Value::as_array)
+        .and_then(|items| {
+            items
+                .iter()
+                .map(Value::as_str)
+                .collect::<Option<Vec<_>>>()
+        })
+    else {
+        return false;
+    };
+    let mut required = Vec::new();
+    for pointer in expression
+        .get("required_paths")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let Some(pointer) = pointer.as_str() else {
+            return false;
+        };
+        let Some(candidate) = value_at_path(value, pointer) else {
+            return false;
+        };
+        if candidate.is_null() {
+            continue;
+        }
+        let Some(candidate) = candidate.as_str() else {
+            return false;
+        };
+        required.push(candidate.to_owned());
+    }
+    for pointer in expression
+        .get("required_array_paths")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let Some(candidates) = pointer
+            .as_str()
+            .and_then(|path| value_at_path(value, path))
+            .and_then(Value::as_array)
+        else {
+            return false;
+        };
+        let Some(candidates) = candidates
+            .iter()
+            .map(Value::as_str)
+            .collect::<Option<Vec<_>>>()
+        else {
+            return false;
+        };
+        required.extend(candidates.into_iter().map(str::to_owned));
+    }
+    for derived in expression
+        .get("required_derived_refs")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let Some(path) = derived.get("path").and_then(Value::as_str) else {
+            return false;
+        };
+        let Some(prefix) = derived.get("prefix").and_then(Value::as_str) else {
+            return false;
+        };
+        let Some(candidate) = value_at_path(value, path).and_then(Value::as_str) else {
+            return false;
+        };
+        let suffix = match derived.get("strip_prefix").and_then(Value::as_str) {
+            Some(strip_prefix) => {
+                let Some(suffix) = candidate.strip_prefix(strip_prefix) else {
+                    return false;
+                };
+                suffix
+            }
+            None => candidate,
+        };
+        required.push(format!("{prefix}{suffix}"));
+    }
+    let mut actual = actual;
+    actual.sort_unstable();
+    required.sort_unstable();
+    actual.len() == required.len()
+        && actual
+            .iter()
+            .zip(required.iter())
+            .all(|(left, right)| *left == right)
+}
+
+fn scope_pattern_matches(pattern: Option<&Value>, value: Option<&Value>) -> bool {
+    let Some(pattern) = pattern.and_then(Value::as_str) else {
+        return false;
+    };
+    let Some(value) = value.and_then(Value::as_str) else {
+        return false;
+    };
+    let pattern = pattern.trim().to_ascii_lowercase();
+    let value = value.trim().to_ascii_lowercase();
+    if pattern == "*" || pattern == value {
+        return true;
+    }
+    for suffix in ["::*", ":*", "*"] {
+        if let Some(prefix) = pattern.strip_suffix(suffix) {
+            return value.starts_with(&format!("{prefix}{}", &suffix[..suffix.len() - 1]));
+        }
+    }
+    false
+}
+
 fn portable_array_length(value: Option<&Value>) -> Option<usize> {
     let number = value?.as_number()?;
     if let Some(value) = number.as_u64() {
@@ -3077,7 +5197,7 @@ fn array_unique_by_fields(value: Option<&Value>, fields: &[&str]) -> bool {
         else {
             return false;
         };
-        let Ok(encoded) = serde_jcs::to_vec(&identity) else {
+        let Some(encoded) = canonical_json_for_hash(&Value::Array(identity)) else {
             return false;
         };
         if !identities.insert(encoded) {
@@ -3088,9 +5208,24 @@ fn array_unique_by_fields(value: Option<&Value>, fields: &[&str]) -> bool {
 }
 
 fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Result<(), String> {
+    let mut errors = Vec::new();
     for rule in rules.as_array().into_iter().flatten() {
         let expression = &rule["expression"];
         let valid = match expression.get("operator").and_then(Value::as_str) {
+            Some("any_of") => expression
+                .get("expressions")
+                .and_then(Value::as_array)
+                .filter(|expressions| !expressions.is_empty())
+                .is_some_and(|expressions| {
+                    expressions.iter().all(Value::is_object)
+                        && expressions.iter().any(|candidate| {
+                            let nested_rules = serde_json::json!([{
+                                "rule_id": rule.get("rule_id"),
+                                "expression": candidate,
+                            }]);
+                            validate_invariants(contract_id, &nested_rules, value).is_ok()
+                        })
+                }),
             Some("non_empty") => expression
                 .get("path")
                 .and_then(Value::as_str)
@@ -3110,7 +5245,11 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                     .and_then(Value::as_str)
                     .and_then(|path| value_at_path(value, path))
                     .zip(expression.get("values").and_then(Value::as_array))
-                    .is_some_and(|(actual, expected)| expected.contains(actual));
+                    .is_some_and(|(actual, expected)| {
+                        expected
+                            .iter()
+                            .any(|candidate| json_schema_equal(actual, candidate))
+                    });
                 !applies
                     || expression
                         .get("path")
@@ -3236,6 +5375,113 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                         }),
                 )
                 .is_some_and(|(items, fields)| array_unique_by_fields(items, &fields)),
+            Some("object_fields_equal") => expression
+                .get("object_paths")
+                .and_then(Value::as_array)
+                .filter(|paths| paths.len() == 2)
+                .and_then(|paths| {
+                    Some((
+                        value_at_path(value, paths.first()?.as_str()?)?.as_object()?,
+                        value_at_path(value, paths.get(1)?.as_str()?)?.as_object()?,
+                        expression
+                            .get("fields")?
+                            .as_array()?
+                            .iter()
+                            .map(Value::as_str)
+                            .collect::<Option<Vec<_>>>()?,
+                    ))
+                })
+                .is_some_and(|(left, right, fields)| {
+                    !fields.is_empty()
+                        && fields.iter().all(|field| {
+                            left.get(*field)
+                                .zip(right.get(*field))
+                                .is_some_and(|(left, right)| json_schema_equal(left, right))
+                        })
+                }),
+            Some("jcs_sha256_equals") => jcs_sha256_matches(value, expression),
+            Some("sha256_parts_equals") => sha256_parts_match(value, expression),
+            Some("array_contains_value") => expression
+                .get("array_path")
+                .and_then(Value::as_str)
+                .and_then(|path| value_at_path(value, path))
+                .and_then(Value::as_array)
+                .zip(
+                    expression
+                        .get("expected_path")
+                        .and_then(Value::as_str)
+                        .and_then(|path| value_at_path(value, path)),
+                )
+                .is_some_and(|(items, expected)| {
+                    items
+                        .iter()
+                        .any(|candidate| json_schema_equal(candidate, expected))
+                }),
+            Some("array_exact_ref_coverage") => exact_ref_coverage(value, expression),
+            Some("scope_pattern_matches") => expression
+                .get("pattern_path")
+                .and_then(Value::as_str)
+                .map(|path| value_at_path(value, path))
+                .zip(
+                    expression
+                        .get("value_path")
+                        .and_then(Value::as_str)
+                        .map(|path| value_at_path(value, path)),
+                )
+                .is_some_and(|(pattern, value)| scope_pattern_matches(pattern, value)),
+            Some("field_starts_with_path") => expression
+                .get("path")
+                .and_then(Value::as_str)
+                .and_then(|path| value_at_path(value, path))
+                .and_then(Value::as_str)
+                .zip(
+                    expression
+                        .get("expected_path")
+                        .and_then(Value::as_str)
+                        .and_then(|path| value_at_path(value, path))
+                        .and_then(Value::as_str),
+                )
+                .zip(expression.get("prefix").and_then(Value::as_str))
+                .is_some_and(|((actual, expected), prefix)| {
+                    let stripped = match expression
+                        .get("strip_prefix")
+                        .and_then(Value::as_str)
+                    {
+                        Some(strip_prefix) => expected.strip_prefix(strip_prefix),
+                        None => Some(expected),
+                    };
+                    stripped.is_some_and(|stripped| {
+                        let suffix = expression
+                            .get("suffix")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default();
+                        actual.starts_with(&format!("{prefix}{stripped}{suffix}"))
+                    })
+                }),
+            Some("field_suffix_equals_prefixed_field") => expression
+                .get("source_path")
+                .and_then(Value::as_str)
+                .and_then(|path| value_at_path(value, path))
+                .and_then(Value::as_str)
+                .zip(expression.get("delimiter").and_then(Value::as_str))
+                .and_then(|(source, delimiter)| {
+                    (!delimiter.is_empty())
+                        .then(|| source.rsplit_once(delimiter))
+                        .flatten()
+                        .map(|(_, suffix)| suffix)
+                })
+                .filter(|suffix| !suffix.is_empty())
+                .zip(
+                    expression
+                        .get("target_path")
+                        .and_then(Value::as_str)
+                        .and_then(|path| value_at_path(value, path))
+                        .and_then(Value::as_str),
+                )
+                .zip(expression.get("target_prefix").and_then(Value::as_str))
+                .is_some_and(|((suffix, target), prefix)| {
+                    target == format!("{prefix}{suffix}")
+                }),
             Some("matches_contract_schema_hash") => expression
                 .get("path")
                 .and_then(Value::as_str)
@@ -3268,10 +5514,14 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                 .get("rule_id")
                 .and_then(Value::as_str)
                 .unwrap_or("unknown");
-            return Err(format!("invariant:{rule_id}"));
+            errors.push(format!("invariant:{rule_id}"));
         }
     }
-    Ok(())
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("\\n"))
+    }
 }
 
 fn validate_projection_schema(contract_id: &str, value: &Value) -> Result<(), String> {
@@ -3528,10 +5778,20 @@ ${roundTripArms},
             let contract_result = validate_architecture_contract(mutation.contract_id, &value);
             assert_eq!(
                 contract_result.is_ok(),
-                mutation.ajv_expected_accept,
+                mutation.oracle_contract_accept,
                 "mutation {} contract result={contract_result:?}",
                 mutation.id,
             );
+            if let Err(error) = &contract_result {
+                for expected_rule in mutation.expected_rule_ids {
+                    assert!(
+                        error.contains(expected_rule),
+                        "mutation {} missing declared rule {}: {error}",
+                        mutation.id,
+                        expected_rule,
+                    );
+                }
+            }
         }
     }
 
@@ -3583,6 +5843,18 @@ ${roundTripArms},
                 contract_result.is_ok(),
                 expected_contract_accept,
                 "{}: Rust contract result={contract_result:?} disagreed with {oracle_label} plus portable invariants",
+                candidate.id,
+            );
+        }
+        for candidate in ARCHITECTURE_CONTRACT_JCS_DIFFERENTIAL_CASES {
+            let value: Value = serde_json::from_str(candidate.value_json)
+                .unwrap_or_else(|error| panic!("{}: {error}", candidate.id));
+            let canonical = canonical_json_for_hash(&value)
+                .unwrap_or_else(|| panic!("{}: canonicalization failed", candidate.id));
+            assert_eq!(
+                canonical,
+                candidate.expected_canonical,
+                "{}: Rust JCS key ordering differs from the ECMAScript UTF-16 oracle",
                 candidate.id,
             );
         }
@@ -3715,6 +5987,60 @@ ${roundTripArms},
                 mutation.id,
             );
         }
+    }
+
+    #[test]
+    fn required_nulls_and_closed_integer_enums_have_non_forgeable_rust_shapes() {
+        let materialization = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json",
+        );
+        let projected_materialization =
+            serde_json::from_value::<AutonomousSystemSequenceZeroMaterializationV1>(
+                materialization,
+            )
+            .expect("standalone materialization projection accepts the positive fixture");
+        assert_eq!(
+            projected_materialization.predecessor_transition_commitment_ref,
+            (),
+        );
+        assert_eq!(projected_materialization.activation_receipt_ref, ());
+        assert_eq!(
+            projected_materialization
+                .profile_refs
+                .deployment_profile_ref,
+            "deployment-profile://acme/system-alpha/local",
+            "the generated contract keeps the positive M1.3 unversioned deployment-ref compatibility lane",
+        );
+        assert_eq!(
+            projected_materialization.deployment_profile_root,
+            "sha256:ee5ab54256128a684db83aee604c9fb21c5725af3eeccd95d8a867693b8ec9f9",
+            "the legacy deployment ref binds its domain-separated compatibility root",
+        );
+
+        let receipt = fixture_value(
+            "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+        );
+        let projected_receipt =
+            serde_json::from_value::<AutonomousSystemSequenceZeroMaterializationReceiptV2>(
+                receipt,
+            )
+            .expect("receipt projection accepts the positive fixture");
+        assert_eq!(projected_receipt.verification_ref, ());
+        assert_eq!(projected_receipt.acceptance_ref, ());
+
+        let suite =
+            AutonomousSystemSequenceZeroMaterializationReceiptV2WalletApprovalGrantApproverSuite::Negative8;
+        assert_eq!(
+            serde_json::to_value(suite).expect("closed suite serializes"),
+            serde_json::json!(-8),
+        );
+        assert!(
+            serde_json::from_value::<
+                AutonomousSystemSequenceZeroMaterializationReceiptV2WalletApprovalGrantApproverSuite,
+            >(serde_json::json!(-100))
+            .is_err(),
+            "closed integer enum refuses an invalid wire value",
+        );
     }
 
     #[test]
@@ -4138,6 +6464,41 @@ ${roundTripArms},
     }
 
     #[test]
+    fn invariant_runtime_rejects_absent_operands_and_uses_portable_scalar_equality() {
+        let missing_rules = serde_json::json!([{
+            "rule_id": "generated.fields-equal-missing",
+            "expression": {
+                "operator": "fields_equal",
+                "paths": ["$.left", "$.right"],
+            },
+        }]);
+        assert!(
+            validate_invariants("generated-regression", &missing_rules, &serde_json::json!({}))
+                .is_err(),
+            "missing fields_equal operands must not compare equal",
+        );
+
+        let scalar_rules = serde_json::json!([{
+            "rule_id": "generated.scalar-condition-equality",
+            "expression": {
+                "operator": "non_empty_when_in",
+                "path": "$.evidence",
+                "when_path": "$.mode",
+                "values": [-0.0],
+            },
+        }]);
+        assert!(
+            validate_invariants(
+                "generated-regression",
+                &scalar_rules,
+                &serde_json::json!({"mode": 0, "evidence": []}),
+            )
+            .is_err(),
+            "portable JSON number equality must treat negative zero and zero as equal",
+        );
+    }
+
+    #[test]
     fn boolean_const_projection_uses_a_literal_type() {
         let literal =
             AutonomousSystemConstitutionV1GovernanceAgentMayCommitAmendment::False;
@@ -4241,6 +6602,74 @@ function verifyPinnedRustfmt(toolchain) {
 }
 
 function runGeneratorCapabilityRegressions() {
+  const missingOperandErrors = generatorInvariantErrors(
+    {
+      schema: { type: "object" },
+      invariants: [{
+        rules: [{
+          rule_id: "generator-regression.fields-equal-missing",
+          expression: {
+            operator: "fields_equal",
+            paths: ["$.left", "$.right"],
+          },
+        }],
+      }],
+    },
+    {},
+  );
+  if (
+    canonicalJson(missingOperandErrors) !==
+      canonicalJson(["generator-regression.fields-equal-missing"])
+  ) {
+    throw new Error(
+      "Generator regression: absent fields_equal operands did not fail closed",
+    );
+  }
+
+  const scalarConditionErrors = generatorInvariantErrors(
+    {
+      schema: { type: "object" },
+      invariants: [{
+        rules: [{
+          rule_id: "generator-regression.scalar-condition-equality",
+          expression: {
+            operator: "non_empty_when_in",
+            path: "$.evidence",
+            when_path: "$.mode",
+            values: [-0],
+          },
+        }],
+      }],
+    },
+    { mode: 0, evidence: [] },
+  );
+  if (
+    canonicalJson(scalarConditionErrors) !==
+      canonicalJson(["generator-regression.scalar-condition-equality"])
+  ) {
+    throw new Error(
+      "Generator regression: portable scalar equality drifted for negative zero",
+    );
+  }
+
+  const prototypeMaterialExpression = JSON.parse(
+    '{"material_fields":{"__proto__":{"value":"retained"}}}',
+  );
+  const prototypeMaterial = generatorInvariantMaterial(
+    {},
+    prototypeMaterialExpression,
+  );
+  if (
+    !isPlainObject(prototypeMaterial) ||
+    Object.getPrototypeOf(prototypeMaterial) !== null ||
+    !Object.hasOwn(prototypeMaterial, "__proto__") ||
+    prototypeMaterial.__proto__ !== "retained"
+  ) {
+    throw new Error(
+      "Generator regression: invariant hash material is prototype-sensitive",
+    );
+  }
+
   let rejectedUnsupportedAssertion = false;
   try {
     inventorySchemaKeywords(

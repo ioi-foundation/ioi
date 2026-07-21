@@ -8,6 +8,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { ARCHITECTURE_CONTRACT_CONSUMER_TARGETS } from "./lib/architecture-contract-consumer-targets.mjs";
 import { architectureContractConsumerBindingFailures } from "./lib/architecture-contract-consumer-bindings.mjs";
+import { validateInvariantProfile } from "./lib/architecture-invariant-dsl.mjs";
 import { safeRepositoryPath } from "./lib/repository-path-boundary.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -98,9 +99,26 @@ function canonicalJson(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   return `{${Object.keys(value)
-    .sort(codePointCompare)
+    .sort()
     .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
     .join(",")}}`;
+}
+
+function structuralJsonEqual(left, right) {
+  return canonicalJson(left) === canonicalJson(right);
+}
+
+if (
+  !structuralJsonEqual(
+    { nested: { alpha: [1, 2], beta: true } },
+    { nested: { beta: true, alpha: [1, 2] } },
+  ) ||
+  structuralJsonEqual(
+    { nested: { alpha: [1, 2], beta: true } },
+    { nested: { beta: true, alpha: [2, 1] } },
+  )
+) {
+  fail("Architecture invariant structural JSON equality self-test failed");
 }
 
 function safeGeneratedTargetPath(targetPath, at) {
@@ -278,13 +296,199 @@ function valueAtPath(value, pointer) {
     );
 }
 
+function invariantMaterial(value, expression) {
+  if (typeof expression.material_path === "string") {
+    return valueAtPath(value, expression.material_path);
+  }
+  if (!isObject(expression.material_fields)) return undefined;
+  const material = Object.create(null);
+  for (const [field, descriptor] of Object.entries(
+    expression.material_fields,
+  )) {
+    if (!isObject(descriptor)) return undefined;
+    if (typeof descriptor.path === "string") {
+      const candidate = valueAtPath(value, descriptor.path);
+      if (candidate === undefined) return undefined;
+      material[field] = candidate;
+    } else if (Object.hasOwn(descriptor, "value")) {
+      material[field] = descriptor.value;
+    } else {
+      return undefined;
+    }
+  }
+  return material;
+}
+
+function bytesFromValue(value) {
+  return Array.isArray(value) &&
+    value.every(
+      (byte) =>
+        typeof byte === "number" &&
+        Number.isInteger(byte) &&
+        byte >= 0 &&
+        byte <= 255,
+    )
+    ? Buffer.from(value)
+    : null;
+}
+
+function digestMatchesExpression(value, expression, digest) {
+  const expected = valueAtPath(value, expression.expected_path);
+  const hex = digest.toString("hex");
+  if (expression.expected_encoding === "bytes32") {
+    const expectedBytes = bytesFromValue(expected);
+    return expectedBytes !== null && expectedBytes.equals(digest);
+  }
+  if (expression.expected_encoding === "sha256_string") {
+    return expected === `sha256:${hex}`;
+  }
+  if (
+    expression.expected_encoding === "prefixed_ref" &&
+    typeof expression.prefix === "string"
+  ) {
+    return expected === `${expression.prefix}${hex}`;
+  }
+  return false;
+}
+
+function jcsSha256Matches(value, expression) {
+  const material = invariantMaterial(value, expression);
+  if (material === undefined) return false;
+  let digest = createHash("sha256").update(canonicalJson(material)).digest();
+  if (expression.algorithm === "jcs_sha256_then_utf8_sha256") {
+    if (typeof expression.intermediate_prefix !== "string") return false;
+    digest = createHash("sha256")
+      .update(`${expression.intermediate_prefix}${digest.toString("hex")}`)
+      .digest();
+  } else if (
+    expression.algorithm !== undefined &&
+    expression.algorithm !== "jcs_sha256"
+  ) {
+    return false;
+  }
+  return digestMatchesExpression(value, expression, digest);
+}
+
+function sha256PartsMatch(value, expression) {
+  if (!Array.isArray(expression.parts)) return false;
+  const parts = [];
+  for (const part of expression.parts) {
+    if (!isObject(part)) return false;
+    if (typeof part.utf8 === "string") {
+      parts.push(Buffer.from(part.utf8, "utf8"));
+    } else if (typeof part.signed_i32_be_path === "string") {
+      const integer = valueAtPath(value, part.signed_i32_be_path);
+      if (
+        typeof integer !== "number" ||
+        !Number.isInteger(integer) ||
+        integer < -2147483648 ||
+        integer > 2147483647
+      ) {
+        return false;
+      }
+      const encoded = Buffer.alloc(4);
+      encoded.writeInt32BE(integer);
+      parts.push(encoded);
+    } else if (typeof part.bytes_path === "string") {
+      const encoded = bytesFromValue(valueAtPath(value, part.bytes_path));
+      if (encoded === null) return false;
+      parts.push(encoded);
+    } else {
+      return false;
+    }
+  }
+  const digest = createHash("sha256").update(Buffer.concat(parts)).digest();
+  return digestMatchesExpression(value, expression, digest);
+}
+
+function exactRefCoverage(value, expression) {
+  const actual = valueAtPath(value, expression.array_path);
+  if (!Array.isArray(actual) || actual.some((item) => typeof item !== "string"))
+    return false;
+  const required = [];
+  for (const pointer of expression.required_paths ?? []) {
+    const candidate = valueAtPath(value, pointer);
+    if (candidate === null) continue;
+    if (typeof candidate !== "string") return false;
+    required.push(candidate);
+  }
+  for (const pointer of expression.required_array_paths ?? []) {
+    const candidates = valueAtPath(value, pointer);
+    if (
+      !Array.isArray(candidates) ||
+      candidates.some((candidate) => typeof candidate !== "string")
+    ) {
+      return false;
+    }
+    required.push(...candidates);
+  }
+  for (const derived of expression.required_derived_refs ?? []) {
+    if (
+      !isObject(derived) ||
+      typeof derived.path !== "string" ||
+      typeof derived.prefix !== "string"
+    ) {
+      return false;
+    }
+    const candidate = valueAtPath(value, derived.path);
+    if (typeof candidate !== "string") return false;
+    const suffix =
+      typeof derived.strip_prefix === "string"
+        ? candidate.startsWith(derived.strip_prefix)
+          ? candidate.slice(derived.strip_prefix.length)
+          : null
+        : candidate;
+    if (suffix === null) return false;
+    required.push(`${derived.prefix}${suffix}`);
+  }
+  return (
+    actual.length === required.length &&
+    canonicalJson([...actual].sort(codePointCompare)) ===
+      canonicalJson([...required].sort(codePointCompare))
+  );
+}
+
+function scopePatternMatches(pattern, value) {
+  if (typeof pattern !== "string" || typeof value !== "string") return false;
+  const normalizedPattern = pattern.trim().toLowerCase();
+  const normalizedValue = value.trim().toLowerCase();
+  if (normalizedPattern === "*" || normalizedPattern === normalizedValue)
+    return true;
+  for (const suffix of ["::*", ":*", "*"]) {
+    if (!normalizedPattern.endsWith(suffix)) continue;
+    const prefix = normalizedPattern.slice(0, -1);
+    return normalizedValue.startsWith(prefix);
+  }
+  return false;
+}
+
 function evaluateInvariants(profiles, value, expectedSchemaHash) {
   const errors = [];
   for (const profile of profiles) {
     for (const rule of profile.rules ?? []) {
       const expression = rule.expression ?? {};
       let valid = false;
-      if (expression.operator === "non_empty") {
+      if (
+        expression.operator === "any_of" &&
+        Array.isArray(expression.expressions) &&
+        expression.expressions.length > 0
+      ) {
+        valid =
+          expression.expressions.every(isObject) &&
+          expression.expressions.some(
+            (candidate) =>
+              evaluateInvariants(
+                [
+                  {
+                    $id: `${profile.$id}#any-of`,
+                    rules: [{ rule_id: rule.rule_id, expression: candidate }],
+                  },
+                ],
+                value,
+                expectedSchemaHash,
+              ).length === 0,
+          );
+      } else if (expression.operator === "non_empty") {
         const candidate = valueAtPath(value, expression.path);
         valid = Array.isArray(candidate)
           ? candidate.length > 0
@@ -306,7 +510,10 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
         Array.isArray(expression.values)
       ) {
         const applies = expression.values.some((expected) =>
-          Object.is(valueAtPath(value, expression.when_path), expected),
+          structuralJsonEqual(
+            valueAtPath(value, expression.when_path),
+            expected,
+          ),
         );
         const candidate = valueAtPath(value, expression.path);
         valid =
@@ -319,9 +526,12 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
         Array.isArray(expression.paths) &&
         expression.paths.length === 2
       ) {
+        const left = valueAtPath(value, expression.paths[0]);
+        const right = valueAtPath(value, expression.paths[1]);
         valid =
-          canonicalJson(valueAtPath(value, expression.paths[0])) ===
-          canonicalJson(valueAtPath(value, expression.paths[1]));
+          left !== undefined &&
+          right !== undefined &&
+          structuralJsonEqual(left, right);
       } else if (
         expression.operator === "array_field_equals" &&
         typeof expression.array_path === "string" &&
@@ -335,7 +545,8 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
           expected !== undefined &&
           values.every(
             (item) =>
-              isObject(item) && Object.is(item[expression.field], expected),
+              isObject(item) &&
+              structuralJsonEqual(item[expression.field], expected),
           );
       } else if (
         expression.operator === "optional_field_equals" &&
@@ -349,7 +560,7 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
           optional === null ||
           (isObject(optional) &&
             expected !== undefined &&
-            Object.is(optional[expression.field], expected));
+            structuralJsonEqual(optional[expression.field], expected));
       } else if (
         expression.operator === "prefixed_field_equals" &&
         typeof expression.path === "string" &&
@@ -406,10 +617,100 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
                 (previous) =>
                   isObject(previous) &&
                   expression.fields.every((field) =>
-                    Object.is(previous[field], item[field]),
+                    structuralJsonEqual(previous[field], item[field]),
                   ),
               ),
           );
+      } else if (
+        expression.operator === "object_fields_equal" &&
+        Array.isArray(expression.object_paths) &&
+        expression.object_paths.length === 2 &&
+        Array.isArray(expression.fields) &&
+        expression.fields.length > 0
+      ) {
+        const left = valueAtPath(value, expression.object_paths[0]);
+        const right = valueAtPath(value, expression.object_paths[1]);
+        valid =
+          isObject(left) &&
+          isObject(right) &&
+          expression.fields.every(
+            (field) =>
+              typeof field === "string" &&
+              Object.hasOwn(left, field) &&
+              Object.hasOwn(right, field) &&
+              canonicalJson(left[field]) === canonicalJson(right[field]),
+          );
+      } else if (expression.operator === "jcs_sha256_equals") {
+        valid = jcsSha256Matches(value, expression);
+      } else if (expression.operator === "sha256_parts_equals") {
+        valid = sha256PartsMatch(value, expression);
+      } else if (
+        expression.operator === "array_contains_value" &&
+        typeof expression.array_path === "string" &&
+        typeof expression.expected_path === "string"
+      ) {
+        const values = valueAtPath(value, expression.array_path);
+        const expected = valueAtPath(value, expression.expected_path);
+        valid =
+          Array.isArray(values) &&
+          expected !== undefined &&
+          values.some(
+            (candidate) => canonicalJson(candidate) === canonicalJson(expected),
+          );
+      } else if (expression.operator === "array_exact_ref_coverage") {
+        valid = exactRefCoverage(value, expression);
+      } else if (
+        expression.operator === "scope_pattern_matches" &&
+        typeof expression.pattern_path === "string" &&
+        typeof expression.value_path === "string"
+      ) {
+        valid = scopePatternMatches(
+          valueAtPath(value, expression.pattern_path),
+          valueAtPath(value, expression.value_path),
+        );
+      } else if (
+        expression.operator === "field_starts_with_path" &&
+        typeof expression.path === "string" &&
+        typeof expression.expected_path === "string" &&
+        typeof expression.prefix === "string"
+      ) {
+        const actual = valueAtPath(value, expression.path);
+        const expected = valueAtPath(value, expression.expected_path);
+        const stripped =
+          typeof expected === "string" &&
+          typeof expression.strip_prefix === "string"
+            ? expected.startsWith(expression.strip_prefix)
+              ? expected.slice(expression.strip_prefix.length)
+              : null
+            : expected;
+        valid =
+          typeof actual === "string" &&
+          typeof stripped === "string" &&
+          actual.startsWith(
+            `${expression.prefix}${stripped}${expression.suffix ?? ""}`,
+          );
+      } else if (
+        expression.operator === "field_suffix_equals_prefixed_field" &&
+        typeof expression.source_path === "string" &&
+        typeof expression.delimiter === "string" &&
+        expression.delimiter.length > 0 &&
+        typeof expression.target_path === "string" &&
+        typeof expression.target_prefix === "string"
+      ) {
+        const source = valueAtPath(value, expression.source_path);
+        const target = valueAtPath(value, expression.target_path);
+        const delimiterIndex =
+          typeof source === "string"
+            ? source.lastIndexOf(expression.delimiter)
+            : -1;
+        const suffix =
+          typeof source === "string" && delimiterIndex >= 0
+            ? source.slice(delimiterIndex + expression.delimiter.length)
+            : "";
+        valid =
+          suffix.length > 0 &&
+          typeof target === "string" &&
+          target === `${expression.target_prefix}${suffix}`;
       } else if (expression.operator === "matches_contract_schema_hash") {
         valid = valueAtPath(value, expression.path) === expectedSchemaHash;
       } else if (
@@ -434,6 +735,13 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
     }
   }
   return errors;
+}
+
+function invariantPointers(value) {
+  if (typeof value === "string") return value.startsWith("$.") ? [value] : [];
+  if (Array.isArray(value)) return value.flatMap(invariantPointers);
+  if (!isObject(value)) return [];
+  return Object.values(value).flatMap(invariantPointers);
 }
 
 function markdownAnchorExists(filePath, anchor) {
@@ -730,45 +1038,14 @@ for (const contract of registry.contracts ?? []) {
     if (profile.language !== "ioi.portable-invariants.v1") {
       fail(`${contract.contract_id}: unsupported invariant language`);
     }
+    for (const error of validateInvariantProfile(schema, profile)) {
+      fail(`${profile.$id}: ${error}`);
+    }
     const ruleIds = new Set();
     for (const rule of profile.rules ?? []) {
       if (ruleIds.has(rule.rule_id))
         fail(`${profile.$id}: duplicate rule ${rule.rule_id}`);
       ruleIds.add(rule.rule_id);
-      const pointers = [
-        ...(rule.expression?.paths ?? [rule.expression?.path]),
-        rule.expression?.when_path,
-        rule.expression?.array_path,
-        rule.expression?.count_path,
-        rule.expression?.expected_path,
-        rule.expression?.optional_object_path,
-      ];
-      for (const pointer of pointers.filter(Boolean)) {
-        const property = pointer.startsWith("$.")
-          ? pointer.slice(2).split(".")[0]
-          : null;
-        if (!property || !Object.hasOwn(schema.properties ?? {}, property)) {
-          fail(`${profile.$id}: invariant path is outside schema: ${pointer}`);
-        }
-      }
-      if (rule.expression?.operator === "array_unique_by_fields") {
-        const fields = rule.expression.fields;
-        if (
-          !Array.isArray(fields) ||
-          fields.length === 0 ||
-          fields.length > 8 ||
-          new Set(fields).size !== fields.length ||
-          fields.some(
-            (field) =>
-              typeof field !== "string" ||
-              !/^[a-z][a-z0-9_]*$/u.test(field),
-          )
-        ) {
-          fail(
-            `${profile.$id}: array_unique_by_fields requires 1..=8 unique canonical field names`,
-          );
-        }
-      }
     }
   }
 

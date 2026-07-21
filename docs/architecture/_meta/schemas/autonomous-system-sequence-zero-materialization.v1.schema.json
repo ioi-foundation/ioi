@@ -396,7 +396,7 @@
       "$ref": "#/$defs/hash"
     },
     "materialization_receipt_ref": {
-      "$ref": "#/$defs/receiptRef"
+      "$ref": "#/$defs/materializationReceiptRef"
     },
     "activation_receipt_ref": {
       "type": "null"
@@ -494,9 +494,13 @@
       "type": "string",
       "pattern": "^receipt://[^\\s]{1,248}$"
     },
+    "materializationReceiptRef": {
+      "type": "string",
+      "pattern": "^receipt://aszmr_[0-9a-f]{64}$"
+    },
     "deploymentProfileRef": {
       "type": "string",
-      "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      "pattern": "^deployment-profile://[^\\s]{1,248}$"
     },
     "orderingProfileRef": {
       "type": "string",

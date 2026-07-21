@@ -1130,6 +1130,218 @@ export type AutonomousSystemSequenceZeroMaterializationReceiptV1 = {
   at: string;
 };
 
+export type AutonomousSystemSequenceZeroMaterializationReceiptV2 = {
+  schema_version: "ioi.autonomous-system-sequence-zero-materialization-receipt.v2";
+  receipt_id: string;
+  receipt_ref: string;
+  receipt_type: "autonomous_system_sequence_zero_materialization";
+  receipt_profile_ref: "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2";
+  actor_id: "runtime://hypervisor-runtime";
+  subject_ref: string;
+  op: "materialized";
+  attested_boundary_fact_refs: Array<string>;
+  bound_facts: {
+      materialization_id: string;
+      materialization_output_hash: string;
+      governing_authority_ref: string;
+      authority_effect_hash: string;
+      system_id: string;
+      genesis_ref: string;
+      genesis_admission_record_root: string;
+      genesis_admission_receipt_ref: string;
+      genesis_admission_receipt_root: string;
+      proposed_initial_state_root: string;
+      proposed_initial_receipt_root: string;
+      package_id: string;
+      manifest_ref: string;
+      admitted_manifest_root: string;
+      constitution_ref: string;
+      constitution_root: string;
+      profile_bundle_root: string;
+      profile_materialization_root: string;
+      deployment_profile_root: string;
+      profile_refs: {
+            deployment_profile_ref: string;
+            ordering_admission_finality_profile_ref: string;
+            oracle_evidence_profile_refs: Array<string>;
+            lifecycle_continuity_profile_ref: string;
+            network_enrollment_ref: string | null;
+          };
+      component_registry_ref: string;
+      component_registry_root: string;
+      component_binding_count: number;
+      sequence: number;
+      predecessor_transition_commitment_ref: null;
+      operation_commitment: string;
+      transition_commitment_ref: string;
+      initial_state_root: string;
+      initial_receipt_root: string;
+      wallet_grant_consumption_ref: string;
+      wallet_grant_consumption_evidence_ref: string;
+      materialized_pending_activation: true;
+      active_profile_admission: false;
+      initialize_admitted: false;
+      activation_admitted: false;
+      live_chain_created: false;
+      node_membership_created: false;
+      network_effect_admitted: false;
+      runtime_effect_admitted: false;
+    };
+  input_hash: string;
+  output_hash: string;
+  policy_hash: string;
+  effect_hash: string;
+  authorized_effect: {
+      operation: "materialize_sequence_zero";
+      materialization: {
+            schema_version: "ioi.autonomous-system-sequence-zero-materialization.v1";
+            materialization_id: string;
+            system_id: string;
+            genesis_ref: string;
+            genesis_admission_record_root: string;
+            genesis_admission_receipt_ref: string;
+            genesis_admission_receipt_root: string;
+            proposed_initial_state_root: string;
+            proposed_initial_receipt_root: string;
+            package_id: string;
+            manifest_ref: string;
+            admitted_manifest_root: string;
+            constitution_ref: string;
+            constitution_root: string;
+            profile_bundle_root: string;
+            profile_materialization_root: string;
+            deployment_profile_root: string;
+            profile_refs: {
+                    deployment_profile_ref: string;
+                    ordering_admission_finality_profile_ref: string;
+                    oracle_evidence_profile_refs: Array<string>;
+                    lifecycle_continuity_profile_ref: string;
+                    network_enrollment_ref: string | null;
+                  };
+            component_registry_ref: string;
+            component_registry_root: string;
+            component_binding_count: number;
+            component_bindings: Array<{
+                      kind: "goal_run_profile" | "workflow_template" | "automation_spec" | "automation_installation" | "harness_profile" | "agent_harness_adapter" | "skill_entry" | "data_recipe" | "runtime_tool_contract" | "mcp_gateway_profile";
+                      binding_ref: string;
+                      binding_hash: string;
+                      evidence_refs: Array<string>;
+                      evidence_hashes: Array<string>;
+                    }>;
+            sequence: number;
+            predecessor_transition_commitment_ref: null;
+            operation_commitment: string;
+            transition_commitment_ref: string;
+            initial_state_root: string;
+            initial_receipt_root: string;
+            materialization_receipt_ref: string;
+            activation_receipt_ref: null;
+            status: "materialized_pending_activation";
+          };
+      activation_admitted: false;
+      runtime_effect_admitted: false;
+    };
+  wallet_approval_grant: {
+      schema_version: number;
+      authority_id: Array<number>;
+      request_hash: Array<number>;
+      policy_hash: Array<number>;
+      audience: Array<number>;
+      nonce: Array<number>;
+      counter: number;
+      expires_at: number;
+      max_usages: number;
+      window_id?: number;
+      pii_action?: "approve_transform" | "deny" | "grant_scoped_exception";
+      scoped_exception?: {
+            exception_id: string;
+            allowed_classes: Array<"api_key" | "secret_token" | "email" | "phone" | "ssn" | "card_pan" | "name" | "address" | {
+                      custom: string;
+                    }>;
+            destination_hash: Array<number>;
+            action_hash: Array<number>;
+            expires_at: number;
+            max_uses: number;
+            justification_hash: Array<number>;
+          };
+      review_request_hash?: Array<number>;
+      approver_public_key: Array<number>;
+      approver_sig: Array<number>;
+      approver_suite: -200 | -17 | -8;
+    };
+  principal_authority_binding: {
+      schema_version: number;
+      principal_ref: string;
+      authority_kind: "approval";
+      coordinates: {
+            binding_ref: string;
+            binding_version: number;
+            binding_hash: Array<number>;
+          };
+      required_scope: "scope:autonomous_system.genesis_materialize";
+      matched_scope: string;
+      approval_authority: {
+            schema_version: number;
+            authority_id: Array<number>;
+            public_key: Array<number>;
+            signature_suite: -200 | -17 | -8;
+            expires_at: number;
+            revoked: false;
+            scope_allowlist: Array<string>;
+          };
+      approval_authority_snapshot_hash: Array<number>;
+      binding_proof: {
+            schema_version: number;
+            statement: {
+                    schema_version: number;
+                    principal_ref: string;
+                    authority_kind: "approval";
+                    binding_version: number;
+                    status: "active";
+                    authority_id: Array<number>;
+                    authority_public_key: Array<number>;
+                    authority_signature_suite: -200 | -17 | -8;
+                    approval_authority_snapshot_hash: Array<number>;
+                    previous_binding_ref?: string;
+                    previous_binding_hash?: Array<number>;
+                    signed_at_ms: number;
+                    expires_at_ms: number;
+                    issuer_root_account_id: Array<number>;
+                    reason?: string;
+                  };
+            statement_hash: Array<number>;
+            issuer_signature_proof: {
+                    suite: -200 | -17 | -8;
+                    public_key: Array<number>;
+                    signature: Array<number>;
+                  };
+            binding_ref: string;
+            binding_hash: Array<number>;
+          };
+    };
+  authority_resolved_at_ms: number;
+  hash_scope_excludes: Array<string>;
+  assurance_posture: "sequence_zero_materialized_not_activated";
+  assurance_note: "governed materialization of immutable activation candidates and sequence-zero roots; active-profile admission, initialize, activation, live-chain, membership, network, and runtime effects remain unadmitted";
+  verification_ref: null;
+  acceptance_ref: null;
+  claim_scope_ref: null;
+  run_id: null;
+  task_id: null;
+  authority_grant_id: string;
+  primitive_capabilities: Array<string>;
+  authority_scopes: Array<"scope:autonomous_system.genesis_materialize">;
+  artifact_refs: Array<string>;
+  evidence_bundle_refs: Array<string>;
+  adjudication_ref: null;
+  settlement_ref: null;
+  signature: null;
+  public_commitment_ref: null;
+  timestamp: string;
+  outcome: "ok";
+  at: string;
+};
+
 export type AutonomousSystemConstitutionV1 = {
   schema_version: "ioi.autonomous-system-constitution.v1";
   constitution_id: string;
@@ -1481,6 +1693,8 @@ export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM = 9007199254740991 as const;
+export const ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MINIMUM = -9007199254740991 as const;
+export const ARCHITECTURE_CONTRACT_PORTABLE_SIGNED_INTEGER_MAXIMUM = 9007199254740991 as const;
 export const ARCHITECTURE_CONTRACT_PORTABLE_DATE_TIME_PATTERN = "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" as const;
 export const ARCHITECTURE_CONTRACT_ORACLE_PROFILE = "ajv-2020-12-plus-portable-invariants-and-canonical-rfc3339" as const;
 
@@ -2070,6 +2284,78 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-legacy-receipt-type.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-missing-public-commitment-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-incompatible-artifact-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-receipt-identity-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "sequence_zero_materialization_receipt.identity.matches_ref"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-detached-subject.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "sequence_zero_materialization_receipt.subject.matches_bound_materialization"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-output-hash-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "sequence_zero_materialization_receipt.output_hash.matches_bound_output"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-authority-binding-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-activation-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
     "expected": "accept",
@@ -2189,6 +2475,8 @@ export type ArchitectureContractMutation = {
   source_fixture_path: string;
   covered_keywords: string[];
   ajv_expected_accept: boolean;
+  oracle_contract_accept: boolean;
+  expected_rule_ids: string[];
   direct_projection_rejection: boolean;
   patch: {
     operation: "set" | "remove";
@@ -2199,13 +2487,420 @@ export type ArchitectureContractMutation = {
 
 export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContractMutation> = [
   {
+    "id": "sequence-zero-receipt-timestamp-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.timestamp.matches_at"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/at",
+      "value": "2026-07-19T12:00:01Z"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-authorized-materialization-id-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.subject.matches_authorized_effect",
+      "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+      "sequence_zero_materialization_receipt.effect_materialization_id.binds_genesis_root",
+      "sequence_zero_materialization_receipt.effect_hash.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authorized_effect/materialization/materialization_id",
+      "value": "system-materialization://sequence-zero/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-authority-principal-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.authority.matches_binding",
+      "sequence_zero_materialization_receipt.binding_principal.matches_statement"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/principal_ref",
+      "value": "agentgres://domain/acme/foreign"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-grant-authority-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.grant_authority.matches_snapshot",
+      "sequence_zero_materialization_receipt.grant_identity.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/wallet_approval_grant/authority_id",
+      "value": [
+        218,
+        79,
+        65,
+        147,
+        122,
+        1,
+        52,
+        168,
+        97,
+        19,
+        202,
+        55,
+        31,
+        33,
+        46,
+        22,
+        113,
+        38,
+        76,
+        163,
+        13,
+        192,
+        242,
+        149,
+        125,
+        68,
+        226,
+        26,
+        81,
+        25,
+        44,
+        238
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-grant-key-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.grant_key.matches_snapshot",
+      "sequence_zero_materialization_receipt.grant_identity.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/wallet_approval_grant/approver_public_key",
+      "value": [
+        252,
+        23,
+        36,
+        56,
+        90,
+        160,
+        199,
+        91,
+        100,
+        251,
+        120,
+        205,
+        96,
+        47,
+        161,
+        217,
+        145,
+        253,
+        235,
+        247,
+        107,
+        19,
+        197,
+        142,
+        215,
+        2,
+        234,
+        200,
+        53,
+        233,
+        246,
+        24
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-effect-receipt-ref-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.effect_receipt_ref.matches_receipt",
+      "sequence_zero_materialization_receipt.effect_hash.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authorized_effect/materialization/materialization_receipt_ref",
+      "value": "receipt://aszmr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-effect-registry-ref-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+      "sequence_zero_materialization_receipt.effect_registry_ref.binds_registry_root",
+      "sequence_zero_materialization_receipt.effect_hash.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authorized_effect/materialization/component_registry_ref",
+      "value": "agentgres://object-set/autonomous-system-components/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-policy-hash-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.policy_hash.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/policy_hash",
+      "value": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-wallet-consumption-request-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.wallet_consumption.binds_request",
+      "sequence_zero_materialization_receipt.boundary_fact.exact_coverage"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/bound_facts/wallet_grant_consumption_ref",
+      "value": "wallet.network://approval-effect-consumption/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/2020202020202020202020202020202020202020202020202020202020202020"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-coordinates-ref-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.coordinates_ref.matches_proof"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/coordinates/binding_ref",
+      "value": "wallet.network://principal-authority-binding/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-authority-key-statement-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.statement_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_ref.recomputes",
+      "sequence_zero_materialization_receipt.authority_key.matches_statement"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/binding_proof/statement/authority_public_key",
+      "value": [
+        252,
+        23,
+        36,
+        56,
+        90,
+        160,
+        199,
+        91,
+        100,
+        251,
+        120,
+        205,
+        96,
+        47,
+        161,
+        217,
+        145,
+        253,
+        235,
+        247,
+        107,
+        19,
+        197,
+        142,
+        215,
+        2,
+        234,
+        200,
+        53,
+        233,
+        246,
+        24
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-authority-id-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.grant_authority.matches_snapshot",
+      "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+      "sequence_zero_materialization_receipt.authority_id.matches_statement",
+      "sequence_zero_materialization_receipt.authority_id.derives_from_key"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/approval_authority/authority_id",
+      "value": [
+        218,
+        79,
+        65,
+        147,
+        122,
+        1,
+        52,
+        168,
+        97,
+        19,
+        202,
+        55,
+        31,
+        33,
+        46,
+        22,
+        113,
+        38,
+        76,
+        163,
+        13,
+        192,
+        242,
+        149,
+        125,
+        68,
+        226,
+        26,
+        81,
+        25,
+        44,
+        238
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-issuer-root-id-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.statement_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_ref.recomputes",
+      "sequence_zero_materialization_receipt.issuer_root_id.derives_from_key"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/binding_proof/statement/issuer_root_account_id",
+      "value": [
+        108,
+        251,
+        167,
+        30,
+        168,
+        49,
+        141,
+        153,
+        53,
+        187,
+        19,
+        174,
+        74,
+        201,
+        69,
+        116,
+        138,
+        138,
+        29,
+        36,
+        170,
+        112,
+        9,
+        231,
+        248,
+        48,
+        177,
+        155,
+        160,
+        27,
+        31,
+        233
+      ]
+    }
+  },
+  {
     "id": "sequence-zero-receipt-unsupported-signature-suite",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
     "covered_keywords": [
       "enum"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2214,13 +2909,53 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
     }
   },
   {
+    "id": "sequence-zero-receipt-grant-suite-mismatch",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.grant_suite.matches_snapshot",
+      "sequence_zero_materialization_receipt.grant_identity.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/wallet_approval_grant/approver_suite",
+      "value": -17
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-authority-suite-mismatch",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.grant_suite.matches_snapshot",
+      "sequence_zero_materialization_receipt.authority_suite.matches_statement",
+      "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+      "sequence_zero_materialization_receipt.authority_id.derives_from_key"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/approval_authority/signature_suite",
+      "value": -17
+    }
+  },
+  {
     "id": "sequence-zero-receipt-oversized-principal",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
     "covered_keywords": [
       "maxLength"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2230,12 +2965,14 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
   },
   {
     "id": "sequence-zero-receipt-nested-authority-claim",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
     "covered_keywords": [
       "additionalProperties"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2354,6 +3091,793 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
     }
   },
   {
+    "id": "sequence-zero-receipt-truncated-grant-signature",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "minItems"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/wallet_approval_grant/approver_sig",
+      "value": [
+        3
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-truncated-root-signature",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "minItems"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/binding_proof/issuer_signature_proof/signature",
+      "value": [
+        12
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-duplicated-materialization-field-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.materialization_facts.match_effect"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/bound_facts/package_id",
+      "value": "package://acme/detached-package"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-embedded-component-count-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.effect_component_count.matches_array",
+      "sequence_zero_materialization_receipt.effect_hash.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authorized_effect/materialization/component_bindings",
+      "value": [
+        {
+          "kind": "goal_run_profile",
+          "binding_ref": "goal-run-profile://acme/system-alpha/default/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "binding_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "evidence_refs": [],
+          "evidence_hashes": []
+        },
+        {
+          "kind": "workflow_template",
+          "binding_ref": "workflow-template://acme/system-alpha/default/revision/sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "binding_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "evidence_refs": [],
+          "evidence_hashes": []
+        },
+        {
+          "kind": "harness_profile",
+          "binding_ref": "harness-profile://acme/system-alpha/default/revision/sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "binding_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "evidence_refs": [],
+          "evidence_hashes": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-embedded-component-identity-duplicate",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.effect_component_identities.unique",
+      "sequence_zero_materialization_receipt.effect_hash.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authorized_effect/materialization/component_bindings",
+      "value": [
+        {
+          "kind": "goal_run_profile",
+          "binding_ref": "goal-run-profile://acme/system-alpha/default/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "binding_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "evidence_refs": [],
+          "evidence_hashes": []
+        },
+        {
+          "kind": "goal_run_profile",
+          "binding_ref": "goal-run-profile://acme/system-alpha/default/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "binding_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "evidence_refs": [],
+          "evidence_hashes": []
+        },
+        {
+          "kind": "harness_profile",
+          "binding_ref": "harness-profile://acme/system-alpha/default/revision/sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "binding_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "evidence_refs": [],
+          "evidence_hashes": []
+        },
+        {
+          "kind": "runtime_tool_contract",
+          "binding_ref": "tool://acme/system-alpha/default/revision/sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "binding_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "evidence_refs": [],
+          "evidence_hashes": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-embedded-component-kind-ref-substitution",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "$ref",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authorized_effect/materialization/component_bindings/0/binding_ref",
+      "value": "workflow-template://acme/system-alpha/default/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-embedded-deployment-root-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+      "sequence_zero_materialization_receipt.effect_deployment_ref.binds_root",
+      "sequence_zero_materialization_receipt.effect_hash.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authorized_effect/materialization/profile_refs/deployment_profile_ref",
+      "value": "deployment-profile://acme/system-alpha/local/revision/sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-legacy-deployment-compatibility-root-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+      "sequence_zero_materialization_receipt.effect_deployment_ref.binds_root",
+      "sequence_zero_materialization_receipt.effect_hash.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authorized_effect/materialization/profile_refs/deployment_profile_ref",
+      "value": "deployment-profile://acme/system-alpha/local"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-grant-request-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.grant_request_hash.recomputes",
+      "sequence_zero_materialization_receipt.grant_identity.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/wallet_approval_grant/request_hash",
+      "value": [
+        211,
+        134,
+        39,
+        87,
+        62,
+        25,
+        14,
+        188,
+        107,
+        220,
+        154,
+        12,
+        231,
+        239,
+        146,
+        14,
+        7,
+        198,
+        192,
+        92,
+        253,
+        59,
+        137,
+        160,
+        116,
+        43,
+        93,
+        141,
+        161,
+        252,
+        42,
+        148
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-consumption-evidence-id-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.wallet_consumption.matches_evidence_id",
+      "sequence_zero_materialization_receipt.boundary_fact.exact_coverage"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/bound_facts/wallet_grant_consumption_evidence_ref",
+      "value": "system-sequence-zero-authority-consumption://aszmc_2121212121212121212121212121212121212121212121212121212121212121"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-grant-policy-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.grant_policy_hash.recomputes",
+      "sequence_zero_materialization_receipt.grant_identity.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/wallet_approval_grant/policy_hash",
+      "value": [
+        130,
+        227,
+        89,
+        120,
+        228,
+        211,
+        93,
+        102,
+        76,
+        72,
+        110,
+        24,
+        225,
+        134,
+        150,
+        200,
+        24,
+        57,
+        39,
+        142,
+        233,
+        152,
+        227,
+        138,
+        32,
+        56,
+        135,
+        76,
+        238,
+        198,
+        81,
+        184
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-effect-hash-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.effect_hash.matches_bound_effect",
+      "sequence_zero_materialization_receipt.effect_hash.recomputes",
+      "sequence_zero_materialization_receipt.request_hash.recomputes",
+      "sequence_zero_materialization_receipt.grant_request_hash.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/effect_hash",
+      "value": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-grant-identity-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.grant_identity.recomputes",
+      "sequence_zero_materialization_receipt.boundary_fact.exact_coverage"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authority_grant_id",
+      "value": "grant://wallet.network/approval/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-snapshot-hash-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.binding_snapshot.matches_statement",
+      "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/approval_authority_snapshot_hash",
+      "value": [
+        194,
+        34,
+        101,
+        132,
+        126,
+        155,
+        116,
+        25,
+        212,
+        249,
+        137,
+        134,
+        100,
+        106,
+        160,
+        204,
+        169,
+        148,
+        48,
+        253,
+        7,
+        94,
+        53,
+        201,
+        209,
+        46,
+        127,
+        39,
+        145,
+        51,
+        124,
+        244
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-statement-hash-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.statement_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_ref.recomputes"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/binding_proof/statement_hash",
+      "value": [
+        136,
+        110,
+        121,
+        59,
+        31,
+        59,
+        121,
+        45,
+        109,
+        185,
+        227,
+        108,
+        180,
+        217,
+        188,
+        70,
+        191,
+        38,
+        245,
+        133,
+        141,
+        38,
+        29,
+        98,
+        243,
+        176,
+        203,
+        157,
+        118,
+        126,
+        182,
+        60
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-binding-hash-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.binding_hash.recomputes",
+      "sequence_zero_materialization_receipt.coordinates_hash.matches_proof"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/binding_proof/binding_hash",
+      "value": [
+        60,
+        200,
+        104,
+        42,
+        57,
+        252,
+        26,
+        122,
+        244,
+        239,
+        33,
+        196,
+        106,
+        246,
+        248,
+        238,
+        61,
+        70,
+        78,
+        72,
+        7,
+        42,
+        239,
+        93,
+        7,
+        18,
+        139,
+        122,
+        241,
+        53,
+        9,
+        228
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-binding-coordinates-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.coordinates_version.matches_statement"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/coordinates/binding_version",
+      "value": 2
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-authority-tuple-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.statement_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_ref.recomputes",
+      "sequence_zero_materialization_receipt.authority_id.matches_statement"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/binding_proof/statement/authority_id",
+      "value": [
+        218,
+        79,
+        65,
+        147,
+        122,
+        1,
+        52,
+        168,
+        97,
+        19,
+        202,
+        55,
+        31,
+        33,
+        46,
+        22,
+        113,
+        38,
+        76,
+        163,
+        13,
+        192,
+        242,
+        149,
+        125,
+        68,
+        226,
+        26,
+        81,
+        25,
+        44,
+        238
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-scope-uncovered",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+      "sequence_zero_materialization_receipt.scope.covered_by_authority"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/approval_authority/scope_allowlist",
+      "value": [
+        "scope:unrelated"
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-matched-scope-does-not-cover",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.scope.required_matches_resolution",
+      "sequence_zero_materialization_receipt.scope.covered_by_authority"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/matched_scope",
+      "value": "scope:unrelated.*"
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-binding-signed-after-resolution",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.statement_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_ref.recomputes",
+      "sequence_zero_materialization_receipt.binding.signed_before_resolution"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/binding_proof/statement/signed_at_ms",
+      "value": 1784462400001
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-binding-expired-at-resolution",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.statement_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_hash.recomputes",
+      "sequence_zero_materialization_receipt.binding_ref.recomputes",
+      "sequence_zero_materialization_receipt.binding.unexpired_at_resolution"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/binding_proof/statement/expires_at_ms",
+      "value": 1784462399999
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-authority-expired-at-resolution",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+      "sequence_zero_materialization_receipt.authority.unexpired_at_resolution"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/principal_authority_binding/approval_authority/expires_at",
+      "value": 1784462399999
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-grant-expired-at-resolution",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.grant_identity.recomputes",
+      "sequence_zero_materialization_receipt.grant.unexpired_at_resolution"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/wallet_approval_grant/expires_at",
+      "value": 1784462399999
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-boundary-required-ref-missing",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.boundary_fact.exact_coverage"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/attested_boundary_fact_refs",
+      "value": [
+        "system://acme/system-alpha",
+        "genesis://acme/system-alpha/zero",
+        "package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "constitution://acme/system-alpha/v1",
+        "agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "ordering-profile://acme/system-alpha/poa1",
+        "oracle-evidence-profile://acme/system-alpha/public-records",
+        "lifecycle-profile://acme/system-alpha/default",
+        "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777",
+        "agentgres://domain/acme/research",
+        "grant://wallet.network/approval/sha256:532a589db6bbe43e6ec16fc94d68764c05f8b389532318a1f2d3586286f85e28",
+        "system-sequence-zero-authority-consumption://aszmc_2020202020202020202020202020202020202020202020202020202020202020"
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-receipt-boundary-extra-ref-injected",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "sequence_zero_materialization_receipt.boundary_fact.exact_coverage"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/attested_boundary_fact_refs",
+      "value": [
+        "system://acme/system-alpha",
+        "genesis://acme/system-alpha/zero",
+        "package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "constitution://acme/system-alpha/v1",
+        "agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "ordering-profile://acme/system-alpha/poa1",
+        "oracle-evidence-profile://acme/system-alpha/public-records",
+        "lifecycle-profile://acme/system-alpha/default",
+        "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777",
+        "agentgres://domain/acme/research",
+        "grant://wallet.network/approval/sha256:532a589db6bbe43e6ec16fc94d68764c05f8b389532318a1f2d3586286f85e28",
+        "wallet.network://approval-effect-consumption/d28627573e190ebc6bdc9a0ce7ef920e07c6c05cfd3b89a0742b5d8da1fc2a94/2020202020202020202020202020202020202020202020202020202020202020",
+        "system-sequence-zero-authority-consumption://aszmc_2020202020202020202020202020202020202020202020202020202020202020",
+        "policy://acme/injected-boundary"
+      ]
+    }
+  },
+  {
+    "id": "sequence-zero-materialization-broad-receipt-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json",
+    "covered_keywords": [
+      "$ref",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/materialization_receipt_ref",
+      "value": "receipt://broad-but-no-longer-valid"
+    }
+  },
+  {
     "id": "type-number-for-string",
     "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
@@ -2362,6 +3886,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "properties"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2377,6 +3903,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "required"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "remove",
@@ -2391,6 +3919,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "required"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "remove",
@@ -2405,6 +3935,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "additionalProperties"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2421,6 +3953,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2436,6 +3970,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2451,6 +3987,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": true,
+    "oracle_contract_accept": true,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2466,6 +4004,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "anyOf"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2482,6 +4022,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "$ref"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2497,6 +4039,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "minLength"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2512,6 +4056,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "enum"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2527,6 +4073,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "minimum"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2542,6 +4090,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "items"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2559,6 +4109,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "uniqueItems"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2591,6 +4143,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "format"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2606,6 +4160,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "const"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2621,6 +4177,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "oneOf"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2636,6 +4194,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "maximum"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2651,6 +4211,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "minItems"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2669,6 +4231,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "maxItems"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2686,6 +4250,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "contains"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2706,6 +4272,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "else"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": false,
     "patch": {
       "operation": "set",
@@ -2721,6 +4289,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "const"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2739,6 +4309,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "minItems"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2757,6 +4329,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "minItems"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2774,6 +4348,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "then"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2791,6 +4367,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "then"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2808,6 +4386,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "then"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2826,6 +4406,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "minItems"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2844,6 +4426,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "maxItems"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2864,6 +4448,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "minItems"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2881,6 +4467,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "then"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2898,6 +4486,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2920,6 +4510,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2942,6 +4534,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2964,6 +4558,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -2986,6 +4582,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3008,6 +4606,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3030,6 +4630,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3052,6 +4654,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3074,6 +4678,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3096,6 +4702,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3118,6 +4726,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3140,6 +4750,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3162,6 +4774,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3184,6 +4798,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3206,6 +4822,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3228,6 +4846,8 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
       "pattern"
     ],
     "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
     "direct_projection_rejection": true,
     "patch": {
       "operation": "set",
@@ -3763,6 +5383,69 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-legacy-receipt-type.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-legacy-receipt-type.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-missing-public-commitment-ref.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-missing-public-commitment-ref.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-incompatible-artifact-ref.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-incompatible-artifact-ref.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-receipt-identity-binding.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-receipt-identity-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-detached-subject.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-detached-subject.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-output-hash-binding.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-output-hash-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-authority-binding-unknown-field.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-authority-binding-unknown-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-activation-claim.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-activation-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
     "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
@@ -3861,24 +5544,318 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "mutation:sequence-zero-receipt-timestamp-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-timestamp-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-authorized-materialization-id-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-authorized-materialization-id-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-authority-principal-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-authority-principal-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-grant-authority-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-grant-authority-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-grant-key-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-grant-key-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-effect-receipt-ref-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-effect-receipt-ref-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-effect-registry-ref-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-effect-registry-ref-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-policy-hash-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-policy-hash-self-attestation",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-wallet-consumption-request-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-wallet-consumption-request-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-coordinates-ref-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-coordinates-ref-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-authority-key-statement-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-authority-key-statement-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-authority-id-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-authority-id-self-attestation",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-issuer-root-id-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-issuer-root-id-self-attestation",
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-unsupported-signature-suite",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
     "mutation_id": "sequence-zero-receipt-unsupported-signature-suite",
     "value_json": null
   },
   {
+    "id": "mutation:sequence-zero-receipt-grant-suite-mismatch",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-grant-suite-mismatch",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-authority-suite-mismatch",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-authority-suite-mismatch",
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-oversized-principal",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
     "mutation_id": "sequence-zero-receipt-oversized-principal",
     "value_json": null
   },
   {
     "id": "mutation:sequence-zero-receipt-nested-authority-claim",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
     "mutation_id": "sequence-zero-receipt-nested-authority-claim",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-truncated-grant-signature",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-truncated-grant-signature",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-truncated-root-signature",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-truncated-root-signature",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-duplicated-materialization-field-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-duplicated-materialization-field-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-embedded-component-count-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-embedded-component-count-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-embedded-component-identity-duplicate",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-embedded-component-identity-duplicate",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-embedded-component-kind-ref-substitution",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-embedded-component-kind-ref-substitution",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-embedded-deployment-root-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-embedded-deployment-root-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-legacy-deployment-compatibility-root-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-legacy-deployment-compatibility-root-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-grant-request-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-grant-request-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-consumption-evidence-id-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-consumption-evidence-id-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-grant-policy-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-grant-policy-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-effect-hash-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-effect-hash-self-attestation",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-grant-identity-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-grant-identity-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-snapshot-hash-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-snapshot-hash-self-attestation",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-statement-hash-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-statement-hash-self-attestation",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-binding-hash-self-attestation",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-binding-hash-self-attestation",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-binding-coordinates-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-binding-coordinates-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-authority-tuple-detached",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-authority-tuple-detached",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-scope-uncovered",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-scope-uncovered",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-matched-scope-does-not-cover",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-matched-scope-does-not-cover",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-binding-signed-after-resolution",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-binding-signed-after-resolution",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-binding-expired-at-resolution",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-binding-expired-at-resolution",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-authority-expired-at-resolution",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-authority-expired-at-resolution",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-grant-expired-at-resolution",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-grant-expired-at-resolution",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-boundary-required-ref-missing",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-boundary-required-ref-missing",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-receipt-boundary-extra-ref-injected",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-receipt-boundary-extra-ref-injected",
+    "value_json": null
+  },
+  {
+    "id": "mutation:sequence-zero-materialization-broad-receipt-ref",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
+    "source_fixture_path": null,
+    "mutation_id": "sequence-zero-materialization-broad-receipt-ref",
     "value_json": null
   },
   {
@@ -4314,6 +6291,27 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "source_fixture_path": null,
     "mutation_id": null,
     "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:60:60+00:01\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
+  },
+  {
+    "id": "differential:object-valued-invariant-key-order",
+    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "source_fixture_path": null,
+    "mutation_id": null,
+    "value_json": "{\"schema_version\":\"ioi.autonomous-system-sequence-zero-materialization-receipt.v2\",\"receipt_id\":\"receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_ref\":\"receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_type\":\"autonomous_system_sequence_zero_materialization\",\"receipt_profile_ref\":\"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2\",\"actor_id\":\"runtime://hypervisor-runtime\",\"subject_ref\":\"system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"op\":\"materialized\",\"attested_boundary_fact_refs\":[\"system://acme/system-alpha\",\"genesis://acme/system-alpha/zero\",\"package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"constitution://acme/system-alpha/v1\",\"agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"ordering-profile://acme/system-alpha/poa1\",\"oracle-evidence-profile://acme/system-alpha/public-records\",\"lifecycle-profile://acme/system-alpha/default\",\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777\",\"agentgres://domain/acme/research\",\"grant://wallet.network/approval/sha256:532a589db6bbe43e6ec16fc94d68764c05f8b389532318a1f2d3586286f85e28\",\"wallet.network://approval-effect-consumption/d28627573e190ebc6bdc9a0ce7ef920e07c6c05cfd3b89a0742b5d8da1fc2a94/2020202020202020202020202020202020202020202020202020202020202020\",\"system-sequence-zero-authority-consumption://aszmc_2020202020202020202020202020202020202020202020202020202020202020\"],\"bound_facts\":{\"materialization_id\":\"system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"materialization_output_hash\":\"sha256:2020202020202020202020202020202020202020202020202020202020202020\",\"governing_authority_ref\":\"agentgres://domain/acme/research\",\"authority_effect_hash\":\"sha256:3a6e54d37bdfa3395f07aa16c0951f27dee4b5f435f6365eae06967ee7d90182\",\"system_id\":\"system://acme/system-alpha\",\"genesis_ref\":\"genesis://acme/system-alpha/zero\",\"genesis_admission_record_root\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"genesis_admission_receipt_ref\":\"receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777\",\"genesis_admission_receipt_root\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"proposed_initial_state_root\":\"sha256:1212121212121212121212121212121212121212121212121212121212121212\",\"proposed_initial_receipt_root\":\"sha256:2323232323232323232323232323232323232323232323232323232323232323\",\"package_id\":\"package://acme/outcome-operator\",\"manifest_ref\":\"package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"admitted_manifest_root\":\"sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b\",\"constitution_ref\":\"constitution://acme/system-alpha/v1\",\"constitution_root\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"profile_bundle_root\":\"sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48\",\"profile_materialization_root\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"deployment_profile_root\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"profile_refs\":{\"deployment_profile_ref\":\"deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"ordering_admission_finality_profile_ref\":\"ordering-profile://acme/system-alpha/poa1\",\"oracle_evidence_profile_refs\":[\"oracle-evidence-profile://acme/system-alpha/public-records\"],\"lifecycle_continuity_profile_ref\":\"lifecycle-profile://acme/system-alpha/default\",\"network_enrollment_ref\":null},\"component_registry_ref\":\"agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_registry_root\":\"sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_binding_count\":4,\"sequence\":0,\"predecessor_transition_commitment_ref\":null,\"operation_commitment\":\"sha256:6666666666666666666666666666666666666666666666666666666666666666\",\"transition_commitment_ref\":\"commitment://ioi/system-sequence-zero/sha256:7777777777777777777777777777777777777777777777777777777777777777\",\"initial_state_root\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\",\"initial_receipt_root\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"wallet_grant_consumption_ref\":\"wallet.network://approval-effect-consumption/d28627573e190ebc6bdc9a0ce7ef920e07c6c05cfd3b89a0742b5d8da1fc2a94/2020202020202020202020202020202020202020202020202020202020202020\",\"wallet_grant_consumption_evidence_ref\":\"system-sequence-zero-authority-consumption://aszmc_2020202020202020202020202020202020202020202020202020202020202020\",\"materialized_pending_activation\":true,\"active_profile_admission\":false,\"initialize_admitted\":false,\"activation_admitted\":false,\"live_chain_created\":false,\"node_membership_created\":false,\"network_effect_admitted\":false,\"runtime_effect_admitted\":false},\"input_hash\":\"sha256:d28627573e190ebc6bdc9a0ce7ef920e07c6c05cfd3b89a0742b5d8da1fc2a94\",\"output_hash\":\"sha256:2020202020202020202020202020202020202020202020202020202020202020\",\"policy_hash\":\"sha256:83e35978e4d35d664c486e18e18696c81839278ee998e38a2038874ceec651b8\",\"effect_hash\":\"sha256:3a6e54d37bdfa3395f07aa16c0951f27dee4b5f435f6365eae06967ee7d90182\",\"authorized_effect\":{\"operation\":\"materialize_sequence_zero\",\"materialization\":{\"schema_version\":\"ioi.autonomous-system-sequence-zero-materialization.v1\",\"materialization_id\":\"system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"system_id\":\"system://acme/system-alpha\",\"genesis_ref\":\"genesis://acme/system-alpha/zero\",\"genesis_admission_record_root\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"genesis_admission_receipt_ref\":\"receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777\",\"genesis_admission_receipt_root\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"proposed_initial_state_root\":\"sha256:1212121212121212121212121212121212121212121212121212121212121212\",\"proposed_initial_receipt_root\":\"sha256:2323232323232323232323232323232323232323232323232323232323232323\",\"package_id\":\"package://acme/outcome-operator\",\"manifest_ref\":\"package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"admitted_manifest_root\":\"sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b\",\"constitution_ref\":\"constitution://acme/system-alpha/v1\",\"constitution_root\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"profile_bundle_root\":\"sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48\",\"profile_materialization_root\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"deployment_profile_root\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"profile_refs\":{\"network_enrollment_ref\":null,\"lifecycle_continuity_profile_ref\":\"lifecycle-profile://acme/system-alpha/default\",\"oracle_evidence_profile_refs\":[\"oracle-evidence-profile://acme/system-alpha/public-records\"],\"ordering_admission_finality_profile_ref\":\"ordering-profile://acme/system-alpha/poa1\",\"deployment_profile_ref\":\"deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"},\"component_registry_ref\":\"agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_registry_root\":\"sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_binding_count\":4,\"component_bindings\":[{\"kind\":\"goal_run_profile\",\"binding_ref\":\"goal-run-profile://acme/system-alpha/default/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"binding_hash\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"evidence_refs\":[],\"evidence_hashes\":[]},{\"kind\":\"workflow_template\",\"binding_ref\":\"workflow-template://acme/system-alpha/default/revision/sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"binding_hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"evidence_refs\":[],\"evidence_hashes\":[]},{\"kind\":\"harness_profile\",\"binding_ref\":\"harness-profile://acme/system-alpha/default/revision/sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"binding_hash\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"evidence_refs\":[],\"evidence_hashes\":[]},{\"kind\":\"runtime_tool_contract\",\"binding_ref\":\"tool://acme/system-alpha/default/revision/sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"binding_hash\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"evidence_refs\":[],\"evidence_hashes\":[]}],\"sequence\":0,\"predecessor_transition_commitment_ref\":null,\"operation_commitment\":\"sha256:6666666666666666666666666666666666666666666666666666666666666666\",\"transition_commitment_ref\":\"commitment://ioi/system-sequence-zero/sha256:7777777777777777777777777777777777777777777777777777777777777777\",\"initial_state_root\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\",\"initial_receipt_root\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"materialization_receipt_ref\":\"receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"activation_receipt_ref\":null,\"status\":\"materialized_pending_activation\"},\"activation_admitted\":false,\"runtime_effect_admitted\":false},\"wallet_approval_grant\":{\"schema_version\":1,\"authority_id\":[219,79,65,147,122,1,52,168,97,19,202,55,31,33,46,22,113,38,76,163,13,192,242,149,125,68,226,26,81,25,44,238],\"request_hash\":[210,134,39,87,62,25,14,188,107,220,154,12,231,239,146,14,7,198,192,92,253,59,137,160,116,43,93,141,161,252,42,148],\"policy_hash\":[131,227,89,120,228,211,93,102,76,72,110,24,225,134,150,200,24,57,39,142,233,152,227,138,32,56,135,76,238,198,81,184],\"audience\":[3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],\"nonce\":[4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4],\"counter\":1,\"expires_at\":1784548800000,\"max_usages\":1,\"approver_public_key\":[253,23,36,56,90,160,199,91,100,251,120,205,96,47,161,217,145,253,235,247,107,19,197,142,215,2,234,200,53,233,246,24],\"approver_suite\":-8,\"approver_sig\":[20,184,190,106,10,53,124,23,253,28,92,113,82,45,175,160,28,244,5,19,58,98,91,175,103,5,32,28,132,59,10,59,219,61,130,136,2,1,199,135,92,171,41,81,177,95,146,235,4,152,244,234,141,159,239,165,178,67,77,154,88,43,11,12]},\"principal_authority_binding\":{\"schema_version\":1,\"principal_ref\":\"agentgres://domain/acme/research\",\"authority_kind\":\"approval\",\"coordinates\":{\"binding_ref\":\"wallet.network://principal-authority-binding/3dc8682a39fc1a7af4ef21c46af6f8ee3d464e48072aef5d07128b7af13509e4\",\"binding_version\":1,\"binding_hash\":[61,200,104,42,57,252,26,122,244,239,33,196,106,246,248,238,61,70,78,72,7,42,239,93,7,18,139,122,241,53,9,228]},\"required_scope\":\"scope:autonomous_system.genesis_materialize\",\"matched_scope\":\"scope:autonomous_system.genesis_materialize\",\"approval_authority\":{\"schema_version\":1,\"authority_id\":[219,79,65,147,122,1,52,168,97,19,202,55,31,33,46,22,113,38,76,163,13,192,242,149,125,68,226,26,81,25,44,238],\"public_key\":[253,23,36,56,90,160,199,91,100,251,120,205,96,47,161,217,145,253,235,247,107,19,197,142,215,2,234,200,53,233,246,24],\"signature_suite\":-8,\"expires_at\":1784548800000,\"revoked\":false,\"scope_allowlist\":[\"scope:autonomous_system.genesis_materialize\"]},\"approval_authority_snapshot_hash\":[195,34,101,132,126,155,116,25,212,249,137,134,100,106,160,204,169,148,48,253,7,94,53,201,209,46,127,39,145,51,124,244],\"binding_proof\":{\"schema_version\":1,\"statement\":{\"schema_version\":1,\"principal_ref\":\"agentgres://domain/acme/research\",\"authority_kind\":\"approval\",\"binding_version\":1,\"status\":\"active\",\"authority_id\":[219,79,65,147,122,1,52,168,97,19,202,55,31,33,46,22,113,38,76,163,13,192,242,149,125,68,226,26,81,25,44,238],\"authority_public_key\":[253,23,36,56,90,160,199,91,100,251,120,205,96,47,161,217,145,253,235,247,107,19,197,142,215,2,234,200,53,233,246,24],\"authority_signature_suite\":-8,\"approval_authority_snapshot_hash\":[195,34,101,132,126,155,116,25,212,249,137,134,100,106,160,204,169,148,48,253,7,94,53,201,209,46,127,39,145,51,124,244],\"signed_at_ms\":1784462400000,\"expires_at_ms\":1784548800000,\"issuer_root_account_id\":[109,251,167,30,168,49,141,153,53,187,19,174,74,201,69,116,138,138,29,36,170,112,9,231,248,48,177,155,160,27,31,233],\"reason\":\"Held PR 91 portable architecture-contract fixture\"},\"statement_hash\":[137,110,121,59,31,59,121,45,109,185,227,108,180,217,188,70,191,38,245,133,141,38,29,98,243,176,203,157,118,126,182,60],\"issuer_signature_proof\":{\"suite\":-8,\"public_key\":[234,74,108,99,226,156,82,10,190,245,80,123,19,46,197,249,149,71,118,174,190,190,123,146,66,30,234,105,20,70,210,44],\"signature\":[28,49,2,13,185,200,151,17,200,51,27,61,122,111,196,58,93,132,56,145,168,143,26,38,68,238,91,71,177,94,63,1,33,40,73,39,6,9,92,89,8,106,66,163,129,145,100,58,203,46,158,39,49,232,9,136,178,56,55,234,191,13,55,15]},\"binding_ref\":\"wallet.network://principal-authority-binding/3dc8682a39fc1a7af4ef21c46af6f8ee3d464e48072aef5d07128b7af13509e4\",\"binding_hash\":[61,200,104,42,57,252,26,122,244,239,33,196,106,246,248,238,61,70,78,72,7,42,239,93,7,18,139,122,241,53,9,228]}},\"authority_resolved_at_ms\":1784462400000,\"hash_scope_excludes\":[],\"assurance_posture\":\"sequence_zero_materialized_not_activated\",\"assurance_note\":\"governed materialization of immutable activation candidates and sequence-zero roots; active-profile admission, initialize, activation, live-chain, membership, network, and runtime effects remain unadmitted\",\"verification_ref\":null,\"acceptance_ref\":null,\"claim_scope_ref\":null,\"run_id\":null,\"task_id\":null,\"authority_grant_id\":\"grant://wallet.network/approval/sha256:532a589db6bbe43e6ec16fc94d68764c05f8b389532318a1f2d3586286f85e28\",\"primitive_capabilities\":[],\"authority_scopes\":[\"scope:autonomous_system.genesis_materialize\"],\"artifact_refs\":[],\"evidence_bundle_refs\":[],\"adjudication_ref\":null,\"settlement_ref\":null,\"signature\":null,\"public_commitment_ref\":null,\"timestamp\":\"2026-07-19T12:00:00Z\",\"outcome\":\"ok\",\"at\":\"2026-07-19T12:00:00Z\"}"
+  }
+];
+
+export type ArchitectureContractJcsDifferentialCase = {
+  id: string;
+  value_json: string;
+  expected_canonical: string;
+};
+
+export const ARCHITECTURE_CONTRACT_JCS_DIFFERENTIAL_CASES: ReadonlyArray<ArchitectureContractJcsDifferentialCase> = [
+  {
+    "id": "jcs-non-bmp-key-order",
+    "value_json": "{\"\":\"private-use-bmp\",\"😀\":\"astral\"}",
+    "expected_canonical": "{\"😀\":\"astral\",\"\":\"private-use-bmp\"}"
   }
 ];
 
@@ -4378,6 +6376,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Za-z0-9_-]{86}$",
   "^[A-Za-z0-9_.-]+$",
   "^[^\\s][ -~]{0,2047}$",
+  "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9+.-]*://\\S+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
@@ -4423,6 +6422,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^grant://[A-Za-z0-9._~:/-]+$",
   "^grant://[^\\s]+$",
   "^grant://[^\\s]{1,248}$",
+  "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$",
   "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^ifc-label://[A-Za-z0-9._~:/-]+$",
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -4508,8 +6508,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-manifest/v1": "sha256:7560d4cf80b893c89133a6a3afddd523207791778da7fdc594e71bed18ebdc26",
   "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1": "sha256:448e4c665241863cc775ada805e2ca73ff4fc9cbd29a58118722e9fefe0b3397",
   "schema://ioi/foundations/autonomous-system-genesis/v1": "sha256:843897a91ec65f41c794cb01ddeca43b91bd6c3586cd3d392d1643efb938acc5",
-  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1": "sha256:0a9d7b65c19517fc262f418dade61045576870c16bbe5aedf361de756904934c",
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1": "sha256:bab0aeecfaa284f7b92c0f98b7032b1d2c98aba644384495ded21e4c93ee8fad",
   "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1": "sha256:5c2b92e46afbb548fdd790cc5a581a5e6821e6ee074773db167b8d4d7ff308eb",
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2": "sha256:16b4292749f5245979b642e112a3aa2ada1e59e34d2c20fa2103e95447a242d8",
   "schema://ioi/foundations/autonomous-system-constitution/v1": "sha256:ac6b394c4664e90cece1792eeb6857d99087a56e019368b70077001dffc4e36c",
   "schema://ioi/foundations/autonomous-system-constitution-amendment/v1": "sha256:d84937bb5651c4c4dabae249b639928b61bb3e5b950b00151df4bbbe2996a67b",
   "schema://ioi/foundations/ordering-admission-finality-profile/v1": "sha256:c2cf0f68516971e4bd87938da7bee04bac25a5995c501044bf3a2a0da5e65af3",
@@ -10926,7 +12927,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "$ref": "#/$defs/hash"
       },
       "materialization_receipt_ref": {
-        "$ref": "#/$defs/receiptRef"
+        "$ref": "#/$defs/materializationReceiptRef"
       },
       "activation_receipt_ref": {
         "type": "null"
@@ -11024,9 +13025,13 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "string",
         "pattern": "^receipt://[^\\s]{1,248}$"
       },
+      "materializationReceiptRef": {
+        "type": "string",
+        "pattern": "^receipt://aszmr_[0-9a-f]{64}$"
+      },
       "deploymentProfileRef": {
         "type": "string",
-        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+        "pattern": "^deployment-profile://[^\\s]{1,248}$"
       },
       "orderingProfileRef": {
         "type": "string",
@@ -12159,6 +14164,1510 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "grantRef": {
         "type": "string",
         "pattern": "^grant://[^\\s]{1,248}$"
+      },
+      "primitiveCapability": {
+        "type": "string",
+        "pattern": "^prim:[a-z][a-z0-9._-]*$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,248}$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,248}$"
+      },
+      "publicCommitmentRef": {
+        "type": "string",
+        "pattern": "^(?:commitment|settlement|tx)://[^\\s]{1,248}$"
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
+    "title": "AutonomousSystemSequenceZeroMaterializationReceipt",
+    "description": "Closed portable receipt profile extending ReceiptEnvelope v1 with the exact governed M1.4 pre-activation materialization facts and retained owner-plane authority evidence.",
+    "x-ioi-schema-version": "ioi.autonomous-system-sequence-zero-materialization-receipt.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "receipt_ref",
+      "receipt_type",
+      "receipt_profile_ref",
+      "actor_id",
+      "subject_ref",
+      "op",
+      "attested_boundary_fact_refs",
+      "bound_facts",
+      "input_hash",
+      "output_hash",
+      "policy_hash",
+      "effect_hash",
+      "authorized_effect",
+      "wallet_approval_grant",
+      "principal_authority_binding",
+      "authority_resolved_at_ms",
+      "hash_scope_excludes",
+      "assurance_posture",
+      "assurance_note",
+      "verification_ref",
+      "acceptance_ref",
+      "claim_scope_ref",
+      "run_id",
+      "task_id",
+      "authority_grant_id",
+      "primitive_capabilities",
+      "authority_scopes",
+      "artifact_refs",
+      "evidence_bundle_refs",
+      "adjudication_ref",
+      "settlement_ref",
+      "signature",
+      "public_commitment_ref",
+      "timestamp",
+      "outcome",
+      "at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-sequence-zero-materialization-receipt.v2"
+      },
+      "receipt_id": {
+        "$ref": "#/$defs/materializationReceiptRef"
+      },
+      "receipt_ref": {
+        "$ref": "#/$defs/materializationReceiptRef"
+      },
+      "receipt_type": {
+        "const": "autonomous_system_sequence_zero_materialization"
+      },
+      "receipt_profile_ref": {
+        "const": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"
+      },
+      "actor_id": {
+        "const": "runtime://hypervisor-runtime"
+      },
+      "subject_ref": {
+        "$ref": "#/$defs/materializationRef"
+      },
+      "op": {
+        "const": "materialized"
+      },
+      "attested_boundary_fact_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "bound_facts": {
+        "$ref": "#/$defs/materializationFacts"
+      },
+      "input_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "output_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "effect_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authorized_effect": {
+        "$ref": "#/$defs/authorizedEffect"
+      },
+      "wallet_approval_grant": {
+        "$ref": "#/$defs/walletApprovalGrant"
+      },
+      "principal_authority_binding": {
+        "$ref": "#/$defs/principalAuthorityBinding"
+      },
+      "authority_resolved_at_ms": {
+        "$ref": "#/$defs/portableInteger"
+      },
+      "hash_scope_excludes": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "maxItems": 0,
+        "uniqueItems": true
+      },
+      "assurance_posture": {
+        "const": "sequence_zero_materialized_not_activated"
+      },
+      "assurance_note": {
+        "const": "governed materialization of immutable activation candidates and sequence-zero roots; active-profile admission, initialize, activation, live-chain, membership, network, and runtime effects remain unadmitted"
+      },
+      "verification_ref": {
+        "type": "null"
+      },
+      "acceptance_ref": {
+        "type": "null"
+      },
+      "claim_scope_ref": {
+        "type": "null"
+      },
+      "run_id": {
+        "type": "null"
+      },
+      "task_id": {
+        "type": "null"
+      },
+      "authority_grant_id": {
+        "$ref": "#/$defs/grantRef"
+      },
+      "primitive_capabilities": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/primitiveCapability"
+        },
+        "maxItems": 0,
+        "uniqueItems": true
+      },
+      "authority_scopes": {
+        "type": "array",
+        "items": {
+          "const": "scope:autonomous_system.genesis_materialize"
+        },
+        "minItems": 1,
+        "maxItems": 1,
+        "uniqueItems": true
+      },
+      "artifact_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "maxItems": 0,
+        "uniqueItems": true
+      },
+      "evidence_bundle_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/evidenceRef"
+        },
+        "maxItems": 0,
+        "uniqueItems": true
+      },
+      "adjudication_ref": {
+        "type": "null"
+      },
+      "settlement_ref": {
+        "type": "null"
+      },
+      "signature": {
+        "type": "null"
+      },
+      "public_commitment_ref": {
+        "type": "null"
+      },
+      "timestamp": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "outcome": {
+        "const": "ok"
+      },
+      "at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "authorizedEffect": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation",
+          "materialization",
+          "activation_admitted",
+          "runtime_effect_admitted"
+        ],
+        "properties": {
+          "operation": {
+            "const": "materialize_sequence_zero"
+          },
+          "materialization": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema_version",
+              "materialization_id",
+              "system_id",
+              "genesis_ref",
+              "genesis_admission_receipt_ref",
+              "genesis_admission_record_root",
+              "genesis_admission_receipt_root",
+              "proposed_initial_state_root",
+              "proposed_initial_receipt_root",
+              "package_id",
+              "manifest_ref",
+              "admitted_manifest_root",
+              "constitution_ref",
+              "constitution_root",
+              "profile_bundle_root",
+              "profile_materialization_root",
+              "deployment_profile_root",
+              "profile_refs",
+              "component_registry_ref",
+              "component_registry_root",
+              "component_binding_count",
+              "component_bindings",
+              "sequence",
+              "predecessor_transition_commitment_ref",
+              "operation_commitment",
+              "transition_commitment_ref",
+              "initial_state_root",
+              "initial_receipt_root",
+              "materialization_receipt_ref",
+              "activation_receipt_ref",
+              "status"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "ioi.autonomous-system-sequence-zero-materialization.v1"
+              },
+              "materialization_id": {
+                "$ref": "#/$defs/materializationRef"
+              },
+              "system_id": {
+                "$ref": "#/$defs/systemRef"
+              },
+              "genesis_ref": {
+                "$ref": "#/$defs/genesisRef"
+              },
+              "genesis_admission_record_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "genesis_admission_receipt_ref": {
+                "$ref": "#/$defs/receiptRef"
+              },
+              "genesis_admission_receipt_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "proposed_initial_state_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "proposed_initial_receipt_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "package_id": {
+                "$ref": "#/$defs/packageRef"
+              },
+              "manifest_ref": {
+                "$ref": "#/$defs/packageReleaseRef"
+              },
+              "admitted_manifest_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "constitution_ref": {
+                "$ref": "#/$defs/constitutionRef"
+              },
+              "constitution_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "profile_bundle_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "profile_materialization_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "deployment_profile_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "profile_refs": {
+                "$ref": "#/$defs/profileRefs"
+              },
+              "component_registry_ref": {
+                "$ref": "#/$defs/componentRegistryRef"
+              },
+              "component_registry_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "component_binding_count": {
+                "$ref": "#/$defs/portableInteger"
+              },
+              "component_bindings": {
+                "type": "array",
+                "maxItems": 1024,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/componentBinding"
+                }
+              },
+              "sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 0
+              },
+              "predecessor_transition_commitment_ref": {
+                "type": "null"
+              },
+              "operation_commitment": {
+                "$ref": "#/$defs/hash"
+              },
+              "transition_commitment_ref": {
+                "$ref": "#/$defs/transitionCommitmentRef"
+              },
+              "initial_state_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "initial_receipt_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "materialization_receipt_ref": {
+                "$ref": "#/$defs/materializationReceiptRef"
+              },
+              "activation_receipt_ref": {
+                "type": "null"
+              },
+              "status": {
+                "const": "materialized_pending_activation"
+              }
+            }
+          },
+          "activation_admitted": {
+            "const": false
+          },
+          "runtime_effect_admitted": {
+            "const": false
+          }
+        }
+      },
+      "walletApprovalGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "authority_id",
+          "request_hash",
+          "policy_hash",
+          "audience",
+          "nonce",
+          "counter",
+          "expires_at",
+          "max_usages",
+          "approver_public_key",
+          "approver_sig",
+          "approver_suite"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "authority_id": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "request_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "policy_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "audience": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "nonce": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "counter": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "expires_at": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "max_usages": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "window_id": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "pii_action": {
+            "enum": [
+              "approve_transform",
+              "deny",
+              "grant_scoped_exception"
+            ]
+          },
+          "scoped_exception": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "exception_id",
+              "allowed_classes",
+              "destination_hash",
+              "action_hash",
+              "expires_at",
+              "max_uses",
+              "justification_hash"
+            ],
+            "properties": {
+              "exception_id": {
+                "type": "string"
+              },
+              "allowed_classes": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "api_key",
+                        "secret_token",
+                        "email",
+                        "phone",
+                        "ssn",
+                        "card_pan",
+                        "name",
+                        "address"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "custom"
+                      ],
+                      "properties": {
+                        "custom": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "destination_hash": {
+                "$ref": "#/$defs/bytes32"
+              },
+              "action_hash": {
+                "$ref": "#/$defs/bytes32"
+              },
+              "expires_at": {
+                "$ref": "#/$defs/portableInteger"
+              },
+              "max_uses": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "justification_hash": {
+                "$ref": "#/$defs/bytes32"
+              }
+            }
+          },
+          "review_request_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "approver_public_key": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          },
+          "approver_sig": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          },
+          "approver_suite": {
+            "$ref": "#/$defs/signatureSuite"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "approver_suite": {
+                  "enum": [
+                    -8
+                  ]
+                }
+              },
+              "required": [
+                "approver_suite"
+              ]
+            },
+            "then": {
+              "properties": {
+                "approver_public_key": {
+                  "$ref": "#/$defs/bytes32"
+                },
+                "approver_sig": {
+                  "$ref": "#/$defs/ed25519Signature"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "principalAuthorityBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "principal_ref",
+          "authority_kind",
+          "coordinates",
+          "required_scope",
+          "matched_scope",
+          "approval_authority",
+          "approval_authority_snapshot_hash",
+          "binding_proof"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "principal_ref": {
+            "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+          },
+          "authority_kind": {
+            "const": "approval"
+          },
+          "coordinates": {
+            "$ref": "#/$defs/principalAuthorityCoordinates"
+          },
+          "required_scope": {
+            "const": "scope:autonomous_system.genesis_materialize"
+          },
+          "matched_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approval_authority": {
+            "$ref": "#/$defs/approvalAuthority"
+          },
+          "approval_authority_snapshot_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "binding_proof": {
+            "$ref": "#/$defs/principalAuthorityBindingProof"
+          }
+        }
+      },
+      "principalAuthorityCoordinates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "binding_ref",
+          "binding_version",
+          "binding_hash"
+        ],
+        "properties": {
+          "binding_ref": {
+            "$ref": "#/$defs/principalAuthorityBindingRef"
+          },
+          "binding_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "binding_hash": {
+            "$ref": "#/$defs/bytes32"
+          }
+        }
+      },
+      "approvalAuthority": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "authority_id",
+          "public_key",
+          "signature_suite",
+          "expires_at",
+          "revoked",
+          "scope_allowlist"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "authority_id": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "public_key": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          },
+          "signature_suite": {
+            "$ref": "#/$defs/signatureSuite"
+          },
+          "expires_at": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "revoked": {
+            "const": false
+          },
+          "scope_allowlist": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "maxItems": 256,
+            "uniqueItems": true
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "signature_suite": {
+                  "enum": [
+                    -8
+                  ]
+                }
+              },
+              "required": [
+                "signature_suite"
+              ]
+            },
+            "then": {
+              "properties": {
+                "public_key": {
+                  "$ref": "#/$defs/bytes32"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "principalAuthorityBindingProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "statement",
+          "statement_hash",
+          "issuer_signature_proof",
+          "binding_ref",
+          "binding_hash"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "statement": {
+            "$ref": "#/$defs/principalAuthorityBindingStatement"
+          },
+          "statement_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "issuer_signature_proof": {
+            "$ref": "#/$defs/signatureProof"
+          },
+          "binding_ref": {
+            "$ref": "#/$defs/principalAuthorityBindingRef"
+          },
+          "binding_hash": {
+            "$ref": "#/$defs/bytes32"
+          }
+        }
+      },
+      "principalAuthorityBindingStatement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "principal_ref",
+          "authority_kind",
+          "binding_version",
+          "status",
+          "authority_id",
+          "authority_public_key",
+          "authority_signature_suite",
+          "approval_authority_snapshot_hash",
+          "signed_at_ms",
+          "expires_at_ms",
+          "issuer_root_account_id"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "principal_ref": {
+            "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+          },
+          "authority_kind": {
+            "const": "approval"
+          },
+          "binding_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "const": "active"
+          },
+          "authority_id": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "authority_public_key": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          },
+          "authority_signature_suite": {
+            "$ref": "#/$defs/signatureSuite"
+          },
+          "approval_authority_snapshot_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "previous_binding_ref": {
+            "$ref": "#/$defs/principalAuthorityBindingRef"
+          },
+          "previous_binding_hash": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "signed_at_ms": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "expires_at_ms": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "issuer_root_account_id": {
+            "$ref": "#/$defs/bytes32"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "authority_signature_suite": {
+                  "enum": [
+                    -8
+                  ]
+                }
+              },
+              "required": [
+                "authority_signature_suite"
+              ]
+            },
+            "then": {
+              "properties": {
+                "authority_public_key": {
+                  "$ref": "#/$defs/bytes32"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "signatureProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "suite",
+          "public_key",
+          "signature"
+        ],
+        "properties": {
+          "suite": {
+            "$ref": "#/$defs/signatureSuite"
+          },
+          "public_key": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          },
+          "signature": {
+            "$ref": "#/$defs/nonEmptyBytes"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "suite": {
+                  "enum": [
+                    -8
+                  ]
+                }
+              },
+              "required": [
+                "suite"
+              ]
+            },
+            "then": {
+              "properties": {
+                "public_key": {
+                  "$ref": "#/$defs/bytes32"
+                },
+                "signature": {
+                  "$ref": "#/$defs/ed25519Signature"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "signatureSuite": {
+        "type": "integer",
+        "enum": [
+          -200,
+          -17,
+          -8
+        ]
+      },
+      "byte": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255
+      },
+      "bytes32": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/byte"
+        },
+        "minItems": 32,
+        "maxItems": 32
+      },
+      "nonEmptyBytes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/byte"
+        },
+        "minItems": 1,
+        "maxItems": 8192
+      },
+      "ed25519Signature": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/byte"
+        },
+        "minItems": 64,
+        "maxItems": 64
+      },
+      "principalAuthorityBindingRef": {
+        "type": "string",
+        "pattern": "^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$"
+      },
+      "componentBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "binding_ref",
+          "binding_hash",
+          "evidence_refs",
+          "evidence_hashes"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "goal_run_profile",
+              "workflow_template",
+              "automation_spec",
+              "automation_installation",
+              "harness_profile",
+              "agent_harness_adapter",
+              "skill_entry",
+              "data_recipe",
+              "runtime_tool_contract",
+              "mcp_gateway_profile"
+            ]
+          },
+          "binding_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "binding_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/canonicalRef"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "evidence_hashes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/hash"
+            },
+            "maxItems": 16,
+            "uniqueItems": true
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "goal_run_profile"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/goalRunProfileRef"
+                }
+              },
+              "required": [
+                "binding_ref"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "workflow_template"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/workflowTemplateRef"
+                }
+              },
+              "required": [
+                "binding_ref"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "automation_spec"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/automationSpecRef"
+                }
+              },
+              "required": [
+                "binding_ref"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "automation_installation"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/automationInstallationRef"
+                }
+              },
+              "required": [
+                "binding_ref"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "harness_profile"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/harnessProfileRef"
+                }
+              },
+              "required": [
+                "binding_ref"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "agent_harness_adapter"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/agentHarnessAdapterRef"
+                }
+              },
+              "required": [
+                "binding_ref"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "skill_entry"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/skillEntryRef"
+                }
+              },
+              "required": [
+                "binding_ref"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "data_recipe"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/dataRecipeRef"
+                }
+              },
+              "required": [
+                "binding_ref"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "runtime_tool_contract"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/runtimeToolContractRef"
+                }
+              },
+              "required": [
+                "binding_ref"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "mcp_gateway_profile"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "binding_ref": {
+                  "$ref": "#/$defs/mcpGatewayProfileRef"
+                }
+              },
+              "required": [
+                "binding_ref"
+              ]
+            }
+          }
+        ]
+      },
+      "materializationFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "materialization_id",
+          "materialization_output_hash",
+          "governing_authority_ref",
+          "authority_effect_hash",
+          "system_id",
+          "genesis_ref",
+          "genesis_admission_record_root",
+          "genesis_admission_receipt_ref",
+          "genesis_admission_receipt_root",
+          "proposed_initial_state_root",
+          "proposed_initial_receipt_root",
+          "package_id",
+          "manifest_ref",
+          "admitted_manifest_root",
+          "constitution_ref",
+          "constitution_root",
+          "profile_bundle_root",
+          "profile_materialization_root",
+          "deployment_profile_root",
+          "profile_refs",
+          "component_registry_ref",
+          "component_registry_root",
+          "component_binding_count",
+          "sequence",
+          "predecessor_transition_commitment_ref",
+          "operation_commitment",
+          "transition_commitment_ref",
+          "initial_state_root",
+          "initial_receipt_root",
+          "wallet_grant_consumption_ref",
+          "wallet_grant_consumption_evidence_ref",
+          "materialized_pending_activation",
+          "active_profile_admission",
+          "initialize_admitted",
+          "activation_admitted",
+          "live_chain_created",
+          "node_membership_created",
+          "network_effect_admitted",
+          "runtime_effect_admitted"
+        ],
+        "properties": {
+          "materialization_id": {
+            "$ref": "#/$defs/materializationRef"
+          },
+          "materialization_output_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "governing_authority_ref": {
+            "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+          },
+          "authority_effect_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "system_id": {
+            "$ref": "#/$defs/systemRef"
+          },
+          "genesis_ref": {
+            "$ref": "#/$defs/genesisRef"
+          },
+          "genesis_admission_record_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "genesis_admission_receipt_ref": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "genesis_admission_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "proposed_initial_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "proposed_initial_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "package_id": {
+            "$ref": "#/$defs/packageRef"
+          },
+          "manifest_ref": {
+            "$ref": "#/$defs/packageReleaseRef"
+          },
+          "admitted_manifest_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "constitution_ref": {
+            "$ref": "#/$defs/constitutionRef"
+          },
+          "constitution_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "profile_bundle_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "profile_materialization_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "deployment_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "profile_refs": {
+            "$ref": "#/$defs/profileRefs"
+          },
+          "component_registry_ref": {
+            "$ref": "#/$defs/componentRegistryRef"
+          },
+          "component_registry_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "component_binding_count": {
+            "$ref": "#/$defs/portableInteger"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 0
+          },
+          "predecessor_transition_commitment_ref": {
+            "type": "null"
+          },
+          "operation_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "transition_commitment_ref": {
+            "$ref": "#/$defs/transitionCommitmentRef"
+          },
+          "initial_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "initial_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "wallet_grant_consumption_ref": {
+            "$ref": "#/$defs/walletGrantConsumptionRef"
+          },
+          "wallet_grant_consumption_evidence_ref": {
+            "$ref": "#/$defs/walletGrantConsumptionEvidenceRef"
+          },
+          "materialized_pending_activation": {
+            "const": true
+          },
+          "active_profile_admission": {
+            "const": false
+          },
+          "initialize_admitted": {
+            "const": false
+          },
+          "activation_admitted": {
+            "const": false
+          },
+          "live_chain_created": {
+            "const": false
+          },
+          "node_membership_created": {
+            "const": false
+          },
+          "network_effect_admitted": {
+            "const": false
+          },
+          "runtime_effect_admitted": {
+            "const": false
+          }
+        }
+      },
+      "profileRefs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deployment_profile_ref",
+          "ordering_admission_finality_profile_ref",
+          "oracle_evidence_profile_refs",
+          "lifecycle_continuity_profile_ref",
+          "network_enrollment_ref"
+        ],
+        "properties": {
+          "deployment_profile_ref": {
+            "$ref": "#/$defs/deploymentProfileRef"
+          },
+          "ordering_admission_finality_profile_ref": {
+            "$ref": "#/$defs/orderingProfileRef"
+          },
+          "oracle_evidence_profile_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/oracleProfileRef"
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "lifecycle_continuity_profile_ref": {
+            "$ref": "#/$defs/lifecycleProfileRef"
+          },
+          "network_enrollment_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/networkEnrollmentRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "portableInteger": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "goalRunProfileRef": {
+        "type": "string",
+        "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "workflowTemplateRef": {
+        "type": "string",
+        "pattern": "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "automationSpecRef": {
+        "type": "string",
+        "pattern": "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "automationInstallationRef": {
+        "type": "string",
+        "pattern": "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "harnessProfileRef": {
+        "type": "string",
+        "pattern": "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "agentHarnessAdapterRef": {
+        "type": "string",
+        "pattern": "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "skillEntryRef": {
+        "type": "string",
+        "pattern": "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "dataRecipeRef": {
+        "type": "string",
+        "pattern": "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "runtimeToolContractRef": {
+        "type": "string",
+        "pattern": "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "mcpGatewayProfileRef": {
+        "type": "string",
+        "pattern": "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "materializationReceiptRef": {
+        "type": "string",
+        "pattern": "^receipt://aszmr_[0-9a-f]{64}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "materializationRef": {
+        "type": "string",
+        "pattern": "^system-materialization://sequence-zero/sha256:[0-9a-f]{64}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "packageRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s]{1,248}$"
+      },
+      "packageReleaseRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "deploymentProfileRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s]{1,248}$"
+      },
+      "orderingProfileRef": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "oracleProfileRef": {
+        "type": "string",
+        "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+      },
+      "lifecycleProfileRef": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "networkEnrollmentRef": {
+        "type": "string",
+        "pattern": "^network-enrollment://[^\\s]{1,248}$"
+      },
+      "componentRegistryRef": {
+        "type": "string",
+        "pattern": "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$"
+      },
+      "transitionCommitmentRef": {
+        "type": "string",
+        "pattern": "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$"
+      },
+      "walletGrantConsumptionRef": {
+        "type": "string",
+        "pattern": "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$"
+      },
+      "walletGrantConsumptionEvidenceRef": {
+        "type": "string",
+        "pattern": "^system-sequence-zero-authority-consumption://aszmc_[0-9a-f]{64}$"
+      },
+      "protocolPrincipalOrRuntimeRef": {
+        "type": "string",
+        "maxLength": 300,
+        "pattern": "^(?:(?:worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$"
+      },
+      "grantRef": {
+        "type": "string",
+        "pattern": "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"
       },
       "primitiveCapability": {
         "type": "string",
@@ -15694,9 +19203,30 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
     {
       "rule_id": "deployment-profile-ref-binds-deployment-root",
       "expression": {
-        "operator": "field_ends_with",
-        "path": "$.profile_refs.deployment_profile_ref",
-        "expected_path": "$.deployment_profile_root"
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "field_suffix_equals_prefixed_field",
+            "source_path": "$.profile_refs.deployment_profile_ref",
+            "delimiter": "/revision/sha256:",
+            "target_path": "$.deployment_profile_root",
+            "target_prefix": "sha256:"
+          },
+          {
+            "operator": "jcs_sha256_equals",
+            "algorithm": "jcs_sha256",
+            "material_fields": {
+              "domain": {
+                "value": "ioi.autonomous-system-legacy-deployment-profile-ref-jcs-sha256.v1"
+              },
+              "value": {
+                "path": "$.profile_refs.deployment_profile_ref"
+              }
+            },
+            "expected_path": "$.deployment_profile_root",
+            "expected_encoding": "sha256_string"
+          }
+        ]
       }
     }
   ],
@@ -15882,6 +19412,746 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "paths": [
           "$.bound_facts.transition_commitment_ref",
           "$.authorized_effect.materialization.transition_commitment_ref"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2": [
+    {
+      "rule_id": "sequence_zero_materialization_receipt.identity.matches_ref",
+      "description": "The storage-facing receipt_ref exactly mirrors canonical ReceiptEnvelope receipt_id.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.timestamp.matches_at",
+      "description": "The storage-facing at field exactly mirrors canonical ReceiptEnvelope timestamp.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.timestamp",
+          "$.at"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.subject.matches_bound_materialization",
+      "description": "The receipt subject is the exact materialization identity bound by the receipt.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.subject_ref",
+          "$.bound_facts.materialization_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.subject.matches_authorized_effect",
+      "description": "The governed effect addresses the exact receipt subject.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.subject_ref",
+          "$.authorized_effect.materialization.materialization_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.output_hash.matches_bound_output",
+      "description": "The ReceiptEnvelope output hash mirrors the finalized materialization hash.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.output_hash",
+          "$.bound_facts.materialization_output_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_hash.matches_bound_effect",
+      "description": "The governed effect hash mirrors the bound owner-plane effect commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.effect_hash",
+          "$.bound_facts.authority_effect_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority.matches_binding",
+      "description": "The retained authority binding resolves the receipt's exact governing authority.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.bound_facts.governing_authority_ref",
+          "$.principal_authority_binding.principal_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_authority.matches_snapshot",
+      "description": "The retained grant authority equals the root-bound ApprovalAuthority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.authority_id",
+          "$.principal_authority_binding.approval_authority.authority_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_key.matches_snapshot",
+      "description": "The retained grant key equals the root-bound ApprovalAuthority key.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.approver_public_key",
+          "$.principal_authority_binding.approval_authority.public_key"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_suite.matches_snapshot",
+      "description": "The retained grant suite equals the root-bound ApprovalAuthority suite.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.wallet_approval_grant.approver_suite",
+          "$.principal_authority_binding.approval_authority.signature_suite"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_principal.matches_statement",
+      "description": "The stable binding projection and immutable statement name one principal.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.principal_ref",
+          "$.principal_authority_binding.binding_proof.statement.principal_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_snapshot.matches_statement",
+      "description": "The stable binding projection and immutable statement bind one authority snapshot.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.approval_authority_snapshot_hash",
+          "$.principal_authority_binding.binding_proof.statement.approval_authority_snapshot_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.materialization_facts.match_effect",
+      "description": "Every materialization field duplicated into bound_facts exactly matches the authorized materialization.",
+      "expression": {
+        "operator": "object_fields_equal",
+        "object_paths": [
+          "$.bound_facts",
+          "$.authorized_effect.materialization"
+        ],
+        "fields": [
+          "materialization_id",
+          "system_id",
+          "genesis_ref",
+          "genesis_admission_receipt_ref",
+          "genesis_admission_record_root",
+          "genesis_admission_receipt_root",
+          "proposed_initial_state_root",
+          "proposed_initial_receipt_root",
+          "package_id",
+          "manifest_ref",
+          "admitted_manifest_root",
+          "constitution_ref",
+          "constitution_root",
+          "profile_bundle_root",
+          "profile_materialization_root",
+          "deployment_profile_root",
+          "profile_refs",
+          "component_registry_ref",
+          "component_registry_root",
+          "component_binding_count",
+          "sequence",
+          "predecessor_transition_commitment_ref",
+          "operation_commitment",
+          "transition_commitment_ref",
+          "initial_state_root",
+          "initial_receipt_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_receipt_ref.matches_receipt",
+      "description": "The embedded materialization names this exact materialization receipt.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.authorized_effect.materialization.materialization_receipt_ref",
+          "$.receipt_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_materialization_id.binds_genesis_root",
+      "description": "The embedded materialization identity binds its admitted genesis record root.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.authorized_effect.materialization.materialization_id",
+        "prefix": "system-materialization://sequence-zero/",
+        "expected_path": "$.authorized_effect.materialization.genesis_admission_record_root"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_registry_ref.binds_registry_root",
+      "description": "The embedded component registry reference binds its exact registry root.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.authorized_effect.materialization.component_registry_ref",
+        "prefix": "agentgres://object-set/autonomous-system-components/",
+        "expected_path": "$.authorized_effect.materialization.component_registry_root"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_component_count.matches_array",
+      "description": "The embedded component binding count equals its exact component array length.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.authorized_effect.materialization.component_bindings",
+        "count_path": "$.authorized_effect.materialization.component_binding_count"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_component_identities.unique",
+      "description": "The embedded materialization cannot duplicate a component kind and reference identity.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.authorized_effect.materialization.component_bindings",
+        "fields": [
+          "kind",
+          "binding_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_deployment_ref.binds_root",
+      "description": "The embedded deployment root is either the direct content-addressed revision digest or the domain-separated compatibility commitment over the exact retained legacy reference.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "field_suffix_equals_prefixed_field",
+            "source_path": "$.authorized_effect.materialization.profile_refs.deployment_profile_ref",
+            "delimiter": "/revision/sha256:",
+            "target_path": "$.authorized_effect.materialization.deployment_profile_root",
+            "target_prefix": "sha256:"
+          },
+          {
+            "operator": "jcs_sha256_equals",
+            "algorithm": "jcs_sha256",
+            "material_fields": {
+              "domain": {
+                "value": "ioi.autonomous-system-legacy-deployment-profile-ref-jcs-sha256.v1"
+              },
+              "value": {
+                "path": "$.authorized_effect.materialization.profile_refs.deployment_profile_ref"
+              }
+            },
+            "expected_path": "$.authorized_effect.materialization.deployment_profile_root",
+            "expected_encoding": "sha256_string"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.effect_hash.recomputes",
+      "description": "The effect hash is SHA-256 over JCS of the exact domain-separated authorized effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-sequence-zero.decision.request.v1.effect.v1"
+          },
+          "effect": {
+            "path": "$.authorized_effect"
+          }
+        },
+        "expected_path": "$.effect_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.policy_hash.recomputes",
+      "description": "The policy hash is SHA-256 over JCS of the exact owner-governed materialization policy.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-sequence-zero.decision.policy.v1"
+          },
+          "governance": {
+            "value": "system_owner"
+          },
+          "genesis_id": {
+            "path": "$.bound_facts.genesis_ref"
+          },
+          "system_id": {
+            "path": "$.bound_facts.system_id"
+          },
+          "required_authority_ref": {
+            "path": "$.bound_facts.governing_authority_ref"
+          },
+          "required_scope": {
+            "path": "$.principal_authority_binding.required_scope"
+          }
+        },
+        "expected_path": "$.policy_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.request_hash.recomputes",
+      "description": "The input hash is SHA-256 over JCS of the exact owner-governed materialization request.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-sequence-zero.decision.request.v1"
+          },
+          "governance": {
+            "value": "system_owner"
+          },
+          "subject_ref": {
+            "path": "$.subject_ref"
+          },
+          "op": {
+            "value": "genesis_materialize"
+          },
+          "revision": {
+            "value": 0
+          },
+          "required_authority_ref": {
+            "path": "$.bound_facts.governing_authority_ref"
+          },
+          "required_scope": {
+            "path": "$.principal_authority_binding.required_scope"
+          },
+          "effect_hash": {
+            "path": "$.effect_hash"
+          }
+        },
+        "expected_path": "$.input_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_request_hash.recomputes",
+      "description": "The retained signed grant authorizes the exact recomputed request commitment.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-sequence-zero.decision.request.v1"
+          },
+          "governance": {
+            "value": "system_owner"
+          },
+          "subject_ref": {
+            "path": "$.subject_ref"
+          },
+          "op": {
+            "value": "genesis_materialize"
+          },
+          "revision": {
+            "value": 0
+          },
+          "required_authority_ref": {
+            "path": "$.bound_facts.governing_authority_ref"
+          },
+          "required_scope": {
+            "path": "$.principal_authority_binding.required_scope"
+          },
+          "effect_hash": {
+            "path": "$.effect_hash"
+          }
+        },
+        "expected_path": "$.wallet_approval_grant.request_hash",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_policy_hash.recomputes",
+      "description": "The retained signed grant authorizes the exact recomputed policy commitment.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-sequence-zero.decision.policy.v1"
+          },
+          "governance": {
+            "value": "system_owner"
+          },
+          "genesis_id": {
+            "path": "$.bound_facts.genesis_ref"
+          },
+          "system_id": {
+            "path": "$.bound_facts.system_id"
+          },
+          "required_authority_ref": {
+            "path": "$.bound_facts.governing_authority_ref"
+          },
+          "required_scope": {
+            "path": "$.principal_authority_binding.required_scope"
+          }
+        },
+        "expected_path": "$.wallet_approval_grant.policy_hash",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant_identity.recomputes",
+      "description": "The authority_grant_id is the canonical prefixed SHA-256 over JCS of the exact retained signed ApprovalGrant.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_path": "$.wallet_approval_grant",
+        "expected_path": "$.authority_grant_id",
+        "expected_encoding": "prefixed_ref",
+        "prefix": "grant://wallet.network/approval/sha256:"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.wallet_consumption.binds_request",
+      "description": "The retained wallet consumption reference begins with the exact request digest.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.bound_facts.wallet_grant_consumption_ref",
+        "prefix": "wallet.network://approval-effect-consumption/",
+        "expected_path": "$.input_hash",
+        "strip_prefix": "sha256:",
+        "suffix": "/"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.wallet_consumption.matches_evidence_id",
+      "description": "The wallet consumption reference and local consumption evidence reference carry one exact consumption identifier.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.bound_facts.wallet_grant_consumption_ref",
+        "delimiter": "/",
+        "target_path": "$.bound_facts.wallet_grant_consumption_evidence_ref",
+        "target_prefix": "system-sequence-zero-authority-consumption://aszmc_"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.approval_snapshot_hash.recomputes",
+      "description": "The retained ApprovalAuthority snapshot hash is SHA-256 over JCS of the exact snapshot.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_path": "$.principal_authority_binding.approval_authority",
+        "expected_path": "$.principal_authority_binding.approval_authority_snapshot_hash",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.statement_hash.recomputes",
+      "description": "The statement hash is SHA-256 over JCS of the exact domain-separated binding statement.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.wallet-network.principal-authority-binding.v1"
+          },
+          "statement": {
+            "path": "$.principal_authority_binding.binding_proof.statement"
+          }
+        },
+        "expected_path": "$.principal_authority_binding.binding_proof.statement_hash",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_hash.recomputes",
+      "description": "The binding hash is SHA-256 over JCS of the exact statement and issuer proof.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.wallet-network.principal-authority-binding-proof.v1"
+          },
+          "schema_version": {
+            "path": "$.principal_authority_binding.binding_proof.schema_version"
+          },
+          "statement": {
+            "path": "$.principal_authority_binding.binding_proof.statement"
+          },
+          "statement_hash": {
+            "path": "$.principal_authority_binding.binding_proof.statement_hash"
+          },
+          "issuer_signature_proof": {
+            "path": "$.principal_authority_binding.binding_proof.issuer_signature_proof"
+          }
+        },
+        "expected_path": "$.principal_authority_binding.binding_proof.binding_hash",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding_ref.recomputes",
+      "description": "The binding reference is content-addressed by the recomputed complete proof hash.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.wallet-network.principal-authority-binding-proof.v1"
+          },
+          "schema_version": {
+            "path": "$.principal_authority_binding.binding_proof.schema_version"
+          },
+          "statement": {
+            "path": "$.principal_authority_binding.binding_proof.statement"
+          },
+          "statement_hash": {
+            "path": "$.principal_authority_binding.binding_proof.statement_hash"
+          },
+          "issuer_signature_proof": {
+            "path": "$.principal_authority_binding.binding_proof.issuer_signature_proof"
+          }
+        },
+        "expected_path": "$.principal_authority_binding.binding_proof.binding_ref",
+        "expected_encoding": "prefixed_ref",
+        "prefix": "wallet.network://principal-authority-binding/"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.coordinates_ref.matches_proof",
+      "description": "Stable binding coordinates name the exact retained proof reference.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.coordinates.binding_ref",
+          "$.principal_authority_binding.binding_proof.binding_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.coordinates_hash.matches_proof",
+      "description": "Stable binding coordinates carry the exact retained proof hash.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.coordinates.binding_hash",
+          "$.principal_authority_binding.binding_proof.binding_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.coordinates_version.matches_statement",
+      "description": "Stable binding coordinates carry the exact statement version.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.coordinates.binding_version",
+          "$.principal_authority_binding.binding_proof.statement.binding_version"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority_kind.matches_statement",
+      "description": "The projected binding and signed statement carry one authority kind.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.authority_kind",
+          "$.principal_authority_binding.binding_proof.statement.authority_kind"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority_id.matches_statement",
+      "description": "The ApprovalAuthority snapshot and statement carry one authority identity.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.approval_authority.authority_id",
+          "$.principal_authority_binding.binding_proof.statement.authority_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority_key.matches_statement",
+      "description": "The ApprovalAuthority snapshot and statement carry one authority key.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.approval_authority.public_key",
+          "$.principal_authority_binding.binding_proof.statement.authority_public_key"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority_suite.matches_statement",
+      "description": "The ApprovalAuthority snapshot and statement carry one authority suite.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.principal_authority_binding.approval_authority.signature_suite",
+          "$.principal_authority_binding.binding_proof.statement.authority_signature_suite"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority_id.derives_from_key",
+      "description": "The ApprovalAuthority identity is domain-separated SHA-256 of its suite and key material.",
+      "expression": {
+        "operator": "sha256_parts_equals",
+        "parts": [
+          {
+            "utf8": "IOI-ACCOUNT-ID::V1"
+          },
+          {
+            "signed_i32_be_path": "$.principal_authority_binding.approval_authority.signature_suite"
+          },
+          {
+            "bytes_path": "$.principal_authority_binding.approval_authority.public_key"
+          }
+        ],
+        "expected_path": "$.principal_authority_binding.approval_authority.authority_id",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.issuer_root_id.derives_from_key",
+      "description": "The statement's issuer root identity is domain-separated SHA-256 of the retained issuer suite and key.",
+      "expression": {
+        "operator": "sha256_parts_equals",
+        "parts": [
+          {
+            "utf8": "IOI-ACCOUNT-ID::V1"
+          },
+          {
+            "signed_i32_be_path": "$.principal_authority_binding.binding_proof.issuer_signature_proof.suite"
+          },
+          {
+            "bytes_path": "$.principal_authority_binding.binding_proof.issuer_signature_proof.public_key"
+          }
+        ],
+        "expected_path": "$.principal_authority_binding.binding_proof.statement.issuer_root_account_id",
+        "expected_encoding": "bytes32"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.scope.required_matches_resolution",
+      "description": "The authority resolver's retained exact allowlist pattern covers the required operation scope.",
+      "expression": {
+        "operator": "scope_pattern_matches",
+        "pattern_path": "$.principal_authority_binding.matched_scope",
+        "value_path": "$.principal_authority_binding.required_scope"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.scope.covered_by_authority",
+      "description": "The exact matched scope is present in the retained ApprovalAuthority allowlist.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.principal_authority_binding.approval_authority.scope_allowlist",
+        "expected_path": "$.principal_authority_binding.matched_scope"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.scope.covered_by_receipt",
+      "description": "The exact matched scope is present in the receipt authority scopes.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.authority_scopes",
+        "expected_path": "$.principal_authority_binding.required_scope"
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding.signed_before_resolution",
+      "description": "The binding statement was signed no later than authority resolution.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.principal_authority_binding.binding_proof.statement.signed_at_ms",
+          "$.authority_resolved_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.binding.unexpired_at_resolution",
+      "description": "The binding statement was unexpired when authority resolved.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.authority_resolved_at_ms",
+          "$.principal_authority_binding.binding_proof.statement.expires_at_ms"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.authority.unexpired_at_resolution",
+      "description": "The ApprovalAuthority snapshot was unexpired when authority resolved.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.authority_resolved_at_ms",
+          "$.principal_authority_binding.approval_authority.expires_at"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.grant.unexpired_at_resolution",
+      "description": "The signed wallet grant was unexpired when authority resolved.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.authority_resolved_at_ms",
+          "$.wallet_approval_grant.expires_at"
+        ]
+      }
+    },
+    {
+      "rule_id": "sequence_zero_materialization_receipt.boundary_fact.exact_coverage",
+      "description": "Boundary facts are exactly the required materialization, profile, authority, admission, grant, and consumption references with no omission or inflation.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.attested_boundary_fact_refs",
+        "required_paths": [
+          "$.bound_facts.system_id",
+          "$.bound_facts.genesis_ref",
+          "$.bound_facts.manifest_ref",
+          "$.bound_facts.constitution_ref",
+          "$.bound_facts.component_registry_ref",
+          "$.bound_facts.profile_refs.deployment_profile_ref",
+          "$.bound_facts.profile_refs.ordering_admission_finality_profile_ref",
+          "$.bound_facts.profile_refs.lifecycle_continuity_profile_ref",
+          "$.bound_facts.profile_refs.network_enrollment_ref",
+          "$.bound_facts.genesis_admission_record_root",
+          "$.bound_facts.genesis_admission_receipt_ref",
+          "$.bound_facts.governing_authority_ref",
+          "$.authority_grant_id",
+          "$.bound_facts.wallet_grant_consumption_ref",
+          "$.bound_facts.wallet_grant_consumption_evidence_ref"
+        ],
+        "required_array_paths": [
+          "$.bound_facts.profile_refs.oracle_evidence_profile_refs"
         ]
       }
     }
@@ -16249,12 +20519,326 @@ function valueAtPath(value: unknown, path: unknown): unknown {
   );
 }
 
+function canonicalJsonForHash(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    const encoded = JSON.stringify(value);
+    return encoded === undefined ? "" : encoded;
+  }
+  if (Array.isArray(value)) {
+    return "[" + value.map(canonicalJsonForHash).join(",") + "]";
+  }
+  const object = value as JsonObject;
+  return (
+    "{" +
+    Object.keys(object)
+      .sort()
+      .map((key) => JSON.stringify(key) + ":" + canonicalJsonForHash(object[key]))
+      .join(",") +
+    "}"
+  );
+}
+
+const SHA256_ROUND_CONSTANTS = new Uint32Array([
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
+  0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+  0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
+  0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+  0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+  0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
+  0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
+  0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+  0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+]);
+
+function rotateRight(value: number, amount: number): number {
+  return (value >>> amount) | (value << (32 - amount));
+}
+
+function sha256Bytes(input: Uint8Array): Uint8Array {
+  const bitLength = input.length * 8;
+  const paddedLength = Math.ceil((input.length + 9) / 64) * 64;
+  const message = new Uint8Array(paddedLength);
+  message.set(input);
+  message[input.length] = 0x80;
+  const messageView = new DataView(message.buffer);
+  messageView.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000));
+  messageView.setUint32(paddedLength - 4, bitLength >>> 0);
+
+  const state = new Uint32Array([
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+  ]);
+  const words = new Uint32Array(64);
+  for (let offset = 0; offset < message.length; offset += 64) {
+    for (let index = 0; index < 16; index += 1) {
+      words[index] = messageView.getUint32(offset + index * 4);
+    }
+    for (let index = 16; index < 64; index += 1) {
+      const left =
+        rotateRight(words[index - 15], 7) ^
+        rotateRight(words[index - 15], 18) ^
+        (words[index - 15] >>> 3);
+      const right =
+        rotateRight(words[index - 2], 17) ^
+        rotateRight(words[index - 2], 19) ^
+        (words[index - 2] >>> 10);
+      words[index] =
+        (words[index - 16] + left + words[index - 7] + right) >>> 0;
+    }
+    let [a, b, c, d, e, f, g, h] = state;
+    for (let index = 0; index < 64; index += 1) {
+      const upper =
+        rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
+      const choose = (e & f) ^ (~e & g);
+      const first =
+        (h + upper + choose + SHA256_ROUND_CONSTANTS[index] + words[index]) >>>
+        0;
+      const lower =
+        rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22);
+      const majority = (a & b) ^ (a & c) ^ (b & c);
+      const second = (lower + majority) >>> 0;
+      h = g;
+      g = f;
+      f = e;
+      e = (d + first) >>> 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (first + second) >>> 0;
+    }
+    state[0] = (state[0] + a) >>> 0;
+    state[1] = (state[1] + b) >>> 0;
+    state[2] = (state[2] + c) >>> 0;
+    state[3] = (state[3] + d) >>> 0;
+    state[4] = (state[4] + e) >>> 0;
+    state[5] = (state[5] + f) >>> 0;
+    state[6] = (state[6] + g) >>> 0;
+    state[7] = (state[7] + h) >>> 0;
+  }
+  const digest = new Uint8Array(32);
+  const digestView = new DataView(digest.buffer);
+  state.forEach((word, index) => digestView.setUint32(index * 4, word));
+  return digest;
+}
+
+function bytesFromValue(value: unknown): Uint8Array | null {
+  return Array.isArray(value) &&
+    value.every(
+      (byte) =>
+        typeof byte === "number" &&
+        Number.isInteger(byte) &&
+        byte >= 0 &&
+        byte <= 255,
+    )
+    ? Uint8Array.from(value)
+    : null;
+}
+
+function digestHex(digest: Uint8Array): string {
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function invariantMaterial(value: unknown, expression: JsonObject): unknown {
+  if (typeof expression.material_path === "string") {
+    return valueAtPath(value, expression.material_path);
+  }
+  if (!isObject(expression.material_fields)) return undefined;
+  const material: JsonObject = Object.create(null);
+  for (const [field, descriptor] of Object.entries(expression.material_fields)) {
+    if (!isObject(descriptor)) return undefined;
+    if (typeof descriptor.path === "string") {
+      const candidate = valueAtPath(value, descriptor.path);
+      if (candidate === undefined) return undefined;
+      material[field] = candidate;
+    } else if (Object.prototype.hasOwnProperty.call(descriptor, "value")) {
+      material[field] = descriptor.value;
+    } else {
+      return undefined;
+    }
+  }
+  return material;
+}
+
+function digestMatchesExpression(
+  value: unknown,
+  expression: JsonObject,
+  digest: Uint8Array,
+): boolean {
+  const expected = valueAtPath(value, expression.expected_path);
+  const hex = digestHex(digest);
+  if (expression.expected_encoding === "bytes32") {
+    const expectedBytes = bytesFromValue(expected);
+    return (
+      expectedBytes !== null &&
+      expectedBytes.every((byte, index) => byte === digest[index])
+    );
+  }
+  if (expression.expected_encoding === "sha256_string") {
+    return expected === "sha256:" + hex;
+  }
+  return (
+    expression.expected_encoding === "prefixed_ref" &&
+    typeof expression.prefix === "string" &&
+    expected === expression.prefix + hex
+  );
+}
+
+function jcsSha256Matches(value: unknown, expression: JsonObject): boolean {
+  const material = invariantMaterial(value, expression);
+  if (material === undefined) return false;
+  const encoder = new TextEncoder();
+  let digest = sha256Bytes(encoder.encode(canonicalJsonForHash(material)));
+  if (expression.algorithm === "jcs_sha256_then_utf8_sha256") {
+    if (typeof expression.intermediate_prefix !== "string") return false;
+    digest = sha256Bytes(
+      encoder.encode(expression.intermediate_prefix + digestHex(digest)),
+    );
+  } else if (
+    expression.algorithm !== undefined &&
+    expression.algorithm !== "jcs_sha256"
+  ) {
+    return false;
+  }
+  return digestMatchesExpression(value, expression, digest);
+}
+
+function sha256PartsMatch(value: unknown, expression: JsonObject): boolean {
+  if (!Array.isArray(expression.parts)) return false;
+  const encodedParts: Uint8Array[] = [];
+  for (const part of expression.parts) {
+    if (!isObject(part)) return false;
+    if (typeof part.utf8 === "string") {
+      encodedParts.push(new TextEncoder().encode(part.utf8));
+    } else if (typeof part.signed_i32_be_path === "string") {
+      const integer = valueAtPath(value, part.signed_i32_be_path);
+      if (
+        typeof integer !== "number" ||
+        !Number.isInteger(integer) ||
+        integer < -2147483648 ||
+        integer > 2147483647
+      ) {
+        return false;
+      }
+      const encoded = new Uint8Array(4);
+      new DataView(encoded.buffer).setInt32(0, integer);
+      encodedParts.push(encoded);
+    } else if (typeof part.bytes_path === "string") {
+      const encoded = bytesFromValue(valueAtPath(value, part.bytes_path));
+      if (encoded === null) return false;
+      encodedParts.push(encoded);
+    } else {
+      return false;
+    }
+  }
+  const input = new Uint8Array(
+    encodedParts.reduce((length, part) => length + part.length, 0),
+  );
+  let offset = 0;
+  for (const part of encodedParts) {
+    input.set(part, offset);
+    offset += part.length;
+  }
+  return digestMatchesExpression(value, expression, sha256Bytes(input));
+}
+
+function exactRefCoverage(value: unknown, expression: JsonObject): boolean {
+  const actual = valueAtPath(value, expression.array_path);
+  if (!Array.isArray(actual) || actual.some((item) => typeof item !== "string")) {
+    return false;
+  }
+  const required: string[] = [];
+  const requiredPaths = Array.isArray(expression.required_paths)
+    ? expression.required_paths
+    : [];
+  for (const pointer of requiredPaths) {
+    const candidate = valueAtPath(value, pointer);
+    if (candidate === null) continue;
+    if (typeof candidate !== "string") return false;
+    required.push(candidate);
+  }
+  const arrayPaths = Array.isArray(expression.required_array_paths)
+    ? expression.required_array_paths
+    : [];
+  for (const pointer of arrayPaths) {
+    const candidates = valueAtPath(value, pointer);
+    if (
+      !Array.isArray(candidates) ||
+      candidates.some((candidate) => typeof candidate !== "string")
+    ) {
+      return false;
+    }
+    required.push(...candidates);
+  }
+  const derivedRefs = Array.isArray(expression.required_derived_refs)
+    ? expression.required_derived_refs
+    : [];
+  for (const derived of derivedRefs) {
+    if (
+      !isObject(derived) ||
+      typeof derived.path !== "string" ||
+      typeof derived.prefix !== "string"
+    ) {
+      return false;
+    }
+    const candidate = valueAtPath(value, derived.path);
+    if (typeof candidate !== "string") return false;
+    const suffix =
+      typeof derived.strip_prefix === "string"
+        ? candidate.startsWith(derived.strip_prefix)
+          ? candidate.slice(derived.strip_prefix.length)
+          : null
+        : candidate;
+    if (suffix === null) return false;
+    required.push(derived.prefix + suffix);
+  }
+  return (
+    actual.length === required.length &&
+    jsonSchemaEqual([...actual].sort(), [...required].sort())
+  );
+}
+
+function scopePatternMatches(pattern: unknown, value: unknown): boolean {
+  if (typeof pattern !== "string" || typeof value !== "string") return false;
+  const normalizedPattern = pattern.trim().toLowerCase();
+  const normalizedValue = value.trim().toLowerCase();
+  if (normalizedPattern === "*" || normalizedPattern === normalizedValue) {
+    return true;
+  }
+  for (const suffix of ["::*", ":*", "*"]) {
+    if (!normalizedPattern.endsWith(suffix)) continue;
+    return normalizedValue.startsWith(normalizedPattern.slice(0, -1));
+  }
+  return false;
+}
+
 function invariantErrors(contractId: string, rules: Array<JsonObject>, value: unknown): string[] {
   return rules.flatMap((rule) => {
     const expression = isObject(rule.expression) ? rule.expression : {};
     const operator = expression.operator;
     let valid = false;
-    if (operator === "non_empty") {
+    if (
+      operator === "any_of" &&
+      Array.isArray(expression.expressions) &&
+      expression.expressions.length > 0
+    ) {
+      valid =
+        expression.expressions.every(isObject) &&
+        expression.expressions.some(
+          (candidate) =>
+            invariantErrors(
+              contractId,
+              [{ rule_id: rule.rule_id, expression: candidate }],
+              value,
+            ).length === 0,
+        );
+    } else if (operator === "non_empty") {
       const candidate = valueAtPath(value, expression.path);
       valid = Array.isArray(candidate) ? candidate.length > 0 : typeof candidate === "string" && candidate.length > 0;
     } else if (operator === "any_non_empty" && Array.isArray(expression.paths)) {
@@ -16269,7 +20853,7 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
       Array.isArray(expression.values)
     ) {
       const applies = expression.values.some((expected) =>
-        Object.is(valueAtPath(value, expression.when_path), expected),
+        jsonSchemaEqual(valueAtPath(value, expression.when_path), expected),
       );
       const candidate = valueAtPath(value, expression.path);
       valid =
@@ -16278,10 +20862,12 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
           ? candidate.length > 0
           : typeof candidate === "string" && candidate.length > 0);
     } else if (operator === "fields_equal" && Array.isArray(expression.paths) && expression.paths.length === 2) {
-      valid = jsonSchemaEqual(
-        valueAtPath(value, expression.paths[0]),
-        valueAtPath(value, expression.paths[1]),
-      );
+      const left = valueAtPath(value, expression.paths[0]);
+      const right = valueAtPath(value, expression.paths[1]);
+      valid =
+        left !== undefined &&
+        right !== undefined &&
+        jsonSchemaEqual(left, right);
     } else if (
       operator === "array_field_equals" &&
       typeof expression.array_path === "string" &&
@@ -16378,6 +20964,94 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
                 ),
             ),
         );
+    } else if (
+      operator === "object_fields_equal" &&
+      Array.isArray(expression.object_paths) &&
+      expression.object_paths.length === 2 &&
+      Array.isArray(expression.fields) &&
+      expression.fields.length > 0
+    ) {
+      const left = valueAtPath(value, expression.object_paths[0]);
+      const right = valueAtPath(value, expression.object_paths[1]);
+      valid =
+        isObject(left) &&
+        isObject(right) &&
+        expression.fields.every(
+          (field) =>
+            typeof field === "string" &&
+            Object.prototype.hasOwnProperty.call(left, field) &&
+            Object.prototype.hasOwnProperty.call(right, field) &&
+            jsonSchemaEqual(left[field], right[field]),
+        );
+    } else if (operator === "jcs_sha256_equals") {
+      valid = jcsSha256Matches(value, expression);
+    } else if (operator === "sha256_parts_equals") {
+      valid = sha256PartsMatch(value, expression);
+    } else if (
+      operator === "array_contains_value" &&
+      typeof expression.array_path === "string" &&
+      typeof expression.expected_path === "string"
+    ) {
+      const values = valueAtPath(value, expression.array_path);
+      const expected = valueAtPath(value, expression.expected_path);
+      valid =
+        Array.isArray(values) &&
+        expected !== undefined &&
+        values.some((candidate) => jsonSchemaEqual(candidate, expected));
+    } else if (operator === "array_exact_ref_coverage") {
+      valid = exactRefCoverage(value, expression);
+    } else if (
+      operator === "scope_pattern_matches" &&
+      typeof expression.pattern_path === "string" &&
+      typeof expression.value_path === "string"
+    ) {
+      valid = scopePatternMatches(
+        valueAtPath(value, expression.pattern_path),
+        valueAtPath(value, expression.value_path),
+      );
+    } else if (
+      operator === "field_starts_with_path" &&
+      typeof expression.path === "string" &&
+      typeof expression.expected_path === "string" &&
+      typeof expression.prefix === "string"
+    ) {
+      const actual = valueAtPath(value, expression.path);
+      const expected = valueAtPath(value, expression.expected_path);
+      const stripped =
+        typeof expected === "string" &&
+        typeof expression.strip_prefix === "string"
+          ? expected.startsWith(expression.strip_prefix)
+            ? expected.slice(expression.strip_prefix.length)
+            : null
+          : expected;
+      valid =
+        typeof actual === "string" &&
+        typeof stripped === "string" &&
+        actual.startsWith(
+          expression.prefix + stripped + String(expression.suffix ?? ""),
+        );
+    } else if (
+      operator === "field_suffix_equals_prefixed_field" &&
+      typeof expression.source_path === "string" &&
+      typeof expression.delimiter === "string" &&
+      expression.delimiter.length > 0 &&
+      typeof expression.target_path === "string" &&
+      typeof expression.target_prefix === "string"
+    ) {
+      const source = valueAtPath(value, expression.source_path);
+      const target = valueAtPath(value, expression.target_path);
+      const delimiterIndex =
+        typeof source === "string"
+          ? source.lastIndexOf(expression.delimiter)
+          : -1;
+      const suffix =
+        typeof source === "string" && delimiterIndex >= 0
+          ? source.slice(delimiterIndex + expression.delimiter.length)
+          : "";
+      valid =
+        suffix.length > 0 &&
+        typeof target === "string" &&
+        target === expression.target_prefix + suffix;
     } else if (operator === "matches_contract_schema_hash") {
       valid = valueAtPath(value, expression.path) === architectureContractSchemaHash(contractId);
     } else if (
@@ -16517,6 +21191,12 @@ export function validateAutonomousSystemSequenceZeroMaterializationReceiptV1(
   value: unknown,
 ): value is AutonomousSystemSequenceZeroMaterializationReceiptV1 {
   return validateArchitectureContract("schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1", value).ok;
+}
+
+export function validateAutonomousSystemSequenceZeroMaterializationReceiptV2(
+  value: unknown,
+): value is AutonomousSystemSequenceZeroMaterializationReceiptV2 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2", value).ok;
 }
 
 export function validateAutonomousSystemConstitutionV1(
