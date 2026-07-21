@@ -46,10 +46,24 @@ for (const seed of manifest.seeds) {
   check(module.meta?.slug === seed.slug, `${seed.slug}: module identity matches manifest`);
   check(module.meta?.seed_state === "dormant_ux_seed", `${seed.slug}: module declares dormant seed state`);
   check(module.meta?.canonical_owner === seed.canonical_owner, `${seed.slug}: current canonical owner is pinned`);
+  check(module.meta?.source_commit === seed.source_commit, `${seed.slug}: source commit is pinned`);
+  check(module.meta?.proposed_route === seed.proposed_route, `${seed.slug}: proposed route is evidence, not a mount`);
+  check(JSON.stringify(module.meta?.first_meaningful_pull) === JSON.stringify(seed.first_meaningful_pull), `${seed.slug}: owner-stage pull agrees with manifest`);
   check(!Object.hasOwn(module.meta, "route"), `${seed.slug}: module exports no active route`);
+  check(!Object.hasOwn(module.meta, "certification") && !Object.hasOwn(module.meta, "verifier"), `${seed.slug}: module exports no active evidence claim`);
   check(Array.isArray(module.actions) && module.actions.length === 0, `${seed.slug}: module declares no actions`);
   check(typeof module.handleAction === "undefined", `${seed.slug}: module has no mutation handler`);
   check(!/method\s*:\s*["']POST["']/.test(surfaceSource), `${seed.slug}: module contains no POST request`);
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ json: async () => ({}) });
+  try {
+    const model = await module.load({ daemon: "http://dormant-seed.invalid" });
+    const html = module.render(model, { embed: true, url: new URL(`http://dormant-seed.invalid${seed.proposed_route}`) });
+    check(typeof html === "string" && html.startsWith("<!doctype html>"), `${seed.slug}: dormant empty-state render executes`);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 
   if (seed.assets) check(fs.existsSync(path.join(SEED_ROOT, seed.assets)), `${seed.slug}: captured assets are retained`);
   if (seed.pixel_evidence) {
