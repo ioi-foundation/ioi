@@ -43,9 +43,7 @@ const captureState = Object.fromEntries((startingPoints.seeds || []).map((s) => 
 //
 // substrate_surface = the existing dark IOI surface (kept as substrate/admin/debug view).
 const SUBSTRATE_BOUND = {
-  // lineage was ADVANCED to reference_ported (the faithful Monocle editor-chrome port at
-  // /__ioi/provenance/lineage — see REFERENCE_PORTED below); the /__ioi/lineage substrate path
-  // lens stays intact and linked.
+  lineage: { substrate_surface: "/__ioi/lineage", binding: "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)", note: "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps" },
   // Canon: Work Ledger evolves into Provenance — Vertex is a Provenance graph/exploration lens.
   vertex: { substrate_surface: "/__ioi/vertex", surface_name: "Provenance", binding: "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)", note: "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps" },
   // Missions owner-family: jobs + incidents seeds bound to /__ioi/missions (the owner surface for
@@ -79,39 +77,14 @@ const REFERENCE_PORT_PENDING = {};
 // ported IOI surface; `parity_blocked` names why. `reference_landmarks` (when present) is the IA
 // label set the hardened harness requires in BOTH the reference and the candidate.
 const REFERENCE_PORTED = {
-  // (explorer #46, monitors #51, sources #52, changes #53, workspaces, widgets each passed
-  // through this stage on their way to certification + daemon_wired promotion. The stage also
-  // holds ports whose REFERENCE cannot certify — the #35 explorer precedent.)
-  // Lineage (Provenance / Data Lineage) — the faithful Monocle editor-chrome port over real
-  // provenance truth, held at the HONEST ceiling: the local monocle reference cannot render data
-  // on ANY lane. Probe-proven (this cut): the capture never recorded the
-  // RouteDatasetFoundryBranchQuery graphql response or /compass/api/batch/resources/parents, so
-  // every RID-seeded deep route (/graph/datasets/{rids}) bounces client-side to the empty
-  // welcome graph; the harvest-time live screenshot (public/comparison/live_monocle.png) shows
-  // the SAME empty state — the harvest never rendered a populated monocle UI. The monocle/api
-  // graphV3/links payloads prove the data model API-side only. Promotion needs a live
-  // re-harvest of a RID-seeded monocle route WITH those two API families captured.
-  lineage: { port_surface: "/__ioi/provenance/lineage", substrate_surface: "/__ioi/lineage", surface_name: "Provenance", reference_landmarks: ["Data Lineage", "Welcome to Data Lineage", "Explore how data flows through your resources and applications", "Add resources", "Open graph", "Workflow Lineage", "Build timeline", "Data health", "SQL scratchpad", "No resources on graph"], parity_blocked: "the monocle reference renders only its empty welcome state on every local lane — RouteDatasetFoundryBranchQuery + compass resources/parents responses were never captured (probe-proven; the harvest-time live screenshot shows the same empty state); shell_clean_only cannot certify by doctrine — promotion needs a live re-harvest of a RID-seeded monocle route", binding: "faithful Monocle editor-chrome port over the SAME real provenance truth as the substrate path lens — dark global rail + light editor topbar (Data Lineage · Workflow-Lineage/branch/Save-as as named gaps · REAL materializing-run status counters) + the full tool strip (Tools/Layout/Undo/Clean/Select/Expand/Color/Find/Remove/Align/Text/Flow as named-gap controls) + the welcome card (Add-resources gap · Open-graph WIRED to the real materialized-set registry) + the canvas rendering a selected set's backward provenance PATH (source → mapping → projection → run → set, the run edge carrying its pre-output receipt verbatim; unresolved links render as named gaps, never invented) + the dock (Preview/SQL/History/Code/Data-health gaps · Build-timeline LIVE to the Provenance proof stream)", note: "the Provenance-family graft: the monocle seed's editor chrome ported faithfully LIGHT with real wiring inside (the #35 explorer precedent — reference_ported is the honest landing when no data-clean reference exists); /__ioi/lineage (substrate path lens) + /__ioi/vertex + /__ioi/work-ledger stay intact, linked first-class both ways" },
+  // (explorer #46, monitors #51, sources #52, changes #53 each passed through this stage on their
+  // way to certification + daemon_wired promotion. The stage exists for ports-in-flight.)
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
 // daemon truth, that PASSES the HARDENED Playwright harness (visual_parity: region geometry + theme
 // match + reproduction of the reference's IA landmarks) against a VALID (non-errored) reference.
 // `reference_landmarks` = the reference's IA label set the hardened harness requires in BOTH sides.
 const DAEMON_WIRED = {
-  // Widgets (widgets): the FIFTEENTH faithful port — the EIGHTH from the origin-alignment queue
-  // and the FIRST Developer-Console-family certified surface. The #44 sweep proved the Custom
-  // Widgets landing data-bearing on the capture-origin lane while the proxy renders no data
-  // (origin baked into a JS chunk the index-fold cannot reach — the documented adopt-lane gap);
-  // reference_url_override stamps the honest lane. A READ-ONLY registry lens over the ODK
-  // surface-descriptor plane (registration itself stays an ODK dev-kit lane).
-  widgets: { port_surface: "/__ioi/developer-console/widgets", surface_name: "Developer Console", reference_url_override: "http://localhost:9225/workspace/custom-widgets/", reference_landmarks: ["Custom Widgets", "New widget set", "Develop custom frontend widgets for use within Foundry applications.", "Recents", "Favorites", "Files", "Creator", "Last edited by", "Last viewed"], binding: "faithful port of the reference Custom Widgets landing over the estate's real widget/extension registration plane — dark global rail + topbar (violet widgets tile · Custom Widgets · New-widget-set-to-ODK / Help) + white h1 band + the View pill row (Recents active · Favorites named-gap) + the sources-family table whose rows are REAL ODK surface descriptors (name · ref · composition pattern · ontology binding · status · created date; creator/edited/viewed columns HONEST em-dashes — no principal or view tracking on the registry; honest empty state when nothing is registered) + below-the-fold the registry census (patterns/status chips from the records) with the registration boundary declared", note: "TRUE parity under the HARDENED gate: light Custom-Widgets landing reference-faithful shell at /__ioi/developer-console/widgets against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/custom-widgets/ — the #44 needs_origin_alignment finding; the /__apps/widgets proxy lane stays documented-insufficient: the capture bakes its origin into a JS chunk the index-fold cannot reach, so the proxy renders no data); the EIGHTH origin-alignment-queue port and the FIRST Developer-Console-family certified surface — a NEW dedicated port route over the EXISTING ODK surface-descriptor registry; a READ-ONLY registration lens — THE BOUNDARY IS THE HARD LINE: no descriptor authoring, no widget building, no generated UI artifact on this surface (New widget set ROUTES to the /__ioi/odk dev kit where the daemon's ontology-bound descriptor-create authority lives; the Developer Console owner surface is the /__ioi/connections cockpit, linked first-class both ways); the reference's build-in-environment vs scaffold-externally dev-kit fork (generated SDK/CLI) is vendor chrome the estate does not bind — a named gap declared in place; favorites / principal + view tracking / Help = named gaps disabled in place" },
-
-  // Workspaces (workspaces): the FOURTEENTH faithful port — the SEVENTH from the origin-alignment
-  // queue and the FIRST Workbench-family certified surface. The #44 sweep proved the Code
-  // Workspaces launchpad data-bearing on the capture-origin lane while the proxy renders no data;
-  // reference_url_override stamps the honest lane. A READ-ONLY launchpad projection over the
-  // estate's real session plane (no creation/provisioning semantics on this surface).
-  workspaces: { port_surface: "/__ioi/workbench/workspaces", surface_name: "Workbench", reference_url_override: "http://localhost:9225/workspace/code-workspaces/", reference_landmarks: ["Code Workspaces", "Running workspaces", "Launch code workspaces that run open-source IDEs and notebooks.", "Recents", "Favorites", "Created by me", "VS Code", "Jupyter", "RStudio", "New workspace", "Explore reference examples"], binding: "faithful port of the reference Code Workspaces launchpad over the estate's real session projection — dark global rail + topbar (orange workspace tile · Code Workspaces · store dropdown / New-workspace-to-owner / Help) + white h1 band + the overlapping Running-workspaces card whose interior is the projection's REAL non-terminal census (provisioned sessions with refs; the reference's empty-state copy renders only when truly empty) + the View pill row (Recents active · All wired to ?view=all · Favorites / Created-by-me / VS Code / Jupyter / RStudio as named-gap chrome — foreign editor taxonomy) + the sources-family table whose rows are REAL sessions (session ref · lifecycle pill · workspace root · environment/editor refs · created date; creator/edited columns HONEST em-dashes — no principal or edit tracking on the projection) + the marketplace-examples band (verbatim capture chrome) + below-the-fold the session-catalog census (daemon total · lifecycle chips · the estate's REAL editor kinds from the probed editor-target registry)", note: "TRUE parity under the HARDENED gate: light Code-Workspaces launchpad reference-faithful shell at /__ioi/workbench/workspaces against the ORIGIN-ALIGNED data-clean reference (reference_url_override localhost:9225/workspace/code-workspaces/ — the #44 needs_origin_alignment finding; the /__apps/workspaces proxy lane stays documented-insufficient: renders no data); the SEVENTH origin-alignment-queue port and the FIRST Workbench-family certified surface — a NEW dedicated port route over the EXISTING session projection; a READ-ONLY launchpad — THE BOUNDARY IS THE HARD LINE: no session creation, no environment provisioning, no editor-open semantics on this surface (New workspace ROUTES to the /__ioi/workbench owner surface, linked first-class both ways with /__ioi/sessions + /__ioi/environments); the reference's VS Code/Jupyter/RStudio filter taxonomy is FOREIGN — named-gap chrome, with the estate's real editor kinds rendered from the daemon editor-target registry (probed open posture); favorites / identity-scoped filters / marketplace installs / Help = named gaps disabled in place" },
   // #34 — Ontology Manager (schema): a FAITHFUL source-neutral port of the reference Ontology Manager —
   // a DARK global platform rail + a LIGHT app rail (Discover / Proposals / History · Resources: object/
   // property/link/action/value types + functions · Health issues / Cleanup / Ontology configuration) +
@@ -357,8 +330,6 @@ const SHELL_PIXEL_CERTIFIED = {
   // centered block). 1440x900 dilated 1.17% / raw 1.52%, 1920x1080 dilated 1.11% / raw 1.45%,
   // bbox <= 3 — no threshold movement.
   listings: "pixel-certifications/listings.json",
-  workspaces: "pixel-certifications/workspaces.json",
-  widgets: "pixel-certifications/widgets.json",
 };
 
 // ---- PR #44: the ESTATE REFERENCE CLEAN SWEEP (committed evidence written by

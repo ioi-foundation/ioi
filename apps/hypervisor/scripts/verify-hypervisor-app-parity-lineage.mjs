@@ -17,11 +17,7 @@
 //     and zero source hashes (the legend grammar remains, but no data is fabricated).
 //   - HONEST GAPS: Work Ledger edges shown "where available" (0 for the ODK chain today, named);
 //     unsupported Monocle lanes (resource search / graph expansion / cross-tenant catalog) named.
-//   - MATRIX current + honest: lineage=reference_ported (the Monocle-chrome port at
-//     /__ioi/provenance/lineage; parity_blocked names the never-captured monocle graph-load APIs);
-//     the /__ioi/lineage substrate lens intact; vertex=substrate_bound → /__ioi/vertex.
-//   - THE PORT renders the faithful monocle chrome (welcome card · tool-strip named gaps · dock)
-//     and, for the fixture set, the REAL backward chain with the pre-output receipt verbatim.
+//   - MATRIX current + honest: lineage=substrate_bound → /__ioi/lineage; vertex=substrate_bound → /__ioi/vertex.
 //   - Brand-clean; the pipeline surface (#21) still renders (regression hold).
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-app-parity-lineage.mjs
@@ -57,12 +53,7 @@ async function run() {
   ok("parity matrix is current (regenerated == committed)", check.status === 0, (check.stderr || "").trim().slice(0, 80));
   const matrix = JSON.parse(spawnSync("node", ["-e", `import(${JSON.stringify(path.join(here, "..", "harvest-app-parity-matrix.json"))}, { with: { type: "json" } }).then(m => console.log(JSON.stringify(m.default)))`], { encoding: "utf8" }).stdout || "{}");
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
-  // The Provenance graft: lineage advanced substrate_bound → reference_ported (the faithful
-  // Monocle editor-chrome port at /__ioi/provenance/lineage) — the HONEST ceiling: the monocle
-  // reference cannot render data on any local lane (its graph-load API responses were never
-  // captured), so the pixel gate refuses certification by doctrine and parity_blocked names it.
-  ok("matrix classifies lineage as reference_ported: the Monocle-chrome port at /__ioi/provenance/lineage over the intact /__ioi/lineage substrate", bySlug.lineage?.parity_class === "reference_ported" && bySlug.lineage?.candidate_surface === "/__ioi/provenance/lineage" && bySlug.lineage?.substrate_surface === "/__ioi/lineage" && bySlug.lineage?.surface_name === "Provenance");
-  ok("matrix: lineage's parity_blocked NAMES the monocle capture gap (never-captured graph-load APIs; live re-harvest required) and stays UNCERTIFIED", /RouteDatasetFoundryBranchQuery/.test(bySlug.lineage?.parity_blocked || "") && /re-harvest/.test(bySlug.lineage?.parity_blocked || "") && bySlug.lineage?.shell_pixel_certified !== true && Array.isArray(bySlug.lineage?.reference_landmarks) && bySlug.lineage.reference_landmarks.length >= 8);
+  ok("matrix classifies lineage as substrate_bound → /__ioi/lineage", bySlug.lineage?.parity_class === "substrate_bound" && bySlug.lineage?.substrate_surface === "/__ioi/lineage");
   ok("matrix binds vertex as substrate_bound → /__ioi/vertex (its own cut, #24); pipeline is now daemon_wired (#39 faithful light re-port, origin-aligned reference)", bySlug.vertex?.parity_class === "substrate_bound" && bySlug.vertex?.substrate_surface === "/__ioi/vertex" && bySlug.pipeline?.parity_class === "daemon_wired");
   ok("matrix keeps vertex a Provenance lens (canon: Work Ledger evolves into Provenance)", bySlug.vertex?.surface_name === "Provenance" && /Provenance graph\/exploration lens/.test(bySlug.vertex?.binding || ""));
 
@@ -138,18 +129,6 @@ async function run() {
   ok("object provenance pane renders real objects (L-1) + source hashes (sha256)", /id="lineage-objects"/.test(t) && />L-1</.test(t) && /sha256:/.test(t));
   ok("mapped_from edges are REAL (each property ← its source field)", /mapped_from/.test(t) && t.includes(">loan_id</code>") && t.includes(">title</code>") && t.includes(">amount</code>"));
   ok("receipt chain shows the run's registration act", /id="lineage-receipts"/.test(t) && /materialized_output_registered/.test(t));
-
-  // 3b. THE MONOCLE-CHROME PORT (the Provenance graft) — the faithful editor chrome over the
-  // SAME truth: welcome card + wired Open-graph opener, the fixture set's backward chain with
-  // the pre-output receipt verbatim, tool-strip named gaps, the honest-state footer.
-  const lw = await page(`${SERVE}/__ioi/provenance/lineage`);
-  ok("the port renders the faithful Monocle welcome chrome (Data Lineage · Welcome card · Add-resources gap · Open-graph wired · tool strip · dock)", lw.status === 200 && /class="ln-htitle">Data Lineage</.test(lw.text) && /Welcome to Data Lineage/.test(lw.text) && /Explore how data flows through your resources and applications/.test(lw.text) && /Add resources/.test(lw.text) && /Open graph/.test(lw.text) && /No resources on graph/.test(lw.text) && ["Tools", "Undo/redo", "Clean", "Expand", "SQL scratchpad", "Data health"].every((l) => lw.text.includes(l)));
-  ok("the port's freeform editor lanes are DISABLED IN PLACE with named reasons (tools ×12 · Workflow Lineage · branch · Save-as · dock lenses)", (lw.text.match(/aria-disabled="true"/g) || []).length >= 18, `${(lw.text.match(/aria-disabled="true"/g) || []).length} disabled controls`);
-  const lo = await page(`${SERVE}/__ioi/provenance/lineage?open=1`);
-  ok("Open graph lists the REAL materialized-set registry (the fixture set is an openable graph)", lo.status === 200 && lo.text.includes(setId));
-  const lg = await page(`${SERVE}/__ioi/provenance/lineage?set=${encodeURIComponent(setId)}`);
-  ok("the port canvas renders the fixture set's REAL backward chain (source → mapping → projection → run → set) with the pre-output receipt verbatim", lg.status === 200 && /id="lineage-graph"/.test(lg.text) && lg.text.includes(setRec.ref) && lg.text.includes(String(setRec.pre_output_receipt_ref).slice(0, 32)) && /Materializing run/.test(lg.text) && /Data source/.test(lg.text) && /resources on graph/.test(lg.text));
-  ok("the port states its HONEST reference_ported ceiling in place and links the owner family both directions", /reference_ported/.test(lw.text) && /re-harvest/.test(lw.text) && lw.text.includes('href="/__ioi/work-ledger"') && lw.text.includes('href="/__ioi/lineage"') && lw.text.includes('href="/__ioi/vertex"') && lw.text.includes("/__apps/lineage") && !/\bPalantir\b/.test(lw.text));
 
   // 4. Honest gaps.
   ok("Provenance proof-stream edges are THREADED (a built chain shows ≥1 real edge, not the 0-gap)", /Provenance proof-stream entr(y|ies) reference this lineage chain/.test(t) && />odk_materialization</.test(t) && /no receipt authority is duplicated/.test(t));

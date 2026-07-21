@@ -1,3 +1,7 @@
+// DORMANT UX SEED ONLY. This module is not mounted, registered, cataloged, or operational.
+// It preserves the measured interaction/layout scaffold until a current Provenance contract
+// pulls it. The old ODK graph binding is seed evidence, not M1 lifecycle-provenance closure.
+//
 // Provenance · Data Lineage — the faithful Monocle editor-chrome port (reference
 // /workspace/monocle/ on the :9225 mirror), READ-ONLY over the estate's REAL provenance truth:
 // the same nine daemon projections the /__ioi/lineage substrate lens reads (materialized sets,
@@ -18,17 +22,21 @@
 // a RID-seeded monocle route. The graph-data payloads the capture DOES hold (monocle/api
 // graphV3/links) prove the data model only, not a renderable reference.
 import { bpIcon } from "../../scripts/bp-icons.mjs";
-import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
-import { escHtml } from "../kit.mjs";
+import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../../surfaces/chrome.mjs";
+import { escHtml } from "../../surfaces/kit.mjs";
 
 const CX_ESC = escHtml;
 
 export const meta = {
   slug: "lineage",
-  route: "/__ioi/provenance/lineage",
-  verifier: "scripts/verify-hypervisor-app-parity-lineage.mjs",
-  certification: "n/a",
+  seed_state: "dormant_ux_seed",
+  canonical_owner: "Provenance",
+  first_meaningful_pull: ["M1"],
+  proposed_route: "/__ioi/provenance/lineage",
+  source_commit: "19fd953c48de79eb3faa9bf5810c026f6e9b360b",
 };
+
+export const actions = Object.freeze([]);
 
 export async function load(ctx) {
   const J = (p) => fetch(`${ctx.daemon}${p}`).then((r) => r.json()).catch(() => ({}));

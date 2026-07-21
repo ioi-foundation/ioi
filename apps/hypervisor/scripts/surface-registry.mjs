@@ -18,17 +18,12 @@ import { MON_APP_TILE_URI } from "./monitors-assets.mjs";
 import { SRC_APP_TILE_URI } from "./sources-assets.mjs";
 import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI } from "./evalsuites-assets.mjs";
-import { CW_APP_TILE_URI } from "./workspaces-assets.mjs";
-import { WG_APP_TILE_URI } from "./widgets-assets.mjs";
 import * as pipelineModule from "../surfaces/pipeline/index.mjs";
 import * as ontologyManagerModule from "../surfaces/ontology-manager/index.mjs";
 import * as objectExplorerModule from "../surfaces/object-explorer/index.mjs";
 import * as approvalsModule from "../surfaces/approvals/index.mjs";
 import * as sourcesModule from "../surfaces/sources/index.mjs";
 import * as missionsModule from "../surfaces/missions/index.mjs";
-import * as workspacesModule from "../surfaces/workspaces/index.mjs";
-import * as widgetsModule from "../surfaces/widgets/index.mjs";
-import * as lineageModule from "../surfaces/lineage/index.mjs";
 
 // Capability model (operational wave): `capabilities` is the AUTHORITY-derived set of acts the
 // surface genuinely supports today (never inferred from pixel certification or daemon_wired);
@@ -66,12 +61,6 @@ export const SURFACES = [
   { slug: "monitors", owner: "Automations", title: "Automate", icon: MON_APP_TILE_URI, route: "/__ioi/automations/monitors", verifier: "scripts/verify-hypervisor-app-parity-monitors.mjs", certification: "pixel-certifications/monitors.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "changes", owner: "Improvement", title: "Upgrade Assistant", icon: CHG_APP_TILE_URI, route: "/__ioi/improvement/changes", verifier: "scripts/verify-hypervisor-app-parity-changes.mjs", certification: "pixel-certifications/changes.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "evalsuites", owner: "Evaluations", title: "AIP Evals", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/evalsuites", verifier: "scripts/verify-hypervisor-app-parity-evalsuites.mjs", certification: "pixel-certifications/evalsuites.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "workspaces", owner: "Workbench", title: "Code Workspaces", icon: CW_APP_TILE_URI, route: "/__ioi/workbench/workspaces", verifier: "scripts/verify-hypervisor-app-parity-workspaces.mjs", certification: "pixel-certifications/workspaces.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "widgets", owner: "Developer Console", title: "Custom Widgets", icon: WG_APP_TILE_URI, route: "/__ioi/developer-console/widgets", verifier: "scripts/verify-hypervisor-app-parity-widgets.mjs", certification: "pixel-certifications/widgets.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  // Lineage is reference_ported, NOT certified — it mounts through the registry (module contract)
-  // but the catalog never lists it (membership = certified matrix seeds or verified contract
-  // evidence; this entry is the MOUNT POINT only, kept honest by certification: "n/a").
-  { slug: "lineage", owner: "Provenance", title: "Data Lineage", icon: null, route: "/__ioi/provenance/lineage", verifier: "scripts/verify-hypervisor-app-parity-lineage.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
 ];
 
 // Fail-fast registry invariants: a typo'd capability or state is a boot error, not a silent lie.
@@ -152,9 +141,6 @@ bindSurface("explorer", objectExplorerModule);
 bindSurface("approvals", approvalsModule);
 bindSurface("sources", sourcesModule);
 bindSurface("missions", missionsModule);
-bindSurface("workspaces", workspacesModule);
-bindSurface("widgets", widgetsModule);
-bindSurface("lineage", lineageModule);
 
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime
 // verifier a module whose action THROWS (route isolation proof) and one that claims success

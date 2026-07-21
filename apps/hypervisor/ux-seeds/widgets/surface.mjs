@@ -1,3 +1,7 @@
+// DORMANT UX SEED ONLY. This module is not mounted, registered, cataloged, or operational.
+// It preserves the measured interaction/layout scaffold until Developer Console is pulled by
+// its owning M-stage contracts. Pixel evidence proves only the captured shell grammar.
+//
 // Developer Console · Custom Widgets — the faithful Custom-Widgets landing (origin-aligned
 // reference /workspace/custom-widgets/ on the :9225 mirror), READ-ONLY over the estate's REAL
 // widget/extension registration plane: GET /v1/hypervisor/odk/surface-descriptors (the ODK
@@ -11,18 +15,22 @@
 // build-in-environment vs scaffold-externally fork is vendor chrome the estate does not bind —
 // a named gap, stated in place.
 import { bpIcon } from "../../scripts/bp-icons.mjs";
-import { WG_APP_TILE_URI, WG_ROW_TUTORIAL_ICON_URI } from "../../scripts/widgets-assets.mjs";
-import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
-import { escHtml } from "../kit.mjs";
+import { WG_APP_TILE_URI, WG_ROW_TUTORIAL_ICON_URI } from "./assets.mjs";
+import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../../surfaces/chrome.mjs";
+import { escHtml } from "../../surfaces/kit.mjs";
 
 const CX_ESC = escHtml;
 
 export const meta = {
   slug: "widgets",
-  route: "/__ioi/developer-console/widgets",
-  verifier: "scripts/verify-hypervisor-app-parity-widgets.mjs",
-  certification: "pixel-certifications/widgets.json",
+  seed_state: "dormant_ux_seed",
+  canonical_owner: "Developer Console",
+  first_meaningful_pull: ["M3", "M5", "M7", "M12"],
+  proposed_route: "/__ioi/developer-console/widgets",
+  source_commit: "13a2d6cd7ee6889677ffac6b5efe46ab86115bab",
 };
+
+export const actions = Object.freeze([]);
 
 export async function load(ctx) {
   const J = (p) => fetch(`${ctx.daemon}${p}`).then((r) => r.json()).catch(() => null);

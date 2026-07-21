@@ -1,3 +1,7 @@
+// DORMANT UX SEED ONLY. This module is not mounted, registered, cataloged, or operational.
+// It preserves the measured interaction/layout scaffold until Developer Workspace is pulled by
+// its owning M-stage contracts. Pixel evidence proves only the captured shell grammar.
+//
 // Workbench · Code Workspaces — the faithful Code-Workspaces launchpad landing (origin-aligned
 // reference /workspace/code-workspaces/ on the :9225 mirror), READ-ONLY over the estate's REAL
 // session projection: GET /v1/hypervisor/sessions (the daemon's newest-50 projection + total) and
@@ -11,20 +15,24 @@
 // probed open posture) render in the below-fold census. New workspace routes to the Workbench
 // owner surface (the real session/environment lanes) — this surface mutates NOTHING.
 import { bpIcon } from "../../scripts/bp-icons.mjs";
-import { CW_APP_TILE_URI, CW_VSCODE_ICON_URI, CW_JUPYTER_ICON_URI, CW_RSTUDIO_ICON_URI } from "../../scripts/workspaces-assets.mjs";
+import { CW_APP_TILE_URI, CW_VSCODE_ICON_URI, CW_JUPYTER_ICON_URI, CW_RSTUDIO_ICON_URI } from "./assets.mjs";
 import { MCH_STORE_ICON_URI, MCH_EXAMPLES_STRIP_URI } from "../../scripts/machinery-assets.mjs";
 import { DSG_ROW_DOC_URI } from "../../scripts/designer-assets.mjs";
-import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
-import { escHtml } from "../kit.mjs";
+import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../../surfaces/chrome.mjs";
+import { escHtml } from "../../surfaces/kit.mjs";
 
 const CX_ESC = escHtml;
 
 export const meta = {
   slug: "workspaces",
-  route: "/__ioi/workbench/workspaces",
-  verifier: "scripts/verify-hypervisor-app-parity-workspaces.mjs",
-  certification: "pixel-certifications/workspaces.json",
+  seed_state: "dormant_ux_seed",
+  canonical_owner: "Developer Workspace",
+  first_meaningful_pull: ["M3", "M9"],
+  proposed_route: "/__ioi/workbench/workspaces",
+  source_commit: "48b2bfd1f888cd5b72246a72ba163f346df5569c",
 };
+
+export const actions = Object.freeze([]);
 
 export async function load(ctx) {
   const J = (p) => fetch(`${ctx.daemon}${p}`).then((r) => r.json()).catch(() => null);

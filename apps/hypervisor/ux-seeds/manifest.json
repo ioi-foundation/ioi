@@ -1,0 +1,65 @@
+{
+  "schema_version": "ioi.hypervisor.ux-seed-evidence.v1",
+  "state": "dormant_seed_evidence_only",
+  "doctrine": "A captured or pixel-certified seed preserves interaction and layout evidence only. It creates no product membership, route, capability, operational state, authority, or M-stage closure.",
+  "source_stack": {
+    "pull_requests": [93, 94, 95],
+    "base_commit": "562d1b08999be2e9bbb967ef60bb250f440452e5"
+  },
+  "seeds": [
+    {
+      "slug": "workspaces",
+      "source_pr": 93,
+      "source_commit": "48b2bfd1f888cd5b72246a72ba163f346df5569c",
+      "canonical_owner": "Developer Workspace",
+      "first_meaningful_pull": ["M3", "M9"],
+      "proposed_route": "/__ioi/workbench/workspaces",
+      "active_registration": "none",
+      "active_parity_class": "reference_capture",
+      "surface": "workspaces/surface.mjs",
+      "assets": "workspaces/assets.mjs",
+      "pixel_evidence": "workspaces/pixel-certification.json",
+      "activation_requirements": [
+        "owner contract is implemented and current",
+        "current product registration is daemon-admitted rather than certification-derived",
+        "surface truth and authority are reverified against the then-current daemon"
+      ]
+    },
+    {
+      "slug": "widgets",
+      "source_pr": 94,
+      "source_commit": "13a2d6cd7ee6889677ffac6b5efe46ab86115bab",
+      "canonical_owner": "Developer Console",
+      "first_meaningful_pull": ["M3", "M5", "M7", "M12"],
+      "proposed_route": "/__ioi/developer-console/widgets",
+      "active_registration": "none",
+      "active_parity_class": "reference_capture",
+      "surface": "widgets/surface.mjs",
+      "assets": "widgets/assets.mjs",
+      "pixel_evidence": "widgets/pixel-certification.json",
+      "activation_requirements": [
+        "owner contract is implemented and current",
+        "extension registration and serving bindings are daemon-admitted",
+        "surface truth and authority are reverified against the then-current daemon"
+      ]
+    },
+    {
+      "slug": "lineage",
+      "source_pr": 95,
+      "source_commit": "19fd953c48de79eb3faa9bf5810c026f6e9b360b",
+      "canonical_owner": "Provenance",
+      "first_meaningful_pull": ["M1"],
+      "proposed_route": "/__ioi/provenance/lineage",
+      "active_registration": "none",
+      "active_parity_class": "substrate_bound",
+      "surface": "lineage/surface.mjs",
+      "assets": null,
+      "pixel_evidence": null,
+      "activation_requirements": [
+        "a current Provenance contract selects the projection",
+        "the surface is rebound from the old ODK-only graph to current owner truth",
+        "product registration and capability depth are admitted independently of capture parity"
+      ]
+    }
+  ]
+}
