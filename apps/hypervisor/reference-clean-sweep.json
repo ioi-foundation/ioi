@@ -1,13 +1,13 @@
 {
  "schema": "ioi.hypervisor.reference-clean-sweep.v1",
- "swept_at": "2026-07-21T00:25:21.037Z",
+ "swept_at": "2026-07-21T00:49:52.131Z",
  "serve": "http://127.0.0.1:4173",
  "mirror": "http://127.0.0.1:9225",
  "total_seeds": 39,
  "by_state": {
-  "data_clean": 14,
+  "data_clean": 15,
   "errored_reference": 6,
-  "needs_origin_alignment": 5,
+  "needs_origin_alignment": 4,
   "shell_clean_only": 10,
   "data_failed": 4
  },
@@ -2563,14 +2563,14 @@
   {
    "slug": "widgets",
    "owner": "Developer Console",
-   "parity_class": "reference_capture",
+   "parity_class": "reference_ported",
    "grammar": "editor_canvas",
    "reference_path": "http://localhost:9225/workspace/custom-widgets/",
-   "candidate_surface": null,
+   "candidate_surface": "/__ioi/developer-console/widgets",
    "substrate_surface": null,
-   "clean_state": "needs_origin_alignment",
-   "reason": "proxy lane renders no data (score 0), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 0 · lines 47) — align the reference URL like pipeline #38/#39",
-   "lane_used": "origin",
+   "clean_state": "data_clean",
+   "reason": "shell regions [rail, header, body] + data evidence (rows 12/0 · nodes 0 · cards 0 · lists 0 · lines 47)",
+   "lane_used": "override",
    "shell_regions": [
     "rail",
     "header",
@@ -2596,7 +2596,14 @@
     "Support",
     "Account"
    ],
-   "matrix_landmarks_present": [],
+   "matrix_landmarks_present": [
+    "Custom Widgets",
+    "New widget set",
+    "Develop custom frontend widgets for use within Foundry applications.",
+    "Recents",
+    "Favorites",
+    "Files"
+   ],
    "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nCustom Widgets\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nCustom Widgets\nNew widget set\nHelp\nCustom Widgets\nDevelop custom frontend widgets for use within Foundry applications.\nView\nRecents\nFavorites\nFILES\nCREATOR\nLAST EDITED BY\nLAST VIEWED\nUse AIP Logic to classify and edit objects Walkthrough\n/test-ab81f6/test4/AIP Chatbot with transcribed video context (2026-04-26 22:22:24)/logic/Use AIP Logic to classify and edit objects (2026-06-23 20:26:32)\naip-assist\naip-assist\nJun",
    "data_evidence": {
     "table_rows": 12,
@@ -2655,9 +2662,27 @@
      "cors_signals": 0,
      "console_errors": 0,
      "screenshot": ".artifacts/reference-clean-sweep/widgets-origin.png"
+    },
+    {
+     "lane": "override",
+     "url": "http://localhost:9225/workspace/custom-widgets/",
+     "loaded": true,
+     "nav_error": "",
+     "regions": [
+      "rail",
+      "header",
+      "body"
+     ],
+     "data_score": 5,
+     "chunk_404s": 0,
+     "api_failures": 0,
+     "cross_origin_9225": 0,
+     "cors_signals": 0,
+     "console_errors": 0,
+     "screenshot": ".artifacts/reference-clean-sweep/widgets-override.png"
     }
    ],
-   "screenshot": ".artifacts/reference-clean-sweep/widgets-origin.png"
+   "screenshot": ".artifacts/reference-clean-sweep/widgets-override.png"
   },
   {
    "slug": "developer",
@@ -2738,7 +2763,7 @@
   {
    "slug": "workspaces",
    "owner": "Workbench",
-   "parity_class": "reference_ported",
+   "parity_class": "daemon_wired",
    "grammar": "editor_canvas",
    "reference_path": "http://localhost:9225/workspace/code-workspaces/",
    "candidate_surface": "/__ioi/workbench/workspaces",

@@ -374,7 +374,7 @@ function connectionsShell(inner) {
   .cndrawer td{padding:5px 6px;border-bottom:1px solid #1b1d23;word-break:break-all}
   @media(max-width:1100px){.cnwrap{grid-template-columns:1fr}.cndrawer{position:static}}
 </style></head><body><div class="wrap"><div class="brand">IOI Hypervisor</div><h1>Connections</h1>
-<p class="sub">Every external capability binding the workspace can use. Agents receive only scoped, policy-gated capability leases — the underlying credentials are sealed in the daemon and never reach a session.</p>
+<p class="sub">Every external capability binding the workspace can use. Agents receive only scoped, policy-gated capability leases — the underlying credentials are sealed in the daemon and never reach a session. <a href="/__ioi/developer-console/widgets">Custom Widgets registry →</a></p>
 ${inner}</div></body></html>`;
 }
 function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
