@@ -37,11 +37,29 @@ function pathParts(pointer) {
   if (typeof pointer !== "string" || !pointer.startsWith("$.")) {
     return null;
   }
-  const parts = pointer.slice(2).split(".");
-  return parts.length > 0 &&
-    parts.every((part) => /^[a-z][a-z0-9_]*$/u.test(part))
-    ? parts
-    : null;
+  const parts = [];
+  for (const segment of pointer.slice(2).split(".")) {
+    const match = /^([a-z][a-z0-9_]*)(?:\[(0|[1-9][0-9]*)\])?$/u.exec(segment);
+    if (match === null) return null;
+    parts.push(match[1]);
+    if (match[2] !== undefined) parts.push(Number(match[2]));
+  }
+  return parts.length > 0 ? parts : null;
+}
+
+function schemaNodeAtArrayIndex(node, index) {
+  if (!Number.isSafeInteger(index) || index < 0) return undefined;
+  if (
+    Number.isInteger(node.maxItems) &&
+    node.maxItems >= 0 &&
+    index >= node.maxItems
+  ) {
+    return undefined;
+  }
+  if (Array.isArray(node.prefixItems) && index < node.prefixItems.length) {
+    return node.prefixItems[index];
+  }
+  return isObject(node.items) ? node.items : undefined;
 }
 
 function pathResolvesAcrossAlternatives(
@@ -58,13 +76,23 @@ function pathResolvesAcrossAlternatives(
     activePaths = new Set();
     visiting.set(node, activePaths);
   }
-  const pathKey = parts.join(".");
+  const pathKey = parts.map(String).join(".");
   if (activePaths.has(pathKey)) return false;
   activePaths.add(pathKey);
 
   try {
     const [part, ...remaining] = parts;
+    if (typeof part === "number") {
+      const candidate = schemaNodeAtArrayIndex(node, part);
+      if (
+        candidate !== undefined &&
+        pathResolvesAcrossAlternatives(rootSchema, candidate, remaining, visiting)
+      ) {
+        return true;
+      }
+    }
     if (
+      typeof part === "string" &&
       isObject(node.properties) &&
       Object.hasOwn(node.properties, part) &&
       pathResolvesAcrossAlternatives(
@@ -134,7 +162,10 @@ function schemaNodesAtPath(rootSchema, pointer) {
   for (const part of parts) {
     const next = [];
     for (const node of expandedSchemaNodes(rootSchema, nodes)) {
-      if (isObject(node.properties) && Object.hasOwn(node.properties, part)) {
+      if (typeof part === "number") {
+        const candidate = schemaNodeAtArrayIndex(node, part);
+        if (candidate !== undefined) next.push(candidate);
+      } else if (typeof part === "string" && isObject(node.properties) && Object.hasOwn(node.properties, part)) {
         next.push(node.properties[part]);
       }
     }
@@ -158,14 +189,16 @@ function directSchemaNodeAtPath(rootSchema, pointer) {
     return isObject(node);
   };
   for (const part of parts) {
-    if (
-      !dereference() ||
-      !isObject(node.properties) ||
-      !Object.hasOwn(node.properties, part)
-    ) {
+    if (!dereference()) {
       return null;
     }
-    node = node.properties[part];
+    if (typeof part === "number") {
+      node = schemaNodeAtArrayIndex(node, part);
+      if (!isObject(node)) return null;
+    } else {
+      if (!isObject(node.properties) || !Object.hasOwn(node.properties, part)) return null;
+      node = node.properties[part];
+    }
   }
   return dereference() ? node : null;
 }

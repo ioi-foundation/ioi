@@ -1,0 +1,112 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-activation-proposal/identity/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_activation_proposal.root.recomputes",
+      "description": "The proposal root binds the exact server-derived effect and lifecycle coordinates.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.autonomous-system-activation-proposal-jcs-sha256.v1" },
+          "proposal_ref": { "path": "$.proposal_ref" },
+          "system_id": { "path": "$.system_id" },
+          "genesis_ref": { "path": "$.genesis_ref" },
+          "operation": { "path": "$.operation" },
+          "sequence": { "path": "$.sequence" },
+          "required_scope": { "path": "$.required_scope" },
+          "operation_commitment": { "path": "$.operation_commitment" },
+          "authority_effect": { "path": "$.authority_effect" },
+          "authority_effect_hash": { "path": "$.authority_effect_hash" },
+          "status": { "path": "$.status" },
+          "created_at": { "path": "$.created_at" }
+        },
+        "expected_path": "$.proposal_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.operation_commitment.recomputes",
+      "description": "The logical operation commitment is derived before downstream proposal, decision, transition, receipt, log, and chain roots.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.autonomous-system-lifecycle-operation-commitment-jcs-sha256.v1" },
+          "operation": { "path": "$.authority_effect.operation" },
+          "required_scope": { "path": "$.authority_effect.required_scope" },
+          "sequence": { "path": "$.authority_effect.sequence" },
+          "system_id": { "path": "$.authority_effect.system_id" },
+          "genesis_ref": { "path": "$.authority_effect.genesis_ref" },
+          "home_domain_ref": { "path": "$.authority_effect.home_domain_ref" },
+          "home_domain_commitment": { "path": "$.authority_effect.home_domain_commitment" },
+          "home_domain_binding_ref": { "path": "$.authority_effect.home_domain_binding_ref" },
+          "home_domain_binding_root": { "path": "$.authority_effect.home_domain_binding_root" },
+          "policy_root": { "path": "$.authority_effect.policy_root" },
+          "module_registry_root": { "path": "$.authority_effect.module_registry_root" },
+          "upgrade_policy_ref": { "path": "$.authority_effect.upgrade_policy_ref" },
+          "deployment_profile_ref": { "path": "$.authority_effect.deployment_profile_ref" },
+          "deployment_profile_root": { "path": "$.authority_effect.deployment_profile_root" },
+          "predecessor_state_root": { "path": "$.authority_effect.predecessor_state_root" },
+          "resulting_state_ref": { "path": "$.authority_effect.resulting_state_ref" },
+          "resulting_state_root": { "path": "$.authority_effect.resulting_state_root" },
+          "active_profile_set_ref": { "path": "$.authority_effect.active_profile_set_ref" },
+          "active_profile_set_root": { "path": "$.authority_effect.active_profile_set_root" },
+          "chain_ref": { "path": "$.authority_effect.chain_ref" },
+          "live_chain_created": { "path": "$.authority_effect.live_chain_created" },
+          "node_membership_created": { "path": "$.authority_effect.node_membership_created" },
+          "runtime_effect_admitted": { "path": "$.authority_effect.runtime_effect_admitted" },
+          "network_effect_admitted": { "path": "$.authority_effect.network_effect_admitted" }
+        },
+        "expected_path": "$.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.authority_effect_hash.recomputes",
+      "description": "The daemon authorization hash is the domain-separated JCS hash of the exact proposed authority effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "hypervisor.system-lifecycle.decision.request.v1.effect.v1" },
+          "effect": { "path": "$.authority_effect" }
+        },
+        "expected_path": "$.authority_effect_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.operation_commitment.matches_effect",
+      "description": "The proposal and signed effect carry the same logical operation commitment.",
+      "expression": { "operator": "fields_equal", "paths": ["$.operation_commitment", "$.authority_effect.operation_commitment"] }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.system.matches_effect",
+      "description": "The proposal and its exact effect name one System.",
+      "expression": { "operator": "fields_equal", "paths": ["$.system_id", "$.authority_effect.system_id"] }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.genesis.matches_effect",
+      "description": "The proposal and its exact effect name one genesis.",
+      "expression": { "operator": "fields_equal", "paths": ["$.genesis_ref", "$.authority_effect.genesis_ref"] }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.operation.matches_effect",
+      "description": "The proposal and effect carry one operation.",
+      "expression": { "operator": "fields_equal", "paths": ["$.operation", "$.authority_effect.operation"] }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.sequence.matches_effect",
+      "description": "The proposal and effect carry one sequence.",
+      "expression": { "operator": "fields_equal", "paths": ["$.sequence", "$.authority_effect.sequence"] }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.scope.matches_effect",
+      "description": "The proposal and effect carry one operation scope.",
+      "expression": { "operator": "fields_equal", "paths": ["$.required_scope", "$.authority_effect.required_scope"] }
+    }
+  ]
+}

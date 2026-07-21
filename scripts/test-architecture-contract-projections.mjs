@@ -11,6 +11,7 @@ import addFormats from "ajv-formats";
 import ts from "typescript";
 import {
   invariantPathFiniteDomain,
+  invariantPathResolvesPortably,
   validateInvariantProfile,
 } from "./lib/architecture-invariant-dsl.mjs";
 import {
@@ -41,6 +42,16 @@ const CANONICAL_TYPESCRIPT_PUBLIC_INDEX =
 const CANONICAL_RUST_TARGET =
   "crates/types/src/app/generated/architecture_contracts.rs";
 const CANONICAL_RUST_MODULE_ROOT = "crates/types/src/app/mod.rs";
+for (const relativePath of [
+  "docs/architecture/foundations/common-objects-and-envelopes.md",
+  "docs/architecture/whitepaper.tex",
+]) {
+  assert.doesNotMatch(
+    fs.readFileSync(path.join(root, relativePath), "utf8"),
+    /(^|[^A-Za-z0-9-])home-domain-binding:\/\//mu,
+    `${relativePath}: stale home-domain-binding URI alias`,
+  );
+}
 assert.equal(ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM, 0);
 assert.equal(
   ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MAXIMUM,
@@ -131,6 +142,99 @@ assert.equal(
   null,
   "a finite domain available only through composition must not prove entailment",
 );
+const indexedPathSchema = {
+  type: "object",
+  required: ["entries", "not_an_array"],
+  properties: {
+    entries: {
+      type: "array",
+      prefixItems: [
+        { type: "string" },
+        { type: "string" },
+      ],
+      items: false,
+    },
+    not_an_array: {
+      type: "object",
+      properties: { zero: { type: "string" } },
+    },
+  },
+};
+for (const [pointer, expected] of [
+  ["$.entries[0]", true],
+  ["$.entries[1]", true],
+  ["$.entries[2]", false],
+  ["$.entries[01]", false],
+  ["$.entries[x]", false],
+  ["$.entries[0][1]", false],
+  ["$.not_an_array[0]", false],
+]) {
+  assert.equal(
+    invariantPathResolvesPortably(indexedPathSchema, pointer),
+    expected,
+    `${pointer}: indexed invariant path resolution`,
+  );
+}
+assert.deepEqual(
+  validateInvariantProfile(indexedPathSchema, {
+    rules: [{
+      rule_id: "test.prefix_items_fields_equal",
+      expression: {
+        operator: "fields_equal",
+        paths: ["$.entries[0]", "$.entries[1]"],
+      },
+    }],
+  }),
+  [],
+  "fixed prefixItems slots may participate in portable fields_equal rules",
+);
+const fixedHomogeneousArraySchema = {
+  type: "object",
+  required: ["entries"],
+  properties: {
+    entries: {
+      type: "array",
+      items: { type: "string", enum: ["left", "right"] },
+      minItems: 2,
+      maxItems: 2,
+    },
+  },
+};
+for (const [pointer, expected] of [
+  ["$.entries[0]", true],
+  ["$.entries[1]", true],
+  ["$.entries[2]", false],
+]) {
+  assert.equal(
+    invariantPathResolvesPortably(fixedHomogeneousArraySchema, pointer),
+    expected,
+    `${pointer}: maxItems bounds homogeneous indexed paths`,
+  );
+}
+assert.deepEqual(
+  invariantPathFiniteDomain(fixedHomogeneousArraySchema, "$.entries[1]"),
+  ["left", "right"],
+  "direct indexed lookup respects homogeneous item fallback",
+);
+assert.equal(
+  invariantPathFiniteDomain(fixedHomogeneousArraySchema, "$.entries[2]"),
+  null,
+  "direct indexed lookup rejects a statically impossible homogeneous slot",
+);
+const tupleWithFallbackSchema = {
+  type: "object",
+  required: ["entries"],
+  properties: {
+    entries: {
+      type: "array",
+      prefixItems: [{ type: "string", const: "head" }],
+      items: { type: "string", const: "tail" },
+      maxItems: 2,
+    },
+  },
+};
+assert.equal(invariantPathResolvesPortably(tupleWithFallbackSchema, "$.entries[1]"), true);
+assert.equal(invariantPathResolvesPortably(tupleWithFallbackSchema, "$.entries[2]"), false);
 const branchVariantSchema = {
   type: "object",
   oneOf: [
@@ -366,6 +470,60 @@ for (const fixture of ARCHITECTURE_CONTRACT_FIXTURES) {
   }
 }
 
+{
+  const contractId =
+    "schema://ioi/foundations/autonomous-system-operation-log/v1";
+  const fixturePath = path.join(
+    root,
+    "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/positive-activation-prefix.json",
+  );
+  const valid = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+  assert.equal(
+    validateArchitectureContract(contractId, valid).ok,
+    true,
+    "generated TypeScript accepts the indexed operation-log continuity fixture",
+  );
+  for (const { index, ruleId } of [
+    {
+      index: 0,
+      ruleId:
+        "autonomous_system_operation_log.prefix.sequence_zero_matches_entries",
+    },
+    {
+      index: 1,
+      ruleId:
+        "autonomous_system_operation_log.prefix.sequence_one_matches_entries",
+    },
+  ]) {
+    const mutated = structuredClone(valid);
+    mutated.entries[index].operation_owner_root =
+      `sha256:${String(index + 7).repeat(64)}`;
+    const result = validateArchitectureContract(contractId, mutated);
+    assert.equal(result.ok, false, `indexed fields_equal mutation [${index}]`);
+    assert.ok(
+      result.errors.some((error) => error.includes(ruleId)),
+      `indexed fields_equal mutation [${index}] must trip ${ruleId}`,
+    );
+  }
+  const nonArray = structuredClone(valid);
+  nonArray.entries = {
+    0: valid.entries[0],
+    1: valid.entries[1],
+  };
+  const nonArrayErrors = architectureContractInvariantErrors(
+    contractId,
+    nonArray,
+  );
+  assert.ok(
+    nonArrayErrors.some((error) =>
+      error.includes(
+        "autonomous_system_operation_log.prefix.sequence_zero_matches_entries",
+      )
+    ),
+    "generated TypeScript indexed lookup refuses a non-array operand",
+  );
+}
+
 function canonicalJson(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
@@ -373,6 +531,163 @@ function canonicalJson(value) {
     .sort()
     .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
     .join(",")}}`;
+}
+
+function architectureFixture(relativePath) {
+  return JSON.parse(
+    fs.readFileSync(
+      path.join(root, "docs/architecture/_meta/schemas/fixtures", relativePath),
+      "utf8",
+    ),
+  );
+}
+
+function artifactRoot(domain, artifact) {
+  return `sha256:${createHash("sha256")
+    .update(canonicalJson({ domain, artifact }))
+    .digest("hex")}`;
+}
+
+{
+  const proposal = architectureFixture(
+    "autonomous-system-activation-proposal-v1/positive-initialize.json",
+  );
+  const decision = architectureFixture(
+    "autonomous-system-activation-authority-decision-v1/positive-initialize.json",
+  );
+  const transition = architectureFixture(
+    "lifecycle-transition-v1/positive-initialize-committed-without-state-transition-commitment.json",
+  );
+  const initializeReceipt = architectureFixture(
+    "lifecycle-transition-receipt-v1/positive-initialize.json",
+  );
+  const activationReceipt = architectureFixture(
+    "autonomous-system-activation-receipt-v1/positive-activate.json",
+  );
+  const operationLog = architectureFixture(
+    "autonomous-system-operation-log-v1/positive-activation-prefix.json",
+  );
+  const chain = architectureFixture(
+    "autonomous-system-chain-v1/positive-active-sequence-two.json",
+  );
+  const initializeCommitment = proposal.operation_commitment;
+  assert.deepEqual(
+    [
+      proposal.authority_effect.operation_commitment,
+      decision.operation_commitment,
+      transition.operation_commitment,
+      initializeReceipt.bound_facts.operation_commitment,
+      operationLog.activation_prefix.sequence_one.operation_commitment,
+      operationLog.entries[1].operation_commitment,
+    ],
+    Array(6).fill(initializeCommitment),
+    "the registered initialize prefix carries one logical operation commitment",
+  );
+  assert.equal(decision.proposal_ref, proposal.proposal_ref);
+  assert.equal(decision.proposal_root, proposal.proposal_root);
+  assert.equal(initializeReceipt.bound_facts.proposal_ref, proposal.proposal_ref);
+  assert.equal(initializeReceipt.bound_facts.proposal_root, proposal.proposal_root);
+  assert.equal(initializeReceipt.bound_facts.decision_ref, decision.decision_ref);
+  assert.equal(initializeReceipt.bound_facts.decision_root, decision.decision_root);
+  assert.equal(decision.effect_hash, proposal.authority_effect_hash);
+  assert.equal(initializeReceipt.effect_hash, proposal.authority_effect_hash);
+  assert.equal(
+    initializeReceipt.bound_facts.authority_effect_hash,
+    proposal.authority_effect_hash,
+  );
+  const activationCommitment = activationReceipt.bound_facts.operation_commitment;
+  assert.deepEqual(
+    [
+      operationLog.activation_prefix.sequence_two.operation_commitment,
+      operationLog.entries[2].operation_commitment,
+      operationLog.head_entry.operation_commitment,
+      operationLog.latest_operation_commitment,
+      chain.latest_operation_commitment,
+    ],
+    Array(5).fill(activationCommitment),
+    "the registered activation prefix carries one logical operation commitment",
+  );
+  assert.deepEqual(
+    [
+      operationLog.activation_prefix.sequence_zero.state_transition_commitment_ref,
+      operationLog.activation_prefix.sequence_one.state_transition_commitment_ref,
+      operationLog.activation_prefix.sequence_two.state_transition_commitment_ref,
+      operationLog.entries[0].state_transition_commitment_ref,
+      operationLog.entries[1].state_transition_commitment_ref,
+      operationLog.entries[2].state_transition_commitment_ref,
+      operationLog.latest_transition_commitment_ref,
+      chain.latest_transition_commitment_ref,
+    ],
+    Array(8).fill(null),
+    "the M1.5a prefix does not fabricate the M2 StateTransitionCommitment owner",
+  );
+  const initializeTransitionRoot = artifactRoot(
+    "ioi.autonomous-system-lifecycle-transition-jcs-sha256.v1",
+    transition,
+  );
+  const initializeReceiptRoot = artifactRoot(
+    "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1",
+    initializeReceipt,
+  );
+  const activationReceiptRoot = artifactRoot(
+    "ioi.autonomous-system-activation-receipt-artifact-jcs-sha256.v1",
+    activationReceipt,
+  );
+  assert.equal(initializeReceipt.bound_facts.transition_root, initializeTransitionRoot);
+  assert.equal(operationLog.entries[1].transition_root, initializeTransitionRoot);
+  assert.equal(operationLog.entries[1].receipt_root, initializeReceiptRoot);
+  assert.equal(operationLog.entries[2].receipt_root, activationReceiptRoot);
+  assert.equal(operationLog.entries[1].proposal_ref, proposal.proposal_ref);
+  assert.equal(operationLog.entries[1].proposal_root, proposal.proposal_root);
+  assert.equal(operationLog.entries[1].decision_ref, decision.decision_ref);
+  assert.equal(operationLog.entries[1].decision_root, decision.decision_root);
+  assert.equal(
+    operationLog.entries[2].proposal_ref,
+    activationReceipt.bound_facts.proposal_ref,
+  );
+  assert.equal(
+    operationLog.entries[2].proposal_root,
+    activationReceipt.bound_facts.proposal_root,
+  );
+  assert.equal(
+    operationLog.entries[2].decision_ref,
+    activationReceipt.bound_facts.decision_ref,
+  );
+  assert.equal(
+    operationLog.entries[2].decision_root,
+    activationReceipt.bound_facts.decision_root,
+  );
+  for (const field of [
+    "system_id",
+    "genesis_ref",
+    "home_domain_ref",
+    "home_domain_binding_ref",
+    "home_domain_binding_root",
+    "policy_root",
+    "module_registry_root",
+    "upgrade_policy_ref",
+  ]) {
+    assert.deepEqual(
+      chain[field],
+      operationLog[field],
+      `chain and operation log share ${field}`,
+    );
+  }
+  assert.equal(chain.operation_log_ref, operationLog.operation_log_ref);
+  assert.equal(chain.operation_log_root, operationLog.operation_log_root);
+  assert.equal(chain.latest_transition_id, operationLog.head_entry.transition_ref);
+  assert.equal(chain.latest_transition_root, operationLog.head_entry.transition_root);
+  assert.equal(chain.latest_receipt_ref, operationLog.head_entry.receipt_ref);
+  assert.equal(chain.latest_receipt_root, operationLog.head_entry.receipt_root);
+  assert.equal(chain.latest_state_ref, operationLog.head_entry.state_ref);
+  assert.equal(chain.latest_state_root, operationLog.head_entry.state_root);
+  assert.match(
+    architectureFixture(
+      "autonomous-system-active-profile-set-v1/positive-active.json",
+    ).activation_receipt_ref,
+    /^receipt:\/\/asar_[0-9a-f]{64}$/u,
+    "active-profile admission names the specialized activation receipt owner",
+  );
 }
 
 assert.deepEqual(

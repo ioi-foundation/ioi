@@ -287,13 +287,17 @@ function resolvePointer(value, ref) {
 function valueAtPath(value, pointer) {
   if (typeof pointer !== "string" || !pointer.startsWith("$."))
     return undefined;
-  return pointer
-    .slice(2)
-    .split(".")
-    .reduce(
-      (current, part) => (isObject(current) ? current[part] : undefined),
-      value,
-    );
+  let current = value;
+  for (const segment of pointer.slice(2).split(".")) {
+    const match = /^([a-z][a-z0-9_]*)(?:\[(0|[1-9][0-9]*)\])?$/u.exec(segment);
+    if (match === null || !isObject(current)) return undefined;
+    current = current[match[1]];
+    if (match[2] !== undefined) {
+      if (!Array.isArray(current)) return undefined;
+      current = current[Number(match[2])];
+    }
+  }
+  return current;
 }
 
 function invariantMaterial(value, expression) {

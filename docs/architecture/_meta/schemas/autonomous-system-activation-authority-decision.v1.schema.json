@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1",
+  "title": "AutonomousSystemActivationAuthorityDecision",
+  "description": "Immutable decision evidence for one wallet-authorized Autonomous System initialize or activate proposal.",
+  "x-ioi-schema-version": "ioi.autonomous-system-activation-authority-decision.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "decision_ref", "decision_root", "proposal_ref", "proposal_root",
+    "system_id", "genesis_ref", "operation", "sequence", "required_scope", "operation_commitment", "input_hash",
+    "policy_hash", "effect_hash", "authority_grant_ref", "authority_evidence_ref",
+    "authority_evidence_root", "wallet_grant_consumption_ref", "wallet_grant_consumption_root",
+    "wallet_grant_consumption_evidence_ref", "outcome", "decided_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.autonomous-system-activation-authority-decision.v1" },
+    "decision_ref": { "$ref": "#/$defs/decisionRef" },
+    "decision_root": { "$ref": "#/$defs/hash" },
+    "proposal_ref": { "$ref": "#/$defs/proposalRef" },
+    "proposal_root": { "$ref": "#/$defs/hash" },
+    "system_id": { "$ref": "#/$defs/systemRef" },
+    "genesis_ref": { "$ref": "#/$defs/genesisRef" },
+    "operation": { "enum": ["initialize", "activate"] },
+    "sequence": { "enum": [1, 2] },
+    "required_scope": { "enum": ["scope:autonomous_system.lifecycle.initialize", "scope:autonomous_system.lifecycle.activate"] },
+    "operation_commitment": { "$ref": "#/$defs/hash" },
+    "input_hash": { "$ref": "#/$defs/hash" },
+    "policy_hash": { "$ref": "#/$defs/hash" },
+    "effect_hash": { "$ref": "#/$defs/hash" },
+    "authority_grant_ref": { "type": "string", "pattern": "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$" },
+    "authority_evidence_ref": { "type": "string", "pattern": "^system-lifecycle-authority-evidence://aslae_[0-9a-f]{64}$" },
+    "authority_evidence_root": { "$ref": "#/$defs/hash" },
+    "wallet_grant_consumption_ref": { "type": "string", "pattern": "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$" },
+    "wallet_grant_consumption_root": { "$ref": "#/$defs/hash" },
+    "wallet_grant_consumption_evidence_ref": { "type": "string", "pattern": "^system-lifecycle-authority-consumption://aslac_[0-9a-f]{64}$" },
+    "outcome": { "const": "admitted" },
+    "decided_at": { "$ref": "#/$defs/canonicalDateTime" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "operation": { "const": "initialize" } }, "required": ["operation"] },
+      "then": {
+        "properties": {
+          "sequence": { "enum": [1] },
+          "required_scope": { "const": "scope:autonomous_system.lifecycle.initialize" }
+        }
+      },
+      "else": {
+        "properties": {
+          "sequence": { "enum": [2] },
+          "required_scope": { "const": "scope:autonomous_system.lifecycle.activate" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "systemRef": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "genesisRef": { "type": "string", "pattern": "^genesis://[^\\s]{1,248}$" },
+    "proposalRef": { "type": "string", "pattern": "^proposal://[^\\s]{1,248}$" },
+    "decisionRef": { "type": "string", "pattern": "^decision://[^\\s]{1,248}$" },
+    "canonicalDateTime": {
+      "type": "string", "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

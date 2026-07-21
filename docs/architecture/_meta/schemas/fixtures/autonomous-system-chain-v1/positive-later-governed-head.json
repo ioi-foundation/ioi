@@ -1,0 +1,65 @@
+{
+  "schema_version": "ioi.autonomous-system-chain.v1",
+  "chain_ref": "autonomous-system-chain://acme/system-alpha",
+  "chain_root": "sha256:abcac1823db2ce298ee6cdcc3eec6b608e9b7446bfe643a21fdd9e495bba51db",
+  "system_id": "system://acme/system-alpha",
+  "home_domain_ref": "agentgres://domain/autonomous-system/acme/system-alpha/sha256:674f6101308756e16cac0bfa93aec3844768603ef9fd515fa81585e6c70ee2ab",
+  "home_domain_binding_ref": "system-home-domain-binding://acme/system-alpha/sha256:121d0fd516417ce2c0d0066b59240bdaa5c651e1bf9a9a1e3117f34bcdd4f570",
+  "home_domain_binding_root": "sha256:121d0fd516417ce2c0d0066b59240bdaa5c651e1bf9a9a1e3117f34bcdd4f570",
+  "governance_owner_refs": [
+    "org://acme/research"
+  ],
+  "genesis_ref": "genesis://acme/system-alpha/v1",
+  "genesis_admission_record_root": "sha256:1010101010101010101010101010101010101010101010101010101010101010",
+  "package_id": "package://acme/system-alpha",
+  "manifest_ref": "package://acme/system-alpha/release/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "admitted_manifest_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "constitution_ref": "constitution://acme/system-alpha/v1",
+  "constitution_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "deployment_profile_ref": "deployment-profile://acme/system-alpha/local/revision/sha256:7f0a7ac7f62cd3694fa16b0498e187e9574372f47a67a26f2a4ef192190b7796",
+  "deployment_profile_root": "sha256:7f0a7ac7f62cd3694fa16b0498e187e9574372f47a67a26f2a4ef192190b7796",
+  "ordering_admission_finality_profile_ref": "ordering-profile://acme/system-alpha/v1",
+  "oracle_evidence_profile_refs": [],
+  "lifecycle_continuity_profile_ref": "lifecycle-profile://acme/system-alpha/v1",
+  "network_enrollment_ref": null,
+  "active_profile_set_ref": "active-profile-set://acme/system-alpha/sequence/2",
+  "active_profile_set_root": "sha256:5aa2662a3e50bfa95c036d15e3e21b164dbeecf07fc2f741261760d3c523d450",
+  "node_membership_refs": [
+    "node-membership://acme/system-alpha/node-a"
+  ],
+  "node_membership_root": "sha256:d148a116f4a3f08df8453801cdf362994c5562a82e0d4a525a0bc892b0b2b449",
+  "active_writer_epoch": 4,
+  "latest_sequence": 5,
+  "latest_operation_commitment": "sha256:5151515151515151515151515151515151515151515151515151515151515151",
+  "latest_transition_commitment_ref": "transition://acme/system-alpha/sequence/5",
+  "latest_transition_id": "lifecycle-transition://acme/system-alpha/sequence/5",
+  "latest_transition_root": "sha256:5252525252525252525252525252525252525252525252525252525252525252",
+  "latest_receipt_ref": "receipt://ltr_5555555555555555555555555555555555555555555555555555555555555555",
+  "latest_receipt_root": "sha256:5353535353535353535353535353535353535353535353535353535353535353",
+  "latest_state_ref": "system-state://acme/system-alpha/sequence/5",
+  "latest_state_root": "sha256:5454545454545454545454545454545454545454545454545454545454545454",
+  "worker_instance_refs": [
+    "worker://acme/system-alpha/worker-a"
+  ],
+  "workflow_refs": [
+    "workflow://acme/system-alpha/workflow-a"
+  ],
+  "active_component_registry_ref": "agentgres://object-set/autonomous-system-components/sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "active_component_registry_root": "sha256:9090909090909090909090909090909090909090909090909090909090909090",
+  "policy_root": "sha256:c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2",
+  "module_registry_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "pending_proposal_refs": [
+    "proposal://acme/system-alpha/pending/6"
+  ],
+  "proposal_queue_root": "sha256:06de4e5ba662b72d5d92a26f83e1deca3c0e645bba79bd1b3115215f02025fb1",
+  "operation_log_ref": "agentgres://operation-log/autonomous-system/acme/system-alpha/revision/sha256:5656565656565656565656565656565656565656565656565656565656565656",
+  "operation_log_root": "sha256:5656565656565656565656565656565656565656565656565656565656565656",
+  "upgrade_policy_ref": "policy://acme/governance/upgrades",
+  "settlement_policy_ref": null,
+  "default_settlement_mode": null,
+  "allowed_settlement_modes": [],
+  "settlement_profile_refs": [],
+  "public_commitment_policy_ref": null,
+  "status": "paused",
+  "created_at": "2026-07-21T12:05:00Z"
+}

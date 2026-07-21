@@ -1629,6 +1629,7 @@ export type LifecycleTransitionV1 = {
   challenge_closes_at: string | null;
   predecessor_state_root: string;
   resulting_state_root: string | null;
+  operation_commitment: string | null;
   state_transition_commitment_ref: string | null;
   lineage_ref: string | null;
   identity_continuity_decision_ref: string | null;
@@ -1636,6 +1637,546 @@ export type LifecycleTransitionV1 = {
   receipt_refs: Array<string>;
   public_commitment_ref: string | null;
   status: "proposed" | "evidence_pending" | "challenge_open" | "approved" | "executing" | "committed" | "rejected" | "rolled_back" | "failed_closed";
+};
+
+export type AutonomousSystemActivationProposalV1 = {
+  schema_version: "ioi.autonomous-system-activation-proposal.v1";
+  proposal_ref: string;
+  proposal_root: string;
+  system_id: string;
+  genesis_ref: string;
+  operation: "initialize" | "activate";
+  sequence: 1 | 2;
+  required_scope: "scope:autonomous_system.lifecycle.initialize" | "scope:autonomous_system.lifecycle.activate";
+  operation_commitment: string;
+  authority_effect: {
+      schema_version: "ioi.autonomous-system-lifecycle-authority-effect.v1";
+      operation: "initialize" | "activate";
+      required_scope: "scope:autonomous_system.lifecycle.initialize" | "scope:autonomous_system.lifecycle.activate";
+      sequence: 1 | 2;
+      system_id: string;
+      genesis_ref: string;
+      source_governing_authority_ref: string;
+      genesis_admission_record_root: string;
+      genesis_admission_receipt_ref: string;
+      genesis_admission_receipt_root: string;
+      package_id: string;
+      manifest_ref: string;
+      admitted_manifest_root: string;
+      lifecycle_profile_ref: string;
+      profile_bundle_root: string;
+      sequence_zero_materialization_id: string;
+      sequence_zero_materialization_root: string;
+      sequence_zero_receipt_ref: string;
+      sequence_zero_receipt_root: string;
+      sequence_zero_receipt_artifact_root: string;
+      component_registry_ref: string;
+      component_registry_root: string;
+      materialization_wallet_consumption_ref: string;
+      materialization_wallet_consumption_root: string;
+      deployment_profile_ref: string;
+      deployment_profile_root: string;
+      home_domain_ref: string;
+      home_domain_commitment: string;
+      home_domain_binding_ref: string | null;
+      home_domain_binding_root: string | null;
+      policy_root: string;
+      module_registry_root: string;
+      upgrade_policy_ref: string;
+      operation_commitment: string;
+      predecessor_proposal_ref: string | null;
+      predecessor_proposal_root: string | null;
+      predecessor_decision_ref: string | null;
+      predecessor_decision_root: string | null;
+      predecessor_transition_ref: string | null;
+      predecessor_transition_root: string | null;
+      predecessor_receipt_ref: string | null;
+      predecessor_receipt_root: string | null;
+      predecessor_state_ref: string | null;
+      predecessor_state_root: string;
+      resulting_state_ref: string;
+      resulting_state_root: string;
+      active_profile_set_ref: string | null;
+      active_profile_set_root: string | null;
+      chain_ref: string | null;
+      live_chain_created: boolean;
+      node_membership_created: false;
+      runtime_effect_admitted: false;
+      network_effect_admitted: false;
+    };
+  authority_effect_hash: string;
+  status: "proposed";
+  created_at: string;
+};
+
+export type AutonomousSystemActivationAuthorityDecisionV1 = {
+  schema_version: "ioi.autonomous-system-activation-authority-decision.v1";
+  decision_ref: string;
+  decision_root: string;
+  proposal_ref: string;
+  proposal_root: string;
+  system_id: string;
+  genesis_ref: string;
+  operation: "initialize" | "activate";
+  sequence: 1 | 2;
+  required_scope: "scope:autonomous_system.lifecycle.initialize" | "scope:autonomous_system.lifecycle.activate";
+  operation_commitment: string;
+  input_hash: string;
+  policy_hash: string;
+  effect_hash: string;
+  authority_grant_ref: string;
+  authority_evidence_ref: string;
+  authority_evidence_root: string;
+  wallet_grant_consumption_ref: string;
+  wallet_grant_consumption_root: string;
+  wallet_grant_consumption_evidence_ref: string;
+  outcome: "admitted";
+  decided_at: string;
+};
+
+export type AutonomousSystemDeploymentProfileRevisionV1 = {
+  schema_version: "ioi.autonomous-system-deployment-profile-revision.v1";
+  deployment_profile_ref: string;
+  deployment_profile_root: string;
+  profile: {
+      schema_version: "ioi.autonomous-system-deployment-profile.v1";
+      deployment_profile_id: string;
+      system_id: string;
+      constitution_ref: string;
+      manifest_ref: string;
+      version: string;
+      environment_class: "development" | "test" | "staging" | "production" | "recovery";
+      environment_and_custody_profile_ref: string;
+      ordering_admission_finality_profile_ref: string;
+      role_requirements: Array<{
+              role: string;
+              minimum_ready_nodes: number;
+              maximum_active_nodes: number | null;
+              placement_policy_ref: string;
+              failure_independence_policy_ref: string | null;
+              colocation_allowed: boolean;
+            }>;
+      state_distribution: {
+            operation_log_replication_factor: number;
+            projection_replication_factor: number;
+            artifact_replication_factor: number;
+            minimum_ack_durability: "buffered" | "device_flush" | "replicated_same_host" | "quorum_replicated";
+            consistency_and_read_watermark_policy_ref: string;
+            checkpoint_policy_ref: string;
+            catchup_policy_ref: string;
+          };
+      scaling: {
+            mode: "manual" | "policy_automated";
+            scaling_policy_ref: string;
+            eligible_automatic_roles: Array<"projection_replica" | "execution_worker" | "artifact_replica">;
+            authority_role_changes: "governed_only";
+            rebalance_policy_ref: string;
+          };
+      membership_policy_ref: string;
+      failover_profile_ref: string;
+      partition_and_degraded_mode_policy_ref: string;
+      restore_policy_ref: string;
+      rollout_policy_ref: string;
+      rollback_policy_ref: string;
+      drain_and_removal_policy_ref: string;
+      receipt_obligations: Array<string>;
+      status: "draft";
+    };
+};
+
+export type AutonomousSystemActivationStateV1 = {
+  schema_version: "ioi.autonomous-system-activation-state.v1";
+  activation_state_ref: string;
+  activation_state_root: string;
+  system_id: string;
+  genesis_ref: string;
+  manifest_ref: string;
+  admitted_manifest_root: string;
+  lifecycle_profile_ref: string;
+  sequence: number;
+  status: "initialized" | "active";
+  predecessor_state_root: string;
+  transition_ref: string;
+  transition_root: string;
+  transition_receipt_ref: string;
+  transition_receipt_root: string;
+  active_profile_set_ref: string | null;
+  active_profile_set_root: string | null;
+  chain_ref: string | null;
+  live_chain_created: boolean;
+  node_membership_refs: Array<string>;
+  runtime_effect_admitted: false;
+  network_effect_admitted: false;
+  created_at: string;
+};
+
+export type AutonomousSystemActiveProfileSetV1 = {
+  schema_version: "ioi.autonomous-system-active-profile-set.v1";
+  active_profile_set_ref: string;
+  active_profile_set_root: string;
+  system_id: string;
+  genesis_ref: string;
+  profile_bundle_root: string;
+  activation_transition_ref: string;
+  activation_receipt_ref: string;
+  constitution: {
+      candidate_profile_ref: string;
+      candidate_profile_root: string;
+      admitted_posture: "active";
+    };
+  deployment: {
+      candidate_profile_ref: string;
+      candidate_profile_root: string;
+      admitted_posture: "active";
+    };
+  ordering_admission_finality: {
+      candidate_profile_ref: string;
+      candidate_profile_root: string;
+      admitted_posture: "active";
+    };
+  oracle_evidence_profiles: Array<{
+        candidate_profile_ref: string;
+        candidate_profile_root: string;
+        admitted_posture: "active";
+      }>;
+  lifecycle_continuity: {
+      candidate_profile_ref: string;
+      candidate_profile_root: string;
+      admitted_posture: "active";
+    };
+  network_enrollment: {
+      candidate_profile_ref: string;
+      candidate_profile_root: string;
+      admitted_posture: "local_only";
+    } | null;
+  status: "active";
+  created_at: string;
+};
+
+export type AutonomousSystemHomeDomainBindingV1 = {
+  schema_version: "ioi.autonomous-system-home-domain-binding.v1";
+  home_domain_binding_ref: string;
+  home_domain_binding_root: string;
+  system_id: string;
+  genesis_ref: string;
+  home_domain_ref: string;
+  home_domain_commitment: string;
+  source_governing_authority_ref: string;
+  source_genesis_admission_receipt_ref: string;
+  source_genesis_admission_receipt_root: string;
+  source_sequence_zero_materialization_ref: string;
+  source_sequence_zero_materialization_root: string;
+  source_sequence_zero_receipt_ref: string;
+  source_sequence_zero_receipt_root: string;
+  source_sequence_zero_receipt_artifact_root: string;
+  activation_transition_ref: string;
+  activation_receipt_ref: string;
+  status: "admitted";
+  created_at: string;
+};
+
+export type AutonomousSystemOperationLogV1 = {
+  schema_version: "ioi.autonomous-system-operation-log.v1";
+  operation_log_ref: string;
+  operation_log_root: string;
+  predecessor_operation_log_ref: null;
+  predecessor_operation_log_root: null;
+  snapshot_kind: "activation_prefix";
+  system_id: string;
+  genesis_ref: string;
+  home_domain_ref: string;
+  home_domain_commitment: string;
+  home_domain_binding_ref: string;
+  home_domain_binding_root: string;
+  policy_root: string;
+  module_registry_root: string;
+  upgrade_policy_ref: string;
+  activation_prefix: {
+      sequence_zero: unknown;
+      sequence_one: unknown;
+      sequence_two: unknown;
+    };
+  entries: Array<{
+        sequence: number;
+        entry_kind: "sequence_zero_materialization" | "system_initialization" | "system_activation";
+        operation_name: string;
+        operation_owner_profile_ref: string;
+        operation_owner_ref: string;
+        operation_owner_root: string;
+        required_scope: string | null;
+        materialization_ref: string | null;
+        materialization_root: string | null;
+        deployment_profile_ref: string;
+        deployment_profile_root: string;
+        operation_commitment: string | null;
+        proposal_ref: string | null;
+        proposal_root: string | null;
+        decision_ref: string | null;
+        decision_root: string | null;
+        transition_ref: string | null;
+        transition_root: string | null;
+        state_transition_commitment_ref: string | null;
+        state_ref: string | null;
+        state_root: string | null;
+        predecessor_state_root: string | null;
+        receipt_profile_ref: string;
+        receipt_ref: string;
+        receipt_root: string;
+        receipt_artifact_root: string;
+        component_registry_ref: string | null;
+        component_registry_root: string | null;
+        active_profile_set_ref: string | null;
+        active_profile_set_root: string | null;
+        chain_ref: string | null;
+        authority_evidence_ref: string | null;
+        authority_evidence_root: string | null;
+        wallet_consumption_ref: string | null;
+        wallet_consumption_root: string | null;
+        live_chain_created: boolean;
+        committed_at: string;
+      }>;
+  head_entry: unknown;
+  latest_sequence: 2;
+  latest_operation_commitment: string;
+  latest_transition_commitment_ref: null;
+  latest_transition_ref: string;
+  latest_transition_root: string;
+  latest_receipt_ref: string;
+  latest_receipt_root: string;
+  latest_state_ref: string;
+  latest_state_root: string;
+  status: "committed";
+  created_at: string;
+};
+
+export type AutonomousSystemChainV1 = {
+  schema_version: "ioi.autonomous-system-chain.v1";
+  chain_ref: string;
+  chain_root: string;
+  system_id: string;
+  home_domain_ref: string;
+  home_domain_binding_ref: string;
+  home_domain_binding_root: string;
+  governance_owner_refs: Array<string>;
+  genesis_ref: string;
+  genesis_admission_record_root: string;
+  package_id: string;
+  manifest_ref: string;
+  admitted_manifest_root: string;
+  constitution_ref: string;
+  constitution_root: string;
+  deployment_profile_ref: string;
+  deployment_profile_root: string;
+  ordering_admission_finality_profile_ref: string;
+  oracle_evidence_profile_refs: Array<string>;
+  lifecycle_continuity_profile_ref: string;
+  network_enrollment_ref: string | null;
+  active_profile_set_ref: string;
+  active_profile_set_root: string;
+  node_membership_refs: Array<string>;
+  node_membership_root: string;
+  active_writer_epoch: number | null;
+  latest_sequence: number;
+  latest_operation_commitment: string;
+  latest_transition_commitment_ref: string | null;
+  latest_transition_id: string;
+  latest_transition_root: string;
+  latest_receipt_ref: string;
+  latest_receipt_root: string;
+  latest_state_ref: string;
+  latest_state_root: string;
+  worker_instance_refs: Array<string>;
+  workflow_refs: Array<string>;
+  active_component_registry_ref: string;
+  active_component_registry_root: string;
+  policy_root: string;
+  module_registry_root: string;
+  pending_proposal_refs: Array<string>;
+  proposal_queue_root: string;
+  operation_log_ref: string;
+  operation_log_root: string;
+  upgrade_policy_ref: string;
+  settlement_policy_ref: string | null;
+  default_settlement_mode: "local_domain" | "bilateral" | "invoice" | "external_escrow" | "external_chain" | "ioi_l1" | null;
+  allowed_settlement_modes: Array<"local_domain" | "bilateral" | "invoice" | "external_escrow" | "external_chain" | "ioi_l1">;
+  settlement_profile_refs: Array<string>;
+  public_commitment_policy_ref: string | null;
+  status: "draft" | "initialized" | "active" | "degraded" | "paused" | "suspended" | "dormant" | "recovering" | "quarantined" | "succession_pending" | "successor_governed" | "dissolution_pending" | "dissolving" | "dissolved" | "retired" | "archived" | "decommissioned" | "revoked";
+  created_at: string;
+};
+
+export type LifecycleTransitionReceiptV1 = {
+  schema_version: "ioi.lifecycle-transition-receipt.v1";
+  receipt_id: string;
+  receipt_ref: string;
+  receipt_type: "lifecycle_transition";
+  receipt_profile_ref: "schema://ioi/foundations/lifecycle-transition-receipt/v1";
+  actor_id: string;
+  subject_ref: string;
+  op: "initialize" | "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission";
+  sequence: number;
+  attested_boundary_fact_refs: Array<string>;
+  bound_facts: {
+      operation: "initialize" | "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission";
+      sequence: number;
+      required_scope: string;
+      authority_effect_hash: string;
+      active_profile_set_ref: null;
+      active_profile_set_root: null;
+      chain_ref: null | string;
+      component_registry_ref: null | string;
+      component_registry_root: null | string;
+      decision_ref: string;
+      decision_root: string;
+      deployment_profile_ref: null | string;
+      deployment_profile_root: null | string;
+      genesis_admission_receipt_ref: null | string;
+      genesis_admission_receipt_root: null | string;
+      genesis_admission_record_root: null | string;
+      genesis_ref: null | string;
+      home_domain_binding_ref: null;
+      home_domain_binding_root: null;
+      home_domain_commitment: null | string;
+      home_domain_ref: null | string;
+      live_chain_created: false;
+      materialization_wallet_consumption_ref: null | string;
+      materialization_wallet_consumption_root: null | string;
+      module_registry_root: null | string;
+      operation_commitment: string;
+      policy_root: null | string;
+      predecessor_state_root: string;
+      profile_bundle_root: null | string;
+      proposal_ref: string;
+      proposal_root: string;
+      resulting_state_ref: string;
+      resulting_state_root: string;
+      sequence_zero_materialization_id: null | string;
+      sequence_zero_materialization_root: null | string;
+      sequence_zero_receipt_artifact_root: null | string;
+      sequence_zero_receipt_ref: null | string;
+      sequence_zero_receipt_root: null | string;
+      source_governing_authority_ref: null | string;
+      system_id: string;
+      transition_ref: string;
+      transition_root: string;
+      upgrade_policy_ref: null | string;
+    };
+  input_hash: string;
+  output_hash: string;
+  policy_hash: string;
+  effect_hash: string;
+  authority_grant_id: string;
+  required_scope: string;
+  authority_scopes: Array<string>;
+  authority_evidence_ref: string;
+  authority_evidence_root: string;
+  wallet_grant_consumption_ref: string;
+  wallet_grant_consumption_root: string;
+  wallet_grant_consumption_evidence_ref: string;
+  primitive_capabilities: Array<unknown>;
+  artifact_refs: Array<unknown>;
+  evidence_bundle_refs: Array<unknown>;
+  verification_ref: null;
+  acceptance_ref: null;
+  claim_scope_ref: null;
+  run_id: null;
+  task_id: null;
+  adjudication_ref: null;
+  settlement_ref: null;
+  signature: null;
+  public_commitment_ref: null;
+  assurance_posture: "initialized_not_active" | "protected_lifecycle_committed";
+  assurance_note: string;
+  timestamp: string;
+  outcome: "ok";
+  at: string;
+};
+
+export type AutonomousSystemActivationReceiptV1 = {
+  schema_version: "ioi.autonomous-system-activation-receipt.v1";
+  receipt_id: string;
+  receipt_ref: string;
+  receipt_type: "autonomous_system_activation";
+  receipt_profile_ref: "schema://ioi/foundations/autonomous-system-activation-receipt/v1";
+  actor_id: "runtime://hypervisor-runtime";
+  subject_ref: string;
+  op: "activate";
+  sequence: 2;
+  attested_boundary_fact_refs: Array<string>;
+  bound_facts: {
+      system_id: string;
+      operation: "activate";
+      sequence: 2;
+      required_scope: "scope:autonomous_system.lifecycle.activate";
+      authority_effect_hash: string;
+      genesis_ref: string;
+      genesis_admission_record_root: string;
+      genesis_admission_receipt_ref: string;
+      genesis_admission_receipt_root: string;
+      sequence_zero_materialization_id: string;
+      sequence_zero_materialization_root: string;
+      sequence_zero_receipt_ref: string;
+      sequence_zero_receipt_root: string;
+      sequence_zero_receipt_artifact_root: string;
+      source_governing_authority_ref: string;
+      home_domain_ref: string;
+      home_domain_commitment: string;
+      home_domain_binding_ref: string;
+      home_domain_binding_root: string;
+      component_registry_ref: string;
+      component_registry_root: string;
+      deployment_profile_ref: string;
+      deployment_profile_root: string;
+      materialization_wallet_consumption_ref: string;
+      materialization_wallet_consumption_root: string;
+      profile_bundle_root: string;
+      policy_root: string;
+      module_registry_root: string;
+      upgrade_policy_ref: string;
+      operation_commitment: string;
+      proposal_ref: string;
+      proposal_root: string;
+      decision_ref: string;
+      decision_root: string;
+      transition_ref: string;
+      transition_root: string;
+      predecessor_state_root: string;
+      resulting_state_ref: string;
+      resulting_state_root: string;
+      active_profile_set_ref: string;
+      active_profile_set_root: string;
+      chain_ref: string;
+      live_chain_created: true;
+    };
+  input_hash: string;
+  output_hash: string;
+  policy_hash: string;
+  effect_hash: string;
+  authority_grant_id: string;
+  required_scope: "scope:autonomous_system.lifecycle.activate";
+  authority_scopes: Array<"scope:autonomous_system.lifecycle.activate">;
+  authority_evidence_ref: string;
+  authority_evidence_root: string;
+  wallet_grant_consumption_ref: string;
+  wallet_grant_consumption_root: string;
+  wallet_grant_consumption_evidence_ref: string;
+  primitive_capabilities: Array<unknown>;
+  artifact_refs: Array<unknown>;
+  evidence_bundle_refs: Array<unknown>;
+  verification_ref: null;
+  acceptance_ref: null;
+  claim_scope_ref: null;
+  run_id: null;
+  task_id: null;
+  adjudication_ref: null;
+  settlement_ref: null;
+  signature: null;
+  public_commitment_ref: null;
+  assurance_posture: "active_chain_created";
+  assurance_note: string;
+  timestamp: string;
+  outcome: "ok";
+  at: string;
 };
 
 export type IOINetworkEnrollmentV1 = {
@@ -2445,11 +2986,291 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   },
   {
     "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-committed-without-state-transition-commitment.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-without-state-transition-commitment.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-with-state-transition-commitment.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-initialize-committed-with-state-transition-commitment.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/positive-initialize.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-detached-system.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_activation_proposal.system.matches_effect"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-initialize-mints-active.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-activate-missing-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/positive-initialize.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/negative-root-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_activation_authority_decision.root.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/positive-candidate.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-root-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_deployment_profile_revision.ref.binds_root"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-cross-identity.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_deployment_profile_revision.identity.matches_profile"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-state/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/positive-initialized.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-state/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/negative-active-without-chain.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-local-network-candidate.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-missing-lifecycle.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-non-network-local-only.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-home-domain-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/positive-non-domain-authority.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-home-domain-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/negative-forged-domain-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_home_domain_binding.domain_ref.binds_commitment"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/positive-activation-prefix.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/negative-activation-prefix-with-operational-commitment.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-later-governed-head.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-missing-operation-log.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-chain-root-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_chain.root.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-protected-pause.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-output-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "lifecycle_transition_receipt.output.matches_state"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-missing-sequence-zero-artifact-root.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-wrong-sequence.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-mints-live-chain.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/positive-activate.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/negative-output-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_activation_receipt.output.matches_state"
   },
   {
     "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
@@ -4477,6 +5298,186 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
     }
   },
   {
+    "id": "lifecycle-transition-receipt-initialize-wrong-sequence",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "enum"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/sequence",
+      "value": 3
+    }
+  },
+  {
+    "id": "lifecycle-transition-receipt-initialize-missing-source-artifact",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "required"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "remove",
+      "pointer": "/bound_facts/sequence_zero_receipt_artifact_root"
+    }
+  },
+  {
+    "id": "lifecycle-transition-receipt-initialize-detached-subject",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "lifecycle_transition_receipt.subject.matches_transition"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/subject_ref",
+      "value": "lifecycle-transition://acme/system-alpha/sequence/99"
+    }
+  },
+  {
+    "id": "lifecycle-transition-receipt-initialize-wrong-scope",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    "covered_keywords": [
+      "allOf",
+      "if",
+      "then",
+      "const"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/required_scope",
+      "value": "scope:autonomous_system.lifecycle.pause"
+    }
+  },
+  {
+    "id": "lifecycle-transition-receipt-cannot-claim-activation",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    "covered_keywords": [
+      "enum"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/op",
+      "value": "activate"
+    }
+  },
+  {
+    "id": "chain-operation-log-required",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json",
+    "covered_keywords": [
+      "required",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/operation_log_ref",
+      "value": null
+    }
+  },
+  {
+    "id": "chain-operation-log-root-required",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json",
+    "covered_keywords": [
+      "required",
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/operation_log_root",
+      "value": null
+    }
+  },
+  {
+    "id": "proposal-home-domain-must-be-derived-form",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/positive-initialize.json",
+    "covered_keywords": [
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/authority_effect/home_domain_ref",
+      "value": "agentgres://domain/acme/unrelated"
+    }
+  },
+  {
+    "id": "chain-home-domain-must-be-derived-form",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json",
+    "covered_keywords": [
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/home_domain_ref",
+      "value": "agentgres://domain/acme/unrelated"
+    }
+  },
+  {
+    "id": "chain-home-domain-binding-must-be-content-addressed",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json",
+    "covered_keywords": [
+      "pattern"
+    ],
+    "ajv_expected_accept": false,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [],
+    "direct_projection_rejection": true,
+    "patch": {
+      "operation": "set",
+      "pointer": "/home_domain_binding_ref",
+      "value": "system-home-domain-binding://acme/system-alpha/unhashed"
+    }
+  },
+  {
     "id": "manifest-goal-run-profiles-cross-category-ref",
     "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
@@ -5523,9 +6524,254 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-committed-without-state-transition-commitment.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-committed-without-state-transition-commitment.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-without-state-transition-commitment.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-without-state-transition-commitment.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-with-state-transition-commitment.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-with-state-transition-commitment.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json",
     "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-initialize-committed-with-state-transition-commitment.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-initialize-committed-with-state-transition-commitment.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/positive-initialize.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/positive-initialize.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-detached-system.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-detached-system.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-initialize-mints-active.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-initialize-mints-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-activate-missing-predecessor.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-activate-missing-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/positive-initialize.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/positive-initialize.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/negative-root-mismatch.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/negative-root-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/positive-candidate.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/positive-candidate.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-root-mismatch.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-root-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-cross-identity.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-cross-identity.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/positive-initialized.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-state/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/positive-initialized.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/negative-active-without-chain.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-state/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/negative-active-without-chain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-active.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-local-network-candidate.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-local-network-candidate.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-missing-lifecycle.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-missing-lifecycle.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-non-network-local-only.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-non-network-local-only.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/positive-non-domain-authority.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-home-domain-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/positive-non-domain-authority.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/negative-forged-domain-ref.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-home-domain-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/negative-forged-domain-ref.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/positive-activation-prefix.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/positive-activation-prefix.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/negative-activation-prefix-with-operational-commitment.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/negative-activation-prefix-with-operational-commitment.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-later-governed-head.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-later-governed-head.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-missing-operation-log.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-missing-operation-log.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-chain-root-mismatch.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-chain-root-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-protected-pause.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-protected-pause.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-output-mismatch.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-output-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-missing-sequence-zero-artifact-root.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-missing-sequence-zero-artifact-root.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-wrong-sequence.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-wrong-sequence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-mints-live-chain.json",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-mints-live-chain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/positive-activate.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/positive-activate.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/negative-output-mismatch.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/negative-output-mismatch.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -6083,6 +7329,76 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "mutation:lifecycle-transition-receipt-initialize-wrong-sequence",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": null,
+    "mutation_id": "lifecycle-transition-receipt-initialize-wrong-sequence",
+    "value_json": null
+  },
+  {
+    "id": "mutation:lifecycle-transition-receipt-initialize-missing-source-artifact",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": null,
+    "mutation_id": "lifecycle-transition-receipt-initialize-missing-source-artifact",
+    "value_json": null
+  },
+  {
+    "id": "mutation:lifecycle-transition-receipt-initialize-detached-subject",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": null,
+    "mutation_id": "lifecycle-transition-receipt-initialize-detached-subject",
+    "value_json": null
+  },
+  {
+    "id": "mutation:lifecycle-transition-receipt-initialize-wrong-scope",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": null,
+    "mutation_id": "lifecycle-transition-receipt-initialize-wrong-scope",
+    "value_json": null
+  },
+  {
+    "id": "mutation:lifecycle-transition-receipt-cannot-claim-activation",
+    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "source_fixture_path": null,
+    "mutation_id": "lifecycle-transition-receipt-cannot-claim-activation",
+    "value_json": null
+  },
+  {
+    "id": "mutation:chain-operation-log-required",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": null,
+    "mutation_id": "chain-operation-log-required",
+    "value_json": null
+  },
+  {
+    "id": "mutation:chain-operation-log-root-required",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": null,
+    "mutation_id": "chain-operation-log-root-required",
+    "value_json": null
+  },
+  {
+    "id": "mutation:proposal-home-domain-must-be-derived-form",
+    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "source_fixture_path": null,
+    "mutation_id": "proposal-home-domain-must-be-derived-form",
+    "value_json": null
+  },
+  {
+    "id": "mutation:chain-home-domain-must-be-derived-form",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": null,
+    "mutation_id": "chain-home-domain-must-be-derived-form",
+    "value_json": null
+  },
+  {
+    "id": "mutation:chain-home-domain-binding-must-be-content-addressed",
+    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "source_fixture_path": null,
+    "mutation_id": "chain-home-domain-binding-must-be-content-addressed",
+    "value_json": null
+  },
+  {
     "id": "mutation:manifest-goal-run-profiles-cross-category-ref",
     "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
     "source_fixture_path": null,
@@ -6344,6 +7660,8 @@ export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = [
 
 export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
+  "^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
+  "^(?:agent|worker)://[^\\s]{1,248}$",
   "^(?:artifact|cid)://[^\\s]{1,248}$",
   "^(?:commitment|settlement|tx)://[^\\s]+$",
   "^(?:commitment|settlement|tx)://[^\\s]{1,248}$",
@@ -6366,6 +7684,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
+  "^(?:workflow|workflow-template)://[^\\s]{1,248}$",
   "^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$",
   "^[ -~]{1,2048}$",
   "^[ -~]{1,256}$",
@@ -6381,16 +7700,21 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9-]*://[^\\s]+$",
+  "^[a-z][a-z0-9.-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9._-]*$",
   "^[a-z][a-z0-9._-]{0,127}$",
   "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
   "^[a-z][a-z0-9_]*$",
+  "^[a-z][a-z0-9_]{1,80}$",
   "^acceptance://[^\\s]+$",
   "^action-schema://[^\\s]+$",
+  "^active-profile-set://[^\\s]{1,248}$",
   "^actuator://[^\\s]+$",
   "^agent-harness-adapter://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$",
   "^agentgres://object-set/[^\\s]{1,248}$",
   "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$",
+  "^agentgres://operation-log/autonomous-system/[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^agentgres://operation/[^\\s]+$",
   "^approval://[A-Za-z0-9._~:/-]+$",
   "^artifact://[^\\s]+$",
@@ -6399,6 +7723,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^assurance-profile://[^\\s]{1,248}$",
   "^authority-request://[^\\s]+$",
   "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^autonomous-system-chain://[^\\s]{1,248}$",
   "^build://[^\\s]+$",
   "^caveat://[^\\s]+$",
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
@@ -6409,6 +7734,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^controller-binding://[^\\s]+$",
   "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^decision://[^\\s]{1,248}$",
+  "^deployment-profile://[^\\s?#\\\\]{1,160}$",
   "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^deployment-profile://[^\\s]{1,248}$",
   "^development-environment-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -6416,6 +7742,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^embodied-resource-group-revision://[^\\s]+$",
   "^embodied-runtime-graph-manifest://[^\\s]+$",
   "^estop://[^\\s]+$",
+  "^failover-profile://[^\\s]{1,248}$",
   "^fee-basis://[^\\s]{1,248}$",
   "^genesis://[^\\s]{1,248}$",
   "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -6457,15 +7784,19 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://[A-Za-z0-9._~:/-]+$",
   "^receipt://[^\\s]+$",
   "^receipt://[^\\s]{1,248}$",
+  "^receipt://asar_[0-9a-f]{64}$",
   "^receipt://aszmr_[0-9a-f]{64}$",
+  "^receipt://ltr_[0-9a-f]{64}$",
   "^resource-lease://[^\\s]+$",
   "^run://[^\\s]+$",
   "^safety://[^\\s]+$",
   "^schema://[^\\s]+$",
   "^schema://[^\\s]{1,248}$",
   "^scope:[a-z0-9._-]+$",
+  "^scope:[a-z0-9._:-]{1,180}$",
   "^scope:[a-z][a-z0-9._-]*$",
   "^scope:[a-z][a-z0-9._-]{0,127}$",
+  "^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$",
   "^sensor://[^\\s]+$",
   "^service://[^\\s]{1,248}$",
   "^settlement://[^\\s]+$",
@@ -6474,6 +7805,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^snapshot://[^\\s]+$",
+  "^system-activation-state://[^\\s]{1,248}$",
+  "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$",
+  "^system-lifecycle-authority-consumption://aslac_[0-9a-f]{64}$",
+  "^system-lifecycle-authority-evidence://aslae_[0-9a-f]{64}$",
   "^system-materialization://[^\\s]{1,248}$",
   "^system-materialization://sequence-zero/sha256:[0-9a-f]{64}$",
   "^system-sequence-zero-authority-consumption://aszmc_[0-9a-f]{64}$",
@@ -6516,7 +7851,17 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/ordering-admission-finality-profile/v1": "sha256:c2cf0f68516971e4bd87938da7bee04bac25a5995c501044bf3a2a0da5e65af3",
   "schema://ioi/foundations/oracle-evidence-profile/v1": "sha256:2407e5eafa3515d1f55629182b802590e40e93c59b6766d8e4b1170fa6acf5f1",
   "schema://ioi/foundations/lifecycle-continuity-profile/v1": "sha256:ed62bc37de918a3e7c271ba26420b7973eca5d2aaddd276a7450253e63fec475",
-  "schema://ioi/foundations/lifecycle-transition/v1": "sha256:fc61451dd0c8160ce4ce376295e6c17e9eb8495fb5f033121ef2b79083b5b270",
+  "schema://ioi/foundations/lifecycle-transition/v1": "sha256:8ba0b1d0a026d44d9738ad024e467b62557c421f576e98447eb8ab4b0a476ea5",
+  "schema://ioi/foundations/autonomous-system-activation-proposal/v1": "sha256:0c41b14d1709a62fec46eb0a04a53166581cd65a4021df1dbf3f54fab1135b28",
+  "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1": "sha256:210403787f1bf5bba0a638add2bce5b68f7bd593b74c99b1bc340ada1007825c",
+  "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1": "sha256:dfa4fd5e04150b17ec8fed25995d9394735b6e99b9d520e1925076e33d2d2fe5",
+  "schema://ioi/foundations/autonomous-system-activation-state/v1": "sha256:5cc9ff9a84dd8a5869513faaffd5a6e6e96c8ef1b13fd8b5385d7a46b8be0cfb",
+  "schema://ioi/foundations/autonomous-system-active-profile-set/v1": "sha256:6a1fbbcac5e154ea24c634dc78ab3463d5001b92960424075170fd2ad5c37465",
+  "schema://ioi/foundations/autonomous-system-home-domain-binding/v1": "sha256:765c16deaaa6383b4bbe6d13e62b8b47511a84c0ac6f5c371be689ea7706e6a4",
+  "schema://ioi/foundations/autonomous-system-operation-log/v1": "sha256:a9e9888c1f83d356b980f2f6f5c69ef5298ba93c6b7e5ce4861f9893abb3ec1a",
+  "schema://ioi/foundations/autonomous-system-chain/v1": "sha256:89350ce9c30216d98e6689bc246ae1bf38d3bf4b30fe74a2c5139d71a0349cd8",
+  "schema://ioi/foundations/lifecycle-transition-receipt/v1": "sha256:320de6f5dff11c7adda1bc653fa534d56b87dd66db4c534ec008cce8d9102f5d",
+  "schema://ioi/foundations/autonomous-system-activation-receipt/v1": "sha256:4971827e846741e1ca98500ce790d8d48e0c22e268580337fc81f24dfef6d08c",
   "schema://ioi/foundations/ioi-network-enrollment/v1": "sha256:a5e2fbb51d71d7d51d8a48cc915899045d874977c30c1daaabe182578807c77f"
 } as const;
 
@@ -17567,6 +18912,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "challenge_closes_at",
       "predecessor_state_root",
       "resulting_state_root",
+      "operation_commitment",
       "state_transition_commitment_ref",
       "lineage_ref",
       "identity_continuity_decision_ref",
@@ -17688,6 +19034,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "$ref": "#/$defs/hash"
       },
       "resulting_state_root": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "operation_commitment": {
         "$ref": "#/$defs/nullableHash"
       },
       "state_transition_commitment_ref": {
@@ -17841,6 +19190,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "resulting_state_root": {
               "type": "null"
             },
+            "operation_commitment": {
+              "type": "null"
+            },
             "state_transition_commitment_ref": {
               "type": "null"
             },
@@ -17882,13 +19234,44 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "resulting_state_root": {
               "$ref": "#/$defs/hash"
             },
-            "state_transition_commitment_ref": {
-              "type": "string",
-              "pattern": "^transition://[^\\s]{1,248}$"
+            "operation_commitment": {
+              "$ref": "#/$defs/hash"
             },
             "receipt_refs": {
               "type": "array",
               "minItems": 1
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "committed"
+            },
+            "transition_kind": {
+              "enum": [
+                "initialize",
+                "activate"
+              ]
+            }
+          },
+          "required": [
+            "status",
+            "transition_kind"
+          ]
+        },
+        "then": {
+          "required": [
+            "operation_commitment"
+          ],
+          "properties": {
+            "operation_commitment": {
+              "$ref": "#/$defs/hash"
+            },
+            "state_transition_commitment_ref": {
+              "type": "null"
             }
           }
         }
@@ -17995,6 +19378,4517 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "null"
           }
         ]
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-activation-proposal/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    "title": "AutonomousSystemActivationProposal",
+    "description": "Immutable server-derived proposal for one governed Autonomous System initialize or activate effect. It is evidence only and grants no authority by itself.",
+    "x-ioi-schema-version": "ioi.autonomous-system-activation-proposal.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "proposal_ref",
+      "proposal_root",
+      "system_id",
+      "genesis_ref",
+      "operation",
+      "sequence",
+      "required_scope",
+      "operation_commitment",
+      "authority_effect",
+      "authority_effect_hash",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-activation-proposal.v1"
+      },
+      "proposal_ref": {
+        "$ref": "#/$defs/proposalRef"
+      },
+      "proposal_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "genesis_ref": {
+        "$ref": "#/$defs/genesisRef"
+      },
+      "operation": {
+        "$ref": "#/$defs/operation"
+      },
+      "sequence": {
+        "enum": [
+          1,
+          2
+        ]
+      },
+      "required_scope": {
+        "$ref": "#/$defs/requiredScope"
+      },
+      "operation_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_effect": {
+        "$ref": "#/$defs/authorityEffect"
+      },
+      "authority_effect_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "status": {
+        "const": "proposed"
+      },
+      "created_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "operation": {
+              "const": "initialize"
+            }
+          },
+          "required": [
+            "operation"
+          ]
+        },
+        "then": {
+          "properties": {
+            "sequence": {
+              "enum": [
+                1
+              ]
+            },
+            "required_scope": {
+              "const": "scope:autonomous_system.lifecycle.initialize"
+            },
+            "authority_effect": {
+              "type": "object",
+              "properties": {
+                "operation": {
+                  "const": "initialize"
+                },
+                "sequence": {
+                  "enum": [
+                    1
+                  ]
+                },
+                "required_scope": {
+                  "const": "scope:autonomous_system.lifecycle.initialize"
+                },
+                "predecessor_proposal_ref": {
+                  "type": "null"
+                },
+                "predecessor_proposal_root": {
+                  "type": "null"
+                },
+                "predecessor_decision_ref": {
+                  "type": "null"
+                },
+                "predecessor_decision_root": {
+                  "type": "null"
+                },
+                "predecessor_transition_ref": {
+                  "type": "null"
+                },
+                "predecessor_transition_root": {
+                  "type": "null"
+                },
+                "predecessor_receipt_ref": {
+                  "type": "null"
+                },
+                "predecessor_receipt_root": {
+                  "type": "null"
+                },
+                "predecessor_state_ref": {
+                  "type": "null"
+                },
+                "home_domain_binding_ref": {
+                  "type": "null"
+                },
+                "home_domain_binding_root": {
+                  "type": "null"
+                },
+                "active_profile_set_ref": {
+                  "type": "null"
+                },
+                "active_profile_set_root": {
+                  "type": "null"
+                },
+                "chain_ref": {
+                  "type": "null"
+                },
+                "live_chain_created": {
+                  "const": false
+                }
+              }
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "sequence": {
+              "enum": [
+                2
+              ]
+            },
+            "required_scope": {
+              "const": "scope:autonomous_system.lifecycle.activate"
+            },
+            "authority_effect": {
+              "type": "object",
+              "properties": {
+                "operation": {
+                  "const": "activate"
+                },
+                "sequence": {
+                  "enum": [
+                    2
+                  ]
+                },
+                "required_scope": {
+                  "const": "scope:autonomous_system.lifecycle.activate"
+                },
+                "predecessor_proposal_ref": {
+                  "$ref": "#/$defs/proposalRef"
+                },
+                "predecessor_proposal_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "predecessor_decision_ref": {
+                  "$ref": "#/$defs/decisionRef"
+                },
+                "predecessor_decision_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "predecessor_transition_ref": {
+                  "$ref": "#/$defs/transitionRef"
+                },
+                "predecessor_transition_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "predecessor_receipt_ref": {
+                  "$ref": "#/$defs/receiptRef"
+                },
+                "predecessor_receipt_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "predecessor_state_ref": {
+                  "$ref": "#/$defs/stateRef"
+                },
+                "home_domain_binding_ref": {
+                  "$ref": "#/$defs/homeDomainBindingRef"
+                },
+                "home_domain_binding_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "active_profile_set_ref": {
+                  "$ref": "#/$defs/activeProfileSetRef"
+                },
+                "active_profile_set_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "chain_ref": {
+                  "$ref": "#/$defs/chainRef"
+                },
+                "live_chain_created": {
+                  "const": true
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9.-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "nullableCanonicalRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "proposalRef": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "nullableProposalRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/proposalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "stateRef": {
+        "type": "string",
+        "pattern": "^system-activation-state://[^\\s]{1,248}$"
+      },
+      "nullableStateRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/stateRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "transitionRef": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "nullableTransitionRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/transitionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "nullableReceiptRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/receiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "nullableDecisionRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/decisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "activeProfileSetRef": {
+        "type": "string",
+        "pattern": "^active-profile-set://[^\\s]{1,248}$"
+      },
+      "nullableActiveProfileSetRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/activeProfileSetRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "deploymentRevisionRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "homeDomainRef": {
+        "type": "string",
+        "pattern": "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$"
+      },
+      "homeDomainBindingRef": {
+        "type": "string",
+        "pattern": "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$"
+      },
+      "nullableHomeDomainBindingRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/homeDomainBindingRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "chainRef": {
+        "type": "string",
+        "pattern": "^autonomous-system-chain://[^\\s]{1,248}$"
+      },
+      "nullableChainRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/chainRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "operation": {
+        "enum": [
+          "initialize",
+          "activate"
+        ]
+      },
+      "requiredScope": {
+        "enum": [
+          "scope:autonomous_system.lifecycle.initialize",
+          "scope:autonomous_system.lifecycle.activate"
+        ]
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "authorityEffect": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "operation",
+          "required_scope",
+          "sequence",
+          "system_id",
+          "genesis_ref",
+          "source_governing_authority_ref",
+          "genesis_admission_record_root",
+          "genesis_admission_receipt_ref",
+          "genesis_admission_receipt_root",
+          "package_id",
+          "manifest_ref",
+          "admitted_manifest_root",
+          "lifecycle_profile_ref",
+          "profile_bundle_root",
+          "sequence_zero_materialization_id",
+          "sequence_zero_materialization_root",
+          "sequence_zero_receipt_ref",
+          "sequence_zero_receipt_root",
+          "sequence_zero_receipt_artifact_root",
+          "component_registry_ref",
+          "component_registry_root",
+          "materialization_wallet_consumption_ref",
+          "materialization_wallet_consumption_root",
+          "deployment_profile_ref",
+          "deployment_profile_root",
+          "home_domain_ref",
+          "home_domain_commitment",
+          "home_domain_binding_ref",
+          "home_domain_binding_root",
+          "policy_root",
+          "module_registry_root",
+          "upgrade_policy_ref",
+          "operation_commitment",
+          "predecessor_proposal_ref",
+          "predecessor_proposal_root",
+          "predecessor_decision_ref",
+          "predecessor_decision_root",
+          "predecessor_transition_ref",
+          "predecessor_transition_root",
+          "predecessor_receipt_ref",
+          "predecessor_receipt_root",
+          "predecessor_state_ref",
+          "predecessor_state_root",
+          "resulting_state_ref",
+          "resulting_state_root",
+          "active_profile_set_ref",
+          "active_profile_set_root",
+          "chain_ref",
+          "live_chain_created",
+          "node_membership_created",
+          "runtime_effect_admitted",
+          "network_effect_admitted"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.autonomous-system-lifecycle-authority-effect.v1"
+          },
+          "operation": {
+            "$ref": "#/$defs/operation"
+          },
+          "required_scope": {
+            "$ref": "#/$defs/requiredScope"
+          },
+          "sequence": {
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "system_id": {
+            "$ref": "#/$defs/systemRef"
+          },
+          "genesis_ref": {
+            "$ref": "#/$defs/genesisRef"
+          },
+          "source_governing_authority_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "genesis_admission_record_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "genesis_admission_receipt_ref": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "genesis_admission_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "package_id": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "manifest_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "admitted_manifest_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "lifecycle_profile_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "profile_bundle_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "sequence_zero_materialization_id": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "sequence_zero_materialization_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "sequence_zero_receipt_ref": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "sequence_zero_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "sequence_zero_receipt_artifact_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "component_registry_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "component_registry_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "materialization_wallet_consumption_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "materialization_wallet_consumption_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "deployment_profile_ref": {
+            "$ref": "#/$defs/deploymentRevisionRef"
+          },
+          "deployment_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "home_domain_ref": {
+            "$ref": "#/$defs/homeDomainRef"
+          },
+          "home_domain_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "home_domain_binding_ref": {
+            "$ref": "#/$defs/nullableHomeDomainBindingRef"
+          },
+          "home_domain_binding_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "policy_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "module_registry_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "upgrade_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "operation_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "predecessor_proposal_ref": {
+            "$ref": "#/$defs/nullableProposalRef"
+          },
+          "predecessor_proposal_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "predecessor_decision_ref": {
+            "$ref": "#/$defs/nullableDecisionRef"
+          },
+          "predecessor_decision_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "predecessor_transition_ref": {
+            "$ref": "#/$defs/nullableTransitionRef"
+          },
+          "predecessor_transition_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "predecessor_receipt_ref": {
+            "$ref": "#/$defs/nullableReceiptRef"
+          },
+          "predecessor_receipt_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "predecessor_state_ref": {
+            "$ref": "#/$defs/nullableStateRef"
+          },
+          "predecessor_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "resulting_state_ref": {
+            "$ref": "#/$defs/stateRef"
+          },
+          "resulting_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "active_profile_set_ref": {
+            "$ref": "#/$defs/nullableActiveProfileSetRef"
+          },
+          "active_profile_set_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "chain_ref": {
+            "$ref": "#/$defs/nullableChainRef"
+          },
+          "live_chain_created": {
+            "type": "boolean"
+          },
+          "node_membership_created": {
+            "const": false
+          },
+          "runtime_effect_admitted": {
+            "const": false
+          },
+          "network_effect_admitted": {
+            "const": false
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1",
+    "title": "AutonomousSystemActivationAuthorityDecision",
+    "description": "Immutable decision evidence for one wallet-authorized Autonomous System initialize or activate proposal.",
+    "x-ioi-schema-version": "ioi.autonomous-system-activation-authority-decision.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "decision_ref",
+      "decision_root",
+      "proposal_ref",
+      "proposal_root",
+      "system_id",
+      "genesis_ref",
+      "operation",
+      "sequence",
+      "required_scope",
+      "operation_commitment",
+      "input_hash",
+      "policy_hash",
+      "effect_hash",
+      "authority_grant_ref",
+      "authority_evidence_ref",
+      "authority_evidence_root",
+      "wallet_grant_consumption_ref",
+      "wallet_grant_consumption_root",
+      "wallet_grant_consumption_evidence_ref",
+      "outcome",
+      "decided_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-activation-authority-decision.v1"
+      },
+      "decision_ref": {
+        "$ref": "#/$defs/decisionRef"
+      },
+      "decision_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "proposal_ref": {
+        "$ref": "#/$defs/proposalRef"
+      },
+      "proposal_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "genesis_ref": {
+        "$ref": "#/$defs/genesisRef"
+      },
+      "operation": {
+        "enum": [
+          "initialize",
+          "activate"
+        ]
+      },
+      "sequence": {
+        "enum": [
+          1,
+          2
+        ]
+      },
+      "required_scope": {
+        "enum": [
+          "scope:autonomous_system.lifecycle.initialize",
+          "scope:autonomous_system.lifecycle.activate"
+        ]
+      },
+      "operation_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "input_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "effect_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_grant_ref": {
+        "type": "string",
+        "pattern": "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"
+      },
+      "authority_evidence_ref": {
+        "type": "string",
+        "pattern": "^system-lifecycle-authority-evidence://aslae_[0-9a-f]{64}$"
+      },
+      "authority_evidence_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "wallet_grant_consumption_ref": {
+        "type": "string",
+        "pattern": "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$"
+      },
+      "wallet_grant_consumption_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "wallet_grant_consumption_evidence_ref": {
+        "type": "string",
+        "pattern": "^system-lifecycle-authority-consumption://aslac_[0-9a-f]{64}$"
+      },
+      "outcome": {
+        "const": "admitted"
+      },
+      "decided_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "operation": {
+              "const": "initialize"
+            }
+          },
+          "required": [
+            "operation"
+          ]
+        },
+        "then": {
+          "properties": {
+            "sequence": {
+              "enum": [
+                1
+              ]
+            },
+            "required_scope": {
+              "const": "scope:autonomous_system.lifecycle.initialize"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "sequence": {
+              "enum": [
+                2
+              ]
+            },
+            "required_scope": {
+              "const": "scope:autonomous_system.lifecycle.activate"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "proposalRef": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
+    "title": "AutonomousSystemDeploymentProfileRevision",
+    "description": "Immutable content-addressed candidate deployment profile. Declaration is not activation, membership, readiness, or runtime authority.",
+    "x-ioi-schema-version": "ioi.autonomous-system-deployment-profile-revision.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "deployment_profile_ref",
+      "deployment_profile_root",
+      "profile"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-deployment-profile-revision.v1"
+      },
+      "deployment_profile_ref": {
+        "$ref": "#/$defs/deploymentProfileRevisionRef"
+      },
+      "deployment_profile_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "profile": {
+        "$ref": "#/$defs/deploymentProfile"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "nullablePolicyRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "packageReleaseRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
+      },
+      "orderingProfileRef": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "failoverProfileRef": {
+        "type": "string",
+        "pattern": "^failover-profile://[^\\s]{1,248}$"
+      },
+      "deploymentProfileId": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}$"
+      },
+      "deploymentProfileRevisionRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"
+      },
+      "roleRequirement": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "minimum_ready_nodes",
+          "maximum_active_nodes",
+          "placement_policy_ref",
+          "failure_independence_policy_ref",
+          "colocation_allowed"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+          },
+          "minimum_ready_nodes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "maximum_active_nodes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "placement_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "failure_independence_policy_ref": {
+            "$ref": "#/$defs/nullablePolicyRef"
+          },
+          "colocation_allowed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "deploymentProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "deployment_profile_id",
+          "system_id",
+          "constitution_ref",
+          "manifest_ref",
+          "version",
+          "environment_class",
+          "environment_and_custody_profile_ref",
+          "ordering_admission_finality_profile_ref",
+          "role_requirements",
+          "state_distribution",
+          "scaling",
+          "membership_policy_ref",
+          "failover_profile_ref",
+          "partition_and_degraded_mode_policy_ref",
+          "restore_policy_ref",
+          "rollout_policy_ref",
+          "rollback_policy_ref",
+          "drain_and_removal_policy_ref",
+          "receipt_obligations",
+          "status"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.autonomous-system-deployment-profile.v1"
+          },
+          "deployment_profile_id": {
+            "$ref": "#/$defs/deploymentProfileId"
+          },
+          "system_id": {
+            "$ref": "#/$defs/systemRef"
+          },
+          "constitution_ref": {
+            "$ref": "#/$defs/constitutionRef"
+          },
+          "manifest_ref": {
+            "$ref": "#/$defs/packageReleaseRef"
+          },
+          "version": {
+            "$ref": "#/$defs/version"
+          },
+          "environment_class": {
+            "enum": [
+              "development",
+              "test",
+              "staging",
+              "production",
+              "recovery"
+            ]
+          },
+          "environment_and_custody_profile_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "ordering_admission_finality_profile_ref": {
+            "$ref": "#/$defs/orderingProfileRef"
+          },
+          "role_requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/roleRequirement"
+            },
+            "maxItems": 64
+          },
+          "state_distribution": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation_log_replication_factor",
+              "projection_replication_factor",
+              "artifact_replication_factor",
+              "minimum_ack_durability",
+              "consistency_and_read_watermark_policy_ref",
+              "checkpoint_policy_ref",
+              "catchup_policy_ref"
+            ],
+            "properties": {
+              "operation_log_replication_factor": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "projection_replication_factor": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "artifact_replication_factor": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "minimum_ack_durability": {
+                "enum": [
+                  "buffered",
+                  "device_flush",
+                  "replicated_same_host",
+                  "quorum_replicated"
+                ]
+              },
+              "consistency_and_read_watermark_policy_ref": {
+                "$ref": "#/$defs/policyRef"
+              },
+              "checkpoint_policy_ref": {
+                "$ref": "#/$defs/policyRef"
+              },
+              "catchup_policy_ref": {
+                "$ref": "#/$defs/policyRef"
+              }
+            }
+          },
+          "scaling": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "scaling_policy_ref",
+              "eligible_automatic_roles",
+              "authority_role_changes",
+              "rebalance_policy_ref"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "manual",
+                  "policy_automated"
+                ]
+              },
+              "scaling_policy_ref": {
+                "$ref": "#/$defs/policyRef"
+              },
+              "eligible_automatic_roles": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "projection_replica",
+                    "execution_worker",
+                    "artifact_replica"
+                  ]
+                },
+                "maxItems": 3,
+                "uniqueItems": true
+              },
+              "authority_role_changes": {
+                "const": "governed_only"
+              },
+              "rebalance_policy_ref": {
+                "$ref": "#/$defs/policyRef"
+              }
+            }
+          },
+          "membership_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "failover_profile_ref": {
+            "$ref": "#/$defs/failoverProfileRef"
+          },
+          "partition_and_degraded_mode_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "restore_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "rollout_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "rollback_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "drain_and_removal_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "receipt_obligations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/canonicalRef"
+            },
+            "maxItems": 64,
+            "uniqueItems": true
+          },
+          "status": {
+            "const": "draft"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-activation-state/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-activation-state/v1",
+    "title": "AutonomousSystemActivationState",
+    "description": "Daemon-owned lifecycle projection. Initialized state is not a live chain; active state names the first live chain without admitting runtime, membership, or network effects.",
+    "x-ioi-schema-version": "ioi.autonomous-system-activation-state.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "activation_state_ref",
+      "activation_state_root",
+      "system_id",
+      "genesis_ref",
+      "manifest_ref",
+      "admitted_manifest_root",
+      "lifecycle_profile_ref",
+      "sequence",
+      "status",
+      "predecessor_state_root",
+      "transition_ref",
+      "transition_root",
+      "transition_receipt_ref",
+      "transition_receipt_root",
+      "active_profile_set_ref",
+      "active_profile_set_root",
+      "chain_ref",
+      "live_chain_created",
+      "node_membership_refs",
+      "runtime_effect_admitted",
+      "network_effect_admitted",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-activation-state.v1"
+      },
+      "activation_state_ref": {
+        "$ref": "#/$defs/stateRef"
+      },
+      "activation_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "genesis_ref": {
+        "$ref": "#/$defs/genesisRef"
+      },
+      "manifest_ref": {
+        "$ref": "#/$defs/packageReleaseRef"
+      },
+      "admitted_manifest_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "lifecycle_profile_ref": {
+        "$ref": "#/$defs/lifecycleProfileRef"
+      },
+      "sequence": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2
+      },
+      "status": {
+        "enum": [
+          "initialized",
+          "active"
+        ]
+      },
+      "predecessor_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "transition_ref": {
+        "$ref": "#/$defs/transitionRef"
+      },
+      "transition_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "transition_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "transition_receipt_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "active_profile_set_ref": {
+        "$ref": "#/$defs/nullableActiveProfileSetRef"
+      },
+      "active_profile_set_root": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "chain_ref": {
+        "$ref": "#/$defs/nullableChainRef"
+      },
+      "live_chain_created": {
+        "type": "boolean"
+      },
+      "node_membership_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^node-membership://[^\\s]{1,248}$"
+        },
+        "maxItems": 0
+      },
+      "runtime_effect_admitted": {
+        "const": false
+      },
+      "network_effect_admitted": {
+        "const": false
+      },
+      "created_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "initialized"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "sequence": {
+              "enum": [
+                1
+              ]
+            },
+            "active_profile_set_ref": {
+              "type": "null"
+            },
+            "active_profile_set_root": {
+              "type": "null"
+            },
+            "chain_ref": {
+              "type": "null"
+            },
+            "live_chain_created": {
+              "const": false
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "sequence": {
+              "enum": [
+                2
+              ]
+            },
+            "active_profile_set_ref": {
+              "$ref": "#/$defs/activeProfileSetRef"
+            },
+            "active_profile_set_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "chain_ref": {
+              "$ref": "#/$defs/chainRef"
+            },
+            "live_chain_created": {
+              "const": true
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "packageReleaseRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
+      },
+      "lifecycleProfileRef": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "stateRef": {
+        "type": "string",
+        "pattern": "^system-activation-state://[^\\s]{1,248}$"
+      },
+      "transitionRef": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "activeProfileSetRef": {
+        "type": "string",
+        "pattern": "^active-profile-set://[^\\s]{1,248}$"
+      },
+      "nullableActiveProfileSetRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/activeProfileSetRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "chainRef": {
+        "type": "string",
+        "pattern": "^autonomous-system-chain://[^\\s]{1,248}$"
+      },
+      "nullableChainRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/chainRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-active-profile-set/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
+    "title": "AutonomousSystemActiveProfileSet",
+    "description": "Activation-owned admission projection over exact candidate profile roots. The closed shape makes required profile cardinality structural; candidate bodies remain immutable and are not relabeled active.",
+    "x-ioi-schema-version": "ioi.autonomous-system-active-profile-set.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "active_profile_set_ref",
+      "active_profile_set_root",
+      "system_id",
+      "genesis_ref",
+      "profile_bundle_root",
+      "activation_transition_ref",
+      "activation_receipt_ref",
+      "constitution",
+      "deployment",
+      "ordering_admission_finality",
+      "oracle_evidence_profiles",
+      "lifecycle_continuity",
+      "network_enrollment",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-active-profile-set.v1"
+      },
+      "active_profile_set_ref": {
+        "$ref": "#/$defs/activeProfileSetRef"
+      },
+      "active_profile_set_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "genesis_ref": {
+        "$ref": "#/$defs/genesisRef"
+      },
+      "profile_bundle_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "activation_transition_ref": {
+        "$ref": "#/$defs/transitionRef"
+      },
+      "activation_receipt_ref": {
+        "$ref": "#/$defs/activationReceiptRef"
+      },
+      "constitution": {
+        "$ref": "#/$defs/constitutionAdmission"
+      },
+      "deployment": {
+        "$ref": "#/$defs/deploymentAdmission"
+      },
+      "ordering_admission_finality": {
+        "$ref": "#/$defs/orderingAdmission"
+      },
+      "oracle_evidence_profiles": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/oracleAdmission"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "lifecycle_continuity": {
+        "$ref": "#/$defs/lifecycleAdmission"
+      },
+      "network_enrollment": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/networkAdmission"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "const": "active"
+      },
+      "created_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "activeProfileSetRef": {
+        "type": "string",
+        "pattern": "^active-profile-set://[^\\s]{1,248}$"
+      },
+      "transitionRef": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "activationReceiptRef": {
+        "type": "string",
+        "pattern": "^receipt://asar_[0-9a-f]{64}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "deploymentRevisionRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "orderingProfileRef": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "oracleProfileRef": {
+        "type": "string",
+        "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+      },
+      "lifecycleProfileRef": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "networkEnrollmentRef": {
+        "type": "string",
+        "pattern": "^network-enrollment://[^\\s]{1,248}$"
+      },
+      "constitutionAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/constitutionRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "active"
+          }
+        }
+      },
+      "deploymentAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/deploymentRevisionRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "active"
+          }
+        }
+      },
+      "orderingAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/orderingProfileRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "active"
+          }
+        }
+      },
+      "oracleAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/oracleProfileRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "active"
+          }
+        }
+      },
+      "lifecycleAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/lifecycleProfileRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "active"
+          }
+        }
+      },
+      "networkAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/networkEnrollmentRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "local_only"
+          }
+        }
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-home-domain-binding/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-home-domain-binding/v1",
+    "title": "AutonomousSystemHomeDomainBinding",
+    "description": "Activation-owned admission of a deterministic Agentgres home-domain identity under the exact general M1.3/M1.4 governing authority. The domain is derived from immutable source evidence and is never inferred lexically or equated with the governing principal.",
+    "x-ioi-schema-version": "ioi.autonomous-system-home-domain-binding.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "home_domain_binding_ref",
+      "home_domain_binding_root",
+      "system_id",
+      "genesis_ref",
+      "home_domain_ref",
+      "home_domain_commitment",
+      "source_governing_authority_ref",
+      "source_genesis_admission_receipt_ref",
+      "source_genesis_admission_receipt_root",
+      "source_sequence_zero_materialization_ref",
+      "source_sequence_zero_materialization_root",
+      "source_sequence_zero_receipt_ref",
+      "source_sequence_zero_receipt_root",
+      "source_sequence_zero_receipt_artifact_root",
+      "activation_transition_ref",
+      "activation_receipt_ref",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-home-domain-binding.v1"
+      },
+      "home_domain_binding_ref": {
+        "$ref": "#/$defs/bindingRef"
+      },
+      "home_domain_binding_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "genesis_ref": {
+        "$ref": "#/$defs/genesisRef"
+      },
+      "home_domain_ref": {
+        "$ref": "#/$defs/homeDomainRef"
+      },
+      "home_domain_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "source_governing_authority_ref": {
+        "$ref": "#/$defs/protocolPrincipalOrRuntimeRef"
+      },
+      "source_genesis_admission_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "source_genesis_admission_receipt_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "source_sequence_zero_materialization_ref": {
+        "$ref": "#/$defs/materializationRef"
+      },
+      "source_sequence_zero_materialization_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "source_sequence_zero_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "source_sequence_zero_receipt_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "source_sequence_zero_receipt_artifact_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "activation_transition_ref": {
+        "$ref": "#/$defs/transitionRef"
+      },
+      "activation_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "status": {
+        "const": "admitted"
+      },
+      "created_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "bindingRef": {
+        "type": "string",
+        "pattern": "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "homeDomainRef": {
+        "type": "string",
+        "pattern": "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$"
+      },
+      "protocolPrincipalOrRuntimeRef": {
+        "type": "string",
+        "maxLength": 300,
+        "pattern": "^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "materializationRef": {
+        "type": "string",
+        "pattern": "^system-materialization://[^\\s]{1,248}$"
+      },
+      "transitionRef": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-operation-log/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-operation-log/v1",
+    "title": "AutonomousSystemOperationLog",
+    "description": "Immutable content-addressed M1.5a Autonomous System operation-log revision. This v1 contract admits only the exact sequence-zero materialization, sequence-one initialize, sequence-two activate prefix. Later protected lifecycle owners require an explicit successor contract/evolution and authority; this shape grants none.",
+    "x-ioi-schema-version": "ioi.autonomous-system-operation-log.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "operation_log_ref",
+      "operation_log_root",
+      "predecessor_operation_log_ref",
+      "predecessor_operation_log_root",
+      "snapshot_kind",
+      "system_id",
+      "genesis_ref",
+      "home_domain_ref",
+      "home_domain_commitment",
+      "home_domain_binding_ref",
+      "home_domain_binding_root",
+      "policy_root",
+      "module_registry_root",
+      "upgrade_policy_ref",
+      "activation_prefix",
+      "entries",
+      "head_entry",
+      "latest_sequence",
+      "latest_operation_commitment",
+      "latest_transition_commitment_ref",
+      "latest_transition_ref",
+      "latest_transition_root",
+      "latest_receipt_ref",
+      "latest_receipt_root",
+      "latest_state_ref",
+      "latest_state_root",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-operation-log.v1"
+      },
+      "operation_log_ref": {
+        "$ref": "#/$defs/operationLogRef"
+      },
+      "operation_log_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_operation_log_ref": {
+        "type": "null"
+      },
+      "predecessor_operation_log_root": {
+        "type": "null"
+      },
+      "snapshot_kind": {
+        "const": "activation_prefix"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "genesis_ref": {
+        "$ref": "#/$defs/genesisRef"
+      },
+      "home_domain_ref": {
+        "$ref": "#/$defs/homeDomainRef"
+      },
+      "home_domain_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "home_domain_binding_ref": {
+        "$ref": "#/$defs/homeDomainBindingRef"
+      },
+      "home_domain_binding_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "module_registry_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "upgrade_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "activation_prefix": {
+        "$ref": "#/$defs/activationPrefix"
+      },
+      "entries": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/operationEntry"
+        },
+        "minItems": 3,
+        "maxItems": 3
+      },
+      "head_entry": {
+        "$ref": "#/$defs/sequenceTwo"
+      },
+      "latest_sequence": {
+        "enum": [
+          2
+        ]
+      },
+      "latest_operation_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "latest_transition_commitment_ref": {
+        "type": "null"
+      },
+      "latest_transition_ref": {
+        "$ref": "#/$defs/transitionRef"
+      },
+      "latest_transition_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "latest_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "latest_receipt_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "latest_state_ref": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "latest_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "status": {
+        "const": "committed"
+      },
+      "created_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9.-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "nullableCanonicalRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "proposalRef": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "nullableProposalRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/proposalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "nullableDecisionRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/decisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "transitionRef": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "nullableTransitionRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/transitionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "commitmentRef": {
+        "type": "string",
+        "pattern": "^transition://[^\\s]{1,248}$"
+      },
+      "nullableCommitmentRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/commitmentRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "activeProfileSetRef": {
+        "type": "string",
+        "pattern": "^active-profile-set://[^\\s]{1,248}$"
+      },
+      "nullableActiveProfileSetRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/activeProfileSetRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "chainRef": {
+        "type": "string",
+        "pattern": "^autonomous-system-chain://[^\\s]{1,248}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "homeDomainRef": {
+        "type": "string",
+        "pattern": "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$"
+      },
+      "homeDomainBindingRef": {
+        "type": "string",
+        "pattern": "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$"
+      },
+      "nullableChainRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/chainRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "operationLogRef": {
+        "type": "string",
+        "pattern": "^agentgres://operation-log/autonomous-system/[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "nullableOperationLogRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/operationLogRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "componentRegistryRef": {
+        "type": "string",
+        "pattern": "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$"
+      },
+      "deploymentRevisionRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "nullableComponentRegistryRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/componentRegistryRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableScope": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^scope:[a-z0-9._:-]{1,180}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "operationEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence",
+          "entry_kind",
+          "operation_name",
+          "operation_owner_profile_ref",
+          "operation_owner_ref",
+          "operation_owner_root",
+          "required_scope",
+          "materialization_ref",
+          "materialization_root",
+          "deployment_profile_ref",
+          "deployment_profile_root",
+          "operation_commitment",
+          "proposal_ref",
+          "proposal_root",
+          "decision_ref",
+          "decision_root",
+          "transition_ref",
+          "transition_root",
+          "state_transition_commitment_ref",
+          "state_ref",
+          "state_root",
+          "predecessor_state_root",
+          "receipt_profile_ref",
+          "receipt_ref",
+          "receipt_root",
+          "receipt_artifact_root",
+          "component_registry_ref",
+          "component_registry_root",
+          "active_profile_set_ref",
+          "active_profile_set_root",
+          "chain_ref",
+          "authority_evidence_ref",
+          "authority_evidence_root",
+          "wallet_consumption_ref",
+          "wallet_consumption_root",
+          "live_chain_created",
+          "committed_at"
+        ],
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "entry_kind": {
+            "enum": [
+              "sequence_zero_materialization",
+              "system_initialization",
+              "system_activation"
+            ]
+          },
+          "operation_name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,80}$"
+          },
+          "operation_owner_profile_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "operation_owner_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "operation_owner_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "required_scope": {
+            "$ref": "#/$defs/nullableScope"
+          },
+          "materialization_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "materialization_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "deployment_profile_ref": {
+            "$ref": "#/$defs/deploymentRevisionRef"
+          },
+          "deployment_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "operation_commitment": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "proposal_ref": {
+            "$ref": "#/$defs/nullableProposalRef"
+          },
+          "proposal_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "decision_ref": {
+            "$ref": "#/$defs/nullableDecisionRef"
+          },
+          "decision_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "transition_ref": {
+            "$ref": "#/$defs/nullableTransitionRef"
+          },
+          "transition_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "state_transition_commitment_ref": {
+            "$ref": "#/$defs/nullableCommitmentRef"
+          },
+          "state_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "state_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "predecessor_state_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "receipt_profile_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "receipt_ref": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "receipt_artifact_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "component_registry_ref": {
+            "$ref": "#/$defs/nullableComponentRegistryRef"
+          },
+          "component_registry_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "active_profile_set_ref": {
+            "$ref": "#/$defs/nullableActiveProfileSetRef"
+          },
+          "active_profile_set_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "chain_ref": {
+            "$ref": "#/$defs/nullableChainRef"
+          },
+          "authority_evidence_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "authority_evidence_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "wallet_consumption_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "wallet_consumption_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "live_chain_created": {
+            "type": "boolean"
+          },
+          "committed_at": {
+            "$ref": "#/$defs/canonicalDateTime"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "type": "object",
+              "properties": {
+                "entry_kind": {
+                  "const": "sequence_zero_materialization"
+                }
+              },
+              "required": [
+                "entry_kind"
+              ]
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "sequence": {
+                  "enum": [
+                    0
+                  ]
+                },
+                "operation_name": {
+                  "const": "materialize_sequence_zero"
+                },
+                "operation_owner_profile_ref": {
+                  "const": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"
+                },
+                "required_scope": {
+                  "const": "scope:autonomous_system.genesis_materialize"
+                },
+                "materialization_ref": {
+                  "$ref": "#/$defs/canonicalRef"
+                },
+                "materialization_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "operation_commitment": {
+                  "$ref": "#/$defs/hash"
+                },
+                "proposal_ref": {
+                  "type": "null"
+                },
+                "proposal_root": {
+                  "type": "null"
+                },
+                "decision_ref": {
+                  "type": "null"
+                },
+                "decision_root": {
+                  "type": "null"
+                },
+                "transition_ref": {
+                  "type": "null"
+                },
+                "transition_root": {
+                  "type": "null"
+                },
+                "state_transition_commitment_ref": {
+                  "type": "null"
+                },
+                "state_ref": {
+                  "type": "null"
+                },
+                "state_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "predecessor_state_root": {
+                  "type": "null"
+                },
+                "receipt_profile_ref": {
+                  "const": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"
+                },
+                "component_registry_ref": {
+                  "$ref": "#/$defs/componentRegistryRef"
+                },
+                "component_registry_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "active_profile_set_ref": {
+                  "type": "null"
+                },
+                "active_profile_set_root": {
+                  "type": "null"
+                },
+                "chain_ref": {
+                  "type": "null"
+                },
+                "authority_evidence_ref": {
+                  "type": "null"
+                },
+                "authority_evidence_root": {
+                  "type": "null"
+                },
+                "wallet_consumption_ref": {
+                  "$ref": "#/$defs/canonicalRef"
+                },
+                "wallet_consumption_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "live_chain_created": {
+                  "const": false
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "type": "object",
+              "properties": {
+                "entry_kind": {
+                  "const": "system_initialization"
+                }
+              },
+              "required": [
+                "entry_kind"
+              ]
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "sequence": {
+                  "enum": [
+                    1
+                  ]
+                },
+                "operation_name": {
+                  "const": "initialize"
+                },
+                "operation_owner_profile_ref": {
+                  "const": "schema://ioi/foundations/lifecycle-transition/v1"
+                },
+                "required_scope": {
+                  "const": "scope:autonomous_system.lifecycle.initialize"
+                },
+                "materialization_ref": {
+                  "type": "null"
+                },
+                "materialization_root": {
+                  "type": "null"
+                },
+                "operation_commitment": {
+                  "$ref": "#/$defs/hash"
+                },
+                "proposal_ref": {
+                  "$ref": "#/$defs/proposalRef"
+                },
+                "proposal_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "decision_ref": {
+                  "$ref": "#/$defs/decisionRef"
+                },
+                "decision_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "transition_ref": {
+                  "$ref": "#/$defs/transitionRef"
+                },
+                "transition_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "state_transition_commitment_ref": {
+                  "type": "null"
+                },
+                "state_ref": {
+                  "$ref": "#/$defs/canonicalRef"
+                },
+                "state_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "predecessor_state_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "receipt_profile_ref": {
+                  "const": "schema://ioi/foundations/lifecycle-transition-receipt/v1"
+                },
+                "active_profile_set_ref": {
+                  "type": "null"
+                },
+                "active_profile_set_root": {
+                  "type": "null"
+                },
+                "chain_ref": {
+                  "type": "null"
+                },
+                "authority_evidence_ref": {
+                  "$ref": "#/$defs/canonicalRef"
+                },
+                "authority_evidence_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "wallet_consumption_ref": {
+                  "$ref": "#/$defs/canonicalRef"
+                },
+                "wallet_consumption_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "live_chain_created": {
+                  "const": false
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "type": "object",
+              "properties": {
+                "entry_kind": {
+                  "const": "system_activation"
+                }
+              },
+              "required": [
+                "entry_kind"
+              ]
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "sequence": {
+                  "enum": [
+                    2
+                  ]
+                },
+                "operation_name": {
+                  "const": "activate"
+                },
+                "operation_owner_profile_ref": {
+                  "const": "schema://ioi/foundations/lifecycle-transition/v1"
+                },
+                "required_scope": {
+                  "const": "scope:autonomous_system.lifecycle.activate"
+                },
+                "materialization_ref": {
+                  "type": "null"
+                },
+                "materialization_root": {
+                  "type": "null"
+                },
+                "operation_commitment": {
+                  "$ref": "#/$defs/hash"
+                },
+                "proposal_ref": {
+                  "$ref": "#/$defs/proposalRef"
+                },
+                "proposal_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "decision_ref": {
+                  "$ref": "#/$defs/decisionRef"
+                },
+                "decision_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "transition_ref": {
+                  "$ref": "#/$defs/transitionRef"
+                },
+                "transition_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "state_transition_commitment_ref": {
+                  "type": "null"
+                },
+                "state_ref": {
+                  "$ref": "#/$defs/canonicalRef"
+                },
+                "state_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "predecessor_state_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "receipt_profile_ref": {
+                  "const": "schema://ioi/foundations/autonomous-system-activation-receipt/v1"
+                },
+                "active_profile_set_ref": {
+                  "$ref": "#/$defs/activeProfileSetRef"
+                },
+                "active_profile_set_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "chain_ref": {
+                  "$ref": "#/$defs/chainRef"
+                },
+                "authority_evidence_ref": {
+                  "$ref": "#/$defs/canonicalRef"
+                },
+                "authority_evidence_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "wallet_consumption_ref": {
+                  "$ref": "#/$defs/canonicalRef"
+                },
+                "wallet_consumption_root": {
+                  "$ref": "#/$defs/hash"
+                },
+                "live_chain_created": {
+                  "const": true
+                }
+              }
+            }
+          }
+        ]
+      },
+      "sequenceZero": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/operationEntry"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "sequence": {
+                "enum": [
+                  0
+                ]
+              },
+              "entry_kind": {
+                "const": "sequence_zero_materialization"
+              },
+              "operation_name": {
+                "const": "materialize_sequence_zero"
+              }
+            }
+          }
+        ]
+      },
+      "sequenceOne": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/operationEntry"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "sequence": {
+                "enum": [
+                  1
+                ]
+              },
+              "entry_kind": {
+                "const": "system_initialization"
+              },
+              "operation_name": {
+                "const": "initialize"
+              }
+            }
+          }
+        ]
+      },
+      "sequenceTwo": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/operationEntry"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "sequence": {
+                "enum": [
+                  2
+                ]
+              },
+              "entry_kind": {
+                "const": "system_activation"
+              },
+              "operation_name": {
+                "const": "activate"
+              }
+            }
+          }
+        ]
+      },
+      "activationPrefix": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence_zero",
+          "sequence_one",
+          "sequence_two"
+        ],
+        "properties": {
+          "sequence_zero": {
+            "$ref": "#/$defs/sequenceZero"
+          },
+          "sequence_one": {
+            "$ref": "#/$defs/sequenceOne"
+          },
+          "sequence_two": {
+            "$ref": "#/$defs/sequenceTwo"
+          }
+        }
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-chain/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-chain/v1",
+    "title": "AutonomousSystemChain",
+    "description": "Compact canonical logical AutonomousSystemChain projection across lifecycle stages. Ordered history belongs exclusively to immutable AutonomousSystemOperationLog revisions; the chain binds current identity, admitted profile/component coordinates, and compact latest-head coordinates without freezing the first activation posture into v1.",
+    "x-ioi-schema-version": "ioi.autonomous-system-chain.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "chain_ref",
+      "chain_root",
+      "system_id",
+      "home_domain_ref",
+      "home_domain_binding_ref",
+      "home_domain_binding_root",
+      "governance_owner_refs",
+      "genesis_ref",
+      "genesis_admission_record_root",
+      "package_id",
+      "manifest_ref",
+      "admitted_manifest_root",
+      "constitution_ref",
+      "constitution_root",
+      "deployment_profile_ref",
+      "deployment_profile_root",
+      "ordering_admission_finality_profile_ref",
+      "oracle_evidence_profile_refs",
+      "lifecycle_continuity_profile_ref",
+      "network_enrollment_ref",
+      "active_profile_set_ref",
+      "active_profile_set_root",
+      "node_membership_refs",
+      "node_membership_root",
+      "active_writer_epoch",
+      "latest_sequence",
+      "latest_operation_commitment",
+      "latest_transition_commitment_ref",
+      "latest_transition_id",
+      "latest_transition_root",
+      "latest_receipt_ref",
+      "latest_receipt_root",
+      "latest_state_ref",
+      "latest_state_root",
+      "worker_instance_refs",
+      "workflow_refs",
+      "active_component_registry_ref",
+      "active_component_registry_root",
+      "policy_root",
+      "module_registry_root",
+      "pending_proposal_refs",
+      "proposal_queue_root",
+      "operation_log_ref",
+      "operation_log_root",
+      "upgrade_policy_ref",
+      "settlement_policy_ref",
+      "default_settlement_mode",
+      "allowed_settlement_modes",
+      "settlement_profile_refs",
+      "public_commitment_policy_ref",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-chain.v1"
+      },
+      "chain_ref": {
+        "$ref": "#/$defs/chainRef"
+      },
+      "chain_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "home_domain_ref": {
+        "$ref": "#/$defs/homeDomainRef"
+      },
+      "home_domain_binding_ref": {
+        "$ref": "#/$defs/homeDomainBindingRef"
+      },
+      "home_domain_binding_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "governance_owner_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "genesis_ref": {
+        "$ref": "#/$defs/genesisRef"
+      },
+      "genesis_admission_record_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "package_id": {
+        "$ref": "#/$defs/packageRef"
+      },
+      "manifest_ref": {
+        "$ref": "#/$defs/packageReleaseRef"
+      },
+      "admitted_manifest_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "constitution_ref": {
+        "$ref": "#/$defs/constitutionRef"
+      },
+      "constitution_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "deployment_profile_ref": {
+        "$ref": "#/$defs/deploymentRevisionRef"
+      },
+      "deployment_profile_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "ordering_admission_finality_profile_ref": {
+        "$ref": "#/$defs/orderingProfileRef"
+      },
+      "oracle_evidence_profile_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/oracleProfileRef"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "lifecycle_continuity_profile_ref": {
+        "$ref": "#/$defs/lifecycleProfileRef"
+      },
+      "network_enrollment_ref": {
+        "$ref": "#/$defs/nullableNetworkEnrollmentRef"
+      },
+      "active_profile_set_ref": {
+        "$ref": "#/$defs/activeProfileSetRef"
+      },
+      "active_profile_set_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "node_membership_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/nodeMembershipRef"
+        },
+        "maxItems": 4096,
+        "uniqueItems": true
+      },
+      "node_membership_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "active_writer_epoch": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "latest_sequence": {
+        "type": "integer",
+        "minimum": 2,
+        "maximum": 9007199254740991
+      },
+      "latest_operation_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "latest_transition_commitment_ref": {
+        "$ref": "#/$defs/nullableCommitmentRef"
+      },
+      "latest_transition_id": {
+        "$ref": "#/$defs/transitionRef"
+      },
+      "latest_transition_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "latest_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "latest_receipt_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "latest_state_ref": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "latest_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "worker_instance_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/workerRef"
+        },
+        "maxItems": 4096,
+        "uniqueItems": true
+      },
+      "workflow_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/workflowRef"
+        },
+        "maxItems": 4096,
+        "uniqueItems": true
+      },
+      "active_component_registry_ref": {
+        "$ref": "#/$defs/componentRegistryRef"
+      },
+      "active_component_registry_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "module_registry_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "pending_proposal_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/proposalRef"
+        },
+        "maxItems": 4096,
+        "uniqueItems": true
+      },
+      "proposal_queue_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "operation_log_ref": {
+        "$ref": "#/$defs/operationLogRef"
+      },
+      "operation_log_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "upgrade_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "settlement_policy_ref": {
+        "$ref": "#/$defs/nullablePolicyRef"
+      },
+      "default_settlement_mode": {
+        "anyOf": [
+          {
+            "enum": [
+              "local_domain",
+              "bilateral",
+              "invoice",
+              "external_escrow",
+              "external_chain",
+              "ioi_l1"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "allowed_settlement_modes": {
+        "type": "array",
+        "items": {
+          "enum": [
+            "local_domain",
+            "bilateral",
+            "invoice",
+            "external_escrow",
+            "external_chain",
+            "ioi_l1"
+          ]
+        },
+        "maxItems": 6,
+        "uniqueItems": true
+      },
+      "settlement_profile_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "public_commitment_policy_ref": {
+        "$ref": "#/$defs/nullablePolicyRef"
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "initialized",
+          "active",
+          "degraded",
+          "paused",
+          "suspended",
+          "dormant",
+          "recovering",
+          "quarantined",
+          "succession_pending",
+          "successor_governed",
+          "dissolution_pending",
+          "dissolving",
+          "dissolved",
+          "retired",
+          "archived",
+          "decommissioned",
+          "revoked"
+        ]
+      },
+      "created_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "homeDomainRef": {
+        "type": "string",
+        "pattern": "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$"
+      },
+      "homeDomainBindingRef": {
+        "type": "string",
+        "pattern": "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "packageRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s]{1,248}$"
+      },
+      "packageReleaseRef": {
+        "type": "string",
+        "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "deploymentRevisionRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "orderingProfileRef": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "oracleProfileRef": {
+        "type": "string",
+        "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+      },
+      "lifecycleProfileRef": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "networkEnrollmentRef": {
+        "type": "string",
+        "pattern": "^network-enrollment://[^\\s]{1,248}$"
+      },
+      "nullableNetworkEnrollmentRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/networkEnrollmentRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "chainRef": {
+        "type": "string",
+        "pattern": "^autonomous-system-chain://[^\\s]{1,248}$"
+      },
+      "activeProfileSetRef": {
+        "type": "string",
+        "pattern": "^active-profile-set://[^\\s]{1,248}$"
+      },
+      "nodeMembershipRef": {
+        "type": "string",
+        "pattern": "^node-membership://[^\\s]{1,248}$"
+      },
+      "commitmentRef": {
+        "type": "string",
+        "pattern": "^transition://[^\\s]{1,248}$"
+      },
+      "nullableCommitmentRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/commitmentRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "proposalRef": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "transitionRef": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "workerRef": {
+        "type": "string",
+        "pattern": "^(?:agent|worker)://[^\\s]{1,248}$"
+      },
+      "workflowRef": {
+        "type": "string",
+        "pattern": "^(?:workflow|workflow-template)://[^\\s]{1,248}$"
+      },
+      "componentRegistryRef": {
+        "type": "string",
+        "pattern": "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$"
+      },
+      "operationLogRef": {
+        "type": "string",
+        "pattern": "^agentgres://operation-log/autonomous-system/[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "nullablePolicyRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/lifecycle-transition-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    "title": "LifecycleTransitionReceipt",
+    "description": "Generic portable receipt for a governed System lifecycle transition. The initialize branch binds the complete M1.3/M1.4/deployment predecessor tuple; later protected lifecycle branches retain a closed transition/state/authority core. Schema validity never supplies operation authority.",
+    "x-ioi-schema-version": "ioi.lifecycle-transition-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "receipt_ref",
+      "receipt_type",
+      "receipt_profile_ref",
+      "actor_id",
+      "subject_ref",
+      "op",
+      "sequence",
+      "attested_boundary_fact_refs",
+      "bound_facts",
+      "input_hash",
+      "output_hash",
+      "policy_hash",
+      "effect_hash",
+      "authority_grant_id",
+      "required_scope",
+      "authority_scopes",
+      "authority_evidence_ref",
+      "authority_evidence_root",
+      "wallet_grant_consumption_ref",
+      "wallet_grant_consumption_root",
+      "wallet_grant_consumption_evidence_ref",
+      "primitive_capabilities",
+      "artifact_refs",
+      "evidence_bundle_refs",
+      "verification_ref",
+      "acceptance_ref",
+      "claim_scope_ref",
+      "run_id",
+      "task_id",
+      "adjudication_ref",
+      "settlement_ref",
+      "signature",
+      "public_commitment_ref",
+      "assurance_posture",
+      "assurance_note",
+      "timestamp",
+      "outcome",
+      "at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.lifecycle-transition-receipt.v1"
+      },
+      "receipt_id": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_type": {
+        "const": "lifecycle_transition"
+      },
+      "receipt_profile_ref": {
+        "const": "schema://ioi/foundations/lifecycle-transition-receipt/v1"
+      },
+      "actor_id": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "subject_ref": {
+        "$ref": "#/$defs/transitionRef"
+      },
+      "op": {
+        "$ref": "#/$defs/operation"
+      },
+      "sequence": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "attested_boundary_fact_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "minItems": 8,
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "bound_facts": {
+        "$ref": "#/$defs/boundFacts"
+      },
+      "input_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "output_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "effect_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_grant_id": {
+        "$ref": "#/$defs/grantRef"
+      },
+      "required_scope": {
+        "type": "string",
+        "pattern": "^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$"
+      },
+      "authority_scopes": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$"
+        },
+        "minItems": 1,
+        "maxItems": 1
+      },
+      "authority_evidence_ref": {
+        "$ref": "#/$defs/authorityEvidenceRef"
+      },
+      "authority_evidence_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "wallet_grant_consumption_ref": {
+        "$ref": "#/$defs/walletConsumptionRef"
+      },
+      "wallet_grant_consumption_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "wallet_grant_consumption_evidence_ref": {
+        "$ref": "#/$defs/authorityConsumptionRef"
+      },
+      "primitive_capabilities": {
+        "type": "array",
+        "maxItems": 0
+      },
+      "artifact_refs": {
+        "type": "array",
+        "maxItems": 0
+      },
+      "evidence_bundle_refs": {
+        "type": "array",
+        "maxItems": 0
+      },
+      "verification_ref": {
+        "type": "null"
+      },
+      "acceptance_ref": {
+        "type": "null"
+      },
+      "claim_scope_ref": {
+        "type": "null"
+      },
+      "run_id": {
+        "type": "null"
+      },
+      "task_id": {
+        "type": "null"
+      },
+      "adjudication_ref": {
+        "type": "null"
+      },
+      "settlement_ref": {
+        "type": "null"
+      },
+      "signature": {
+        "type": "null"
+      },
+      "public_commitment_ref": {
+        "type": "null"
+      },
+      "assurance_posture": {
+        "enum": [
+          "initialized_not_active",
+          "protected_lifecycle_committed"
+        ]
+      },
+      "assurance_note": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "timestamp": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "outcome": {
+        "const": "ok"
+      },
+      "at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "op": {
+              "const": "initialize"
+            }
+          },
+          "required": [
+            "op"
+          ]
+        },
+        "then": {
+          "properties": {
+            "sequence": {
+              "enum": [
+                1
+              ]
+            },
+            "required_scope": {
+              "const": "scope:autonomous_system.lifecycle.initialize"
+            },
+            "authority_scopes": {
+              "type": "array",
+              "items": {
+                "const": "scope:autonomous_system.lifecycle.initialize"
+              },
+              "minItems": 1,
+              "maxItems": 1
+            },
+            "bound_facts": {
+              "$ref": "#/$defs/initializeBoundFacts"
+            },
+            "assurance_posture": {
+              "const": "initialized_not_active"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "sequence": {
+              "type": "integer",
+              "minimum": 3,
+              "maximum": 9007199254740991
+            },
+            "bound_facts": {
+              "$ref": "#/$defs/boundFacts"
+            },
+            "assurance_posture": {
+              "const": "protected_lifecycle_committed"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://ltr_[0-9a-f]{64}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "transitionRef": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "stateRef": {
+        "type": "string",
+        "pattern": "^system-activation-state://[^\\s]{1,248}$"
+      },
+      "chainRef": {
+        "type": "string",
+        "pattern": "^autonomous-system-chain://[^\\s]{1,248}$"
+      },
+      "deploymentRevisionRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "homeDomainRef": {
+        "type": "string",
+        "pattern": "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "proposalRef": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "grantRef": {
+        "type": "string",
+        "pattern": "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"
+      },
+      "authorityEvidenceRef": {
+        "type": "string",
+        "pattern": "^system-lifecycle-authority-evidence://aslae_[0-9a-f]{64}$"
+      },
+      "authorityConsumptionRef": {
+        "type": "string",
+        "pattern": "^system-lifecycle-authority-consumption://aslac_[0-9a-f]{64}$"
+      },
+      "walletConsumptionRef": {
+        "type": "string",
+        "pattern": "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$"
+      },
+      "operation": {
+        "enum": [
+          "initialize",
+          "pause",
+          "resume",
+          "suspend",
+          "reinstate",
+          "enter_dormancy",
+          "wake",
+          "begin_recovery",
+          "complete_recovery",
+          "quarantine",
+          "release_quarantine",
+          "retire",
+          "archive",
+          "revoke",
+          "decommission"
+        ]
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "initializeBoundFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "system_id",
+          "operation",
+          "sequence",
+          "required_scope",
+          "authority_effect_hash",
+          "genesis_ref",
+          "genesis_admission_record_root",
+          "genesis_admission_receipt_ref",
+          "genesis_admission_receipt_root",
+          "sequence_zero_materialization_id",
+          "sequence_zero_materialization_root",
+          "sequence_zero_receipt_ref",
+          "sequence_zero_receipt_root",
+          "sequence_zero_receipt_artifact_root",
+          "source_governing_authority_ref",
+          "home_domain_ref",
+          "home_domain_commitment",
+          "home_domain_binding_ref",
+          "home_domain_binding_root",
+          "component_registry_ref",
+          "component_registry_root",
+          "deployment_profile_ref",
+          "deployment_profile_root",
+          "materialization_wallet_consumption_ref",
+          "materialization_wallet_consumption_root",
+          "profile_bundle_root",
+          "policy_root",
+          "module_registry_root",
+          "upgrade_policy_ref",
+          "operation_commitment",
+          "proposal_ref",
+          "proposal_root",
+          "decision_ref",
+          "decision_root",
+          "transition_ref",
+          "transition_root",
+          "predecessor_state_root",
+          "resulting_state_ref",
+          "resulting_state_root",
+          "active_profile_set_ref",
+          "active_profile_set_root",
+          "chain_ref",
+          "live_chain_created"
+        ],
+        "properties": {
+          "system_id": {
+            "$ref": "#/$defs/systemRef"
+          },
+          "operation": {
+            "const": "initialize"
+          },
+          "sequence": {
+            "enum": [
+              1
+            ]
+          },
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.initialize"
+          },
+          "authority_effect_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "genesis_ref": {
+            "$ref": "#/$defs/genesisRef"
+          },
+          "genesis_admission_record_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "genesis_admission_receipt_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "genesis_admission_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "sequence_zero_materialization_id": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "sequence_zero_materialization_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "sequence_zero_receipt_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "sequence_zero_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "sequence_zero_receipt_artifact_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "source_governing_authority_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "home_domain_ref": {
+            "$ref": "#/$defs/homeDomainRef"
+          },
+          "home_domain_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "home_domain_binding_ref": {
+            "type": "null"
+          },
+          "home_domain_binding_root": {
+            "type": "null"
+          },
+          "component_registry_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "component_registry_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "deployment_profile_ref": {
+            "$ref": "#/$defs/deploymentRevisionRef"
+          },
+          "deployment_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "materialization_wallet_consumption_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "materialization_wallet_consumption_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "profile_bundle_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "policy_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "module_registry_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "upgrade_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "operation_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "proposal_ref": {
+            "$ref": "#/$defs/proposalRef"
+          },
+          "proposal_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "decision_ref": {
+            "$ref": "#/$defs/decisionRef"
+          },
+          "decision_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "transition_ref": {
+            "$ref": "#/$defs/transitionRef"
+          },
+          "transition_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "predecessor_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "resulting_state_ref": {
+            "$ref": "#/$defs/stateRef"
+          },
+          "resulting_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "active_profile_set_ref": {
+            "type": "null"
+          },
+          "active_profile_set_root": {
+            "type": "null"
+          },
+          "chain_ref": {
+            "type": "null"
+          },
+          "live_chain_created": {
+            "const": false
+          }
+        }
+      },
+      "protectedBoundFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "system_id",
+          "operation",
+          "sequence",
+          "required_scope",
+          "authority_effect_hash",
+          "operation_commitment",
+          "proposal_ref",
+          "proposal_root",
+          "decision_ref",
+          "decision_root",
+          "transition_ref",
+          "transition_root",
+          "predecessor_state_root",
+          "resulting_state_ref",
+          "resulting_state_root",
+          "chain_ref",
+          "live_chain_created"
+        ],
+        "properties": {
+          "system_id": {
+            "$ref": "#/$defs/systemRef"
+          },
+          "operation": {
+            "$ref": "#/$defs/operation"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 9007199254740991
+          },
+          "required_scope": {
+            "type": "string",
+            "pattern": "^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$"
+          },
+          "authority_effect_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "operation_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "proposal_ref": {
+            "$ref": "#/$defs/proposalRef"
+          },
+          "proposal_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "decision_ref": {
+            "$ref": "#/$defs/decisionRef"
+          },
+          "decision_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "transition_ref": {
+            "$ref": "#/$defs/transitionRef"
+          },
+          "transition_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "predecessor_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "resulting_state_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "resulting_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "chain_ref": {
+            "$ref": "#/$defs/chainRef"
+          },
+          "live_chain_created": {
+            "const": false
+          }
+        }
+      },
+      "boundFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "system_id",
+          "operation",
+          "sequence",
+          "required_scope",
+          "authority_effect_hash",
+          "genesis_ref",
+          "genesis_admission_record_root",
+          "genesis_admission_receipt_ref",
+          "genesis_admission_receipt_root",
+          "sequence_zero_materialization_id",
+          "sequence_zero_materialization_root",
+          "sequence_zero_receipt_ref",
+          "sequence_zero_receipt_root",
+          "sequence_zero_receipt_artifact_root",
+          "source_governing_authority_ref",
+          "home_domain_ref",
+          "home_domain_commitment",
+          "home_domain_binding_ref",
+          "home_domain_binding_root",
+          "component_registry_ref",
+          "component_registry_root",
+          "deployment_profile_ref",
+          "deployment_profile_root",
+          "materialization_wallet_consumption_ref",
+          "materialization_wallet_consumption_root",
+          "profile_bundle_root",
+          "policy_root",
+          "module_registry_root",
+          "upgrade_policy_ref",
+          "operation_commitment",
+          "proposal_ref",
+          "proposal_root",
+          "decision_ref",
+          "decision_root",
+          "transition_ref",
+          "transition_root",
+          "predecessor_state_root",
+          "resulting_state_ref",
+          "resulting_state_root",
+          "active_profile_set_ref",
+          "active_profile_set_root",
+          "chain_ref",
+          "live_chain_created"
+        ],
+        "properties": {
+          "operation": {
+            "$ref": "#/$defs/operation"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "required_scope": {
+            "type": "string",
+            "pattern": "^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$"
+          },
+          "authority_effect_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "active_profile_set_ref": {
+            "type": "null"
+          },
+          "active_profile_set_root": {
+            "type": "null"
+          },
+          "chain_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/chainRef"
+              }
+            ]
+          },
+          "component_registry_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/canonicalRef"
+              }
+            ]
+          },
+          "component_registry_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "decision_ref": {
+            "$ref": "#/$defs/decisionRef"
+          },
+          "decision_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "deployment_profile_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/deploymentRevisionRef"
+              }
+            ]
+          },
+          "deployment_profile_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "genesis_admission_receipt_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/canonicalRef"
+              }
+            ]
+          },
+          "genesis_admission_receipt_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "genesis_admission_record_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "genesis_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/genesisRef"
+              }
+            ]
+          },
+          "home_domain_binding_ref": {
+            "type": "null"
+          },
+          "home_domain_binding_root": {
+            "type": "null"
+          },
+          "home_domain_commitment": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "home_domain_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/homeDomainRef"
+              }
+            ]
+          },
+          "live_chain_created": {
+            "const": false
+          },
+          "materialization_wallet_consumption_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/canonicalRef"
+              }
+            ]
+          },
+          "materialization_wallet_consumption_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "module_registry_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "operation_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "policy_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "predecessor_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "profile_bundle_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "proposal_ref": {
+            "$ref": "#/$defs/proposalRef"
+          },
+          "proposal_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "resulting_state_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "resulting_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "sequence_zero_materialization_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/canonicalRef"
+              }
+            ]
+          },
+          "sequence_zero_materialization_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "sequence_zero_receipt_artifact_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "sequence_zero_receipt_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/canonicalRef"
+              }
+            ]
+          },
+          "sequence_zero_receipt_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/hash"
+              }
+            ]
+          },
+          "source_governing_authority_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/canonicalRef"
+              }
+            ]
+          },
+          "system_id": {
+            "$ref": "#/$defs/systemRef"
+          },
+          "transition_ref": {
+            "$ref": "#/$defs/transitionRef"
+          },
+          "transition_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "upgrade_policy_ref": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/policyRef"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-activation-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-activation-receipt/v1",
+    "title": "AutonomousSystemActivationReceipt",
+    "description": "Portable receipt for the governed sequence-two activation boundary. It admits the exact candidate profile set and deterministic home-domain binding and states that the first logical chain is created, without claiming membership, runtime, network, settlement, or public-finality effects.",
+    "x-ioi-schema-version": "ioi.autonomous-system-activation-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "receipt_ref",
+      "receipt_type",
+      "receipt_profile_ref",
+      "actor_id",
+      "subject_ref",
+      "op",
+      "sequence",
+      "attested_boundary_fact_refs",
+      "bound_facts",
+      "input_hash",
+      "output_hash",
+      "policy_hash",
+      "effect_hash",
+      "authority_grant_id",
+      "required_scope",
+      "authority_scopes",
+      "authority_evidence_ref",
+      "authority_evidence_root",
+      "wallet_grant_consumption_ref",
+      "wallet_grant_consumption_root",
+      "wallet_grant_consumption_evidence_ref",
+      "primitive_capabilities",
+      "artifact_refs",
+      "evidence_bundle_refs",
+      "verification_ref",
+      "acceptance_ref",
+      "claim_scope_ref",
+      "run_id",
+      "task_id",
+      "adjudication_ref",
+      "settlement_ref",
+      "signature",
+      "public_commitment_ref",
+      "assurance_posture",
+      "assurance_note",
+      "timestamp",
+      "outcome",
+      "at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-activation-receipt.v1"
+      },
+      "receipt_id": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_type": {
+        "const": "autonomous_system_activation"
+      },
+      "receipt_profile_ref": {
+        "const": "schema://ioi/foundations/autonomous-system-activation-receipt/v1"
+      },
+      "actor_id": {
+        "const": "runtime://hypervisor-runtime"
+      },
+      "subject_ref": {
+        "$ref": "#/$defs/transitionRef"
+      },
+      "op": {
+        "const": "activate"
+      },
+      "sequence": {
+        "enum": [
+          2
+        ]
+      },
+      "attested_boundary_fact_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "minItems": 17,
+        "maxItems": 56,
+        "uniqueItems": true
+      },
+      "bound_facts": {
+        "$ref": "#/$defs/activationBoundFacts"
+      },
+      "input_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "output_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "policy_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "effect_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_grant_id": {
+        "$ref": "#/$defs/grantRef"
+      },
+      "required_scope": {
+        "const": "scope:autonomous_system.lifecycle.activate"
+      },
+      "authority_scopes": {
+        "type": "array",
+        "items": {
+          "const": "scope:autonomous_system.lifecycle.activate"
+        },
+        "minItems": 1,
+        "maxItems": 1
+      },
+      "authority_evidence_ref": {
+        "$ref": "#/$defs/authorityEvidenceRef"
+      },
+      "authority_evidence_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "wallet_grant_consumption_ref": {
+        "$ref": "#/$defs/walletConsumptionRef"
+      },
+      "wallet_grant_consumption_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "wallet_grant_consumption_evidence_ref": {
+        "$ref": "#/$defs/authorityConsumptionRef"
+      },
+      "primitive_capabilities": {
+        "type": "array",
+        "maxItems": 0
+      },
+      "artifact_refs": {
+        "type": "array",
+        "maxItems": 0
+      },
+      "evidence_bundle_refs": {
+        "type": "array",
+        "maxItems": 0
+      },
+      "verification_ref": {
+        "type": "null"
+      },
+      "acceptance_ref": {
+        "type": "null"
+      },
+      "claim_scope_ref": {
+        "type": "null"
+      },
+      "run_id": {
+        "type": "null"
+      },
+      "task_id": {
+        "type": "null"
+      },
+      "adjudication_ref": {
+        "type": "null"
+      },
+      "settlement_ref": {
+        "type": "null"
+      },
+      "signature": {
+        "type": "null"
+      },
+      "public_commitment_ref": {
+        "type": "null"
+      },
+      "assurance_posture": {
+        "const": "active_chain_created"
+      },
+      "assurance_note": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "timestamp": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "outcome": {
+        "const": "ok"
+      },
+      "at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://asar_[0-9a-f]{64}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "transitionRef": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "stateRef": {
+        "type": "string",
+        "pattern": "^system-activation-state://[^\\s]{1,248}$"
+      },
+      "deploymentRevisionRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "homeDomainRef": {
+        "type": "string",
+        "pattern": "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$"
+      },
+      "homeDomainBindingRef": {
+        "type": "string",
+        "pattern": "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$"
+      },
+      "activeProfileSetRef": {
+        "type": "string",
+        "pattern": "^active-profile-set://[^\\s]{1,248}$"
+      },
+      "chainRef": {
+        "type": "string",
+        "pattern": "^autonomous-system-chain://[^\\s]{1,248}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "proposalRef": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "decisionRef": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "grantRef": {
+        "type": "string",
+        "pattern": "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"
+      },
+      "authorityEvidenceRef": {
+        "type": "string",
+        "pattern": "^system-lifecycle-authority-evidence://aslae_[0-9a-f]{64}$"
+      },
+      "authorityConsumptionRef": {
+        "type": "string",
+        "pattern": "^system-lifecycle-authority-consumption://aslac_[0-9a-f]{64}$"
+      },
+      "walletConsumptionRef": {
+        "type": "string",
+        "pattern": "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$"
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "activationBoundFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "system_id",
+          "operation",
+          "sequence",
+          "required_scope",
+          "authority_effect_hash",
+          "genesis_ref",
+          "genesis_admission_record_root",
+          "genesis_admission_receipt_ref",
+          "genesis_admission_receipt_root",
+          "sequence_zero_materialization_id",
+          "sequence_zero_materialization_root",
+          "sequence_zero_receipt_ref",
+          "sequence_zero_receipt_root",
+          "sequence_zero_receipt_artifact_root",
+          "source_governing_authority_ref",
+          "home_domain_ref",
+          "home_domain_commitment",
+          "home_domain_binding_ref",
+          "home_domain_binding_root",
+          "component_registry_ref",
+          "component_registry_root",
+          "deployment_profile_ref",
+          "deployment_profile_root",
+          "materialization_wallet_consumption_ref",
+          "materialization_wallet_consumption_root",
+          "profile_bundle_root",
+          "policy_root",
+          "module_registry_root",
+          "upgrade_policy_ref",
+          "operation_commitment",
+          "proposal_ref",
+          "proposal_root",
+          "decision_ref",
+          "decision_root",
+          "transition_ref",
+          "transition_root",
+          "predecessor_state_root",
+          "resulting_state_ref",
+          "resulting_state_root",
+          "active_profile_set_ref",
+          "active_profile_set_root",
+          "chain_ref",
+          "live_chain_created"
+        ],
+        "properties": {
+          "system_id": {
+            "$ref": "#/$defs/systemRef"
+          },
+          "operation": {
+            "const": "activate"
+          },
+          "sequence": {
+            "enum": [
+              2
+            ]
+          },
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.activate"
+          },
+          "authority_effect_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "genesis_ref": {
+            "$ref": "#/$defs/genesisRef"
+          },
+          "genesis_admission_record_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "genesis_admission_receipt_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "genesis_admission_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "sequence_zero_materialization_id": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "sequence_zero_materialization_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "sequence_zero_receipt_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "sequence_zero_receipt_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "sequence_zero_receipt_artifact_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "source_governing_authority_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "home_domain_ref": {
+            "$ref": "#/$defs/homeDomainRef"
+          },
+          "home_domain_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "home_domain_binding_ref": {
+            "$ref": "#/$defs/homeDomainBindingRef"
+          },
+          "home_domain_binding_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "component_registry_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "component_registry_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "deployment_profile_ref": {
+            "$ref": "#/$defs/deploymentRevisionRef"
+          },
+          "deployment_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "materialization_wallet_consumption_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "materialization_wallet_consumption_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "profile_bundle_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "policy_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "module_registry_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "upgrade_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "operation_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "proposal_ref": {
+            "$ref": "#/$defs/proposalRef"
+          },
+          "proposal_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "decision_ref": {
+            "$ref": "#/$defs/decisionRef"
+          },
+          "decision_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "transition_ref": {
+            "$ref": "#/$defs/transitionRef"
+          },
+          "transition_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "predecessor_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "resulting_state_ref": {
+            "$ref": "#/$defs/stateRef"
+          },
+          "resulting_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "active_profile_set_ref": {
+            "$ref": "#/$defs/activeProfileSetRef"
+          },
+          "active_profile_set_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "chain_ref": {
+            "$ref": "#/$defs/chainRef"
+          },
+          "live_chain_created": {
+            "const": true
+          }
+        }
       }
     }
   },
@@ -20247,6 +26141,1483 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/autonomous-system-activation-proposal/v1": [
+    {
+      "rule_id": "autonomous_system_activation_proposal.root.recomputes",
+      "description": "The proposal root binds the exact server-derived effect and lifecycle coordinates.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-activation-proposal-jcs-sha256.v1"
+          },
+          "proposal_ref": {
+            "path": "$.proposal_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "operation": {
+            "path": "$.operation"
+          },
+          "sequence": {
+            "path": "$.sequence"
+          },
+          "required_scope": {
+            "path": "$.required_scope"
+          },
+          "operation_commitment": {
+            "path": "$.operation_commitment"
+          },
+          "authority_effect": {
+            "path": "$.authority_effect"
+          },
+          "authority_effect_hash": {
+            "path": "$.authority_effect_hash"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "created_at": {
+            "path": "$.created_at"
+          }
+        },
+        "expected_path": "$.proposal_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.operation_commitment.recomputes",
+      "description": "The logical operation commitment is derived before downstream proposal, decision, transition, receipt, log, and chain roots.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-lifecycle-operation-commitment-jcs-sha256.v1"
+          },
+          "operation": {
+            "path": "$.authority_effect.operation"
+          },
+          "required_scope": {
+            "path": "$.authority_effect.required_scope"
+          },
+          "sequence": {
+            "path": "$.authority_effect.sequence"
+          },
+          "system_id": {
+            "path": "$.authority_effect.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.authority_effect.genesis_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.authority_effect.home_domain_ref"
+          },
+          "home_domain_commitment": {
+            "path": "$.authority_effect.home_domain_commitment"
+          },
+          "home_domain_binding_ref": {
+            "path": "$.authority_effect.home_domain_binding_ref"
+          },
+          "home_domain_binding_root": {
+            "path": "$.authority_effect.home_domain_binding_root"
+          },
+          "policy_root": {
+            "path": "$.authority_effect.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.authority_effect.module_registry_root"
+          },
+          "upgrade_policy_ref": {
+            "path": "$.authority_effect.upgrade_policy_ref"
+          },
+          "deployment_profile_ref": {
+            "path": "$.authority_effect.deployment_profile_ref"
+          },
+          "deployment_profile_root": {
+            "path": "$.authority_effect.deployment_profile_root"
+          },
+          "predecessor_state_root": {
+            "path": "$.authority_effect.predecessor_state_root"
+          },
+          "resulting_state_ref": {
+            "path": "$.authority_effect.resulting_state_ref"
+          },
+          "resulting_state_root": {
+            "path": "$.authority_effect.resulting_state_root"
+          },
+          "active_profile_set_ref": {
+            "path": "$.authority_effect.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.authority_effect.active_profile_set_root"
+          },
+          "chain_ref": {
+            "path": "$.authority_effect.chain_ref"
+          },
+          "live_chain_created": {
+            "path": "$.authority_effect.live_chain_created"
+          },
+          "node_membership_created": {
+            "path": "$.authority_effect.node_membership_created"
+          },
+          "runtime_effect_admitted": {
+            "path": "$.authority_effect.runtime_effect_admitted"
+          },
+          "network_effect_admitted": {
+            "path": "$.authority_effect.network_effect_admitted"
+          }
+        },
+        "expected_path": "$.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.authority_effect_hash.recomputes",
+      "description": "The daemon authorization hash is the domain-separated JCS hash of the exact proposed authority effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "hypervisor.system-lifecycle.decision.request.v1.effect.v1"
+          },
+          "effect": {
+            "path": "$.authority_effect"
+          }
+        },
+        "expected_path": "$.authority_effect_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.operation_commitment.matches_effect",
+      "description": "The proposal and signed effect carry the same logical operation commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.operation_commitment",
+          "$.authority_effect.operation_commitment"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.system.matches_effect",
+      "description": "The proposal and its exact effect name one System.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.system_id",
+          "$.authority_effect.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.genesis.matches_effect",
+      "description": "The proposal and its exact effect name one genesis.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.genesis_ref",
+          "$.authority_effect.genesis_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.operation.matches_effect",
+      "description": "The proposal and effect carry one operation.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.operation",
+          "$.authority_effect.operation"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.sequence.matches_effect",
+      "description": "The proposal and effect carry one sequence.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.sequence",
+          "$.authority_effect.sequence"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_proposal.scope.matches_effect",
+      "description": "The proposal and effect carry one operation scope.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.required_scope",
+          "$.authority_effect.required_scope"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1": [
+    {
+      "rule_id": "autonomous_system_activation_authority_decision.root.recomputes",
+      "description": "The decision root binds the exact proposal and retained governed authority coordinates.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-activation-authority-decision-jcs-sha256.v1"
+          },
+          "decision_ref": {
+            "path": "$.decision_ref"
+          },
+          "proposal_ref": {
+            "path": "$.proposal_ref"
+          },
+          "proposal_root": {
+            "path": "$.proposal_root"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "operation": {
+            "path": "$.operation"
+          },
+          "sequence": {
+            "path": "$.sequence"
+          },
+          "required_scope": {
+            "path": "$.required_scope"
+          },
+          "operation_commitment": {
+            "path": "$.operation_commitment"
+          },
+          "input_hash": {
+            "path": "$.input_hash"
+          },
+          "policy_hash": {
+            "path": "$.policy_hash"
+          },
+          "effect_hash": {
+            "path": "$.effect_hash"
+          },
+          "authority_grant_ref": {
+            "path": "$.authority_grant_ref"
+          },
+          "authority_evidence_ref": {
+            "path": "$.authority_evidence_ref"
+          },
+          "authority_evidence_root": {
+            "path": "$.authority_evidence_root"
+          },
+          "wallet_grant_consumption_ref": {
+            "path": "$.wallet_grant_consumption_ref"
+          },
+          "wallet_grant_consumption_root": {
+            "path": "$.wallet_grant_consumption_root"
+          },
+          "wallet_grant_consumption_evidence_ref": {
+            "path": "$.wallet_grant_consumption_evidence_ref"
+          },
+          "outcome": {
+            "path": "$.outcome"
+          },
+          "decided_at": {
+            "path": "$.decided_at"
+          }
+        },
+        "expected_path": "$.decision_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1": [
+    {
+      "rule_id": "autonomous_system_deployment_profile_revision.identity.matches_profile",
+      "description": "The revision reference is namespaced beneath the exact deployment-profile identity carried by its immutable body.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.deployment_profile_ref",
+        "prefix": "deployment-profile://",
+        "expected_path": "$.profile.deployment_profile_id",
+        "strip_prefix": "deployment-profile://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_deployment_profile_revision.ref.binds_root",
+      "description": "The content-addressed revision reference suffix equals the exact profile root.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.deployment_profile_ref",
+        "delimiter": "/revision/sha256:",
+        "target_path": "$.deployment_profile_root",
+        "target_prefix": "sha256:"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_deployment_profile_revision.root.recomputes",
+      "description": "The profile root is the domain-separated JCS hash of the exact immutable profile body.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-deployment-profile-revision-jcs-sha256.v1"
+          },
+          "profile": {
+            "path": "$.profile"
+          }
+        },
+        "expected_path": "$.deployment_profile_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-activation-state/v1": [
+    {
+      "rule_id": "autonomous_system_activation_state.root.recomputes",
+      "description": "The semantic lifecycle-state root binds predecessor, sequence, status, and admitted profile coordinates. Downstream transition, receipt, and navigation fields are deliberately excluded so the commitment graph is acyclic.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-activation-state-jcs-sha256.v1"
+          },
+          "activation_state_ref": {
+            "path": "$.activation_state_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "manifest_ref": {
+            "path": "$.manifest_ref"
+          },
+          "admitted_manifest_root": {
+            "path": "$.admitted_manifest_root"
+          },
+          "lifecycle_profile_ref": {
+            "path": "$.lifecycle_profile_ref"
+          },
+          "sequence": {
+            "path": "$.sequence"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "predecessor_state_root": {
+            "path": "$.predecessor_state_root"
+          },
+          "active_profile_set_ref": {
+            "path": "$.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.active_profile_set_root"
+          },
+          "live_chain_created": {
+            "path": "$.live_chain_created"
+          },
+          "node_membership_refs": {
+            "path": "$.node_membership_refs"
+          },
+          "runtime_effect_admitted": {
+            "path": "$.runtime_effect_admitted"
+          },
+          "network_effect_admitted": {
+            "path": "$.network_effect_admitted"
+          }
+        },
+        "expected_path": "$.activation_state_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-active-profile-set/v1": [
+    {
+      "rule_id": "autonomous_system_active_profile_set.root.recomputes",
+      "description": "The semantic active-set root binds exact candidate admissions while excluding downstream transition, receipt, and wall-clock navigation fields.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-active-profile-set-jcs-sha256.v1"
+          },
+          "active_profile_set_ref": {
+            "path": "$.active_profile_set_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "profile_bundle_root": {
+            "path": "$.profile_bundle_root"
+          },
+          "constitution": {
+            "path": "$.constitution"
+          },
+          "deployment": {
+            "path": "$.deployment"
+          },
+          "ordering_admission_finality": {
+            "path": "$.ordering_admission_finality"
+          },
+          "oracle_evidence_profiles": {
+            "path": "$.oracle_evidence_profiles"
+          },
+          "lifecycle_continuity": {
+            "path": "$.lifecycle_continuity"
+          },
+          "network_enrollment": {
+            "path": "$.network_enrollment"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        },
+        "expected_path": "$.active_profile_set_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-home-domain-binding/v1": [
+    {
+      "rule_id": "autonomous_system_home_domain_binding.root.recomputes",
+      "description": "The binding root is acyclic and binds only already admitted source authority evidence; transition and receipt refs are downstream navigation.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-home-domain-binding-jcs-sha256.v1"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.home_domain_ref"
+          },
+          "home_domain_commitment": {
+            "path": "$.home_domain_commitment"
+          },
+          "source_governing_authority_ref": {
+            "path": "$.source_governing_authority_ref"
+          },
+          "source_genesis_admission_receipt_ref": {
+            "path": "$.source_genesis_admission_receipt_ref"
+          },
+          "source_genesis_admission_receipt_root": {
+            "path": "$.source_genesis_admission_receipt_root"
+          },
+          "source_sequence_zero_materialization_ref": {
+            "path": "$.source_sequence_zero_materialization_ref"
+          },
+          "source_sequence_zero_materialization_root": {
+            "path": "$.source_sequence_zero_materialization_root"
+          },
+          "source_sequence_zero_receipt_ref": {
+            "path": "$.source_sequence_zero_receipt_ref"
+          },
+          "source_sequence_zero_receipt_root": {
+            "path": "$.source_sequence_zero_receipt_root"
+          },
+          "source_sequence_zero_receipt_artifact_root": {
+            "path": "$.source_sequence_zero_receipt_artifact_root"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        },
+        "expected_path": "$.home_domain_binding_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_home_domain_binding.domain_commitment.recomputes",
+      "description": "The home-domain identity is derived from the stable System, genesis, exact governing authority, and exact M1.3/M1.4 admission evidence.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-home-domain-identity-jcs-sha256.v1"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "source_governing_authority_ref": {
+            "path": "$.source_governing_authority_ref"
+          },
+          "source_genesis_admission_receipt_ref": {
+            "path": "$.source_genesis_admission_receipt_ref"
+          },
+          "source_genesis_admission_receipt_root": {
+            "path": "$.source_genesis_admission_receipt_root"
+          },
+          "source_sequence_zero_materialization_ref": {
+            "path": "$.source_sequence_zero_materialization_ref"
+          },
+          "source_sequence_zero_materialization_root": {
+            "path": "$.source_sequence_zero_materialization_root"
+          },
+          "source_sequence_zero_receipt_ref": {
+            "path": "$.source_sequence_zero_receipt_ref"
+          },
+          "source_sequence_zero_receipt_root": {
+            "path": "$.source_sequence_zero_receipt_root"
+          },
+          "source_sequence_zero_receipt_artifact_root": {
+            "path": "$.source_sequence_zero_receipt_artifact_root"
+          }
+        },
+        "expected_path": "$.home_domain_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_home_domain_binding.domain_ref.binds_commitment",
+      "description": "The Agentgres domain identity suffix equals the source-derived home-domain commitment.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.home_domain_ref",
+        "delimiter": "/sha256:",
+        "target_path": "$.home_domain_commitment",
+        "target_prefix": "sha256:"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_home_domain_binding.ref.binds_root",
+      "description": "The binding identity suffix equals its immutable content root.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.home_domain_binding_ref",
+        "delimiter": "/sha256:",
+        "target_path": "$.home_domain_binding_root",
+        "target_prefix": "sha256:"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-operation-log/v1": [
+    {
+      "rule_id": "autonomous_system_operation_log.root.recomputes",
+      "description": "The content root binds the complete immutable log revision except its root-derived reference.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-operation-log-jcs-sha256.v1"
+          },
+          "predecessor_operation_log_ref": {
+            "path": "$.predecessor_operation_log_ref"
+          },
+          "predecessor_operation_log_root": {
+            "path": "$.predecessor_operation_log_root"
+          },
+          "snapshot_kind": {
+            "path": "$.snapshot_kind"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.home_domain_ref"
+          },
+          "home_domain_binding_ref": {
+            "path": "$.home_domain_binding_ref"
+          },
+          "home_domain_binding_root": {
+            "path": "$.home_domain_binding_root"
+          },
+          "policy_root": {
+            "path": "$.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.module_registry_root"
+          },
+          "upgrade_policy_ref": {
+            "path": "$.upgrade_policy_ref"
+          },
+          "activation_prefix": {
+            "path": "$.activation_prefix"
+          },
+          "entries": {
+            "path": "$.entries"
+          },
+          "head_entry": {
+            "path": "$.head_entry"
+          },
+          "latest_sequence": {
+            "path": "$.latest_sequence"
+          },
+          "latest_operation_commitment": {
+            "path": "$.latest_operation_commitment"
+          },
+          "latest_transition_commitment_ref": {
+            "path": "$.latest_transition_commitment_ref"
+          },
+          "latest_transition_ref": {
+            "path": "$.latest_transition_ref"
+          },
+          "latest_transition_root": {
+            "path": "$.latest_transition_root"
+          },
+          "latest_receipt_ref": {
+            "path": "$.latest_receipt_ref"
+          },
+          "latest_receipt_root": {
+            "path": "$.latest_receipt_root"
+          },
+          "latest_state_ref": {
+            "path": "$.latest_state_ref"
+          },
+          "latest_state_root": {
+            "path": "$.latest_state_root"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "created_at": {
+            "path": "$.created_at"
+          },
+          "home_domain_commitment": {
+            "path": "$.home_domain_commitment"
+          }
+        },
+        "expected_path": "$.operation_log_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.sequence_one.operation_commitment_recomputes",
+      "description": "Sequence-one logical operation commitment is recomputable before downstream lifecycle evidence.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-lifecycle-operation-commitment-jcs-sha256.v1"
+          },
+          "operation": {
+            "path": "$.activation_prefix.sequence_one.operation_name"
+          },
+          "required_scope": {
+            "path": "$.activation_prefix.sequence_one.required_scope"
+          },
+          "sequence": {
+            "path": "$.activation_prefix.sequence_one.sequence"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.home_domain_ref"
+          },
+          "home_domain_binding_ref": {
+            "value": null
+          },
+          "home_domain_binding_root": {
+            "value": null
+          },
+          "policy_root": {
+            "path": "$.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.module_registry_root"
+          },
+          "upgrade_policy_ref": {
+            "path": "$.upgrade_policy_ref"
+          },
+          "deployment_profile_ref": {
+            "path": "$.activation_prefix.sequence_one.deployment_profile_ref"
+          },
+          "deployment_profile_root": {
+            "path": "$.activation_prefix.sequence_one.deployment_profile_root"
+          },
+          "predecessor_state_root": {
+            "path": "$.activation_prefix.sequence_one.predecessor_state_root"
+          },
+          "resulting_state_ref": {
+            "path": "$.activation_prefix.sequence_one.state_ref"
+          },
+          "resulting_state_root": {
+            "path": "$.activation_prefix.sequence_one.state_root"
+          },
+          "active_profile_set_ref": {
+            "value": null
+          },
+          "active_profile_set_root": {
+            "value": null
+          },
+          "chain_ref": {
+            "value": null
+          },
+          "live_chain_created": {
+            "value": false
+          },
+          "node_membership_created": {
+            "value": false
+          },
+          "runtime_effect_admitted": {
+            "value": false
+          },
+          "network_effect_admitted": {
+            "value": false
+          },
+          "home_domain_commitment": {
+            "path": "$.home_domain_commitment"
+          }
+        },
+        "expected_path": "$.activation_prefix.sequence_one.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.sequence_two.operation_commitment_recomputes",
+      "description": "Sequence-two logical operation commitment binds the exact admitted home domain and active profile set without importing M2 finality.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-lifecycle-operation-commitment-jcs-sha256.v1"
+          },
+          "operation": {
+            "path": "$.activation_prefix.sequence_two.operation_name"
+          },
+          "required_scope": {
+            "path": "$.activation_prefix.sequence_two.required_scope"
+          },
+          "sequence": {
+            "path": "$.activation_prefix.sequence_two.sequence"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.home_domain_ref"
+          },
+          "home_domain_binding_ref": {
+            "path": "$.home_domain_binding_ref"
+          },
+          "home_domain_binding_root": {
+            "path": "$.home_domain_binding_root"
+          },
+          "policy_root": {
+            "path": "$.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.module_registry_root"
+          },
+          "upgrade_policy_ref": {
+            "path": "$.upgrade_policy_ref"
+          },
+          "deployment_profile_ref": {
+            "path": "$.activation_prefix.sequence_two.deployment_profile_ref"
+          },
+          "deployment_profile_root": {
+            "path": "$.activation_prefix.sequence_two.deployment_profile_root"
+          },
+          "predecessor_state_root": {
+            "path": "$.activation_prefix.sequence_two.predecessor_state_root"
+          },
+          "resulting_state_ref": {
+            "path": "$.activation_prefix.sequence_two.state_ref"
+          },
+          "resulting_state_root": {
+            "path": "$.activation_prefix.sequence_two.state_root"
+          },
+          "active_profile_set_ref": {
+            "path": "$.activation_prefix.sequence_two.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.activation_prefix.sequence_two.active_profile_set_root"
+          },
+          "chain_ref": {
+            "path": "$.activation_prefix.sequence_two.chain_ref"
+          },
+          "live_chain_created": {
+            "value": true
+          },
+          "node_membership_created": {
+            "value": false
+          },
+          "runtime_effect_admitted": {
+            "value": false
+          },
+          "network_effect_admitted": {
+            "value": false
+          },
+          "home_domain_commitment": {
+            "path": "$.home_domain_commitment"
+          }
+        },
+        "expected_path": "$.activation_prefix.sequence_two.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.ref.binds_root",
+      "description": "The immutable revision reference suffix equals its recomputed content root.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.operation_log_ref",
+        "delimiter": "/revision/sha256:",
+        "target_path": "$.operation_log_root",
+        "target_prefix": "sha256:"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.prefix.sequence_zero_matches_entries",
+      "description": "The immutable sequence-zero prefix is entry zero.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.activation_prefix.sequence_zero",
+          "$.entries[0]"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.prefix.sequence_one_matches_entries",
+      "description": "The immutable initialize prefix is entry one.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.activation_prefix.sequence_one",
+          "$.entries[1]"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.prefix.sequence_two_matches_entries",
+      "description": "The immutable activate prefix is entry two.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.activation_prefix.sequence_two",
+          "$.entries[2]"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.zero_to_one.continuity",
+      "description": "Initialize consumes the exact sequence-zero state root.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.activation_prefix.sequence_zero.state_root",
+          "$.activation_prefix.sequence_one.predecessor_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.one_to_two.continuity",
+      "description": "Activate consumes the exact initialized state root.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.activation_prefix.sequence_one.state_root",
+          "$.activation_prefix.sequence_two.predecessor_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.head.sequence",
+      "description": "The declared latest sequence equals the head entry sequence.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_sequence",
+          "$.head_entry.sequence"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.head.transition_commitment",
+      "description": "The declared latest operational commitment equals the head entry commitment posture.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_transition_commitment_ref",
+          "$.head_entry.state_transition_commitment_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.head.operation_commitment",
+      "description": "The declared latest logical operation commitment equals the head entry commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_operation_commitment",
+          "$.head_entry.operation_commitment"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.head.transition_ref",
+      "description": "The declared latest transition ref equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_transition_ref",
+          "$.head_entry.transition_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.head.transition_root",
+      "description": "The declared latest transition root equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_transition_root",
+          "$.head_entry.transition_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.head.receipt_ref",
+      "description": "The declared latest receipt ref equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_receipt_ref",
+          "$.head_entry.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.head.receipt_root",
+      "description": "The declared latest receipt root equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_receipt_root",
+          "$.head_entry.receipt_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.head.state_ref",
+      "description": "The declared latest state ref equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_state_ref",
+          "$.head_entry.state_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log.head.state_root",
+      "description": "The declared latest state root equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_state_root",
+          "$.head_entry.state_root"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-chain/v1": [
+    {
+      "rule_id": "autonomous_system_chain.root.recomputes",
+      "description": "The compact chain root binds current identity, profiles, components, latest-head coordinates, owner roots, and status without duplicating operation-log history or freezing the activation posture.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-chain-jcs-sha256.v1"
+          },
+          "chain_ref": {
+            "path": "$.chain_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "home_domain_ref": {
+            "path": "$.home_domain_ref"
+          },
+          "home_domain_binding_ref": {
+            "path": "$.home_domain_binding_ref"
+          },
+          "home_domain_binding_root": {
+            "path": "$.home_domain_binding_root"
+          },
+          "governance_owner_refs": {
+            "path": "$.governance_owner_refs"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "genesis_admission_record_root": {
+            "path": "$.genesis_admission_record_root"
+          },
+          "package_id": {
+            "path": "$.package_id"
+          },
+          "manifest_ref": {
+            "path": "$.manifest_ref"
+          },
+          "admitted_manifest_root": {
+            "path": "$.admitted_manifest_root"
+          },
+          "constitution_ref": {
+            "path": "$.constitution_ref"
+          },
+          "constitution_root": {
+            "path": "$.constitution_root"
+          },
+          "deployment_profile_ref": {
+            "path": "$.deployment_profile_ref"
+          },
+          "deployment_profile_root": {
+            "path": "$.deployment_profile_root"
+          },
+          "ordering_admission_finality_profile_ref": {
+            "path": "$.ordering_admission_finality_profile_ref"
+          },
+          "oracle_evidence_profile_refs": {
+            "path": "$.oracle_evidence_profile_refs"
+          },
+          "lifecycle_continuity_profile_ref": {
+            "path": "$.lifecycle_continuity_profile_ref"
+          },
+          "network_enrollment_ref": {
+            "path": "$.network_enrollment_ref"
+          },
+          "active_profile_set_ref": {
+            "path": "$.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.active_profile_set_root"
+          },
+          "node_membership_refs": {
+            "path": "$.node_membership_refs"
+          },
+          "node_membership_root": {
+            "path": "$.node_membership_root"
+          },
+          "active_writer_epoch": {
+            "path": "$.active_writer_epoch"
+          },
+          "latest_sequence": {
+            "path": "$.latest_sequence"
+          },
+          "latest_operation_commitment": {
+            "path": "$.latest_operation_commitment"
+          },
+          "latest_transition_commitment_ref": {
+            "path": "$.latest_transition_commitment_ref"
+          },
+          "latest_transition_id": {
+            "path": "$.latest_transition_id"
+          },
+          "latest_transition_root": {
+            "path": "$.latest_transition_root"
+          },
+          "latest_receipt_ref": {
+            "path": "$.latest_receipt_ref"
+          },
+          "latest_receipt_root": {
+            "path": "$.latest_receipt_root"
+          },
+          "latest_state_ref": {
+            "path": "$.latest_state_ref"
+          },
+          "latest_state_root": {
+            "path": "$.latest_state_root"
+          },
+          "worker_instance_refs": {
+            "path": "$.worker_instance_refs"
+          },
+          "workflow_refs": {
+            "path": "$.workflow_refs"
+          },
+          "active_component_registry_ref": {
+            "path": "$.active_component_registry_ref"
+          },
+          "active_component_registry_root": {
+            "path": "$.active_component_registry_root"
+          },
+          "policy_root": {
+            "path": "$.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.module_registry_root"
+          },
+          "pending_proposal_refs": {
+            "path": "$.pending_proposal_refs"
+          },
+          "proposal_queue_root": {
+            "path": "$.proposal_queue_root"
+          },
+          "operation_log_ref": {
+            "path": "$.operation_log_ref"
+          },
+          "operation_log_root": {
+            "path": "$.operation_log_root"
+          },
+          "upgrade_policy_ref": {
+            "path": "$.upgrade_policy_ref"
+          },
+          "settlement_policy_ref": {
+            "path": "$.settlement_policy_ref"
+          },
+          "default_settlement_mode": {
+            "path": "$.default_settlement_mode"
+          },
+          "allowed_settlement_modes": {
+            "path": "$.allowed_settlement_modes"
+          },
+          "settlement_profile_refs": {
+            "path": "$.settlement_profile_refs"
+          },
+          "public_commitment_policy_ref": {
+            "path": "$.public_commitment_policy_ref"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        },
+        "expected_path": "$.chain_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_chain.membership_root.recomputes",
+      "description": "The membership root binds the exact observed membership refs, including the honest empty activation set.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-node-membership-root-jcs-sha256.v1"
+          },
+          "node_membership_refs": {
+            "path": "$.node_membership_refs"
+          }
+        },
+        "expected_path": "$.node_membership_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_chain.proposal_queue_root.recomputes",
+      "description": "The proposal queue root binds the current pending proposal refs; the first active chain starts with an honest empty queue.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-proposal-queue-root-jcs-sha256.v1"
+          },
+          "pending_proposal_refs": {
+            "path": "$.pending_proposal_refs"
+          }
+        },
+        "expected_path": "$.proposal_queue_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/lifecycle-transition-receipt/v1": [
+    {
+      "rule_id": "lifecycle_transition_receipt.identity.matches",
+      "description": "Portable receipt identity is singular.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "lifecycle_transition_receipt.subject.matches_transition",
+      "description": "Receipt subject is the committed lifecycle transition.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.subject_ref",
+          "$.bound_facts.transition_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "lifecycle_transition_receipt.output.matches_state",
+      "description": "Receipt output is the exact initialized semantic-state root.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.output_hash",
+          "$.bound_facts.resulting_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "lifecycle_transition_receipt.timestamp.matches_at",
+      "description": "Portable receipt carries one authority-derived timestamp.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.timestamp",
+          "$.at"
+        ]
+      }
+    },
+    {
+      "rule_id": "lifecycle_transition_receipt.scope.exact",
+      "description": "The one authority scope equals the receipt's required operation scope.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.authority_scopes",
+        "expected_path": "$.required_scope"
+      }
+    },
+    {
+      "rule_id": "lifecycle_transition_receipt.operation.matches_bound_facts",
+      "description": "The portable receipt and bound facts name one operation.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.op",
+          "$.bound_facts.operation"
+        ]
+      }
+    },
+    {
+      "rule_id": "lifecycle_transition_receipt.sequence.matches_bound_facts",
+      "description": "The portable receipt and bound facts name one sequence.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.sequence",
+          "$.bound_facts.sequence"
+        ]
+      }
+    },
+    {
+      "rule_id": "lifecycle_transition_receipt.required_scope.matches_bound_facts",
+      "description": "The portable receipt and bound facts name one required scope.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.required_scope",
+          "$.bound_facts.required_scope"
+        ]
+      }
+    },
+    {
+      "rule_id": "lifecycle_transition_receipt.effect_hash.matches_bound_facts",
+      "description": "The portable receipt binds the exact proposal authority-effect hash; owner-specific operation material is cross-checked by the fixed-prefix compiler validator.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.effect_hash",
+          "$.bound_facts.authority_effect_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "lifecycle_transition_receipt.boundary_refs.exact",
+      "description": "Attested boundary refs cover every non-null ref carried by the lifecycle tuple and retained authority evidence, with no extras.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.attested_boundary_fact_refs",
+        "required_paths": [
+          "$.bound_facts.system_id",
+          "$.bound_facts.genesis_ref",
+          "$.bound_facts.genesis_admission_receipt_ref",
+          "$.bound_facts.sequence_zero_materialization_id",
+          "$.bound_facts.sequence_zero_receipt_ref",
+          "$.bound_facts.source_governing_authority_ref",
+          "$.bound_facts.home_domain_ref",
+          "$.bound_facts.home_domain_binding_ref",
+          "$.bound_facts.component_registry_ref",
+          "$.bound_facts.deployment_profile_ref",
+          "$.bound_facts.materialization_wallet_consumption_ref",
+          "$.bound_facts.upgrade_policy_ref",
+          "$.bound_facts.proposal_ref",
+          "$.bound_facts.decision_ref",
+          "$.bound_facts.transition_ref",
+          "$.bound_facts.resulting_state_ref",
+          "$.bound_facts.active_profile_set_ref",
+          "$.bound_facts.chain_ref",
+          "$.authority_grant_id",
+          "$.authority_evidence_ref",
+          "$.wallet_grant_consumption_ref",
+          "$.wallet_grant_consumption_evidence_ref"
+        ],
+        "required_array_paths": []
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-activation-receipt/v1": [
+    {
+      "rule_id": "autonomous_system_activation_receipt.identity.matches",
+      "description": "Portable receipt identity is singular.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_receipt.subject.matches_transition",
+      "description": "Receipt subject is the committed activation transition.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.subject_ref",
+          "$.bound_facts.transition_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_receipt.output.matches_state",
+      "description": "Receipt output is the exact active semantic-state root.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.output_hash",
+          "$.bound_facts.resulting_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_receipt.timestamp.matches_at",
+      "description": "Portable receipt carries one authority-derived timestamp.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.timestamp",
+          "$.at"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_receipt.scope.exact",
+      "description": "The one authority scope equals activate.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.authority_scopes",
+        "expected_path": "$.required_scope"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_receipt.operation.matches_bound_facts",
+      "description": "The specialized receipt and bound facts both name activate.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.op",
+          "$.bound_facts.operation"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_receipt.sequence.matches_bound_facts",
+      "description": "The specialized receipt and bound facts both name sequence two.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.sequence",
+          "$.bound_facts.sequence"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_receipt.required_scope.matches_bound_facts",
+      "description": "The specialized receipt and bound facts name one activation scope.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.required_scope",
+          "$.bound_facts.required_scope"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_receipt.effect_hash.matches_bound_facts",
+      "description": "The specialized receipt binds the exact activation proposal authority-effect hash; complete operation material is cross-checked by the fixed-prefix compiler validator.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.effect_hash",
+          "$.bound_facts.authority_effect_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_activation_receipt.boundary_refs.exact",
+      "description": "Attested boundary refs cover every activation, source, profile, chain, and retained-authority ref with no extras.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.attested_boundary_fact_refs",
+        "required_paths": [
+          "$.bound_facts.system_id",
+          "$.bound_facts.genesis_ref",
+          "$.bound_facts.genesis_admission_receipt_ref",
+          "$.bound_facts.sequence_zero_materialization_id",
+          "$.bound_facts.sequence_zero_receipt_ref",
+          "$.bound_facts.source_governing_authority_ref",
+          "$.bound_facts.home_domain_ref",
+          "$.bound_facts.home_domain_binding_ref",
+          "$.bound_facts.component_registry_ref",
+          "$.bound_facts.deployment_profile_ref",
+          "$.bound_facts.materialization_wallet_consumption_ref",
+          "$.bound_facts.upgrade_policy_ref",
+          "$.bound_facts.proposal_ref",
+          "$.bound_facts.decision_ref",
+          "$.bound_facts.transition_ref",
+          "$.bound_facts.resulting_state_ref",
+          "$.bound_facts.active_profile_set_ref",
+          "$.bound_facts.chain_ref",
+          "$.authority_grant_id",
+          "$.authority_evidence_ref",
+          "$.wallet_grant_consumption_ref",
+          "$.wallet_grant_consumption_evidence_ref"
+        ],
+        "required_array_paths": []
+      }
+    }
+  ],
   "schema://ioi/foundations/ioi-network-enrollment/v1": [
     {
       "rule_id": "ioi_network_enrollment.active.selected_service.required",
@@ -20513,10 +27884,17 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
 
 function valueAtPath(value: unknown, path: unknown): unknown {
   if (typeof path !== "string" || !path.startsWith("$.")) return undefined;
-  return path.slice(2).split(".").reduce<unknown>(
-    (current, key) => (isObject(current) ? current[key] : undefined),
-    value,
-  );
+  let current: unknown = value;
+  for (const segment of path.slice(2).split(".")) {
+    const match = /^([a-z][a-z0-9_]*)(?:\[(0|[1-9][0-9]*)\])?$/u.exec(segment);
+    if (match === null || !isObject(current)) return undefined;
+    current = current[match[1]];
+    if (match[2] !== undefined) {
+      if (!Array.isArray(current)) return undefined;
+      current = current[Number(match[2])];
+    }
+  }
+  return current;
 }
 
 function canonicalJsonForHash(value: unknown): string {
@@ -21233,6 +28611,66 @@ export function validateLifecycleTransitionV1(
   value: unknown,
 ): value is LifecycleTransitionV1 {
   return validateArchitectureContract("schema://ioi/foundations/lifecycle-transition/v1", value).ok;
+}
+
+export function validateAutonomousSystemActivationProposalV1(
+  value: unknown,
+): value is AutonomousSystemActivationProposalV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-activation-proposal/v1", value).ok;
+}
+
+export function validateAutonomousSystemActivationAuthorityDecisionV1(
+  value: unknown,
+): value is AutonomousSystemActivationAuthorityDecisionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-activation-authority-decision/v1", value).ok;
+}
+
+export function validateAutonomousSystemDeploymentProfileRevisionV1(
+  value: unknown,
+): value is AutonomousSystemDeploymentProfileRevisionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1", value).ok;
+}
+
+export function validateAutonomousSystemActivationStateV1(
+  value: unknown,
+): value is AutonomousSystemActivationStateV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-activation-state/v1", value).ok;
+}
+
+export function validateAutonomousSystemActiveProfileSetV1(
+  value: unknown,
+): value is AutonomousSystemActiveProfileSetV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-active-profile-set/v1", value).ok;
+}
+
+export function validateAutonomousSystemHomeDomainBindingV1(
+  value: unknown,
+): value is AutonomousSystemHomeDomainBindingV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-home-domain-binding/v1", value).ok;
+}
+
+export function validateAutonomousSystemOperationLogV1(
+  value: unknown,
+): value is AutonomousSystemOperationLogV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-operation-log/v1", value).ok;
+}
+
+export function validateAutonomousSystemChainV1(
+  value: unknown,
+): value is AutonomousSystemChainV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-chain/v1", value).ok;
+}
+
+export function validateLifecycleTransitionReceiptV1(
+  value: unknown,
+): value is LifecycleTransitionReceiptV1 {
+  return validateArchitectureContract("schema://ioi/foundations/lifecycle-transition-receipt/v1", value).ok;
+}
+
+export function validateAutonomousSystemActivationReceiptV1(
+  value: unknown,
+): value is AutonomousSystemActivationReceiptV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-activation-receipt/v1", value).ok;
 }
 
 export function validateIOINetworkEnrollmentV1(

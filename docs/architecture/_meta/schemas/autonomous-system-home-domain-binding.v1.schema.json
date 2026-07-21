@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-home-domain-binding/v1",
+  "title": "AutonomousSystemHomeDomainBinding",
+  "description": "Activation-owned admission of a deterministic Agentgres home-domain identity under the exact general M1.3/M1.4 governing authority. The domain is derived from immutable source evidence and is never inferred lexically or equated with the governing principal.",
+  "x-ioi-schema-version": "ioi.autonomous-system-home-domain-binding.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "home_domain_binding_ref", "home_domain_binding_root",
+    "system_id", "genesis_ref", "home_domain_ref", "home_domain_commitment", "source_governing_authority_ref",
+    "source_genesis_admission_receipt_ref", "source_genesis_admission_receipt_root",
+    "source_sequence_zero_materialization_ref", "source_sequence_zero_materialization_root",
+    "source_sequence_zero_receipt_ref", "source_sequence_zero_receipt_root",
+    "source_sequence_zero_receipt_artifact_root", "activation_transition_ref",
+    "activation_receipt_ref", "status", "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.autonomous-system-home-domain-binding.v1" },
+    "home_domain_binding_ref": { "$ref": "#/$defs/bindingRef" },
+    "home_domain_binding_root": { "$ref": "#/$defs/hash" },
+    "system_id": { "$ref": "#/$defs/systemRef" },
+    "genesis_ref": { "$ref": "#/$defs/genesisRef" },
+    "home_domain_ref": { "$ref": "#/$defs/homeDomainRef" },
+    "home_domain_commitment": { "$ref": "#/$defs/hash" },
+    "source_governing_authority_ref": { "$ref": "#/$defs/protocolPrincipalOrRuntimeRef" },
+    "source_genesis_admission_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "source_genesis_admission_receipt_root": { "$ref": "#/$defs/hash" },
+    "source_sequence_zero_materialization_ref": { "$ref": "#/$defs/materializationRef" },
+    "source_sequence_zero_materialization_root": { "$ref": "#/$defs/hash" },
+    "source_sequence_zero_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "source_sequence_zero_receipt_root": { "$ref": "#/$defs/hash" },
+    "source_sequence_zero_receipt_artifact_root": { "$ref": "#/$defs/hash" },
+    "activation_transition_ref": { "$ref": "#/$defs/transitionRef" },
+    "activation_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "status": { "const": "admitted" },
+    "created_at": { "$ref": "#/$defs/canonicalDateTime" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "bindingRef": { "type": "string", "pattern": "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$" },
+    "systemRef": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "genesisRef": { "type": "string", "pattern": "^genesis://[^\\s]{1,248}$" },
+    "homeDomainRef": { "type": "string", "pattern": "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$" },
+    "protocolPrincipalOrRuntimeRef": { "type": "string", "maxLength": 300, "pattern": "^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$" },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
+    "materializationRef": { "type": "string", "pattern": "^system-materialization://[^\\s]{1,248}$" },
+    "transitionRef": { "type": "string", "pattern": "^lifecycle-transition://[^\\s]{1,248}$" },
+    "canonicalDateTime": {
+      "type": "string", "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

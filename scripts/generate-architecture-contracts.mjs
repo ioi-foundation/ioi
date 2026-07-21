@@ -804,6 +804,9 @@ const componentLaneSchemeMutationDefinitions = [
   })),
 ];
 
+const CHAIN_ACTIVATION_FIXTURE =
+  "fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json";
+
 const mutationDefinitions = [
   {
     id: "sequence-zero-receipt-timestamp-detached",
@@ -1838,10 +1841,139 @@ const mutationDefinitions = [
       value: "decision://acme/system-alpha/initialize",
     },
   },
+  {
+    id: "lifecycle-transition-receipt-initialize-wrong-sequence",
+    contractId:
+      "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    fixture:
+      "fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    keywords: ["allOf", "if", "then", "enum"],
+    directProjectionRejection: true,
+    patch: { operation: "set", pointer: "/sequence", value: 3 },
+  },
+  {
+    id: "lifecycle-transition-receipt-initialize-missing-source-artifact",
+    contractId:
+      "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    fixture:
+      "fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    keywords: ["allOf", "if", "then", "required"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "remove",
+      pointer: "/bound_facts/sequence_zero_receipt_artifact_root",
+    },
+  },
+  {
+    id: "lifecycle-transition-receipt-initialize-detached-subject",
+    contractId:
+      "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    fixture:
+      "fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/subject_ref",
+      value: "lifecycle-transition://acme/system-alpha/sequence/99",
+    },
+  },
+  {
+    id: "lifecycle-transition-receipt-initialize-wrong-scope",
+    contractId:
+      "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    fixture:
+      "fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    keywords: ["allOf", "if", "then", "const"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/required_scope",
+      value: "scope:autonomous_system.lifecycle.pause",
+    },
+  },
+  {
+    id: "lifecycle-transition-receipt-cannot-claim-activation",
+    contractId:
+      "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+    fixture:
+      "fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
+    keywords: ["enum"],
+    directProjectionRejection: true,
+    patch: { operation: "set", pointer: "/op", value: "activate" },
+  },
+  {
+    id: "chain-operation-log-required",
+    contractId: "schema://ioi/foundations/autonomous-system-chain/v1",
+    fixture: CHAIN_ACTIVATION_FIXTURE,
+    keywords: ["required", "pattern"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/operation_log_ref",
+      value: null,
+    },
+  },
+  {
+    id: "chain-operation-log-root-required",
+    contractId: "schema://ioi/foundations/autonomous-system-chain/v1",
+    fixture: CHAIN_ACTIVATION_FIXTURE,
+    keywords: ["required", "pattern"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/operation_log_root",
+      value: null,
+    },
+  },
+  {
+    id: "proposal-home-domain-must-be-derived-form",
+    contractId: "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
+    fixture: "fixtures/autonomous-system-activation-proposal-v1/positive-initialize.json",
+    keywords: ["pattern"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/authority_effect/home_domain_ref",
+      value: "agentgres://domain/acme/unrelated",
+    },
+  },
+  {
+    id: "chain-home-domain-must-be-derived-form",
+    contractId: "schema://ioi/foundations/autonomous-system-chain/v1",
+    fixture: CHAIN_ACTIVATION_FIXTURE,
+    keywords: ["pattern"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/home_domain_ref",
+      value: "agentgres://domain/acme/unrelated",
+    },
+  },
+  {
+    id: "chain-home-domain-binding-must-be-content-addressed",
+    contractId: "schema://ioi/foundations/autonomous-system-chain/v1",
+    fixture: CHAIN_ACTIVATION_FIXTURE,
+    keywords: ["pattern"],
+    directProjectionRejection: true,
+    patch: {
+      operation: "set",
+      pointer: "/home_domain_binding_ref",
+      value: "system-home-domain-binding://acme/system-alpha/unhashed",
+    },
+  },
   ...componentLaneSchemeMutationDefinitions,
 ];
 
 const MUTATION_SCHEMA_REJECTIONS = new Set([
+  "lifecycle-transition-receipt-initialize-wrong-sequence",
+  "lifecycle-transition-receipt-initialize-missing-source-artifact",
+  "lifecycle-transition-receipt-initialize-wrong-scope",
+  "lifecycle-transition-receipt-cannot-claim-activation",
+  "chain-operation-log-required",
+  "chain-operation-log-root-required",
+  "proposal-home-domain-must-be-derived-form",
+  "chain-home-domain-must-be-derived-form",
+  "chain-home-domain-binding-must-be-content-addressed",
   "sequence-zero-receipt-unsupported-signature-suite",
   "sequence-zero-receipt-oversized-principal",
   "sequence-zero-receipt-nested-authority-claim",
@@ -1898,6 +2030,9 @@ const MUTATION_SCHEMA_REJECTIONS = new Set([
   "genesis-runtime-tool-contracts-cross-category-ref",
 ]);
 const MUTATION_INVARIANT_REJECTIONS = new Map([
+  ["lifecycle-transition-receipt-initialize-detached-subject", [
+    "lifecycle_transition_receipt.subject.matches_transition",
+  ]],
   ["sequence-zero-receipt-grant-suite-mismatch", [
     "sequence_zero_materialization_receipt.grant_suite.matches_snapshot",
     "sequence_zero_materialization_receipt.grant_identity.recomputes",
@@ -2231,13 +2366,17 @@ function applyMutation(value, patch) {
 function generatorValueAtPath(value, pointer) {
   if (typeof pointer !== "string" || !pointer.startsWith("$."))
     return undefined;
-  return pointer
-    .slice(2)
-    .split(".")
-    .reduce(
-      (current, part) => (isPlainObject(current) ? current[part] : undefined),
-      value,
-    );
+  let current = value;
+  for (const segment of pointer.slice(2).split(".")) {
+    const match = /^([a-z][a-z0-9_]*)(?:\[(0|[1-9][0-9]*)\])?$/u.exec(segment);
+    if (match === null || !isPlainObject(current)) return undefined;
+    current = current[match[1]];
+    if (match[2] !== undefined) {
+      if (!Array.isArray(current)) return undefined;
+      current = current[Number(match[2])];
+    }
+  }
+  return current;
 }
 
 function generatorNonEmpty(value) {
@@ -3329,10 +3468,17 @@ function schemaMatches(root: JsonObject, schema: JsonObject, value: unknown, at:
 
 function valueAtPath(value: unknown, path: unknown): unknown {
   if (typeof path !== "string" || !path.startsWith("$.")) return undefined;
-  return path.slice(2).split(".").reduce<unknown>(
-    (current, key) => (isObject(current) ? current[key] : undefined),
-    value,
-  );
+  let current: unknown = value;
+  for (const segment of path.slice(2).split(".")) {
+    const match = /^([a-z][a-z0-9_]*)(?:\\[(0|[1-9][0-9]*)\\])?$/u.exec(segment);
+    if (match === null || !isObject(current)) return undefined;
+    current = current[match[1]];
+    if (match[2] !== undefined) {
+      if (!Array.isArray(current)) return undefined;
+      current = current[Number(match[2])];
+    }
+  }
+  return current;
 }
 
 function canonicalJsonForHash(value: unknown): string {
@@ -4920,9 +5066,36 @@ fn validate_node(root: &Value, schema: &Value, value: &Value, at: &str) -> Resul
 }
 
 fn value_at_path<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
-    path.strip_prefix("$.")?
-        .split('.')
-        .try_fold(value, |current, key| current.get(key))
+    let mut current = value;
+    for segment in path.strip_prefix("$.")?.split('.') {
+        let (key, index) = match segment.split_once('[') {
+            Some((key, suffix)) => {
+                let digits = suffix.strip_suffix(']')?;
+                if digits.is_empty()
+                    || !digits.bytes().all(|byte| byte.is_ascii_digit())
+                    || (digits.len() > 1 && digits.starts_with('0'))
+                {
+                    return None;
+                }
+                let index = digits.parse::<usize>().ok()?;
+                (key, Some(index))
+            }
+            None => (segment, None),
+        };
+        if key.is_empty()
+            || !key.as_bytes()[0].is_ascii_lowercase()
+            || !key
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        {
+            return None;
+        }
+        current = current.get(key)?;
+        if let Some(index) = index {
+            current = current.get(index)?;
+        }
+    }
+    Some(current)
 }
 
 fn non_empty(value: Option<&Value>) -> bool {
@@ -6350,8 +6523,8 @@ ${roundTripArms},
             serde_json::json!(["grant://acme/system-alpha/initialize"]);
         transition["resulting_state_root"] =
             Value::String(format!("sha256:{}", "e".repeat(64)));
-        transition["state_transition_commitment_ref"] =
-            Value::String("transition://acme/system-alpha/initialize".to_owned());
+        transition["operation_commitment"] =
+            Value::String(format!("sha256:{}", "d".repeat(64)));
         transition["receipt_refs"] =
             serde_json::json!(["receipt://acme/system-alpha/initialize"]);
         transition["status"] = Value::String("committed".to_owned());
@@ -6361,7 +6534,7 @@ ${roundTripArms},
             ("decision_ref", Value::Null),
             ("authority_grant_refs", serde_json::json!([])),
             ("resulting_state_root", Value::Null),
-            ("state_transition_commitment_ref", Value::Null),
+            ("operation_commitment", Value::Null),
             ("receipt_refs", serde_json::json!([])),
         ] {
             let mut missing = transition.clone();
@@ -6387,6 +6560,10 @@ ${roundTripArms},
             (
                 "resulting_state_root",
                 Value::String(format!("sha256:{}", "e".repeat(64))),
+            ),
+            (
+                "operation_commitment",
+                Value::String(format!("sha256:{}", "d".repeat(64))),
             ),
             (
                 "state_transition_commitment_ref",
@@ -6496,6 +6673,62 @@ ${roundTripArms},
             .is_err(),
             "portable JSON number equality must treat negative zero and zero as equal",
         );
+    }
+
+    #[test]
+    fn indexed_invariant_paths_are_strict_and_fields_equal_reads_exact_slots() {
+        let value = serde_json::json!({
+            "entries": ["first", "second"],
+            "not_an_array": {"0": "first"},
+        });
+        assert_eq!(
+            value_at_path(&value, "$.entries[0]"),
+            Some(&Value::String("first".to_owned())),
+        );
+        assert_eq!(
+            value_at_path(&value, "$.entries[1]"),
+            Some(&Value::String("second".to_owned())),
+        );
+        for refused in [
+            "$.entries[2]",
+            "$.entries[01]",
+            "$.entries[x]",
+            "$.entries[0][1]",
+            "$.not_an_array[0]",
+        ] {
+            assert_eq!(value_at_path(&value, refused), None, "{refused}");
+        }
+
+        let rules = serde_json::json!([
+            {
+                "rule_id": "indexed.first",
+                "expression": {
+                    "operator": "fields_equal",
+                    "paths": ["$.sequence_one.transition_ref", "$.transition_refs[0]"]
+                }
+            },
+            {
+                "rule_id": "indexed.second",
+                "expression": {
+                    "operator": "fields_equal",
+                    "paths": ["$.sequence_two.transition_ref", "$.transition_refs[1]"]
+                }
+            }
+        ]);
+        let valid = serde_json::json!({
+            "sequence_one": {"transition_ref": "transition://one"},
+            "sequence_two": {"transition_ref": "transition://two"},
+            "transition_refs": ["transition://one", "transition://two"],
+        });
+        validate_invariants("indexed-regression", &rules, &valid)
+            .expect("indexed fields_equal accepts exact slots");
+        for (index, expected_rule) in [(0, "indexed.first"), (1, "indexed.second")] {
+            let mut mutated = valid.clone();
+            mutated["transition_refs"][index] = Value::String("transition://forged".to_owned());
+            let error = validate_invariants("indexed-regression", &rules, &mutated)
+                .expect_err("indexed slot mutation refuses");
+            assert!(error.contains(expected_rule), "{error}");
+        }
     }
 
     #[test]

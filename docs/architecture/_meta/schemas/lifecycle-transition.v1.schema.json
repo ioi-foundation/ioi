@@ -27,6 +27,7 @@
     "challenge_closes_at",
     "predecessor_state_root",
     "resulting_state_root",
+    "operation_commitment",
     "state_transition_commitment_ref",
     "lineage_ref",
     "identity_continuity_decision_ref",
@@ -148,6 +149,9 @@
       "$ref": "#/$defs/hash"
     },
     "resulting_state_root": {
+      "$ref": "#/$defs/nullableHash"
+    },
+    "operation_commitment": {
       "$ref": "#/$defs/nullableHash"
     },
     "state_transition_commitment_ref": {
@@ -292,6 +296,9 @@
           "resulting_state_root": {
             "type": "null"
           },
+          "operation_commitment": {
+            "type": "null"
+          },
           "state_transition_commitment_ref": {
             "type": "null"
           },
@@ -331,14 +338,29 @@
           "resulting_state_root": {
             "$ref": "#/$defs/hash"
           },
-          "state_transition_commitment_ref": {
-            "type": "string",
-            "pattern": "^transition://[^\\s]{1,248}$"
+          "operation_commitment": {
+            "$ref": "#/$defs/hash"
           },
           "receipt_refs": {
             "type": "array",
             "minItems": 1
           }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "committed" },
+          "transition_kind": { "enum": ["initialize", "activate"] }
+        },
+        "required": ["status", "transition_kind"]
+      },
+      "then": {
+        "required": ["operation_commitment"],
+        "properties": {
+          "operation_commitment": { "$ref": "#/$defs/hash" },
+          "state_transition_commitment_ref": { "type": "null" }
         }
       }
     }

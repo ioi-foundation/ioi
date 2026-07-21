@@ -1,0 +1,48 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-deployment-profile-revision/content/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_deployment_profile_revision.identity.matches_profile",
+      "description": "The revision reference is namespaced beneath the exact deployment-profile identity carried by its immutable body.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.deployment_profile_ref",
+        "prefix": "deployment-profile://",
+        "expected_path": "$.profile.deployment_profile_id",
+        "strip_prefix": "deployment-profile://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_deployment_profile_revision.ref.binds_root",
+      "description": "The content-addressed revision reference suffix equals the exact profile root.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.deployment_profile_ref",
+        "delimiter": "/revision/sha256:",
+        "target_path": "$.deployment_profile_root",
+        "target_prefix": "sha256:"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_deployment_profile_revision.root.recomputes",
+      "description": "The profile root is the domain-separated JCS hash of the exact immutable profile body.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-deployment-profile-revision-jcs-sha256.v1"
+          },
+          "profile": {
+            "path": "$.profile"
+          }
+        },
+        "expected_path": "$.deployment_profile_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

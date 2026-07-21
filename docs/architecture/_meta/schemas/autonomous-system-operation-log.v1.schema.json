@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-operation-log/v1",
+  "title": "AutonomousSystemOperationLog",
+  "description": "Immutable content-addressed M1.5a Autonomous System operation-log revision. This v1 contract admits only the exact sequence-zero materialization, sequence-one initialize, sequence-two activate prefix. Later protected lifecycle owners require an explicit successor contract/evolution and authority; this shape grants none.",
+  "x-ioi-schema-version": "ioi.autonomous-system-operation-log.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "operation_log_ref", "operation_log_root", "predecessor_operation_log_ref",
+    "predecessor_operation_log_root", "snapshot_kind", "system_id", "genesis_ref", "home_domain_ref", "home_domain_commitment",
+    "home_domain_binding_ref", "home_domain_binding_root", "policy_root", "module_registry_root", "upgrade_policy_ref",
+    "activation_prefix", "entries", "head_entry", "latest_sequence", "latest_operation_commitment",
+    "latest_transition_commitment_ref", "latest_transition_ref", "latest_transition_root",
+    "latest_receipt_ref", "latest_receipt_root", "latest_state_ref", "latest_state_root",
+    "status", "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.autonomous-system-operation-log.v1" },
+    "operation_log_ref": { "$ref": "#/$defs/operationLogRef" },
+    "operation_log_root": { "$ref": "#/$defs/hash" },
+    "predecessor_operation_log_ref": { "type": "null" },
+    "predecessor_operation_log_root": { "type": "null" },
+    "snapshot_kind": { "const": "activation_prefix" },
+    "system_id": { "$ref": "#/$defs/systemRef" },
+    "genesis_ref": { "$ref": "#/$defs/genesisRef" },
+    "home_domain_ref": { "$ref": "#/$defs/homeDomainRef" },
+    "home_domain_commitment": { "$ref": "#/$defs/hash" },
+    "home_domain_binding_ref": { "$ref": "#/$defs/homeDomainBindingRef" },
+    "home_domain_binding_root": { "$ref": "#/$defs/hash" },
+    "policy_root": { "$ref": "#/$defs/hash" },
+    "module_registry_root": { "$ref": "#/$defs/hash" },
+    "upgrade_policy_ref": { "$ref": "#/$defs/policyRef" },
+    "activation_prefix": { "$ref": "#/$defs/activationPrefix" },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/operationEntry" },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "head_entry": { "$ref": "#/$defs/sequenceTwo" },
+    "latest_sequence": { "enum": [2] },
+    "latest_operation_commitment": { "$ref": "#/$defs/hash" },
+    "latest_transition_commitment_ref": { "type": "null" },
+    "latest_transition_ref": { "$ref": "#/$defs/transitionRef" },
+    "latest_transition_root": { "$ref": "#/$defs/hash" },
+    "latest_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "latest_receipt_root": { "$ref": "#/$defs/hash" },
+    "latest_state_ref": { "$ref": "#/$defs/canonicalRef" },
+    "latest_state_root": { "$ref": "#/$defs/hash" },
+    "status": { "const": "committed" },
+    "created_at": { "$ref": "#/$defs/canonicalDateTime" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nullableHash": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "canonicalRef": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*(?:://|:)[^\\s]{1,248}$" },
+    "nullableCanonicalRef": { "anyOf": [{ "$ref": "#/$defs/canonicalRef" }, { "type": "null" }] },
+    "systemRef": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "genesisRef": { "type": "string", "pattern": "^genesis://[^\\s]{1,248}$" },
+    "proposalRef": { "type": "string", "pattern": "^proposal://[^\\s]{1,248}$" },
+    "nullableProposalRef": { "anyOf": [{ "$ref": "#/$defs/proposalRef" }, { "type": "null" }] },
+    "decisionRef": { "type": "string", "pattern": "^decision://[^\\s]{1,248}$" },
+    "nullableDecisionRef": { "anyOf": [{ "$ref": "#/$defs/decisionRef" }, { "type": "null" }] },
+    "transitionRef": { "type": "string", "pattern": "^lifecycle-transition://[^\\s]{1,248}$" },
+    "nullableTransitionRef": { "anyOf": [{ "$ref": "#/$defs/transitionRef" }, { "type": "null" }] },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
+    "commitmentRef": { "type": "string", "pattern": "^transition://[^\\s]{1,248}$" },
+    "nullableCommitmentRef": { "anyOf": [{ "$ref": "#/$defs/commitmentRef" }, { "type": "null" }] },
+    "activeProfileSetRef": { "type": "string", "pattern": "^active-profile-set://[^\\s]{1,248}$" },
+    "nullableActiveProfileSetRef": { "anyOf": [{ "$ref": "#/$defs/activeProfileSetRef" }, { "type": "null" }] },
+    "chainRef": { "type": "string", "pattern": "^autonomous-system-chain://[^\\s]{1,248}$" },
+    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]{1,248}$" },
+    "homeDomainRef": { "type": "string", "pattern": "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$" },
+    "homeDomainBindingRef": { "type": "string", "pattern": "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$" },
+    "nullableChainRef": { "anyOf": [{ "$ref": "#/$defs/chainRef" }, { "type": "null" }] },
+    "operationLogRef": { "type": "string", "pattern": "^agentgres://operation-log/autonomous-system/[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$" },
+    "nullableOperationLogRef": { "anyOf": [{ "$ref": "#/$defs/operationLogRef" }, { "type": "null" }] },
+    "componentRegistryRef": { "type": "string", "pattern": "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$" },
+    "deploymentRevisionRef": { "type": "string", "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$" },
+    "nullableComponentRegistryRef": { "anyOf": [{ "$ref": "#/$defs/componentRegistryRef" }, { "type": "null" }] },
+    "nullableScope": {
+      "anyOf": [
+        { "type": "string", "pattern": "^scope:[a-z0-9._:-]{1,180}$" },
+        { "type": "null" }
+      ]
+    },
+    "operationEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence", "entry_kind", "operation_name", "operation_owner_profile_ref",
+        "operation_owner_ref", "operation_owner_root", "required_scope",
+        "materialization_ref", "materialization_root", "deployment_profile_ref", "deployment_profile_root",
+        "operation_commitment", "proposal_ref", "proposal_root", "decision_ref", "decision_root",
+        "transition_ref", "transition_root", "state_transition_commitment_ref", "state_ref",
+        "state_root", "predecessor_state_root", "receipt_profile_ref", "receipt_ref", "receipt_root",
+        "receipt_artifact_root", "component_registry_ref", "component_registry_root",
+        "active_profile_set_ref", "active_profile_set_root", "chain_ref", "authority_evidence_ref",
+        "authority_evidence_root", "wallet_consumption_ref", "wallet_consumption_root",
+        "live_chain_created", "committed_at"
+      ],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "entry_kind": { "enum": ["sequence_zero_materialization", "system_initialization", "system_activation"] },
+        "operation_name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,80}$" },
+        "operation_owner_profile_ref": { "$ref": "#/$defs/canonicalRef" },
+        "operation_owner_ref": { "$ref": "#/$defs/canonicalRef" },
+        "operation_owner_root": { "$ref": "#/$defs/hash" },
+        "required_scope": { "$ref": "#/$defs/nullableScope" },
+        "materialization_ref": { "$ref": "#/$defs/nullableCanonicalRef" },
+        "materialization_root": { "$ref": "#/$defs/nullableHash" },
+        "deployment_profile_ref": { "$ref": "#/$defs/deploymentRevisionRef" },
+        "deployment_profile_root": { "$ref": "#/$defs/hash" },
+        "operation_commitment": { "$ref": "#/$defs/nullableHash" },
+        "proposal_ref": { "$ref": "#/$defs/nullableProposalRef" },
+        "proposal_root": { "$ref": "#/$defs/nullableHash" },
+        "decision_ref": { "$ref": "#/$defs/nullableDecisionRef" },
+        "decision_root": { "$ref": "#/$defs/nullableHash" },
+        "transition_ref": { "$ref": "#/$defs/nullableTransitionRef" },
+        "transition_root": { "$ref": "#/$defs/nullableHash" },
+        "state_transition_commitment_ref": { "$ref": "#/$defs/nullableCommitmentRef" },
+        "state_ref": { "$ref": "#/$defs/nullableCanonicalRef" },
+        "state_root": { "$ref": "#/$defs/nullableHash" },
+        "predecessor_state_root": { "$ref": "#/$defs/nullableHash" },
+        "receipt_profile_ref": { "$ref": "#/$defs/canonicalRef" },
+        "receipt_ref": { "$ref": "#/$defs/receiptRef" },
+        "receipt_root": { "$ref": "#/$defs/hash" },
+        "receipt_artifact_root": { "$ref": "#/$defs/hash" },
+        "component_registry_ref": { "$ref": "#/$defs/nullableComponentRegistryRef" },
+        "component_registry_root": { "$ref": "#/$defs/nullableHash" },
+        "active_profile_set_ref": { "$ref": "#/$defs/nullableActiveProfileSetRef" },
+        "active_profile_set_root": { "$ref": "#/$defs/nullableHash" },
+        "chain_ref": { "$ref": "#/$defs/nullableChainRef" },
+        "authority_evidence_ref": { "$ref": "#/$defs/nullableCanonicalRef" },
+        "authority_evidence_root": { "$ref": "#/$defs/nullableHash" },
+        "wallet_consumption_ref": { "$ref": "#/$defs/nullableCanonicalRef" },
+        "wallet_consumption_root": { "$ref": "#/$defs/nullableHash" },
+        "live_chain_created": { "type": "boolean" },
+        "committed_at": { "$ref": "#/$defs/canonicalDateTime" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": { "entry_kind": { "const": "sequence_zero_materialization" } },
+            "required": ["entry_kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "sequence": { "enum": [0] },
+              "operation_name": { "const": "materialize_sequence_zero" },
+              "operation_owner_profile_ref": { "const": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1" },
+              "required_scope": { "const": "scope:autonomous_system.genesis_materialize" },
+              "materialization_ref": { "$ref": "#/$defs/canonicalRef" },
+              "materialization_root": { "$ref": "#/$defs/hash" },
+              "operation_commitment": { "$ref": "#/$defs/hash" },
+              "proposal_ref": { "type": "null" }, "proposal_root": { "type": "null" },
+              "decision_ref": { "type": "null" }, "decision_root": { "type": "null" },
+              "transition_ref": { "type": "null" }, "transition_root": { "type": "null" },
+              "state_transition_commitment_ref": { "type": "null" },
+              "state_ref": { "type": "null" }, "state_root": { "$ref": "#/$defs/hash" }, "predecessor_state_root": { "type": "null" },
+              "receipt_profile_ref": { "const": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2" },
+              "component_registry_ref": { "$ref": "#/$defs/componentRegistryRef" },
+              "component_registry_root": { "$ref": "#/$defs/hash" },
+              "active_profile_set_ref": { "type": "null" }, "active_profile_set_root": { "type": "null" },
+              "chain_ref": { "type": "null" },
+              "authority_evidence_ref": { "type": "null" }, "authority_evidence_root": { "type": "null" },
+              "wallet_consumption_ref": { "$ref": "#/$defs/canonicalRef" },
+              "wallet_consumption_root": { "$ref": "#/$defs/hash" },
+              "live_chain_created": { "const": false }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "entry_kind": { "const": "system_initialization" } },
+            "required": ["entry_kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "sequence": { "enum": [1] },
+              "operation_name": { "const": "initialize" },
+              "operation_owner_profile_ref": { "const": "schema://ioi/foundations/lifecycle-transition/v1" },
+              "required_scope": { "const": "scope:autonomous_system.lifecycle.initialize" },
+              "materialization_ref": { "type": "null" }, "materialization_root": { "type": "null" },
+              "operation_commitment": { "$ref": "#/$defs/hash" },
+              "proposal_ref": { "$ref": "#/$defs/proposalRef" }, "proposal_root": { "$ref": "#/$defs/hash" },
+              "decision_ref": { "$ref": "#/$defs/decisionRef" }, "decision_root": { "$ref": "#/$defs/hash" },
+              "transition_ref": { "$ref": "#/$defs/transitionRef" }, "transition_root": { "$ref": "#/$defs/hash" },
+              "state_transition_commitment_ref": { "type": "null" },
+              "state_ref": { "$ref": "#/$defs/canonicalRef" }, "state_root": { "$ref": "#/$defs/hash" }, "predecessor_state_root": { "$ref": "#/$defs/hash" },
+              "receipt_profile_ref": { "const": "schema://ioi/foundations/lifecycle-transition-receipt/v1" },
+              "active_profile_set_ref": { "type": "null" }, "active_profile_set_root": { "type": "null" },
+              "chain_ref": { "type": "null" },
+              "authority_evidence_ref": { "$ref": "#/$defs/canonicalRef" },
+              "authority_evidence_root": { "$ref": "#/$defs/hash" },
+              "wallet_consumption_ref": { "$ref": "#/$defs/canonicalRef" },
+              "wallet_consumption_root": { "$ref": "#/$defs/hash" },
+              "live_chain_created": { "const": false }
+            }
+          }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": { "entry_kind": { "const": "system_activation" } },
+            "required": ["entry_kind"]
+          },
+          "then": {
+            "type": "object",
+            "properties": {
+              "sequence": { "enum": [2] },
+              "operation_name": { "const": "activate" },
+              "operation_owner_profile_ref": { "const": "schema://ioi/foundations/lifecycle-transition/v1" },
+              "required_scope": { "const": "scope:autonomous_system.lifecycle.activate" },
+              "materialization_ref": { "type": "null" }, "materialization_root": { "type": "null" },
+              "operation_commitment": { "$ref": "#/$defs/hash" },
+              "proposal_ref": { "$ref": "#/$defs/proposalRef" }, "proposal_root": { "$ref": "#/$defs/hash" },
+              "decision_ref": { "$ref": "#/$defs/decisionRef" }, "decision_root": { "$ref": "#/$defs/hash" },
+              "transition_ref": { "$ref": "#/$defs/transitionRef" }, "transition_root": { "$ref": "#/$defs/hash" },
+              "state_transition_commitment_ref": { "type": "null" },
+              "state_ref": { "$ref": "#/$defs/canonicalRef" }, "state_root": { "$ref": "#/$defs/hash" }, "predecessor_state_root": { "$ref": "#/$defs/hash" },
+              "receipt_profile_ref": { "const": "schema://ioi/foundations/autonomous-system-activation-receipt/v1" },
+              "active_profile_set_ref": { "$ref": "#/$defs/activeProfileSetRef" },
+              "active_profile_set_root": { "$ref": "#/$defs/hash" },
+              "chain_ref": { "$ref": "#/$defs/chainRef" },
+              "authority_evidence_ref": { "$ref": "#/$defs/canonicalRef" },
+              "authority_evidence_root": { "$ref": "#/$defs/hash" },
+              "wallet_consumption_ref": { "$ref": "#/$defs/canonicalRef" },
+              "wallet_consumption_root": { "$ref": "#/$defs/hash" },
+              "live_chain_created": { "const": true }
+            }
+          }
+        }
+      ]
+    },
+    "sequenceZero": {
+      "allOf": [
+        { "$ref": "#/$defs/operationEntry" },
+        { "type": "object", "properties": { "sequence": { "enum": [0] }, "entry_kind": { "const": "sequence_zero_materialization" }, "operation_name": { "const": "materialize_sequence_zero" } } }
+      ]
+    },
+    "sequenceOne": {
+      "allOf": [
+        { "$ref": "#/$defs/operationEntry" },
+        { "type": "object", "properties": { "sequence": { "enum": [1] }, "entry_kind": { "const": "system_initialization" }, "operation_name": { "const": "initialize" } } }
+      ]
+    },
+    "sequenceTwo": {
+      "allOf": [
+        { "$ref": "#/$defs/operationEntry" },
+        { "type": "object", "properties": { "sequence": { "enum": [2] }, "entry_kind": { "const": "system_activation" }, "operation_name": { "const": "activate" } } }
+      ]
+    },
+    "activationPrefix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence_zero", "sequence_one", "sequence_two"],
+      "properties": {
+        "sequence_zero": { "$ref": "#/$defs/sequenceZero" },
+        "sequence_one": { "$ref": "#/$defs/sequenceOne" },
+        "sequence_two": { "$ref": "#/$defs/sequenceTwo" }
+      }
+    },
+    "canonicalDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

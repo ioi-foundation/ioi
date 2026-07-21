@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-chain/v1",
+  "title": "AutonomousSystemChain",
+  "description": "Compact canonical logical AutonomousSystemChain projection across lifecycle stages. Ordered history belongs exclusively to immutable AutonomousSystemOperationLog revisions; the chain binds current identity, admitted profile/component coordinates, and compact latest-head coordinates without freezing the first activation posture into v1.",
+  "x-ioi-schema-version": "ioi.autonomous-system-chain.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "chain_ref", "chain_root", "system_id", "home_domain_ref",
+    "home_domain_binding_ref", "home_domain_binding_root", "governance_owner_refs",
+    "genesis_ref", "genesis_admission_record_root", "package_id", "manifest_ref",
+    "admitted_manifest_root", "constitution_ref", "constitution_root",
+    "deployment_profile_ref", "deployment_profile_root",
+    "ordering_admission_finality_profile_ref", "oracle_evidence_profile_refs",
+    "lifecycle_continuity_profile_ref", "network_enrollment_ref", "active_profile_set_ref",
+    "active_profile_set_root", "node_membership_refs", "node_membership_root",
+    "active_writer_epoch", "latest_sequence", "latest_operation_commitment",
+    "latest_transition_commitment_ref", "latest_transition_id", "latest_transition_root",
+    "latest_receipt_ref", "latest_receipt_root", "latest_state_ref", "latest_state_root",
+    "worker_instance_refs", "workflow_refs", "active_component_registry_ref",
+    "active_component_registry_root", "policy_root", "module_registry_root",
+    "pending_proposal_refs", "proposal_queue_root", "operation_log_ref",
+    "operation_log_root", "upgrade_policy_ref", "settlement_policy_ref",
+    "default_settlement_mode", "allowed_settlement_modes", "settlement_profile_refs",
+    "public_commitment_policy_ref",
+    "status", "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.autonomous-system-chain.v1" },
+    "chain_ref": { "$ref": "#/$defs/chainRef" },
+    "chain_root": { "$ref": "#/$defs/hash" },
+    "system_id": { "$ref": "#/$defs/systemRef" },
+    "home_domain_ref": { "$ref": "#/$defs/homeDomainRef" },
+    "home_domain_binding_ref": { "$ref": "#/$defs/homeDomainBindingRef" },
+    "home_domain_binding_root": { "$ref": "#/$defs/hash" },
+    "governance_owner_refs": {
+      "type": "array", "items": { "$ref": "#/$defs/canonicalRef" },
+      "minItems": 1, "maxItems": 32, "uniqueItems": true
+    },
+    "genesis_ref": { "$ref": "#/$defs/genesisRef" },
+    "genesis_admission_record_root": { "$ref": "#/$defs/hash" },
+    "package_id": { "$ref": "#/$defs/packageRef" },
+    "manifest_ref": { "$ref": "#/$defs/packageReleaseRef" },
+    "admitted_manifest_root": { "$ref": "#/$defs/hash" },
+    "constitution_ref": { "$ref": "#/$defs/constitutionRef" },
+    "constitution_root": { "$ref": "#/$defs/hash" },
+    "deployment_profile_ref": { "$ref": "#/$defs/deploymentRevisionRef" },
+    "deployment_profile_root": { "$ref": "#/$defs/hash" },
+    "ordering_admission_finality_profile_ref": { "$ref": "#/$defs/orderingProfileRef" },
+    "oracle_evidence_profile_refs": {
+      "type": "array", "items": { "$ref": "#/$defs/oracleProfileRef" },
+      "maxItems": 32, "uniqueItems": true
+    },
+    "lifecycle_continuity_profile_ref": { "$ref": "#/$defs/lifecycleProfileRef" },
+    "network_enrollment_ref": { "$ref": "#/$defs/nullableNetworkEnrollmentRef" },
+    "active_profile_set_ref": { "$ref": "#/$defs/activeProfileSetRef" },
+    "active_profile_set_root": { "$ref": "#/$defs/hash" },
+    "node_membership_refs": {
+      "type": "array", "items": { "$ref": "#/$defs/nodeMembershipRef" },
+      "maxItems": 4096, "uniqueItems": true
+    },
+    "node_membership_root": { "$ref": "#/$defs/hash" },
+    "active_writer_epoch": {
+      "anyOf": [{ "type": "integer", "minimum": 0, "maximum": 9007199254740991 }, { "type": "null" }]
+    },
+    "latest_sequence": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 },
+    "latest_operation_commitment": { "$ref": "#/$defs/hash" },
+    "latest_transition_commitment_ref": { "$ref": "#/$defs/nullableCommitmentRef" },
+    "latest_transition_id": { "$ref": "#/$defs/transitionRef" },
+    "latest_transition_root": { "$ref": "#/$defs/hash" },
+    "latest_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "latest_receipt_root": { "$ref": "#/$defs/hash" },
+    "latest_state_ref": { "$ref": "#/$defs/canonicalRef" },
+    "latest_state_root": { "$ref": "#/$defs/hash" },
+    "worker_instance_refs": {
+      "type": "array", "items": { "$ref": "#/$defs/workerRef" },
+      "maxItems": 4096, "uniqueItems": true
+    },
+    "workflow_refs": {
+      "type": "array", "items": { "$ref": "#/$defs/workflowRef" },
+      "maxItems": 4096, "uniqueItems": true
+    },
+    "active_component_registry_ref": { "$ref": "#/$defs/componentRegistryRef" },
+    "active_component_registry_root": { "$ref": "#/$defs/hash" },
+    "policy_root": { "$ref": "#/$defs/hash" },
+    "module_registry_root": { "$ref": "#/$defs/hash" },
+    "pending_proposal_refs": {
+      "type": "array", "items": { "$ref": "#/$defs/proposalRef" },
+      "maxItems": 4096, "uniqueItems": true
+    },
+    "proposal_queue_root": { "$ref": "#/$defs/hash" },
+    "operation_log_ref": { "$ref": "#/$defs/operationLogRef" },
+    "operation_log_root": { "$ref": "#/$defs/hash" },
+    "upgrade_policy_ref": { "$ref": "#/$defs/policyRef" },
+    "settlement_policy_ref": { "$ref": "#/$defs/nullablePolicyRef" },
+    "default_settlement_mode": {
+      "anyOf": [
+        { "enum": ["local_domain", "bilateral", "invoice", "external_escrow", "external_chain", "ioi_l1"] },
+        { "type": "null" }
+      ]
+    },
+    "allowed_settlement_modes": {
+      "type": "array",
+      "items": { "enum": ["local_domain", "bilateral", "invoice", "external_escrow", "external_chain", "ioi_l1"] },
+      "maxItems": 6, "uniqueItems": true
+    },
+    "settlement_profile_refs": {
+      "type": "array", "items": { "$ref": "#/$defs/policyRef" },
+      "maxItems": 64, "uniqueItems": true
+    },
+    "public_commitment_policy_ref": { "$ref": "#/$defs/nullablePolicyRef" },
+    "status": {
+      "enum": [
+        "draft", "initialized", "active", "degraded", "paused", "suspended", "dormant",
+        "recovering", "quarantined", "succession_pending", "successor_governed",
+        "dissolution_pending", "dissolving", "dissolved", "retired", "archived",
+        "decommissioned", "revoked"
+      ]
+    },
+    "created_at": { "$ref": "#/$defs/canonicalDateTime" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "canonicalRef": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$" },
+    "systemRef": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "homeDomainRef": { "type": "string", "pattern": "^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$" },
+    "homeDomainBindingRef": { "type": "string", "pattern": "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$" },
+    "genesisRef": { "type": "string", "pattern": "^genesis://[^\\s]{1,248}$" },
+    "packageRef": { "type": "string", "pattern": "^package://[^\\s]{1,248}$" },
+    "packageReleaseRef": { "type": "string", "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$" },
+    "constitutionRef": { "type": "string", "pattern": "^constitution://[^\\s]{1,248}$" },
+    "deploymentRevisionRef": { "type": "string", "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$" },
+    "orderingProfileRef": { "type": "string", "pattern": "^ordering-profile://[^\\s]{1,248}$" },
+    "oracleProfileRef": { "type": "string", "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$" },
+    "lifecycleProfileRef": { "type": "string", "pattern": "^lifecycle-profile://[^\\s]{1,248}$" },
+    "networkEnrollmentRef": { "type": "string", "pattern": "^network-enrollment://[^\\s]{1,248}$" },
+    "nullableNetworkEnrollmentRef": { "anyOf": [{ "$ref": "#/$defs/networkEnrollmentRef" }, { "type": "null" }] },
+    "chainRef": { "type": "string", "pattern": "^autonomous-system-chain://[^\\s]{1,248}$" },
+    "activeProfileSetRef": { "type": "string", "pattern": "^active-profile-set://[^\\s]{1,248}$" },
+    "nodeMembershipRef": { "type": "string", "pattern": "^node-membership://[^\\s]{1,248}$" },
+    "commitmentRef": { "type": "string", "pattern": "^transition://[^\\s]{1,248}$" },
+    "nullableCommitmentRef": { "anyOf": [{ "$ref": "#/$defs/commitmentRef" }, { "type": "null" }] },
+    "proposalRef": { "type": "string", "pattern": "^proposal://[^\\s]{1,248}$" },
+    "transitionRef": { "type": "string", "pattern": "^lifecycle-transition://[^\\s]{1,248}$" },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
+    "workerRef": { "type": "string", "pattern": "^(?:agent|worker)://[^\\s]{1,248}$" },
+    "workflowRef": { "type": "string", "pattern": "^(?:workflow|workflow-template)://[^\\s]{1,248}$" },
+    "componentRegistryRef": { "type": "string", "pattern": "^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$" },
+    "operationLogRef": { "type": "string", "pattern": "^agentgres://operation-log/autonomous-system/[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$" },
+    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]{1,248}$" },
+    "nullablePolicyRef": { "anyOf": [{ "$ref": "#/$defs/policyRef" }, { "type": "null" }] },
+    "canonicalDateTime": {
+      "type": "string", "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

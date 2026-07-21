@@ -1,0 +1,37 @@
+{
+  "$id": "invariant://ioi/foundations/lifecycle-transition-receipt/continuity/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
+  "rules": [
+    { "rule_id": "lifecycle_transition_receipt.identity.matches", "description": "Portable receipt identity is singular.", "expression": { "operator": "fields_equal", "paths": ["$.receipt_id", "$.receipt_ref"] } },
+    { "rule_id": "lifecycle_transition_receipt.subject.matches_transition", "description": "Receipt subject is the committed lifecycle transition.", "expression": { "operator": "fields_equal", "paths": ["$.subject_ref", "$.bound_facts.transition_ref"] } },
+    { "rule_id": "lifecycle_transition_receipt.output.matches_state", "description": "Receipt output is the exact initialized semantic-state root.", "expression": { "operator": "fields_equal", "paths": ["$.output_hash", "$.bound_facts.resulting_state_root"] } },
+    { "rule_id": "lifecycle_transition_receipt.timestamp.matches_at", "description": "Portable receipt carries one authority-derived timestamp.", "expression": { "operator": "fields_equal", "paths": ["$.timestamp", "$.at"] } },
+    { "rule_id": "lifecycle_transition_receipt.scope.exact", "description": "The one authority scope equals the receipt's required operation scope.", "expression": { "operator": "array_contains_value", "array_path": "$.authority_scopes", "expected_path": "$.required_scope" } },
+    { "rule_id": "lifecycle_transition_receipt.operation.matches_bound_facts", "description": "The portable receipt and bound facts name one operation.", "expression": { "operator": "fields_equal", "paths": ["$.op", "$.bound_facts.operation"] } },
+    { "rule_id": "lifecycle_transition_receipt.sequence.matches_bound_facts", "description": "The portable receipt and bound facts name one sequence.", "expression": { "operator": "fields_equal", "paths": ["$.sequence", "$.bound_facts.sequence"] } },
+    { "rule_id": "lifecycle_transition_receipt.required_scope.matches_bound_facts", "description": "The portable receipt and bound facts name one required scope.", "expression": { "operator": "fields_equal", "paths": ["$.required_scope", "$.bound_facts.required_scope"] } },
+    { "rule_id": "lifecycle_transition_receipt.effect_hash.matches_bound_facts", "description": "The portable receipt binds the exact proposal authority-effect hash; owner-specific operation material is cross-checked by the fixed-prefix compiler validator.", "expression": { "operator": "fields_equal", "paths": ["$.effect_hash", "$.bound_facts.authority_effect_hash"] } },
+    {
+      "rule_id": "lifecycle_transition_receipt.boundary_refs.exact",
+      "description": "Attested boundary refs cover every non-null ref carried by the lifecycle tuple and retained authority evidence, with no extras.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.attested_boundary_fact_refs",
+        "required_paths": [
+          "$.bound_facts.system_id", "$.bound_facts.genesis_ref",
+          "$.bound_facts.genesis_admission_receipt_ref", "$.bound_facts.sequence_zero_materialization_id",
+          "$.bound_facts.sequence_zero_receipt_ref", "$.bound_facts.source_governing_authority_ref",
+          "$.bound_facts.home_domain_ref", "$.bound_facts.home_domain_binding_ref",
+          "$.bound_facts.component_registry_ref", "$.bound_facts.deployment_profile_ref",
+          "$.bound_facts.materialization_wallet_consumption_ref", "$.bound_facts.upgrade_policy_ref",
+          "$.bound_facts.proposal_ref", "$.bound_facts.decision_ref", "$.bound_facts.transition_ref",
+          "$.bound_facts.resulting_state_ref", "$.bound_facts.active_profile_set_ref", "$.bound_facts.chain_ref",
+          "$.authority_grant_id", "$.authority_evidence_ref", "$.wallet_grant_consumption_ref",
+          "$.wallet_grant_consumption_evidence_ref"
+        ],
+        "required_array_paths": []
+      }
+    }
+  ]
+}
