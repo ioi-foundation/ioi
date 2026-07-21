@@ -19,7 +19,8 @@
   "by_parity_class": {
     "daemon_wired": 15,
     "reference_capture": 21,
-    "substrate_bound": 3
+    "reference_ported": 1,
+    "substrate_bound": 2
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -190,17 +191,32 @@
       "capture_base": "/workspace/monocle/",
       "grammar": "graph",
       "tier": "high_value",
-      "parity_class": "substrate_bound",
+      "parity_class": "reference_ported",
       "capture_state": "boots_graph",
       "reference_capture": "/__apps/lineage",
       "reference_workspace": "/workspace/monocle/",
-      "note": "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps",
+      "note": "the Provenance-family graft: the monocle seed's editor chrome ported faithfully LIGHT with real wiring inside (the #35 explorer precedent — reference_ported is the honest landing when no data-clean reference exists); /__ioi/lineage (substrate path lens) + /__ioi/vertex + /__ioi/work-ledger stay intact, linked first-class both ways",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 3 · lines 20, no row/node data) — clean chrome, no real data to port against",
       "reference_clean_artifact": "reference-clean-sweep.json",
+      "port_surface": "/__ioi/provenance/lineage",
       "substrate_surface": "/__ioi/lineage",
-      "binding": "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)",
-      "candidate_surface": "/__ioi/lineage",
+      "surface_name": "Provenance",
+      "reference_landmarks": [
+        "Data Lineage",
+        "Welcome to Data Lineage",
+        "Explore how data flows through your resources and applications",
+        "Add resources",
+        "Open graph",
+        "Workflow Lineage",
+        "Build timeline",
+        "Data health",
+        "SQL scratchpad",
+        "No resources on graph"
+      ],
+      "parity_blocked": "the monocle reference renders only its empty welcome state on every local lane — RouteDatasetFoundryBranchQuery + compass resources/parents responses were never captured (probe-proven; the harvest-time live screenshot shows the same empty state); shell_clean_only cannot certify by doctrine — promotion needs a live re-harvest of a RID-seeded monocle route",
+      "binding": "faithful Monocle editor-chrome port over the SAME real provenance truth as the substrate path lens — dark global rail + light editor topbar (Data Lineage · Workflow-Lineage/branch/Save-as as named gaps · REAL materializing-run status counters) + the full tool strip (Tools/Layout/Undo/Clean/Select/Expand/Color/Find/Remove/Align/Text/Flow as named-gap controls) + the welcome card (Add-resources gap · Open-graph WIRED to the real materialized-set registry) + the canvas rendering a selected set's backward provenance PATH (source → mapping → projection → run → set, the run edge carrying its pre-output receipt verbatim; unresolved links render as named gaps, never invented) + the dock (Preview/SQL/History/Code/Data-health gaps · Build-timeline LIVE to the Provenance proof stream)",
+      "candidate_surface": "/__ioi/provenance/lineage",
       "shell_pixel_certified": false
     },
     {

@@ -1,6 +1,6 @@
 {
  "schema": "ioi.hypervisor.reference-clean-sweep.v1",
- "swept_at": "2026-07-21T00:49:52.131Z",
+ "swept_at": "2026-07-21T01:06:15.543Z",
  "serve": "http://127.0.0.1:4173",
  "mirror": "http://127.0.0.1:9225",
  "total_seeds": 39,
@@ -668,10 +668,10 @@
   {
    "slug": "lineage",
    "owner": "Provenance",
-   "parity_class": "substrate_bound",
+   "parity_class": "reference_ported",
    "grammar": "graph",
    "reference_path": "/__apps/lineage",
-   "candidate_surface": "/__ioi/lineage",
+   "candidate_surface": "/__ioi/provenance/lineage",
    "substrate_surface": "/__ioi/lineage",
    "clean_state": "shell_clean_only",
    "reason": "shell renders a WELCOME/empty landing (cards 3 · lines 20, no row/node data) — clean chrome, no real data to port against",
@@ -702,7 +702,18 @@
     "Support",
     "Account"
    ],
-   "matrix_landmarks_present": [],
+   "matrix_landmarks_present": [
+    "Data Lineage",
+    "Welcome to Data Lineage",
+    "Explore how data flows through your resources and applications",
+    "Add resources",
+    "Open graph",
+    "Workflow Lineage",
+    "Build timeline",
+    "Data health",
+    "SQL scratchpad",
+    "No resources on graph"
+   ],
    "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nTraining\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nData Lineage\nWorkflow Lineage\nMain\n0\n0\n0\nSave as\nWelcome to Data Lineage\nExplore how data flows through your resources and applications\nRead documentation\nAdd resources\nSearch for resources to add to graph\nor\nOpen graph\nFind and explore existing graphs\nTools\nLayout\nUndo/redo\nClean\nSelect\nExpand\nColor\nFind\nRemove\nAlign\nText\nFlow\nLayout by color\nGroup by color\nLegend\nNode color options\nNo resources on graph\n0 nodes selecte",
    "data_evidence": {
     "table_rows": 0,
@@ -2563,7 +2574,7 @@
   {
    "slug": "widgets",
    "owner": "Developer Console",
-   "parity_class": "reference_ported",
+   "parity_class": "daemon_wired",
    "grammar": "editor_canvas",
    "reference_path": "http://localhost:9225/workspace/custom-widgets/",
    "candidate_surface": "/__ioi/developer-console/widgets",
@@ -3191,14 +3202,14 @@
     "Account"
    ],
    "matrix_landmarks_present": [],
-   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nMap\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nUnsaved Map\nSave as…\n© Mapbox © OpenStreetMap Improve this map\nLayers\nLegend\nHistogram\nAdd to map\nNo layers\nAdd data to your map to get started\nMapbox Light\nTimeline\nSelect\nSearch Around\nSelection\nExplore reference examples\nLearn how to build your use case using example Map modules from Marketplace\nObfuscate sensitive data with Cipher\nLearn how to use Cipher to obfuscate sensitive data by default while still allowing authoriz",
+   "body_sample": "Skip to content\nHome\nSearch…\nctrl + J\nNotifications\nWhat's New\nRecent\nFiles\nOntology\nApplications\nAPPLICATIONS\nView all\nMap\nAIP Assist\nctrl + shift + U\nSupport\nLJ\nAccount\nUnsaved Map\nSave as…\n© Mapbox © OpenStreetMap Improve this map © Maxar\nLayers\nLegend\nHistogram\nAdd to map\nNo layers\nAdd data to your map to get started\nMapbox Light\nTimeline\nSelect\nSearch Around\nSelection\nExplore reference examples\nLearn how to build your use case using example Map modules from Marketplace\nObfuscate sensitive data with Cipher\nLearn how to use Cipher to obfuscate sensitive data by default while still allowing ",
    "data_evidence": {
     "table_rows": 0,
     "graph_nodes": 0,
     "cards": 4,
     "list_items": 0,
     "repeated_rows": 0,
-    "body_text_chars": 800,
+    "body_text_chars": 808,
     "meaningful_lines": 15
    },
    "error_text": "",

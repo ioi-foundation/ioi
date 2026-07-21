@@ -97,7 +97,20 @@ async function run() {
     const wiredMatrixCount = (matrix.seeds || []).filter((s) => s.parity_class === "daemon_wired").length;
     ok("the harness produced a daemon_wired row for every daemon_wired matrix seed (the parity RULE is non-vacuous)", wired.length === wiredMatrixCount && wired.length > 0, `harness ${wired.length} vs matrix ${wiredMatrixCount}`);
     ok("RULE: every daemon_wired surface PASSES VISUAL parity (theme + landmarks + geometry, not just region names)", wired.every((s) => s.visual_parity === true), wired.length ? wired.map((s) => `${s.slug}:visual=${s.visual_parity}`).join(",") : "0 daemon_wired yet");
-    ok("RULE: no substrate_bound / port-pending / ported surface is mislabeled as VISUAL parity", !res.surfaces.some((s) => s.visual_parity === true && s.matrix_class !== "daemon_wired"));
+    // PIXEL-WAVE CORRECTION: daemon_wired now ALSO requires shell-pixel certification against a
+    // data_clean reference, so a faithful port can legitimately PASS the hardened VISUAL gate
+    // while its reference is pixel-UNCERTIFIABLE (shell_clean_only / errored per the sweep) — the
+    // honest ceiling is reference_ported with parity_blocked naming the reference gap (lineage:
+    // the monocle capture never recorded its graph-load APIs). Anything else that reads visual
+    // parity outside daemon_wired is still a mislabel.
+    const seedBy = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
+    const sweepBy = (() => { try { return Object.fromEntries((JSON.parse(readFileSync(path.join(appRoot, "reference-clean-sweep.json"), "utf8")).seeds || []).map((s) => [s.slug, s])); } catch { return {}; } })();
+    ok("RULE: no substrate_bound / port-pending surface is mislabeled as VISUAL parity; a reference_ported seed may pass the VISUAL gate ONLY at the pixel-uncertifiable ceiling (sweep shell_clean_only/errored + parity_blocked names it + NOT pixel-certified)", !res.surfaces.some((s) => {
+      if (s.visual_parity !== true || s.matrix_class === "daemon_wired") return false;
+      if (s.matrix_class !== "reference_ported") return true;
+      const seed = seedBy[s.slug], sw = sweepBy[s.slug];
+      return !(seed && seed.parity_blocked && seed.shell_pixel_certified !== true && sw && ["shell_clean_only", "errored_reference"].includes(sw.clean_state));
+    }), res.surfaces.filter((s) => s.visual_parity === true && s.matrix_class !== "daemon_wired").map((s) => `${s.slug}:${s.matrix_class}`).join(",") || "none outside daemon_wired");
 
     // GUARD (review #32 + #33): an ERROR PAGE can never certify parity — its shell chrome renders, so
     // region-matching would falsely pass. The harness must refuse parity when EITHER SIDE errored (the
@@ -117,7 +130,16 @@ async function run() {
     // OTHER way: explorer certifies ONLY against the origin-aligned reference override — and the
     // lineage negative case below still proves the gate refuses unfaithful surfaces.
     ok("the gate's refusal was CORRECTED, not relaxed: explorer certifies visual_parity ONLY via the #46 origin-aligned reference (override declared, reference valid, daemon_wired + shell-pixel certified)", expl && expl.visual_parity === true && expl.matrix_class === "daemon_wired" && expl.reference_errored === false && /localhost:9225\/workspace\/hubble/.test(expl.reference_url || ""), `expl visual=${expl?.visual_parity} class=${expl?.matrix_class} ref=${expl?.reference_url}`);
-    ok("a SUBSTRATE surface (lineage) has the reference shell available but does NOT reproduce it (visual parity FALSE)", lin && ["rail", "header", "body"].every((r) => lin.reference_regions.includes(r)) && lin.visual_parity === false, `lin ref[${lin?.reference_regions}] ioi[${lin?.ioi_regions}]`);
+    // The refusal-teeth example ROTATED lineage → jobs (the Provenance graft made lineage a
+    // faithful port; jobs remains a substrate surface whose clean reference shell is NOT
+    // reproduced by its dark candidate — the same teeth, a surface that still refuses).
+    const jobsRow = bySurface.jobs;
+    ok("a SUBSTRATE surface (jobs) has the reference shell available but does NOT reproduce it (visual parity FALSE)", jobsRow && ["rail", "header", "body"].every((r) => jobsRow.reference_regions.includes(r)) && jobsRow.visual_parity === false, `jobs ref[${jobsRow?.reference_regions}] ioi[${jobsRow?.ioi_regions}]`);
+    // The TWO-LAYER teeth (the Provenance graft): the ported lineage now reproduces the
+    // reference chrome — the VISUAL gate passes — while the PIXEL layer still refuses it
+    // (shell_clean_only reference, uncertified, parity_blocked naming the capture gap). The
+    // ceiling holds without gaming either gate.
+    ok("the PORTED lineage passes the VISUAL gate at the pixel-uncertifiable ceiling: reference_ported + visual TRUE + NOT pixel-certified + parity_blocked names the monocle capture gap", lin && lin.visual_parity === true && lin.matrix_class === "reference_ported" && seedBy.lineage?.shell_pixel_certified !== true && /re-harvest/.test(seedBy.lineage?.parity_blocked || ""), `lin visual=${lin?.visual_parity} class=${lin?.matrix_class}`);
     ok("the PROMOTED surface (pipeline, #39) is now daemon_wired: a faithful LIGHT re-port certified against the ORIGIN-ALIGNED data-clean reference (reference NOT errored, visual_parity TRUE)", pipe && pipe.matrix_class === "daemon_wired" && pipe.reference_errored === false && pipe.visual_parity === true, `pipe class=${pipe?.matrix_class} ref_errored=${pipe?.reference_errored} visual=${pipe?.visual_parity}`);
   }
 
