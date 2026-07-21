@@ -43,7 +43,9 @@ const captureState = Object.fromEntries((startingPoints.seeds || []).map((s) => 
 //
 // substrate_surface = the existing dark IOI surface (kept as substrate/admin/debug view).
 const SUBSTRATE_BOUND = {
-  lineage: { substrate_surface: "/__ioi/lineage", binding: "ODK materialization provenance (MaterializedObjectSet → run → session → lease → projection → mapping → datasource, resolved to live ladder refs; per-object source hashes + mapped_from; pre-output + registration receipts; Provenance proof-stream edges where available)", note: "Monocle lineage grammar over real provenance; upstream ladder refs resolved to live records; no fake nodes for unmaterialized ontologies; freeform resource-search / graph-expansion / cross-tenant catalog = named gaps" },
+  // lineage was ADVANCED to reference_ported (the faithful Monocle editor-chrome port at
+  // /__ioi/provenance/lineage — see REFERENCE_PORTED below); the /__ioi/lineage substrate path
+  // lens stays intact and linked.
   // Canon: Work Ledger evolves into Provenance — Vertex is a Provenance graph/exploration lens.
   vertex: { substrate_surface: "/__ioi/vertex", surface_name: "Provenance", binding: "a Provenance graph/exploration lens over materialized object sets, projections, objects, and the threaded proof-stream odk_materialization edges (cross-plane: ODK ↔ Provenance)", note: "Vertex graph grammar (nodes · relations · neighborhood) over real cross-plane materialized truth; no fake nodes for unmaterialized ontologies; freeform graph canvas / arbitrary path-finding / cross-tenant object search / saved explorations = named gaps" },
   // Missions owner-family: jobs + incidents seeds bound to /__ioi/missions (the owner surface for
@@ -77,9 +79,19 @@ const REFERENCE_PORT_PENDING = {};
 // ported IOI surface; `parity_blocked` names why. `reference_landmarks` (when present) is the IA
 // label set the hardened harness requires in BOTH the reference and the candidate.
 const REFERENCE_PORTED = {
-  // (explorer #46, monitors #51, sources #52, changes #53, workspaces each passed through this
-  // stage on their way to certification + daemon_wired promotion. The stage exists for
-  // ports-in-flight.)
+  // (explorer #46, monitors #51, sources #52, changes #53, workspaces, widgets each passed
+  // through this stage on their way to certification + daemon_wired promotion. The stage also
+  // holds ports whose REFERENCE cannot certify — the #35 explorer precedent.)
+  // Lineage (Provenance / Data Lineage) — the faithful Monocle editor-chrome port over real
+  // provenance truth, held at the HONEST ceiling: the local monocle reference cannot render data
+  // on ANY lane. Probe-proven (this cut): the capture never recorded the
+  // RouteDatasetFoundryBranchQuery graphql response or /compass/api/batch/resources/parents, so
+  // every RID-seeded deep route (/graph/datasets/{rids}) bounces client-side to the empty
+  // welcome graph; the harvest-time live screenshot (public/comparison/live_monocle.png) shows
+  // the SAME empty state — the harvest never rendered a populated monocle UI. The monocle/api
+  // graphV3/links payloads prove the data model API-side only. Promotion needs a live
+  // re-harvest of a RID-seeded monocle route WITH those two API families captured.
+  lineage: { port_surface: "/__ioi/provenance/lineage", substrate_surface: "/__ioi/lineage", surface_name: "Provenance", reference_landmarks: ["Data Lineage", "Welcome to Data Lineage", "Explore how data flows through your resources and applications", "Add resources", "Open graph", "Workflow Lineage", "Build timeline", "Data health", "SQL scratchpad", "No resources on graph"], parity_blocked: "the monocle reference renders only its empty welcome state on every local lane — RouteDatasetFoundryBranchQuery + compass resources/parents responses were never captured (probe-proven; the harvest-time live screenshot shows the same empty state); shell_clean_only cannot certify by doctrine — promotion needs a live re-harvest of a RID-seeded monocle route", binding: "faithful Monocle editor-chrome port over the SAME real provenance truth as the substrate path lens — dark global rail + light editor topbar (Data Lineage · Workflow-Lineage/branch/Save-as as named gaps · REAL materializing-run status counters) + the full tool strip (Tools/Layout/Undo/Clean/Select/Expand/Color/Find/Remove/Align/Text/Flow as named-gap controls) + the welcome card (Add-resources gap · Open-graph WIRED to the real materialized-set registry) + the canvas rendering a selected set's backward provenance PATH (source → mapping → projection → run → set, the run edge carrying its pre-output receipt verbatim; unresolved links render as named gaps, never invented) + the dock (Preview/SQL/History/Code/Data-health gaps · Build-timeline LIVE to the Provenance proof stream)", note: "the Provenance-family graft: the monocle seed's editor chrome ported faithfully LIGHT with real wiring inside (the #35 explorer precedent — reference_ported is the honest landing when no data-clean reference exists); /__ioi/lineage (substrate path lens) + /__ioi/vertex + /__ioi/work-ledger stay intact, linked first-class both ways" },
 };
 // TRUE reference UX parity — a FAITHFUL port of the reference UX (same theme + IA + layout) wired to
 // daemon truth, that PASSES the HARDENED Playwright harness (visual_parity: region geometry + theme
