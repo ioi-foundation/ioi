@@ -14,6 +14,7 @@ const ESTATE_STATUS = {
     planned: "Planned",
   },
   surfaces: {
+    daemon: "private-preview",
     app: "private-preview",
     web: "private-preview",
     cli: "private-preview",

@@ -89,7 +89,7 @@ function Footer() {
             The open operating environment for autonomous systems.
           </p>
         </div>
-        <FCol title="Platform" links={[["Hypervisor App", "hv-app.html"], ["Web", "hv-web.html"], ["CLI", "hv-cli.html"], ["MCP gateway", "hv-mcp.html"], ["HypervisorOS", "hv-os.html"], ["Embodied Runtime", "hv-embodied.html"]]} />
+        <FCol title="Platform" links={[["Hypervisor App", "hv-app.html"], ["Web", "hv-web.html"], ["CLI", "hv-cli.html"], ["Daemon", "hv-daemon.html"], ["MCP gateway", "hv-mcp.html"], ["HypervisorOS", "hv-os.html"], ["Embodied Runtime", "hv-embodied.html"]]} />
         <FCol title="Solutions" links={[["Background work", "background-work.html"], ["Automations", "automations-fleets.html"], ["Modernization", "code-modernization.html"], ["Security agents", "runtime-security.html"]]} />
         <FCol title="Developers" links={[["Docs", "docs.html"], ["SDK", "hv-sdk.html"], ["ADK", "hv-adk.html"], ["ODK", "hv-odk.html"]]} />
         <FCol title="IOI" links={[["Internet of Intelligence", "https://internetofintelligence.com"], ["Whitepaper", "https://internetofintelligence.com/papers/ioi-whitepaper"], ["Roadmap", "https://internetofintelligence.com/roadmap"], ["What is Web4", "https://internetofintelligence.com/what-is-web4"]]} />

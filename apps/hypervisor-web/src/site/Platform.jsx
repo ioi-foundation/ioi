@@ -158,6 +158,7 @@ const FAMILIES = [
     ["Hypervisor ODK", "Ontology-aware kit", "Compile domain ontologies and data recipes into generated surfaces, domain apps, and marketplace packs.", "hv-odk.html"],
   ]],
   ["Gateways & substrate", "Carry it outward", [
+    ["Hypervisor Daemon", "Local runtime · effect boundary", "The local execution and state-transition kernel every client binds to — bounded, receipted, replayable.", "hv-daemon.html"],
     ["Hypervisor MCP", "Scoped external gateway", "Expose selected capabilities to external agents through revocable, auditable MCP profiles — never a master key.", "hv-mcp.html"],
     ["HypervisorOS", "Bare-metal / cluster substrate", "Govern the machines, GPUs, networks, storage, containers, and microVMs autonomy runs on — enforced under one policy plane.", "hv-os.html"],
     ["Embodied Runtime", "Physical autonomy profile", "Operate robot fleets, devices, sensors, and command queues under safety gates with attributed operator handoff.", "hv-embodied.html"],

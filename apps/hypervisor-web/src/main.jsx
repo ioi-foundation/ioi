@@ -14,6 +14,7 @@ const PRODUCT_ROUTES = {
   "/hv-adk": "adk",
   "/hv-odk": "odk",
   "/hv-mcp": "mcp",
+  "/hv-daemon": "daemon",
   "/hv-os": "os",
   "/hv-embodied": "embodied",
 };
