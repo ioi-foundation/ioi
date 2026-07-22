@@ -57,6 +57,9 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-chain-revisions",
     "autonomous-system-lifecycle-states",
     "autonomous-system-protected-transition-receipts",
+    "autonomous-system-amendment-receipts",
+    "autonomous-system-constitution-amendments",
+    "autonomous-system-constitutions",
 ];
 
 static HANDLE: OnceLock<Option<MuxHandle>> = OnceLock::new();
@@ -205,11 +208,17 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "chain_root",
             format!("sha256:{}", record_id.strip_prefix("asc_").unwrap_or("")),
         ),
+        "autonomous-system-constitutions" => (
+            "constitution_root",
+            format!("sha256:{}", record_id.strip_prefix("ascn_").unwrap_or("")),
+        ),
         "autonomous-system-lifecycle-authority-consumptions"
         | "autonomous-system-lifecycle-transitions"
         | "autonomous-system-initialize-transition-receipts"
         | "autonomous-system-activation-receipts"
-        | "autonomous-system-protected-transition-receipts" => {
+        | "autonomous-system-protected-transition-receipts"
+        | "autonomous-system-amendment-receipts"
+        | "autonomous-system-constitution-amendments" => {
             unreachable!("identity is validated by the family-specific branch")
         }
         _ => unreachable!("required-admission domains are exhaustively matched"),
@@ -271,6 +280,9 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
                 Some("ioi.autonomous-system-protected-transition-proposal.v1") => {
                     "ioi.autonomous-system-protected-transition-proposal-jcs-sha256.v1"
                 }
+                Some("ioi.autonomous-system-amendment-execution-proposal.v1") => {
+                    "ioi.autonomous-system-amendment-execution-proposal-jcs-sha256.v1"
+                }
                 _ => "ioi.autonomous-system-activation-proposal-jcs-sha256.v1",
             };
             material.remove("schema_version");
@@ -288,6 +300,9 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
             let domain = match record.get("schema_version").and_then(Value::as_str) {
                 Some("ioi.autonomous-system-protected-transition-decision.v1") => {
                     "ioi.autonomous-system-protected-transition-decision-jcs-sha256.v1"
+                }
+                Some("ioi.autonomous-system-amendment-execution-decision.v1") => {
+                    "ioi.autonomous-system-amendment-execution-decision-jcs-sha256.v1"
                 }
                 _ => "ioi.autonomous-system-activation-authority-decision-jcs-sha256.v1",
             };
@@ -336,26 +351,54 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
                 ],
             )?,
         ),
-        "autonomous-system-active-profile-sets" => (
-            "active_profile_set_root",
-            fields_material(
-                record,
-                "ioi.autonomous-system-active-profile-set-jcs-sha256.v1",
-                &[
-                    "active_profile_set_ref",
-                    "system_id",
-                    "genesis_ref",
-                    "profile_bundle_root",
-                    "constitution",
-                    "deployment",
-                    "ordering_admission_finality",
-                    "oracle_evidence_profiles",
-                    "lifecycle_continuity",
-                    "network_enrollment",
-                    "status",
-                ],
-            )?,
-        ),
+        "autonomous-system-active-profile-sets" => {
+            // v1 (activation) and v2 (amendment successor) share this family
+            // and prefix; the v2 material adds the supersedes lineage and
+            // excludes the admitted_by navigation slots, mirroring the
+            // compiler's active_profile_set_v2_root recipe field-for-field.
+            let material = if record.get("schema_version").and_then(Value::as_str)
+                == Some("ioi.autonomous-system-active-profile-set.v2")
+            {
+                fields_material(
+                    record,
+                    "ioi.autonomous-system-active-profile-set-jcs-sha256.v2",
+                    &[
+                        "active_profile_set_ref",
+                        "system_id",
+                        "genesis_ref",
+                        "profile_bundle_root",
+                        "supersedes_profile_set_ref",
+                        "supersedes_profile_set_root",
+                        "constitution",
+                        "deployment",
+                        "ordering_admission_finality",
+                        "oracle_evidence_profiles",
+                        "lifecycle_continuity",
+                        "network_enrollment",
+                        "status",
+                    ],
+                )?
+            } else {
+                fields_material(
+                    record,
+                    "ioi.autonomous-system-active-profile-set-jcs-sha256.v1",
+                    &[
+                        "active_profile_set_ref",
+                        "system_id",
+                        "genesis_ref",
+                        "profile_bundle_root",
+                        "constitution",
+                        "deployment",
+                        "ordering_admission_finality",
+                        "oracle_evidence_profiles",
+                        "lifecycle_continuity",
+                        "network_enrollment",
+                        "status",
+                    ],
+                )?
+            };
+            ("active_profile_set_root", material)
+        }
         "autonomous-system-home-bindings" => (
             "home_domain_binding_root",
             fields_material(
@@ -410,6 +453,29 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
             );
             ("chain_root", Value::Object(material))
         }
+        "autonomous-system-constitutions" => (
+            "constitution_root",
+            fields_material(
+                record,
+                "ioi.autonomous-system-constitution-jcs-sha256.v1",
+                &[
+                    "schema_version",
+                    "constitution_id",
+                    "system_id",
+                    "version",
+                    "predecessor_constitution_ref",
+                    "declared_purpose",
+                    "normative_constraints",
+                    "agency_boundary",
+                    "governance",
+                    "protected_profile_governance",
+                    "shutdown",
+                    "activation_receipt_ref",
+                    "public_commitment_ref",
+                    "status",
+                ],
+            )?,
+        ),
         _ => return Ok(()),
     };
     if record.get(root_field).and_then(Value::as_str) != Some(jcs_root(&material)?.as_str()) {
@@ -447,6 +513,9 @@ fn validate_required_identity(
         "autonomous-system-activation-states" => "asls_",
         "autonomous-system-lifecycle-states" => "asls_",
         "autonomous-system-protected-transition-receipts" => "asptr_",
+        "autonomous-system-amendment-receipts" => "asamr_",
+        "autonomous-system-constitution-amendments" => "asca_",
+        "autonomous-system-constitutions" => "ascn_",
         "autonomous-system-active-profile-sets" => "asaps_",
         "autonomous-system-home-bindings" => "ashdb_",
         "autonomous-system-operation-log-revisions" => "asol_",
@@ -491,12 +560,39 @@ fn validate_required_identity(
         }
         return Ok(());
     }
+    if record_dir == "autonomous-system-constitution-amendments" {
+        // The retained declaration carries no self-root field; its identity
+        // is the content-addressed declaration root under the compiler's
+        // amendment_declaration_root recipe ({domain, amendment: body}).
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record.get("amendment_id").and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres amendment declaration lacks 'amendment_id'",
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.autonomous-system-constitution-amendment-jcs-sha256.v1",
+            "amendment": record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the amendment declaration root",
+            ));
+        }
+        return Ok(());
+    }
     if matches!(
         record_dir,
         "autonomous-system-lifecycle-transitions"
             | "autonomous-system-initialize-transition-receipts"
             | "autonomous-system-activation-receipts"
             | "autonomous-system-protected-transition-receipts"
+            | "autonomous-system-amendment-receipts"
     ) {
         let encoded = record_id
             .strip_prefix(required_prefix)
@@ -515,6 +611,10 @@ fn validate_required_identity(
                 "receipt_ref",
             ),
             "autonomous-system-protected-transition-receipts" => (
+                "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1",
+                "receipt_ref",
+            ),
+            "autonomous-system-amendment-receipts" => (
                 "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1",
                 "receipt_ref",
             ),

@@ -187,7 +187,7 @@ pub(crate) fn load_log_for_chain(data_dir: &str, chain: &Value) -> Result<Value,
     })
 }
 
-fn record_by_root(
+pub(crate) fn record_by_root(
     data_dir: &str,
     family: &str,
     prefix: &str,
@@ -243,13 +243,29 @@ pub(crate) fn load_previous_step(
             "activation receipt",
         )?
     } else {
-        record_by_root(
+        // Sequence >= 3 heads are either generic protected transitions or
+        // constitutional amendments; both are content-addressed by the same
+        // committed receipt root, so dispatch on which family holds it.
+        if !canonical_hash_str(&receipt_root) {
+            return Err(verr(
+                "system_lifecycle_artifact_invalid",
+                "protected receipt root is not canonical",
+            ));
+        }
+        match load_required_exact(
             data_dir,
             PROTECTED_RECEIPT_DIR,
-            "asptr_",
-            &receipt_root,
-            "protected receipt",
-        )?
+            &format!("asptr_{}", &receipt_root[7..]),
+        )? {
+            Some(value) => value,
+            None => record_by_root(
+                data_dir,
+                super::system_amendment_routes::AMENDMENT_RECEIPT_DIR,
+                "asamr_",
+                &receipt_root,
+                "amendment receipt",
+            )?,
+        }
     };
     Ok(UnverifiedCommittedSystemLifecycleStep {
         proposal: record_by_root(data_dir, PROPOSAL_DIR, "aslp_", &proposal_root, "proposal")?,
@@ -749,7 +765,30 @@ pub(crate) fn continue_operation_log(
     source: &ProtectedTransitionSource,
     timestamp: &str,
 ) -> Result<Value, VErr> {
-    let prior = &source.operation_log;
+    let entry = log_entry_for_step(plan, step, timestamp)?;
+    let system_id = required(&plan.authority_effect, "/system_id")?;
+    continue_log_with_entry(
+        &source.operation_log,
+        &entry,
+        plan.sequence,
+        &plan.previous_step.state_root,
+        &system_id,
+        timestamp,
+    )
+}
+
+/// Shared v1-to-v2 operation-log continuation: a v1 activation-prefix log
+/// migrates by carrying its closed prefix verbatim; a v2 log appends. The
+/// protected-transition and constitution-amendment continuations both
+/// converge here so one implementation owns the head/root discipline.
+pub(crate) fn continue_log_with_entry(
+    prior: &Value,
+    entry: &Value,
+    sequence: u64,
+    predecessor_state_root: &str,
+    system_id: &str,
+    timestamp: &str,
+) -> Result<Value, VErr> {
     let prior_entries = prior
         .get("entries")
         .and_then(Value::as_array)
@@ -761,13 +800,12 @@ pub(crate) fn continue_operation_log(
             )
         })?;
     let prior_head_state_root = required(prior, "/latest_state_root")?;
-    if prior_head_state_root != plan.previous_step.state_root {
+    if prior_head_state_root != predecessor_state_root {
         return Err(verr(
             "system_lifecycle_artifact_mismatch",
             "operation-log continuation detaches from the predecessor state",
         ));
     }
-    let entry = log_entry_for_step(plan, step, timestamp)?;
     let mut entries = prior_entries;
     entries.push(entry.clone());
     let mut log = prior.clone();
@@ -775,7 +813,7 @@ pub(crate) fn continue_operation_log(
     log["snapshot_kind"] = json!("lifecycle_log");
     log["entries"] = json!(entries);
     log["head_entry"] = entry.clone();
-    log["latest_sequence"] = json!(plan.sequence);
+    log["latest_sequence"] = json!(sequence);
     log["latest_operation_commitment"] = entry["operation_commitment"].clone();
     log["latest_transition_commitment_ref"] = Value::Null;
     log["latest_transition_ref"] = entry["transition_ref"].clone();
@@ -792,10 +830,9 @@ pub(crate) fn continue_operation_log(
     material.remove("operation_log_root");
     material.insert("domain".to_owned(), json!(OPERATION_LOG_V2_ROOT_DOMAIN));
     let root = jcs_hash(&Value::Object(material))?;
-    let system_id = required(&plan.authority_effect, "/system_id")?;
     log["operation_log_ref"] = json!(format!(
         "agentgres://operation-log/autonomous-system/{}/revision/{root}",
-        ns(&system_id)?
+        ns(system_id)?
     ));
     log["operation_log_root"] = json!(root);
     validate_contract(OPERATION_LOG_V2_CONTRACT, &log, "operation log v2")?;
@@ -1236,6 +1273,10 @@ pub(crate) async fn handle_transition(
     let (source, plan) = match with_source_locks(|| {
         super::system_activation_routes::ensure_no_pending_intent(&state.data_dir, &key)?;
         ensure_no_pending_protected_intent(&state.data_dir, &key)?;
+        super::system_amendment_routes::ensure_no_pending_amendment_intent(
+            &state.data_dir,
+            &key,
+        )?;
         let source = load_protected_source(&state.data_dir, &system_id_for_key(&state.data_dir, &key)?)?;
         check_expected_roots(&body, &source)?;
         let plan = compile_from_source(op, &source)?;
@@ -1518,7 +1559,7 @@ pub(crate) async fn handle_get_transition(
 
 /// Resolve the durable system_id for a caller-facing `asg_` key through the
 /// genesis module's verified admission loader (the family's owning accessor).
-fn system_id_for_key(data_dir: &str, key: &str) -> Result<String, VErr> {
+pub(crate) fn system_id_for_key(data_dir: &str, key: &str) -> Result<String, VErr> {
     let admission = super::system_genesis_routes::load_verified_admission_by_key(data_dir, key)?
         .ok_or_else(|| {
             verr(
