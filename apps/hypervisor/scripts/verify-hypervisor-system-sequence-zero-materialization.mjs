@@ -216,6 +216,7 @@ const JOURNEY_PROOF_CENSUS = new Map([
         "M1.5a INITIALIZE: twelve real-wallet requests linearize to one initialized sequence-one graph",
         "M1.5a INITIALIZE GET: complete graph is exact and carries no active set or chain",
         "M1.5a ACTIVATE PARTIAL: activation parks after a real wallet use and one local write while the competing lifecycle operation refuses",
+        "M1.5a INTENT IDENTITY: a relocated sealed activation intent refuses without replay or mutation",
         "M1.5a ACTIVATE REPLAY: restart reuses the consumed grant and converges exactly one sequence-two graph",
         "M1.5a ACTIVATE GET: exact 0/1/2 log and compact non-runtime chain are fully durable",
         "M1.5a SOURCE: real M1.3/M1.4 bytes remain unchanged across initialize and activate",
@@ -5345,6 +5346,51 @@ async function runSystemActivationJourney() {
     );
 
     await plane.stop();
+    const [activationIntentName] = familyFiles(
+      dataDir,
+      ACTIVATE_INTENT_FAMILY,
+    );
+    const relocatedIntentName = `asaci_${"f".repeat(64)}.json`;
+    requireValue(
+      activationIntentName && activationIntentName !== relocatedIntentName,
+      `M1.5a relocation probe lacks one distinct activation intent: ${activationIntentName}`,
+    );
+    const activationIntentDir = join(dataDir, ACTIVATE_INTENT_FAMILY);
+    renameSync(
+      join(activationIntentDir, activationIntentName),
+      join(activationIntentDir, relocatedIntentName),
+    );
+    const relocatedBefore = familiesSnapshot(dataDir, [
+      ACTIVATE_INTENT_FAMILY,
+      ...LIFECYCLE_FAMILIES,
+    ]);
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5a relocated-intent plane is not built");
+    }
+    call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+    const relocatedRead = await call("GET", activatePath);
+    ok(
+      "M1.5a INTENT IDENTITY: a relocated sealed activation intent refuses without replay or mutation",
+      relocatedRead.status === 500 &&
+        relocatedRead.body.error?.code ===
+          "system_lifecycle_intent_unreadable" &&
+        familyFiles(dataDir, ACTIVATE_INTENT_FAMILY).length === 1 &&
+        familyFiles(dataDir, "autonomous-system-activation-states").length ===
+          1 &&
+        relocatedBefore ===
+          familiesSnapshot(dataDir, [
+            ACTIVATE_INTENT_FAMILY,
+            ...LIFECYCLE_FAMILIES,
+          ]),
+      `${relocatedRead.status}/${relocatedRead.body.error?.code || "no-code"} intent-count=${familyFiles(dataDir, ACTIVATE_INTENT_FAMILY).length}`,
+    );
+    await plane.stop();
+    renameSync(
+      join(activationIntentDir, relocatedIntentName),
+      join(activationIntentDir, activationIntentName),
+    );
     plane = await startVerifierPlane({ dataDir, env: resolver.env });
     if (!plane) {
       throw new Error("BLOCKED: M1.5a replay plane is not built");

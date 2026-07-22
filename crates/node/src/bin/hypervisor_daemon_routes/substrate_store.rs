@@ -580,6 +580,20 @@ fn verify_required_projection(
     Ok(exact)
 }
 
+/// Validate one already-read required projection before an owner plane copies
+/// its payload into local recovery evidence. The exact projection itself is
+/// the validation subject, so a corrupt same-key payload cannot cross the
+/// recovery boundary before its key, operation, and bytes agree.
+pub(crate) fn validate_required_exact_projection(
+    record_dir: &str,
+    record_id: &str,
+    exact: ExactProjection,
+) -> std::io::Result<Value> {
+    let record = exact.operation.payload.clone();
+    verify_required_projection(record_dir, record_id, &record, Some(exact))?;
+    Ok(record)
+}
+
 fn verify_required_ack(
     record_dir: &str,
     record_id: &str,
@@ -1204,6 +1218,30 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(conflict.kind(), std::io::ErrorKind::AlreadyExists);
+    }
+
+    #[test]
+    fn required_projection_recovery_validates_before_exposing_payload() {
+        let record = required_record();
+        let exact = exact_projection(build_required_op(REQUIRED_DOMAIN, REQUIRED_ID, &record));
+        assert_eq!(
+            validate_required_exact_projection(REQUIRED_DOMAIN, REQUIRED_ID, exact).unwrap(),
+            record
+        );
+
+        let mut foreign = exact_projection(build_required_op(
+            REQUIRED_DOMAIN,
+            REQUIRED_ID,
+            &required_record(),
+        ));
+        foreign.operation.payload["admission_id"] =
+            json!("system-genesis-admission://asg_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        assert_eq!(
+            validate_required_exact_projection(REQUIRED_DOMAIN, REQUIRED_ID, foreign)
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::InvalidInput
+        );
     }
 
     #[test]

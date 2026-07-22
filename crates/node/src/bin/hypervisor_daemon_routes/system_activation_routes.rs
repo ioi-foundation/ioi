@@ -128,6 +128,15 @@ fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
         || code.contains("evidence_mismatch")
         || code.contains("artifact_mismatch")
         || code.contains("artifact_swapped")
+        || matches!(
+            code.as_str(),
+            "system_lifecycle_artifact_invalid"
+                | "system_activate_artifact_invalid"
+                | "system_lifecycle_intent_invalid"
+                | "system_lifecycle_key_invalid"
+                | "system_lifecycle_time_invalid"
+                | "system_lifecycle_wallet_consumption_invalid"
+        )
     {
         StatusCode::INTERNAL_SERVER_ERROR
     } else {
@@ -771,56 +780,47 @@ fn recover_wallet_consumption(data_dir: &str, tail: &str) -> Result<Option<Value
                     format!("wallet consumption projection failed ({error})"),
                 )
             })?;
+    resolve_wallet_consumption_evidence(tail, local, agentgres)
+}
+
+fn resolve_wallet_consumption_evidence(
+    tail: &str,
+    local: Option<Value>,
+    agentgres: Option<agentgres::mux::ExactProjection>,
+) -> Result<Option<Value>, VErr> {
     match (local, agentgres) {
         (None, None) => Ok(None),
-        (Some(value), None) => {
-            super::substrate_store::admit_required(
-                data_dir,
-                AUTHORITY_CONSUMPTION_DIR,
-                tail,
-                &value,
-            )
-            .map_err(|error| {
-                verr(
-                    "system_lifecycle_agentgres_admission_failed",
-                    format!("wallet consumption replay admission failed ({error})"),
-                )
-            })?;
-            Ok(Some(value))
-        }
-        (None, Some(exact)) => {
-            let value = exact.operation.payload;
-            persist_local(data_dir, AUTHORITY_CONSUMPTION_DIR, tail, &value)?;
-            super::substrate_store::verify_required_exact(
-                data_dir,
-                AUTHORITY_CONSUMPTION_DIR,
-                tail,
-                &value,
-            )
-            .map_err(|error| {
-                verr(
+        (Some(value), None) => Ok(Some(value)),
+        (None, Some(exact)) => validate_remote_wallet_consumption(tail, exact).map(Some),
+        (Some(value), Some(exact)) => {
+            let remote = validate_remote_wallet_consumption(tail, exact)?;
+            if remote != value {
+                return Err(verr(
                     "system_lifecycle_agentgres_evidence_mismatch",
-                    format!("wallet consumption recovery proof failed ({error})"),
-                )
-            })?;
-            Ok(Some(value))
-        }
-        (Some(value), Some(_)) => {
-            super::substrate_store::verify_required_exact(
-                data_dir,
-                AUTHORITY_CONSUMPTION_DIR,
-                tail,
-                &value,
-            )
-            .map_err(|error| {
-                verr(
-                    "system_lifecycle_agentgres_evidence_mismatch",
-                    format!("wallet consumption exact proof failed ({error})"),
-                )
-            })?;
+                    "wallet consumption local and Agentgres evidence disagree",
+                ));
+            }
             Ok(Some(value))
         }
     }
+}
+
+fn validate_remote_wallet_consumption(
+    tail: &str,
+    exact: agentgres::mux::ExactProjection,
+) -> Result<Value, VErr> {
+    let value = super::substrate_store::validate_required_exact_projection(
+        AUTHORITY_CONSUMPTION_DIR,
+        tail,
+        exact,
+    )
+    .map_err(|error| {
+        verr(
+            "system_lifecycle_agentgres_evidence_mismatch",
+            format!("wallet consumption recovery proof failed ({error})"),
+        )
+    })?;
+    Ok(value)
 }
 
 fn tail(prefix: &str, root: &str) -> Result<String, VErr> {
@@ -871,6 +871,40 @@ fn verify_intent_seal(intent: &Value) -> Result<(), VErr> {
         return Err(verr(
             "system_lifecycle_intent_unreadable",
             "intent seal does not match its exact bytes",
+        ));
+    }
+    Ok(())
+}
+
+fn verify_intent_coordinates(
+    operation: SystemLifecycleOperation,
+    stored_tail: &str,
+    intent: &Value,
+) -> Result<(), VErr> {
+    let expected_kind = format!("system_{}", operation.as_str());
+    let request_hash = intent
+        .pointer("/governed_authority/request_hash")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            verr(
+                "system_lifecycle_intent_unreadable",
+                "intent lacks its governed request hash",
+            )
+        })?;
+    let expected_tail = intent_tail(operation, request_hash).map_err(|(_, message)| {
+        verr(
+            "system_lifecycle_intent_unreadable",
+            format!("intent request hash cannot derive its storage key ({message})"),
+        )
+    })?;
+    if intent.get("kind").and_then(Value::as_str) != Some(expected_kind.as_str())
+        || intent.get("operation").and_then(Value::as_str) != Some(operation.as_str())
+        || intent.get("sequence").and_then(Value::as_u64) != Some(operation.sequence())
+        || stored_tail != expected_tail
+    {
+        return Err(verr(
+            "system_lifecycle_intent_unreadable",
+            "intent kind, operation, sequence, request hash, or storage key is detached",
         ));
     }
     Ok(())
@@ -1979,8 +2013,15 @@ fn scan_intents(
     Ok(names
         .into_iter()
         .map(|name| {
-            let tail = name.strip_suffix(".json").unwrap_or(&name).to_owned();
+            let json_suffix = name.strip_suffix(".json");
+            let tail = json_suffix.unwrap_or(&name).to_owned();
             let value = (|| {
+                if json_suffix.is_none() {
+                    return Err(verr(
+                        "system_lifecycle_intent_unreadable",
+                        format!("unexpected intent entry '{name}'"),
+                    ));
+                }
                 let expected_prefix = if operation == SystemLifecycleOperation::Initialize {
                     "asini_"
                 } else {
@@ -2013,6 +2054,7 @@ fn scan_intents(
                     )
                 })?;
                 verify_intent_seal(&value)?;
+                verify_intent_coordinates(operation, &tail, &value)?;
                 Ok(value)
             })();
             (tail, value)
@@ -2114,6 +2156,7 @@ async fn replay_one(
     tail: &str,
     intent: &Value,
 ) -> Result<(), VErr> {
+    verify_intent_coordinates(operation, tail, intent)?;
     let plan = reconstruct_intent_plan(data_dir, intent, operation)?;
     let mut evidence = evidence_from_intent(&intent["governed_authority"])?;
     let rebuilt = prepare_node_evidence(&plan, evidence.authorized.clone())?;
@@ -3332,8 +3375,14 @@ mod tests {
             "system_lifecycle_persist_failed",
             "system_lifecycle_agentgres_admission_failed",
             "system_lifecycle_agentgres_evidence_mismatch",
+            "system_lifecycle_artifact_invalid",
             "system_lifecycle_artifact_mismatch",
             "system_lifecycle_artifact_swapped",
+            "system_lifecycle_intent_invalid",
+            "system_lifecycle_key_invalid",
+            "system_lifecycle_time_invalid",
+            "system_lifecycle_wallet_consumption_invalid",
+            "system_activate_artifact_invalid",
         ] {
             assert_eq!(
                 classify(verr(code, "injected")).0,
@@ -3343,6 +3392,14 @@ mod tests {
         assert_eq!(
             classify(verr("system_lifecycle_source_conflict", "stale")).0,
             StatusCode::CONFLICT
+        );
+        assert_eq!(
+            classify(verr("system_lifecycle_source_key_invalid", "caller input")).0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+        assert_eq!(
+            classify(verr("system_initialize_plan_invalid", "caller input")).0,
+            StatusCode::UNPROCESSABLE_ENTITY
         );
     }
     #[test]
@@ -3401,6 +3458,51 @@ mod tests {
         let second = fair_window(entries, 1, &cursor);
         assert!(first[0].1.is_err());
         assert_eq!(second[0].0, "b");
+    }
+    #[test]
+    fn intent_storage_key_is_bound_to_its_sealed_operation_and_request() {
+        let request_hash = format!("sha256:{}", "12".repeat(32));
+        let operation = SystemLifecycleOperation::Initialize;
+        let stored_tail = intent_tail(operation, &request_hash).unwrap();
+        let intent = json!({
+            "kind": "system_initialize",
+            "operation": "initialize",
+            "sequence": 1,
+            "governed_authority": {"request_hash": request_hash},
+        });
+        verify_intent_coordinates(operation, &stored_tail, &intent).unwrap();
+        assert_eq!(
+            verify_intent_coordinates(operation, &format!("asini_{}", "34".repeat(32)), &intent,)
+                .unwrap_err()
+                .0,
+            "system_lifecycle_intent_unreadable"
+        );
+        assert_eq!(
+            verify_intent_coordinates(SystemLifecycleOperation::Activate, &stored_tail, &intent)
+                .unwrap_err()
+                .0,
+            "system_lifecycle_intent_unreadable"
+        );
+    }
+    #[test]
+    fn intent_storage_slot_requires_the_canonical_json_filename() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let data_dir = data_dir.path().to_str().unwrap();
+        let family = intent_family(SystemLifecycleOperation::Initialize);
+        std::fs::create_dir_all(std::path::Path::new(data_dir).join(family)).unwrap();
+        std::fs::write(
+            std::path::Path::new(data_dir)
+                .join(family)
+                .join(format!("asini_{}", "12".repeat(32))),
+            b"{}",
+        )
+        .unwrap();
+        let scanned = scan_intents(data_dir, SystemLifecycleOperation::Initialize).unwrap();
+        assert_eq!(scanned.len(), 1);
+        assert_eq!(
+            scanned[0].1.as_ref().unwrap_err().0,
+            "system_lifecycle_intent_unreadable"
+        );
     }
     #[test]
     fn compiler_effect_hash_matches_governed_helper() {
@@ -3632,6 +3734,57 @@ mod tests {
                 .unwrap_err()
                 .0,
             "system_lifecycle_artifact_unreadable"
+        );
+    }
+
+    #[test]
+    fn wallet_recovery_never_replicates_unvalidated_single_side_evidence() {
+        let plan = compiled_initialize_fixture();
+        let evidence = dummy_evidence(&plan, 0x77);
+        let mut malformed = serde_json::to_value(wallet_receipt_fixture(&evidence)).unwrap();
+        malformed["remaining_usages"] = json!(1);
+        let tail = evidence.wallet_consumption_tail.clone();
+
+        let remote = agentgres::mux::ExactProjection {
+            operation: agentgres::Operation {
+                domain: AUTHORITY_CONSUMPTION_DIR.to_string(),
+                object_ref: format!("agentgres://{AUTHORITY_CONSUMPTION_DIR}/{tail}"),
+                op_kind: format!("{AUTHORITY_CONSUMPTION_DIR}.persist"),
+                expected_head: None,
+                expected_absent: true,
+                payload: malformed.clone(),
+                recorded_at_ms: 0,
+                idem_key: tail.clone(),
+            },
+            seq: 7,
+            head: "sha256:head".to_string(),
+            admission_batch_seq: 3,
+            admission_root: "sha256:admission-root".to_string(),
+            terminal_root: "sha256:terminal-root".to_string(),
+        };
+        let recovered = resolve_wallet_consumption_evidence(&tail, None, Some(remote))
+            .unwrap()
+            .unwrap();
+        let mut remote_evidence = evidence.clone();
+        let remote_receipt: ApprovalGrantConsumptionReceipt =
+            serde_json::from_value(recovered).unwrap();
+        assert_eq!(
+            validate_wallet_receipt(&mut remote_evidence, &remote_receipt)
+                .unwrap_err()
+                .0,
+            "system_lifecycle_wallet_consumption_invalid"
+        );
+
+        let local_evidence = dummy_evidence(&plan, 0x78);
+        let mut local_malformed =
+            serde_json::to_value(wallet_receipt_fixture(&local_evidence)).unwrap();
+        local_malformed["remaining_usages"] = json!(1);
+        let local_tail = local_evidence.wallet_consumption_tail;
+        assert_eq!(
+            resolve_wallet_consumption_evidence(&local_tail, Some(local_malformed.clone()), None,)
+                .unwrap()
+                .unwrap(),
+            local_malformed
         );
     }
 }
