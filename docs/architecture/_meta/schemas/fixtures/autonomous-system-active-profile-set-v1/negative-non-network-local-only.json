@@ -1,0 +1,34 @@
+{
+  "schema_version": "ioi.autonomous-system-active-profile-set.v1",
+  "active_profile_set_ref": "active-profile-set://acme/system-alpha/sequence/2",
+  "active_profile_set_root": "sha256:5aa2662a3e50bfa95c036d15e3e21b164dbeecf07fc2f741261760d3c523d450",
+  "system_id": "system://acme/system-alpha",
+  "genesis_ref": "genesis://acme/system-alpha/v1",
+  "profile_bundle_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "activation_transition_ref": "lifecycle-transition://acme/system-alpha/sequence/2",
+  "activation_receipt_ref": "receipt://asar_2222222222222222222222222222222222222222222222222222222222222222",
+  "constitution": {
+    "candidate_profile_ref": "constitution://acme/system-alpha/v1",
+    "candidate_profile_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "admitted_posture": "active"
+  },
+  "deployment": {
+    "candidate_profile_ref": "deployment-profile://acme/system-alpha/local/revision/sha256:7f0a7ac7f62cd3694fa16b0498e187e9574372f47a67a26f2a4ef192190b7796",
+    "candidate_profile_root": "sha256:7f0a7ac7f62cd3694fa16b0498e187e9574372f47a67a26f2a4ef192190b7796",
+    "admitted_posture": "local_only"
+  },
+  "ordering_admission_finality": {
+    "candidate_profile_ref": "ordering-profile://acme/system-alpha/v1",
+    "candidate_profile_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "admitted_posture": "active"
+  },
+  "oracle_evidence_profiles": [],
+  "lifecycle_continuity": {
+    "candidate_profile_ref": "lifecycle-profile://acme/system-alpha/v1",
+    "candidate_profile_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "admitted_posture": "active"
+  },
+  "network_enrollment": null,
+  "status": "active",
+  "created_at": "2026-07-21T12:01:00Z"
+}

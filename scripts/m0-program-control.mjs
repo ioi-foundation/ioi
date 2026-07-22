@@ -32,7 +32,7 @@ function usage(stream = process.stderr) {
       "",
       "  --init   Explicitly create missing unreviewed source worksheets; never overwrite.",
       `  --attest-review ${REVIEW_ANCHOR_FILE}`,
-      "             Verify a supplied detached-signature snapshot and bind an unreviewed worksheet to it; never discovers a checkpoint, reads a private key, or signs.",
+      "             Verify a supplied unsigned hash-chain snapshot and bind an unreviewed worksheet to it; never discovers a checkpoint, reads a private key, or signs.",
       "  --write  Validate reviewed sources and idempotently write deterministic artifacts.",
       "  --check  Read-only validation of discovery, supplied-snapshot matching, and artifact hashes; does not establish currentness.",
       "",
@@ -106,7 +106,7 @@ function attestReview(reviewAnchorPath) {
   );
   writeIfChanged(PROGRAM_SOURCE_FILE, stableStringify(reviewed));
   process.stdout.write(
-    `Bound M0 program source to supplied signed snapshot epoch ${reviewed.review_attestation.review_epoch_id}; currentness not established.\n`,
+    `Bound M0 program source to supplied snapshot epoch ${reviewed.review_attestation.review_epoch_id}; currentness not established.\n`,
   );
 }
 

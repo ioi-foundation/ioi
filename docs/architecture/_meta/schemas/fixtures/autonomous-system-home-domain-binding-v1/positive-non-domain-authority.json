@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.autonomous-system-home-domain-binding.v1",
+  "home_domain_binding_ref": "system-home-domain-binding://acme/system-alpha/sha256:f304abfbef4dba38c959a65cc23df155b8cbcb4642daec5801d58ee177f17493",
+  "home_domain_binding_root": "sha256:f304abfbef4dba38c959a65cc23df155b8cbcb4642daec5801d58ee177f17493",
+  "system_id": "system://acme/system-alpha",
+  "genesis_ref": "genesis://acme/system-alpha/v1",
+  "home_domain_ref": "agentgres://domain/autonomous-system/acme/system-alpha/sha256:bd468c165cba9c4a04647cbad59370722c4cccb4fb81cea51dfe937fe7b72cb1",
+  "home_domain_commitment": "sha256:bd468c165cba9c4a04647cbad59370722c4cccb4fb81cea51dfe937fe7b72cb1",
+  "source_governing_authority_ref": "org://acme/research",
+  "source_genesis_admission_receipt_ref": "receipt://asgar_1111111111111111111111111111111111111111111111111111111111111111",
+  "source_genesis_admission_receipt_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "source_sequence_zero_materialization_ref": "system-materialization://sequence-zero/sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "source_sequence_zero_materialization_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "source_sequence_zero_receipt_ref": "receipt://aszmr_5555555555555555555555555555555555555555555555555555555555555555",
+  "source_sequence_zero_receipt_root": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "source_sequence_zero_receipt_artifact_root": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "activation_transition_ref": "lifecycle-transition://acme/system-alpha/sequence/2",
+  "activation_receipt_ref": "receipt://asar_8888888888888888888888888888888888888888888888888888888888888888",
+  "status": "admitted",
+  "created_at": "2026-07-21T12:01:00Z"
+}

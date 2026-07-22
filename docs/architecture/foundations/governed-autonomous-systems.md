@@ -4,10 +4,10 @@ Status: canonical architecture authority.
 Canonical owner: this file for governed autonomous-system chains, Hypervisor Node settlement domains, collaborative-pursuit topology, and the coherent machine-economy stack.
 Supersedes: product prose that collapses Hypervisor UI, Hypervisor Node, autonomous-system state machines, and IOI L1 into one layer.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-21.
 Doctrine status: canonical
-Implementation status: mixed (the improvement-proposal plane, bounded GoalRun multi-HarnessInvocation slice, hosted OutcomeRoom graph through participation, frontier/claim, offers/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge are built or partial; M1.3 wallet-authorized one-time System genesis admission without activation is merged on current master. The held M1.4 cut freezes the exact pre-activation component/profile candidate set and daemon-derived sequence-zero operation, state, receipt, and transition roots under a distinct wallet.network authority crossing and mandatory Agentgres evidence. Activation, local-agent pairing, active System lifecycle chains, federated admission, acceptance/verdict/settlement, and local operational-finality domains remain planned or speculative)
-Last implementation audit: 2026-07-19
+Implementation status: mixed (the improvement-proposal plane, bounded GoalRun multi-HarnessInvocation slice, hosted OutcomeRoom graph through participation, frontier/claim, offers/matching, Attempt/Finding, WorkResult/OutcomeDelta, and VerifierChallenge are built or partial; M1.3 wallet-authorized one-time System genesis admission and M1.4 exact pre-activation materialization are landed on current master. This unmerged M1.5a working cut adds initialize/activate machine contracts, a pure compiler, one-use wallet-authorized daemon routes, crash-convergent local/Agentgres persistence, and boot replay for the exact sequence-one/two lifecycle prefix. Local-agent pairing, network/runtime effects, membership/writer authority, settlement, the remaining protected M1.5 transitions, federated admission, acceptance/verdict/settlement, and local operational-finality domains remain planned or speculative)
+Last implementation audit: 2026-07-21
 
 ## Canonical Definition
 

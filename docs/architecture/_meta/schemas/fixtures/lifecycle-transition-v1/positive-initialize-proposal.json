@@ -19,6 +19,7 @@
   "challenge_closes_at": null,
   "predecessor_state_root": "sha256:d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
   "resulting_state_root": null,
+  "operation_commitment": null,
   "state_transition_commitment_ref": null,
   "lineage_ref": null,
   "identity_continuity_decision_ref": null,

@@ -4,10 +4,10 @@ Status: canonical low-level reference.
 Canonical owner: this file for shared envelope and contract names, ID namespaces, principal refs, primitive capability tiers, authority grants, reusable GoalRun-profile, workflow-template, and skill-manifest contracts, bounded-autonomous-system package/genesis/constitution/deployment/membership/finality/recovery/oracle/lifecycle/enrollment/transition/service/settlement fields, dispute rail profile/value-unit/case/resolution fields, bounded-improvement governance/agenda/campaign/evaluation/exposure/evidence/cutoff fields, conditional-cooperation terms and participation fields, room admission fields, AIIP standards bindings, pre-AIIP local-agent pairing fields, native embodied graph/profile/component/stream/adapter/policy/world/action/activation/reservation/deployment-assurance fields, and receipt/run/event envelope fields.
 Supersedes: older flattened capability-tier examples in plans/specs.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-21.
 Doctrine status: canonical
-Implementation status: mixed (the registered architecture-contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for `ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, `AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, `AuthorityRevocationSnapshot` v1, `InformationFlowLabel` v1, `DeclassificationApproval` v1, `ManagedWorkBillingLedgerBundle` v1, `DisputeRailBundle` v1, `PhysicalActionExecutionReceipt` v1, and the bounded-System manifest/genesis/sequence-zero-materialization/constitution/amendment/ordering/oracle/lifecycle/enrollment family listed below; the pure bounded-System genesis proposal compiler and M1.3 exact wallet-authorized, statefully consumed, crash-convergent System admission with immutable local and Agentgres evidence are merged on current master. The held M1.4 cut registers and durably admits the exact pre-activation component/profile candidate set plus sequence-zero operation, state, receipt, and transition roots through a distinct wallet.network scope and four mandatory Agentgres evidence domains. It leaves the System `materialized_pending_activation`; activation, amendment/lifecycle execution, network-enrollment effects, and product surfaces remain not started. Production portable-authority and receipt-proof cryptographic verifiers/CLIs, information-flow enforcement, managed-work billing and dispute kernels, shared work-lifecycle persistence/routes, physical execution, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned; other core runtime envelopes and IDs are built or partial only where their owner routes exist; bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine, conditional-cooperation terms, local-agent pairing, AIIP transport/bindings and collaborative-pursuit, optional federated ontology/action, Institutional Learning Boundary, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families remain planned or speculative)
-Last implementation audit: 2026-07-19
+Implementation status: mixed (the registered architecture-contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for `ReceiptEnvelope` v1, `ReceiptCheckpoint` v1, `ReceiptProofBundle` v1, `AuthorityGrantEnvelope` v1/v2, `AuthorityKeySet` v1, `AuthorityRevocationSnapshot` v1, `InformationFlowLabel` v1, `DeclassificationApproval` v1, `ManagedWorkBillingLedgerBundle` v1, `DisputeRailBundle` v1, `PhysicalActionExecutionReceipt` v1, and the bounded-System manifest/genesis/sequence-zero-materialization/constitution/amendment/ordering/oracle/lifecycle/enrollment family listed below; the pure bounded-System genesis proposal compiler and M1.3 exact wallet-authorized, statefully consumed, crash-convergent System admission with immutable local and Agentgres evidence are merged on current master. M1.4 is landed and durably admits the exact pre-activation component/profile candidate set plus sequence-zero operation, state, receipt, and transition roots through a distinct wallet.network scope and four mandatory Agentgres evidence domains, leaving the System `materialized_pending_activation`. This unmerged M1.5a working cut adds the registered initialize/activate contracts, pure compiler, one-use wallet-authorized daemon routes, crash-convergent local/Agentgres persistence, and boot replay for the exact sequence-one/two lifecycle prefix. Protected amendment and later lifecycle execution, network-enrollment effects, runtime readiness, membership/writer authority, settlement, and product surfaces remain not started. Production portable-authority and receipt-proof cryptographic verifiers/CLIs, information-flow enforcement, managed-work billing and dispute kernels, shared work-lifecycle persistence/routes, physical execution, daemon/Agentgres checkpoint emission, network key discovery, and public transparency remain planned; other core runtime envelopes and IDs are built or partial only where their owner routes exist; bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine, conditional-cooperation terms, local-agent pairing, AIIP transport/bindings and collaborative-pursuit, optional federated ontology/action, Institutional Learning Boundary, NetworkGoalBudget, physical-segment, embodied, cTEE, and prediction families remain planned or speculative)
+Last implementation audit: 2026-07-21
 
 ## Purpose
 
@@ -1722,6 +1722,25 @@ AutonomousSystemDeploymentProfileEnvelope:
 This is desired topology. Live node state is carried only by observed
 membership records. Authority-bearing roles are never automatically scaled.
 
+### AutonomousSystemDeploymentProfileRevisionEnvelope
+
+```yaml
+AutonomousSystemDeploymentProfileRevisionEnvelope:
+  schema_version: ioi.autonomous-system-deployment-profile-revision.v1
+  deployment_profile_ref: deployment-profile://.../revision/sha256:...
+  deployment_profile_root: sha256:...
+  profile: AutonomousSystemDeploymentProfileEnvelope
+```
+
+The revision is an immutable candidate, not an activation. Its reference is
+namespaced beneath `profile.deployment_profile_id`; its suffix and
+`deployment_profile_root` equal the domain-separated JCS root of the exact
+draft profile body. Activation loads this projection and binds its
+`system_id`, `constitution_ref`, `manifest_ref`, and
+`ordering_admission_finality_profile_ref` to the converged M1.4 source. The
+legacy unversioned deployment-profile compatibility commitment remains valid
+M1.4 history but cannot authorize activation or stand in for profile content.
+
 ### AutonomousSystemNodeMembershipEnvelope
 
 ```yaml
@@ -2341,6 +2360,291 @@ wallet.network rotates or reissues authority inside the constitution. Creator
 absence never widens purpose. Migration, fork, or adoption does not silently
 inherit identity, assurance, reputation, escrow, or enrollment.
 
+### AutonomousSystemHomeDomainBindingEnvelope
+
+```yaml
+AutonomousSystemHomeDomainBindingEnvelope:
+  schema_version: ioi.autonomous-system-home-domain-binding.v1
+  home_domain_binding_ref: system-home-domain-binding://.../sha256:...
+  home_domain_binding_root: sha256:...
+  system_id: system://...
+  genesis_ref: genesis://...
+  home_domain_ref: agentgres://domain/autonomous-system/.../sha256:...
+  home_domain_commitment: sha256:...
+  source_governing_authority_ref: protocol-principal-or-runtime-ref
+  source_genesis_admission_receipt_ref: receipt://...
+  source_genesis_admission_receipt_root: sha256:...
+  source_sequence_zero_materialization_ref: system-materialization://...
+  source_sequence_zero_materialization_root: sha256:...
+  source_sequence_zero_receipt_ref: receipt://...
+  source_sequence_zero_receipt_root: sha256:...
+  source_sequence_zero_receipt_artifact_root: sha256:...
+  activation_transition_ref: lifecycle-transition://...
+  activation_receipt_ref: receipt://...
+  status: admitted
+  created_at: timestamp
+```
+
+Activation admits the first canonical Agentgres home-domain identity. The
+domain is derived by a domain-separated commitment over the stable System,
+genesis, general source governing authority, and exact M1.3/M1.4 source
+coordinates; it is never inferred by treating a wallet, organization, or
+runtime principal as a domain. The binding grants no node membership, writer,
+runtime, network-enrollment, or settlement authority.
+
+### AutonomousSystemActivationProposalEnvelope
+
+```yaml
+AutonomousSystemActivationProposalEnvelope:
+  schema_version: ioi.autonomous-system-activation-proposal.v1
+  proposal_ref: proposal://...
+  proposal_root: sha256:...
+  system_id: system://...
+  genesis_ref: genesis://...
+  operation: initialize | activate
+  sequence: 1 | 2
+  required_scope: scope:autonomous_system.lifecycle.initialize | scope:autonomous_system.lifecycle.activate
+  operation_commitment: sha256:...
+  authority_effect: exact_closed_server_derived_effect
+  authority_effect_hash: sha256:...
+  status: proposed
+  created_at: timestamp
+```
+
+This proposal family is intentionally activation-bootstrap-only. It never
+stands for amendment, suspension, succession, migration, dissolution, or
+enrollment proposals, and it grants no authority by itself. Each proposal is
+an immutable owner object for the exact effect that wallet.network evaluates.
+
+### AutonomousSystemActivationAuthorityDecisionEnvelope
+
+```yaml
+AutonomousSystemActivationAuthorityDecisionEnvelope:
+  schema_version: ioi.autonomous-system-activation-authority-decision.v1
+  decision_ref: decision://...
+  decision_root: sha256:...
+  proposal_ref: proposal://...
+  proposal_root: sha256:...
+  system_id: system://...
+  genesis_ref: genesis://...
+  operation: initialize | activate
+  sequence: 1 | 2
+  required_scope: scope:autonomous_system.lifecycle.initialize | scope:autonomous_system.lifecycle.activate
+  operation_commitment: sha256:...
+  input_hash: sha256:...
+  policy_hash: sha256:...
+  effect_hash: sha256:...
+  authority_grant_ref: grant://wallet.network/approval/sha256:...
+  authority_evidence_ref: system-lifecycle-authority-evidence://...
+  authority_evidence_root: sha256:...
+  wallet_grant_consumption_ref: wallet.network://approval-effect-consumption/...
+  wallet_grant_consumption_evidence_ref: system-lifecycle-authority-consumption://...
+  outcome: admitted
+  decided_at: timestamp
+```
+
+The decision is retained evidence for one activation-bootstrap proposal. Its
+effect hash is recomputed from the exact proposal effect; copied or unrelated
+wallet evidence cannot authorize a successor.
+
+### AutonomousSystemActivationStateEnvelope
+
+```yaml
+AutonomousSystemActivationStateEnvelope:
+  schema_version: ioi.autonomous-system-activation-state.v1
+  activation_state_ref: system-activation-state://...
+  activation_state_root: sha256:...
+  system_id: system://...
+  sequence: 1 | 2
+  status: initialized | active
+  predecessor_state_root: sha256:...
+  active_profile_set_ref: active-profile-set://... | null
+  active_profile_set_root: sha256:... | null
+  transition_ref: lifecycle-transition://...
+  transition_root: sha256:...
+  transition_receipt_ref: receipt://...
+  transition_receipt_root: sha256:...
+  chain_ref: autonomous-system-chain://... | null
+  live_chain_created: boolean
+```
+
+The semantic `activation_state_root` excludes transition, receipt, and chain
+navigation fields. It commits only predecessor, sequence, status, exact
+profile-admission coordinates, and the explicit no-membership/no-runtime/
+no-network posture. That exclusion is intentional: downstream evidence may
+point back to the state, but the state root never points forward to evidence
+whose root depends on it.
+
+### AutonomousSystemActiveProfileSetEnvelope
+
+```yaml
+AutonomousSystemActiveProfileSetEnvelope:
+  schema_version: ioi.autonomous-system-active-profile-set.v1
+  active_profile_set_ref: active-profile-set://...
+  active_profile_set_root: sha256:...
+  system_id: system://...
+  genesis_ref: genesis://...
+  profile_bundle_root: sha256:...
+  constitution: { candidate_profile_ref, candidate_profile_root, admitted_posture: active }
+  deployment: { candidate_profile_ref, candidate_profile_root, admitted_posture: active }
+  ordering_admission_finality: { candidate_profile_ref, candidate_profile_root, admitted_posture: active }
+  oracle_evidence_profiles: []
+  lifecycle_continuity: { candidate_profile_ref, candidate_profile_root, admitted_posture: active }
+  network_enrollment: { candidate_profile_ref, candidate_profile_root, admitted_posture: local_only } | null
+  activation_transition_ref: lifecycle-transition://...
+  activation_receipt_ref: receipt://...
+  status: active
+```
+
+This set is the activation admission evidence. It does not mutate or relabel
+the M1.3 candidate bodies. Required cardinality is structural: exactly one
+constitution, deployment, ordering/admission/finality, and lifecycle entry;
+oracle entries may repeat only as distinct immutable objects; network
+enrollment is absent or one `local_only` candidate. Its semantic root excludes
+the downstream transition and receipt navigation refs.
+
+### LifecycleTransitionReceiptEnvelope
+
+```yaml
+LifecycleTransitionReceiptEnvelope:
+  schema_version: ioi.lifecycle-transition-receipt.v1
+  receipt_ref: receipt://...
+  receipt_type: lifecycle_transition
+  op: initialize | pause | resume | suspend | reinstate | enter_dormancy | wake | begin_recovery | complete_recovery | quarantine | release_quarantine | retire | archive | revoke | decommission
+  sequence: positive_integer
+  bound_facts:
+    operation_commitment: sha256:...
+    proposal_ref: proposal://...
+    proposal_root: sha256:...
+    decision_ref: decision://...
+    decision_root: sha256:...
+    transition_root: sha256:...
+    predecessor_state_root: sha256:...
+    resulting_state_root: sha256:...
+    chain_ref: autonomous-system-chain://... | null
+    live_chain_created: false
+  authority_evidence_ref: system-lifecycle-authority-evidence://...
+  authority_evidence_root: sha256:...
+  wallet_grant_consumption_ref: wallet.network://approval-effect-consumption/...
+  required_scope: scope:autonomous_system.lifecycle.<operation>
+```
+
+The generic receipt is not frozen to bootstrap. Its `initialize` branch is
+closed at sequence one and additionally binds the exact M1.3/M1.4 source,
+content-addressed deployment revision, intrinsic policy/module coordinates,
+and null active-set/chain posture. Later protected lifecycle branches retain
+the closed transition/state/authority core at sequence three or later. Shape
+does not admit any later authority. Migration, succession, dissolution,
+constitutional amendment, and network enrollment retain their named receipt
+owners.
+
+The portable receipt proves its closed receipt identity, operation, sequence,
+scope, effect hash, boundary-fact coverage, and the exact proposal, decision,
+transition, predecessor, resulting-state, and authority-consumption tuple. It
+does not carry the complete operation-owner material needed to recompute the
+logical `operation_commitment` in isolation. For the fixed M1.5a prefix, the
+compiler therefore reconstructs that commitment from the proposal's exact
+authority effect and cross-checks the same value through decision, transition,
+receipt, and operation-log entry. Receipt shape alone never admits an
+operation.
+
+### AutonomousSystemActivationReceiptEnvelope
+
+```yaml
+AutonomousSystemActivationReceiptEnvelope:
+  schema_version: ioi.autonomous-system-activation-receipt.v1
+  receipt_ref: receipt://...
+  receipt_type: autonomous_system_activation
+  op: activate
+  sequence: 2
+  bound_facts:
+    exact_m1_3_m1_4_and_deployment_coordinates: closed
+    home_domain_binding_ref: system-home-domain-binding://.../sha256:...
+    home_domain_binding_root: sha256:...
+    operation_commitment: sha256:...
+    transition_ref: lifecycle-transition://...
+    transition_root: sha256:...
+    predecessor_state_root: sha256:...
+    resulting_state_root: sha256:...
+    active_profile_set_ref: active-profile-set://...
+    active_profile_set_root: sha256:...
+    chain_ref: autonomous-system-chain://...
+    live_chain_created: true
+```
+
+The specialized activation receipt is the admission boundary that turns the
+exact draft constitution and candidate profiles into the first active-profile
+evidence. It may bind the deterministic chain ref, but never `chain_root`: the
+chain and operation-log roots are derived only after the receipt root exists.
+
+The commitment DAG is normative and machine-contracted: converged M1.4
+materialization is committed sequence `0` and the predecessor head;
+initialize derives semantic sequence-`1` state from that head, then derives
+its transition and portable receipt; activate derives the semantic active
+profile set, then sequence-`2` state from the exact sequence-`1` root, then
+derives its transition and receipt; only then is the live chain and chain root
+derived from sequence `0`, both committed transitions/states/receipts, and the
+exact active profiles. No earlier root includes a downstream root.
+
+### AutonomousSystemOperationLogEnvelope
+
+```yaml
+AutonomousSystemOperationLogEnvelope:
+  schema_version: ioi.autonomous-system-operation-log.v1
+  operation_log_ref: agentgres://operation-log/autonomous-system/.../revision/sha256:...
+  operation_log_root: sha256:...
+  predecessor_operation_log_ref: agentgres://operation-log/autonomous-system/.../revision/sha256:... | null
+  predecessor_operation_log_root: sha256:... | null
+  snapshot_kind: activation_prefix
+  system_id: system://...
+  genesis_ref: genesis://...
+  home_domain_ref: agentgres://domain/autonomous-system/.../sha256:...
+  home_domain_commitment: sha256:...
+  home_domain_binding_ref: system-home-domain-binding://.../sha256:...
+  home_domain_binding_root: sha256:...
+  policy_root: sha256:...
+  module_registry_root: sha256:...
+  upgrade_policy_ref: policy://...
+  activation_prefix:
+    sequence_zero: exact_committed_m1_4_entry
+    sequence_one: exact_committed_initialize_entry
+    sequence_two: exact_committed_activate_entry
+  entries:
+    - { sequence: 0, entry_kind: sequence_zero_materialization, operation_owner_profile_ref: schema://..., operation_owner_ref: system-materialization://..., operation_owner_root: sha256:..., ... }
+    - { sequence: 1, entry_kind: system_initialization, operation_owner_profile_ref: schema://..., operation_owner_ref: lifecycle-transition://..., operation_owner_root: sha256:..., ... }
+    - { sequence: 2, entry_kind: system_activation, operation_owner_profile_ref: schema://..., operation_owner_ref: lifecycle-transition://..., operation_owner_root: sha256:..., ... }
+  head_entry: exact_latest_entry
+  latest_sequence: nonnegative_integer
+  latest_operation_commitment: sha256:...
+  latest_transition_commitment_ref: transition://... | null
+  latest_transition_ref: lifecycle-transition://... | null
+  latest_transition_root: sha256:... | null
+  latest_receipt_ref: receipt://...
+  latest_receipt_root: sha256:...
+  latest_state_ref: URI | null
+  latest_state_root: sha256:... | null
+  status: committed
+  created_at: timestamp
+```
+
+This is the one canonical System operation-log owner. The M1.5a contract is an
+immutable content-addressed activation-prefix revision and admits only the
+exact sequence-zero, initialize, and activate entries `0/1/2`. It never mutates
+prior evidence. Successor-revision schema evolution is deliberately deferred:
+before any protected M1.5 operation is admitted, that operation owner's
+contract, compiler, and replay path must define and reconstruct append-only
+contiguity against this predecessor log and prove that the successor head is
+the terminal appended entry. This cut implements no generic successor shape or
+later lifecycle authority.
+
+The activation prefix is fully closed. Sequence zero carries the M1.4
+operational commitment; initialize and activate carry no
+`StateTransitionCommitment`, because their continuity is supplied by exact
+predecessor/resulting state roots, transition roots, and portable receipts.
+The first active head therefore has `latest_transition_commitment_ref: null`.
+`upgrade_policy_ref` is inherited exactly from the admitted constitution; its
+presence binds the governing policy and does not perform an upgrade.
+
 ### LifecycleTransitionEnvelope
 
 ```yaml
@@ -2365,6 +2669,7 @@ LifecycleTransitionEnvelope:
   challenge_closes_at: timestamp | null
   predecessor_state_root: hash
   resulting_state_root: hash | null
+  operation_commitment: hash | null
   state_transition_commitment_ref: transition://... | null
   lineage_ref: provenance://... | null
   identity_continuity_decision_ref: decision://... | null
@@ -2381,10 +2686,18 @@ The genesis object and lifecycle projection may not disagree: only an admitted
 lifecycle transition changes whether the system is initialized or active.
 
 A `proposed` lifecycle transition carries no decision, authority grant,
-resulting state root, transition commitment, disposition receipt, transition
+resulting state root, logical operation commitment, M2 state-transition
+commitment, disposition receipt, transition
 receipt, or public commitment. A `committed` transition requires a decision,
-at least one authority grant, the resulting state root, the transition
-commitment, and at least one receipt. Public settlement remains optional.
+at least one authority grant, the resulting state root, a non-null logical
+`operation_commitment`, and at least one receipt. Committed `initialize` and
+`activate` transitions require `state_transition_commitment_ref: null`: their
+M1 continuity is the exact predecessor/resulting state roots, logical operation
+commitment, transition root, and portable receipt. Other protected M1.5
+transitions may also commit before M2 with that field null. A non-null
+`state_transition_commitment_ref` is present only when the separately owned M2
+membership/writer/finality contract actually exists; schema shape never claims
+that authority. Public settlement remains optional.
 
 Migration preserves `system_id` and therefore sets
 `resulting_or_related_system_id` to the same identity. A fork mints a different
@@ -2462,45 +2775,86 @@ connected or secured enrollment also requires non-empty authority-grant and
 transition-receipt refs. An active secured enrollment additionally requires
 non-empty conformance receipts.
 
+### AutonomousSystemChainEnvelope
+
 ```yaml
 AutonomousSystemChainEnvelope:
   schema_version: ioi.autonomous-system-chain.v1
+  chain_ref: autonomous-system-chain://...
+  chain_root: sha256:...
   system_id: system://...
-  home_domain_ref: domain://...
+  home_domain_ref: agentgres://domain/autonomous-system/.../sha256:...
+  home_domain_binding_ref: system-home-domain-binding://.../sha256:...
+  home_domain_binding_root: sha256:...
   governance_owner_refs: []
   genesis_ref: genesis://...
+  genesis_admission_record_root: sha256:...
   package_id: package://...
   manifest_ref: package://.../release/...
+  admitted_manifest_root: sha256:...
   constitution_ref: constitution://...
-  deployment_profile_ref: deployment-profile://...
+  constitution_root: sha256:...
+  deployment_profile_ref: deployment-profile://.../revision/sha256:...
+  deployment_profile_root: sha256:...
   ordering_admission_finality_profile_ref: ordering-profile://...
   oracle_evidence_profile_refs: []
   lifecycle_continuity_profile_ref: lifecycle-profile://...
   network_enrollment_ref: network-enrollment://... | null
+  active_profile_set_ref: active-profile-set://...
+  active_profile_set_root: sha256:...
   node_membership_refs: []
-  node_membership_root: hash
+  node_membership_root: sha256:...
   active_writer_epoch: nonnegative_integer | null
   latest_sequence: nonnegative_integer
-  latest_transition_commitment_ref: commitment://...
+  latest_operation_commitment: sha256:...
+  latest_transition_commitment_ref: transition://... | null
+  latest_transition_id: lifecycle-transition://...
+  latest_transition_root: sha256:...
+  latest_receipt_ref: receipt://...
+  latest_receipt_root: sha256:...
+  latest_state_ref: system-activation-state://...
+  latest_state_root: sha256:...
   worker_instance_refs: []
   workflow_refs: []
-  active_component_registry_ref: agentgres://object-set/... | null
-  active_component_registry_root: hash
-  policy_root: hash
-  module_registry_root: hash
-  proposal_queue_root: hash
-  operation_log_ref: agentgres://...
-  latest_state_root: hash
-  latest_receipt_root: hash
-  latest_transition_id: transition://...
+  active_component_registry_ref: agentgres://object-set/autonomous-system-components/sha256:...
+  active_component_registry_root: sha256:...
+  policy_root: sha256:...
+  module_registry_root: sha256:...
+  pending_proposal_refs: []
+  proposal_queue_root: sha256:...
+  operation_log_ref: agentgres://operation-log/autonomous-system/.../revision/sha256:...
+  operation_log_root: sha256:...
   upgrade_policy_ref: policy://...
-  settlement_policy_ref: policy://...
-  default_settlement_mode: local_domain | bilateral | invoice | external_escrow | external_chain | ioi_l1
+  settlement_policy_ref: policy://... | null
+  default_settlement_mode: local_domain | bilateral | invoice | external_escrow | external_chain | ioi_l1 | null
   allowed_settlement_modes: []
   settlement_profile_refs: []
   public_commitment_policy_ref: policy://... | null
   status: draft | initialized | active | degraded | paused | suspended | dormant | recovering | quarantined | succession_pending | successor_governed | dissolution_pending | dissolving | dissolved | retired | archived | decommissioned | revoked
+  created_at: timestamp
 ```
+
+The chain is compact and cross-stage: the canonical operation log exclusively
+owns ordered history, while the chain carries only current identity/profile/
+component coordinates and the compact latest operation, transition, receipt,
+and state head. Replay must load and reconstruct the exact log revision and
+cross-check its head against these latest fields.
+
+The first `active` chain proves constitutional and logical continuity only. It
+intrinsically binds the admitted home-domain owner, the exact immutable
+operation-log activation prefix, the M1.3 ordering/admission/finality
+`policy_root`, a domain-separated empty module-registry root, and the
+constitution's `ordinary_upgrade_policy_ref`. Binding that policy performs no
+upgrade. Its membership, worker, workflow, pending-proposal, settlement, and
+public-commitment collections are empty; writer epoch, M2
+`StateTransitionCommitment`, settlement policy, and public-commitment policy
+are null. Those typed coordinates, not a second Boolean posture object, state
+the M1.5a nonclaims.
+
+The v1 chain is not activation-frozen. Later admitted owners may advance
+membership, writer, modules, proposals, enrollment, settlement, and transition
+commitments while retaining this same contract. Initial empty/null facts are
+proved by the M1.5a compiler rather than global schema invariants.
 
 `system_id` remains stable across package releases, node replacement, failover,
 migration, and legal/governance succession. Member nodes act for the system only

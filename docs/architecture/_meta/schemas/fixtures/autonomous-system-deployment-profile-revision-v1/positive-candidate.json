@@ -1,0 +1,42 @@
+{
+  "schema_version": "ioi.autonomous-system-deployment-profile-revision.v1",
+  "deployment_profile_ref": "deployment-profile://acme/system-alpha/local/revision/sha256:7f0a7ac7f62cd3694fa16b0498e187e9574372f47a67a26f2a4ef192190b7796",
+  "deployment_profile_root": "sha256:7f0a7ac7f62cd3694fa16b0498e187e9574372f47a67a26f2a4ef192190b7796",
+  "profile": {
+    "schema_version": "ioi.autonomous-system-deployment-profile.v1",
+    "deployment_profile_id": "deployment-profile://acme/system-alpha/local",
+    "system_id": "system://acme/system-alpha",
+    "constitution_ref": "constitution://acme/system-alpha/v1",
+    "manifest_ref": "package://acme/system-alpha/release/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "version": "1.0.0",
+    "environment_class": "development",
+    "environment_and_custody_profile_ref": "policy://acme/environment/local",
+    "ordering_admission_finality_profile_ref": "ordering-profile://acme/system-alpha/single-authority-v1",
+    "role_requirements": [],
+    "state_distribution": {
+      "operation_log_replication_factor": 1,
+      "projection_replication_factor": 1,
+      "artifact_replication_factor": 1,
+      "minimum_ack_durability": "device_flush",
+      "consistency_and_read_watermark_policy_ref": "policy://acme/read-watermark/local",
+      "checkpoint_policy_ref": "policy://acme/checkpoint/local",
+      "catchup_policy_ref": "policy://acme/catchup/local"
+    },
+    "scaling": {
+      "mode": "manual",
+      "scaling_policy_ref": "policy://acme/scaling/manual",
+      "eligible_automatic_roles": [],
+      "authority_role_changes": "governed_only",
+      "rebalance_policy_ref": "policy://acme/rebalance/manual"
+    },
+    "membership_policy_ref": "policy://acme/membership/local",
+    "failover_profile_ref": "failover-profile://acme/system-alpha/local-v1",
+    "partition_and_degraded_mode_policy_ref": "policy://acme/partition/fail-closed",
+    "restore_policy_ref": "policy://acme/restore/local",
+    "rollout_policy_ref": "policy://acme/rollout/manual",
+    "rollback_policy_ref": "policy://acme/rollback/manual",
+    "drain_and_removal_policy_ref": "policy://acme/drain/manual",
+    "receipt_obligations": [],
+    "status": "draft"
+  }
+}

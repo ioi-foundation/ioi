@@ -1,0 +1,35 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-activation-state/root/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-activation-state/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_activation_state.root.recomputes",
+      "description": "The semantic lifecycle-state root binds predecessor, sequence, status, and admitted profile coordinates. Downstream transition, receipt, and navigation fields are deliberately excluded so the commitment graph is acyclic.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.autonomous-system-activation-state-jcs-sha256.v1" },
+          "activation_state_ref": { "path": "$.activation_state_ref" },
+          "system_id": { "path": "$.system_id" },
+          "genesis_ref": { "path": "$.genesis_ref" },
+          "manifest_ref": { "path": "$.manifest_ref" },
+          "admitted_manifest_root": { "path": "$.admitted_manifest_root" },
+          "lifecycle_profile_ref": { "path": "$.lifecycle_profile_ref" },
+          "sequence": { "path": "$.sequence" },
+          "status": { "path": "$.status" },
+          "predecessor_state_root": { "path": "$.predecessor_state_root" },
+          "active_profile_set_ref": { "path": "$.active_profile_set_ref" },
+          "active_profile_set_root": { "path": "$.active_profile_set_root" },
+          "live_chain_created": { "path": "$.live_chain_created" },
+          "node_membership_refs": { "path": "$.node_membership_refs" },
+          "runtime_effect_admitted": { "path": "$.runtime_effect_admitted" },
+          "network_effect_admitted": { "path": "$.network_effect_admitted" }
+        },
+        "expected_path": "$.activation_state_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

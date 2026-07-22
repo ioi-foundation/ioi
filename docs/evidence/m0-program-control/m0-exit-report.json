@@ -1,21 +1,20 @@
 {
   "architecture_or_production_capability_closure": false,
-  "as_of_date": "2026-07-21",
+  "as_of_date": "2026-07-22",
   "assurance_posture": {
     "accepted_head_currentness": "not_established",
+    "authorship_binding": "self_declared_label_unsigned",
     "chain_integrity_within_snapshot": "verified",
     "coherent_snapshot_rollback_resistance": "not_established",
     "repository_baseline_present": true,
-    "signature_key_possession": "verified",
-    "signer_principal_isolation": "not_established",
     "snapshot_head_binding": "verified"
   },
-  "build_fingerprint": "7388bf2fc0ca5bbf435d30ba223827ac1d5a0da3faa928d5abc8d52e6191d7f8",
+  "build_fingerprint": "3c284061b4553b38eec6d4b3e4d9055612766c621a7e9e2392e4c14f86adb9d7",
   "census_counts": {
-    "consequential": 967,
-    "partial_consequential": 949,
+    "consequential": 971,
+    "partial_consequential": 953,
     "terminal_consequential": 0,
-    "total": 1541,
+    "total": 1545,
     "unavailable_consequential": 18
   },
   "claim_scope": "M0 program control and claim lock only",
@@ -39,7 +38,7 @@
     "M0 does not close any architecture production-status claim.",
     "M0 does not provide runtime capability, authority, product UX, or a canonical wire contract.",
     "Ignored internal sequencing and PG inputs are external operator pointers, not read, hashed, or bound evidence.",
-    "The repository does not establish signer-principal isolation; the signed reviewer_id is a self-declared label only.",
+    "The review anchor is development-workflow integrity evidence only: an unsigned hash chain with a self-declared reviewer label. It carries no cryptographic authorship and is not part of the bounded agency framework's authority model (wallet-network grants, sealed intents, receipts).",
     "The repository does not establish that the accepted snapshot head is current without an outside rollback-domain checkpoint.",
     "The repository does not establish resistance to rollback between internally coherent supplied snapshots."
   ],

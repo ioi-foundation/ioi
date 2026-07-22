@@ -1,0 +1,98 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-chain/continuity/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_chain.root.recomputes",
+      "description": "The compact chain root binds current identity, profiles, components, latest-head coordinates, owner roots, and status without duplicating operation-log history or freezing the activation posture.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.autonomous-system-chain-jcs-sha256.v1" },
+          "chain_ref": { "path": "$.chain_ref" },
+          "system_id": { "path": "$.system_id" },
+          "home_domain_ref": { "path": "$.home_domain_ref" },
+          "home_domain_binding_ref": { "path": "$.home_domain_binding_ref" },
+          "home_domain_binding_root": { "path": "$.home_domain_binding_root" },
+          "governance_owner_refs": { "path": "$.governance_owner_refs" },
+          "genesis_ref": { "path": "$.genesis_ref" },
+          "genesis_admission_record_root": { "path": "$.genesis_admission_record_root" },
+          "package_id": { "path": "$.package_id" },
+          "manifest_ref": { "path": "$.manifest_ref" },
+          "admitted_manifest_root": { "path": "$.admitted_manifest_root" },
+          "constitution_ref": { "path": "$.constitution_ref" },
+          "constitution_root": { "path": "$.constitution_root" },
+          "deployment_profile_ref": { "path": "$.deployment_profile_ref" },
+          "deployment_profile_root": { "path": "$.deployment_profile_root" },
+          "ordering_admission_finality_profile_ref": { "path": "$.ordering_admission_finality_profile_ref" },
+          "oracle_evidence_profile_refs": { "path": "$.oracle_evidence_profile_refs" },
+          "lifecycle_continuity_profile_ref": { "path": "$.lifecycle_continuity_profile_ref" },
+          "network_enrollment_ref": { "path": "$.network_enrollment_ref" },
+          "active_profile_set_ref": { "path": "$.active_profile_set_ref" },
+          "active_profile_set_root": { "path": "$.active_profile_set_root" },
+          "node_membership_refs": { "path": "$.node_membership_refs" },
+          "node_membership_root": { "path": "$.node_membership_root" },
+          "active_writer_epoch": { "path": "$.active_writer_epoch" },
+          "latest_sequence": { "path": "$.latest_sequence" },
+          "latest_operation_commitment": { "path": "$.latest_operation_commitment" },
+          "latest_transition_commitment_ref": { "path": "$.latest_transition_commitment_ref" },
+          "latest_transition_id": { "path": "$.latest_transition_id" },
+          "latest_transition_root": { "path": "$.latest_transition_root" },
+          "latest_receipt_ref": { "path": "$.latest_receipt_ref" },
+          "latest_receipt_root": { "path": "$.latest_receipt_root" },
+          "latest_state_ref": { "path": "$.latest_state_ref" },
+          "latest_state_root": { "path": "$.latest_state_root" },
+          "worker_instance_refs": { "path": "$.worker_instance_refs" },
+          "workflow_refs": { "path": "$.workflow_refs" },
+          "active_component_registry_ref": { "path": "$.active_component_registry_ref" },
+          "active_component_registry_root": { "path": "$.active_component_registry_root" },
+          "policy_root": { "path": "$.policy_root" },
+          "module_registry_root": { "path": "$.module_registry_root" },
+          "pending_proposal_refs": { "path": "$.pending_proposal_refs" },
+          "proposal_queue_root": { "path": "$.proposal_queue_root" },
+          "operation_log_ref": { "path": "$.operation_log_ref" },
+          "operation_log_root": { "path": "$.operation_log_root" },
+          "upgrade_policy_ref": { "path": "$.upgrade_policy_ref" },
+          "settlement_policy_ref": { "path": "$.settlement_policy_ref" },
+          "default_settlement_mode": { "path": "$.default_settlement_mode" },
+          "allowed_settlement_modes": { "path": "$.allowed_settlement_modes" },
+          "settlement_profile_refs": { "path": "$.settlement_profile_refs" },
+          "public_commitment_policy_ref": { "path": "$.public_commitment_policy_ref" },
+          "status": { "path": "$.status" }
+        },
+        "expected_path": "$.chain_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_chain.membership_root.recomputes",
+      "description": "The membership root binds the exact observed membership refs, including the honest empty activation set.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.autonomous-system-node-membership-root-jcs-sha256.v1" },
+          "node_membership_refs": { "path": "$.node_membership_refs" }
+        },
+        "expected_path": "$.node_membership_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_chain.proposal_queue_root.recomputes",
+      "description": "The proposal queue root binds the current pending proposal refs; the first active chain starts with an honest empty queue.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.autonomous-system-proposal-queue-root-jcs-sha256.v1" },
+          "pending_proposal_refs": { "path": "$.pending_proposal_refs" }
+        },
+        "expected_path": "$.proposal_queue_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

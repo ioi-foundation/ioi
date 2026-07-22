@@ -1,0 +1,31 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-active-profile-set/admission/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_active_profile_set.root.recomputes",
+      "description": "The semantic active-set root binds exact candidate admissions while excluding downstream transition, receipt, and wall-clock navigation fields.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.autonomous-system-active-profile-set-jcs-sha256.v1" },
+          "active_profile_set_ref": { "path": "$.active_profile_set_ref" },
+          "system_id": { "path": "$.system_id" },
+          "genesis_ref": { "path": "$.genesis_ref" },
+          "profile_bundle_root": { "path": "$.profile_bundle_root" },
+          "constitution": { "path": "$.constitution" },
+          "deployment": { "path": "$.deployment" },
+          "ordering_admission_finality": { "path": "$.ordering_admission_finality" },
+          "oracle_evidence_profiles": { "path": "$.oracle_evidence_profiles" },
+          "lifecycle_continuity": { "path": "$.lifecycle_continuity" },
+          "network_enrollment": { "path": "$.network_enrollment" },
+          "status": { "path": "$.status" }
+        },
+        "expected_path": "$.active_profile_set_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

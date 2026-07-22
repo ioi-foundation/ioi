@@ -24,6 +24,7 @@ use agentgres::replica::ReplicaLink;
 use agentgres::{parse_rfc3339_ms, AdmitAck, Operation, Refusal};
 use axum::{extract::State, Json};
 use serde_json::{json, Value};
+use sha2::Digest;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 
@@ -41,6 +42,19 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-sequence-zero-materialization-receipts",
     "autonomous-system-sequence-zero-component-registries",
     "autonomous-system-sequence-zero-authority-consumptions",
+    "autonomous-system-deployment-profile-revisions",
+    "autonomous-system-lifecycle-authority-evidence",
+    "autonomous-system-lifecycle-authority-consumptions",
+    "autonomous-system-lifecycle-proposals",
+    "autonomous-system-lifecycle-authority-decisions",
+    "autonomous-system-lifecycle-transitions",
+    "autonomous-system-initialize-transition-receipts",
+    "autonomous-system-activation-receipts",
+    "autonomous-system-activation-states",
+    "autonomous-system-active-profile-sets",
+    "autonomous-system-home-bindings",
+    "autonomous-system-operation-log-revisions",
+    "autonomous-system-chain-revisions",
 ];
 
 static HANDLE: OnceLock<Option<MuxHandle>> = OnceLock::new();
@@ -149,8 +163,232 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         "autonomous-system-sequence-zero-authority-consumptions" => {
             unreachable!("wallet consumption identity is validated from its 32-byte field")
         }
+        "autonomous-system-deployment-profile-revisions" => (
+            "deployment_profile_root",
+            format!("sha256:{}", record_id.strip_prefix("asdpr_").unwrap_or("")),
+        ),
+        "autonomous-system-lifecycle-authority-evidence" => (
+            "authority_evidence_ref",
+            format!("system-lifecycle-authority-evidence://{record_id}"),
+        ),
+        "autonomous-system-lifecycle-proposals" => (
+            "proposal_root",
+            format!("sha256:{}", record_id.strip_prefix("aslp_").unwrap_or("")),
+        ),
+        "autonomous-system-lifecycle-authority-decisions" => (
+            "decision_root",
+            format!("sha256:{}", record_id.strip_prefix("aslad_").unwrap_or("")),
+        ),
+        "autonomous-system-activation-states" => (
+            "activation_state_root",
+            format!("sha256:{}", record_id.strip_prefix("asls_").unwrap_or("")),
+        ),
+        "autonomous-system-active-profile-sets" => (
+            "active_profile_set_root",
+            format!("sha256:{}", record_id.strip_prefix("asaps_").unwrap_or("")),
+        ),
+        "autonomous-system-home-bindings" => (
+            "home_domain_binding_root",
+            format!("sha256:{}", record_id.strip_prefix("ashdb_").unwrap_or("")),
+        ),
+        "autonomous-system-operation-log-revisions" => (
+            "operation_log_root",
+            format!("sha256:{}", record_id.strip_prefix("asol_").unwrap_or("")),
+        ),
+        "autonomous-system-chain-revisions" => (
+            "chain_root",
+            format!("sha256:{}", record_id.strip_prefix("asc_").unwrap_or("")),
+        ),
+        "autonomous-system-lifecycle-authority-consumptions"
+        | "autonomous-system-lifecycle-transitions"
+        | "autonomous-system-initialize-transition-receipts"
+        | "autonomous-system-activation-receipts" => {
+            unreachable!("identity is validated by the family-specific branch")
+        }
         _ => unreachable!("required-admission domains are exhaustively matched"),
     }
+}
+
+fn jcs_root(material: &Value) -> std::io::Result<String> {
+    Ok(format!(
+        "sha256:{}",
+        hex::encode(sha2::Sha256::digest(
+            serde_jcs::to_vec(material).map_err(std::io::Error::other)?
+        ))
+    ))
+}
+
+fn fields_material(record: &Value, domain: &str, fields: &[&str]) -> std::io::Result<Value> {
+    let mut material = serde_json::Map::new();
+    material.insert("domain".to_owned(), json!(domain));
+    for field in fields {
+        material.insert(
+            (*field).to_owned(),
+            record.get(*field).cloned().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("required Agentgres record lacks '{field}'"),
+                )
+            })?,
+        );
+    }
+    Ok(Value::Object(material))
+}
+
+fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::Result<()> {
+    let (root_field, material) = match record_dir {
+        "autonomous-system-deployment-profile-revisions" => (
+            "deployment_profile_root",
+            json!({
+                "domain":"ioi.autonomous-system-deployment-profile-revision-jcs-sha256.v1",
+                "profile":record.get("profile").cloned().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "deployment revision lacks profile"))?,
+            }),
+        ),
+        "autonomous-system-lifecycle-authority-evidence" => {
+            let mut evidence = record.clone();
+            evidence["authority_evidence_ref"] = Value::Null;
+            evidence["authority_evidence_root"] = Value::Null;
+            (
+                "authority_evidence_root",
+                json!({"domain":"ioi.hypervisor.system-lifecycle-authority-evidence-jcs-sha256.v1","evidence":evidence}),
+            )
+        }
+        "autonomous-system-lifecycle-proposals" => {
+            let mut material = record.as_object().cloned().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "proposal is not an object",
+                )
+            })?;
+            material.remove("schema_version");
+            material.remove("proposal_root");
+            material.insert(
+                "domain".to_owned(),
+                json!("ioi.autonomous-system-activation-proposal-jcs-sha256.v1"),
+            );
+            ("proposal_root", Value::Object(material))
+        }
+        "autonomous-system-lifecycle-authority-decisions" => {
+            let mut material = record.as_object().cloned().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "decision is not an object",
+                )
+            })?;
+            material.remove("schema_version");
+            material.remove("decision_root");
+            material.insert(
+                "domain".to_owned(),
+                json!("ioi.autonomous-system-activation-authority-decision-jcs-sha256.v1"),
+            );
+            ("decision_root", Value::Object(material))
+        }
+        "autonomous-system-activation-states" => (
+            "activation_state_root",
+            fields_material(
+                record,
+                "ioi.autonomous-system-activation-state-jcs-sha256.v1",
+                &[
+                    "activation_state_ref",
+                    "system_id",
+                    "genesis_ref",
+                    "manifest_ref",
+                    "admitted_manifest_root",
+                    "lifecycle_profile_ref",
+                    "sequence",
+                    "status",
+                    "predecessor_state_root",
+                    "active_profile_set_ref",
+                    "active_profile_set_root",
+                    "live_chain_created",
+                    "node_membership_refs",
+                    "runtime_effect_admitted",
+                    "network_effect_admitted",
+                ],
+            )?,
+        ),
+        "autonomous-system-active-profile-sets" => (
+            "active_profile_set_root",
+            fields_material(
+                record,
+                "ioi.autonomous-system-active-profile-set-jcs-sha256.v1",
+                &[
+                    "active_profile_set_ref",
+                    "system_id",
+                    "genesis_ref",
+                    "profile_bundle_root",
+                    "constitution",
+                    "deployment",
+                    "ordering_admission_finality",
+                    "oracle_evidence_profiles",
+                    "lifecycle_continuity",
+                    "network_enrollment",
+                    "status",
+                ],
+            )?,
+        ),
+        "autonomous-system-home-bindings" => (
+            "home_domain_binding_root",
+            fields_material(
+                record,
+                "ioi.autonomous-system-home-domain-binding-jcs-sha256.v1",
+                &[
+                    "system_id",
+                    "genesis_ref",
+                    "home_domain_ref",
+                    "home_domain_commitment",
+                    "source_governing_authority_ref",
+                    "source_genesis_admission_receipt_ref",
+                    "source_genesis_admission_receipt_root",
+                    "source_sequence_zero_materialization_ref",
+                    "source_sequence_zero_materialization_root",
+                    "source_sequence_zero_receipt_ref",
+                    "source_sequence_zero_receipt_root",
+                    "source_sequence_zero_receipt_artifact_root",
+                    "status",
+                ],
+            )?,
+        ),
+        "autonomous-system-operation-log-revisions" => {
+            let mut material = record.as_object().cloned().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "operation log is not an object",
+                )
+            })?;
+            material.remove("schema_version");
+            material.remove("operation_log_ref");
+            material.remove("operation_log_root");
+            material.insert(
+                "domain".to_owned(),
+                json!("ioi.autonomous-system-operation-log-jcs-sha256.v1"),
+            );
+            ("operation_log_root", Value::Object(material))
+        }
+        "autonomous-system-chain-revisions" => {
+            let mut material = record.as_object().cloned().ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidInput, "chain is not an object")
+            })?;
+            material.remove("schema_version");
+            material.remove("chain_root");
+            material.remove("created_at");
+            material.insert(
+                "domain".to_owned(),
+                json!("ioi.autonomous-system-chain-jcs-sha256.v1"),
+            );
+            ("chain_root", Value::Object(material))
+        }
+        _ => return Ok(()),
+    };
+    if record.get(root_field).and_then(Value::as_str) != Some(jcs_root(&material)?.as_str()) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!(
+                "required Agentgres '{root_field}' does not recompute from exact embedded content"
+            ),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_required_identity(
@@ -166,6 +404,19 @@ fn validate_required_identity(
         "autonomous-system-sequence-zero-materialization-receipts" => "aszmr_",
         "autonomous-system-sequence-zero-component-registries" => "aszcr_",
         "autonomous-system-sequence-zero-authority-consumptions" => "aszmc_",
+        "autonomous-system-deployment-profile-revisions" => "asdpr_",
+        "autonomous-system-lifecycle-authority-evidence" => "aslae_",
+        "autonomous-system-lifecycle-authority-consumptions" => "aslac_",
+        "autonomous-system-lifecycle-proposals" => "aslp_",
+        "autonomous-system-lifecycle-authority-decisions" => "aslad_",
+        "autonomous-system-lifecycle-transitions" => "aslt_",
+        "autonomous-system-initialize-transition-receipts" => "asltr_",
+        "autonomous-system-activation-receipts" => "asar_",
+        "autonomous-system-activation-states" => "asls_",
+        "autonomous-system-active-profile-sets" => "asaps_",
+        "autonomous-system-home-bindings" => "ashdb_",
+        "autonomous-system-operation-log-revisions" => "asol_",
+        "autonomous-system-chain-revisions" => "asc_",
         _ => unreachable!("required-admission domains are exhaustively matched"),
     };
     if !record_id.strip_prefix(required_prefix).is_some_and(|tail| {
@@ -185,6 +436,7 @@ fn validate_required_identity(
         record_dir,
         "autonomous-system-genesis-authority-consumptions"
             | "autonomous-system-sequence-zero-authority-consumptions"
+            | "autonomous-system-lifecycle-authority-consumptions"
     ) {
         let encoded_id = record_id
             .strip_prefix(required_prefix)
@@ -205,9 +457,50 @@ fn validate_required_identity(
         }
         return Ok(());
     }
+    if matches!(
+        record_dir,
+        "autonomous-system-lifecycle-transitions"
+            | "autonomous-system-initialize-transition-receipts"
+            | "autonomous-system-activation-receipts"
+    ) {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let (domain, identity_field) = match record_dir {
+            "autonomous-system-lifecycle-transitions" => (
+                "ioi.autonomous-system-lifecycle-transition-jcs-sha256.v1",
+                "lifecycle_transition_id",
+            ),
+            "autonomous-system-initialize-transition-receipts" => (
+                "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1",
+                "receipt_ref",
+            ),
+            "autonomous-system-activation-receipts" => (
+                "ioi.autonomous-system-activation-receipt-artifact-jcs-sha256.v1",
+                "receipt_ref",
+            ),
+            _ => unreachable!(),
+        };
+        if record.get(identity_field).and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("required Agentgres record lacks '{identity_field}'"),
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({"domain": domain, "artifact": record}))
+            .map_err(std::io::Error::other)?;
+        let root = sha2::Sha256::digest(bytes);
+        if hex::encode(root) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the embedded artifact root",
+            ));
+        }
+        return Ok(());
+    }
     let (identity_field, expected_identity) = required_identity(record_dir, record_id);
     if record.get(identity_field).and_then(Value::as_str) == Some(expected_identity.as_str()) {
-        return Ok(());
+        return validate_embedded_content_root(record_dir, record);
     }
     Err(std::io::Error::new(
         std::io::ErrorKind::InvalidInput,
@@ -215,6 +508,15 @@ fn validate_required_identity(
             "required Agentgres record '{record_dir}/{record_id}' has a mismatched '{identity_field}' identity"
         ),
     ))
+}
+
+#[cfg(test)]
+pub(crate) fn validate_required_identity_for_test(
+    record_dir: &str,
+    record_id: &str,
+    record: &Value,
+) -> std::io::Result<()> {
+    validate_required_identity(record_dir, record_id, record)
 }
 
 fn build_required_op(record_dir: &str, record_id: &str, record: &Value) -> Operation {
@@ -276,6 +578,20 @@ fn verify_required_projection(
         &exact,
     )?;
     Ok(exact)
+}
+
+/// Validate one already-read required projection before an owner plane copies
+/// its payload into local recovery evidence. The exact projection itself is
+/// the validation subject, so a corrupt same-key payload cannot cross the
+/// recovery boundary before its key, operation, and bytes agree.
+pub(crate) fn validate_required_exact_projection(
+    record_dir: &str,
+    record_id: &str,
+    exact: ExactProjection,
+) -> std::io::Result<Value> {
+    let record = exact.operation.payload.clone();
+    verify_required_projection(record_dir, record_id, &record, Some(exact))?;
+    Ok(record)
 }
 
 fn verify_required_ack(
@@ -905,6 +1221,30 @@ mod tests {
     }
 
     #[test]
+    fn required_projection_recovery_validates_before_exposing_payload() {
+        let record = required_record();
+        let exact = exact_projection(build_required_op(REQUIRED_DOMAIN, REQUIRED_ID, &record));
+        assert_eq!(
+            validate_required_exact_projection(REQUIRED_DOMAIN, REQUIRED_ID, exact).unwrap(),
+            record
+        );
+
+        let mut foreign = exact_projection(build_required_op(
+            REQUIRED_DOMAIN,
+            REQUIRED_ID,
+            &required_record(),
+        ));
+        foreign.operation.payload["admission_id"] =
+            json!("system-genesis-admission://asg_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        assert_eq!(
+            validate_required_exact_projection(REQUIRED_DOMAIN, REQUIRED_ID, foreign)
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::InvalidInput
+        );
+    }
+
+    #[test]
     fn wallet_consumption_required_identity_binds_canonical_key_to_receipt_bytes() {
         let consumption_id = [0xabu8; 32];
         let record_id = format!("asgc_{}", hex::encode(consumption_id));
@@ -1006,6 +1346,104 @@ mod tests {
                     .kind(),
                 std::io::ErrorKind::InvalidInput,
             );
+        }
+    }
+
+    #[test]
+    fn lifecycle_required_domains_bind_all_family_specific_keys() {
+        let hash = "44".repeat(32);
+        for (family, prefix, field) in [
+            (
+                "autonomous-system-deployment-profile-revisions",
+                "asdpr_",
+                "deployment_profile_root",
+            ),
+            (
+                "autonomous-system-lifecycle-proposals",
+                "aslp_",
+                "proposal_root",
+            ),
+            (
+                "autonomous-system-lifecycle-authority-decisions",
+                "aslad_",
+                "decision_root",
+            ),
+            (
+                "autonomous-system-activation-states",
+                "asls_",
+                "activation_state_root",
+            ),
+            (
+                "autonomous-system-active-profile-sets",
+                "asaps_",
+                "active_profile_set_root",
+            ),
+            (
+                "autonomous-system-home-bindings",
+                "ashdb_",
+                "home_domain_binding_root",
+            ),
+            (
+                "autonomous-system-operation-log-revisions",
+                "asol_",
+                "operation_log_root",
+            ),
+            ("autonomous-system-chain-revisions", "asc_", "chain_root"),
+        ] {
+            let id = format!("{prefix}{hash}");
+            assert_eq!(
+                validate_required_identity(family, &id, &json!({field:format!("sha256:{hash}")}))
+                    .unwrap_err()
+                    .kind(),
+                std::io::ErrorKind::InvalidInput
+            );
+            assert!(validate_required_identity(
+                family,
+                &format!("{prefix}{}", "55".repeat(32)),
+                &json!({field:format!("sha256:{hash}")})
+            )
+            .is_err());
+        }
+        let evidence_id = format!("aslae_{hash}");
+        assert!(validate_required_identity(
+            "autonomous-system-lifecycle-authority-evidence",
+            &evidence_id,
+            &json!({"authority_evidence_ref":format!("system-lifecycle-authority-evidence://{evidence_id}")}),
+        )
+        .is_err());
+        let consumption_id = [0x66u8; 32];
+        validate_required_identity(
+            "autonomous-system-lifecycle-authority-consumptions",
+            &format!("aslac_{}", hex::encode(consumption_id)),
+            &json!({"consumption_id":consumption_id}),
+        )
+        .unwrap();
+        for (family, prefix, domain, identity) in [
+            (
+                "autonomous-system-lifecycle-transitions",
+                "aslt_",
+                "ioi.autonomous-system-lifecycle-transition-jcs-sha256.v1",
+                "lifecycle_transition_id",
+            ),
+            (
+                "autonomous-system-initialize-transition-receipts",
+                "asltr_",
+                "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1",
+                "receipt_ref",
+            ),
+            (
+                "autonomous-system-activation-receipts",
+                "asar_",
+                "ioi.autonomous-system-activation-receipt-artifact-jcs-sha256.v1",
+                "receipt_ref",
+            ),
+        ] {
+            let record = json!({identity:"ref://exact"});
+            let root = sha2::Sha256::digest(
+                serde_jcs::to_vec(&json!({"domain":domain,"artifact":record})).unwrap(),
+            );
+            validate_required_identity(family, &format!("{prefix}{}", hex::encode(root)), &record)
+                .unwrap();
         }
     }
 }

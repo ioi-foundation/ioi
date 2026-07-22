@@ -13061,29 +13061,60 @@ status: String, // projection from lifecycle receipts
 
 \begin{lstlisting}[language=rustioi]
 struct AutonomousSystemChainEnvelope
+chain_ref: URI,
+chain_root: Hash,
 system_id: URI, // stable system:// identity
 home_domain_ref: URI,
+home_domain_binding_ref: URI,
+home_domain_binding_root: Hash,
 genesis_ref: URI,
 package_id: URI,
 constitution_ref: URI,
+constitution_root: Hash,
 manifest_ref: URI,
-deployment_profile_ref: URI,
+admitted_manifest_root: Hash,
+deployment_profile_ref: URI, // content-addressed revision
+deployment_profile_root: Hash,
 ordering_admission_finality_profile_ref: URI,
 oracle_evidence_profile_refs: Vec<URI>,
 lifecycle_continuity_profile_ref: URI,
 network_enrollment_ref: Option<URI>,
+active_profile_set_ref: URI,
+active_profile_set_root: Hash,
+active_component_registry_ref: URI,
+active_component_registry_root: Hash,
+policy_root: Hash,
+module_registry_root: Hash,
 node_membership_refs: Vec<URI>,
 node_membership_root: Hash,
 active_writer_epoch: Option<u64>,
 latest_sequence: u64,
-latest_transition_commitment_ref: URI,
-operation_log_ref: URI,
+latest_operation_commitment: Hash,
+latest_transition_commitment_ref: Option<URI>,
+latest_transition_id: URI,
+latest_transition_root: Hash,
+latest_receipt_ref: URI,
+latest_state_ref: URI,
 latest_state_root: Hash,
 latest_receipt_root: Hash,
-default_settlement_mode: String,
+operation_log_ref: URI, // immutable revision under the canonical log owner
+operation_log_root: Hash,
+upgrade_policy_ref: URI, // inherited constitution policy; no upgrade effect
+default_settlement_mode: Option<String>,
 allowed_settlement_modes: Vec<String>,
 status: String,
 \end{lstlisting}
+
+The first active chain proves constitutional and logical continuity, not
+runtime readiness. Its canonical immutable operation-log head permanently
+binds the sequence-zero, initialize, and activate prefix. Later protected
+lifecycle operations advance that same owner through immutable successor
+revisions whose entries bind their exact owner contracts and receipts; the log
+does not validate later authority from shape alone. The chain binds the
+constitution's ordinary-upgrade policy without performing an upgrade, while
+node membership, writer epoch, runtime, network, settlement, and
+public-commitment effects remain explicitly unadmitted until their owning
+contracts supply proof.
 
 The canonical owner additionally defines separate package release,
 constitution, desired deployment, observed node membership, failover,
