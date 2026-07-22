@@ -1516,21 +1516,18 @@ pub(crate) async fn handle_get_transition(
     }
 }
 
-/// Resolve the durable system_id for a caller-facing `asg_` key.
+/// Resolve the durable system_id for a caller-facing `asg_` key through the
+/// genesis module's verified admission loader (the family's owning accessor).
 fn system_id_for_key(data_dir: &str, key: &str) -> Result<String, VErr> {
-    let record = load_required_exact(
-        data_dir,
-        "autonomous-system-genesis-admissions",
-        key,
-    )?
-    .ok_or_else(|| {
-        verr(
-            "system_lifecycle_not_found",
-            "no admitted genesis exists for this id",
-        )
-    })?;
-    required(&record, "/authorized_genesis/system_id")
-        .or_else(|_| required(&record, "/system_id"))
+    let admission = super::system_genesis_routes::load_verified_admission_by_key(data_dir, key)?
+        .ok_or_else(|| {
+            verr(
+                "system_lifecycle_not_found",
+                "no admitted genesis exists for this id",
+            )
+        })?;
+    required(&admission.record, "/authorized_genesis/system_id")
+        .or_else(|_| required(&admission.record, "/system_id"))
 }
 
 static PROTECTED_REPLAY_CURSOR: std::sync::atomic::AtomicUsize =
@@ -1702,10 +1699,57 @@ async fn replay_one_protected(data_dir: &str, tail_value: &str, intent: &Value) 
 }
 
 fn scan_protected_intents(data_dir: &str) -> Result<Vec<(String, Result<Value, VErr>)>, VErr> {
-    Ok(enumerate_family(data_dir, PROTECTED_INTENT_DIR)?
+    // Intents are local-durable pre-admission records: read them through the
+    // raw pinned reader, never through the Agentgres exact-proof loader.
+    let directory = match super::durable_fs::open_family_dir_pinned(data_dir, PROTECTED_INTENT_DIR)
+    {
+        Ok(directory) => directory,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => {
+            return Err(verr(
+                "system_lifecycle_intent_unreadable",
+                format!("intent family cannot be pinned ({error})"),
+            ))
+        }
+    };
+    let mut names = super::durable_fs::enumerate_pinned(&directory).map_err(|error| {
+        verr(
+            "system_lifecycle_intent_unreadable",
+            format!("intent family cannot be enumerated ({error})"),
+        )
+    })?;
+    names.sort();
+    Ok(names
         .into_iter()
-        .map(|(tail_value, value)| {
+        .map(|name| {
+            let tail_value = name.strip_suffix(".json").unwrap_or(&name).to_owned();
             let checked = (|| {
+                if !name.ends_with(".json") {
+                    return Err(verr(
+                        "system_lifecycle_intent_unreadable",
+                        format!("unexpected intent entry '{name}'"),
+                    ));
+                }
+                let bytes = super::durable_fs::read_slot_strict(&directory, &name)
+                    .map_err(|error| {
+                        verr(
+                            "system_lifecycle_intent_unreadable",
+                            format!("intent '{name}' is unreadable ({error})"),
+                        )
+                    })?
+                    .ok_or_else(|| {
+                        verr(
+                            "system_lifecycle_intent_unreadable",
+                            format!("intent '{name}' vanished"),
+                        )
+                    })?
+                    .1;
+                let value: Value = serde_json::from_slice(&bytes).map_err(|error| {
+                    verr(
+                        "system_lifecycle_intent_unreadable",
+                        format!("intent '{name}' is malformed ({error})"),
+                    )
+                })?;
                 verify_intent_seal(&value)?;
                 verify_protected_intent_coordinates(&tail_value, &value)?;
                 Ok(value)

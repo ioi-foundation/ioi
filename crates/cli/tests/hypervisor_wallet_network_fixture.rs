@@ -71,6 +71,19 @@ const SYSTEM_SEQUENCE_ZERO_APPROVAL_REASON: &str =
     "System sequence-zero materialization fixture approval";
 const SYSTEM_INITIALIZE_APPROVAL_REASON: &str = "System lifecycle initialize fixture approval";
 const SYSTEM_ACTIVATE_APPROVAL_REASON: &str = "System lifecycle activate fixture approval";
+const PROTECTED_TRANSITION_APPROVAL_REASON: &str =
+    "System protected lifecycle transition fixture approval";
+const PROTECTED_TRANSITION_OPS: [&str; 14] = [
+    "pause", "resume", "suspend", "reinstate", "enter_dormancy", "wake",
+    "begin_recovery", "complete_recovery", "quarantine", "release_quarantine",
+    "retire", "archive", "revoke", "decommission",
+];
+
+fn protected_transition_scope(target_scope: &str) -> bool {
+    target_scope
+        .strip_prefix("scope:autonomous_system.lifecycle.")
+        .is_some_and(|op| PROTECTED_TRANSITION_OPS.contains(&op))
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -206,7 +219,12 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             SYSTEM_SEQUENCE_ZERO_SCOPE.to_string(),
             SYSTEM_INITIALIZE_SCOPE.to_string(),
             SYSTEM_ACTIVATE_SCOPE.to_string(),
-        ],
+        ]
+        .into_iter()
+        .chain(PROTECTED_TRANSITION_OPS.iter().map(|op| {
+            format!("scope:autonomous_system.lifecycle.{op}")
+        }))
+        .collect(),
     )
 }
 
@@ -602,6 +620,7 @@ async fn submit_record_approval(
         SYSTEM_SEQUENCE_ZERO_SCOPE => SYSTEM_SEQUENCE_ZERO_APPROVAL_REASON,
         SYSTEM_INITIALIZE_SCOPE => SYSTEM_INITIALIZE_APPROVAL_REASON,
         SYSTEM_ACTIVATE_SCOPE => SYSTEM_ACTIVATE_APPROVAL_REASON,
+        scope if protected_transition_scope(scope) => PROTECTED_TRANSITION_APPROVAL_REASON,
         _ => {
             return Err(anyhow!(
                 "record_approval target_scope is not one of the fixture's governed System scopes"
