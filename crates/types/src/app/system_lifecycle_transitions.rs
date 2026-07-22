@@ -19,7 +19,7 @@ use super::system_activation::{
 };
 
 /// JCS domain for the semantic lifecycle-state root.
-const LIFECYCLE_STATE_HASH_PROFILE: &str =
+pub(crate) const LIFECYCLE_STATE_HASH_PROFILE: &str =
     "ioi.autonomous-system-lifecycle-state-jcs-sha256.v1";
 /// JCS domain for the protected-transition operation commitment.
 const PROTECTED_OPERATION_COMMITMENT_HASH_PROFILE: &str =
@@ -446,7 +446,7 @@ pub struct CompiledProtectedTransitionPlan {
     pub authority_effect: Value,
 }
 
-fn required_effect_string<'a>(effect: &'a Value, name: &str) -> Result<&'a str, String> {
+pub(crate) fn required_effect_string<'a>(effect: &'a Value, name: &str) -> Result<&'a str, String> {
     effect
         .get(name)
         .and_then(Value::as_str)
@@ -457,7 +457,7 @@ fn required_effect_string<'a>(effect: &'a Value, name: &str) -> Result<&'a str, 
 /// Validate the committed sequence-two activation effect as the identity
 /// carrier for a live System and refuse anything that is not exactly the
 /// admitted live posture.
-fn validate_activation_identity(effect: &Value) -> Result<(), String> {
+pub(crate) fn validate_activation_identity(effect: &Value) -> Result<(), String> {
     if required_effect_string(effect, "schema_version")?
         != "ioi.autonomous-system-lifecycle-authority-effect.v1"
     {
@@ -485,7 +485,7 @@ fn validate_activation_identity(effect: &Value) -> Result<(), String> {
 /// activation state or a prior protected lifecycle state. Returns the state
 /// ref, sequence, and status; the bootstrap statuses `draft`/`initialized`
 /// refuse because only activation may leave them.
-fn predecessor_state_facts(
+pub(crate) fn predecessor_state_facts(
     state: &Value,
 ) -> Result<(String, u64, ProtectedLifecycleStatus), String> {
     let (ref_key, is_activation) = if state.get("activation_state_ref").is_some() {
@@ -545,10 +545,18 @@ pub fn compile_protected_transition_plan(
         .checked_add(1)
         .filter(|next| *next >= 3)
         .ok_or("resulting sequence is not three or later")?;
+    // Profile-set coordinates come from the predecessor STATE, not the frozen
+    // sequence-two activation effect: a constitutional amendment swaps the
+    // active set, and every later transition must carry the current one. The
+    // two sources agree until the first amendment; afterwards only the state
+    // is truthful. The activation effect must still declare its own admission
+    // coordinates to remain a valid identity carrier.
+    required_effect_string(activation_effect, "active_profile_set_ref")?;
+    required_effect_string(activation_effect, "active_profile_set_root")?;
     let active_profile_set_ref =
-        required_effect_string(activation_effect, "active_profile_set_ref")?;
+        required_string(&previous_step.state, "/active_profile_set_ref")?.to_owned();
     let active_profile_set_root =
-        required_effect_string(activation_effect, "active_profile_set_root")?;
+        required_string(&previous_step.state, "/active_profile_set_root")?.to_owned();
     let chain_ref = required_effect_string(activation_effect, "chain_ref")?;
     let resulting_status = op.resulting_status();
 
@@ -723,6 +731,8 @@ mod compile_tests {
                 "system_id": "system://fixture/alpha",
                 "sequence": 2,
                 "status": status,
+                "active_profile_set_ref": "active-profile-set://fixture/alpha",
+                "active_profile_set_root": h(0x16),
             })
         } else {
             json!({
@@ -731,6 +741,8 @@ mod compile_tests {
                 "system_id": "system://fixture/alpha",
                 "sequence": sequence,
                 "status": status,
+                "active_profile_set_ref": "active-profile-set://fixture/alpha",
+                "active_profile_set_root": h(0x16),
             })
         };
         UnverifiedCommittedSystemLifecycleStep {
