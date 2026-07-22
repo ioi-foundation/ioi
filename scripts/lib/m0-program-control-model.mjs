@@ -36,10 +36,6 @@ export const README_FILE = `${EVIDENCE_DIR}/README.md`;
 export const M0_BASELINE_AS_OF_DATE = "2026-07-18";
 export const AS_OF_DATE = "2026-07-19";
 
-const SIGNATURE_KEY_ID =
-  "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26";
-const SIGNATURE_PUBLIC_KEY_SPKI_DER_BASE64 =
-  "MCowBQYDK2VwAyEAkOJI2u49NzPITKwxBpvOx6HoW1RDw52A9ctpAfMY4KY=";
 const REPOSITORY_BASELINE_ANCHOR = Object.freeze({
   sequence: 2,
   epoch_id: "pr-91-integrated-authority-and-m1-4-review-2026-07-20",
@@ -47,20 +43,23 @@ const REPOSITORY_BASELINE_ANCHOR = Object.freeze({
     "c2624cdd359487b3cde76b107b467dd610f6fd80166b065baf653cf68fa7e50d",
 });
 
+// The anchor is an unsigned hash chain. Legacy entries (sequence <= 6) retain
+// their historical Ed25519 evidence blocks as immutable retained claims, but
+// no key is pinned, read, or verified: a co-located machine key proved nothing
+// beyond what the predecessor hash chain already proves, so the ceremony was
+// retired (2026-07-22 program decision) rather than left overclaiming.
+// Real signing authority arrives later with wallet-network auth.
 export const SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE = Object.freeze({
-  signature_key_possession: "verified",
   chain_integrity_within_snapshot: "verified",
   snapshot_head_binding: "verified",
   repository_baseline_present: true,
-  signer_principal_isolation: "not_established",
+  authorship_binding: "self_declared_label_unsigned",
   accepted_head_currentness: "not_established",
   coherent_snapshot_rollback_resistance: "not_established",
 });
 
-const REPOSITORY_SIGNATURE_CONTEXT = Object.freeze({
-  public_key_spki_der_base64: SIGNATURE_PUBLIC_KEY_SPKI_DER_BASE64,
+const REPOSITORY_ANCHOR_CONTEXT = Object.freeze({
   repository_baseline: REPOSITORY_BASELINE_ANCHOR,
-  signature_key_id: SIGNATURE_KEY_ID,
 });
 
 const REVIEW_COMPARISON_BASELINE = Object.freeze({
@@ -3956,23 +3955,6 @@ export function reviewSnapshotCommitments(
   };
 }
 
-function reviewAnchorClaim(entry) {
-  const claim = structuredClone(entry ?? {});
-  if (
-    claim.reviewer_evidence !== null
-    && typeof claim.reviewer_evidence === "object"
-    && !Array.isArray(claim.reviewer_evidence)
-  ) {
-    delete claim.reviewer_evidence.signature_base64;
-    delete claim.reviewer_evidence.signed_payload_sha256;
-  }
-  return claim;
-}
-
-export function reviewAnchorSignedPayload(entry) {
-  return stableStringify(reviewAnchorClaim(entry));
-}
-
 export function reviewAnchorEntrySha256(entry) {
   return sha256(stableStringify(entry));
 }
@@ -4004,7 +3986,7 @@ export function validateSuppliedReviewSnapshot(
   reviewLock,
   reviewAnchor,
   programSource = undefined,
-  signatureContext = REPOSITORY_SIGNATURE_CONTEXT,
+  anchorContext = REPOSITORY_ANCHOR_CONTEXT,
 ) {
   const errors = [];
   const anchorEntries = reviewAnchor?.epochs;
@@ -4021,7 +4003,7 @@ export function validateSuppliedReviewSnapshot(
   );
   addError(
     errors,
-    reviewAnchor?.evidence_format === "ioi.m0.review_epoch_anchor.v2",
+    reviewAnchor?.evidence_format === "ioi.m0.review_epoch_anchor.v3",
     "review anchor has an unsafe or unknown evidence_format",
   );
   addError(
@@ -4060,14 +4042,14 @@ export function validateSuppliedReviewSnapshot(
   addError(
     errors,
     reviewAnchor?.chain_policy?.signature_authentication
-      === "ed25519_key_possession_for_signed_claim",
-    "review snapshot does not declare detached-signature authentication",
+      === "none_unsigned_hash_chain",
+    "review snapshot must declare unsigned hash-chain authentication and never overclaim a signature ceremony",
   );
   addError(
     errors,
     reviewAnchor?.chain_policy?.historical_validation
-      === "signed_claim_and_predecessor_within_supplied_snapshot",
-    "review snapshot history is not scoped to supplied signed claims",
+      === "retained_claim_and_predecessor_hash_within_supplied_snapshot",
+    "review snapshot history is not scoped to supplied retained claims",
   );
   addError(
     errors,
@@ -4096,7 +4078,7 @@ export function validateSuppliedReviewSnapshot(
   addError(
     errors,
     stableStringify(reviewAnchor?.chain_policy?.repository_baseline)
-      === stableStringify(signatureContext.repository_baseline),
+      === stableStringify(anchorContext.repository_baseline),
     "review snapshot declares a different repository baseline",
   );
   addError(
@@ -4105,7 +4087,7 @@ export function validateSuppliedReviewSnapshot(
     "review anchor must contain at least one epoch",
   );
 
-  const expectedEntryKeys = [
+  const commitmentEntryKeys = [
     "epoch_id",
     "latest_epoch_identity_set_sha256",
     "latest_epoch_reviewed_entry_count",
@@ -4114,15 +4096,18 @@ export function validateSuppliedReviewSnapshot(
     "program_source_material_sha256",
     "review_lock_sha256",
     "reviewed_as_of",
-    "reviewer_evidence",
     "reviewer_id",
-    "reviewer_key_id",
     "sequence",
     "total_reviewed_entry_count",
     "total_reviewed_entry_set_sha256",
     "total_reviewed_identity_set_sha256",
   ];
-  const expectedEvidenceKeys = [
+  // Retained legacy entries keep their historical signature blocks verbatim so
+  // predecessor hashes stay stable; the blocks are immutable retained claims,
+  // never re-verified authority.
+  const legacyEntryKeys = [...commitmentEntryKeys, "reviewer_evidence", "reviewer_key_id"];
+  const unsignedEntryKeys = [...commitmentEntryKeys, "authorship_binding"];
+  const legacyEvidenceKeys = [
     "algorithm",
     "evidence_format",
     "evidence_ref",
@@ -4134,33 +4119,26 @@ export function validateSuppliedReviewSnapshot(
   const anchoredEpochIds = new Set();
   let predecessor = null;
   let previousReviewDate = null;
-  let reviewerPublicKey = null;
-  try {
-    const reviewerPublicKeyBytes =
-      Buffer.from(signatureContext.public_key_spki_der_base64, "base64");
-    addError(
-      errors,
-      signatureContext.signature_key_id
-        === `ed25519:sha256:${sha256(reviewerPublicKeyBytes)}`,
-      "repository signature key id does not match its public key",
-    );
-    reviewerPublicKey = crypto.createPublicKey({
-      key: reviewerPublicKeyBytes,
-      format: "der",
-      type: "spki",
-    });
-  } catch (error) {
-    errors.push(`repository signature public key is invalid: ${error.message}`);
-  }
+  let unsignedEraStarted = false;
 
   const sortedEntries = [...(anchorEntries ?? [])]
     .sort((left, right) => left.sequence - right.sequence);
   for (const [index, entry] of sortedEntries.entries()) {
     const label = `review anchor sequence ${entry?.sequence ?? "<missing>"}`;
-    const evidence = entry?.reviewer_evidence;
+    const isLegacy = entry !== null
+      && typeof entry === "object"
+      && "reviewer_evidence" in entry;
     addError(
       errors,
-      hasExactObjectKeys(entry, expectedEntryKeys),
+      !(isLegacy && unsignedEraStarted),
+      `${label} retained legacy claim cannot follow an unsigned entry`,
+    );
+    if (!isLegacy) {
+      unsignedEraStarted = true;
+    }
+    addError(
+      errors,
+      hasExactObjectKeys(entry, isLegacy ? legacyEntryKeys : unsignedEntryKeys),
       `${label} has incomplete or unbound fields`,
     );
     addError(
@@ -4229,72 +4207,51 @@ export function validateSuppliedReviewSnapshot(
     addError(
       errors,
       isNonEmptyString(entry?.reviewer_id),
-      `${label} lacks its self-declared signed reviewer label`,
+      `${label} lacks its self-declared reviewer label`,
     );
-    addError(
-      errors,
-      entry?.reviewer_key_id === signatureContext.signature_key_id,
-      `${label} does not use the repository signature key`,
-    );
-    addError(
-      errors,
-      hasExactObjectKeys(evidence, expectedEvidenceKeys),
-      `${label} has incomplete or extended reviewer evidence`,
-    );
-    addError(
-      errors,
-      evidence?.evidence_format === "ioi.m0.detached_review_signature.v1"
-        && evidence?.algorithm === "Ed25519",
-      `${label} has unsupported reviewer evidence`,
-    );
-    addError(
-      errors,
-      evidence?.evidence_ref
-        === `review-evidence://m0/program-control/${entry?.epoch_id}`,
-      `${label} has a mismatched reviewer evidence ref`,
-    );
-    addError(
-      errors,
-      isRfc3339(evidence?.issued_at),
-      `${label} lacks a valid externally supplied evidence timestamp`,
-    );
-    addError(
-      errors,
-      evidence?.public_key_spki_der_base64
-        === signatureContext.public_key_spki_der_base64,
-      `${label} does not carry the repository signature public key`,
-    );
-    const signedPayload = reviewAnchorSignedPayload(entry);
-    addError(
-      errors,
-      evidence?.signed_payload_sha256 === sha256(signedPayload),
-      `${label} signature evidence does not bind the complete claim`,
-    );
-    let signatureValid = false;
-    if (
-      reviewerPublicKey !== null
-      && typeof evidence?.signature_base64 === "string"
-    ) {
-      try {
-        const signature = Buffer.from(evidence.signature_base64, "base64");
-        if (signature.toString("base64") !== evidence.signature_base64) {
-          throw new Error("noncanonical base64");
-        }
-        signatureValid = crypto.verify(
-          null,
-          Buffer.from(signedPayload),
-          reviewerPublicKey,
-          signature,
-        );
-      } catch {
-        signatureValid = false;
-      }
+    if (isLegacy) {
+      const evidence = entry?.reviewer_evidence;
+      addError(
+        errors,
+        isNonEmptyString(entry?.reviewer_key_id),
+        `${label} retained legacy claim lacks its historical key id`,
+      );
+      addError(
+        errors,
+        hasExactObjectKeys(evidence, legacyEvidenceKeys),
+        `${label} has incomplete or extended retained legacy evidence`,
+      );
+      addError(
+        errors,
+        evidence?.evidence_format === "ioi.m0.detached_review_signature.v1"
+          && evidence?.algorithm === "Ed25519",
+        `${label} has unsupported retained legacy evidence`,
+      );
+      addError(
+        errors,
+        evidence?.evidence_ref
+          === `review-evidence://m0/program-control/${entry?.epoch_id}`,
+        `${label} has a mismatched retained evidence ref`,
+      );
+      addError(
+        errors,
+        isRfc3339(evidence?.issued_at),
+        `${label} lacks a valid retained evidence timestamp`,
+      );
+      addError(
+        errors,
+        isNonEmptyString(evidence?.public_key_spki_der_base64)
+          && isNonEmptyString(evidence?.signature_base64)
+          && /^[0-9a-f]{64}$/u.test(evidence?.signed_payload_sha256 ?? ""),
+        `${label} retained legacy claim is structurally incomplete`,
+      );
+    } else {
+      addError(
+        errors,
+        entry?.authorship_binding === "self_declared_unsigned",
+        `${label} must declare unsigned self-declared authorship and never imply a verified signer`,
+      );
     }
-    addError(
-      errors,
-      signatureValid,
-      `${label} detached signature is invalid for the repository key`,
-    );
     predecessor = entry;
   }
 
@@ -4315,13 +4272,13 @@ export function validateSuppliedReviewSnapshot(
     "review anchor head does not bind the latest complete entry",
   );
   const baselineEntry = sortedEntries.find((entry) => (
-    entry.sequence === signatureContext.repository_baseline.sequence
+    entry.sequence === anchorContext.repository_baseline.sequence
   ));
   addError(
     errors,
-    baselineEntry?.epoch_id === signatureContext.repository_baseline.epoch_id
+    baselineEntry?.epoch_id === anchorContext.repository_baseline.epoch_id
       && reviewAnchorEntrySha256(baselineEntry ?? {})
-        === signatureContext.repository_baseline.entry_sha256,
+        === anchorContext.repository_baseline.entry_sha256,
     "review snapshot does not contain the repository baseline anchor",
   );
   addError(
@@ -4341,7 +4298,7 @@ export function validateSuppliedReviewSnapshot(
       `review snapshot head does not bind supplied ${field}`,
     );
   }
-  validationFailure("M0 detached-signature supplied snapshot", errors);
+  validationFailure("M0 unsigned hash-chain supplied snapshot", errors);
   return head;
 }
 
@@ -4354,7 +4311,7 @@ export function validateReviewAnchor(
     reviewLock,
     reviewAnchor,
     programSource,
-    REPOSITORY_SIGNATURE_CONTEXT,
+    REPOSITORY_ANCHOR_CONTEXT,
   );
 }
 
@@ -4377,22 +4334,18 @@ function expectedProgramSourceReviewAttestation(
   }
   const anchorHead = latestReviewAnchorEntry(reviewAnchor);
   return {
-    attestation_format: "ioi.m0.program_control_source_review.v3",
+    attestation_format: "ioi.m0.program_control_source_review.v4",
     transition: "worksheet_unreviewed_to_supplied_snapshot_attested",
     verification_scope: "supplied_repository_snapshot",
     review_method:
-      "detached_ed25519_signature_and_supplied_snapshot_consistency",
+      "unsigned_hash_chain_and_supplied_snapshot_consistency",
     snapshot_anchor_file: REVIEW_ANCHOR_FILE,
     snapshot_head_sequence: anchorHead.sequence,
     snapshot_head_entry_sha256: reviewAnchorEntrySha256(anchorHead),
     snapshot_predecessor_entry_sha256:
       anchorHead.predecessor_entry_sha256,
-    signed_reviewer_label: anchorHead.reviewer_id,
-    signed_reviewer_label_status: "self_declared_not_identity_verified",
-    signature_key_id: anchorHead.reviewer_key_id,
-    signature_evidence_ref: anchorHead.reviewer_evidence.evidence_ref,
-    detached_signature_sha256:
-      sha256(anchorHead.reviewer_evidence.signature_base64),
+    reviewer_label: anchorHead.reviewer_id,
+    reviewer_label_status: "self_declared_unsigned",
     review_lock_sha256: sha256(stableStringify(reviewLock)),
     review_epoch_id: epoch.epoch_id,
     reviewed_as_of: epoch.reviewed_as_of,
@@ -5236,7 +5189,7 @@ export function validateProgramSource(
   addError(
     errors,
     programSource?.review_attestation?.attestation_format
-      === "ioi.m0.program_control_source_review.v3"
+      === "ioi.m0.program_control_source_review.v4"
       && programSource?.review_attestation?.transition
         === "worksheet_unreviewed_to_supplied_snapshot_attested"
       && programSource?.review_attestation?.verification_scope
@@ -6130,7 +6083,7 @@ export function buildM0Artifacts(
     {
       path: REVIEW_ANCHOR_FILE,
       role:
-        "detached-signature supplied-snapshot consistency chain and repository baseline",
+        "unsigned hash-chain supplied-snapshot consistency and repository baseline",
       state: "matches_supplied_snapshot",
     },
     {
@@ -6266,7 +6219,7 @@ export function buildM0Artifacts(
       "M0 does not close any architecture production-status claim.",
       "M0 does not provide runtime capability, authority, product UX, or a canonical wire contract.",
       "Ignored internal sequencing and PG inputs are external operator pointers, not read, hashed, or bound evidence.",
-      "The repository does not establish signer-principal isolation; the signed reviewer_id is a self-declared label only.",
+      "The review anchor is development-workflow integrity evidence only: an unsigned hash chain with a self-declared reviewer label. It carries no cryptographic authorship and is not part of the bounded agency framework's authority model (wallet-network grants, sealed intents, receipts).",
       "The repository does not establish that the accepted snapshot head is current without an outside rollback-domain checkpoint.",
       "The repository does not establish resistance to rollback between internally coherent supplied snapshots.",
     ],

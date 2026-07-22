@@ -39,7 +39,6 @@ import {
   loadM0Sources,
   programSourceMaterialSha256,
   reviewAnchorEntrySha256,
-  reviewAnchorSignedPayload,
   reviewSnapshotCommitments,
   stableStringify,
   validateSuppliedReviewSnapshot,
@@ -167,75 +166,26 @@ function collapseReviewLockToBaseline(fixture) {
   return fixture;
 }
 
-function signAnchorEntryWithDifferentKey(entry) {
-  const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
-  const publicDer = publicKey.export({ format: "der", type: "spki" });
-  entry.reviewer_key_id = `ed25519:sha256:${
-    crypto.createHash("sha256").update(publicDer).digest("hex")
-  }`;
-  entry.reviewer_evidence.public_key_spki_der_base64 =
-    publicDer.toString("base64");
-  const payload = reviewAnchorSignedPayload(entry);
-  entry.reviewer_evidence.signed_payload_sha256 =
-    crypto.createHash("sha256").update(payload).digest("hex");
-  entry.reviewer_evidence.signature_base64 = crypto.sign(
-    null,
-    Buffer.from(payload),
-    privateKey,
-  ).toString("base64");
+function fixtureAnchorContext(baseline) {
+  return { repository_baseline: baseline };
 }
 
-function fixtureSignatureContext(publicKey, baseline) {
-  const publicDer = publicKey.export({ format: "der", type: "spki" });
-  return {
-    public_key_spki_der_base64: publicDer.toString("base64"),
-    repository_baseline: baseline,
-    signature_key_id: `ed25519:sha256:${
-      crypto.createHash("sha256").update(publicDer).digest("hex")
-    }`,
-  };
-}
-
-function signFixtureSnapshotEntry({
+function unsignedFixtureSnapshotEntry({
   lock,
   predecessor,
-  privateKey,
   program,
-  publicKey,
   sequence,
 }) {
-  const context = fixtureSignatureContext(publicKey, {});
   const commitments = reviewSnapshotCommitments(lock, program);
-  const entry = {
+  return {
     ...commitments,
+    authorship_binding: "self_declared_unsigned",
     predecessor_entry_sha256: predecessor === null
       ? null
       : reviewAnchorEntrySha256(predecessor),
-    reviewer_evidence: {
-      algorithm: "Ed25519",
-      evidence_format: "ioi.m0.detached_review_signature.v1",
-      evidence_ref:
-        `review-evidence://m0/program-control/${commitments.epoch_id}`,
-      issued_at: `${commitments.reviewed_as_of}T00:00:00.000Z`,
-      public_key_spki_der_base64: context.public_key_spki_der_base64,
-      signature_base64: "",
-      signed_payload_sha256: "",
-    },
     reviewer_id: "reviewer://fixture/self-declared-label",
-    reviewer_key_id: context.signature_key_id,
     sequence,
   };
-  const payload = reviewAnchorSignedPayload(entry);
-  entry.reviewer_evidence.signed_payload_sha256 = crypto
-    .createHash("sha256")
-    .update(payload)
-    .digest("hex");
-  entry.reviewer_evidence.signature_base64 = crypto.sign(
-    null,
-    Buffer.from(payload),
-    privateKey,
-  ).toString("base64");
-  return entry;
 }
 
 function fixtureSnapshotAnchor(entries, repositoryBaseline) {
@@ -249,16 +199,16 @@ function fixtureSnapshotAnchor(entries, repositoryBaseline) {
       head_binding:
         "supplied_snapshot_complete_lock_latest_epoch_and_program_source",
       historical_validation:
-        "signed_claim_and_predecessor_within_supplied_snapshot",
+        "retained_claim_and_predecessor_hash_within_supplied_snapshot",
       monotonicity:
         "strict_sequence_and_nondecreasing_review_date_within_supplied_snapshot",
       predecessor_rule: "sha256_of_complete_predecessor_anchor_entry",
       repository_baseline: repositoryBaseline,
-      signature_authentication: "ed25519_key_possession_for_signed_claim",
+      signature_authentication: "none_unsigned_hash_chain",
       signer_principal_isolation: "not_established",
     },
     epochs: entries,
-    evidence_format: "ioi.m0.review_epoch_anchor.v2",
+    evidence_format: "ioi.m0.review_epoch_anchor.v3",
     head: {
       entry_sha256: reviewAnchorEntrySha256(head),
       epoch_id: head.epoch_id,
@@ -1219,14 +1169,22 @@ test("review epochs commit complete reviewed entries and anchors", () => {
   );
 });
 
-test("supplied signed entries form an internally coherent chain with the repository baseline", () => {
+test("supplied entries form an internally coherent unsigned hash chain with the repository baseline", () => {
   assert.doesNotThrow(() => validateReviewAnchor(
     reviewLock,
     reviewAnchor,
     programSource,
   ));
-  assert.equal(reviewAnchor.head.sequence, 6);
-  assert.equal(reviewAnchor.epochs.length, 6);
+  assert.equal(reviewAnchor.head.sequence, 7);
+  assert.equal(reviewAnchor.epochs.length, 7);
+  assert.ok(
+    reviewAnchor.epochs.slice(0, 6).every((entry) => "reviewer_evidence" in entry),
+    "legacy entries must retain their historical claims verbatim",
+  );
+  assert.equal(
+    reviewAnchor.epochs.at(-1).authorship_binding,
+    "self_declared_unsigned",
+  );
   assert.deepEqual(
     reviewAnchor.assurance_posture,
     SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
@@ -1257,11 +1215,11 @@ test("supplied signed entries form an internally coherent chain with the reposit
   );
 });
 
-test("a later supplied lock mismatch leaves every prior signed entry immutable", () => {
+test("a later supplied lock mismatch leaves every prior retained entry immutable", () => {
   const priorEntryBytes = reviewAnchor.epochs.map(stableStringify);
-  const priorSignatures = reviewAnchor.epochs.map(
-    (entry) => entry.reviewer_evidence.signature_base64,
-  );
+  const priorSignatures = reviewAnchor.epochs
+    .filter((entry) => "reviewer_evidence" in entry)
+    .map((entry) => entry.reviewer_evidence.signature_base64);
   const evolvedLock = structuredClone(reviewLock);
   const movedEntry = evolvedLock.entries.find(
     (entry) => entry.reviewed_as_of === latestReviewDate,
@@ -1297,9 +1255,9 @@ test("a later supplied lock mismatch leaves every prior signed entry immutable",
   );
   assert.deepEqual(reviewAnchor.epochs.map(stableStringify), priorEntryBytes);
   assert.deepEqual(
-    reviewAnchor.epochs.map(
-      (entry) => entry.reviewer_evidence.signature_base64,
-    ),
+    reviewAnchor.epochs
+      .filter((entry) => "reviewer_evidence" in entry)
+      .map((entry) => entry.reviewer_evidence.signature_base64),
     priorSignatures,
   );
 });
@@ -1332,26 +1290,50 @@ test("collapsing the supplied lock cannot validate or re-attest against its unch
   );
 });
 
-test("a signature from a different key cannot authenticate as the repository key", () => {
-  const selfIssued = structuredClone(reviewAnchor);
-  const head = selfIssued.epochs.at(-1);
-  signAnchorEntryWithDifferentKey(head);
-  selfIssued.head.entry_sha256 = reviewAnchorEntrySha256(head);
+test("a tampered retained legacy claim breaks the hash chain and the baseline pin", () => {
+  const tampered = structuredClone(reviewAnchor);
+  tampered.epochs[1].reviewer_evidence.signature_base64 =
+    `A${tampered.epochs[1].reviewer_evidence.signature_base64.slice(1)}`;
   assert.throws(
-    () => validateReviewAnchor(reviewLock, selfIssued, programSource),
-    /repository signature key|repository signature public key/u,
+    () => validateReviewAnchor(reviewLock, tampered, programSource),
+    /complete predecessor anchor entry|repository baseline anchor/u,
+  );
+
+  const impersonating = structuredClone(reviewAnchor);
+  const head = impersonating.epochs.at(-1);
+  head.authorship_binding = "verified_signer";
+  impersonating.head.entry_sha256 = reviewAnchorEntrySha256(head);
+  assert.throws(
+    () => validateReviewAnchor(reviewLock, impersonating, programSource),
+    /unsigned self-declared authorship/u,
+  );
+
+  const regressed = structuredClone(reviewAnchor);
+  const legacyGhost = structuredClone(regressed.epochs[5]);
+  legacyGhost.sequence = 8;
+  legacyGhost.epoch_id = "ghost-legacy-epoch";
+  legacyGhost.predecessor_entry_sha256 =
+    reviewAnchorEntrySha256(regressed.epochs.at(-1));
+  regressed.epochs.push(legacyGhost);
+  regressed.head = {
+    entry_sha256: reviewAnchorEntrySha256(legacyGhost),
+    epoch_id: legacyGhost.epoch_id,
+    sequence: 8,
+  };
+  assert.throws(
+    () => validateReviewAnchor(reviewLock, regressed, programSource),
+    /retained legacy claim cannot follow an unsigned entry/u,
   );
 });
 
-test("forged signatures and predecessor substitutions fail before attestation", () => {
+test("tampered head commitments and predecessor substitutions fail before attestation", () => {
   const forged = structuredClone(reviewAnchor);
-  forged.epochs.at(-1).reviewer_evidence.signature_base64 =
-    `A${forged.epochs.at(-1).reviewer_evidence.signature_base64.slice(1)}`;
+  forged.epochs.at(-1).total_reviewed_entry_count += 1;
   forged.head.entry_sha256 =
     reviewAnchorEntrySha256(forged.epochs.at(-1));
   assert.throws(
     () => validateReviewAnchor(reviewLock, forged, programSource),
-    /detached signature is invalid/u,
+    /head does not bind supplied total_reviewed_entry_count/u,
   );
 
   const detached = structuredClone(reviewAnchor);
@@ -1360,7 +1342,7 @@ test("forged signatures and predecessor substitutions fail before attestation", 
     reviewAnchorEntrySha256(detached.epochs.at(-1));
   assert.throws(
     () => validateReviewAnchor(reviewLock, detached, programSource),
-    /complete predecessor anchor entry|signature evidence does not bind|signature is invalid/u,
+    /complete predecessor anchor entry/u,
   );
 });
 
@@ -1378,8 +1360,7 @@ test("the repository baseline rejects a supplied snapshot that omits its baselin
   );
 });
 
-test("two coherent same-day signed snapshots validate without establishing which head is current", () => {
-  const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
+test("two coherent same-day unsigned snapshots validate without establishing which head is current", () => {
   const firstEpoch = {
     epoch_id: "fixture-snapshot-a",
     identity_refs: ["fixture:a"],
@@ -1394,12 +1375,10 @@ test("two coherent same-day signed snapshots validate without establishing which
     review_attestation: { review_epochs: [firstEpoch] },
   };
   const programA = { payload: "snapshot-a" };
-  const entryA = signFixtureSnapshotEntry({
+  const entryA = unsignedFixtureSnapshotEntry({
     lock: lockA,
     predecessor: null,
-    privateKey,
     program: programA,
-    publicKey,
     sequence: 1,
   });
   const baseline = {
@@ -1407,7 +1386,7 @@ test("two coherent same-day signed snapshots validate without establishing which
     epoch_id: entryA.epoch_id,
     sequence: 1,
   };
-  const context = fixtureSignatureContext(publicKey, baseline);
+  const context = fixtureAnchorContext(baseline);
   const snapshotA = fixtureSnapshotAnchor([entryA], baseline);
 
   const secondEpoch = {
@@ -1424,12 +1403,10 @@ test("two coherent same-day signed snapshots validate without establishing which
     review_attestation: { review_epochs: [firstEpoch, secondEpoch] },
   };
   const programB = { payload: "snapshot-b" };
-  const entryB = signFixtureSnapshotEntry({
+  const entryB = unsignedFixtureSnapshotEntry({
     lock: lockB,
     predecessor: entryA,
-    privateKey,
     program: programB,
-    publicKey,
     sequence: 2,
   });
   const snapshotB = fixtureSnapshotAnchor([entryA, entryB], baseline);
@@ -1860,8 +1837,8 @@ test("program source review is a bounded supplied-snapshot material attestation"
     SUPPLIED_SNAPSHOT_ASSURANCE_POSTURE,
   );
   assert.equal(
-    attested.review_attestation.signed_reviewer_label_status,
-    "self_declared_not_identity_verified",
+    attested.review_attestation.reviewer_label_status,
+    "self_declared_unsigned",
   );
   assert.equal(
     stableStringify(attested),
@@ -2151,7 +2128,8 @@ test("exit report and evidence index project only bounded supplied-snapshot assu
   );
   assert.equal(report.conditions.verification_scope_is_supplied_repository_snapshot, true);
   assert.equal(report.conditions.bounded_snapshot_assurance_is_exact, true);
-  assert.ok(report.nonclaims.some((entry) => /signer-principal isolation/u.test(entry)));
+  assert.ok(report.nonclaims.some((entry) => /no cryptographic authorship/u.test(entry)));
+  assert.ok(report.nonclaims.some((entry) => /not part of the bounded agency framework's authority model/u.test(entry)));
   assert.ok(report.nonclaims.some((entry) => /accepted snapshot head is current/u.test(entry)));
   assert.ok(report.nonclaims.some((entry) => /rollback/u.test(entry)));
   assert.ok(index.evidence_items.every((entry) => (
@@ -2165,7 +2143,9 @@ test("README names no local signer custody and makes no independent-review or fr
   assert.doesNotMatch(source, /\$HOME|mode `0700`|mode `0600`|reviewer-controlled host/u);
   assert.doesNotMatch(source, /append-only review chain|minimum accepted head/u);
   assert.match(source, /self-declared label, not verified reviewer identity or independence/u);
-  assert.match(source, /does not establish signer-principal isolation/u);
+  assert.match(source, /does not establish authorship/u);
+  assert.match(source, /development-workflow integrity evidence only/u);
+  assert.doesNotMatch(source, /external signer|private signing key|key rotation/iu);
   assert.match(source, /outside rollback-domain checkpoint/u);
 });
 

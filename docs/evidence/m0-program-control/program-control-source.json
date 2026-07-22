@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-21",
+  "as_of_date": "2026-07-22",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -347,17 +347,17 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "ff33edca9ae54cf6ab388576bcdfc749a2d746dffc7eed217dfe595fb2562a88"
+      "source_sha256": "d91689ca126eab05aaa92b20b4e49aeab1f632893d67ced43ba582e2eee94e37"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "4f0038d492b8d58c4fdbb3b4556c4576ba9a1211680c95deaed2c35cf0f9b62c"
+      "source_sha256": "abbe01d5e7e597c3be0bb2e04c87cf9f4b1e7202c5fb1904a5053f1081ddc548"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/governed-autonomous-systems.md",
-      "source_sha256": "713f5ffdf7f5bdfbfdd5d25651695419bb224f299518d92128b53de8427f70e0"
+      "source_sha256": "cc80c59fae411bd08b741f9018e47910bad9982aef2e5d6bfa79d389c2ff135b"
     },
     {
       "role": "landed owner canon",
@@ -469,7 +469,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "64cd257f0603a5fc307d461fa02f3d768b3c4bee305f126672717f0e8c41dd40"
+            "source_sha256": "0205cf4f5c1ddc299bc8bd7f366bc265c6ff0fd09e1328a9d532c68d7a4a0637"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -644,7 +644,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "64cd257f0603a5fc307d461fa02f3d768b3c4bee305f126672717f0e8c41dd40"
+            "source_sha256": "0205cf4f5c1ddc299bc8bd7f366bc265c6ff0fd09e1328a9d532c68d7a4a0637"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -1555,30 +1555,26 @@
   "review_attestation": {
     "assurance_posture": {
       "accepted_head_currentness": "not_established",
+      "authorship_binding": "self_declared_label_unsigned",
       "chain_integrity_within_snapshot": "verified",
       "coherent_snapshot_rollback_resistance": "not_established",
       "repository_baseline_present": true,
-      "signature_key_possession": "verified",
-      "signer_principal_isolation": "not_established",
       "snapshot_head_binding": "verified"
     },
-    "attestation_format": "ioi.m0.program_control_source_review.v3",
-    "detached_signature_sha256": "cd886fcdd89ff15b5300f079041568371e73e7a49afd2da328507459563c60fc",
-    "program_source_material_sha256": "0bfa49fdac5db4a1cad5ff12490a01ba27ab89260598eaf6cbc31892cc0e888e",
-    "review_epoch_id": "pr-92-platform-operability-canon-review-2026-07-21",
-    "review_lock_sha256": "8ca62bd54ecdf4a5094a27c55959f236f26e884d200361a9c4699fbb2c2003e8",
-    "review_method": "detached_ed25519_signature_and_supplied_snapshot_consistency",
-    "reviewed_as_of": "2026-07-21",
-    "reviewed_entry_set_sha256": "99e49c58c67d5338586dc1004bab951532918c74d85773abf435282de5eb7510",
-    "reviewed_identity_set_sha256": "fd8f3d7db7e951da1ed61a451133aeb2ab8279154c22f4a9c3f428f00cf737a6",
-    "signature_evidence_ref": "review-evidence://m0/program-control/pr-92-platform-operability-canon-review-2026-07-21",
-    "signature_key_id": "ed25519:sha256:8f718bf7b7013d2dad29055e9bf46115ea82a8ce0b2eb08280d240194fc3ba26",
-    "signed_reviewer_label": "reviewer://ioi/m0-program-control-independent-review",
-    "signed_reviewer_label_status": "self_declared_not_identity_verified",
+    "attestation_format": "ioi.m0.program_control_source_review.v4",
+    "program_source_material_sha256": "189f4c3cf1944960c898cac760c880e81075b0a9dc239cbede9314fd50e236c8",
+    "review_epoch_id": "pr-97-governed-system-activation-review-2026-07-22",
+    "review_lock_sha256": "d2bcaa22f6b2ad4bd74674cc3bd75f8e4d7ba50b25c1c6c79a1d08240c3581b1",
+    "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
+    "reviewed_as_of": "2026-07-22",
+    "reviewed_entry_set_sha256": "58c389e84fd254a411cc5811961a05729833d1f31516070814db79fc946445f3",
+    "reviewed_identity_set_sha256": "8687ab425016aeb6d8552ff6766c3cecfb3f856bd1064af33e36255d391fb0af",
+    "reviewer_label": "reviewer://ioi/m0-program-control-independent-review",
+    "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "5399fa33f1082e0afb4878fba7c8a03084a8a2b1a9570f3e5518d6963f8c80c6",
-    "snapshot_head_sequence": 6,
-    "snapshot_predecessor_entry_sha256": "b6827b79252eabcbe09924757f66302597467355bb7c63ecb447b2f387a4c6ea",
+    "snapshot_head_entry_sha256": "5660d5bbe6d9dc179eeaf4d52d219203da72c80bf28c6d4312dd3a787524f2a2",
+    "snapshot_head_sequence": 7,
+    "snapshot_predecessor_entry_sha256": "5399fa33f1082e0afb4878fba7c8a03084a8a2b1a9570f3e5518d6963f8c80c6",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

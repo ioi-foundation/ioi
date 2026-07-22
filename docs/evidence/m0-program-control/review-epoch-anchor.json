@@ -1,18 +1,17 @@
 {
   "assurance_posture": {
     "accepted_head_currentness": "not_established",
+    "authorship_binding": "self_declared_label_unsigned",
     "chain_integrity_within_snapshot": "verified",
     "coherent_snapshot_rollback_resistance": "not_established",
     "repository_baseline_present": true,
-    "signature_key_possession": "verified",
-    "signer_principal_isolation": "not_established",
     "snapshot_head_binding": "verified"
   },
   "chain_policy": {
     "accepted_head_currentness": "not_established_without_outside_rollback_domain_checkpoint",
     "coherent_snapshot_rollback_resistance": "not_established",
     "head_binding": "supplied_snapshot_complete_lock_latest_epoch_and_program_source",
-    "historical_validation": "signed_claim_and_predecessor_within_supplied_snapshot",
+    "historical_validation": "retained_claim_and_predecessor_hash_within_supplied_snapshot",
     "monotonicity": "strict_sequence_and_nondecreasing_review_date_within_supplied_snapshot",
     "predecessor_rule": "sha256_of_complete_predecessor_anchor_entry",
     "repository_baseline": {
@@ -20,7 +19,7 @@
       "epoch_id": "pr-91-integrated-authority-and-m1-4-review-2026-07-20",
       "sequence": 2
     },
-    "signature_authentication": "ed25519_key_possession_for_signed_claim",
+    "signature_authentication": "none_unsigned_hash_chain",
     "signer_principal_isolation": "not_established"
   },
   "epochs": [
@@ -173,12 +172,28 @@
       "total_reviewed_entry_count": 1541,
       "total_reviewed_entry_set_sha256": "16402740dd82d4b0ea84b874dd529fa191387835806ed7fd8eeaf882ce424de7",
       "total_reviewed_identity_set_sha256": "df3ab91ebe5378e240adab2275cced3e32e74a14ed6c2f122d5381f6b760cf1f"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "pr-97-governed-system-activation-review-2026-07-22",
+      "latest_epoch_identity_set_sha256": "8687ab425016aeb6d8552ff6766c3cecfb3f856bd1064af33e36255d391fb0af",
+      "latest_epoch_reviewed_entry_count": 1068,
+      "latest_epoch_reviewed_entry_set_sha256": "58c389e84fd254a411cc5811961a05729833d1f31516070814db79fc946445f3",
+      "predecessor_entry_sha256": "5399fa33f1082e0afb4878fba7c8a03084a8a2b1a9570f3e5518d6963f8c80c6",
+      "program_source_material_sha256": "189f4c3cf1944960c898cac760c880e81075b0a9dc239cbede9314fd50e236c8",
+      "review_lock_sha256": "d2bcaa22f6b2ad4bd74674cc3bd75f8e4d7ba50b25c1c6c79a1d08240c3581b1",
+      "reviewed_as_of": "2026-07-22",
+      "reviewer_id": "reviewer://ioi/m0-program-control-independent-review",
+      "sequence": 7,
+      "total_reviewed_entry_count": 1545,
+      "total_reviewed_entry_set_sha256": "84f8f1acf07491e287dfb75da4c84b0c5b6a218da74a99f92a21f1d0b1436141",
+      "total_reviewed_identity_set_sha256": "48799c2001ebc21bdf8693ce039e71efad2469ee86163528c26092561a2f35f2"
     }
   ],
-  "evidence_format": "ioi.m0.review_epoch_anchor.v2",
+  "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "5399fa33f1082e0afb4878fba7c8a03084a8a2b1a9570f3e5518d6963f8c80c6",
-    "epoch_id": "pr-92-platform-operability-canon-review-2026-07-21",
-    "sequence": 6
+    "entry_sha256": "5660d5bbe6d9dc179eeaf4d52d219203da72c80bf28c6d4312dd3a787524f2a2",
+    "epoch_id": "pr-97-governed-system-activation-review-2026-07-22",
+    "sequence": 7
   }
 }
