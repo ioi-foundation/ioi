@@ -138,6 +138,8 @@ mod substrate_store;
 mod supervisor_routes;
 #[path = "hypervisor_daemon_routes/system_activation_routes.rs"]
 mod system_activation_routes;
+#[path = "hypervisor_daemon_routes/system_protected_transition_routes.rs"]
+mod system_protected_transition_routes;
 #[path = "hypervisor_daemon_routes/system_genesis_routes.rs"]
 mod system_genesis_routes;
 #[path = "hypervisor_daemon_routes/system_sequence_zero_routes.rs"]

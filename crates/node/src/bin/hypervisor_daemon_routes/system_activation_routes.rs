@@ -46,7 +46,7 @@ pub(crate) const PROPOSAL_DIR: &str = "autonomous-system-lifecycle-proposals";
 pub(crate) const DECISION_DIR: &str = "autonomous-system-lifecycle-authority-decisions";
 pub(crate) const TRANSITION_DIR: &str = "autonomous-system-lifecycle-transitions";
 const INITIALIZE_RECEIPT_DIR: &str = "autonomous-system-initialize-transition-receipts";
-const ACTIVATION_RECEIPT_DIR: &str = "autonomous-system-activation-receipts";
+pub(crate) const ACTIVATION_RECEIPT_DIR: &str = "autonomous-system-activation-receipts";
 const ACTIVE_SET_DIR: &str = "autonomous-system-active-profile-sets";
 const HOME_BINDING_DIR: &str = "autonomous-system-home-bindings";
 pub(crate) const OPERATION_LOG_DIR: &str = "autonomous-system-operation-log-revisions";
@@ -175,7 +175,7 @@ pub(crate) fn canonical_hash_str(value: &str) -> bool {
     canonical_hash(&Value::String(value.to_owned()))
 }
 
-fn jcs_hash(value: &Value) -> Result<String, VErr> {
+pub(crate) fn jcs_hash(value: &Value) -> Result<String, VErr> {
     let bytes = serde_jcs::to_vec(value)
         .map_err(|error| verr("system_lifecycle_artifact_invalid", error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
@@ -185,7 +185,7 @@ fn artifact_root(domain: &str, value: &Value) -> Result<String, VErr> {
     jcs_hash(&json!({"domain": domain, "artifact": value}))
 }
 
-fn required_string<'a>(value: &'a Value, pointer: &str) -> Result<&'a str, VErr> {
+pub(crate) fn required_string<'a>(value: &'a Value, pointer: &str) -> Result<&'a str, VErr> {
     value
         .pointer(pointer)
         .and_then(Value::as_str)
@@ -2473,7 +2473,7 @@ fn get_state(key: &str, data_dir: &str, sequence: u64) -> (StatusCode, Json<Valu
     }
 }
 
-fn enumerate_family(data_dir: &str, family: &str) -> Result<Vec<(String, Value)>, VErr> {
+pub(crate) fn enumerate_family(data_dir: &str, family: &str) -> Result<Vec<(String, Value)>, VErr> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, family) {
         Ok(directory) => directory,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
