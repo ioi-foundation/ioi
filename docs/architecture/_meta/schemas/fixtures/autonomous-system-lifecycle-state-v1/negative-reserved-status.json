@@ -1,0 +1,17 @@
+{
+  "schema_version": "ioi.autonomous-system-lifecycle-state.v1",
+  "lifecycle_state_ref": "system-lifecycle-state://fixture/alpha/sequence/6",
+  "lifecycle_state_root": "sha256:d28a3b22c36fac4cf3bd4e7108e542c683e14225731cc8431f561332475357ce",
+  "system_id": "system://fixture/alpha",
+  "sequence": 6,
+  "status": "dissolving",
+  "predecessor_state_root": "sha256:2121212121212121212121212121212121212121212121212121212121212121",
+  "transition_ref": null,
+  "transition_root": null,
+  "transition_receipt_ref": null,
+  "transition_receipt_root": null,
+  "active_profile_set_ref": "active-profile-set://fixture/alpha",
+  "active_profile_set_root": "sha256:1616161616161616161616161616161616161616161616161616161616161616",
+  "chain_ref": "autonomous-system-chain://fixture/alpha",
+  "created_at": null
+}

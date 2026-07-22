@@ -73,7 +73,8 @@
     },
     "sequence": {
       "type": "integer",
-      "minimum": 3
+      "minimum": 3,
+      "maximum": 9007199254740991
     },
     "irreversibility": {
       "enum": [
@@ -118,7 +119,7 @@
     },
     "authority_grant_ref": {
       "type": "string",
-      "pattern": "^grant://wallet\\.network/approval/sha256:[0-9a-f]{64}$"
+      "pattern": "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"
     },
     "authority_evidence_ref": {
       "type": "string",
@@ -130,7 +131,7 @@
     },
     "wallet_grant_consumption_ref": {
       "type": "string",
-      "pattern": "^wallet\\.network://approval-effect-consumption/[A-Za-z0-9._:/-]+$"
+      "pattern": "^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$"
     },
     "wallet_grant_consumption_evidence_ref": {
       "type": "string",
@@ -142,7 +143,7 @@
     "decided_at": {
       "type": "string",
       "format": "date-time",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
     }
   },
   "allOf": [
