@@ -1,0 +1,48 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m1-5c-amendment-execution",
+  "stage_id": "M1",
+  "required_work": [
+    "M1.5 (protected amendment slice)"
+  ],
+  "status": "active",
+  "objective": "Protected constitutional amendment execution: an approved amendment executes on the live chain exactly once, swapping the active constitution to its successor revision under the constitution's own declared amendment governance, with protected clauses unamendable and the predecessor retained as superseded evidence.",
+  "falsifiable_claim": "No protected or structural clause changes (declared changed paths must equal the computed predecessor-to-successor diff and avoid protected/structural paths); amendment admits only from active|paused with exact head pinning; the amend scope is satisfiable by no lifecycle scope; execution is exactly-once under race and crash-replay; rollback is forward-only.",
+  "canon_owners": [
+    "docs/architecture/foundations/common-objects-and-envelopes.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "docs/architecture/_meta/schemas/autonomous-system-amendment-execution-proposal.v1.schema.json",
+      "present_when": "pr_open"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/autonomous-system-amendment-execution-decision.v1.schema.json",
+      "present_when": "pr_open"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/autonomous-system-active-profile-set.v2.schema.json",
+      "present_when": "pr_open"
+    },
+    {
+      "path": "crates/types/src/app/system_lifecycle_transitions.rs",
+      "must_contain": "compile_amendment_execution_plan",
+      "present_when": "pr_open"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/system_amendment_routes.rs",
+      "present_when": "pr_open"
+    }
+  ],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Planned: canonical-diff enforcement tests (declared-vs-computed mismatch both directions; protected + structural path refusals; agent_may_commit_amendment=false refusal); scope disjointness vs all 14 lifecycle scopes; race linearization 3x; crash-replay convergence; post-amendment operational continuity journey.",
+  "remaining_nonclaims": [
+    "Migration/succession, dissolution, and enrollment remain m1-5d.",
+    "Notice/challenge time-window enforcement is declared governance evidence, not clock-enforced in the single-authority M1 profile; recorded honestly in canon.",
+    "No membership/topology (M2), consensus, or multi-node claims."
+  ],
+  "source_provenance": "Cut from guide M1.5 (distinct protected amendment) after m1-5b merged at 695921491; design in internal-docs/implementation/work-item-m1-5c-amendment-execution.md.",
+  "last_status_transaction": "2026-07-22"
+}
