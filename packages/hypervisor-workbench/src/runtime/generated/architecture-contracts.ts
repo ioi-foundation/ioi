@@ -2252,6 +2252,7 @@ export type AutonomousSystemProtectedTransitionProposalV1 = {
       irreversibility: "reversible" | "one_way" | "terminal";
       system_id: string;
       genesis_ref: string;
+      source_governing_authority_ref: string;
       home_domain_ref: string;
       home_domain_commitment: string;
       home_domain_binding_ref: string;
@@ -8130,7 +8131,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/lifecycle-transition-receipt/v1": "sha256:320de6f5dff11c7adda1bc653fa534d56b87dd66db4c534ec008cce8d9102f5d",
   "schema://ioi/foundations/autonomous-system-activation-receipt/v1": "sha256:4971827e846741e1ca98500ce790d8d48e0c22e268580337fc81f24dfef6d08c",
   "schema://ioi/foundations/ioi-network-enrollment/v1": "sha256:a5e2fbb51d71d7d51d8a48cc915899045d874977c30c1daaabe182578807c77f",
-  "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1": "sha256:b9a71175e09c104f4145bb7f62b5f342fe260e0a0442022c857753ca97eafaad",
+  "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1": "sha256:217fe208fbec827e2d3288858850ad3f45c79f794c18e622aef68bf5c499d08f",
   "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1": "sha256:c3786dfca242c3dbe75c422b66cbe2c9205a111f5d1f185f5f2688de680d8f48",
   "schema://ioi/foundations/autonomous-system-lifecycle-state/v1": "sha256:0053e6d7285ae284a49befd7775a22b7ab7fac131cf47cf87bd92a196ddd6412"
 } as const;
@@ -25598,6 +25599,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "irreversibility",
           "system_id",
           "genesis_ref",
+          "source_governing_authority_ref",
           "home_domain_ref",
           "home_domain_commitment",
           "home_domain_binding_ref",
@@ -25688,6 +25690,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "genesis_ref": {
             "type": "string",
             "pattern": "^genesis://[A-Za-z0-9._:/-]+$"
+          },
+          "source_governing_authority_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
           },
           "home_domain_ref": {
             "type": "string",
@@ -29694,6 +29701,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
           "genesis_ref": {
             "path": "$.authority_effect.genesis_ref"
           },
+          "source_governing_authority_ref": {
+            "path": "$.authority_effect.source_governing_authority_ref"
+          },
           "home_domain_ref": {
             "path": "$.authority_effect.home_domain_ref"
           },
@@ -29765,6 +29775,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
           },
           "genesis_ref": {
             "path": "$.authority_effect.genesis_ref"
+          },
+          "source_governing_authority_ref": {
+            "path": "$.authority_effect.source_governing_authority_ref"
           },
           "home_domain_ref": {
             "path": "$.authority_effect.home_domain_ref"

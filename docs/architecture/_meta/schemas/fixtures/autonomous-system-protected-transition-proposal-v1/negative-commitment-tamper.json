@@ -1,7 +1,7 @@
 {
   "schema_version": "ioi.autonomous-system-protected-transition-proposal.v1",
   "proposal_ref": "proposal://fixture/alpha/suspend/6",
-  "proposal_root": "sha256:1edd9fa51ea70b01361b68b3743e7a880527c01de6e85a284347861396b1d646",
+  "proposal_root": "sha256:a4a07b767df66674b6da0105f0b88cde447a0b489338297190148ba38531e38d",
   "system_id": "system://fixture/alpha",
   "genesis_ref": "genesis://fixture/alpha",
   "op": "suspend",
@@ -49,7 +49,8 @@
     "network_effect_admitted": false,
     "constitution_changed": false,
     "profile_set_changed": false,
-    "operation_commitment": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    "operation_commitment": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "source_governing_authority_ref": "wallet://fixture/governing"
   },
   "authority_effect_hash": "sha256:4141414141414141414141414141414141414141414141414141414141414141",
   "status": "proposed",

@@ -879,6 +879,7 @@
         "irreversibility",
         "system_id",
         "genesis_ref",
+        "source_governing_authority_ref",
         "home_domain_ref",
         "home_domain_commitment",
         "home_domain_binding_ref",
@@ -969,6 +970,11 @@
         "genesis_ref": {
           "type": "string",
           "pattern": "^genesis://[A-Za-z0-9._:/-]+$"
+        },
+        "source_governing_authority_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
         },
         "home_domain_ref": {
           "type": "string",

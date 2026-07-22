@@ -596,6 +596,8 @@ pub fn compile_protected_transition_plan(
         "irreversibility": op.irreversibility().as_str(),
         "system_id": system_id,
         "genesis_ref": required_effect_string(activation_effect, "genesis_ref")?,
+        "source_governing_authority_ref":
+            required_effect_string(activation_effect, "source_governing_authority_ref")?,
         "home_domain_ref": required_effect_string(activation_effect, "home_domain_ref")?,
         "home_domain_commitment":
             required_effect_string(activation_effect, "home_domain_commitment")?,
@@ -662,6 +664,7 @@ fn protected_operation_commitment(effect: &Value) -> Result<String, String> {
         "irreversibility": field("irreversibility")?,
         "system_id": field("system_id")?,
         "genesis_ref": field("genesis_ref")?,
+        "source_governing_authority_ref": field("source_governing_authority_ref")?,
         "home_domain_ref": field("home_domain_ref")?,
         "home_domain_commitment": field("home_domain_commitment")?,
         "policy_root": field("policy_root")?,
@@ -693,6 +696,7 @@ mod compile_tests {
             "sequence": 2,
             "system_id": "system://fixture/alpha",
             "genesis_ref": "genesis://fixture/alpha",
+            "source_governing_authority_ref": "wallet://fixture/governing",
             "home_domain_ref": "home-domain://fixture/alpha",
             "home_domain_commitment": h(0x11),
             "home_domain_binding_ref": "system-home-domain-binding://fixture/alpha",

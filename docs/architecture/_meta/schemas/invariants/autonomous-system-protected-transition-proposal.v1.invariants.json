@@ -91,6 +91,9 @@
           "genesis_ref": {
             "path": "$.authority_effect.genesis_ref"
           },
+          "source_governing_authority_ref": {
+            "path": "$.authority_effect.source_governing_authority_ref"
+          },
           "home_domain_ref": {
             "path": "$.authority_effect.home_domain_ref"
           },
@@ -162,6 +165,9 @@
           },
           "genesis_ref": {
             "path": "$.authority_effect.genesis_ref"
+          },
+          "source_governing_authority_ref": {
+            "path": "$.authority_effect.source_governing_authority_ref"
           },
           "home_domain_ref": {
             "path": "$.authority_effect.home_domain_ref"
