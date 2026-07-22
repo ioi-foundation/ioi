@@ -15,8 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::system_activation::{
-    artifact_root, jcs_hash, namespace, required_string,
-    UnverifiedCommittedSystemLifecycleStep,
+    jcs_hash, namespace, required_string, UnverifiedCommittedSystemLifecycleStep,
 };
 
 /// JCS domain for the semantic lifecycle-state root.
@@ -554,12 +553,14 @@ pub fn compile_protected_transition_plan(
     let resulting_status = op.resulting_status();
 
     let lifecycle_state_ref = format!(
-        "system-lifecycle-state://{}/{}",
+        "system-lifecycle-state://{}/sequence/{}",
         namespace(system_id)?,
         sequence,
     );
-    let semantic_state = json!({
-        "schema_version": "ioi.autonomous-system-lifecycle-state.v1",
+    // Flat JCS material with the domain inline, mirroring the activation
+    // state so the portable invariant can recompute the root field-for-field.
+    let state_material = json!({
+        "domain": LIFECYCLE_STATE_HASH_PROFILE,
         "lifecycle_state_ref": lifecycle_state_ref,
         "system_id": system_id,
         "sequence": sequence,
@@ -568,7 +569,24 @@ pub fn compile_protected_transition_plan(
         "active_profile_set_ref": active_profile_set_ref,
         "active_profile_set_root": active_profile_set_root,
     });
-    let resulting_state_root = artifact_root(LIFECYCLE_STATE_HASH_PROFILE, &semantic_state)?;
+    let resulting_state_root = jcs_hash(&state_material)?;
+    let semantic_state = json!({
+        "schema_version": "ioi.autonomous-system-lifecycle-state.v1",
+        "lifecycle_state_ref": lifecycle_state_ref,
+        "lifecycle_state_root": resulting_state_root,
+        "system_id": system_id,
+        "sequence": sequence,
+        "status": resulting_status.as_str(),
+        "predecessor_state_root": previous_step.state_root,
+        "transition_ref": Value::Null,
+        "transition_root": Value::Null,
+        "transition_receipt_ref": Value::Null,
+        "transition_receipt_root": Value::Null,
+        "active_profile_set_ref": active_profile_set_ref,
+        "active_profile_set_root": active_profile_set_root,
+        "chain_ref": chain_ref,
+        "created_at": Value::Null,
+    });
 
     let mut effect = json!({
         "schema_version": PROTECTED_AUTHORITY_EFFECT_SCHEMA,

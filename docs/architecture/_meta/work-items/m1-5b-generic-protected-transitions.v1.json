@@ -26,11 +26,16 @@
       "path": "crates/types/src/app/system_lifecycle_transitions.rs",
       "must_contain": "compile_protected_transition_plan",
       "present_when": "pr_open"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/invariants/autonomous-system-protected-transition-proposal.v1.invariants.json",
+      "must_contain": "operation_commitment.recomputes",
+      "present_when": "pr_open"
     }
   ],
   "evidence_refs": [],
   "pr": null,
-  "adversarial_or_fault_proof": "Committed: 6/6 canon-parity tests on the op family (row-by-row legality pinning, scope disjointness, degraded unreachable, terminal arcs) + 12/12 compile-path tests (full 154-cell op-by-predecessor sweep compiles or refuses per canon; identity detachment/overclaims refused; bootstrap and reserved statuses refused; byte-determinism with tamper-sensitive commitments; six negative claims preserved). ioi-types 262/262. Predeclared for the remaining increments: schema/registry fixtures (scope substitution, irreversibility mismatch, reserved-status smuggling), sealed-intent replay/restart convergence, fault-injection recovery.",
+  "adversarial_or_fault_proof": "Committed: 6/6 canon-parity tests on the op family (row-by-row legality pinning, scope disjointness, degraded unreachable, terminal arcs) + 12/12 compile-path tests (full 154-cell op-by-predecessor sweep compiles or refuses per canon; identity detachment/overclaims refused; bootstrap and reserved statuses refused; byte-determinism with tamper-sensitive commitments; six negative claims preserved). ioi-types 262/262. Increment 3: three registered contracts embedding the closed effect; full architecture-contract bar green (39 contracts/141 fixtures incl. mutation+differential corpora; generated cargo tests 14/14 with the live ajv-vs-Rust differential); ten real-hash fixtures prove Rust/Python/JS recipe agreement; state root aligned to the flat JCS house pattern. Predeclared remaining: sealed-intent replay/restart convergence and fault-injection recovery in the runtime increment.",
   "remaining_nonclaims": [
     "Amendment execution, migration/succession, dissolution, and enrollment remain named-owner slices (m1-5c/d).",
     "No membership/topology (M2), consensus, or product Systems UX beyond pulled read projections.",
