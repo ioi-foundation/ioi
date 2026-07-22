@@ -1,0 +1,539 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
+  "title": "AutonomousSystemProtectedTransitionProposal",
+  "description": "Immutable server-derived proposal for one generic protected operational lifecycle transition of a live Autonomous System at sequence three or later. It is evidence only, grants no authority, never stands for bootstrap initialize/activate, and never stands for amendment, migration/succession, dissolution, or enrollment, which retain their named owners.",
+  "x-ioi-schema-version": "ioi.autonomous-system-protected-transition-proposal.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proposal_ref",
+    "proposal_root",
+    "system_id",
+    "genesis_ref",
+    "op",
+    "sequence",
+    "predecessor_status",
+    "predecessor_state_root",
+    "predecessor_chain_head_root",
+    "irreversibility",
+    "required_scope",
+    "operation_commitment",
+    "authority_effect",
+    "authority_effect_hash",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-protected-transition-proposal.v1"
+    },
+    "proposal_ref": {
+      "type": "string",
+      "pattern": "^proposal://[A-Za-z0-9._:/-]+$"
+    },
+    "proposal_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[A-Za-z0-9._:/-]+$"
+    },
+    "genesis_ref": {
+      "type": "string",
+      "pattern": "^genesis://[A-Za-z0-9._:/-]+$"
+    },
+    "op": {
+      "enum": [
+        "pause",
+        "resume",
+        "suspend",
+        "reinstate",
+        "enter_dormancy",
+        "wake",
+        "begin_recovery",
+        "complete_recovery",
+        "quarantine",
+        "release_quarantine",
+        "retire",
+        "archive",
+        "revoke",
+        "decommission"
+      ]
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 3
+    },
+    "predecessor_status": {
+      "enum": [
+        "active",
+        "degraded",
+        "paused",
+        "suspended",
+        "dormant",
+        "recovering",
+        "quarantined",
+        "retired",
+        "archived",
+        "revoked"
+      ]
+    },
+    "predecessor_state_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "predecessor_chain_head_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "irreversibility": {
+      "enum": [
+        "reversible",
+        "one_way",
+        "terminal"
+      ]
+    },
+    "required_scope": {
+      "enum": [
+        "scope:autonomous_system.lifecycle.pause",
+        "scope:autonomous_system.lifecycle.resume",
+        "scope:autonomous_system.lifecycle.suspend",
+        "scope:autonomous_system.lifecycle.reinstate",
+        "scope:autonomous_system.lifecycle.enter_dormancy",
+        "scope:autonomous_system.lifecycle.wake",
+        "scope:autonomous_system.lifecycle.begin_recovery",
+        "scope:autonomous_system.lifecycle.complete_recovery",
+        "scope:autonomous_system.lifecycle.quarantine",
+        "scope:autonomous_system.lifecycle.release_quarantine",
+        "scope:autonomous_system.lifecycle.retire",
+        "scope:autonomous_system.lifecycle.archive",
+        "scope:autonomous_system.lifecycle.revoke",
+        "scope:autonomous_system.lifecycle.decommission"
+      ]
+    },
+    "operation_commitment": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "authority_effect": {
+      "const": "exact_closed_server_derived_effect"
+    },
+    "authority_effect_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "status": {
+      "const": "proposed"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "pause"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.pause"
+          },
+          "predecessor_status": {
+            "enum": [
+              "active",
+              "degraded"
+            ]
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "resume"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.resume"
+          },
+          "predecessor_status": {
+            "enum": [
+              "paused"
+            ]
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "suspend"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.suspend"
+          },
+          "predecessor_status": {
+            "enum": [
+              "active",
+              "degraded",
+              "paused"
+            ]
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "reinstate"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.reinstate"
+          },
+          "predecessor_status": {
+            "enum": [
+              "suspended"
+            ]
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "enter_dormancy"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.enter_dormancy"
+          },
+          "predecessor_status": {
+            "enum": [
+              "active",
+              "paused"
+            ]
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "wake"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.wake"
+          },
+          "predecessor_status": {
+            "enum": [
+              "dormant"
+            ]
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "begin_recovery"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.begin_recovery"
+          },
+          "predecessor_status": {
+            "enum": [
+              "degraded",
+              "suspended",
+              "quarantined"
+            ]
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "complete_recovery"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.complete_recovery"
+          },
+          "predecessor_status": {
+            "enum": [
+              "recovering"
+            ]
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "quarantine"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.quarantine"
+          },
+          "predecessor_status": {
+            "enum": [
+              "active",
+              "degraded",
+              "paused",
+              "recovering"
+            ]
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "release_quarantine"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.release_quarantine"
+          },
+          "predecessor_status": {
+            "enum": [
+              "quarantined"
+            ]
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "retire"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.retire"
+          },
+          "predecessor_status": {
+            "enum": [
+              "active",
+              "paused",
+              "suspended",
+              "dormant"
+            ]
+          },
+          "irreversibility": {
+            "const": "one_way"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "archive"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.archive"
+          },
+          "predecessor_status": {
+            "enum": [
+              "retired"
+            ]
+          },
+          "irreversibility": {
+            "const": "one_way"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "revoke"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.revoke"
+          },
+          "predecessor_status": {
+            "enum": [
+              "active",
+              "degraded",
+              "paused",
+              "suspended",
+              "dormant",
+              "recovering",
+              "quarantined",
+              "retired",
+              "archived"
+            ]
+          },
+          "irreversibility": {
+            "const": "one_way"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "decommission"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.decommission"
+          },
+          "predecessor_status": {
+            "enum": [
+              "retired",
+              "archived",
+              "revoked"
+            ]
+          },
+          "irreversibility": {
+            "const": "terminal"
+          }
+        }
+      }
+    }
+  ]
+}
