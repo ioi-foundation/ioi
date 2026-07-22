@@ -1,0 +1,43 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m1-governed-initialize-activate",
+  "stage_id": "M1",
+  "required_work": [
+    "M1.5 prefix (initialize/activate)"
+  ],
+  "status": "verified",
+  "objective": "Governed system initialize and activate over the M1.4 artifact: initialization binds the exact sequence-zero material and produces sequence 1; activation binds its exact initialized predecessor and produces sequence 2; the chain and operation log remain exactly 0 -> 1 -> 2 under distinct autonomous_system.lifecycle wallet scopes with sealed intents, fail-closed wallet consumption, and locked no-clobber graph persistence.",
+  "falsifiable_claim": "A caller cannot author operational fields, replay foreign evidence, activate without the exact initialized predecessor, or reach any effect under the wrong lifecycle scope; twelve racing initialize requests converge to one result; restart backfills without re-authoring.",
+  "canon_owners": [
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/common-objects-and-envelopes.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/system_activation_routes.rs",
+      "must_contain": "scope:autonomous_system.lifecycle",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/autonomous-system-activation-proposal.v1.schema.json",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/autonomous-system-chain.v1.schema.json",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/evidence/m0-program-control/reviewed-entry-lock.json",
+    "docs/evidence/m0-program-control/review-epoch-anchor.json"
+  ],
+  "pr": 97,
+  "adversarial_or_fault_proof": "Activation journey 26/26; full sequence-zero certification 93/93 across ten journeys and two clean-room historical builds; contract registry 36 contracts / 131 fixtures / 103 mutations / 249 differential checks; M0 census epoch 7 binds all four routes after source-aware review; full check:pre-next-leg green at 0c5e5c558.",
+  "remaining_nonclaims": [
+    "No runtime or workload execution is created by activation.",
+    "No network, node membership, writer/finality, settlement, M2 placement, or distributed continuity claim.",
+    "GoalRun remains untouched; no swarm object, conductor, peer runtime, or new authority plane."
+  ],
+  "source_provenance": "PR #97 (feat/system-activation-transition); ready for review 2026-07-22; verified only when reviewed and landed. Verified 2026-07-22: PR #97 merged to master after delegated review (independent full-gate rerun, fresh-build journey certification, authority-seam source review).",
+  "last_status_transaction": "2026-07-22"
+}
