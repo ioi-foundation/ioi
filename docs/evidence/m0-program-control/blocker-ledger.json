@@ -306,7 +306,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 667,
+      "reference_count": 669,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -390,6 +390,7 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/activate",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/initialize",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/transitions/:op",
         "http:hypervisor-daemon:GET /v1/hypervisor/budget",
         "http:hypervisor-daemon:GET /v1/hypervisor/capability-leases",
         "http:hypervisor-daemon:GET /v1/hypervisor/cloud-candidates/candidate-sources",
@@ -678,6 +679,7 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/activate",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/initialize",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/transitions/:op",
         "http:hypervisor-daemon:POST /v1/hypervisor/budget/reconcile",
         "http:hypervisor-daemon:POST /v1/hypervisor/capability-offers",
         "http:hypervisor-daemon:POST /v1/hypervisor/capability-offers/:id/transition",
@@ -1556,7 +1558,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "3c284061b4553b38eec6d4b3e4d9055612766c621a7e9e2392e4c14f86adb9d7",
+  "build_fingerprint": "60656afa0cf5f2a22856a3ce81496956b80ef36ec418ea665dbd1b8f167567c7",
   "counts": {
     "by_state": {
       "open": 23,
