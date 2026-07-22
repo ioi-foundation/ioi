@@ -114,8 +114,9 @@ internetofintelligence.com (`tools/audit-seo.mjs`).
 ```text
 product domain      hypervisor.com (app.hypervisor.com · get.hypervisor.com);
                     the .io fork is retired
-RFA                 expands to "Request for Worker" everywhere; the acting
-                    party in public copy is the Worker, not "agent"
+request object      "Request for Worker (RFW)"; the legacy "Request for
+                    Agent" / RFA naming is retired; the acting party in
+                    public copy is the Worker, not "agent"
 legal entity        OPEN: "IOI, Inc." (hypervisor.com footer) vs
                     "IOI Foundation" (internetofintelligence.com) — needs an
                     owner decision before either is propagated further
