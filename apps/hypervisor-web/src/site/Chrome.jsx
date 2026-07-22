@@ -95,7 +95,7 @@ function Footer() {
         <FCol title="IOI" links={[["Internet of Intelligence", "https://internetofintelligence.com"], ["Whitepaper", "https://internetofintelligence.com/papers/ioi-whitepaper"], ["Roadmap", "https://internetofintelligence.com/roadmap"], ["What is Web4", "https://internetofintelligence.com/what-is-web4"]]} />
       </div>
       <div className="hv-footer-bar" style={{ maxWidth: "75rem", margin: "0 auto", padding: "1.5rem 2.5rem 3rem", borderTop: "0.5px solid var(--color-grey-500)", display: "flex", gap: "1.5rem", flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--color-grey-700)" }}>© 2026 IOI, Inc. · hypervisor.com</span>
+        <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--color-grey-700)" }}>© 2026 IOI Labs, Inc. · hypervisor.com</span>
       </div>
     </footer>
   );

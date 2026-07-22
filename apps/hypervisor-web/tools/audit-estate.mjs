@@ -31,6 +31,7 @@ const BANNED = [
   "1.2M",
   "Production telemetry",
   "Request for Agent",
+  "IOI, Inc.",
 ];
 for (const f of files) {
   const text = read(f);

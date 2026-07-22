@@ -3,9 +3,9 @@
 // SINGLE OWNER of shared public statements is the ioi-ai repo:
 //   ioi-ai/src/config/canonicalMessaging.js  (meaning governed by the
 //   architecture canon in this repo, docs/architecture/ + whitepaper v1.10.0).
-// The VENDORED block below is a pinned snapshot of that file's exports and
-// must only change by re-vendoring from the owner. The ESTATE EXTENSIONS
-// block is authored here first and is pending upstream into the owner file.
+// Both blocks below are pinned snapshots of that file's exports and must only
+// change by re-vendoring from the owner (the estate extensions were
+// upstreamed into it on 2026-07-21).
 // tools/audit-estate.mjs enforces banned phrases and required literals at
 // build time (wired into `npm run build` via prebuild).
 
@@ -32,7 +32,7 @@ export const LAYER_SUMMARIES = {
   l1: "IOI L1 is an optional shared trust layer for the few commitments that need public settlement. It is never required to run an IOI system.",
 };
 
-/* -------------------- ESTATE EXTENSIONS (pending upstream) ------------------ */
+/* ------------- ESTATE EXTENSIONS (vendored; owner: ioi-ai) ----------------- */
 
 // The canonical runtime doctrine pipeline, rendered on hypervisor.com Home.
 export const DOCTRINE_PIPELINE = [

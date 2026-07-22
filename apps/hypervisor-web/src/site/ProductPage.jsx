@@ -279,7 +279,7 @@ const React = window.React;
             <p style={{ fontFamily: "var(--font-sans)", fontSize: "1.0625rem", color: "rgba(255,255,255,0.6)", marginTop: "1rem", lineHeight: 1.5 }}>{p.sub}</p>
             <div style={{ display: "flex", gap: "0.625rem", marginTop: "2rem" }}>
               <PgButton theme="white">{meta.verb}</PgButton>
-              <PgButton variant="outline" theme="white">Talk to sales</PgButton>
+              <PgButton variant="outline" theme="white" style={{ color: "#fff", borderColor: "rgba(255,255,255,0.45)" }}>Talk to sales</PgButton>
             </div>
           </div>
         </div>
