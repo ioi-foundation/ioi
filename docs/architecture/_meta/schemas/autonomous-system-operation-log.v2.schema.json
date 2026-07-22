@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "schema://ioi/foundations/autonomous-system-operation-log/v2",
   "title": "AutonomousSystemOperationLog",
-  "description": "General lifecycle operation log continuing the chain beyond the activation prefix. The closed activation prefix is retained verbatim as embedded bootstrap evidence; protected transitions append entries at sequence three or later. Successor of v1, which remains the valid shape for the committed sequence-two revision.",
+  "description": "General lifecycle operation log continuing the chain beyond the activation prefix. The closed activation prefix is retained verbatim as embedded bootstrap evidence; protected transitions and constitution amendments append entries at sequence three or later. Successor of v1, which remains the valid shape for the committed sequence-two revision.",
   "x-ioi-schema-version": "ioi.autonomous-system-operation-log.v2",
   "type": "object",
   "additionalProperties": false,
@@ -365,7 +365,8 @@
             "sequence_zero_materialization",
             "system_initialization",
             "system_activation",
-            "protected_transition"
+            "protected_transition",
+            "constitution_amendment"
           ]
         },
         "operation_name": {

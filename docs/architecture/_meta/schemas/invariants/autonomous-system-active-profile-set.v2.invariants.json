@@ -1,0 +1,49 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-active-profile-set/admission/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_active_profile_set_v2.root.recomputes",
+      "description": "The semantic active-set root binds exact candidate admissions and the exact superseded predecessor set while excluding downstream transition, receipt, and wall-clock navigation fields.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.autonomous-system-active-profile-set-jcs-sha256.v2" },
+          "active_profile_set_ref": { "path": "$.active_profile_set_ref" },
+          "system_id": { "path": "$.system_id" },
+          "genesis_ref": { "path": "$.genesis_ref" },
+          "profile_bundle_root": { "path": "$.profile_bundle_root" },
+          "supersedes_profile_set_ref": { "path": "$.supersedes_profile_set_ref" },
+          "supersedes_profile_set_root": { "path": "$.supersedes_profile_set_root" },
+          "constitution": { "path": "$.constitution" },
+          "deployment": { "path": "$.deployment" },
+          "ordering_admission_finality": { "path": "$.ordering_admission_finality" },
+          "oracle_evidence_profiles": { "path": "$.oracle_evidence_profiles" },
+          "lifecycle_continuity": { "path": "$.lifecycle_continuity" },
+          "network_enrollment": { "path": "$.network_enrollment" },
+          "status": { "path": "$.status" }
+        },
+        "expected_path": "$.active_profile_set_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_active_profile_set_v2.supersedes_ref.nonempty",
+      "description": "A v2 set exists only as a successor: the superseded predecessor set reference is always present and nonempty.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.supersedes_profile_set_ref"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_active_profile_set_v2.supersedes_root.nonempty",
+      "description": "The superseded predecessor set is pinned by exact content root, never by reference alone.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.supersedes_profile_set_root"
+      }
+    }
+  ]
+}

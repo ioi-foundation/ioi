@@ -2503,6 +2503,26 @@ oracle entries may repeat only as distinct immutable objects; network
 enrollment is absent or one `local_only` candidate. Its semantic root excludes
 the downstream transition and receipt navigation refs.
 
+The `ioi.autonomous-system-active-profile-set.v2` successor generalizes the
+admission carrier beyond activation:
+
+```yaml
+AutonomousSystemActiveProfileSetEnvelope (v2 delta):
+  schema_version: ioi.autonomous-system-active-profile-set.v2
+  admitted_by_transition_ref: lifecycle-transition://...   # replaces activation_transition_ref
+  admitted_by_receipt_ref: receipt://...                   # replaces activation_receipt_ref
+  supersedes_profile_set_ref: active-profile-set://...     # required; v2 exists only as a successor
+  supersedes_profile_set_root: sha256:...
+```
+
+Any admitted lifecycle transition — a constitutional amendment execution
+first among them — may carry a v2 set, and every v2 set supersedes an exact
+predecessor set by reference and content root. All admission entries, the
+required cardinality, the `active` status literal, and the exclusion of
+transition/receipt navigation refs from the semantic root carry over
+verbatim; the root domain bumps to v2. v1 remains the valid shape for the
+activation-admitted set (`predecessor_remains_valid: true`).
+
 ### AutonomousSystemProtectedTransitionProposalEnvelope
 
 ```yaml
@@ -2668,6 +2688,108 @@ compiler therefore reconstructs that commitment from the proposal's exact
 authority effect and cross-checks the same value through decision, transition,
 receipt, and operation-log entry. Receipt shape alone never admits an
 operation.
+
+### AutonomousSystemAmendmentExecutionProposalEnvelope
+
+```yaml
+AutonomousSystemAmendmentExecutionProposalEnvelope:
+  schema_version: ioi.autonomous-system-amendment-execution-proposal.v1
+  proposal_ref: proposal://...
+  proposal_root: sha256:...
+  system_id: system://...
+  genesis_ref: genesis://...
+  op: amend_constitution
+  sequence: positive_integer >= 3
+  amendment_ref: constitution-amendment://...
+  amendment_root: sha256:...
+  predecessor_constitution_ref: constitution://...
+  predecessor_constitution_root: sha256:...
+  successor_constitution_ref: constitution://...
+  successor_constitution_root: sha256:...
+  changed_field_paths_commitment: sha256:...
+  predecessor_status: active | paused
+  predecessor_state_root: sha256:...
+  predecessor_chain_head_root: sha256:...
+  irreversibility: one_way
+  required_scope: scope:autonomous_system.constitution.amend
+  operation_commitment: sha256:...
+  authority_effect: exact_closed_server_derived_effect
+  authority_effect_hash: sha256:...
+  status: proposed
+  created_at: timestamp
+```
+
+This family owns the single protected constitutional-amendment execution op,
+`amend_constitution`, at sequence three or later. It is distinct from the
+generic protected-transition family above and from the non-effecting
+`AutonomousSystemConstitutionAmendment` declaration: the declaration proposes
+and is approved; this proposal binds the approved declaration
+(`amendment_ref` + `amendment_root`) to one exact live execution point. An
+amendment is admissible only from an `active` or `paused` predecessor, pinned
+by exact state root and chain head, so a stale, foreign, or replayed head
+admits nothing.
+
+`scope:autonomous_system.constitution.amend` is its own wallet scope and is
+satisfiable by no lifecycle scope: authority to pause, resume, or retire a
+System is never authority to rewrite its constitution, and vice versa. The
+op is `one_way` with forward-only rollback: reverting an amendment is a new
+amendment over the successor constitution, never an in-place revert, and the
+predecessor constitution remains retained, content-addressed superseded
+evidence.
+
+`changed_field_paths_commitment` binds the canonical predecessor-to-successor
+JSON-pointer diff: a declaration whose changed paths do not equal the
+machine-computed diff admits nothing. Structural lineage fields
+(schema version, constitution and system identity, version, predecessor ref,
+constitution root, activation receipt ref, status) and every path named by
+the constitution's own `governance.protected_clause_refs` are unamendable
+regardless of declaration, and `agent_may_commit_amendment: false` refuses
+agent-principal execution even when a grant exists. The embedded closed
+effect restates the predecessor/successor constitution roots and the
+changed-path commitment, and declares `constitution_changed: true` and
+`profile_set_changed: true` as its sole authorized positive effects,
+alongside the four retained negative claims (`live_chain_created`,
+`node_membership_created`, `runtime_effect_admitted`,
+`network_effect_admitted`, all `false`). The swap itself still happens only
+at chain commit, exactly once. Operational status never changes through
+amendment: the resulting status equals the predecessor status.
+
+### AutonomousSystemAmendmentExecutionDecisionEnvelope
+
+```yaml
+AutonomousSystemAmendmentExecutionDecisionEnvelope:
+  schema_version: ioi.autonomous-system-amendment-execution-decision.v1
+  decision_ref: decision://...
+  decision_root: sha256:...
+  proposal_ref: proposal://...
+  proposal_root: sha256:...
+  system_id: system://...
+  op: amend_constitution
+  sequence: positive_integer >= 3
+  amendment_ref: constitution-amendment://...
+  amendment_root: sha256:...
+  irreversibility: one_way
+  required_scope: scope:autonomous_system.constitution.amend
+  operation_commitment: sha256:...
+  input_hash: sha256:...
+  policy_hash: sha256:...
+  effect_hash: sha256:...
+  authority_grant_ref: grant://wallet.network/approval/sha256:...
+  authority_evidence_ref: system-lifecycle-authority-evidence://...
+  authority_evidence_root: sha256:...
+  wallet_grant_consumption_ref: wallet.network://approval-effect-consumption/...
+  wallet_grant_consumption_evidence_ref: system-lifecycle-authority-consumption://...
+  outcome: admitted
+  decided_at: timestamp
+```
+
+The decision is retained evidence for exactly one amendment-execution
+proposal. Its effect hash is recomputed from the exact proposal effect and it
+restates the amendment declaration coordinates, so copied or unrelated wallet
+evidence cannot authorize a different amendment, sequence, or System, and the
+restated `one_way` irreversibility makes the approved effect class explicit
+in the evidence. An approved amendment is chain-committed exactly once; the
+decision never re-executes.
 
 ### AutonomousSystemActivationReceiptEnvelope
 

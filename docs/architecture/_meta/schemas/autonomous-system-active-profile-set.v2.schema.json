@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
+  "title": "AutonomousSystemActiveProfileSet",
+  "description": "Successor admission projection over exact candidate profile roots, generalized beyond activation: any admitted lifecycle transition may carry it and it always supersedes an exact predecessor set. The closed shape keeps required profile cardinality structural; candidate bodies remain immutable and are not relabeled active. Successor of v1, which remains the valid shape for the activation-admitted set.",
+  "x-ioi-schema-version": "ioi.autonomous-system-active-profile-set.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "active_profile_set_ref",
+    "active_profile_set_root",
+    "system_id",
+    "genesis_ref",
+    "profile_bundle_root",
+    "admitted_by_transition_ref",
+    "admitted_by_receipt_ref",
+    "supersedes_profile_set_ref",
+    "supersedes_profile_set_root",
+    "constitution",
+    "deployment",
+    "ordering_admission_finality",
+    "oracle_evidence_profiles",
+    "lifecycle_continuity",
+    "network_enrollment",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.autonomous-system-active-profile-set.v2" },
+    "active_profile_set_ref": { "$ref": "#/$defs/activeProfileSetRef" },
+    "active_profile_set_root": { "$ref": "#/$defs/hash" },
+    "system_id": { "$ref": "#/$defs/systemRef" },
+    "genesis_ref": { "$ref": "#/$defs/genesisRef" },
+    "profile_bundle_root": { "$ref": "#/$defs/hash" },
+    "admitted_by_transition_ref": { "$ref": "#/$defs/transitionRef" },
+    "admitted_by_receipt_ref": { "$ref": "#/$defs/receiptRef" },
+    "supersedes_profile_set_ref": { "$ref": "#/$defs/activeProfileSetRef" },
+    "supersedes_profile_set_root": { "$ref": "#/$defs/hash" },
+    "constitution": { "$ref": "#/$defs/constitutionAdmission" },
+    "deployment": { "$ref": "#/$defs/deploymentAdmission" },
+    "ordering_admission_finality": { "$ref": "#/$defs/orderingAdmission" },
+    "oracle_evidence_profiles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/oracleAdmission" },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "lifecycle_continuity": { "$ref": "#/$defs/lifecycleAdmission" },
+    "network_enrollment": {
+      "anyOf": [
+        { "$ref": "#/$defs/networkAdmission" },
+        { "type": "null" }
+      ]
+    },
+    "status": { "const": "active" },
+    "created_at": { "$ref": "#/$defs/canonicalDateTime" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "systemRef": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "genesisRef": { "type": "string", "pattern": "^genesis://[^\\s]{1,248}$" },
+    "activeProfileSetRef": { "type": "string", "pattern": "^active-profile-set://[^\\s]{1,248}$" },
+    "transitionRef": { "type": "string", "pattern": "^lifecycle-transition://[^\\s]{1,248}$" },
+    "receiptRef": { "type": "string", "pattern": "^receipt://[^\\s]{1,248}$" },
+    "constitutionRef": { "type": "string", "pattern": "^constitution://[^\\s]{1,248}$" },
+    "deploymentRevisionRef": { "type": "string", "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$" },
+    "orderingProfileRef": { "type": "string", "pattern": "^ordering-profile://[^\\s]{1,248}$" },
+    "oracleProfileRef": { "type": "string", "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$" },
+    "lifecycleProfileRef": { "type": "string", "pattern": "^lifecycle-profile://[^\\s]{1,248}$" },
+    "networkEnrollmentRef": { "type": "string", "pattern": "^network-enrollment://[^\\s]{1,248}$" },
+    "constitutionAdmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_profile_ref", "candidate_profile_root", "admitted_posture"],
+      "properties": {
+        "candidate_profile_ref": { "$ref": "#/$defs/constitutionRef" },
+        "candidate_profile_root": { "$ref": "#/$defs/hash" },
+        "admitted_posture": { "const": "active" }
+      }
+    },
+    "deploymentAdmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_profile_ref", "candidate_profile_root", "admitted_posture"],
+      "properties": {
+        "candidate_profile_ref": { "$ref": "#/$defs/deploymentRevisionRef" },
+        "candidate_profile_root": { "$ref": "#/$defs/hash" },
+        "admitted_posture": { "const": "active" }
+      }
+    },
+    "orderingAdmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_profile_ref", "candidate_profile_root", "admitted_posture"],
+      "properties": {
+        "candidate_profile_ref": { "$ref": "#/$defs/orderingProfileRef" },
+        "candidate_profile_root": { "$ref": "#/$defs/hash" },
+        "admitted_posture": { "const": "active" }
+      }
+    },
+    "oracleAdmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_profile_ref", "candidate_profile_root", "admitted_posture"],
+      "properties": {
+        "candidate_profile_ref": { "$ref": "#/$defs/oracleProfileRef" },
+        "candidate_profile_root": { "$ref": "#/$defs/hash" },
+        "admitted_posture": { "const": "active" }
+      }
+    },
+    "lifecycleAdmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_profile_ref", "candidate_profile_root", "admitted_posture"],
+      "properties": {
+        "candidate_profile_ref": { "$ref": "#/$defs/lifecycleProfileRef" },
+        "candidate_profile_root": { "$ref": "#/$defs/hash" },
+        "admitted_posture": { "const": "active" }
+      }
+    },
+    "networkAdmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_profile_ref", "candidate_profile_root", "admitted_posture"],
+      "properties": {
+        "candidate_profile_ref": { "$ref": "#/$defs/networkEnrollmentRef" },
+        "candidate_profile_root": { "$ref": "#/$defs/hash" },
+        "admitted_posture": { "const": "local_only" }
+      }
+    },
+    "canonicalDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

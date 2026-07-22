@@ -2354,7 +2354,7 @@ export type AutonomousSystemOperationLogV2 = {
     };
   entries: Array<{
         sequence: number;
-        entry_kind: "sequence_zero_materialization" | "system_initialization" | "system_activation" | "protected_transition";
+        entry_kind: "sequence_zero_materialization" | "system_initialization" | "system_activation" | "protected_transition" | "constitution_amendment";
         operation_name: string;
         operation_owner_profile_ref: string;
         operation_owner_ref: string;
@@ -2393,7 +2393,7 @@ export type AutonomousSystemOperationLogV2 = {
       }>;
   head_entry: {
       sequence: number;
-      entry_kind: "sequence_zero_materialization" | "system_initialization" | "system_activation" | "protected_transition";
+      entry_kind: "sequence_zero_materialization" | "system_initialization" | "system_activation" | "protected_transition" | "constitution_amendment";
       operation_name: string;
       operation_owner_profile_ref: string;
       operation_owner_ref: string;
@@ -2440,6 +2440,146 @@ export type AutonomousSystemOperationLogV2 = {
   latest_state_ref: string;
   latest_state_root: string;
   status: "committed";
+  created_at: string;
+};
+
+export type AutonomousSystemAmendmentExecutionProposalV1 = {
+  schema_version: "ioi.autonomous-system-amendment-execution-proposal.v1";
+  proposal_ref: string;
+  proposal_root: string;
+  system_id: string;
+  genesis_ref: string;
+  op: "amend_constitution";
+  sequence: number;
+  amendment_ref: string;
+  amendment_root: string;
+  predecessor_constitution_ref: string;
+  predecessor_constitution_root: string;
+  successor_constitution_ref: string;
+  successor_constitution_root: string;
+  changed_field_paths_commitment: string;
+  predecessor_status: "active" | "paused";
+  predecessor_state_root: string;
+  predecessor_chain_head_root: string;
+  irreversibility: "one_way";
+  required_scope: "scope:autonomous_system.constitution.amend";
+  operation_commitment: string;
+  authority_effect: {
+      schema_version: "ioi.autonomous-system-amendment-execution-authority-effect.v1";
+      op: "amend_constitution";
+      required_scope: "scope:autonomous_system.constitution.amend";
+      sequence: number;
+      irreversibility: "one_way";
+      system_id: string;
+      genesis_ref: string;
+      source_governing_authority_ref: string;
+      home_domain_ref: string;
+      home_domain_commitment: string;
+      home_domain_binding_ref: string;
+      home_domain_binding_root: string;
+      policy_root: string;
+      module_registry_root: string;
+      upgrade_policy_ref: string;
+      deployment_profile_ref: string;
+      deployment_profile_root: string;
+      predecessor_constitution_root: string;
+      successor_constitution_root: string;
+      changed_field_paths_commitment: string;
+      predecessor_status: "active" | "paused";
+      predecessor_state_ref: string;
+      predecessor_state_root: string;
+      predecessor_proposal_root: string;
+      predecessor_decision_root: string;
+      predecessor_transition_root: string;
+      predecessor_receipt_root: string;
+      predecessor_chain_head_root: string;
+      resulting_status: "active" | "paused";
+      resulting_state_ref: string;
+      resulting_state_root: string;
+      active_profile_set_ref: string;
+      active_profile_set_root: string;
+      chain_ref: string;
+      live_chain_created: false;
+      node_membership_created: false;
+      runtime_effect_admitted: false;
+      network_effect_admitted: false;
+      constitution_changed: true;
+      profile_set_changed: true;
+      operation_commitment: string;
+    };
+  authority_effect_hash: string;
+  status: "proposed";
+  created_at: string;
+};
+
+export type AutonomousSystemAmendmentExecutionDecisionV1 = {
+  schema_version: "ioi.autonomous-system-amendment-execution-decision.v1";
+  decision_ref: string;
+  decision_root: string;
+  proposal_ref: string;
+  proposal_root: string;
+  system_id: string;
+  op: "amend_constitution";
+  sequence: number;
+  amendment_ref: string;
+  amendment_root: string;
+  irreversibility: "one_way";
+  required_scope: "scope:autonomous_system.constitution.amend";
+  operation_commitment: string;
+  input_hash: string;
+  policy_hash: string;
+  effect_hash: string;
+  authority_grant_ref: string;
+  authority_evidence_ref: string;
+  authority_evidence_root: string;
+  wallet_grant_consumption_ref: string;
+  wallet_grant_consumption_evidence_ref: string;
+  outcome: "admitted";
+  decided_at: string;
+};
+
+export type AutonomousSystemActiveProfileSetV2 = {
+  schema_version: "ioi.autonomous-system-active-profile-set.v2";
+  active_profile_set_ref: string;
+  active_profile_set_root: string;
+  system_id: string;
+  genesis_ref: string;
+  profile_bundle_root: string;
+  admitted_by_transition_ref: string;
+  admitted_by_receipt_ref: string;
+  supersedes_profile_set_ref: string;
+  supersedes_profile_set_root: string;
+  constitution: {
+      candidate_profile_ref: string;
+      candidate_profile_root: string;
+      admitted_posture: "active";
+    };
+  deployment: {
+      candidate_profile_ref: string;
+      candidate_profile_root: string;
+      admitted_posture: "active";
+    };
+  ordering_admission_finality: {
+      candidate_profile_ref: string;
+      candidate_profile_root: string;
+      admitted_posture: "active";
+    };
+  oracle_evidence_profiles: Array<{
+        candidate_profile_ref: string;
+        candidate_profile_root: string;
+        admitted_posture: "active";
+      }>;
+  lifecycle_continuity: {
+      candidate_profile_ref: string;
+      candidate_profile_root: string;
+      admitted_posture: "active";
+    };
+  network_enrollment: {
+      candidate_profile_ref: string;
+      candidate_profile_root: string;
+      admitted_posture: "local_only";
+    } | null;
+  status: "active";
   created_at: string;
 };
 
@@ -3612,6 +3752,70 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "autonomous_system_operation_log_v2.head.sequence"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/positive-amend.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-illegal-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-scope-substitution.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-commitment-tamper.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_amendment_execution_proposal.operation_commitment.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/positive-amend.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/negative-root-tamper.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_amendment_execution_decision.root.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/positive-active.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -7213,6 +7417,62 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/positive-amend.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/positive-amend.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-illegal-predecessor.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-illegal-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-scope-substitution.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-scope-substitution.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-commitment-tamper.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-commitment-tamper.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/positive-amend.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/positive-amend.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/negative-root-tamper.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/negative-root-tamper.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/positive-active.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/positive-active.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -8156,6 +8416,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$",
   "^conformance-profile://[^\\s]{1,248}$",
   "^constitution-amendment://[^\\s]{1,248}$",
+  "^constitution://[A-Za-z0-9._:/-]+$",
   "^constitution://[^\\s]{1,248}$",
   "^controller-binding://[^\\s]+$",
   "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -8305,7 +8566,10 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1": "sha256:e98ab969ff40ac8bc19079c9f4f6df6f0a75d8d2b3d4a91b4fd721536d60dd61",
   "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1": "sha256:c3786dfca242c3dbe75c422b66cbe2c9205a111f5d1f185f5f2688de680d8f48",
   "schema://ioi/foundations/autonomous-system-lifecycle-state/v1": "sha256:0053e6d7285ae284a49befd7775a22b7ab7fac131cf47cf87bd92a196ddd6412",
-  "schema://ioi/foundations/autonomous-system-operation-log/v2": "sha256:d90d31bdca45338d5d5ec18a8d491da7a4c512512bfcdeb664dc662d10e85652"
+  "schema://ioi/foundations/autonomous-system-operation-log/v2": "sha256:6f79fef38132de438bdff306c51f0fa88799729c00df3a52d5ea7a2ba516b0a5",
+  "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1": "sha256:14c876ecac15743d973eb5bd886fe72eef015add440a47cc9ee2be8f9c9fa762",
+  "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1": "sha256:159d8106056242083bf57b88b55205568b9435ecc74f7e6d6d39633b5cc56154",
+  "schema://ioi/foundations/autonomous-system-active-profile-set/v2": "sha256:051100663f24d5fad21c9a5336813d11b3a7afd935cf36ef9b8d012f349bf6e4"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -26604,7 +26868,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/autonomous-system-operation-log/v2",
     "title": "AutonomousSystemOperationLog",
-    "description": "General lifecycle operation log continuing the chain beyond the activation prefix. The closed activation prefix is retained verbatim as embedded bootstrap evidence; protected transitions append entries at sequence three or later. Successor of v1, which remains the valid shape for the committed sequence-two revision.",
+    "description": "General lifecycle operation log continuing the chain beyond the activation prefix. The closed activation prefix is retained verbatim as embedded bootstrap evidence; protected transitions and constitution amendments append entries at sequence three or later. Successor of v1, which remains the valid shape for the committed sequence-two revision.",
     "x-ioi-schema-version": "ioi.autonomous-system-operation-log.v2",
     "type": "object",
     "additionalProperties": false,
@@ -26967,7 +27231,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               "sequence_zero_materialization",
               "system_initialization",
               "system_activation",
-              "protected_transition"
+              "protected_transition",
+              "constitution_amendment"
             ]
           },
           "operation_name": {
@@ -27466,6 +27731,746 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "sequence_two": {
             "$ref": "#/$defs/sequenceTwo"
+          }
+        }
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
+    "title": "AutonomousSystemAmendmentExecutionProposal",
+    "description": "Immutable server-derived proposal for exactly one protected constitutional amendment execution of a live Autonomous System at sequence three or later. It binds the approved amendment declaration, the exact predecessor and successor constitution roots, and the canonical changed-path commitment, embeds the exact closed server-derived authority effect, is evidence only, grants no authority, and never stands for the generic protected operational transitions, bootstrap initialize/activate, migration/succession, dissolution, or enrollment, which retain their named owners.",
+    "x-ioi-schema-version": "ioi.autonomous-system-amendment-execution-proposal.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "proposal_ref",
+      "proposal_root",
+      "system_id",
+      "genesis_ref",
+      "op",
+      "sequence",
+      "amendment_ref",
+      "amendment_root",
+      "predecessor_constitution_ref",
+      "predecessor_constitution_root",
+      "successor_constitution_ref",
+      "successor_constitution_root",
+      "changed_field_paths_commitment",
+      "predecessor_status",
+      "predecessor_state_root",
+      "predecessor_chain_head_root",
+      "irreversibility",
+      "required_scope",
+      "operation_commitment",
+      "authority_effect",
+      "authority_effect_hash",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-amendment-execution-proposal.v1"
+      },
+      "proposal_ref": {
+        "type": "string",
+        "pattern": "^proposal://[A-Za-z0-9._:/-]+$"
+      },
+      "proposal_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[A-Za-z0-9._:/-]+$"
+      },
+      "genesis_ref": {
+        "type": "string",
+        "pattern": "^genesis://[A-Za-z0-9._:/-]+$"
+      },
+      "op": {
+        "const": "amend_constitution"
+      },
+      "sequence": {
+        "type": "integer",
+        "minimum": 3,
+        "maximum": 1000000
+      },
+      "amendment_ref": {
+        "type": "string",
+        "pattern": "^constitution-amendment://[^\\s]{1,248}$"
+      },
+      "amendment_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "predecessor_constitution_ref": {
+        "type": "string",
+        "pattern": "^constitution://[A-Za-z0-9._:/-]+$"
+      },
+      "predecessor_constitution_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "successor_constitution_ref": {
+        "type": "string",
+        "pattern": "^constitution://[A-Za-z0-9._:/-]+$"
+      },
+      "successor_constitution_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "changed_field_paths_commitment": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "predecessor_status": {
+        "enum": [
+          "active",
+          "paused"
+        ]
+      },
+      "predecessor_state_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "predecessor_chain_head_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "irreversibility": {
+        "const": "one_way"
+      },
+      "required_scope": {
+        "const": "scope:autonomous_system.constitution.amend"
+      },
+      "operation_commitment": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "authority_effect": {
+        "$ref": "#/$defs/authorityEffect"
+      },
+      "authority_effect_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "status": {
+        "const": "proposed"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "$defs": {
+      "authorityEffect": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "op",
+          "required_scope",
+          "sequence",
+          "irreversibility",
+          "system_id",
+          "genesis_ref",
+          "source_governing_authority_ref",
+          "home_domain_ref",
+          "home_domain_commitment",
+          "home_domain_binding_ref",
+          "home_domain_binding_root",
+          "policy_root",
+          "module_registry_root",
+          "upgrade_policy_ref",
+          "deployment_profile_ref",
+          "deployment_profile_root",
+          "predecessor_constitution_root",
+          "successor_constitution_root",
+          "changed_field_paths_commitment",
+          "predecessor_status",
+          "predecessor_state_ref",
+          "predecessor_state_root",
+          "predecessor_proposal_root",
+          "predecessor_decision_root",
+          "predecessor_transition_root",
+          "predecessor_receipt_root",
+          "predecessor_chain_head_root",
+          "resulting_status",
+          "resulting_state_ref",
+          "resulting_state_root",
+          "active_profile_set_ref",
+          "active_profile_set_root",
+          "chain_ref",
+          "live_chain_created",
+          "node_membership_created",
+          "runtime_effect_admitted",
+          "network_effect_admitted",
+          "constitution_changed",
+          "profile_set_changed",
+          "operation_commitment"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.autonomous-system-amendment-execution-authority-effect.v1"
+          },
+          "op": {
+            "const": "amend_constitution"
+          },
+          "required_scope": {
+            "const": "scope:autonomous_system.constitution.amend"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 1000000
+          },
+          "irreversibility": {
+            "const": "one_way"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[A-Za-z0-9._:/-]+$"
+          },
+          "genesis_ref": {
+            "type": "string",
+            "pattern": "^genesis://[A-Za-z0-9._:/-]+$"
+          },
+          "source_governing_authority_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "home_domain_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "home_domain_commitment": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "home_domain_binding_ref": {
+            "type": "string",
+            "pattern": "^system-home-domain-binding://[A-Za-z0-9._:/-]+$"
+          },
+          "home_domain_binding_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "policy_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "module_registry_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "upgrade_policy_ref": {
+            "type": "string",
+            "pattern": "^policy://[A-Za-z0-9._:/-]+$"
+          },
+          "deployment_profile_ref": {
+            "type": "string",
+            "pattern": "^deployment-profile://[A-Za-z0-9._:/-]+$"
+          },
+          "deployment_profile_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "predecessor_constitution_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "successor_constitution_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "changed_field_paths_commitment": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "predecessor_status": {
+            "enum": [
+              "active",
+              "paused"
+            ]
+          },
+          "predecessor_state_ref": {
+            "type": "string",
+            "pattern": "^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"
+          },
+          "predecessor_state_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "predecessor_proposal_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "predecessor_decision_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "predecessor_transition_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "predecessor_receipt_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "predecessor_chain_head_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "resulting_status": {
+            "enum": [
+              "active",
+              "paused"
+            ]
+          },
+          "resulting_state_ref": {
+            "type": "string",
+            "pattern": "^system-lifecycle-state://[A-Za-z0-9._:/-]+$"
+          },
+          "resulting_state_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "active_profile_set_ref": {
+            "type": "string",
+            "pattern": "^active-profile-set://[A-Za-z0-9._:/-]+$"
+          },
+          "active_profile_set_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "chain_ref": {
+            "type": "string",
+            "pattern": "^autonomous-system-chain://[A-Za-z0-9._:/-]+$"
+          },
+          "live_chain_created": {
+            "const": false
+          },
+          "node_membership_created": {
+            "const": false
+          },
+          "runtime_effect_admitted": {
+            "const": false
+          },
+          "network_effect_admitted": {
+            "const": false
+          },
+          "constitution_changed": {
+            "const": true
+          },
+          "profile_set_changed": {
+            "const": true
+          },
+          "operation_commitment": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1",
+    "title": "AutonomousSystemAmendmentExecutionDecision",
+    "description": "Retained authority-decision evidence for exactly one amendment-execution proposal. The effect hash is recomputed from the exact proposal effect; copied or unrelated wallet evidence cannot authorize a different amendment, sequence, or System, and the decision restates the proposal's one-way irreversibility so the approved effect class is explicit.",
+    "x-ioi-schema-version": "ioi.autonomous-system-amendment-execution-decision.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "decision_ref",
+      "decision_root",
+      "proposal_ref",
+      "proposal_root",
+      "system_id",
+      "op",
+      "sequence",
+      "amendment_ref",
+      "amendment_root",
+      "irreversibility",
+      "required_scope",
+      "operation_commitment",
+      "input_hash",
+      "policy_hash",
+      "effect_hash",
+      "authority_grant_ref",
+      "authority_evidence_ref",
+      "authority_evidence_root",
+      "wallet_grant_consumption_ref",
+      "wallet_grant_consumption_evidence_ref",
+      "outcome",
+      "decided_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-amendment-execution-decision.v1"
+      },
+      "decision_ref": {
+        "type": "string",
+        "pattern": "^decision://[A-Za-z0-9._:/-]+$"
+      },
+      "decision_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "proposal_ref": {
+        "type": "string",
+        "pattern": "^proposal://[A-Za-z0-9._:/-]+$"
+      },
+      "proposal_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[A-Za-z0-9._:/-]+$"
+      },
+      "op": {
+        "const": "amend_constitution"
+      },
+      "sequence": {
+        "type": "integer",
+        "minimum": 3,
+        "maximum": 9007199254740991
+      },
+      "amendment_ref": {
+        "type": "string",
+        "pattern": "^constitution-amendment://[^\\s]{1,248}$"
+      },
+      "amendment_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "irreversibility": {
+        "const": "one_way"
+      },
+      "required_scope": {
+        "const": "scope:autonomous_system.constitution.amend"
+      },
+      "operation_commitment": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "input_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "policy_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "effect_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "authority_grant_ref": {
+        "type": "string",
+        "pattern": "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"
+      },
+      "authority_evidence_ref": {
+        "type": "string",
+        "pattern": "^system-lifecycle-authority-evidence://[A-Za-z0-9._:/-]+$"
+      },
+      "authority_evidence_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "wallet_grant_consumption_ref": {
+        "type": "string",
+        "pattern": "^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$"
+      },
+      "wallet_grant_consumption_evidence_ref": {
+        "type": "string",
+        "pattern": "^system-lifecycle-authority-consumption://[A-Za-z0-9._:/-]+$"
+      },
+      "outcome": {
+        "const": "admitted"
+      },
+      "decided_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-active-profile-set/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
+    "title": "AutonomousSystemActiveProfileSet",
+    "description": "Successor admission projection over exact candidate profile roots, generalized beyond activation: any admitted lifecycle transition may carry it and it always supersedes an exact predecessor set. The closed shape keeps required profile cardinality structural; candidate bodies remain immutable and are not relabeled active. Successor of v1, which remains the valid shape for the activation-admitted set.",
+    "x-ioi-schema-version": "ioi.autonomous-system-active-profile-set.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "active_profile_set_ref",
+      "active_profile_set_root",
+      "system_id",
+      "genesis_ref",
+      "profile_bundle_root",
+      "admitted_by_transition_ref",
+      "admitted_by_receipt_ref",
+      "supersedes_profile_set_ref",
+      "supersedes_profile_set_root",
+      "constitution",
+      "deployment",
+      "ordering_admission_finality",
+      "oracle_evidence_profiles",
+      "lifecycle_continuity",
+      "network_enrollment",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-active-profile-set.v2"
+      },
+      "active_profile_set_ref": {
+        "$ref": "#/$defs/activeProfileSetRef"
+      },
+      "active_profile_set_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "genesis_ref": {
+        "$ref": "#/$defs/genesisRef"
+      },
+      "profile_bundle_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "admitted_by_transition_ref": {
+        "$ref": "#/$defs/transitionRef"
+      },
+      "admitted_by_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "supersedes_profile_set_ref": {
+        "$ref": "#/$defs/activeProfileSetRef"
+      },
+      "supersedes_profile_set_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "constitution": {
+        "$ref": "#/$defs/constitutionAdmission"
+      },
+      "deployment": {
+        "$ref": "#/$defs/deploymentAdmission"
+      },
+      "ordering_admission_finality": {
+        "$ref": "#/$defs/orderingAdmission"
+      },
+      "oracle_evidence_profiles": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/oracleAdmission"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "lifecycle_continuity": {
+        "$ref": "#/$defs/lifecycleAdmission"
+      },
+      "network_enrollment": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/networkAdmission"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "const": "active"
+      },
+      "created_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "genesisRef": {
+        "type": "string",
+        "pattern": "^genesis://[^\\s]{1,248}$"
+      },
+      "activeProfileSetRef": {
+        "type": "string",
+        "pattern": "^active-profile-set://[^\\s]{1,248}$"
+      },
+      "transitionRef": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "constitutionRef": {
+        "type": "string",
+        "pattern": "^constitution://[^\\s]{1,248}$"
+      },
+      "deploymentRevisionRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "orderingProfileRef": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "oracleProfileRef": {
+        "type": "string",
+        "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+      },
+      "lifecycleProfileRef": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "networkEnrollmentRef": {
+        "type": "string",
+        "pattern": "^network-enrollment://[^\\s]{1,248}$"
+      },
+      "constitutionAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/constitutionRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "active"
+          }
+        }
+      },
+      "deploymentAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/deploymentRevisionRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "active"
+          }
+        }
+      },
+      "orderingAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/orderingProfileRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "active"
+          }
+        }
+      },
+      "oracleAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/oracleProfileRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "active"
+          }
+        }
+      },
+      "lifecycleAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/lifecycleProfileRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "active"
+          }
+        }
+      },
+      "networkAdmission": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_profile_ref",
+          "candidate_profile_root",
+          "admitted_posture"
+        ],
+        "properties": {
+          "candidate_profile_ref": {
+            "$ref": "#/$defs/networkEnrollmentRef"
+          },
+          "candidate_profile_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "admitted_posture": {
+            "const": "local_only"
           }
         }
       },
@@ -31418,6 +32423,428 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1": [
+    {
+      "rule_id": "autonomous_system_amendment_execution_proposal.root.recomputes",
+      "description": "The proposal root binds the exact server-derived closed effect, the approved amendment declaration, the predecessor and successor constitution roots, the changed-path commitment, and the transition coordinates.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-amendment-execution-proposal-jcs-sha256.v1"
+          },
+          "proposal_ref": {
+            "path": "$.proposal_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "op": {
+            "path": "$.op"
+          },
+          "sequence": {
+            "path": "$.sequence"
+          },
+          "amendment_ref": {
+            "path": "$.amendment_ref"
+          },
+          "amendment_root": {
+            "path": "$.amendment_root"
+          },
+          "predecessor_constitution_ref": {
+            "path": "$.predecessor_constitution_ref"
+          },
+          "predecessor_constitution_root": {
+            "path": "$.predecessor_constitution_root"
+          },
+          "successor_constitution_ref": {
+            "path": "$.successor_constitution_ref"
+          },
+          "successor_constitution_root": {
+            "path": "$.successor_constitution_root"
+          },
+          "changed_field_paths_commitment": {
+            "path": "$.changed_field_paths_commitment"
+          },
+          "predecessor_status": {
+            "path": "$.predecessor_status"
+          },
+          "predecessor_state_root": {
+            "path": "$.predecessor_state_root"
+          },
+          "predecessor_chain_head_root": {
+            "path": "$.predecessor_chain_head_root"
+          },
+          "irreversibility": {
+            "path": "$.irreversibility"
+          },
+          "required_scope": {
+            "path": "$.required_scope"
+          },
+          "operation_commitment": {
+            "path": "$.operation_commitment"
+          },
+          "authority_effect": {
+            "path": "$.authority_effect"
+          },
+          "authority_effect_hash": {
+            "path": "$.authority_effect_hash"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "created_at": {
+            "path": "$.created_at"
+          }
+        },
+        "expected_path": "$.proposal_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_execution_proposal.operation_commitment.recomputes",
+      "description": "The amendment operation commitment derives from the closed effect exactly as the server computes it, binding the predecessor and successor constitution roots and the changed-path commitment before any downstream decision, transition, receipt, or chain root.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-amendment-execution-commitment-jcs-sha256.v1"
+          },
+          "op": {
+            "path": "$.authority_effect.op"
+          },
+          "required_scope": {
+            "path": "$.authority_effect.required_scope"
+          },
+          "sequence": {
+            "path": "$.authority_effect.sequence"
+          },
+          "irreversibility": {
+            "path": "$.authority_effect.irreversibility"
+          },
+          "system_id": {
+            "path": "$.authority_effect.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.authority_effect.genesis_ref"
+          },
+          "source_governing_authority_ref": {
+            "path": "$.authority_effect.source_governing_authority_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.authority_effect.home_domain_ref"
+          },
+          "home_domain_commitment": {
+            "path": "$.authority_effect.home_domain_commitment"
+          },
+          "policy_root": {
+            "path": "$.authority_effect.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.authority_effect.module_registry_root"
+          },
+          "predecessor_constitution_root": {
+            "path": "$.authority_effect.predecessor_constitution_root"
+          },
+          "successor_constitution_root": {
+            "path": "$.authority_effect.successor_constitution_root"
+          },
+          "changed_field_paths_commitment": {
+            "path": "$.authority_effect.changed_field_paths_commitment"
+          },
+          "predecessor_status": {
+            "path": "$.authority_effect.predecessor_status"
+          },
+          "predecessor_state_root": {
+            "path": "$.authority_effect.predecessor_state_root"
+          },
+          "predecessor_chain_head_root": {
+            "path": "$.authority_effect.predecessor_chain_head_root"
+          },
+          "resulting_status": {
+            "path": "$.authority_effect.resulting_status"
+          },
+          "resulting_state_ref": {
+            "path": "$.authority_effect.resulting_state_ref"
+          },
+          "resulting_state_root": {
+            "path": "$.authority_effect.resulting_state_root"
+          },
+          "active_profile_set_ref": {
+            "path": "$.authority_effect.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.authority_effect.active_profile_set_root"
+          },
+          "chain_ref": {
+            "path": "$.authority_effect.chain_ref"
+          }
+        },
+        "expected_path": "$.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_execution_proposal.effect_commitment.matches",
+      "description": "The top-level operation commitment and the closed effect's embedded commitment are the same value.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-amendment-execution-commitment-jcs-sha256.v1"
+          },
+          "op": {
+            "path": "$.authority_effect.op"
+          },
+          "required_scope": {
+            "path": "$.authority_effect.required_scope"
+          },
+          "sequence": {
+            "path": "$.authority_effect.sequence"
+          },
+          "irreversibility": {
+            "path": "$.authority_effect.irreversibility"
+          },
+          "system_id": {
+            "path": "$.authority_effect.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.authority_effect.genesis_ref"
+          },
+          "source_governing_authority_ref": {
+            "path": "$.authority_effect.source_governing_authority_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.authority_effect.home_domain_ref"
+          },
+          "home_domain_commitment": {
+            "path": "$.authority_effect.home_domain_commitment"
+          },
+          "policy_root": {
+            "path": "$.authority_effect.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.authority_effect.module_registry_root"
+          },
+          "predecessor_constitution_root": {
+            "path": "$.authority_effect.predecessor_constitution_root"
+          },
+          "successor_constitution_root": {
+            "path": "$.authority_effect.successor_constitution_root"
+          },
+          "changed_field_paths_commitment": {
+            "path": "$.authority_effect.changed_field_paths_commitment"
+          },
+          "predecessor_status": {
+            "path": "$.authority_effect.predecessor_status"
+          },
+          "predecessor_state_root": {
+            "path": "$.authority_effect.predecessor_state_root"
+          },
+          "predecessor_chain_head_root": {
+            "path": "$.authority_effect.predecessor_chain_head_root"
+          },
+          "resulting_status": {
+            "path": "$.authority_effect.resulting_status"
+          },
+          "resulting_state_ref": {
+            "path": "$.authority_effect.resulting_state_ref"
+          },
+          "resulting_state_root": {
+            "path": "$.authority_effect.resulting_state_root"
+          },
+          "active_profile_set_ref": {
+            "path": "$.authority_effect.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.authority_effect.active_profile_set_root"
+          },
+          "chain_ref": {
+            "path": "$.authority_effect.chain_ref"
+          }
+        },
+        "expected_path": "$.authority_effect.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_execution_proposal.authority_effect_hash.recomputes",
+      "description": "The declared authority-effect hash is the canonical JCS hash of the exact embedded closed effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_path": "$.authority_effect",
+        "expected_path": "$.authority_effect_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_execution_proposal.status.proposed",
+      "description": "The retained proposal is pinned to proposed status: the literal is schema-enforced (const) and bound into the recomputable proposal-root material; this record asserts the field is present and nonempty.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.status"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1": [
+    {
+      "rule_id": "autonomous_system_amendment_execution_decision.root.recomputes",
+      "description": "The decision root binds exactly one amendment-execution proposal, its amendment declaration, its commitment, and the wallet authority-consumption tuple.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-amendment-execution-decision-jcs-sha256.v1"
+          },
+          "decision_ref": {
+            "path": "$.decision_ref"
+          },
+          "proposal_ref": {
+            "path": "$.proposal_ref"
+          },
+          "proposal_root": {
+            "path": "$.proposal_root"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "op": {
+            "path": "$.op"
+          },
+          "sequence": {
+            "path": "$.sequence"
+          },
+          "amendment_ref": {
+            "path": "$.amendment_ref"
+          },
+          "amendment_root": {
+            "path": "$.amendment_root"
+          },
+          "irreversibility": {
+            "path": "$.irreversibility"
+          },
+          "required_scope": {
+            "path": "$.required_scope"
+          },
+          "operation_commitment": {
+            "path": "$.operation_commitment"
+          },
+          "input_hash": {
+            "path": "$.input_hash"
+          },
+          "policy_hash": {
+            "path": "$.policy_hash"
+          },
+          "effect_hash": {
+            "path": "$.effect_hash"
+          },
+          "authority_grant_ref": {
+            "path": "$.authority_grant_ref"
+          },
+          "authority_evidence_ref": {
+            "path": "$.authority_evidence_ref"
+          },
+          "authority_evidence_root": {
+            "path": "$.authority_evidence_root"
+          },
+          "wallet_grant_consumption_ref": {
+            "path": "$.wallet_grant_consumption_ref"
+          },
+          "wallet_grant_consumption_evidence_ref": {
+            "path": "$.wallet_grant_consumption_evidence_ref"
+          },
+          "outcome": {
+            "path": "$.outcome"
+          },
+          "decided_at": {
+            "path": "$.decided_at"
+          }
+        },
+        "expected_path": "$.decision_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-active-profile-set/v2": [
+    {
+      "rule_id": "autonomous_system_active_profile_set_v2.root.recomputes",
+      "description": "The semantic active-set root binds exact candidate admissions and the exact superseded predecessor set while excluding downstream transition, receipt, and wall-clock navigation fields.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-active-profile-set-jcs-sha256.v2"
+          },
+          "active_profile_set_ref": {
+            "path": "$.active_profile_set_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "profile_bundle_root": {
+            "path": "$.profile_bundle_root"
+          },
+          "supersedes_profile_set_ref": {
+            "path": "$.supersedes_profile_set_ref"
+          },
+          "supersedes_profile_set_root": {
+            "path": "$.supersedes_profile_set_root"
+          },
+          "constitution": {
+            "path": "$.constitution"
+          },
+          "deployment": {
+            "path": "$.deployment"
+          },
+          "ordering_admission_finality": {
+            "path": "$.ordering_admission_finality"
+          },
+          "oracle_evidence_profiles": {
+            "path": "$.oracle_evidence_profiles"
+          },
+          "lifecycle_continuity": {
+            "path": "$.lifecycle_continuity"
+          },
+          "network_enrollment": {
+            "path": "$.network_enrollment"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        },
+        "expected_path": "$.active_profile_set_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_active_profile_set_v2.supersedes_ref.nonempty",
+      "description": "A v2 set exists only as a successor: the superseded predecessor set reference is always present and nonempty.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.supersedes_profile_set_ref"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_active_profile_set_v2.supersedes_root.nonempty",
+      "description": "The superseded predecessor set is pinned by exact content root, never by reference alone.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.supersedes_profile_set_root"
+      }
+    }
   ]
 };
 
@@ -32488,4 +33915,22 @@ export function validateAutonomousSystemOperationLogV2(
   value: unknown,
 ): value is AutonomousSystemOperationLogV2 {
   return validateArchitectureContract("schema://ioi/foundations/autonomous-system-operation-log/v2", value).ok;
+}
+
+export function validateAutonomousSystemAmendmentExecutionProposalV1(
+  value: unknown,
+): value is AutonomousSystemAmendmentExecutionProposalV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1", value).ok;
+}
+
+export function validateAutonomousSystemAmendmentExecutionDecisionV1(
+  value: unknown,
+): value is AutonomousSystemAmendmentExecutionDecisionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1", value).ok;
+}
+
+export function validateAutonomousSystemActiveProfileSetV2(
+  value: unknown,
+): value is AutonomousSystemActiveProfileSetV2 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-active-profile-set/v2", value).ok;
 }

@@ -1,0 +1,36 @@
+{
+  "schema_version": "ioi.autonomous-system-active-profile-set.v2",
+  "active_profile_set_ref": "active-profile-set://acme/system-alpha/sequence/7",
+  "active_profile_set_root": "sha256:48ad8db9b44d60e1e163a98afec829a13bbe9a2ade51e49bb22ff4d0bbcb8ef0",
+  "system_id": "system://acme/system-alpha",
+  "genesis_ref": "genesis://acme/system-alpha/v1",
+  "profile_bundle_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "admitted_by_transition_ref": "lifecycle-transition://acme/system-alpha/sequence/7",
+  "admitted_by_receipt_ref": "receipt://aslr_7777777777777777777777777777777777777777777777777777777777777777",
+  "supersedes_profile_set_ref": "active-profile-set://acme/system-alpha/sequence/2",
+  "supersedes_profile_set_root": "sha256:5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+  "constitution": {
+    "candidate_profile_ref": "constitution://acme/system-alpha/v2",
+    "candidate_profile_root": "sha256:7272727272727272727272727272727272727272727272727272727272727272",
+    "admitted_posture": "active"
+  },
+  "deployment": {
+    "candidate_profile_ref": "deployment-profile://acme/system-alpha/local/revision/sha256:7f0a7ac7f62cd3694fa16b0498e187e9574372f47a67a26f2a4ef192190b7796",
+    "candidate_profile_root": "sha256:7f0a7ac7f62cd3694fa16b0498e187e9574372f47a67a26f2a4ef192190b7796",
+    "admitted_posture": "active"
+  },
+  "ordering_admission_finality": {
+    "candidate_profile_ref": "ordering-profile://acme/system-alpha/v1",
+    "candidate_profile_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "admitted_posture": "active"
+  },
+  "oracle_evidence_profiles": [],
+  "lifecycle_continuity": {
+    "candidate_profile_ref": "lifecycle-profile://acme/system-alpha/v1",
+    "candidate_profile_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "admitted_posture": "active"
+  },
+  "network_enrollment": null,
+  "status": "active",
+  "created_at": "2026-07-22T00:00:02.000Z"
+}
