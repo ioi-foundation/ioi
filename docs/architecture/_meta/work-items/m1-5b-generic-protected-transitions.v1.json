@@ -1,0 +1,36 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m1-5b-generic-protected-transitions",
+  "stage_id": "M1",
+  "required_work": [
+    "M1.5 (generic operational slice)"
+  ],
+  "status": "active",
+  "objective": "Generic protected operational lifecycle transitions: 14 ops over the canonized chain states via proposal/decision contracts with closed authority-effect objects, lifecycle-state envelope, a parameterized transitions route pair over the sealed-intent machinery, and an unsigned census epoch.",
+  "falsifiable_claim": "No op admits an illegal predecessor status; no scope authorizes another op; a decision cannot approve a terminal effect the proposal did not declare; every transition admits exactly once with exact predecessor roots and reconstructs after restart.",
+  "canon_owners": [
+    "docs/architecture/foundations/common-objects-and-envelopes.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/types/src/app/system_lifecycle_transitions.rs",
+      "must_contain": "legality_matrix_matches_the_canon_table_exactly",
+      "present_when": "pr_open"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/autonomous-system-protected-transition-proposal.v1.schema.json",
+      "present_when": "pr_open"
+    }
+  ],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Committed so far: 6/6 canon-parity tests on the op family (row-by-row legality matrix pinning, scope disjointness from bootstrap, degraded unreachable as target, terminal-arc enforcement). Predeclared for the cut: illegal-predecessor refusal per op, scope substitution, irreversibility mismatch, reserved-status smuggling, sealed-intent replay/restart convergence, fault-injection recovery.",
+  "remaining_nonclaims": [
+    "Amendment execution, migration/succession, dissolution, and enrollment remain named-owner slices (m1-5c/d).",
+    "No membership/topology (M2), consensus, or product Systems UX beyond pulled read projections.",
+    "degraded is an observed posture, never an op target."
+  ],
+  "source_provenance": "Phased from work item m1-5-protected-transitions (internal groundwork); canon + op family committed on feat/system-lifecycle-transition-contracts.",
+  "last_status_transaction": "2026-07-22"
+}
