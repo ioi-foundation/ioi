@@ -114,6 +114,8 @@ function linkToPath(href) {
 
 async function loadFoundation() {
   await import("@ioi/design-system");
+  await import("./config/estateMessaging.js");
+  await import("./config/estateStatus.js");
   await import("./site/HvDots.jsx");
   await import("./site/HvDepthField.jsx");
   await import("./site/HvOcta.jsx");
