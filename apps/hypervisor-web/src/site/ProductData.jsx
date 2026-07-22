@@ -1,12 +1,19 @@
 const React = window.React;
 // hypervisor.com — platform product catalog.
 // One record per Platform product; consumed by ProductPage.jsx to render each subpage.
+// Status labels resolve from the estate status manifest (config/estateStatus.js),
+// the single file that flips when a surface changes stage.
+const _st = (k) => {
+  const S = window.ESTATE_STATUS;
+  return S ? S.labels[S.surfaces[k]] : undefined;
+};
 window.HV_PRODUCTS = [
   {
     slug: "app",
     file: "hv-app.html",
     name: "Hypervisor App",
     category: "Client · Desktop command center",
+    status: _st("app"),
     title: "Operate autonomous work from your machine",
     sub: "Start governed sessions, run automations, and supervise agents across projects, tools, models, and providers — with approvals, receipts, and replay in one local-first workspace.",
     visual: "app",
@@ -39,6 +46,7 @@ window.HV_PRODUCTS = [
     file: "hv-web.html",
     name: "Hypervisor Web",
     category: "Client · Browser & teams",
+    status: _st("web"),
     title: "Bring autonomous work to the whole team",
     sub: "Shared projects, remote sessions, approvals, and run history in the browser — without changing the runtime truth or where work actually executes.",
     visual: "web",
@@ -71,6 +79,7 @@ window.HV_PRODUCTS = [
     file: "hv-cli.html",
     name: "Hypervisor CLI",
     category: "Client · Terminal, scripting & CI",
+    status: _st("cli"),
     title: "Script and supervise from the shell",
     sub: "Drive autonomous work from CI, shells, and servers with the same authority, receipts, and replay as the app — headless, scriptable, and pipeline-native.",
     visual: "cli",
@@ -103,6 +112,7 @@ window.HV_PRODUCTS = [
     file: "hv-sdk.html",
     name: "Hypervisor SDK",
     category: "Builder · Protocol library",
+    status: _st("sdk"),
     title: "Build on the substrate, not around it",
     sub: "Integrate Hypervisor into products, agents, and internal tools without reimplementing runtime, authority, receipt, or state semantics.",
     visual: "glow",
@@ -135,6 +145,7 @@ window.HV_PRODUCTS = [
     file: "hv-adk.html",
     name: "Hypervisor ADK",
     category: "Builder · Autonomous-system kit",
+    status: _st("adk"),
     title: "Build and ship autonomous systems",
     sub: "Compose workers, harnesses, evals, manifests, and deployment profiles — packaged as governed autonomous-system bundles ready to run anywhere.",
     visual: "glow",
@@ -167,6 +178,7 @@ window.HV_PRODUCTS = [
     file: "hv-odk.html",
     name: "Hypervisor ODK",
     category: "Builder · Ontology-aware kit",
+    status: _st("odk"),
     title: "Turn domain knowledge into working surfaces",
     sub: "Compile ontologies and data recipes into generated surfaces, domain apps, eval packs, and marketplace-ready ontology packs.",
     visual: "glow",
@@ -199,6 +211,7 @@ window.HV_PRODUCTS = [
     file: "hv-mcp.html",
     name: "Hypervisor MCP",
     category: "Gateway · Scoped external access",
+    status: _st("mcp"),
     title: "Hand external agents a key, never the keyring",
     sub: "Expose selected capabilities to external agents through revocable, auditable MCP profiles — scoped access, every call receipted, never a master key.",
     visual: "light",
@@ -231,7 +244,7 @@ window.HV_PRODUCTS = [
     file: "hv-os.html",
     name: "HypervisorOS",
     category: "Substrate · Bare-metal / cluster control",
-    status: "Design stage",
+    status: _st("os"),
     title: "Govern the substrate autonomy runs on",
     sub: "Operate measured hosts, GPU pools, storage, networks, model runtimes, containers, and microVMs under one policy plane — your hardware, your perimeter.",
     visual: "light",
@@ -264,7 +277,7 @@ window.HV_PRODUCTS = [
     file: "hv-embodied.html",
     name: "Embodied Runtime",
     category: "Substrate · Physical autonomy profile",
-    status: "Design stage",
+    status: _st("embodied"),
     title: "Autonomy that touches the physical world",
     sub: "Operate robot fleets, devices, sensors, command queues, and telemetry under safety gates — with operator handoff and the same receipts as software work.",
     visual: "light",
