@@ -978,7 +978,8 @@
         },
         "home_domain_ref": {
           "type": "string",
-          "pattern": "^home-domain://[A-Za-z0-9._:/-]+$"
+          "minLength": 1,
+          "maxLength": 512
         },
         "home_domain_commitment": {
           "type": "string",

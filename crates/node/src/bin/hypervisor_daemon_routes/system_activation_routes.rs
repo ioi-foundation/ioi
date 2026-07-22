@@ -216,7 +216,7 @@ fn namespace(system_id: &str) -> Result<&str, VErr> {
         })
 }
 
-fn validate_contract(contract: &str, value: &Value, label: &str) -> Result<(), VErr> {
+pub(crate) fn validate_contract(contract: &str, value: &Value, label: &str) -> Result<(), VErr> {
     ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
         contract, value,
     )
@@ -823,7 +823,7 @@ fn validate_remote_wallet_consumption(
     Ok(value)
 }
 
-fn tail(prefix: &str, root: &str) -> Result<String, VErr> {
+pub(crate) fn tail(prefix: &str, root: &str) -> Result<String, VErr> {
     if !canonical_hash_str(root) {
         return Err(verr(
             "system_lifecycle_artifact_invalid",

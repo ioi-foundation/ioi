@@ -8180,7 +8180,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^grant://[^\\s]{1,248}$",
   "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$",
   "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
-  "^home-domain://[A-Za-z0-9._:/-]+$",
   "^ifc-label://[A-Za-z0-9._~:/-]+$",
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^incident://[^\\s]+$",
@@ -8303,7 +8302,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/lifecycle-transition-receipt/v1": "sha256:320de6f5dff11c7adda1bc653fa534d56b87dd66db4c534ec008cce8d9102f5d",
   "schema://ioi/foundations/autonomous-system-activation-receipt/v1": "sha256:4971827e846741e1ca98500ce790d8d48e0c22e268580337fc81f24dfef6d08c",
   "schema://ioi/foundations/ioi-network-enrollment/v1": "sha256:a5e2fbb51d71d7d51d8a48cc915899045d874977c30c1daaabe182578807c77f",
-  "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1": "sha256:217fe208fbec827e2d3288858850ad3f45c79f794c18e622aef68bf5c499d08f",
+  "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1": "sha256:e98ab969ff40ac8bc19079c9f4f6df6f0a75d8d2b3d4a91b4fd721536d60dd61",
   "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1": "sha256:c3786dfca242c3dbe75c422b66cbe2c9205a111f5d1f185f5f2688de680d8f48",
   "schema://ioi/foundations/autonomous-system-lifecycle-state/v1": "sha256:0053e6d7285ae284a49befd7775a22b7ab7fac131cf47cf87bd92a196ddd6412",
   "schema://ioi/foundations/autonomous-system-operation-log/v2": "sha256:d90d31bdca45338d5d5ec18a8d491da7a4c512512bfcdeb664dc662d10e85652"
@@ -25871,7 +25870,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           },
           "home_domain_ref": {
             "type": "string",
-            "pattern": "^home-domain://[A-Za-z0-9._:/-]+$"
+            "minLength": 1,
+            "maxLength": 512
           },
           "home_domain_commitment": {
             "type": "string",
