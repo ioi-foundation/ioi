@@ -1,0 +1,459 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
+  "title": "AutonomousSystemProtectedTransitionDecision",
+  "description": "Retained authority-decision evidence for exactly one protected-transition proposal. The effect hash is recomputed from the exact proposal effect; copied or unrelated wallet evidence cannot authorize a different op, sequence, or System, and the decision restates the proposal's declared irreversibility so the approved effect class is explicit.",
+  "x-ioi-schema-version": "ioi.autonomous-system-protected-transition-decision.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "decision_ref",
+    "decision_root",
+    "proposal_ref",
+    "proposal_root",
+    "system_id",
+    "op",
+    "sequence",
+    "irreversibility",
+    "required_scope",
+    "operation_commitment",
+    "input_hash",
+    "policy_hash",
+    "effect_hash",
+    "authority_grant_ref",
+    "authority_evidence_ref",
+    "authority_evidence_root",
+    "wallet_grant_consumption_ref",
+    "wallet_grant_consumption_evidence_ref",
+    "outcome",
+    "decided_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-protected-transition-decision.v1"
+    },
+    "decision_ref": {
+      "type": "string",
+      "pattern": "^decision://[A-Za-z0-9._:/-]+$"
+    },
+    "decision_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "proposal_ref": {
+      "type": "string",
+      "pattern": "^proposal://[A-Za-z0-9._:/-]+$"
+    },
+    "proposal_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[A-Za-z0-9._:/-]+$"
+    },
+    "op": {
+      "enum": [
+        "pause",
+        "resume",
+        "suspend",
+        "reinstate",
+        "enter_dormancy",
+        "wake",
+        "begin_recovery",
+        "complete_recovery",
+        "quarantine",
+        "release_quarantine",
+        "retire",
+        "archive",
+        "revoke",
+        "decommission"
+      ]
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 9007199254740991
+    },
+    "irreversibility": {
+      "enum": [
+        "reversible",
+        "one_way",
+        "terminal"
+      ]
+    },
+    "required_scope": {
+      "enum": [
+        "scope:autonomous_system.lifecycle.pause",
+        "scope:autonomous_system.lifecycle.resume",
+        "scope:autonomous_system.lifecycle.suspend",
+        "scope:autonomous_system.lifecycle.reinstate",
+        "scope:autonomous_system.lifecycle.enter_dormancy",
+        "scope:autonomous_system.lifecycle.wake",
+        "scope:autonomous_system.lifecycle.begin_recovery",
+        "scope:autonomous_system.lifecycle.complete_recovery",
+        "scope:autonomous_system.lifecycle.quarantine",
+        "scope:autonomous_system.lifecycle.release_quarantine",
+        "scope:autonomous_system.lifecycle.retire",
+        "scope:autonomous_system.lifecycle.archive",
+        "scope:autonomous_system.lifecycle.revoke",
+        "scope:autonomous_system.lifecycle.decommission"
+      ]
+    },
+    "operation_commitment": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "input_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "policy_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "effect_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "authority_grant_ref": {
+      "type": "string",
+      "pattern": "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"
+    },
+    "authority_evidence_ref": {
+      "type": "string",
+      "pattern": "^system-lifecycle-authority-evidence://[A-Za-z0-9._:/-]+$"
+    },
+    "authority_evidence_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "wallet_grant_consumption_ref": {
+      "type": "string",
+      "pattern": "^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$"
+    },
+    "wallet_grant_consumption_evidence_ref": {
+      "type": "string",
+      "pattern": "^system-lifecycle-authority-consumption://[A-Za-z0-9._:/-]+$"
+    },
+    "outcome": {
+      "const": "admitted"
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "pause"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.pause"
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "resume"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.resume"
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "suspend"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.suspend"
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "reinstate"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.reinstate"
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "enter_dormancy"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.enter_dormancy"
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "wake"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.wake"
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "begin_recovery"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.begin_recovery"
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "complete_recovery"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.complete_recovery"
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "quarantine"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.quarantine"
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "release_quarantine"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.release_quarantine"
+          },
+          "irreversibility": {
+            "const": "reversible"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "retire"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.retire"
+          },
+          "irreversibility": {
+            "const": "one_way"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "archive"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.archive"
+          },
+          "irreversibility": {
+            "const": "one_way"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "revoke"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.revoke"
+          },
+          "irreversibility": {
+            "const": "one_way"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "decommission"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "then": {
+        "properties": {
+          "required_scope": {
+            "const": "scope:autonomous_system.lifecycle.decommission"
+          },
+          "irreversibility": {
+            "const": "terminal"
+          }
+        }
+      }
+    }
+  ]
+}

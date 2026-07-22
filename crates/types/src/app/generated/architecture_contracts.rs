@@ -187,6 +187,22 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
         "schema://ioi/foundations/ioi-network-enrollment/v1",
         "sha256:a5e2fbb51d71d7d51d8a48cc915899045d874977c30c1daaabe182578807c77f",
     ),
+    (
+        "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
+        "sha256:e98ab969ff40ac8bc19079c9f4f6df6f0a75d8d2b3d4a91b4fd721536d60dd61",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
+        "sha256:c3786dfca242c3dbe75c422b66cbe2c9205a111f5d1f185f5f2688de680d8f48",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
+        "sha256:0053e6d7285ae284a49befd7775a22b7ab7fac131cf47cf87bd92a196ddd6412",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-operation-log/v2",
+        "sha256:d90d31bdca45338d5d5ec18a8d491da7a4c512512bfcdeb664dc662d10e85652",
+    ),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -24552,6 +24568,2277 @@ pub enum IOINetworkEnrollmentV1Status {
     Revoked,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemProtectedTransitionProposalV1 {
+    pub schema_version: AutonomousSystemProtectedTransitionProposalV1SchemaVersion,
+    pub proposal_ref: String,
+    pub proposal_root: String,
+    pub system_id: String,
+    pub genesis_ref: String,
+    pub op: AutonomousSystemProtectedTransitionProposalV1Op,
+    pub sequence: ArchitectureContractInteger,
+    pub predecessor_status: AutonomousSystemProtectedTransitionProposalV1PredecessorStatus,
+    pub predecessor_state_root: String,
+    pub predecessor_chain_head_root: String,
+    pub irreversibility: AutonomousSystemProtectedTransitionProposalV1Irreversibility,
+    pub required_scope: AutonomousSystemProtectedTransitionProposalV1RequiredScope,
+    pub operation_commitment: String,
+    pub authority_effect: AutonomousSystemProtectedTransitionProposalV1AuthorityEffect,
+    pub authority_effect_hash: String,
+    pub status: AutonomousSystemProtectedTransitionProposalV1Status,
+    pub created_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemProtectedTransitionProposalV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1","title":"AutonomousSystemProtectedTransitionProposal","description":"Immutable server-derived proposal for one generic protected operational lifecycle transition of a live Autonomous System at sequence three or later. It embeds the exact closed server-derived authority effect, is evidence only, grants no authority, never stands for bootstrap initialize/activate, and never stands for amendment, migration/succession, dissolution, or enrollment, which retain their named owners.","x-ioi-schema-version":"ioi.autonomous-system-protected-transition-proposal.v1","type":"object","additionalProperties":false,"required":["schema_version","proposal_ref","proposal_root","system_id","genesis_ref","op","sequence","predecessor_status","predecessor_state_root","predecessor_chain_head_root","irreversibility","required_scope","operation_commitment","authority_effect","authority_effect_hash","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-proposal.v1"},"proposal_ref":{"type":"string","pattern":"^proposal://[A-Za-z0-9._:/-]+$"},"proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"irreversibility":{"enum":["reversible","one_way","terminal"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_effect":{"$ref":"#/$defs/authorityEffect"},"authority_effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"const":"proposed"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"op":{"const":"pause"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","degraded"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"pause"},"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","degraded"]},"resulting_status":{"const":"paused"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"resume"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"resume"},"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"suspend"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","degraded","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"suspend"},"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","degraded","paused"]},"resulting_status":{"const":"suspended"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"reinstate"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"reinstate"},"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"enter_dormancy"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"enter_dormancy"},"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","paused"]},"resulting_status":{"const":"dormant"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"wake"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"wake"},"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"begin_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"begin_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"resulting_status":{"const":"recovering"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"complete_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"complete_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","degraded","paused","recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","degraded","paused","recovering"]},"resulting_status":{"const":"quarantined"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"release_quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"release_quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"retire"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","paused","suspended","dormant"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"retire"},"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","paused","suspended","dormant"]},"resulting_status":{"const":"retired"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"archive"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"archive"},"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"resulting_status":{"const":"archived"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"revoke"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"revoke"},"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"resulting_status":{"const":"revoked"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"decommission"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"irreversibility":{"const":"terminal"},"authority_effect":{"type":"object","properties":{"op":{"const":"decommission"},"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"resulting_status":{"const":"decommissioned"},"irreversibility":{"const":"terminal"}}}}}}],"$defs":{"authorityEffect":{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","irreversibility","system_id","genesis_ref","source_governing_authority_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","deployment_profile_ref","deployment_profile_root","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_proposal_root","predecessor_decision_root","predecessor_transition_root","predecessor_receipt_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","active_profile_set_ref","active_profile_set_root","chain_ref","live_chain_created","node_membership_created","runtime_effect_admitted","network_effect_admitted","constitution_changed","profile_set_changed","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-authority-effect.v1"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"home_domain_binding_ref":{"type":"string","pattern":"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"},"home_domain_binding_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"module_registry_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"upgrade_policy_ref":{"type":"string","pattern":"^policy://[A-Za-z0-9._:/-]+$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[A-Za-z0-9._:/-]+$"},"deployment_profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_ref":{"type":"string","pattern":"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_transition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resulting_status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"resulting_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"live_chain_created":{"const":false},"node_membership_created":{"const":false},"runtime_effect_admitted":{"const":false},"network_effect_admitted":{"const":false},"constitution_changed":{"const":false},"profile_set_changed":{"const":false},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<AutonomousSystemProtectedTransitionProposalV1Op>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_status: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1PredecessorStatus,
+            >(
+                object
+                    .remove(r#"predecessor_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_chain_head_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_chain_head_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_chain_head_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            irreversibility: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1Irreversibility,
+            >(
+                object
+                    .remove(r#"irreversibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"irreversibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1RequiredScope,
+            >(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_effect: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffect,
+            >(
+                object
+                    .remove(r#"authority_effect"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_effect"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_effect_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_effect_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_effect_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemProtectedTransitionProposalV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-protected-transition-proposal.v1"#)]
+    IoiAutonomousSystemProtectedTransitionProposalV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1Op {
+    #[serde(rename = r#"pause"#)]
+    Pause,
+    #[serde(rename = r#"resume"#)]
+    Resume,
+    #[serde(rename = r#"suspend"#)]
+    Suspend,
+    #[serde(rename = r#"reinstate"#)]
+    Reinstate,
+    #[serde(rename = r#"enter_dormancy"#)]
+    EnterDormancy,
+    #[serde(rename = r#"wake"#)]
+    Wake,
+    #[serde(rename = r#"begin_recovery"#)]
+    BeginRecovery,
+    #[serde(rename = r#"complete_recovery"#)]
+    CompleteRecovery,
+    #[serde(rename = r#"quarantine"#)]
+    Quarantine,
+    #[serde(rename = r#"release_quarantine"#)]
+    ReleaseQuarantine,
+    #[serde(rename = r#"retire"#)]
+    Retire,
+    #[serde(rename = r#"archive"#)]
+    Archive,
+    #[serde(rename = r#"revoke"#)]
+    Revoke,
+    #[serde(rename = r#"decommission"#)]
+    Decommission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1PredecessorStatus {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"dormant"#)]
+    Dormant,
+    #[serde(rename = r#"recovering"#)]
+    Recovering,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1Irreversibility {
+    #[serde(rename = r#"reversible"#)]
+    Reversible,
+    #[serde(rename = r#"one_way"#)]
+    OneWay,
+    #[serde(rename = r#"terminal"#)]
+    Terminal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1RequiredScope {
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.pause"#)]
+    ScopeAutonomousSystemLifecyclePause,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.resume"#)]
+    ScopeAutonomousSystemLifecycleResume,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.suspend"#)]
+    ScopeAutonomousSystemLifecycleSuspend,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.reinstate"#)]
+    ScopeAutonomousSystemLifecycleReinstate,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.enter_dormancy"#)]
+    ScopeAutonomousSystemLifecycleEnterDormancy,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.wake"#)]
+    ScopeAutonomousSystemLifecycleWake,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.begin_recovery"#)]
+    ScopeAutonomousSystemLifecycleBeginRecovery,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.complete_recovery"#)]
+    ScopeAutonomousSystemLifecycleCompleteRecovery,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.quarantine"#)]
+    ScopeAutonomousSystemLifecycleQuarantine,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.release_quarantine"#)]
+    ScopeAutonomousSystemLifecycleReleaseQuarantine,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.retire"#)]
+    ScopeAutonomousSystemLifecycleRetire,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.archive"#)]
+    ScopeAutonomousSystemLifecycleArchive,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.revoke"#)]
+    ScopeAutonomousSystemLifecycleRevoke,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.decommission"#)]
+    ScopeAutonomousSystemLifecycleDecommission,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemProtectedTransitionProposalV1AuthorityEffect {
+    pub schema_version: AutonomousSystemProtectedTransitionProposalV1AuthorityEffectSchemaVersion,
+    pub op: AutonomousSystemProtectedTransitionProposalV1AuthorityEffectOp,
+    pub required_scope: AutonomousSystemProtectedTransitionProposalV1AuthorityEffectRequiredScope,
+    pub sequence: ArchitectureContractInteger,
+    pub irreversibility:
+        AutonomousSystemProtectedTransitionProposalV1AuthorityEffectIrreversibility,
+    pub system_id: String,
+    pub genesis_ref: String,
+    pub source_governing_authority_ref: String,
+    pub home_domain_ref: String,
+    pub home_domain_commitment: String,
+    pub home_domain_binding_ref: String,
+    pub home_domain_binding_root: String,
+    pub policy_root: String,
+    pub module_registry_root: String,
+    pub upgrade_policy_ref: String,
+    pub deployment_profile_ref: String,
+    pub deployment_profile_root: String,
+    pub predecessor_status:
+        AutonomousSystemProtectedTransitionProposalV1AuthorityEffectPredecessorStatus,
+    pub predecessor_state_ref: String,
+    pub predecessor_state_root: String,
+    pub predecessor_proposal_root: String,
+    pub predecessor_decision_root: String,
+    pub predecessor_transition_root: String,
+    pub predecessor_receipt_root: String,
+    pub predecessor_chain_head_root: String,
+    pub resulting_status:
+        AutonomousSystemProtectedTransitionProposalV1AuthorityEffectResultingStatus,
+    pub resulting_state_ref: String,
+    pub resulting_state_root: String,
+    pub active_profile_set_ref: String,
+    pub active_profile_set_root: String,
+    pub chain_ref: String,
+    pub live_chain_created:
+        AutonomousSystemProtectedTransitionProposalV1AuthorityEffectLiveChainCreated,
+    pub node_membership_created:
+        AutonomousSystemProtectedTransitionProposalV1AuthorityEffectNodeMembershipCreated,
+    pub runtime_effect_admitted:
+        AutonomousSystemProtectedTransitionProposalV1AuthorityEffectRuntimeEffectAdmitted,
+    pub network_effect_admitted:
+        AutonomousSystemProtectedTransitionProposalV1AuthorityEffectNetworkEffectAdmitted,
+    pub constitution_changed:
+        AutonomousSystemProtectedTransitionProposalV1AuthorityEffectConstitutionChanged,
+    pub profile_set_changed:
+        AutonomousSystemProtectedTransitionProposalV1AuthorityEffectProfileSetChanged,
+    pub operation_commitment: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemProtectedTransitionProposalV1AuthorityEffect {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","irreversibility","system_id","genesis_ref","source_governing_authority_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","deployment_profile_ref","deployment_profile_root","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_proposal_root","predecessor_decision_root","predecessor_transition_root","predecessor_receipt_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","active_profile_set_ref","active_profile_set_root","chain_ref","live_chain_created","node_membership_created","runtime_effect_admitted","network_effect_admitted","constitution_changed","profile_set_changed","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-authority-effect.v1"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"home_domain_binding_ref":{"type":"string","pattern":"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"},"home_domain_binding_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"module_registry_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"upgrade_policy_ref":{"type":"string","pattern":"^policy://[A-Za-z0-9._:/-]+$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[A-Za-z0-9._:/-]+$"},"deployment_profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_ref":{"type":"string","pattern":"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_transition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resulting_status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"resulting_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"live_chain_created":{"const":false},"node_membership_created":{"const":false},"runtime_effect_admitted":{"const":false},"network_effect_admitted":{"const":false},"constitution_changed":{"const":false},"profile_set_changed":{"const":false},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectOp,
+            >(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectRequiredScope,
+            >(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            irreversibility: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectIrreversibility,
+            >(
+                object
+                    .remove(r#"irreversibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"irreversibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_governing_authority_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_governing_authority_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_governing_authority_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            home_domain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"home_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"home_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            home_domain_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"home_domain_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"home_domain_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            home_domain_binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"home_domain_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"home_domain_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            home_domain_binding_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"home_domain_binding_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"home_domain_binding_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            module_registry_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"module_registry_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"module_registry_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            upgrade_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"upgrade_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"upgrade_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_status: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectPredecessorStatus,
+            >(
+                object
+                    .remove(r#"predecessor_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_proposal_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_proposal_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_proposal_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_decision_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_decision_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_decision_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_transition_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_transition_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_transition_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_receipt_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_receipt_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_chain_head_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_chain_head_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_chain_head_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_status: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectResultingStatus,
+            >(
+                object
+                    .remove(r#"resulting_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_profile_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_profile_set_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"chain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            live_chain_created: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectLiveChainCreated,
+            >(
+                object
+                    .remove(r#"live_chain_created"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"live_chain_created"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_membership_created: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectNodeMembershipCreated,
+            >(
+                object
+                    .remove(r#"node_membership_created"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_membership_created"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_effect_admitted: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectRuntimeEffectAdmitted,
+            >(
+                object
+                    .remove(r#"runtime_effect_admitted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_effect_admitted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_effect_admitted: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectNetworkEffectAdmitted,
+            >(
+                object
+                    .remove(r#"network_effect_admitted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_effect_admitted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_changed: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectConstitutionChanged,
+            >(
+                object
+                    .remove(r#"constitution_changed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_changed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_set_changed: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionProposalV1AuthorityEffectProfileSetChanged,
+            >(
+                object
+                    .remove(r#"profile_set_changed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_set_changed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectSchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-protected-transition-authority-effect.v1"#)]
+    IoiAutonomousSystemProtectedTransitionAuthorityEffectV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectOp {
+    #[serde(rename = r#"pause"#)]
+    Pause,
+    #[serde(rename = r#"resume"#)]
+    Resume,
+    #[serde(rename = r#"suspend"#)]
+    Suspend,
+    #[serde(rename = r#"reinstate"#)]
+    Reinstate,
+    #[serde(rename = r#"enter_dormancy"#)]
+    EnterDormancy,
+    #[serde(rename = r#"wake"#)]
+    Wake,
+    #[serde(rename = r#"begin_recovery"#)]
+    BeginRecovery,
+    #[serde(rename = r#"complete_recovery"#)]
+    CompleteRecovery,
+    #[serde(rename = r#"quarantine"#)]
+    Quarantine,
+    #[serde(rename = r#"release_quarantine"#)]
+    ReleaseQuarantine,
+    #[serde(rename = r#"retire"#)]
+    Retire,
+    #[serde(rename = r#"archive"#)]
+    Archive,
+    #[serde(rename = r#"revoke"#)]
+    Revoke,
+    #[serde(rename = r#"decommission"#)]
+    Decommission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectRequiredScope {
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.pause"#)]
+    ScopeAutonomousSystemLifecyclePause,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.resume"#)]
+    ScopeAutonomousSystemLifecycleResume,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.suspend"#)]
+    ScopeAutonomousSystemLifecycleSuspend,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.reinstate"#)]
+    ScopeAutonomousSystemLifecycleReinstate,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.enter_dormancy"#)]
+    ScopeAutonomousSystemLifecycleEnterDormancy,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.wake"#)]
+    ScopeAutonomousSystemLifecycleWake,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.begin_recovery"#)]
+    ScopeAutonomousSystemLifecycleBeginRecovery,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.complete_recovery"#)]
+    ScopeAutonomousSystemLifecycleCompleteRecovery,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.quarantine"#)]
+    ScopeAutonomousSystemLifecycleQuarantine,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.release_quarantine"#)]
+    ScopeAutonomousSystemLifecycleReleaseQuarantine,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.retire"#)]
+    ScopeAutonomousSystemLifecycleRetire,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.archive"#)]
+    ScopeAutonomousSystemLifecycleArchive,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.revoke"#)]
+    ScopeAutonomousSystemLifecycleRevoke,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.decommission"#)]
+    ScopeAutonomousSystemLifecycleDecommission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectIrreversibility {
+    #[serde(rename = r#"reversible"#)]
+    Reversible,
+    #[serde(rename = r#"one_way"#)]
+    OneWay,
+    #[serde(rename = r#"terminal"#)]
+    Terminal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectPredecessorStatus {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"dormant"#)]
+    Dormant,
+    #[serde(rename = r#"recovering"#)]
+    Recovering,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectResultingStatus {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"dormant"#)]
+    Dormant,
+    #[serde(rename = r#"recovering"#)]
+    Recovering,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"decommissioned"#)]
+    Decommissioned,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectLiveChainCreated {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectLiveChainCreated
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectLiveChainCreated
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectNodeMembershipCreated {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectNodeMembershipCreated
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectNodeMembershipCreated
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectRuntimeEffectAdmitted {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectRuntimeEffectAdmitted
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectRuntimeEffectAdmitted
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectNetworkEffectAdmitted {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectNetworkEffectAdmitted
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectNetworkEffectAdmitted
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectConstitutionChanged {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectConstitutionChanged
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectConstitutionChanged
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectProfileSetChanged {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectProfileSetChanged
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemProtectedTransitionProposalV1AuthorityEffectProfileSetChanged
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionProposalV1Status {
+    #[serde(rename = r#"proposed"#)]
+    Proposed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemProtectedTransitionDecisionV1 {
+    pub schema_version: AutonomousSystemProtectedTransitionDecisionV1SchemaVersion,
+    pub decision_ref: String,
+    pub decision_root: String,
+    pub proposal_ref: String,
+    pub proposal_root: String,
+    pub system_id: String,
+    pub op: AutonomousSystemProtectedTransitionDecisionV1Op,
+    pub sequence: ArchitectureContractInteger,
+    pub irreversibility: AutonomousSystemProtectedTransitionDecisionV1Irreversibility,
+    pub required_scope: AutonomousSystemProtectedTransitionDecisionV1RequiredScope,
+    pub operation_commitment: String,
+    pub input_hash: String,
+    pub policy_hash: String,
+    pub effect_hash: String,
+    pub authority_grant_ref: String,
+    pub authority_evidence_ref: String,
+    pub authority_evidence_root: String,
+    pub wallet_grant_consumption_ref: String,
+    pub wallet_grant_consumption_evidence_ref: String,
+    pub outcome: AutonomousSystemProtectedTransitionDecisionV1Outcome,
+    pub decided_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemProtectedTransitionDecisionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-protected-transition-decision/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-protected-transition-decision/v1","title":"AutonomousSystemProtectedTransitionDecision","description":"Retained authority-decision evidence for exactly one protected-transition proposal. The effect hash is recomputed from the exact proposal effect; copied or unrelated wallet evidence cannot authorize a different op, sequence, or System, and the decision restates the proposal's declared irreversibility so the approved effect class is explicit.","x-ioi-schema-version":"ioi.autonomous-system-protected-transition-decision.v1","type":"object","additionalProperties":false,"required":["schema_version","decision_ref","decision_root","proposal_ref","proposal_root","system_id","op","sequence","irreversibility","required_scope","operation_commitment","input_hash","policy_hash","effect_hash","authority_grant_ref","authority_evidence_ref","authority_evidence_root","wallet_grant_consumption_ref","wallet_grant_consumption_evidence_ref","outcome","decided_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-decision.v1"},"decision_ref":{"type":"string","pattern":"^decision://[A-Za-z0-9._:/-]+$"},"decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"proposal_ref":{"type":"string","pattern":"^proposal://[A-Za-z0-9._:/-]+$"},"proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"input_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_grant_ref":{"type":"string","pattern":"^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"},"authority_evidence_ref":{"type":"string","pattern":"^system-lifecycle-authority-evidence://[A-Za-z0-9._:/-]+$"},"authority_evidence_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"wallet_grant_consumption_ref":{"type":"string","pattern":"^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$"},"wallet_grant_consumption_evidence_ref":{"type":"string","pattern":"^system-lifecycle-authority-consumption://[A-Za-z0-9._:/-]+$"},"outcome":{"const":"admitted"},"decided_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"op":{"const":"pause"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"resume"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"suspend"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"reinstate"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"enter_dormancy"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"wake"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"begin_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"complete_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"release_quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"retire"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"irreversibility":{"const":"one_way"}}}},{"if":{"properties":{"op":{"const":"archive"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"irreversibility":{"const":"one_way"}}}},{"if":{"properties":{"op":{"const":"revoke"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"irreversibility":{"const":"one_way"}}}},{"if":{"properties":{"op":{"const":"decommission"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"irreversibility":{"const":"terminal"}}}}]}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionDecisionV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<AutonomousSystemProtectedTransitionDecisionV1Op>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            irreversibility: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionDecisionV1Irreversibility,
+            >(
+                object
+                    .remove(r#"irreversibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"irreversibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<
+                AutonomousSystemProtectedTransitionDecisionV1RequiredScope,
+            >(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            input_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"input_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"input_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effect_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_grant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_evidence_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_evidence_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_evidence_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            wallet_grant_consumption_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"wallet_grant_consumption_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"wallet_grant_consumption_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            wallet_grant_consumption_evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"wallet_grant_consumption_evidence_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"wallet_grant_consumption_evidence_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome:
+                serde_json::from_value::<AutonomousSystemProtectedTransitionDecisionV1Outcome>(
+                    object
+                        .remove(r#"outcome"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"outcome"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            decided_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decided_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decided_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionDecisionV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-protected-transition-decision.v1"#)]
+    IoiAutonomousSystemProtectedTransitionDecisionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionDecisionV1Op {
+    #[serde(rename = r#"pause"#)]
+    Pause,
+    #[serde(rename = r#"resume"#)]
+    Resume,
+    #[serde(rename = r#"suspend"#)]
+    Suspend,
+    #[serde(rename = r#"reinstate"#)]
+    Reinstate,
+    #[serde(rename = r#"enter_dormancy"#)]
+    EnterDormancy,
+    #[serde(rename = r#"wake"#)]
+    Wake,
+    #[serde(rename = r#"begin_recovery"#)]
+    BeginRecovery,
+    #[serde(rename = r#"complete_recovery"#)]
+    CompleteRecovery,
+    #[serde(rename = r#"quarantine"#)]
+    Quarantine,
+    #[serde(rename = r#"release_quarantine"#)]
+    ReleaseQuarantine,
+    #[serde(rename = r#"retire"#)]
+    Retire,
+    #[serde(rename = r#"archive"#)]
+    Archive,
+    #[serde(rename = r#"revoke"#)]
+    Revoke,
+    #[serde(rename = r#"decommission"#)]
+    Decommission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionDecisionV1Irreversibility {
+    #[serde(rename = r#"reversible"#)]
+    Reversible,
+    #[serde(rename = r#"one_way"#)]
+    OneWay,
+    #[serde(rename = r#"terminal"#)]
+    Terminal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionDecisionV1RequiredScope {
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.pause"#)]
+    ScopeAutonomousSystemLifecyclePause,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.resume"#)]
+    ScopeAutonomousSystemLifecycleResume,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.suspend"#)]
+    ScopeAutonomousSystemLifecycleSuspend,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.reinstate"#)]
+    ScopeAutonomousSystemLifecycleReinstate,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.enter_dormancy"#)]
+    ScopeAutonomousSystemLifecycleEnterDormancy,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.wake"#)]
+    ScopeAutonomousSystemLifecycleWake,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.begin_recovery"#)]
+    ScopeAutonomousSystemLifecycleBeginRecovery,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.complete_recovery"#)]
+    ScopeAutonomousSystemLifecycleCompleteRecovery,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.quarantine"#)]
+    ScopeAutonomousSystemLifecycleQuarantine,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.release_quarantine"#)]
+    ScopeAutonomousSystemLifecycleReleaseQuarantine,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.retire"#)]
+    ScopeAutonomousSystemLifecycleRetire,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.archive"#)]
+    ScopeAutonomousSystemLifecycleArchive,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.revoke"#)]
+    ScopeAutonomousSystemLifecycleRevoke,
+    #[serde(rename = r#"scope:autonomous_system.lifecycle.decommission"#)]
+    ScopeAutonomousSystemLifecycleDecommission,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemProtectedTransitionDecisionV1Outcome {
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemLifecycleStateV1 {
+    pub schema_version: AutonomousSystemLifecycleStateV1SchemaVersion,
+    pub lifecycle_state_ref: String,
+    pub lifecycle_state_root: String,
+    pub system_id: String,
+    pub sequence: ArchitectureContractInteger,
+    pub status: AutonomousSystemLifecycleStateV1Status,
+    pub predecessor_state_root: String,
+    pub transition_ref: Option<String>,
+    pub transition_root: Option<String>,
+    pub transition_receipt_ref: Option<String>,
+    pub transition_receipt_root: Option<String>,
+    pub active_profile_set_ref: String,
+    pub active_profile_set_root: String,
+    pub chain_ref: String,
+    pub created_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemLifecycleStateV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-lifecycle-state/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-lifecycle-state/v1","title":"AutonomousSystemLifecycleState","description":"Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds only predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic. Succession, dissolution, and enrollment statuses are reserved for their named owner families.","x-ioi-schema-version":"ioi.autonomous-system-lifecycle-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-lifecycle-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"transition_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_receipt_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<AutonomousSystemLifecycleStateV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            lifecycle_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemLifecycleStateV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"transition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"transition_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"transition_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_receipt_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"transition_receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_profile_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_profile_set_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"chain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemLifecycleStateV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-lifecycle-state.v1"#)]
+    IoiAutonomousSystemLifecycleStateV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemLifecycleStateV1Status {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"dormant"#)]
+    Dormant,
+    #[serde(rename = r#"recovering"#)]
+    Recovering,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"decommissioned"#)]
+    Decommissioned,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemOperationLogV2 {
+    pub schema_version: AutonomousSystemOperationLogV2SchemaVersion,
+    pub operation_log_ref: String,
+    pub operation_log_root: String,
+    pub predecessor_operation_log_ref: (),
+    pub predecessor_operation_log_root: (),
+    pub snapshot_kind: AutonomousSystemOperationLogV2SnapshotKind,
+    pub system_id: String,
+    pub genesis_ref: String,
+    pub home_domain_ref: String,
+    pub home_domain_commitment: String,
+    pub home_domain_binding_ref: String,
+    pub home_domain_binding_root: String,
+    pub policy_root: String,
+    pub module_registry_root: String,
+    pub upgrade_policy_ref: String,
+    pub activation_prefix: AutonomousSystemOperationLogV2ActivationPrefix,
+    pub entries: Vec<AutonomousSystemOperationLogV2EntriesItem>,
+    pub head_entry: AutonomousSystemOperationLogV2HeadEntry,
+    pub latest_sequence: ArchitectureContractInteger,
+    pub latest_operation_commitment: String,
+    pub latest_transition_commitment_ref: (),
+    pub latest_transition_ref: String,
+    pub latest_transition_root: String,
+    pub latest_receipt_ref: String,
+    pub latest_receipt_root: String,
+    pub latest_state_ref: String,
+    pub latest_state_root: String,
+    pub status: AutonomousSystemOperationLogV2Status,
+    pub created_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemOperationLogV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-operation-log/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-operation-log/v2","title":"AutonomousSystemOperationLog","description":"General lifecycle operation log continuing the chain beyond the activation prefix. The closed activation prefix is retained verbatim as embedded bootstrap evidence; protected transitions append entries at sequence three or later. Successor of v1, which remains the valid shape for the committed sequence-two revision.","x-ioi-schema-version":"ioi.autonomous-system-operation-log.v2","type":"object","additionalProperties":false,"required":["schema_version","operation_log_ref","operation_log_root","predecessor_operation_log_ref","predecessor_operation_log_root","snapshot_kind","system_id","genesis_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","activation_prefix","entries","head_entry","latest_sequence","latest_operation_commitment","latest_transition_commitment_ref","latest_transition_ref","latest_transition_root","latest_receipt_ref","latest_receipt_root","latest_state_ref","latest_state_root","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-operation-log.v2"},"operation_log_ref":{"$ref":"#/$defs/operationLogRef"},"operation_log_root":{"$ref":"#/$defs/hash"},"predecessor_operation_log_ref":{"type":"null"},"predecessor_operation_log_root":{"type":"null"},"snapshot_kind":{"const":"lifecycle_log"},"system_id":{"$ref":"#/$defs/systemRef"},"genesis_ref":{"$ref":"#/$defs/genesisRef"},"home_domain_ref":{"$ref":"#/$defs/homeDomainRef"},"home_domain_commitment":{"$ref":"#/$defs/hash"},"home_domain_binding_ref":{"$ref":"#/$defs/homeDomainBindingRef"},"home_domain_binding_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"module_registry_root":{"$ref":"#/$defs/hash"},"upgrade_policy_ref":{"$ref":"#/$defs/policyRef"},"activation_prefix":{"$ref":"#/$defs/activationPrefix"},"entries":{"type":"array","items":{"$ref":"#/$defs/operationEntry"},"minItems":3},"head_entry":{"$ref":"#/$defs/operationEntry"},"latest_sequence":{"type":"integer","minimum":2,"maximum":9007199254740991},"latest_operation_commitment":{"$ref":"#/$defs/hash"},"latest_transition_commitment_ref":{"type":"null"},"latest_transition_ref":{"$ref":"#/$defs/transitionRef"},"latest_transition_root":{"$ref":"#/$defs/hash"},"latest_receipt_ref":{"$ref":"#/$defs/receiptRef"},"latest_receipt_root":{"$ref":"#/$defs/hash"},"latest_state_ref":{"$ref":"#/$defs/canonicalRef"},"latest_state_root":{"$ref":"#/$defs/hash"},"status":{"const":"committed"},"created_at":{"$ref":"#/$defs/canonicalDateTime"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*(?:://|:)[^\\s]{1,248}$"},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"proposalRef":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"nullableProposalRef":{"anyOf":[{"$ref":"#/$defs/proposalRef"},{"type":"null"}]},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"nullableDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"transitionRef":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"nullableTransitionRef":{"anyOf":[{"$ref":"#/$defs/transitionRef"},{"type":"null"}]},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"commitmentRef":{"type":"string","pattern":"^transition://[^\\s]{1,248}$"},"nullableCommitmentRef":{"anyOf":[{"$ref":"#/$defs/commitmentRef"},{"type":"null"}]},"activeProfileSetRef":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"nullableActiveProfileSetRef":{"anyOf":[{"$ref":"#/$defs/activeProfileSetRef"},{"type":"null"}]},"chainRef":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"homeDomainRef":{"type":"string","pattern":"^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$"},"homeDomainBindingRef":{"type":"string","pattern":"^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$"},"nullableChainRef":{"anyOf":[{"$ref":"#/$defs/chainRef"},{"type":"null"}]},"operationLogRef":{"type":"string","pattern":"^agentgres://operation-log/autonomous-system/[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"nullableOperationLogRef":{"anyOf":[{"$ref":"#/$defs/operationLogRef"},{"type":"null"}]},"componentRegistryRef":{"type":"string","pattern":"^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$"},"deploymentRevisionRef":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"nullableComponentRegistryRef":{"anyOf":[{"$ref":"#/$defs/componentRegistryRef"},{"type":"null"}]},"nullableScope":{"anyOf":[{"type":"string","pattern":"^scope:[a-z0-9._:-]{1,180}$"},{"type":"null"}]},"operationEntry":{"type":"object","additionalProperties":false,"required":["sequence","entry_kind","operation_name","operation_owner_profile_ref","operation_owner_ref","operation_owner_root","required_scope","materialization_ref","materialization_root","deployment_profile_ref","deployment_profile_root","operation_commitment","proposal_ref","proposal_root","decision_ref","decision_root","transition_ref","transition_root","state_transition_commitment_ref","state_ref","state_root","predecessor_state_root","receipt_profile_ref","receipt_ref","receipt_root","receipt_artifact_root","component_registry_ref","component_registry_root","active_profile_set_ref","active_profile_set_root","chain_ref","authority_evidence_ref","authority_evidence_root","wallet_consumption_ref","wallet_consumption_root","live_chain_created","committed_at"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"entry_kind":{"enum":["sequence_zero_materialization","system_initialization","system_activation","protected_transition"]},"operation_name":{"type":"string","pattern":"^[a-z][a-z0-9_]{1,80}$"},"operation_owner_profile_ref":{"$ref":"#/$defs/canonicalRef"},"operation_owner_ref":{"$ref":"#/$defs/canonicalRef"},"operation_owner_root":{"$ref":"#/$defs/hash"},"required_scope":{"$ref":"#/$defs/nullableScope"},"materialization_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"materialization_root":{"$ref":"#/$defs/nullableHash"},"deployment_profile_ref":{"$ref":"#/$defs/deploymentRevisionRef"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/nullableProposalRef"},"proposal_root":{"$ref":"#/$defs/nullableHash"},"decision_ref":{"$ref":"#/$defs/nullableDecisionRef"},"decision_root":{"$ref":"#/$defs/nullableHash"},"transition_ref":{"$ref":"#/$defs/nullableTransitionRef"},"transition_root":{"$ref":"#/$defs/nullableHash"},"state_transition_commitment_ref":{"$ref":"#/$defs/nullableCommitmentRef"},"state_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"state_root":{"$ref":"#/$defs/nullableHash"},"predecessor_state_root":{"$ref":"#/$defs/nullableHash"},"receipt_profile_ref":{"$ref":"#/$defs/canonicalRef"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_root":{"$ref":"#/$defs/hash"},"receipt_artifact_root":{"$ref":"#/$defs/hash"},"component_registry_ref":{"$ref":"#/$defs/nullableComponentRegistryRef"},"component_registry_root":{"$ref":"#/$defs/nullableHash"},"active_profile_set_ref":{"$ref":"#/$defs/nullableActiveProfileSetRef"},"active_profile_set_root":{"$ref":"#/$defs/nullableHash"},"chain_ref":{"$ref":"#/$defs/nullableChainRef"},"authority_evidence_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/nullableHash"},"wallet_consumption_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/nullableHash"},"live_chain_created":{"type":"boolean"},"committed_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"type":"object","properties":{"entry_kind":{"const":"sequence_zero_materialization"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[0]},"operation_name":{"const":"materialize_sequence_zero"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"},"required_scope":{"const":"scope:autonomous_system.genesis_materialize"},"materialization_ref":{"$ref":"#/$defs/canonicalRef"},"materialization_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"type":"null"},"proposal_root":{"type":"null"},"decision_ref":{"type":"null"},"decision_root":{"type":"null"},"transition_ref":{"type":"null"},"transition_root":{"type":"null"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"type":"null"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"type":"null"},"receipt_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"},"component_registry_ref":{"$ref":"#/$defs/componentRegistryRef"},"component_registry_root":{"$ref":"#/$defs/hash"},"active_profile_set_ref":{"type":"null"},"active_profile_set_root":{"type":"null"},"chain_ref":{"type":"null"},"authority_evidence_ref":{"type":"null"},"authority_evidence_root":{"type":"null"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":false}}}},{"if":{"type":"object","properties":{"entry_kind":{"const":"system_initialization"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[1]},"operation_name":{"const":"initialize"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition/v1"},"required_scope":{"const":"scope:autonomous_system.lifecycle.initialize"},"materialization_ref":{"type":"null"},"materialization_root":{"type":"null"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/decisionRef"},"decision_root":{"$ref":"#/$defs/hash"},"transition_ref":{"$ref":"#/$defs/transitionRef"},"transition_root":{"$ref":"#/$defs/hash"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"$ref":"#/$defs/canonicalRef"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"receipt_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition-receipt/v1"},"active_profile_set_ref":{"type":"null"},"active_profile_set_root":{"type":"null"},"chain_ref":{"type":"null"},"authority_evidence_ref":{"$ref":"#/$defs/canonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/hash"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":false}}}},{"if":{"type":"object","properties":{"entry_kind":{"const":"system_activation"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[2]},"operation_name":{"const":"activate"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition/v1"},"required_scope":{"const":"scope:autonomous_system.lifecycle.activate"},"materialization_ref":{"type":"null"},"materialization_root":{"type":"null"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/decisionRef"},"decision_root":{"$ref":"#/$defs/hash"},"transition_ref":{"$ref":"#/$defs/transitionRef"},"transition_root":{"$ref":"#/$defs/hash"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"$ref":"#/$defs/canonicalRef"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"receipt_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-activation-receipt/v1"},"active_profile_set_ref":{"$ref":"#/$defs/activeProfileSetRef"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"$ref":"#/$defs/chainRef"},"authority_evidence_ref":{"$ref":"#/$defs/canonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/hash"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":true}}}}]},"sequenceZero":{"allOf":[{"$ref":"#/$defs/operationEntry"},{"type":"object","properties":{"sequence":{"enum":[0]},"entry_kind":{"const":"sequence_zero_materialization"},"operation_name":{"const":"materialize_sequence_zero"}}}]},"sequenceOne":{"allOf":[{"$ref":"#/$defs/operationEntry"},{"type":"object","properties":{"sequence":{"enum":[1]},"entry_kind":{"const":"system_initialization"},"operation_name":{"const":"initialize"}}}]},"sequenceTwo":{"allOf":[{"$ref":"#/$defs/operationEntry"},{"type":"object","properties":{"sequence":{"enum":[2]},"entry_kind":{"const":"system_activation"},"operation_name":{"const":"activate"}}}]},"activationPrefix":{"type":"object","additionalProperties":false,"required":["sequence_zero","sequence_one","sequence_two"],"properties":{"sequence_zero":{"$ref":"#/$defs/sequenceZero"},"sequence_one":{"$ref":"#/$defs/sequenceOne"},"sequence_two":{"$ref":"#/$defs/sequenceTwo"}}},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AutonomousSystemOperationLogV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_log_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_log_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_log_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_log_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_log_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_log_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_operation_log_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"predecessor_operation_log_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_operation_log_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_operation_log_root: serde_json::from_value::<()>(
+                object
+                    .remove(r#"predecessor_operation_log_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_operation_log_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            snapshot_kind: serde_json::from_value::<AutonomousSystemOperationLogV2SnapshotKind>(
+                object
+                    .remove(r#"snapshot_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"snapshot_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            home_domain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"home_domain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"home_domain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            home_domain_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"home_domain_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"home_domain_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            home_domain_binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"home_domain_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"home_domain_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            home_domain_binding_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"home_domain_binding_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"home_domain_binding_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            module_registry_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"module_registry_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"module_registry_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            upgrade_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"upgrade_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"upgrade_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            activation_prefix: serde_json::from_value::<
+                AutonomousSystemOperationLogV2ActivationPrefix,
+            >(
+                object
+                    .remove(r#"activation_prefix"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activation_prefix"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            entries: serde_json::from_value::<Vec<AutonomousSystemOperationLogV2EntriesItem>>(
+                object
+                    .remove(r#"entries"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"entries"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            head_entry: serde_json::from_value::<AutonomousSystemOperationLogV2HeadEntry>(
+                object
+                    .remove(r#"head_entry"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"head_entry"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"latest_sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_operation_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"latest_operation_commitment"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"latest_operation_commitment"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_transition_commitment_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"latest_transition_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"latest_transition_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_transition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"latest_transition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_transition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_transition_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"latest_transition_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_transition_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"latest_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"latest_receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"latest_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            latest_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"latest_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"latest_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemOperationLogV2Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemOperationLogV2SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-operation-log.v2"#)]
+    IoiAutonomousSystemOperationLogV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemOperationLogV2SnapshotKind {
+    #[serde(rename = r#"lifecycle_log"#)]
+    LifecycleLog,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemOperationLogV2ActivationPrefix {
+    pub sequence_zero: serde_json::Value,
+    pub sequence_one: serde_json::Value,
+    pub sequence_two: serde_json::Value,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemOperationLogV2ActivationPrefix {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-operation-log/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["sequence_zero","sequence_one","sequence_two"],"properties":{"sequence_zero":{"$ref":"#/$defs/sequenceZero"},"sequence_one":{"$ref":"#/$defs/sequenceOne"},"sequence_two":{"$ref":"#/$defs/sequenceTwo"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            sequence_zero: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"sequence_zero"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence_zero"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence_one: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"sequence_one"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence_one"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence_two: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"sequence_two"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence_two"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemOperationLogV2EntriesItem {
+    pub sequence: ArchitectureContractInteger,
+    pub entry_kind: AutonomousSystemOperationLogV2EntriesItemEntryKind,
+    pub operation_name: String,
+    pub operation_owner_profile_ref: String,
+    pub operation_owner_ref: String,
+    pub operation_owner_root: String,
+    pub required_scope: Option<String>,
+    pub materialization_ref: Option<String>,
+    pub materialization_root: Option<String>,
+    pub deployment_profile_ref: String,
+    pub deployment_profile_root: String,
+    pub operation_commitment: Option<String>,
+    pub proposal_ref: Option<String>,
+    pub proposal_root: Option<String>,
+    pub decision_ref: Option<String>,
+    pub decision_root: Option<String>,
+    pub transition_ref: Option<String>,
+    pub transition_root: Option<String>,
+    pub state_transition_commitment_ref: Option<String>,
+    pub state_ref: Option<String>,
+    pub state_root: Option<String>,
+    pub predecessor_state_root: Option<String>,
+    pub receipt_profile_ref: String,
+    pub receipt_ref: String,
+    pub receipt_root: String,
+    pub receipt_artifact_root: String,
+    pub component_registry_ref: Option<String>,
+    pub component_registry_root: Option<String>,
+    pub active_profile_set_ref: Option<String>,
+    pub active_profile_set_root: Option<String>,
+    pub chain_ref: Option<String>,
+    pub authority_evidence_ref: Option<String>,
+    pub authority_evidence_root: Option<String>,
+    pub wallet_consumption_ref: Option<String>,
+    pub wallet_consumption_root: Option<String>,
+    pub live_chain_created: bool,
+    pub committed_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemOperationLogV2EntriesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-operation-log/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["sequence","entry_kind","operation_name","operation_owner_profile_ref","operation_owner_ref","operation_owner_root","required_scope","materialization_ref","materialization_root","deployment_profile_ref","deployment_profile_root","operation_commitment","proposal_ref","proposal_root","decision_ref","decision_root","transition_ref","transition_root","state_transition_commitment_ref","state_ref","state_root","predecessor_state_root","receipt_profile_ref","receipt_ref","receipt_root","receipt_artifact_root","component_registry_ref","component_registry_root","active_profile_set_ref","active_profile_set_root","chain_ref","authority_evidence_ref","authority_evidence_root","wallet_consumption_ref","wallet_consumption_root","live_chain_created","committed_at"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"entry_kind":{"enum":["sequence_zero_materialization","system_initialization","system_activation","protected_transition"]},"operation_name":{"type":"string","pattern":"^[a-z][a-z0-9_]{1,80}$"},"operation_owner_profile_ref":{"$ref":"#/$defs/canonicalRef"},"operation_owner_ref":{"$ref":"#/$defs/canonicalRef"},"operation_owner_root":{"$ref":"#/$defs/hash"},"required_scope":{"$ref":"#/$defs/nullableScope"},"materialization_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"materialization_root":{"$ref":"#/$defs/nullableHash"},"deployment_profile_ref":{"$ref":"#/$defs/deploymentRevisionRef"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/nullableProposalRef"},"proposal_root":{"$ref":"#/$defs/nullableHash"},"decision_ref":{"$ref":"#/$defs/nullableDecisionRef"},"decision_root":{"$ref":"#/$defs/nullableHash"},"transition_ref":{"$ref":"#/$defs/nullableTransitionRef"},"transition_root":{"$ref":"#/$defs/nullableHash"},"state_transition_commitment_ref":{"$ref":"#/$defs/nullableCommitmentRef"},"state_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"state_root":{"$ref":"#/$defs/nullableHash"},"predecessor_state_root":{"$ref":"#/$defs/nullableHash"},"receipt_profile_ref":{"$ref":"#/$defs/canonicalRef"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_root":{"$ref":"#/$defs/hash"},"receipt_artifact_root":{"$ref":"#/$defs/hash"},"component_registry_ref":{"$ref":"#/$defs/nullableComponentRegistryRef"},"component_registry_root":{"$ref":"#/$defs/nullableHash"},"active_profile_set_ref":{"$ref":"#/$defs/nullableActiveProfileSetRef"},"active_profile_set_root":{"$ref":"#/$defs/nullableHash"},"chain_ref":{"$ref":"#/$defs/nullableChainRef"},"authority_evidence_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/nullableHash"},"wallet_consumption_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/nullableHash"},"live_chain_created":{"type":"boolean"},"committed_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"type":"object","properties":{"entry_kind":{"const":"sequence_zero_materialization"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[0]},"operation_name":{"const":"materialize_sequence_zero"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"},"required_scope":{"const":"scope:autonomous_system.genesis_materialize"},"materialization_ref":{"$ref":"#/$defs/canonicalRef"},"materialization_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"type":"null"},"proposal_root":{"type":"null"},"decision_ref":{"type":"null"},"decision_root":{"type":"null"},"transition_ref":{"type":"null"},"transition_root":{"type":"null"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"type":"null"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"type":"null"},"receipt_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"},"component_registry_ref":{"$ref":"#/$defs/componentRegistryRef"},"component_registry_root":{"$ref":"#/$defs/hash"},"active_profile_set_ref":{"type":"null"},"active_profile_set_root":{"type":"null"},"chain_ref":{"type":"null"},"authority_evidence_ref":{"type":"null"},"authority_evidence_root":{"type":"null"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":false}}}},{"if":{"type":"object","properties":{"entry_kind":{"const":"system_initialization"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[1]},"operation_name":{"const":"initialize"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition/v1"},"required_scope":{"const":"scope:autonomous_system.lifecycle.initialize"},"materialization_ref":{"type":"null"},"materialization_root":{"type":"null"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/decisionRef"},"decision_root":{"$ref":"#/$defs/hash"},"transition_ref":{"$ref":"#/$defs/transitionRef"},"transition_root":{"$ref":"#/$defs/hash"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"$ref":"#/$defs/canonicalRef"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"receipt_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition-receipt/v1"},"active_profile_set_ref":{"type":"null"},"active_profile_set_root":{"type":"null"},"chain_ref":{"type":"null"},"authority_evidence_ref":{"$ref":"#/$defs/canonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/hash"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":false}}}},{"if":{"type":"object","properties":{"entry_kind":{"const":"system_activation"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[2]},"operation_name":{"const":"activate"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition/v1"},"required_scope":{"const":"scope:autonomous_system.lifecycle.activate"},"materialization_ref":{"type":"null"},"materialization_root":{"type":"null"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/decisionRef"},"decision_root":{"$ref":"#/$defs/hash"},"transition_ref":{"$ref":"#/$defs/transitionRef"},"transition_root":{"$ref":"#/$defs/hash"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"$ref":"#/$defs/canonicalRef"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"receipt_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-activation-receipt/v1"},"active_profile_set_ref":{"$ref":"#/$defs/activeProfileSetRef"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"$ref":"#/$defs/chainRef"},"authority_evidence_ref":{"$ref":"#/$defs/canonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/hash"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":true}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            entry_kind:
+                serde_json::from_value::<AutonomousSystemOperationLogV2EntriesItemEntryKind>(
+                    object
+                        .remove(r#"entry_kind"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"entry_kind"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            operation_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_owner_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_owner_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"operation_owner_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_owner_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_owner_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_owner_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            materialization_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"materialization_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"materialization_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            materialization_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"materialization_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"materialization_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"proposal_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"decision_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"transition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"transition_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_transition_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"state_transition_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"state_transition_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_artifact_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_artifact_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_artifact_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            component_registry_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"component_registry_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"component_registry_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            component_registry_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"component_registry_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"component_registry_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"active_profile_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"active_profile_set_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chain_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"chain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_evidence_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_evidence_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_evidence_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_evidence_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            wallet_consumption_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"wallet_consumption_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"wallet_consumption_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            wallet_consumption_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"wallet_consumption_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"wallet_consumption_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            live_chain_created: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"live_chain_created"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"live_chain_created"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            committed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"committed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"committed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemOperationLogV2EntriesItemEntryKind {
+    #[serde(rename = r#"sequence_zero_materialization"#)]
+    SequenceZeroMaterialization,
+    #[serde(rename = r#"system_initialization"#)]
+    SystemInitialization,
+    #[serde(rename = r#"system_activation"#)]
+    SystemActivation,
+    #[serde(rename = r#"protected_transition"#)]
+    ProtectedTransition,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemOperationLogV2HeadEntry {
+    pub sequence: ArchitectureContractInteger,
+    pub entry_kind: AutonomousSystemOperationLogV2HeadEntryEntryKind,
+    pub operation_name: String,
+    pub operation_owner_profile_ref: String,
+    pub operation_owner_ref: String,
+    pub operation_owner_root: String,
+    pub required_scope: Option<String>,
+    pub materialization_ref: Option<String>,
+    pub materialization_root: Option<String>,
+    pub deployment_profile_ref: String,
+    pub deployment_profile_root: String,
+    pub operation_commitment: Option<String>,
+    pub proposal_ref: Option<String>,
+    pub proposal_root: Option<String>,
+    pub decision_ref: Option<String>,
+    pub decision_root: Option<String>,
+    pub transition_ref: Option<String>,
+    pub transition_root: Option<String>,
+    pub state_transition_commitment_ref: Option<String>,
+    pub state_ref: Option<String>,
+    pub state_root: Option<String>,
+    pub predecessor_state_root: Option<String>,
+    pub receipt_profile_ref: String,
+    pub receipt_ref: String,
+    pub receipt_root: String,
+    pub receipt_artifact_root: String,
+    pub component_registry_ref: Option<String>,
+    pub component_registry_root: Option<String>,
+    pub active_profile_set_ref: Option<String>,
+    pub active_profile_set_root: Option<String>,
+    pub chain_ref: Option<String>,
+    pub authority_evidence_ref: Option<String>,
+    pub authority_evidence_root: Option<String>,
+    pub wallet_consumption_ref: Option<String>,
+    pub wallet_consumption_root: Option<String>,
+    pub live_chain_created: bool,
+    pub committed_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemOperationLogV2HeadEntry {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-operation-log/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["sequence","entry_kind","operation_name","operation_owner_profile_ref","operation_owner_ref","operation_owner_root","required_scope","materialization_ref","materialization_root","deployment_profile_ref","deployment_profile_root","operation_commitment","proposal_ref","proposal_root","decision_ref","decision_root","transition_ref","transition_root","state_transition_commitment_ref","state_ref","state_root","predecessor_state_root","receipt_profile_ref","receipt_ref","receipt_root","receipt_artifact_root","component_registry_ref","component_registry_root","active_profile_set_ref","active_profile_set_root","chain_ref","authority_evidence_ref","authority_evidence_root","wallet_consumption_ref","wallet_consumption_root","live_chain_created","committed_at"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"entry_kind":{"enum":["sequence_zero_materialization","system_initialization","system_activation","protected_transition"]},"operation_name":{"type":"string","pattern":"^[a-z][a-z0-9_]{1,80}$"},"operation_owner_profile_ref":{"$ref":"#/$defs/canonicalRef"},"operation_owner_ref":{"$ref":"#/$defs/canonicalRef"},"operation_owner_root":{"$ref":"#/$defs/hash"},"required_scope":{"$ref":"#/$defs/nullableScope"},"materialization_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"materialization_root":{"$ref":"#/$defs/nullableHash"},"deployment_profile_ref":{"$ref":"#/$defs/deploymentRevisionRef"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/nullableProposalRef"},"proposal_root":{"$ref":"#/$defs/nullableHash"},"decision_ref":{"$ref":"#/$defs/nullableDecisionRef"},"decision_root":{"$ref":"#/$defs/nullableHash"},"transition_ref":{"$ref":"#/$defs/nullableTransitionRef"},"transition_root":{"$ref":"#/$defs/nullableHash"},"state_transition_commitment_ref":{"$ref":"#/$defs/nullableCommitmentRef"},"state_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"state_root":{"$ref":"#/$defs/nullableHash"},"predecessor_state_root":{"$ref":"#/$defs/nullableHash"},"receipt_profile_ref":{"$ref":"#/$defs/canonicalRef"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_root":{"$ref":"#/$defs/hash"},"receipt_artifact_root":{"$ref":"#/$defs/hash"},"component_registry_ref":{"$ref":"#/$defs/nullableComponentRegistryRef"},"component_registry_root":{"$ref":"#/$defs/nullableHash"},"active_profile_set_ref":{"$ref":"#/$defs/nullableActiveProfileSetRef"},"active_profile_set_root":{"$ref":"#/$defs/nullableHash"},"chain_ref":{"$ref":"#/$defs/nullableChainRef"},"authority_evidence_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/nullableHash"},"wallet_consumption_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/nullableHash"},"live_chain_created":{"type":"boolean"},"committed_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"type":"object","properties":{"entry_kind":{"const":"sequence_zero_materialization"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[0]},"operation_name":{"const":"materialize_sequence_zero"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"},"required_scope":{"const":"scope:autonomous_system.genesis_materialize"},"materialization_ref":{"$ref":"#/$defs/canonicalRef"},"materialization_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"type":"null"},"proposal_root":{"type":"null"},"decision_ref":{"type":"null"},"decision_root":{"type":"null"},"transition_ref":{"type":"null"},"transition_root":{"type":"null"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"type":"null"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"type":"null"},"receipt_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"},"component_registry_ref":{"$ref":"#/$defs/componentRegistryRef"},"component_registry_root":{"$ref":"#/$defs/hash"},"active_profile_set_ref":{"type":"null"},"active_profile_set_root":{"type":"null"},"chain_ref":{"type":"null"},"authority_evidence_ref":{"type":"null"},"authority_evidence_root":{"type":"null"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":false}}}},{"if":{"type":"object","properties":{"entry_kind":{"const":"system_initialization"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[1]},"operation_name":{"const":"initialize"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition/v1"},"required_scope":{"const":"scope:autonomous_system.lifecycle.initialize"},"materialization_ref":{"type":"null"},"materialization_root":{"type":"null"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/decisionRef"},"decision_root":{"$ref":"#/$defs/hash"},"transition_ref":{"$ref":"#/$defs/transitionRef"},"transition_root":{"$ref":"#/$defs/hash"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"$ref":"#/$defs/canonicalRef"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"receipt_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition-receipt/v1"},"active_profile_set_ref":{"type":"null"},"active_profile_set_root":{"type":"null"},"chain_ref":{"type":"null"},"authority_evidence_ref":{"$ref":"#/$defs/canonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/hash"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":false}}}},{"if":{"type":"object","properties":{"entry_kind":{"const":"system_activation"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[2]},"operation_name":{"const":"activate"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition/v1"},"required_scope":{"const":"scope:autonomous_system.lifecycle.activate"},"materialization_ref":{"type":"null"},"materialization_root":{"type":"null"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/decisionRef"},"decision_root":{"$ref":"#/$defs/hash"},"transition_ref":{"$ref":"#/$defs/transitionRef"},"transition_root":{"$ref":"#/$defs/hash"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"$ref":"#/$defs/canonicalRef"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"receipt_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-activation-receipt/v1"},"active_profile_set_ref":{"$ref":"#/$defs/activeProfileSetRef"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"$ref":"#/$defs/chainRef"},"authority_evidence_ref":{"$ref":"#/$defs/canonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/hash"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":true}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            entry_kind: serde_json::from_value::<AutonomousSystemOperationLogV2HeadEntryEntryKind>(
+                object
+                    .remove(r#"entry_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"entry_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_owner_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_owner_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"operation_owner_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_owner_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_owner_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_owner_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            materialization_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"materialization_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"materialization_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            materialization_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"materialization_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"materialization_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"proposal_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"decision_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"transition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"transition_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_transition_commitment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"state_transition_commitment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"state_transition_commitment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_artifact_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_artifact_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_artifact_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            component_registry_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"component_registry_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"component_registry_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            component_registry_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"component_registry_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"component_registry_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"active_profile_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"active_profile_set_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chain_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"chain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_evidence_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_evidence_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_evidence_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_evidence_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            wallet_consumption_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"wallet_consumption_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"wallet_consumption_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            wallet_consumption_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"wallet_consumption_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"wallet_consumption_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            live_chain_created: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"live_chain_created"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"live_chain_created"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            committed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"committed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"committed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemOperationLogV2HeadEntryEntryKind {
+    #[serde(rename = r#"sequence_zero_materialization"#)]
+    SequenceZeroMaterialization,
+    #[serde(rename = r#"system_initialization"#)]
+    SystemInitialization,
+    #[serde(rename = r#"system_activation"#)]
+    SystemActivation,
+    #[serde(rename = r#"protected_transition"#)]
+    ProtectedTransition,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemOperationLogV2Status {
+    #[serde(rename = r#"committed"#)]
+    Committed,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -25610,6 +27897,118 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/positive-suspend.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-illegal-predecessor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-scope-substitution.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-commitment-tamper.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_protected_transition_proposal.operation_commitment.recomputes"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/positive-suspend.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-root-tamper.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_protected_transition_decision.root.recomputes"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-irreversibility-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/positive-suspended.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-reserved-status.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-root-tamper.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_lifecycle_state.root.recomputes"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-operation-log/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/positive-lifecycle-log.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-operation-log/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-activation-prefix-kind.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-operation-log/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-root-tamper.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_operation_log_v2.root.recomputes"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-operation-log/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-head-sequence-detach.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_operation_log_v2.head.sequence"),
     },
 ];
 
@@ -28639,6 +31038,160 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/positive-suspend.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/positive-suspend.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-illegal-predecessor.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-illegal-predecessor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-scope-substitution.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-scope-substitution.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-commitment-tamper.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-commitment-tamper.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/positive-suspend.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-protected-transition-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/positive-suspend.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-root-tamper.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-protected-transition-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-root-tamper.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-irreversibility-mismatch.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-protected-transition-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-irreversibility-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/positive-suspended.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-lifecycle-state/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/positive-suspended.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-reserved-status.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-lifecycle-state/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-reserved-status.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-root-tamper.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-lifecycle-state/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-root-tamper.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/positive-lifecycle-log.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-operation-log/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/positive-lifecycle-log.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-activation-prefix-kind.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-operation-log/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-activation-prefix-kind.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-root-tamper.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-operation-log/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-root-tamper.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-head-sequence-detach.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-operation-log/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-head-sequence-detach.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -30177,6 +32730,22 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
         "schema://ioi/foundations/ioi-network-enrollment/v1",
         r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ioi-network-enrollment/v1","title":"IOINetworkEnrollment","description":"Explicit compatible, connected, or secured IOI Network relationship for one System.","x-ioi-schema-version":"ioi.network-enrollment.v1","type":"object","additionalProperties":false,"required":["schema_version","network_enrollment_id","system_id","constitution_ref","manifest_ref","version","predecessor_enrollment_ref","profile","governing_decision_ref","authority_grant_refs","effective_at","expires_at","renewal_policy_ref","conformance","connection","selected_network_services","assurance_claim","standard_das_conformance_profile_ref","exit","suspension_reason_code","transition_receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.network-enrollment.v1"},"network_enrollment_id":{"$ref":"#/$defs/networkEnrollmentRef"},"system_id":{"$ref":"#/$defs/systemRef"},"constitution_ref":{"$ref":"#/$defs/constitutionRef"},"manifest_ref":{"$ref":"#/$defs/packageReleaseRef"},"version":{"$ref":"#/$defs/version"},"predecessor_enrollment_ref":{"anyOf":[{"$ref":"#/$defs/networkEnrollmentRef"},{"type":"null"}]},"profile":{"enum":["ioi_compatible","ioi_connected","ioi_secured"]},"governing_decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"maxItems":32,"uniqueItems":true},"effective_at":{"$ref":"#/$defs/canonicalDateTime"},"expires_at":{"$ref":"#/$defs/nullableCanonicalDateTime"},"renewal_policy_ref":{"$ref":"#/$defs/policyRef"},"conformance":{"type":"object","additionalProperties":false,"required":["kernel_release_root","conformance_profile_refs","conformance_receipt_refs","ecosystem_assurance_profile_refs"],"properties":{"kernel_release_root":{"$ref":"#/$defs/hash"},"conformance_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"conformance_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"ecosystem_assurance_profile_refs":{"$ref":"#/$defs/canonicalRefs"}}},"connection":{"type":"object","additionalProperties":false,"required":["network_ref","system_registration_ref","constitution_commitment_ref","release_commitment_ref","endpoint_commitment_refs","aiip_profile_refs","aiip_channel_refs"],"properties":{"network_ref":{"anyOf":[{"const":"network://ioi-l1"},{"type":"null"}]},"system_registration_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"constitution_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"release_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"endpoint_commitment_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_profile_refs":{"$ref":"#/$defs/canonicalRefs"},"aiip_channel_refs":{"$ref":"#/$defs/canonicalRefs"}}},"selected_network_services":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["service_kind","service_ref","terms_ref","fee_basis_ref","bond_or_stake_ref","slashing_or_claim_policy_ref","assurance_profile_ref"],"properties":{"service_kind":{"enum":["registry","rights","reputation","escrow","dispute","settlement","validator","verifier","guardian","availability","relayer","arbitrator","ordering","finality"]},"service_ref":{"type":"string","pattern":"^service://[^\\s]{1,248}$"},"terms_ref":{"type":"string","pattern":"^terms://[^\\s]{1,248}$"},"fee_basis_ref":{"anyOf":[{"type":"string","pattern":"^fee-basis://[^\\s]{1,248}$"},{"type":"null"}]},"bond_or_stake_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"slashing_or_claim_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"assurance_profile_ref":{"anyOf":[{"type":"string","pattern":"^assurance-profile://[^\\s]{1,248}$"},{"type":"null"}]}}},"maxItems":32,"uniqueItems":true},"assurance_claim":{"enum":["none","connected_services_only","secured_profile"]},"standard_das_conformance_profile_ref":{"anyOf":[{"type":"string","pattern":"^conformance-profile://[^\\s]{1,248}$"},{"type":"null"}]},"exit":{"type":"object","additionalProperties":false,"required":["exit_policy_ref","outstanding_obligation_refs","dispute_refs","final_commitment_ref"],"properties":{"exit_policy_ref":{"$ref":"#/$defs/policyRef"},"outstanding_obligation_refs":{"$ref":"#/$defs/canonicalRefs"},"dispute_refs":{"$ref":"#/$defs/canonicalRefs"},"final_commitment_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"suspension_reason_code":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},{"type":"null"}]},"transition_receipt_refs":{"$ref":"#/$defs/receiptRefs"},"status":{"enum":["local_only","pending","active","suspended","exiting","exited","revoked"]}},"allOf":[{"if":{"properties":{"profile":{"const":"ioi_compatible"}},"required":["profile"]},"then":{"properties":{"status":{"const":"local_only"},"selected_network_services":{"type":"array","maxItems":0},"assurance_claim":{"const":"none"},"standard_das_conformance_profile_ref":{"type":"null"},"connection":{"type":"object","properties":{"network_ref":{"type":"null"}}}}}},{"if":{"properties":{"profile":{"const":"ioi_connected"},"status":{"const":"active"}},"required":["profile","status"]},"then":{"properties":{"selected_network_services":{"type":"array","minItems":1},"assurance_claim":{"const":"connected_services_only"},"connection":{"type":"object","properties":{"network_ref":{"const":"network://ioi-l1"}}}}}},{"if":{"properties":{"profile":{"const":"ioi_secured"}},"required":["profile"]},"then":{"properties":{"selected_network_services":{"type":"array","minItems":1},"assurance_claim":{"const":"secured_profile"},"standard_das_conformance_profile_ref":{"type":"string","pattern":"^conformance-profile://[^\\s]{1,248}$"},"connection":{"type":"object","properties":{"network_ref":{"const":"network://ioi-l1"}}}}}},{"if":{"properties":{"profile":{"enum":["ioi_connected","ioi_secured"]},"status":{"const":"active"}},"required":["profile","status"]},"then":{"properties":{"authority_grant_refs":{"type":"array","minItems":1},"transition_receipt_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"profile":{"const":"ioi_secured"},"status":{"const":"active"}},"required":["profile","status"]},"then":{"properties":{"conformance":{"type":"object","properties":{"conformance_receipt_refs":{"type":"array","minItems":1}},"required":["conformance_receipt_refs"]}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"version":{"type":"string","pattern":"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"},"networkEnrollmentRef":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"packageReleaseRef":{"type":"string","pattern":"^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"receiptRefs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"maxItems":128,"uniqueItems":true},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableCanonicalDateTime":{"anyOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}}"##,
     ),
+    (
+        "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1","title":"AutonomousSystemProtectedTransitionProposal","description":"Immutable server-derived proposal for one generic protected operational lifecycle transition of a live Autonomous System at sequence three or later. It embeds the exact closed server-derived authority effect, is evidence only, grants no authority, never stands for bootstrap initialize/activate, and never stands for amendment, migration/succession, dissolution, or enrollment, which retain their named owners.","x-ioi-schema-version":"ioi.autonomous-system-protected-transition-proposal.v1","type":"object","additionalProperties":false,"required":["schema_version","proposal_ref","proposal_root","system_id","genesis_ref","op","sequence","predecessor_status","predecessor_state_root","predecessor_chain_head_root","irreversibility","required_scope","operation_commitment","authority_effect","authority_effect_hash","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-proposal.v1"},"proposal_ref":{"type":"string","pattern":"^proposal://[A-Za-z0-9._:/-]+$"},"proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"irreversibility":{"enum":["reversible","one_way","terminal"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_effect":{"$ref":"#/$defs/authorityEffect"},"authority_effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"const":"proposed"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"op":{"const":"pause"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","degraded"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"pause"},"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","degraded"]},"resulting_status":{"const":"paused"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"resume"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"resume"},"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"suspend"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","degraded","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"suspend"},"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","degraded","paused"]},"resulting_status":{"const":"suspended"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"reinstate"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"reinstate"},"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"enter_dormancy"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"enter_dormancy"},"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","paused"]},"resulting_status":{"const":"dormant"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"wake"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"wake"},"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"begin_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"begin_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"resulting_status":{"const":"recovering"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"complete_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"complete_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","degraded","paused","recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","degraded","paused","recovering"]},"resulting_status":{"const":"quarantined"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"release_quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"release_quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"retire"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","paused","suspended","dormant"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"retire"},"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","paused","suspended","dormant"]},"resulting_status":{"const":"retired"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"archive"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"archive"},"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"resulting_status":{"const":"archived"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"revoke"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"revoke"},"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"resulting_status":{"const":"revoked"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"decommission"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"irreversibility":{"const":"terminal"},"authority_effect":{"type":"object","properties":{"op":{"const":"decommission"},"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"resulting_status":{"const":"decommissioned"},"irreversibility":{"const":"terminal"}}}}}}],"$defs":{"authorityEffect":{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","irreversibility","system_id","genesis_ref","source_governing_authority_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","deployment_profile_ref","deployment_profile_root","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_proposal_root","predecessor_decision_root","predecessor_transition_root","predecessor_receipt_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","active_profile_set_ref","active_profile_set_root","chain_ref","live_chain_created","node_membership_created","runtime_effect_admitted","network_effect_admitted","constitution_changed","profile_set_changed","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-authority-effect.v1"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"home_domain_binding_ref":{"type":"string","pattern":"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"},"home_domain_binding_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"module_registry_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"upgrade_policy_ref":{"type":"string","pattern":"^policy://[A-Za-z0-9._:/-]+$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[A-Za-z0-9._:/-]+$"},"deployment_profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_ref":{"type":"string","pattern":"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_transition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resulting_status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"resulting_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"live_chain_created":{"const":false},"node_membership_created":{"const":false},"runtime_effect_admitted":{"const":false},"network_effect_admitted":{"const":false},"constitution_changed":{"const":false},"profile_set_changed":{"const":false},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
+        r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-protected-transition-decision/v1","title":"AutonomousSystemProtectedTransitionDecision","description":"Retained authority-decision evidence for exactly one protected-transition proposal. The effect hash is recomputed from the exact proposal effect; copied or unrelated wallet evidence cannot authorize a different op, sequence, or System, and the decision restates the proposal's declared irreversibility so the approved effect class is explicit.","x-ioi-schema-version":"ioi.autonomous-system-protected-transition-decision.v1","type":"object","additionalProperties":false,"required":["schema_version","decision_ref","decision_root","proposal_ref","proposal_root","system_id","op","sequence","irreversibility","required_scope","operation_commitment","input_hash","policy_hash","effect_hash","authority_grant_ref","authority_evidence_ref","authority_evidence_root","wallet_grant_consumption_ref","wallet_grant_consumption_evidence_ref","outcome","decided_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-decision.v1"},"decision_ref":{"type":"string","pattern":"^decision://[A-Za-z0-9._:/-]+$"},"decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"proposal_ref":{"type":"string","pattern":"^proposal://[A-Za-z0-9._:/-]+$"},"proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"input_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_grant_ref":{"type":"string","pattern":"^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$"},"authority_evidence_ref":{"type":"string","pattern":"^system-lifecycle-authority-evidence://[A-Za-z0-9._:/-]+$"},"authority_evidence_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"wallet_grant_consumption_ref":{"type":"string","pattern":"^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$"},"wallet_grant_consumption_evidence_ref":{"type":"string","pattern":"^system-lifecycle-authority-consumption://[A-Za-z0-9._:/-]+$"},"outcome":{"const":"admitted"},"decided_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"op":{"const":"pause"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"resume"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"suspend"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"reinstate"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"enter_dormancy"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"wake"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"begin_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"complete_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"release_quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"irreversibility":{"const":"reversible"}}}},{"if":{"properties":{"op":{"const":"retire"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"irreversibility":{"const":"one_way"}}}},{"if":{"properties":{"op":{"const":"archive"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"irreversibility":{"const":"one_way"}}}},{"if":{"properties":{"op":{"const":"revoke"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"irreversibility":{"const":"one_way"}}}},{"if":{"properties":{"op":{"const":"decommission"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"irreversibility":{"const":"terminal"}}}}]}"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
+        r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-lifecycle-state/v1","title":"AutonomousSystemLifecycleState","description":"Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds only predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic. Succession, dissolution, and enrollment statuses are reserved for their named owner families.","x-ioi-schema-version":"ioi.autonomous-system-lifecycle-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-lifecycle-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"transition_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_receipt_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-operation-log/v2",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-operation-log/v2","title":"AutonomousSystemOperationLog","description":"General lifecycle operation log continuing the chain beyond the activation prefix. The closed activation prefix is retained verbatim as embedded bootstrap evidence; protected transitions append entries at sequence three or later. Successor of v1, which remains the valid shape for the committed sequence-two revision.","x-ioi-schema-version":"ioi.autonomous-system-operation-log.v2","type":"object","additionalProperties":false,"required":["schema_version","operation_log_ref","operation_log_root","predecessor_operation_log_ref","predecessor_operation_log_root","snapshot_kind","system_id","genesis_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","activation_prefix","entries","head_entry","latest_sequence","latest_operation_commitment","latest_transition_commitment_ref","latest_transition_ref","latest_transition_root","latest_receipt_ref","latest_receipt_root","latest_state_ref","latest_state_root","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-operation-log.v2"},"operation_log_ref":{"$ref":"#/$defs/operationLogRef"},"operation_log_root":{"$ref":"#/$defs/hash"},"predecessor_operation_log_ref":{"type":"null"},"predecessor_operation_log_root":{"type":"null"},"snapshot_kind":{"const":"lifecycle_log"},"system_id":{"$ref":"#/$defs/systemRef"},"genesis_ref":{"$ref":"#/$defs/genesisRef"},"home_domain_ref":{"$ref":"#/$defs/homeDomainRef"},"home_domain_commitment":{"$ref":"#/$defs/hash"},"home_domain_binding_ref":{"$ref":"#/$defs/homeDomainBindingRef"},"home_domain_binding_root":{"$ref":"#/$defs/hash"},"policy_root":{"$ref":"#/$defs/hash"},"module_registry_root":{"$ref":"#/$defs/hash"},"upgrade_policy_ref":{"$ref":"#/$defs/policyRef"},"activation_prefix":{"$ref":"#/$defs/activationPrefix"},"entries":{"type":"array","items":{"$ref":"#/$defs/operationEntry"},"minItems":3},"head_entry":{"$ref":"#/$defs/operationEntry"},"latest_sequence":{"type":"integer","minimum":2,"maximum":9007199254740991},"latest_operation_commitment":{"$ref":"#/$defs/hash"},"latest_transition_commitment_ref":{"type":"null"},"latest_transition_ref":{"$ref":"#/$defs/transitionRef"},"latest_transition_root":{"$ref":"#/$defs/hash"},"latest_receipt_ref":{"$ref":"#/$defs/receiptRef"},"latest_receipt_root":{"$ref":"#/$defs/hash"},"latest_state_ref":{"$ref":"#/$defs/canonicalRef"},"latest_state_root":{"$ref":"#/$defs/hash"},"status":{"const":"committed"},"created_at":{"$ref":"#/$defs/canonicalDateTime"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9.-]*(?:://|:)[^\\s]{1,248}$"},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"proposalRef":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"nullableProposalRef":{"anyOf":[{"$ref":"#/$defs/proposalRef"},{"type":"null"}]},"decisionRef":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"nullableDecisionRef":{"anyOf":[{"$ref":"#/$defs/decisionRef"},{"type":"null"}]},"transitionRef":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"nullableTransitionRef":{"anyOf":[{"$ref":"#/$defs/transitionRef"},{"type":"null"}]},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"commitmentRef":{"type":"string","pattern":"^transition://[^\\s]{1,248}$"},"nullableCommitmentRef":{"anyOf":[{"$ref":"#/$defs/commitmentRef"},{"type":"null"}]},"activeProfileSetRef":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"nullableActiveProfileSetRef":{"anyOf":[{"$ref":"#/$defs/activeProfileSetRef"},{"type":"null"}]},"chainRef":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"homeDomainRef":{"type":"string","pattern":"^agentgres://domain/autonomous-system/[A-Za-z0-9][A-Za-z0-9._~:@/-]{0,160}/sha256:[0-9a-f]{64}$"},"homeDomainBindingRef":{"type":"string","pattern":"^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$"},"nullableChainRef":{"anyOf":[{"$ref":"#/$defs/chainRef"},{"type":"null"}]},"operationLogRef":{"type":"string","pattern":"^agentgres://operation-log/autonomous-system/[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"nullableOperationLogRef":{"anyOf":[{"$ref":"#/$defs/operationLogRef"},{"type":"null"}]},"componentRegistryRef":{"type":"string","pattern":"^agentgres://object-set/autonomous-system-components/sha256:[0-9a-f]{64}$"},"deploymentRevisionRef":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"nullableComponentRegistryRef":{"anyOf":[{"$ref":"#/$defs/componentRegistryRef"},{"type":"null"}]},"nullableScope":{"anyOf":[{"type":"string","pattern":"^scope:[a-z0-9._:-]{1,180}$"},{"type":"null"}]},"operationEntry":{"type":"object","additionalProperties":false,"required":["sequence","entry_kind","operation_name","operation_owner_profile_ref","operation_owner_ref","operation_owner_root","required_scope","materialization_ref","materialization_root","deployment_profile_ref","deployment_profile_root","operation_commitment","proposal_ref","proposal_root","decision_ref","decision_root","transition_ref","transition_root","state_transition_commitment_ref","state_ref","state_root","predecessor_state_root","receipt_profile_ref","receipt_ref","receipt_root","receipt_artifact_root","component_registry_ref","component_registry_root","active_profile_set_ref","active_profile_set_root","chain_ref","authority_evidence_ref","authority_evidence_root","wallet_consumption_ref","wallet_consumption_root","live_chain_created","committed_at"],"properties":{"sequence":{"type":"integer","minimum":0,"maximum":9007199254740991},"entry_kind":{"enum":["sequence_zero_materialization","system_initialization","system_activation","protected_transition"]},"operation_name":{"type":"string","pattern":"^[a-z][a-z0-9_]{1,80}$"},"operation_owner_profile_ref":{"$ref":"#/$defs/canonicalRef"},"operation_owner_ref":{"$ref":"#/$defs/canonicalRef"},"operation_owner_root":{"$ref":"#/$defs/hash"},"required_scope":{"$ref":"#/$defs/nullableScope"},"materialization_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"materialization_root":{"$ref":"#/$defs/nullableHash"},"deployment_profile_ref":{"$ref":"#/$defs/deploymentRevisionRef"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/nullableProposalRef"},"proposal_root":{"$ref":"#/$defs/nullableHash"},"decision_ref":{"$ref":"#/$defs/nullableDecisionRef"},"decision_root":{"$ref":"#/$defs/nullableHash"},"transition_ref":{"$ref":"#/$defs/nullableTransitionRef"},"transition_root":{"$ref":"#/$defs/nullableHash"},"state_transition_commitment_ref":{"$ref":"#/$defs/nullableCommitmentRef"},"state_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"state_root":{"$ref":"#/$defs/nullableHash"},"predecessor_state_root":{"$ref":"#/$defs/nullableHash"},"receipt_profile_ref":{"$ref":"#/$defs/canonicalRef"},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"receipt_root":{"$ref":"#/$defs/hash"},"receipt_artifact_root":{"$ref":"#/$defs/hash"},"component_registry_ref":{"$ref":"#/$defs/nullableComponentRegistryRef"},"component_registry_root":{"$ref":"#/$defs/nullableHash"},"active_profile_set_ref":{"$ref":"#/$defs/nullableActiveProfileSetRef"},"active_profile_set_root":{"$ref":"#/$defs/nullableHash"},"chain_ref":{"$ref":"#/$defs/nullableChainRef"},"authority_evidence_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/nullableHash"},"wallet_consumption_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/nullableHash"},"live_chain_created":{"type":"boolean"},"committed_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"type":"object","properties":{"entry_kind":{"const":"sequence_zero_materialization"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[0]},"operation_name":{"const":"materialize_sequence_zero"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1"},"required_scope":{"const":"scope:autonomous_system.genesis_materialize"},"materialization_ref":{"$ref":"#/$defs/canonicalRef"},"materialization_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"type":"null"},"proposal_root":{"type":"null"},"decision_ref":{"type":"null"},"decision_root":{"type":"null"},"transition_ref":{"type":"null"},"transition_root":{"type":"null"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"type":"null"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"type":"null"},"receipt_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"},"component_registry_ref":{"$ref":"#/$defs/componentRegistryRef"},"component_registry_root":{"$ref":"#/$defs/hash"},"active_profile_set_ref":{"type":"null"},"active_profile_set_root":{"type":"null"},"chain_ref":{"type":"null"},"authority_evidence_ref":{"type":"null"},"authority_evidence_root":{"type":"null"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":false}}}},{"if":{"type":"object","properties":{"entry_kind":{"const":"system_initialization"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[1]},"operation_name":{"const":"initialize"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition/v1"},"required_scope":{"const":"scope:autonomous_system.lifecycle.initialize"},"materialization_ref":{"type":"null"},"materialization_root":{"type":"null"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/decisionRef"},"decision_root":{"$ref":"#/$defs/hash"},"transition_ref":{"$ref":"#/$defs/transitionRef"},"transition_root":{"$ref":"#/$defs/hash"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"$ref":"#/$defs/canonicalRef"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"receipt_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition-receipt/v1"},"active_profile_set_ref":{"type":"null"},"active_profile_set_root":{"type":"null"},"chain_ref":{"type":"null"},"authority_evidence_ref":{"$ref":"#/$defs/canonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/hash"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":false}}}},{"if":{"type":"object","properties":{"entry_kind":{"const":"system_activation"}},"required":["entry_kind"]},"then":{"type":"object","properties":{"sequence":{"enum":[2]},"operation_name":{"const":"activate"},"operation_owner_profile_ref":{"const":"schema://ioi/foundations/lifecycle-transition/v1"},"required_scope":{"const":"scope:autonomous_system.lifecycle.activate"},"materialization_ref":{"type":"null"},"materialization_root":{"type":"null"},"operation_commitment":{"$ref":"#/$defs/hash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"$ref":"#/$defs/decisionRef"},"decision_root":{"$ref":"#/$defs/hash"},"transition_ref":{"$ref":"#/$defs/transitionRef"},"transition_root":{"$ref":"#/$defs/hash"},"state_transition_commitment_ref":{"type":"null"},"state_ref":{"$ref":"#/$defs/canonicalRef"},"state_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"receipt_profile_ref":{"const":"schema://ioi/foundations/autonomous-system-activation-receipt/v1"},"active_profile_set_ref":{"$ref":"#/$defs/activeProfileSetRef"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"$ref":"#/$defs/chainRef"},"authority_evidence_ref":{"$ref":"#/$defs/canonicalRef"},"authority_evidence_root":{"$ref":"#/$defs/hash"},"wallet_consumption_ref":{"$ref":"#/$defs/canonicalRef"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"live_chain_created":{"const":true}}}}]},"sequenceZero":{"allOf":[{"$ref":"#/$defs/operationEntry"},{"type":"object","properties":{"sequence":{"enum":[0]},"entry_kind":{"const":"sequence_zero_materialization"},"operation_name":{"const":"materialize_sequence_zero"}}}]},"sequenceOne":{"allOf":[{"$ref":"#/$defs/operationEntry"},{"type":"object","properties":{"sequence":{"enum":[1]},"entry_kind":{"const":"system_initialization"},"operation_name":{"const":"initialize"}}}]},"sequenceTwo":{"allOf":[{"$ref":"#/$defs/operationEntry"},{"type":"object","properties":{"sequence":{"enum":[2]},"entry_kind":{"const":"system_activation"},"operation_name":{"const":"activate"}}}]},"activationPrefix":{"type":"object","additionalProperties":false,"required":["sequence_zero","sequence_one","sequence_two"],"properties":{"sequence_zero":{"$ref":"#/$defs/sequenceZero"},"sequence_one":{"$ref":"#/$defs/sequenceOne"},"sequence_two":{"$ref":"#/$defs/sequenceTwo"}}},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+    ),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -30324,6 +32893,22 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
         "schema://ioi/foundations/ioi-network-enrollment/v1",
         r#"[{"rule_id":"ioi_network_enrollment.active.selected_service.required","description":"An active network enrollment names at least one selected service.","expression":{"operator":"non_empty_when_in","path":"$.selected_network_services","when_path":"$.status","values":["active"]}}]"#,
     ),
+    (
+        "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
+        r#"[{"rule_id":"autonomous_system_protected_transition_proposal.root.recomputes","description":"The proposal root binds the exact server-derived closed effect and transition coordinates.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-protected-transition-proposal-jcs-sha256.v1"},"proposal_ref":{"path":"$.proposal_ref"},"system_id":{"path":"$.system_id"},"genesis_ref":{"path":"$.genesis_ref"},"op":{"path":"$.op"},"sequence":{"path":"$.sequence"},"predecessor_status":{"path":"$.predecessor_status"},"predecessor_state_root":{"path":"$.predecessor_state_root"},"predecessor_chain_head_root":{"path":"$.predecessor_chain_head_root"},"irreversibility":{"path":"$.irreversibility"},"required_scope":{"path":"$.required_scope"},"operation_commitment":{"path":"$.operation_commitment"},"authority_effect":{"path":"$.authority_effect"},"authority_effect_hash":{"path":"$.authority_effect_hash"},"status":{"path":"$.status"},"created_at":{"path":"$.created_at"}},"expected_path":"$.proposal_root","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_protected_transition_proposal.operation_commitment.recomputes","description":"The protected operation commitment derives from the closed effect exactly as the server computes it, before any downstream decision, transition, receipt, or chain root.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-protected-transition-operation-commitment-jcs-sha256.v1"},"op":{"path":"$.authority_effect.op"},"required_scope":{"path":"$.authority_effect.required_scope"},"sequence":{"path":"$.authority_effect.sequence"},"irreversibility":{"path":"$.authority_effect.irreversibility"},"system_id":{"path":"$.authority_effect.system_id"},"genesis_ref":{"path":"$.authority_effect.genesis_ref"},"source_governing_authority_ref":{"path":"$.authority_effect.source_governing_authority_ref"},"home_domain_ref":{"path":"$.authority_effect.home_domain_ref"},"home_domain_commitment":{"path":"$.authority_effect.home_domain_commitment"},"policy_root":{"path":"$.authority_effect.policy_root"},"module_registry_root":{"path":"$.authority_effect.module_registry_root"},"predecessor_status":{"path":"$.authority_effect.predecessor_status"},"predecessor_state_root":{"path":"$.authority_effect.predecessor_state_root"},"predecessor_chain_head_root":{"path":"$.authority_effect.predecessor_chain_head_root"},"resulting_status":{"path":"$.authority_effect.resulting_status"},"resulting_state_ref":{"path":"$.authority_effect.resulting_state_ref"},"resulting_state_root":{"path":"$.authority_effect.resulting_state_root"},"active_profile_set_ref":{"path":"$.authority_effect.active_profile_set_ref"},"active_profile_set_root":{"path":"$.authority_effect.active_profile_set_root"},"chain_ref":{"path":"$.authority_effect.chain_ref"}},"expected_path":"$.operation_commitment","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_protected_transition_proposal.effect_commitment.matches","description":"The top-level operation commitment and the closed effect's embedded commitment are the same value.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-protected-transition-operation-commitment-jcs-sha256.v1"},"op":{"path":"$.authority_effect.op"},"required_scope":{"path":"$.authority_effect.required_scope"},"sequence":{"path":"$.authority_effect.sequence"},"irreversibility":{"path":"$.authority_effect.irreversibility"},"system_id":{"path":"$.authority_effect.system_id"},"genesis_ref":{"path":"$.authority_effect.genesis_ref"},"source_governing_authority_ref":{"path":"$.authority_effect.source_governing_authority_ref"},"home_domain_ref":{"path":"$.authority_effect.home_domain_ref"},"home_domain_commitment":{"path":"$.authority_effect.home_domain_commitment"},"policy_root":{"path":"$.authority_effect.policy_root"},"module_registry_root":{"path":"$.authority_effect.module_registry_root"},"predecessor_status":{"path":"$.authority_effect.predecessor_status"},"predecessor_state_root":{"path":"$.authority_effect.predecessor_state_root"},"predecessor_chain_head_root":{"path":"$.authority_effect.predecessor_chain_head_root"},"resulting_status":{"path":"$.authority_effect.resulting_status"},"resulting_state_ref":{"path":"$.authority_effect.resulting_state_ref"},"resulting_state_root":{"path":"$.authority_effect.resulting_state_root"},"active_profile_set_ref":{"path":"$.authority_effect.active_profile_set_ref"},"active_profile_set_root":{"path":"$.authority_effect.active_profile_set_root"},"chain_ref":{"path":"$.authority_effect.chain_ref"}},"expected_path":"$.authority_effect.operation_commitment","expected_encoding":"sha256_string"}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
+        r#"[{"rule_id":"autonomous_system_protected_transition_decision.root.recomputes","description":"The decision root binds exactly one protected-transition proposal, its commitment, and the wallet authority-consumption tuple.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-protected-transition-decision-jcs-sha256.v1"},"decision_ref":{"path":"$.decision_ref"},"proposal_ref":{"path":"$.proposal_ref"},"proposal_root":{"path":"$.proposal_root"},"system_id":{"path":"$.system_id"},"op":{"path":"$.op"},"sequence":{"path":"$.sequence"},"irreversibility":{"path":"$.irreversibility"},"required_scope":{"path":"$.required_scope"},"operation_commitment":{"path":"$.operation_commitment"},"input_hash":{"path":"$.input_hash"},"policy_hash":{"path":"$.policy_hash"},"effect_hash":{"path":"$.effect_hash"},"authority_grant_ref":{"path":"$.authority_grant_ref"},"authority_evidence_ref":{"path":"$.authority_evidence_ref"},"authority_evidence_root":{"path":"$.authority_evidence_root"},"wallet_grant_consumption_ref":{"path":"$.wallet_grant_consumption_ref"},"wallet_grant_consumption_evidence_ref":{"path":"$.wallet_grant_consumption_evidence_ref"},"outcome":{"path":"$.outcome"},"decided_at":{"path":"$.decided_at"}},"expected_path":"$.decision_root","expected_encoding":"sha256_string"}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
+        r#"[{"rule_id":"autonomous_system_lifecycle_state.root.recomputes","description":"The semantic lifecycle-state root binds predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation is deliberately excluded so the commitment graph is acyclic.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-lifecycle-state-jcs-sha256.v1"},"lifecycle_state_ref":{"path":"$.lifecycle_state_ref"},"system_id":{"path":"$.system_id"},"sequence":{"path":"$.sequence"},"status":{"path":"$.status"},"predecessor_state_root":{"path":"$.predecessor_state_root"},"active_profile_set_ref":{"path":"$.active_profile_set_ref"},"active_profile_set_root":{"path":"$.active_profile_set_root"}},"expected_path":"$.lifecycle_state_root","expected_encoding":"sha256_string"}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-operation-log/v2",
+        r#"[{"rule_id":"autonomous_system_operation_log_v2.root.recomputes","description":"The content root binds the complete immutable log revision except its root-derived reference.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-operation-log-jcs-sha256.v2"},"predecessor_operation_log_ref":{"path":"$.predecessor_operation_log_ref"},"predecessor_operation_log_root":{"path":"$.predecessor_operation_log_root"},"snapshot_kind":{"path":"$.snapshot_kind"},"system_id":{"path":"$.system_id"},"genesis_ref":{"path":"$.genesis_ref"},"home_domain_ref":{"path":"$.home_domain_ref"},"home_domain_binding_ref":{"path":"$.home_domain_binding_ref"},"home_domain_binding_root":{"path":"$.home_domain_binding_root"},"policy_root":{"path":"$.policy_root"},"module_registry_root":{"path":"$.module_registry_root"},"upgrade_policy_ref":{"path":"$.upgrade_policy_ref"},"activation_prefix":{"path":"$.activation_prefix"},"entries":{"path":"$.entries"},"head_entry":{"path":"$.head_entry"},"latest_sequence":{"path":"$.latest_sequence"},"latest_operation_commitment":{"path":"$.latest_operation_commitment"},"latest_transition_commitment_ref":{"path":"$.latest_transition_commitment_ref"},"latest_transition_ref":{"path":"$.latest_transition_ref"},"latest_transition_root":{"path":"$.latest_transition_root"},"latest_receipt_ref":{"path":"$.latest_receipt_ref"},"latest_receipt_root":{"path":"$.latest_receipt_root"},"latest_state_ref":{"path":"$.latest_state_ref"},"latest_state_root":{"path":"$.latest_state_root"},"status":{"path":"$.status"},"created_at":{"path":"$.created_at"},"home_domain_commitment":{"path":"$.home_domain_commitment"}},"expected_path":"$.operation_log_root","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_operation_log_v2.sequence_one.operation_commitment_recomputes","description":"Sequence-one logical operation commitment is recomputable before downstream lifecycle evidence.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-lifecycle-operation-commitment-jcs-sha256.v1"},"operation":{"path":"$.activation_prefix.sequence_one.operation_name"},"required_scope":{"path":"$.activation_prefix.sequence_one.required_scope"},"sequence":{"path":"$.activation_prefix.sequence_one.sequence"},"system_id":{"path":"$.system_id"},"genesis_ref":{"path":"$.genesis_ref"},"home_domain_ref":{"path":"$.home_domain_ref"},"home_domain_binding_ref":{"value":null},"home_domain_binding_root":{"value":null},"policy_root":{"path":"$.policy_root"},"module_registry_root":{"path":"$.module_registry_root"},"upgrade_policy_ref":{"path":"$.upgrade_policy_ref"},"deployment_profile_ref":{"path":"$.activation_prefix.sequence_one.deployment_profile_ref"},"deployment_profile_root":{"path":"$.activation_prefix.sequence_one.deployment_profile_root"},"predecessor_state_root":{"path":"$.activation_prefix.sequence_one.predecessor_state_root"},"resulting_state_ref":{"path":"$.activation_prefix.sequence_one.state_ref"},"resulting_state_root":{"path":"$.activation_prefix.sequence_one.state_root"},"active_profile_set_ref":{"value":null},"active_profile_set_root":{"value":null},"chain_ref":{"value":null},"live_chain_created":{"value":false},"node_membership_created":{"value":false},"runtime_effect_admitted":{"value":false},"network_effect_admitted":{"value":false},"home_domain_commitment":{"path":"$.home_domain_commitment"}},"expected_path":"$.activation_prefix.sequence_one.operation_commitment","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_operation_log_v2.sequence_two.operation_commitment_recomputes","description":"Sequence-two logical operation commitment binds the exact admitted home domain and active profile set without importing M2 finality.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-lifecycle-operation-commitment-jcs-sha256.v1"},"operation":{"path":"$.activation_prefix.sequence_two.operation_name"},"required_scope":{"path":"$.activation_prefix.sequence_two.required_scope"},"sequence":{"path":"$.activation_prefix.sequence_two.sequence"},"system_id":{"path":"$.system_id"},"genesis_ref":{"path":"$.genesis_ref"},"home_domain_ref":{"path":"$.home_domain_ref"},"home_domain_binding_ref":{"path":"$.home_domain_binding_ref"},"home_domain_binding_root":{"path":"$.home_domain_binding_root"},"policy_root":{"path":"$.policy_root"},"module_registry_root":{"path":"$.module_registry_root"},"upgrade_policy_ref":{"path":"$.upgrade_policy_ref"},"deployment_profile_ref":{"path":"$.activation_prefix.sequence_two.deployment_profile_ref"},"deployment_profile_root":{"path":"$.activation_prefix.sequence_two.deployment_profile_root"},"predecessor_state_root":{"path":"$.activation_prefix.sequence_two.predecessor_state_root"},"resulting_state_ref":{"path":"$.activation_prefix.sequence_two.state_ref"},"resulting_state_root":{"path":"$.activation_prefix.sequence_two.state_root"},"active_profile_set_ref":{"path":"$.activation_prefix.sequence_two.active_profile_set_ref"},"active_profile_set_root":{"path":"$.activation_prefix.sequence_two.active_profile_set_root"},"chain_ref":{"path":"$.activation_prefix.sequence_two.chain_ref"},"live_chain_created":{"value":true},"node_membership_created":{"value":false},"runtime_effect_admitted":{"value":false},"network_effect_admitted":{"value":false},"home_domain_commitment":{"path":"$.home_domain_commitment"}},"expected_path":"$.activation_prefix.sequence_two.operation_commitment","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_operation_log_v2.ref.binds_root","description":"The immutable revision reference suffix equals its recomputed content root.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.operation_log_ref","delimiter":"/revision/sha256:","target_path":"$.operation_log_root","target_prefix":"sha256:"}},{"rule_id":"autonomous_system_operation_log_v2.prefix.sequence_zero_matches_entries","description":"The immutable sequence-zero prefix is entry zero.","expression":{"operator":"fields_equal","paths":["$.activation_prefix.sequence_zero","$.entries[0]"]}},{"rule_id":"autonomous_system_operation_log_v2.prefix.sequence_one_matches_entries","description":"The immutable initialize prefix is entry one.","expression":{"operator":"fields_equal","paths":["$.activation_prefix.sequence_one","$.entries[1]"]}},{"rule_id":"autonomous_system_operation_log_v2.prefix.sequence_two_matches_entries","description":"The immutable activate prefix is entry two.","expression":{"operator":"fields_equal","paths":["$.activation_prefix.sequence_two","$.entries[2]"]}},{"rule_id":"autonomous_system_operation_log_v2.zero_to_one.continuity","description":"Initialize consumes the exact sequence-zero state root.","expression":{"operator":"fields_equal","paths":["$.activation_prefix.sequence_zero.state_root","$.activation_prefix.sequence_one.predecessor_state_root"]}},{"rule_id":"autonomous_system_operation_log_v2.one_to_two.continuity","description":"Activate consumes the exact initialized state root.","expression":{"operator":"fields_equal","paths":["$.activation_prefix.sequence_one.state_root","$.activation_prefix.sequence_two.predecessor_state_root"]}},{"rule_id":"autonomous_system_operation_log_v2.head.sequence","description":"The declared latest sequence equals the head entry sequence.","expression":{"operator":"fields_equal","paths":["$.latest_sequence","$.head_entry.sequence"]}},{"rule_id":"autonomous_system_operation_log_v2.head.transition_commitment","description":"The declared latest operational commitment equals the head entry commitment posture.","expression":{"operator":"fields_equal","paths":["$.latest_transition_commitment_ref","$.head_entry.state_transition_commitment_ref"]}},{"rule_id":"autonomous_system_operation_log_v2.head.operation_commitment","description":"The declared latest logical operation commitment equals the head entry commitment.","expression":{"operator":"fields_equal","paths":["$.latest_operation_commitment","$.head_entry.operation_commitment"]}},{"rule_id":"autonomous_system_operation_log_v2.head.transition_ref","description":"The declared latest transition ref equals the head entry.","expression":{"operator":"fields_equal","paths":["$.latest_transition_ref","$.head_entry.transition_ref"]}},{"rule_id":"autonomous_system_operation_log_v2.head.transition_root","description":"The declared latest transition root equals the head entry.","expression":{"operator":"fields_equal","paths":["$.latest_transition_root","$.head_entry.transition_root"]}},{"rule_id":"autonomous_system_operation_log_v2.head.receipt_ref","description":"The declared latest receipt ref equals the head entry.","expression":{"operator":"fields_equal","paths":["$.latest_receipt_ref","$.head_entry.receipt_ref"]}},{"rule_id":"autonomous_system_operation_log_v2.head.receipt_root","description":"The declared latest receipt root equals the head entry.","expression":{"operator":"fields_equal","paths":["$.latest_receipt_root","$.head_entry.receipt_root"]}},{"rule_id":"autonomous_system_operation_log_v2.head.state_ref","description":"The declared latest state ref equals the head entry.","expression":{"operator":"fields_equal","paths":["$.latest_state_ref","$.head_entry.state_ref"]}},{"rule_id":"autonomous_system_operation_log_v2.head.state_root","description":"The declared latest state root equals the head entry.","expression":{"operator":"fields_equal","paths":["$.latest_state_root","$.head_entry.state_root"]}}]"#,
+    ),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -30398,6 +32983,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:schema|policy)://[^\s]+$"#,
         r#"^(?:schema|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"#,
+        r#"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"#,
     ),
     (
         r#"^(?:system|agent|worker|runtime)://[^\s]+$"#,
@@ -30497,6 +33086,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^action-schema://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^active-profile-set://[A-Za-z0-9._:/-]+$"#,
+        r#"^active-profile-set://[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
         r#"^active-profile-set://[^\s]{1,248}$"#,
         r#"^active-profile-set://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -30557,6 +33150,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^automation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"#,
+        r#"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
         r#"^autonomous-system-chain://[^\s]{1,248}$"#,
         r#"^autonomous-system-chain://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -30597,8 +33194,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^data-recipe://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^decision://[A-Za-z0-9._:/-]+$"#,
+        r#"^decision://[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
         r#"^decision://[^\s]{1,248}$"#,
         r#"^decision://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^deployment-profile://[A-Za-z0-9._:/-]+$"#,
+        r#"^deployment-profile://[A-Za-z0-9._:/-]+$"#,
     ),
     (
         r#"^deployment-profile://[^\s?#\\]{1,160}$"#,
@@ -30639,6 +33244,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^fee-basis://[^\s]{1,248}$"#,
         r#"^fee-basis://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^genesis://[A-Za-z0-9._:/-]+$"#,
+        r#"^genesis://[A-Za-z0-9._:/-]+$"#,
     ),
     (
         r#"^genesis://[^\s]{1,248}$"#,
@@ -30701,6 +33310,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^lifecycle-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^lifecycle-transition://[A-Za-z0-9._:/-]+$"#,
+        r#"^lifecycle-transition://[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
         r#"^lifecycle-transition://[^\s]{1,248}$"#,
         r#"^lifecycle-transition://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -30741,6 +33354,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^physical-action-admission:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^policy://[A-Za-z0-9._:/-]+$"#,
+        r#"^policy://[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
         r#"^policy://[A-Za-z0-9._~:/-]+$"#,
         r#"^policy://[A-Za-z0-9._~:/-]+$"#,
     ),
@@ -30767,6 +33384,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^proof://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^proposal://[A-Za-z0-9._:/-]+$"#,
+        r#"^proposal://[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
         r#"^proposal://[^\s]{1,248}$"#,
         r#"^proposal://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -30781,6 +33402,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^receipt-log://[^\s]+$"#,
         r#"^receipt-log://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^receipt://[A-Za-z0-9._:/-]+$"#,
+        r#"^receipt://[A-Za-z0-9._:/-]+$"#,
     ),
     (
         r#"^receipt://[A-Za-z0-9._~:/-]+$"#,
@@ -30874,16 +33499,32 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^system-activation-state://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"#,
+        r#"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
         r#"^system-home-domain-binding://[^\s?#\\]{1,160}/sha256:[0-9a-f]{64}$"#,
         r#"^system-home-domain-binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^system-lifecycle-authority-consumption://[A-Za-z0-9._:/-]+$"#,
+        r#"^system-lifecycle-authority-consumption://[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
         r#"^system-lifecycle-authority-consumption://aslac_[0-9a-f]{64}$"#,
         r#"^system-lifecycle-authority-consumption://aslac_[0-9a-f]{64}$"#,
     ),
     (
+        r#"^system-lifecycle-authority-evidence://[A-Za-z0-9._:/-]+$"#,
+        r#"^system-lifecycle-authority-evidence://[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
         r#"^system-lifecycle-authority-evidence://aslae_[0-9a-f]{64}$"#,
         r#"^system-lifecycle-authority-evidence://aslae_[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"#,
+        r#"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"#,
     ),
     (
         r#"^system-materialization://[^\s]{1,248}$"#,
@@ -30896,6 +33537,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^system-sequence-zero-authority-consumption://aszmc_[0-9a-f]{64}$"#,
         r#"^system-sequence-zero-authority-consumption://aszmc_[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^system://[A-Za-z0-9._:/-]+$"#,
+        r#"^system://[A-Za-z0-9._:/-]+$"#,
     ),
     (
         r#"^system://[^\s]{1,248}$"#,
@@ -30928,6 +33573,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$"#,
         r#"^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$"#,
+        r#"^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$"#,
     ),
     (
         r#"^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$"#,
@@ -32129,6 +34778,20 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/negative-output-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/negative-output-mismatch.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json"))),
     ("docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/positive-suspend.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/positive-suspend.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-illegal-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-illegal-predecessor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-scope-substitution.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-scope-substitution.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-commitment-tamper.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-commitment-tamper.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/positive-suspend.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/positive-suspend.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-root-tamper.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-root-tamper.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-irreversibility-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-irreversibility-mismatch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/positive-suspended.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/positive-suspended.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-reserved-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-reserved-status.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-root-tamper.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-root-tamper.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/positive-lifecycle-log.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/positive-lifecycle-log.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-activation-prefix-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-activation-prefix-kind.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-root-tamper.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-root-tamper.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-head-sequence-detach.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-head-sequence-detach.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -32312,6 +34975,26 @@ mod tests {
         },
         "schema://ioi/foundations/ioi-network-enrollment/v1" => {
             serde_json::from_value::<IOINetworkEnrollmentV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1" => {
+            serde_json::from_value::<AutonomousSystemProtectedTransitionProposalV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1" => {
+            serde_json::from_value::<AutonomousSystemProtectedTransitionDecisionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-lifecycle-state/v1" => {
+            serde_json::from_value::<AutonomousSystemLifecycleStateV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-operation-log/v2" => {
+            serde_json::from_value::<AutonomousSystemOperationLogV2>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -32501,6 +35184,26 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemProtectedTransitionProposalV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemProtectedTransitionDecisionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-lifecycle-state/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemLifecycleStateV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-operation-log/v2" => {
+            let projection = serde_json::from_value::<AutonomousSystemOperationLogV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -32637,8 +35340,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            131,
-            "the registered golden corpus must remain the explicit 131-fixture bar",
+            145,
+            "the registered golden corpus must remain the explicit 145-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -32857,7 +35560,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 165,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 181,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

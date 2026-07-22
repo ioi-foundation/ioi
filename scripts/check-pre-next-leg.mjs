@@ -50,6 +50,11 @@ export const PRE_NEXT_LEG_COMMANDS = Object.freeze([
     args: Object.freeze(["run", "check:architecture-docs"]),
   }),
   Object.freeze({
+    id: "work-items",
+    command: "npm",
+    args: Object.freeze(["run", "check:work-items"]),
+  }),
+  Object.freeze({
     id: "conformance-docs",
     command: "npm",
     args: Object.freeze(["run", "check:conformance-docs"]),

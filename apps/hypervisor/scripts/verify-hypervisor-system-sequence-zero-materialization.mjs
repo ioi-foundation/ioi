@@ -208,6 +208,20 @@ const agentgresCorruptionProofName = (family) =>
   `GET PROOF: isolated ${family} Agentgres corruption refuses the M1.4 code and restores exactly`;
 const JOURNEY_PROOF_CENSUS = new Map([
   [
+    "protected-transition",
+    {
+      resources: 2,
+      proofs: [
+        "M1.5b ELIGIBILITY: pause admits from active while complete_recovery refuses the canon matrix",
+        "M1.5b ILLEGAL MATRIX: complete_recovery over active refuses before any authority with zero lifecycle evidence",
+        "M1.5b STALE HEAD: an expected chain head behind the live head refuses conflict with zero evidence",
+        "M1.5b PAUSE: twelve real-wallet pause requests linearize to one sequence-three graph",
+        "M1.5b WRONG SCOPE: a resume-scoped grant cannot authorize suspend",
+        "M1.5b REPLAY: a crash after wallet consumption converges exactly one resume at sequence four on restart",
+      ],
+    },
+  ],
+  [
     "system-activation",
     {
       resources: 2,
@@ -5123,6 +5137,311 @@ async function runTerminalIntentDurabilityJourney() {
   }
 }
 
+const PROTECTED_INTENT_FAMILY = "autonomous-system-protected-transition-intents";
+const LIFECYCLE_STATE_FAMILY = "autonomous-system-lifecycle-states";
+
+async function runProtectedTransitionJourney() {
+  const resolver = await startOwnedWalletResolver();
+  const dataDir = createOwnedTempDir("ioi-protected-transition-");
+  let plane;
+  try {
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5b Hypervisor daemon is not built");
+    }
+    let call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+
+    // Bootstrap one System to its converged ACTIVE head through the real
+    // governed prefix (genesis -> materialize -> initialize -> activate).
+    const genesisBody = exactGenesisBody("genesis://acme/system-alpha/m1-5b");
+    const pinnedDeploymentRevision = lifecycleDeploymentRevisionForGenesis(
+      genesisBody.proposed_instantiation.candidate,
+    );
+    genesisBody.proposed_instantiation.candidate.initial_profile_refs.deployment_profile_ref =
+      pinnedDeploymentRevision.deployment_profile_ref;
+    const source = await admitGenesis(call, resolver, dataDir, { genesisBody });
+    const materializePath =
+      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const materializeRequest = {
+      expected_genesis_admission_record_root: source.recordRoot,
+      expected_genesis_admission_receipt_root: source.receiptRoot,
+    };
+    const materializeAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      materializePath,
+      materializeRequest,
+      MATERIALIZE_SCOPE,
+    );
+    const materialized = await call("POST", materializePath, {
+      ...materializeRequest,
+      wallet_approval_grant: requireValue(
+        materializeAuthority.grant,
+        "M1.5b setup lacks the M1.4 grant",
+      ),
+    });
+    requireValue(
+      materialized.status === 201,
+      `M1.5b setup failed M1.4: ${materialized.status}`,
+    );
+    const materialization =
+      materialized.body.autonomous_system_sequence_zero_materialization;
+    const materializationReceipt =
+      materialized.body.autonomous_system_sequence_zero_materialization_receipt;
+    const revision = lifecycleDeploymentRevision(source);
+    const initializePath = `${GENESIS_ROUTE}/${source.sourceTail}/initialize`;
+    const initializeRequest = {
+      expected_sequence_zero_materialization_root: artifactHash(
+        "ioi.autonomous-system-sequence-zero-materialization-artifact-jcs-sha256.v1",
+        materialization,
+      ),
+      expected_sequence_zero_materialization_receipt_root: artifactHash(
+        "ioi.autonomous-system-sequence-zero-materialization-receipt-artifact-jcs-sha256.v1",
+        materializationReceipt,
+      ),
+      deployment_profile_revision: revision,
+    };
+    const initializeAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      initializePath,
+      initializeRequest,
+      INITIALIZE_SCOPE,
+    );
+    const initialized = await call("POST", initializePath, {
+      ...initializeRequest,
+      wallet_approval_grant: requireValue(
+        initializeAuthority.grant,
+        "M1.5b setup lacks the initialize grant",
+      ),
+    });
+    requireValue(
+      initialized.status === 200,
+      `M1.5b setup failed initialize: ${initialized.status}/${initialized.body.error?.code || "no-code"}`,
+    );
+    const initializedState = initialized.body.autonomous_system_activation_state;
+    const initializedReceipt = initialized.body.lifecycle_receipt;
+    const activatePath = `${GENESIS_ROUTE}/${source.sourceTail}/activate`;
+    const activateRequest = {
+      expected_initialize_proposal_root:
+        initializedReceipt.bound_facts.proposal_root,
+      expected_initialize_decision_root:
+        initializedReceipt.bound_facts.decision_root,
+      expected_initialize_state_root: initializedState.activation_state_root,
+      expected_initialize_transition_root: initializedState.transition_root,
+      expected_initialize_receipt_root: initializedState.transition_receipt_root,
+    };
+    const activateAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      activatePath,
+      activateRequest,
+      ACTIVATE_SCOPE,
+    );
+    const activated = await call("POST", activatePath, {
+      ...activateRequest,
+      wallet_approval_grant: requireValue(
+        activateAuthority.grant,
+        "M1.5b setup lacks the activate grant",
+      ),
+    });
+    requireValue(
+      activated.status === 200,
+      `M1.5b setup failed activate: ${activated.status}/${activated.body.error?.code || "no-code"}`,
+    );
+    const activeChain = requireValue(
+      activated.body.autonomous_system_chain,
+      "M1.5b setup lacks the live chain",
+    );
+    const activeState = activated.body.autonomous_system_activation_state;
+
+    const transitionPath = (op) =>
+      `${GENESIS_ROUTE}/${source.sourceTail}/transitions/${op}`;
+
+    // 1) Eligibility projection follows the canon matrix over the live head.
+    const pauseGet = await call("GET", transitionPath("pause"));
+    const recoveryGet = await call("GET", transitionPath("complete_recovery"));
+    ok(
+      "M1.5b ELIGIBILITY: pause admits from active while complete_recovery refuses the canon matrix",
+      pauseGet.status === 200 &&
+        pauseGet.body.eligible_now?.predecessor_status === "active" &&
+        pauseGet.body.eligible_now?.admits === true &&
+        pauseGet.body.committed_entries?.length === 0 &&
+        recoveryGet.status === 200 &&
+        recoveryGet.body.eligible_now?.admits === false,
+      `${pauseGet.status}/${pauseGet.body.eligible_now?.admits} ${recoveryGet.status}/${recoveryGet.body.eligible_now?.admits}`,
+    );
+
+    const lifecycleFamilies = [
+      PROTECTED_INTENT_FAMILY,
+      LIFECYCLE_STATE_FAMILY,
+      "autonomous-system-protected-transition-receipts",
+    ];
+    const beforeIllegal = familiesSnapshot(dataDir, lifecycleFamilies);
+
+    // 2) Illegal matrix rows refuse before any authority crossing.
+    const illegal = await call("POST", transitionPath("complete_recovery"), {
+      expected_chain_head_root: activeChain.chain_root,
+      expected_predecessor_state_root: activeState.activation_state_root,
+    });
+    ok(
+      "M1.5b ILLEGAL MATRIX: complete_recovery over active refuses before any authority with zero lifecycle evidence",
+      illegal.status === 422 &&
+        illegal.body.error?.code === "system_lifecycle_plan_invalid" &&
+        String(illegal.body.error?.message).includes("cannot lawfully leave") &&
+        beforeIllegal === familiesSnapshot(dataDir, lifecycleFamilies),
+      `${illegal.status}/${illegal.body.error?.code || "no-code"}`,
+    );
+
+    // 3) Stale caller views refuse as conflicts.
+    const stale = await call("POST", transitionPath("pause"), {
+      expected_chain_head_root: `sha256:${"9".repeat(64)}`,
+      expected_predecessor_state_root: activeState.activation_state_root,
+    });
+    ok(
+      "M1.5b STALE HEAD: an expected chain head behind the live head refuses conflict with zero evidence",
+      stale.status === 409 &&
+        stale.body.error?.code === "system_lifecycle_head_conflict" &&
+        beforeIllegal === familiesSnapshot(dataDir, lifecycleFamilies),
+      `${stale.status}/${stale.body.error?.code || "no-code"}`,
+    );
+
+    // 4) Twelve racing pause requests linearize to exactly one graph.
+    const pauseRequest = {
+      expected_chain_head_root: activeChain.chain_root,
+      expected_predecessor_state_root: activeState.activation_state_root,
+    };
+    const pauseAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      transitionPath("pause"),
+      pauseRequest,
+      "scope:autonomous_system.lifecycle.pause",
+    );
+    const pauseGrant = requireValue(
+      pauseAuthority.grant,
+      `M1.5b pause challenge lacks a grant: ${JSON.stringify(pauseAuthority.challenge)}`,
+    );
+    const pauseResponses = await Promise.all(
+      Array.from({ length: 12 }, () =>
+        call("POST", transitionPath("pause"), {
+          ...pauseRequest,
+          wallet_approval_grant: pauseGrant,
+        }),
+      ),
+    );
+    const pauseWinners = pauseResponses.filter((r) => r.status === 200);
+    const paused = pauseWinners[0]?.body;
+    ok(
+      "M1.5b PAUSE: twelve real-wallet pause requests linearize to one sequence-three graph",
+      pauseWinners.length === 1 &&
+        paused?.sequence === 3 &&
+        paused?.autonomous_system_chain?.status === "paused" &&
+        paused?.autonomous_system_chain?.latest_sequence === 3 &&
+        paused?.operation_log?.schema_version ===
+          "ioi.autonomous-system-operation-log.v2" &&
+        paused?.operation_log?.entries?.length === 4 &&
+        paused?.lifecycle_receipt?.op === "pause" &&
+        familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length === 1 &&
+        familyFiles(dataDir, PROTECTED_INTENT_FAMILY).length === 0,
+      `winners=${pauseWinners.length} first=${JSON.stringify(pauseResponses[0]?.body?.error || null)} responses=${pauseResponses.map((r) => `${r.status}/${r.body.op || r.body.error?.code || "no-code"}`).join(",")}`,
+    );
+
+    // 5) Scope substitution refuses: a resume grant cannot authorize suspend.
+    const pausedChain = paused.autonomous_system_chain;
+    const pausedState = paused.lifecycle_state;
+    const resumeRequest = {
+      expected_chain_head_root: pausedChain.chain_root,
+      expected_predecessor_state_root: pausedState.lifecycle_state_root,
+    };
+    const resumeAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      transitionPath("resume"),
+      resumeRequest,
+      "scope:autonomous_system.lifecycle.resume",
+    );
+    const resumeGrant = requireValue(
+      resumeAuthority.grant,
+      "M1.5b resume challenge lacks a grant",
+    );
+    const beforeSubstitution = familiesSnapshot(dataDir, lifecycleFamilies);
+    const substituted = await call("POST", transitionPath("suspend"), {
+      expected_chain_head_root: pausedChain.chain_root,
+      expected_predecessor_state_root: pausedState.lifecycle_state_root,
+      wallet_approval_grant: resumeGrant,
+    });
+    ok(
+      "M1.5b WRONG SCOPE: a resume-scoped grant cannot authorize suspend",
+      substituted.status !== 200 &&
+        beforeSubstitution === familiesSnapshot(dataDir, lifecycleFamilies),
+      `${substituted.status}/${substituted.body.error?.code || "no-code"}`,
+    );
+
+    // 6) Crash after real wallet consumption converges exactly once on restart.
+    await plane.stop();
+    plane = await startVerifierPlane({
+      dataDir,
+      env: {
+        ...resolver.env,
+        IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_WALLET_CONSUMPTION: "resume",
+      },
+    });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5b fault plane is not built");
+    }
+    call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+    const interrupted = await call("POST", transitionPath("resume"), {
+      ...resumeRequest,
+      wallet_approval_grant: resumeGrant,
+    });
+    requireValue(
+      interrupted.status === 500 &&
+        interrupted.body.error?.code === "system_lifecycle_pending_convergence" &&
+        familyFiles(dataDir, PROTECTED_INTENT_FAMILY).length === 1,
+      `M1.5b fault injection did not park the resume: ${interrupted.status}/${interrupted.body.error?.code || "no-code"} intents=${familyFiles(dataDir, PROTECTED_INTENT_FAMILY).length}`,
+    );
+    await plane.stop();
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5b replay plane is not built");
+    }
+    call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+    const protectedIntentCleared = await waitForIntentRecordsToClear(
+      dataDir,
+      PROTECTED_INTENT_FAMILY,
+    );
+    const converged = await call("GET", transitionPath("resume"));
+    const daemonReplayLines = readdirSync(dataDir)
+      .filter((name) => name.startsWith("isolated-daemon"))
+      .flatMap((name) => {
+        try {
+          return readFileSync(join(dataDir, name), "utf8")
+            .split("\n")
+            .filter((line) => line.includes("ProtectedTransition"));
+        } catch {
+          return [];
+        }
+      })
+      .slice(-3);
+    ok(
+      "M1.5b REPLAY: a crash after wallet consumption converges exactly one resume at sequence four on restart",
+      protectedIntentCleared &&
+        converged.status === 200 &&
+        converged.body.chain_head?.latest_sequence === 4 &&
+        converged.body.chain_head?.status === "active" &&
+        converged.body.committed_entries?.length === 1 &&
+        familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length === 2,
+      `cleared=${protectedIntentCleared} sequence=${converged.body.chain_head?.latest_sequence} status=${converged.body.chain_head?.status} daemon=${JSON.stringify(daemonReplayLines)}`,
+    );
+  } finally {
+    if (plane) await plane.stop();
+    await resolver.stop();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
 async function runSystemActivationJourney() {
   const resolver = await startOwnedWalletResolver();
   const dataDir = createOwnedTempDir("ioi-system-activation-");
@@ -5584,6 +5903,7 @@ async function run() {
       ).length}/${MATERIALIZATION_FAMILIES.length} current-write-only=${productionReceiptBuilder.includes("ReceiptVersion::CurrentV2") && productionIntentCompleter.includes("require_legacy_receipt_preexisting")}`,
     );
     const journeys = new Map([
+      ["protected-transition", runProtectedTransitionJourney],
       ["system-activation", runSystemActivationJourney],
       ["primary", runPrimaryJourney],
       ["wallet-replay", runCrashReplayJourney],

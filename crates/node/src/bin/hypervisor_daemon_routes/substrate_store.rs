@@ -55,6 +55,8 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-home-bindings",
     "autonomous-system-operation-log-revisions",
     "autonomous-system-chain-revisions",
+    "autonomous-system-lifecycle-states",
+    "autonomous-system-protected-transition-receipts",
 ];
 
 static HANDLE: OnceLock<Option<MuxHandle>> = OnceLock::new();
@@ -183,6 +185,10 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "activation_state_root",
             format!("sha256:{}", record_id.strip_prefix("asls_").unwrap_or("")),
         ),
+        "autonomous-system-lifecycle-states" => (
+            "lifecycle_state_root",
+            format!("sha256:{}", record_id.strip_prefix("asls_").unwrap_or("")),
+        ),
         "autonomous-system-active-profile-sets" => (
             "active_profile_set_root",
             format!("sha256:{}", record_id.strip_prefix("asaps_").unwrap_or("")),
@@ -202,7 +208,8 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         "autonomous-system-lifecycle-authority-consumptions"
         | "autonomous-system-lifecycle-transitions"
         | "autonomous-system-initialize-transition-receipts"
-        | "autonomous-system-activation-receipts" => {
+        | "autonomous-system-activation-receipts"
+        | "autonomous-system-protected-transition-receipts" => {
             unreachable!("identity is validated by the family-specific branch")
         }
         _ => unreachable!("required-admission domains are exhaustively matched"),
@@ -260,12 +267,15 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
                     "proposal is not an object",
                 )
             })?;
+            let domain = match record.get("schema_version").and_then(Value::as_str) {
+                Some("ioi.autonomous-system-protected-transition-proposal.v1") => {
+                    "ioi.autonomous-system-protected-transition-proposal-jcs-sha256.v1"
+                }
+                _ => "ioi.autonomous-system-activation-proposal-jcs-sha256.v1",
+            };
             material.remove("schema_version");
             material.remove("proposal_root");
-            material.insert(
-                "domain".to_owned(),
-                json!("ioi.autonomous-system-activation-proposal-jcs-sha256.v1"),
-            );
+            material.insert("domain".to_owned(), json!(domain));
             ("proposal_root", Value::Object(material))
         }
         "autonomous-system-lifecycle-authority-decisions" => {
@@ -275,14 +285,33 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
                     "decision is not an object",
                 )
             })?;
+            let domain = match record.get("schema_version").and_then(Value::as_str) {
+                Some("ioi.autonomous-system-protected-transition-decision.v1") => {
+                    "ioi.autonomous-system-protected-transition-decision-jcs-sha256.v1"
+                }
+                _ => "ioi.autonomous-system-activation-authority-decision-jcs-sha256.v1",
+            };
             material.remove("schema_version");
             material.remove("decision_root");
-            material.insert(
-                "domain".to_owned(),
-                json!("ioi.autonomous-system-activation-authority-decision-jcs-sha256.v1"),
-            );
+            material.insert("domain".to_owned(), json!(domain));
             ("decision_root", Value::Object(material))
         }
+        "autonomous-system-lifecycle-states" => (
+            "lifecycle_state_root",
+            fields_material(
+                record,
+                "ioi.autonomous-system-lifecycle-state-jcs-sha256.v1",
+                &[
+                    "lifecycle_state_ref",
+                    "system_id",
+                    "sequence",
+                    "status",
+                    "predecessor_state_root",
+                    "active_profile_set_ref",
+                    "active_profile_set_root",
+                ],
+            )?,
+        ),
         "autonomous-system-activation-states" => (
             "activation_state_root",
             fields_material(
@@ -356,13 +385,16 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
                     "operation log is not an object",
                 )
             })?;
+            let domain = match record.get("schema_version").and_then(Value::as_str) {
+                Some("ioi.autonomous-system-operation-log.v2") => {
+                    "ioi.autonomous-system-operation-log-jcs-sha256.v2"
+                }
+                _ => "ioi.autonomous-system-operation-log-jcs-sha256.v1",
+            };
             material.remove("schema_version");
             material.remove("operation_log_ref");
             material.remove("operation_log_root");
-            material.insert(
-                "domain".to_owned(),
-                json!("ioi.autonomous-system-operation-log-jcs-sha256.v1"),
-            );
+            material.insert("domain".to_owned(), json!(domain));
             ("operation_log_root", Value::Object(material))
         }
         "autonomous-system-chain-revisions" => {
@@ -413,6 +445,8 @@ fn validate_required_identity(
         "autonomous-system-initialize-transition-receipts" => "asltr_",
         "autonomous-system-activation-receipts" => "asar_",
         "autonomous-system-activation-states" => "asls_",
+        "autonomous-system-lifecycle-states" => "asls_",
+        "autonomous-system-protected-transition-receipts" => "asptr_",
         "autonomous-system-active-profile-sets" => "asaps_",
         "autonomous-system-home-bindings" => "ashdb_",
         "autonomous-system-operation-log-revisions" => "asol_",
@@ -462,6 +496,7 @@ fn validate_required_identity(
         "autonomous-system-lifecycle-transitions"
             | "autonomous-system-initialize-transition-receipts"
             | "autonomous-system-activation-receipts"
+            | "autonomous-system-protected-transition-receipts"
     ) {
         let encoded = record_id
             .strip_prefix(required_prefix)
@@ -477,6 +512,10 @@ fn validate_required_identity(
             ),
             "autonomous-system-activation-receipts" => (
                 "ioi.autonomous-system-activation-receipt-artifact-jcs-sha256.v1",
+                "receipt_ref",
+            ),
+            "autonomous-system-protected-transition-receipts" => (
+                "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1",
                 "receipt_ref",
             ),
             _ => unreachable!(),

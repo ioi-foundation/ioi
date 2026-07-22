@@ -342,7 +342,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "469a5414a1fc2ceb8e4fd0006aa87c5b63abb3f0c04b4997e4d71764d1888c15"
+      "source_sha256": "d3c62ef15418b674855d0935c48cee6f528fca71d55bd9a96ad9956855a4c92a"
     },
     {
       "role": "landed owner canon",
@@ -352,7 +352,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "abbe01d5e7e597c3be0bb2e04c87cf9f4b1e7202c5fb1904a5053f1081ddc548"
+      "source_sha256": "d27e24f6489bc26ad50ac31d49bc745cca5b334fb0f8e907ab0f3f861cce867f"
     },
     {
       "role": "landed owner canon",
@@ -469,7 +469,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "0205cf4f5c1ddc299bc8bd7f366bc265c6ff0fd09e1328a9d532c68d7a4a0637"
+            "source_sha256": "e2f8366eae6a38cac7bfea997d6f78b97282dbebb1c27345edce7c6fa397e3ce"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -644,7 +644,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "0205cf4f5c1ddc299bc8bd7f366bc265c6ff0fd09e1328a9d532c68d7a4a0637"
+            "source_sha256": "e2f8366eae6a38cac7bfea997d6f78b97282dbebb1c27345edce7c6fa397e3ce"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -1562,19 +1562,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "189f4c3cf1944960c898cac760c880e81075b0a9dc239cbede9314fd50e236c8",
-    "review_epoch_id": "pr-97-governed-system-activation-review-2026-07-22",
-    "review_lock_sha256": "d2bcaa22f6b2ad4bd74674cc3bd75f8e4d7ba50b25c1c6c79a1d08240c3581b1",
+    "program_source_material_sha256": "5ad6b8c9c2b93b2ae332fbdedd97e40da8b9ac9ee91c2048f5ecd49e95493770",
+    "review_epoch_id": "m1-5b-protected-transitions-review-2026-07-22",
+    "review_lock_sha256": "cec30c477e21044761321e0736d4ebe8104a3ff128a7abfdb0670f009cd57934",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "reviewed_as_of": "2026-07-22",
-    "reviewed_entry_set_sha256": "58c389e84fd254a411cc5811961a05729833d1f31516070814db79fc946445f3",
-    "reviewed_identity_set_sha256": "8687ab425016aeb6d8552ff6766c3cecfb3f856bd1064af33e36255d391fb0af",
+    "reviewed_entry_set_sha256": "2b0253700ebd9bf6aaa93ebd76baaedd1bf6f195f89da38e095873707871fefd",
+    "reviewed_identity_set_sha256": "aad009c6446b90a17cad3cb72055b01b29d31468274e0a181b5c32f56dcccad4",
     "reviewer_label": "reviewer://ioi/m0-program-control-independent-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "5660d5bbe6d9dc179eeaf4d52d219203da72c80bf28c6d4312dd3a787524f2a2",
-    "snapshot_head_sequence": 7,
-    "snapshot_predecessor_entry_sha256": "5399fa33f1082e0afb4878fba7c8a03084a8a2b1a9570f3e5518d6963f8c80c6",
+    "snapshot_head_entry_sha256": "8458febe3e34c9c59fc78a5b5b061ea560bfd39fba4307d51d388009f526edb8",
+    "snapshot_head_sequence": 8,
+    "snapshot_predecessor_entry_sha256": "5660d5bbe6d9dc179eeaf4d52d219203da72c80bf28c6d4312dd3a787524f2a2",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

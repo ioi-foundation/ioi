@@ -38,19 +38,19 @@ type VErr = (String, String);
 
 pub(crate) const INITIALIZE_INTENT_DIR: &str = "autonomous-system-initialize-intents";
 pub(crate) const ACTIVATE_INTENT_DIR: &str = "autonomous-system-activate-intents";
-const STATE_DIR: &str = "autonomous-system-activation-states";
+pub(crate) const STATE_DIR: &str = "autonomous-system-activation-states";
 const DEPLOYMENT_DIR: &str = "autonomous-system-deployment-profile-revisions";
-const AUTHORITY_EVIDENCE_DIR: &str = "autonomous-system-lifecycle-authority-evidence";
-const AUTHORITY_CONSUMPTION_DIR: &str = "autonomous-system-lifecycle-authority-consumptions";
-const PROPOSAL_DIR: &str = "autonomous-system-lifecycle-proposals";
-const DECISION_DIR: &str = "autonomous-system-lifecycle-authority-decisions";
-const TRANSITION_DIR: &str = "autonomous-system-lifecycle-transitions";
+pub(crate) const AUTHORITY_EVIDENCE_DIR: &str = "autonomous-system-lifecycle-authority-evidence";
+pub(crate) const AUTHORITY_CONSUMPTION_DIR: &str = "autonomous-system-lifecycle-authority-consumptions";
+pub(crate) const PROPOSAL_DIR: &str = "autonomous-system-lifecycle-proposals";
+pub(crate) const DECISION_DIR: &str = "autonomous-system-lifecycle-authority-decisions";
+pub(crate) const TRANSITION_DIR: &str = "autonomous-system-lifecycle-transitions";
 const INITIALIZE_RECEIPT_DIR: &str = "autonomous-system-initialize-transition-receipts";
-const ACTIVATION_RECEIPT_DIR: &str = "autonomous-system-activation-receipts";
+pub(crate) const ACTIVATION_RECEIPT_DIR: &str = "autonomous-system-activation-receipts";
 const ACTIVE_SET_DIR: &str = "autonomous-system-active-profile-sets";
 const HOME_BINDING_DIR: &str = "autonomous-system-home-bindings";
-const OPERATION_LOG_DIR: &str = "autonomous-system-operation-log-revisions";
-const CHAIN_DIR: &str = "autonomous-system-chain-revisions";
+pub(crate) const OPERATION_LOG_DIR: &str = "autonomous-system-operation-log-revisions";
+pub(crate) const CHAIN_DIR: &str = "autonomous-system-chain-revisions";
 pub(crate) const MAX_REQUEST_BYTES: usize = 512 * 1024;
 
 const LIFECYCLE_TRANSITION_CONTRACT: &str = "schema://ioi/foundations/lifecycle-transition/v1";
@@ -68,16 +68,16 @@ const DETERMINISTIC_REF_HASH_PROFILE: &str =
     "ioi.autonomous-system-lifecycle-evidence-ref-jcs-sha256.v1";
 
 #[derive(Clone)]
-struct NodeAdmissionEvidence {
-    authorized: AuthorizedDecision,
-    authority_evidence: Value,
-    authority_evidence_ref: String,
-    authority_evidence_root: String,
-    wallet_params: ConsumeApprovalGrantForEffectV2Params,
-    wallet_consumption_ref: String,
-    wallet_consumption_tail: String,
-    wallet_consumption_root: String,
-    wallet_consumption_evidence_ref: String,
+pub(crate) struct NodeAdmissionEvidence {
+    pub(crate) authorized: AuthorizedDecision,
+    pub(crate) authority_evidence: Value,
+    pub(crate) authority_evidence_ref: String,
+    pub(crate) authority_evidence_root: String,
+    pub(crate) wallet_params: ConsumeApprovalGrantForEffectV2Params,
+    pub(crate) wallet_consumption_ref: String,
+    pub(crate) wallet_consumption_tail: String,
+    pub(crate) wallet_consumption_root: String,
+    pub(crate) wallet_consumption_evidence_ref: String,
 }
 
 #[derive(Clone)]
@@ -94,11 +94,11 @@ struct AdmittedGraph {
 }
 
 pub(crate) static SYSTEM_ACTIVATION_LOCK: Mutex<()> = Mutex::new(());
-static SYSTEM_ACTIVATION_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+pub(crate) static SYSTEM_ACTIVATION_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 static INITIALIZE_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 static ACTIVATE_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 
-const AUTHORITY: AuthorityContract = AuthorityContract {
+pub(crate) const AUTHORITY: AuthorityContract = AuthorityContract {
     scope_prefix: "scope:autonomous_system.lifecycle",
     policy_domain: "hypervisor.system-lifecycle.decision.policy.v1",
     request_domain: "hypervisor.system-lifecycle.decision.request.v1",
@@ -108,11 +108,11 @@ const AUTHORITY: AuthorityContract = AuthorityContract {
     participant_label: "not_applicable",
 };
 
-fn verr(code: &str, message: impl Into<String>) -> VErr {
+pub(crate) fn verr(code: &str, message: impl Into<String>) -> VErr {
     (code.to_owned(), message.into())
 }
 
-fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
+pub(crate) fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
     let status = if code.ends_with("_not_found") {
         StatusCode::NOT_FOUND
     } else if code.contains("authority_required") || code.contains("wallet_consumption_refused") {
@@ -150,7 +150,7 @@ fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
     )
 }
 
-fn canonical_system_key(value: &str) -> bool {
+pub(crate) fn canonical_system_key(value: &str) -> bool {
     value.strip_prefix("asg_").is_some_and(|tail| {
         tail.len() == 64
             && tail
@@ -171,11 +171,11 @@ fn canonical_hash(value: &Value) -> bool {
         })
 }
 
-fn canonical_hash_str(value: &str) -> bool {
+pub(crate) fn canonical_hash_str(value: &str) -> bool {
     canonical_hash(&Value::String(value.to_owned()))
 }
 
-fn jcs_hash(value: &Value) -> Result<String, VErr> {
+pub(crate) fn jcs_hash(value: &Value) -> Result<String, VErr> {
     let bytes = serde_jcs::to_vec(value)
         .map_err(|error| verr("system_lifecycle_artifact_invalid", error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
@@ -185,7 +185,7 @@ fn artifact_root(domain: &str, value: &Value) -> Result<String, VErr> {
     jcs_hash(&json!({"domain": domain, "artifact": value}))
 }
 
-fn required_string<'a>(value: &'a Value, pointer: &str) -> Result<&'a str, VErr> {
+pub(crate) fn required_string<'a>(value: &'a Value, pointer: &str) -> Result<&'a str, VErr> {
     value
         .pointer(pointer)
         .and_then(Value::as_str)
@@ -216,7 +216,7 @@ fn namespace(system_id: &str) -> Result<&str, VErr> {
         })
 }
 
-fn validate_contract(contract: &str, value: &Value, label: &str) -> Result<(), VErr> {
+pub(crate) fn validate_contract(contract: &str, value: &Value, label: &str) -> Result<(), VErr> {
     ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
         contract, value,
     )
@@ -254,7 +254,7 @@ fn hash_bytes(value: &str, label: &str) -> Result<[u8; 32], VErr> {
     Ok(bytes)
 }
 
-fn ms_to_timestamp(milliseconds: u64) -> Result<String, VErr> {
+pub(crate) fn ms_to_timestamp(milliseconds: u64) -> Result<String, VErr> {
     let nanos = i128::from(milliseconds) * 1_000_000;
     OffsetDateTime::from_unix_timestamp_nanos(nanos)
         .map_err(|error| verr("system_lifecycle_time_invalid", error.to_string()))?
@@ -284,7 +284,7 @@ fn deterministic_receipt_ref(
     Ok(format!("receipt://{prefix}{}", &root[7..]))
 }
 
-fn contains_sensitive_key(value: &Value) -> bool {
+pub(crate) fn contains_sensitive_key(value: &Value) -> bool {
     const SENSITIVE: &[&str] = &[
         "secret",
         "password",
@@ -425,17 +425,41 @@ fn canonical_grant(authorized: &AuthorizedDecision) -> Result<(ApprovalGrant, St
     ))
 }
 
-fn prepare_node_evidence(
+pub(crate) fn prepare_node_evidence(
     plan: &CompiledSystemLifecyclePlan,
     authorized: AuthorizedDecision,
 ) -> Result<NodeAdmissionEvidence, VErr> {
-    if authorized.evidence.authorized_effect != plan.authority_effect {
+    prepare_node_evidence_for(
+        &plan.authority_effect,
+        plan.operation.as_str(),
+        plan.operation.sequence(),
+        plan.operation.required_scope(),
+        &plan.source.source_governing_authority_ref,
+        &plan.resulting_state_root,
+        authorized,
+    )
+}
+
+/// Operation-agnostic authority evidence preparation over one closed
+/// server-derived effect. The bootstrap wrapper above and the protected
+/// transition runtime both converge here so a single implementation owns
+/// the grant/policy/request/effect binding discipline.
+pub(crate) fn prepare_node_evidence_for(
+    authority_effect: &Value,
+    op_name: &str,
+    sequence: u64,
+    required_scope: &str,
+    source_governing_authority_ref: &str,
+    resulting_state_root: &str,
+    authorized: AuthorizedDecision,
+) -> Result<NodeAdmissionEvidence, VErr> {
+    if authorized.evidence.authorized_effect != *authority_effect {
         return Err(verr(
             "system_lifecycle_authority_invalid",
             "governed authority decision detached the compiled effect",
         ));
     }
-    let effect_hash = governed::decision_effect_hash(AUTHORITY, &plan.authority_effect);
+    let effect_hash = governed::decision_effect_hash(AUTHORITY, authority_effect);
     if authorized.evidence.effect_hash != effect_hash {
         return Err(verr(
             "system_lifecycle_authority_invalid",
@@ -476,8 +500,8 @@ fn prepare_node_evidence(
                 )
             })?
     );
-    let system_id = required_string(&plan.authority_effect, "/system_id")?;
-    let genesis_ref = required_string(&plan.authority_effect, "/genesis_ref")?;
+    let system_id = required_string(authority_effect, "/system_id")?;
+    let genesis_ref = required_string(authority_effect, "/genesis_ref")?;
     let expected_policy_hash = governed::decision_policy_hash_for_context(
         AUTHORITY,
         Governance::Host,
@@ -485,16 +509,16 @@ fn prepare_node_evidence(
             system_id,
             genesis_id: genesis_ref,
         },
-        &plan.source.source_governing_authority_ref,
-        plan.operation.as_str(),
+        source_governing_authority_ref,
+        op_name,
     );
     let expected_request_hash = governed::decision_request_hash(
         AUTHORITY,
         Governance::Host,
         system_id,
-        plan.operation.as_str(),
-        plan.operation.sequence(),
-        &plan.source.source_governing_authority_ref,
+        op_name,
+        sequence,
+        source_governing_authority_ref,
         &effect_hash,
     );
     if authorized.evidence.grant_ref != wallet_grant_ref
@@ -521,8 +545,8 @@ fn prepare_node_evidence(
                 format!("authority binding cannot authorize wallet use ({error})"),
             )
         })?;
-    if expected_principal_authority.principal_ref != plan.source.source_governing_authority_ref
-        || expected_principal_authority.required_scope != plan.operation.required_scope()
+    if expected_principal_authority.principal_ref != source_governing_authority_ref
+        || expected_principal_authority.required_scope != required_scope
         || expected_principal_authority.approval_authority.authority_id != grant.authority_id
         || expected_principal_authority.approval_authority.public_key != grant.approver_public_key
         || expected_principal_authority
@@ -539,11 +563,11 @@ fn prepare_node_evidence(
         "schema_version": "ioi.hypervisor.system-lifecycle-authority-evidence.v1",
         "authority_evidence_ref": Value::Null,
         "authority_evidence_root": Value::Null,
-        "system_id": plan.authority_effect["system_id"],
-        "operation": plan.operation.as_str(),
-        "sequence": plan.operation.sequence(),
-        "required_scope": plan.operation.required_scope(),
-        "source_governing_authority_ref": plan.source.source_governing_authority_ref,
+        "system_id": authority_effect["system_id"],
+        "operation": op_name,
+        "sequence": sequence,
+        "required_scope": required_scope,
+        "source_governing_authority_ref": source_governing_authority_ref,
         "acting_authority_id": authorized.evidence.acting_authority_id,
         "authority_grant_ref": grant_ref,
         "wallet_authority_grant_ref": wallet_grant_ref,
@@ -575,12 +599,12 @@ fn prepare_node_evidence(
     })?;
     let consumption_material = json!({
         "domain": "ioi.hypervisor.system-lifecycle.authority-use.v1",
-        "system_id": plan.authority_effect["system_id"],
-        "operation": plan.operation.as_str(),
-        "sequence": plan.operation.sequence(),
-        "operation_commitment": plan.authority_effect["operation_commitment"],
-        "predecessor_state_root": plan.authority_effect["predecessor_state_root"],
-        "resulting_state_root": plan.resulting_state_root,
+        "system_id": authority_effect["system_id"],
+        "operation": op_name,
+        "sequence": sequence,
+        "operation_commitment": authority_effect["operation_commitment"],
+        "predecessor_state_root": authority_effect["predecessor_state_root"],
+        "resulting_state_root": resulting_state_root,
         "policy_hash": authorized.evidence.policy_hash,
         "request_hash": authorized.evidence.request_hash,
         "effect_hash": authorized.evidence.effect_hash,
@@ -608,7 +632,7 @@ fn prepare_node_evidence(
             grant_hash,
             consumption_id,
             expected_principal_authority,
-            expected_target_label: plan.operation.required_scope().to_owned(),
+            expected_target_label: required_scope.to_owned(),
             expected_max_usages: 1,
         },
         wallet_consumption_ref,
@@ -618,7 +642,7 @@ fn prepare_node_evidence(
     })
 }
 
-fn validate_wallet_receipt(
+pub(crate) fn validate_wallet_receipt(
     evidence: &mut NodeAdmissionEvidence,
     receipt: &ApprovalGrantConsumptionReceipt,
 ) -> Result<Value, VErr> {
@@ -674,7 +698,7 @@ fn validate_wallet_receipt(
     Ok(value)
 }
 
-fn with_source_locks<T>(f: impl FnOnce() -> T) -> T {
+pub(crate) fn with_source_locks<T>(f: impl FnOnce() -> T) -> T {
     let _genesis = super::system_genesis_routes::SYSTEM_GENESIS_LOCK
         .lock()
         .unwrap_or_else(|p| p.into_inner());
@@ -703,16 +727,16 @@ fn map_commit_failure(error: super::durable_fs::CommitFailure) -> VErr {
     }
 }
 
-fn persist_local(data_dir: &str, family: &str, tail: &str, value: &Value) -> Result<(), VErr> {
+pub(crate) fn persist_local(data_dir: &str, family: &str, tail: &str, value: &Value) -> Result<(), VErr> {
     super::durable_fs::persist_receipt_no_clobber(data_dir, family, tail, value)
         .map_err(map_commit_failure)
 }
 
-fn forced_fault(variable: &str, value: &str) -> bool {
+pub(crate) fn forced_fault(variable: &str, value: &str) -> bool {
     std::env::var(variable).ok().as_deref() == Some(value)
 }
 
-fn load_local(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>, VErr> {
+pub(crate) fn load_local(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>, VErr> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, family) {
         Ok(directory) => directory,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -742,7 +766,7 @@ fn load_local(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>,
     })
 }
 
-fn load_required_exact(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>, VErr> {
+pub(crate) fn load_required_exact(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>, VErr> {
     let local = load_local(data_dir, family, tail)?;
     match local {
         Some(value) => {
@@ -770,7 +794,7 @@ fn load_required_exact(data_dir: &str, family: &str, tail: &str) -> Result<Optio
     }
 }
 
-fn recover_wallet_consumption(data_dir: &str, tail: &str) -> Result<Option<Value>, VErr> {
+pub(crate) fn recover_wallet_consumption(data_dir: &str, tail: &str) -> Result<Option<Value>, VErr> {
     let local = load_local(data_dir, AUTHORITY_CONSUMPTION_DIR, tail)?;
     let agentgres =
         super::substrate_store::read_required_exact(data_dir, AUTHORITY_CONSUMPTION_DIR, tail)
@@ -823,7 +847,7 @@ fn validate_remote_wallet_consumption(
     Ok(value)
 }
 
-fn tail(prefix: &str, root: &str) -> Result<String, VErr> {
+pub(crate) fn tail(prefix: &str, root: &str) -> Result<String, VErr> {
     if !canonical_hash_str(root) {
         return Err(verr(
             "system_lifecycle_artifact_invalid",
@@ -849,7 +873,7 @@ fn intent_tail(operation: SystemLifecycleOperation, request_hash: &str) -> Resul
     tail(prefix, request_hash)
 }
 
-fn intent_seal(mut intent: Value) -> Result<Value, VErr> {
+pub(crate) fn intent_seal(mut intent: Value) -> Result<Value, VErr> {
     intent["intent_hash"] = Value::Null;
     let hash = jcs_hash(&json!({
         "domain": "ioi.hypervisor.system-lifecycle-intent-jcs-sha256.v1",
@@ -859,7 +883,7 @@ fn intent_seal(mut intent: Value) -> Result<Value, VErr> {
     Ok(intent)
 }
 
-fn verify_intent_seal(intent: &Value) -> Result<(), VErr> {
+pub(crate) fn verify_intent_seal(intent: &Value) -> Result<(), VErr> {
     let mut material = intent.clone();
     let stored = material["intent_hash"].clone();
     material["intent_hash"] = Value::Null;
@@ -876,7 +900,7 @@ fn verify_intent_seal(intent: &Value) -> Result<(), VErr> {
     Ok(())
 }
 
-fn verify_intent_coordinates(
+pub(crate) fn verify_intent_coordinates(
     operation: SystemLifecycleOperation,
     stored_tail: &str,
     intent: &Value,
@@ -910,7 +934,7 @@ fn verify_intent_coordinates(
     Ok(())
 }
 
-fn remove_intent(data_dir: &str, family: &str, tail: &str) -> Result<(), VErr> {
+pub(crate) fn remove_intent(data_dir: &str, family: &str, tail: &str) -> Result<(), VErr> {
     let directory =
         super::durable_fs::open_family_dir_pinned(data_dir, family).map_err(|error| {
             verr(
@@ -1721,7 +1745,7 @@ fn complete_live_graph(graph: &mut AdmittedGraph, timestamp: &str) -> Result<(),
     Ok(())
 }
 
-fn evidence_intent_value(evidence: &NodeAdmissionEvidence) -> Value {
+pub(crate) fn evidence_intent_value(evidence: &NodeAdmissionEvidence) -> Value {
     json!({
         "acting_authority_id": evidence.authorized.evidence.acting_authority_id,
         "grant_ref": evidence.authorized.evidence.grant_ref,
@@ -1742,7 +1766,7 @@ fn evidence_intent_value(evidence: &NodeAdmissionEvidence) -> Value {
     })
 }
 
-fn evidence_from_intent(value: &Value) -> Result<NodeAdmissionEvidence, VErr> {
+pub(crate) fn evidence_from_intent(value: &Value) -> Result<NodeAdmissionEvidence, VErr> {
     let authorized = AuthorizedDecision {
         evidence: governed::DecisionEvidence {
             acting_authority_id: value["acting_authority_id"].clone(),
@@ -2473,7 +2497,7 @@ fn get_state(key: &str, data_dir: &str, sequence: u64) -> (StatusCode, Json<Valu
     }
 }
 
-fn enumerate_family(data_dir: &str, family: &str) -> Result<Vec<(String, Value)>, VErr> {
+pub(crate) fn enumerate_family(data_dir: &str, family: &str) -> Result<Vec<(String, Value)>, VErr> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, family) {
         Ok(directory) => directory,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -2509,7 +2533,7 @@ fn enumerate_family(data_dir: &str, family: &str) -> Result<Vec<(String, Value)>
     Ok(values)
 }
 
-fn ensure_no_pending_intent(data_dir: &str, key: &str) -> Result<(), VErr> {
+pub(crate) fn ensure_no_pending_intent(data_dir: &str, key: &str) -> Result<(), VErr> {
     for operation in [
         SystemLifecycleOperation::Initialize,
         SystemLifecycleOperation::Activate,

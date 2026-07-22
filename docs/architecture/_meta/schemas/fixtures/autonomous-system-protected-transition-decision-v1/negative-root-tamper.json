@@ -1,0 +1,23 @@
+{
+  "schema_version": "ioi.autonomous-system-protected-transition-decision.v1",
+  "decision_ref": "decision://fixture/alpha/suspend/6",
+  "decision_root": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "proposal_ref": "proposal://fixture/alpha/suspend/6",
+  "proposal_root": "sha256:1edd9fa51ea70b01361b68b3743e7a880527c01de6e85a284347861396b1d646",
+  "system_id": "system://fixture/alpha",
+  "op": "suspend",
+  "sequence": 6,
+  "irreversibility": "reversible",
+  "required_scope": "scope:autonomous_system.lifecycle.suspend",
+  "operation_commitment": "sha256:cd5ca57b0c03c16bebd3cc4a7a07657e4f18d2cde6f521057faf89d42a3f1c83",
+  "input_hash": "sha256:5151515151515151515151515151515151515151515151515151515151515151",
+  "policy_hash": "sha256:5252525252525252525252525252525252525252525252525252525252525252",
+  "effect_hash": "sha256:4141414141414141414141414141414141414141414141414141414141414141",
+  "authority_grant_ref": "grant://wallet.network/approval/sha256:5353535353535353535353535353535353535353535353535353535353535353",
+  "authority_evidence_ref": "system-lifecycle-authority-evidence://fixture/alpha/6",
+  "authority_evidence_root": "sha256:5454545454545454545454545454545454545454545454545454545454545454",
+  "wallet_grant_consumption_ref": "wallet.network://approval-effect-consumption/fixture-alpha-6",
+  "wallet_grant_consumption_evidence_ref": "system-lifecycle-authority-consumption://fixture/alpha/6",
+  "outcome": "admitted",
+  "decided_at": "2026-07-22T00:00:01.000Z"
+}

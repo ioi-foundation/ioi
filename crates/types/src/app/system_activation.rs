@@ -263,7 +263,7 @@ struct FinalizedSystemLifecycleArtifacts {
     chain: Option<Value>,
 }
 
-fn jcs_hash(material: &Value) -> Result<String, String> {
+pub(crate) fn jcs_hash(material: &Value) -> Result<String, String> {
     let canonical = serde_jcs::to_vec(material).map_err(|error| error.to_string())?;
     let digest = Sha256::digest(&canonical).map_err(|error| error.to_string())?;
     let encoded = digest
@@ -274,11 +274,11 @@ fn jcs_hash(material: &Value) -> Result<String, String> {
     Ok(format!("sha256:{encoded}"))
 }
 
-fn artifact_root(domain: &str, artifact: &Value) -> Result<String, String> {
+pub(crate) fn artifact_root(domain: &str, artifact: &Value) -> Result<String, String> {
     jcs_hash(&json!({"domain": domain, "artifact": artifact}))
 }
 
-fn required_string<'a>(value: &'a Value, pointer: &str) -> Result<&'a str, String> {
+pub(crate) fn required_string<'a>(value: &'a Value, pointer: &str) -> Result<&'a str, String> {
     value
         .pointer(pointer)
         .and_then(Value::as_str)
@@ -301,7 +301,7 @@ fn contract(contract_id: &str, value: &Value, label: &str) -> Result<(), String>
         .map_err(|error| format!("{label} violates {contract_id} ({error})"))
 }
 
-fn namespace(system_id: &str) -> Result<&str, String> {
+pub(crate) fn namespace(system_id: &str) -> Result<&str, String> {
     system_id
         .strip_prefix("system://")
         .filter(|tail| {

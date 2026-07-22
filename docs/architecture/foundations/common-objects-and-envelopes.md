@@ -2503,6 +2503,127 @@ oracle entries may repeat only as distinct immutable objects; network
 enrollment is absent or one `local_only` candidate. Its semantic root excludes
 the downstream transition and receipt navigation refs.
 
+### AutonomousSystemProtectedTransitionProposalEnvelope
+
+```yaml
+AutonomousSystemProtectedTransitionProposalEnvelope:
+  schema_version: ioi.autonomous-system-protected-transition-proposal.v1
+  proposal_ref: proposal://...
+  proposal_root: sha256:...
+  system_id: system://...
+  genesis_ref: genesis://...
+  op: pause | resume | suspend | reinstate | enter_dormancy | wake | begin_recovery | complete_recovery | quarantine | release_quarantine | retire | archive | revoke | decommission
+  sequence: positive_integer >= 3
+  predecessor_status: active | degraded | paused | suspended | dormant | recovering | quarantined | retired | archived | revoked
+  predecessor_state_root: sha256:...
+  predecessor_chain_head_root: sha256:...
+  irreversibility: reversible | one_way | terminal
+  required_scope: scope:autonomous_system.lifecycle.<op>
+  operation_commitment: sha256:...
+  authority_effect: exact_closed_server_derived_effect
+  authority_effect_hash: sha256:...
+  status: proposed
+  created_at: timestamp
+```
+
+This family owns proposals for the generic protected operational transitions
+of a live System at sequence three or later. It never stands for bootstrap
+initialize/activate (the activation family above), and never for
+constitutional amendment, migration/succession, dissolution, or network
+enrollment, which retain their named owners. Each proposal binds the exact
+live predecessor state root and chain head, so a stale, foreign, or replayed
+head admits nothing, and each op carries its own
+`scope:autonomous_system.lifecycle.<op>` wallet scope: authority for one
+transition kind is never authority for another.
+
+The op-by-predecessor legality table is closed and machine-contracted:
+
+| op | legal predecessor status | resulting status |
+| --- | --- | --- |
+| `pause` | `active`, `degraded` | `paused` |
+| `resume` | `paused` | `active` |
+| `suspend` | `active`, `degraded`, `paused` | `suspended` |
+| `reinstate` | `suspended` | `active` |
+| `enter_dormancy` | `active`, `paused` | `dormant` |
+| `wake` | `dormant` | `active` |
+| `begin_recovery` | `degraded`, `suspended`, `quarantined` | `recovering` |
+| `complete_recovery` | `recovering` | `active` |
+| `quarantine` | `active`, `degraded`, `paused`, `recovering` | `quarantined` |
+| `release_quarantine` | `quarantined` | `active` |
+| `retire` | `active`, `paused`, `suspended`, `dormant` | `retired` |
+| `archive` | `retired` | `archived` |
+| `revoke` | any non-terminal status | `revoked` |
+| `decommission` | `retired`, `archived`, `revoked` | `decommissioned` |
+
+`degraded` is an observed posture, never an op target: no proposal may set it
+directly. `archive` is `one_way`; `revoke` is `one_way` and protected;
+`decommission` is `terminal`. The proposal must declare the matching
+`irreversibility` value so a decision can never silently approve a terminal
+effect, and a proposal cannot satisfy its own authority requirements.
+
+### AutonomousSystemProtectedTransitionDecisionEnvelope
+
+```yaml
+AutonomousSystemProtectedTransitionDecisionEnvelope:
+  schema_version: ioi.autonomous-system-protected-transition-decision.v1
+  decision_ref: decision://...
+  decision_root: sha256:...
+  proposal_ref: proposal://...
+  proposal_root: sha256:...
+  system_id: system://...
+  op: pause | resume | suspend | reinstate | enter_dormancy | wake | begin_recovery | complete_recovery | quarantine | release_quarantine | retire | archive | revoke | decommission
+  sequence: positive_integer >= 3
+  irreversibility: reversible | one_way | terminal
+  required_scope: scope:autonomous_system.lifecycle.<op>
+  operation_commitment: sha256:...
+  input_hash: sha256:...
+  policy_hash: sha256:...
+  effect_hash: sha256:...
+  authority_grant_ref: grant://wallet.network/approval/sha256:...
+  authority_evidence_ref: system-lifecycle-authority-evidence://...
+  authority_evidence_root: sha256:...
+  wallet_grant_consumption_ref: wallet.network://approval-effect-consumption/...
+  wallet_grant_consumption_evidence_ref: system-lifecycle-authority-consumption://...
+  outcome: admitted
+  decided_at: timestamp
+```
+
+The decision is retained evidence for exactly one protected-transition
+proposal. Its effect hash is recomputed from the exact proposal effect;
+copied or unrelated wallet evidence cannot authorize a different op,
+sequence, or System, and the decision restates the proposal's declared
+`irreversibility` so the approved effect class is explicit in the evidence.
+
+### AutonomousSystemLifecycleStateEnvelope
+
+```yaml
+AutonomousSystemLifecycleStateEnvelope:
+  schema_version: ioi.autonomous-system-lifecycle-state.v1
+  lifecycle_state_ref: system-lifecycle-state://...
+  lifecycle_state_root: sha256:...
+  system_id: system://...
+  sequence: positive_integer >= 3
+  status: active | paused | suspended | dormant | recovering | quarantined | retired | archived | revoked | decommissioned
+  predecessor_state_root: sha256:...
+  active_profile_set_ref: active-profile-set://...
+  active_profile_set_root: sha256:...
+  transition_ref: lifecycle-transition://...
+  transition_root: sha256:...
+  transition_receipt_ref: receipt://...
+  transition_receipt_root: sha256:...
+  chain_ref: autonomous-system-chain://...
+```
+
+The lifecycle state continues the activation-state chain beyond sequence two
+for the generic protected ops. Like the activation state, its semantic
+`lifecycle_state_root` excludes transition, receipt, and chain navigation
+fields: it commits only the predecessor, sequence, status, and exact
+profile-set coordinates, and downstream evidence points back at it without
+its root ever depending on that evidence. Succession, dissolution, and
+enrollment statuses (`succession_pending`, `successor_governed`,
+`dissolution_pending`, `dissolving`, `dissolved`) are reserved for their
+named owner families and are not legal values here.
+
 ### LifecycleTransitionReceiptEnvelope
 
 ```yaml
@@ -2644,6 +2765,21 @@ predecessor/resulting state roots, transition roots, and portable receipts.
 The first active head therefore has `latest_transition_commitment_ref: null`.
 `upgrade_policy_ref` is inherited exactly from the admitted constitution; its
 presence binds the governing policy and does not perform an upgrade.
+
+
+The v1 log is deliberately closed to the activation prefix: exactly three
+entries, `snapshot_kind: activation_prefix`, and `latest_sequence: 2`. The
+`ioi.autonomous-system-operation-log.v2` successor generalizes the log for
+protected transitions at sequence three or later — `snapshot_kind:
+lifecycle_log`, unbounded entries (minimum three), `protected_transition`
+entry kind, and a v2 root domain — while retaining the closed activation
+prefix verbatim as an embedded sub-object, so the bootstrap evidence keeps
+its exact v1 shape inside the general log. v1 remains the valid shape for
+the committed sequence-two revision (`predecessor_remains_valid: true`);
+pairwise portable invariants pin the prefix mirror, the 0-to-1 and 1-to-2
+continuity, and the head projection, while general entry-to-entry continuity
+at sequence three or later is enforced by the daemon and proven by the
+journey verifier rather than by index-fixed portable rules.
 
 ### LifecycleTransitionEnvelope
 

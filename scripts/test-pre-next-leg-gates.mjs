@@ -45,6 +45,7 @@ test("pre-next-leg propagates a compositor-tier failure", () => {
     "architecture-contract-bar",
     "system-genesis-compiler",
     "architecture-docs",
+    "work-items",
     "conformance-docs",
     "readiness",
     "compositor",

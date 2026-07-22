@@ -1,0 +1,43 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-lifecycle-state/root/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_lifecycle_state.root.recomputes",
+      "description": "The semantic lifecycle-state root binds predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation is deliberately excluded so the commitment graph is acyclic.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-lifecycle-state-jcs-sha256.v1"
+          },
+          "lifecycle_state_ref": {
+            "path": "$.lifecycle_state_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "sequence": {
+            "path": "$.sequence"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "predecessor_state_root": {
+            "path": "$.predecessor_state_root"
+          },
+          "active_profile_set_ref": {
+            "path": "$.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.active_profile_set_root"
+          }
+        },
+        "expected_path": "$.lifecycle_state_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

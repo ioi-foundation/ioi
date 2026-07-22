@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
+  "title": "AutonomousSystemLifecycleState",
+  "description": "Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds only predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic. Succession, dissolution, and enrollment statuses are reserved for their named owner families.",
+  "x-ioi-schema-version": "ioi.autonomous-system-lifecycle-state.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lifecycle_state_ref",
+    "lifecycle_state_root",
+    "system_id",
+    "sequence",
+    "status",
+    "predecessor_state_root",
+    "transition_ref",
+    "transition_root",
+    "transition_receipt_ref",
+    "transition_receipt_root",
+    "active_profile_set_ref",
+    "active_profile_set_root",
+    "chain_ref",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-lifecycle-state.v1"
+    },
+    "lifecycle_state_ref": {
+      "type": "string",
+      "pattern": "^system-lifecycle-state://[A-Za-z0-9._:/-]+$"
+    },
+    "lifecycle_state_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[A-Za-z0-9._:/-]+$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 9007199254740991
+    },
+    "status": {
+      "enum": [
+        "active",
+        "paused",
+        "suspended",
+        "dormant",
+        "recovering",
+        "quarantined",
+        "retired",
+        "archived",
+        "revoked",
+        "decommissioned"
+      ]
+    },
+    "predecessor_state_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "transition_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^lifecycle-transition://[A-Za-z0-9._:/-]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "transition_root": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "transition_receipt_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^receipt://[A-Za-z0-9._:/-]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "transition_receipt_root": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "active_profile_set_ref": {
+      "type": "string",
+      "pattern": "^active-profile-set://[A-Za-z0-9._:/-]+$"
+    },
+    "active_profile_set_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "chain_ref": {
+      "type": "string",
+      "pattern": "^autonomous-system-chain://[A-Za-z0-9._:/-]+$"
+    },
+    "created_at": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
