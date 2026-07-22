@@ -31,11 +31,16 @@
       "path": "docs/architecture/_meta/schemas/invariants/autonomous-system-protected-transition-proposal.v1.invariants.json",
       "must_contain": "operation_commitment.recomputes",
       "present_when": "pr_open"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/autonomous-system-operation-log.v2.schema.json",
+      "must_contain": "lifecycle_log",
+      "present_when": "pr_open"
     }
   ],
   "evidence_refs": [],
   "pr": null,
-  "adversarial_or_fault_proof": "Committed: 6/6 canon-parity tests on the op family (row-by-row legality pinning, scope disjointness, degraded unreachable, terminal arcs) + 12/12 compile-path tests (full 154-cell op-by-predecessor sweep compiles or refuses per canon; identity detachment/overclaims refused; bootstrap and reserved statuses refused; byte-determinism with tamper-sensitive commitments; six negative claims preserved). ioi-types 262/262. Increment 3: three registered contracts embedding the closed effect; full architecture-contract bar green (39 contracts/141 fixtures incl. mutation+differential corpora; generated cargo tests 14/14 with the live ajv-vs-Rust differential); ten real-hash fixtures prove Rust/Python/JS recipe agreement; state root aligned to the flat JCS house pattern. Predeclared remaining: sealed-intent replay/restart convergence and fault-injection recovery in the runtime increment.",
+  "adversarial_or_fault_proof": "Committed: 6/6 canon-parity tests on the op family (row-by-row legality pinning, scope disjointness, degraded unreachable, terminal arcs) + 12/12 compile-path tests (full 154-cell op-by-predecessor sweep compiles or refuses per canon; identity detachment/overclaims refused; bootstrap and reserved statuses refused; byte-determinism with tamper-sensitive commitments; six negative claims preserved). ioi-types 262/262. Increment 3: three registered contracts embedding the closed effect; full architecture-contract bar green (39 contracts/141 fixtures incl. mutation+differential corpora; generated cargo tests 14/14 with the live ajv-vs-Rust differential); ten real-hash fixtures prove Rust/Python/JS recipe agreement; state root aligned to the flat JCS house pattern. Predeclared remaining: sealed-intent replay/restart convergence and fault-injection recovery in the runtime increment. Increment 4b-0: operation-log v2 successor contract landed (first registry evolution use; general head_entry after the bar caught v1's activation-pinned inheritance; solver-generated fixpoint fixture; bar green BAR4_EXIT=0 at 40 contracts/145 fixtures).",
   "remaining_nonclaims": [
     "Amendment execution, migration/succession, dissolution, and enrollment remain named-owner slices (m1-5c/d).",
     "No membership/topology (M2), consensus, or product Systems UX beyond pulled read projections.",
