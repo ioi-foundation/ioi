@@ -38,19 +38,19 @@ type VErr = (String, String);
 
 pub(crate) const INITIALIZE_INTENT_DIR: &str = "autonomous-system-initialize-intents";
 pub(crate) const ACTIVATE_INTENT_DIR: &str = "autonomous-system-activate-intents";
-const STATE_DIR: &str = "autonomous-system-activation-states";
+pub(crate) const STATE_DIR: &str = "autonomous-system-activation-states";
 const DEPLOYMENT_DIR: &str = "autonomous-system-deployment-profile-revisions";
-const AUTHORITY_EVIDENCE_DIR: &str = "autonomous-system-lifecycle-authority-evidence";
-const AUTHORITY_CONSUMPTION_DIR: &str = "autonomous-system-lifecycle-authority-consumptions";
-const PROPOSAL_DIR: &str = "autonomous-system-lifecycle-proposals";
-const DECISION_DIR: &str = "autonomous-system-lifecycle-authority-decisions";
-const TRANSITION_DIR: &str = "autonomous-system-lifecycle-transitions";
+pub(crate) const AUTHORITY_EVIDENCE_DIR: &str = "autonomous-system-lifecycle-authority-evidence";
+pub(crate) const AUTHORITY_CONSUMPTION_DIR: &str = "autonomous-system-lifecycle-authority-consumptions";
+pub(crate) const PROPOSAL_DIR: &str = "autonomous-system-lifecycle-proposals";
+pub(crate) const DECISION_DIR: &str = "autonomous-system-lifecycle-authority-decisions";
+pub(crate) const TRANSITION_DIR: &str = "autonomous-system-lifecycle-transitions";
 const INITIALIZE_RECEIPT_DIR: &str = "autonomous-system-initialize-transition-receipts";
 const ACTIVATION_RECEIPT_DIR: &str = "autonomous-system-activation-receipts";
 const ACTIVE_SET_DIR: &str = "autonomous-system-active-profile-sets";
 const HOME_BINDING_DIR: &str = "autonomous-system-home-bindings";
-const OPERATION_LOG_DIR: &str = "autonomous-system-operation-log-revisions";
-const CHAIN_DIR: &str = "autonomous-system-chain-revisions";
+pub(crate) const OPERATION_LOG_DIR: &str = "autonomous-system-operation-log-revisions";
+pub(crate) const CHAIN_DIR: &str = "autonomous-system-chain-revisions";
 pub(crate) const MAX_REQUEST_BYTES: usize = 512 * 1024;
 
 const LIFECYCLE_TRANSITION_CONTRACT: &str = "schema://ioi/foundations/lifecycle-transition/v1";
@@ -68,7 +68,7 @@ const DETERMINISTIC_REF_HASH_PROFILE: &str =
     "ioi.autonomous-system-lifecycle-evidence-ref-jcs-sha256.v1";
 
 #[derive(Clone)]
-struct NodeAdmissionEvidence {
+pub(crate) struct NodeAdmissionEvidence {
     authorized: AuthorizedDecision,
     authority_evidence: Value,
     authority_evidence_ref: String,
@@ -98,7 +98,7 @@ static SYSTEM_ACTIVATION_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::cons
 static INITIALIZE_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 static ACTIVATE_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 
-const AUTHORITY: AuthorityContract = AuthorityContract {
+pub(crate) const AUTHORITY: AuthorityContract = AuthorityContract {
     scope_prefix: "scope:autonomous_system.lifecycle",
     policy_domain: "hypervisor.system-lifecycle.decision.policy.v1",
     request_domain: "hypervisor.system-lifecycle.decision.request.v1",
@@ -108,11 +108,11 @@ const AUTHORITY: AuthorityContract = AuthorityContract {
     participant_label: "not_applicable",
 };
 
-fn verr(code: &str, message: impl Into<String>) -> VErr {
+pub(crate) fn verr(code: &str, message: impl Into<String>) -> VErr {
     (code.to_owned(), message.into())
 }
 
-fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
+pub(crate) fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
     let status = if code.ends_with("_not_found") {
         StatusCode::NOT_FOUND
     } else if code.contains("authority_required") || code.contains("wallet_consumption_refused") {
@@ -150,7 +150,7 @@ fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
     )
 }
 
-fn canonical_system_key(value: &str) -> bool {
+pub(crate) fn canonical_system_key(value: &str) -> bool {
     value.strip_prefix("asg_").is_some_and(|tail| {
         tail.len() == 64
             && tail
@@ -171,7 +171,7 @@ fn canonical_hash(value: &Value) -> bool {
         })
 }
 
-fn canonical_hash_str(value: &str) -> bool {
+pub(crate) fn canonical_hash_str(value: &str) -> bool {
     canonical_hash(&Value::String(value.to_owned()))
 }
 
@@ -254,7 +254,7 @@ fn hash_bytes(value: &str, label: &str) -> Result<[u8; 32], VErr> {
     Ok(bytes)
 }
 
-fn ms_to_timestamp(milliseconds: u64) -> Result<String, VErr> {
+pub(crate) fn ms_to_timestamp(milliseconds: u64) -> Result<String, VErr> {
     let nanos = i128::from(milliseconds) * 1_000_000;
     OffsetDateTime::from_unix_timestamp_nanos(nanos)
         .map_err(|error| verr("system_lifecycle_time_invalid", error.to_string()))?
@@ -425,7 +425,7 @@ fn canonical_grant(authorized: &AuthorizedDecision) -> Result<(ApprovalGrant, St
     ))
 }
 
-fn prepare_node_evidence(
+pub(crate) fn prepare_node_evidence(
     plan: &CompiledSystemLifecyclePlan,
     authorized: AuthorizedDecision,
 ) -> Result<NodeAdmissionEvidence, VErr> {
@@ -618,7 +618,7 @@ fn prepare_node_evidence(
     })
 }
 
-fn validate_wallet_receipt(
+pub(crate) fn validate_wallet_receipt(
     evidence: &mut NodeAdmissionEvidence,
     receipt: &ApprovalGrantConsumptionReceipt,
 ) -> Result<Value, VErr> {
@@ -674,7 +674,7 @@ fn validate_wallet_receipt(
     Ok(value)
 }
 
-fn with_source_locks<T>(f: impl FnOnce() -> T) -> T {
+pub(crate) fn with_source_locks<T>(f: impl FnOnce() -> T) -> T {
     let _genesis = super::system_genesis_routes::SYSTEM_GENESIS_LOCK
         .lock()
         .unwrap_or_else(|p| p.into_inner());
@@ -703,16 +703,16 @@ fn map_commit_failure(error: super::durable_fs::CommitFailure) -> VErr {
     }
 }
 
-fn persist_local(data_dir: &str, family: &str, tail: &str, value: &Value) -> Result<(), VErr> {
+pub(crate) fn persist_local(data_dir: &str, family: &str, tail: &str, value: &Value) -> Result<(), VErr> {
     super::durable_fs::persist_receipt_no_clobber(data_dir, family, tail, value)
         .map_err(map_commit_failure)
 }
 
-fn forced_fault(variable: &str, value: &str) -> bool {
+pub(crate) fn forced_fault(variable: &str, value: &str) -> bool {
     std::env::var(variable).ok().as_deref() == Some(value)
 }
 
-fn load_local(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>, VErr> {
+pub(crate) fn load_local(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>, VErr> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, family) {
         Ok(directory) => directory,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -742,7 +742,7 @@ fn load_local(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>,
     })
 }
 
-fn load_required_exact(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>, VErr> {
+pub(crate) fn load_required_exact(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>, VErr> {
     let local = load_local(data_dir, family, tail)?;
     match local {
         Some(value) => {
@@ -770,7 +770,7 @@ fn load_required_exact(data_dir: &str, family: &str, tail: &str) -> Result<Optio
     }
 }
 
-fn recover_wallet_consumption(data_dir: &str, tail: &str) -> Result<Option<Value>, VErr> {
+pub(crate) fn recover_wallet_consumption(data_dir: &str, tail: &str) -> Result<Option<Value>, VErr> {
     let local = load_local(data_dir, AUTHORITY_CONSUMPTION_DIR, tail)?;
     let agentgres =
         super::substrate_store::read_required_exact(data_dir, AUTHORITY_CONSUMPTION_DIR, tail)
@@ -859,7 +859,7 @@ fn intent_seal(mut intent: Value) -> Result<Value, VErr> {
     Ok(intent)
 }
 
-fn verify_intent_seal(intent: &Value) -> Result<(), VErr> {
+pub(crate) fn verify_intent_seal(intent: &Value) -> Result<(), VErr> {
     let mut material = intent.clone();
     let stored = material["intent_hash"].clone();
     material["intent_hash"] = Value::Null;
@@ -876,7 +876,7 @@ fn verify_intent_seal(intent: &Value) -> Result<(), VErr> {
     Ok(())
 }
 
-fn verify_intent_coordinates(
+pub(crate) fn verify_intent_coordinates(
     operation: SystemLifecycleOperation,
     stored_tail: &str,
     intent: &Value,
@@ -910,7 +910,7 @@ fn verify_intent_coordinates(
     Ok(())
 }
 
-fn remove_intent(data_dir: &str, family: &str, tail: &str) -> Result<(), VErr> {
+pub(crate) fn remove_intent(data_dir: &str, family: &str, tail: &str) -> Result<(), VErr> {
     let directory =
         super::durable_fs::open_family_dir_pinned(data_dir, family).map_err(|error| {
             verr(
@@ -1742,7 +1742,7 @@ fn evidence_intent_value(evidence: &NodeAdmissionEvidence) -> Value {
     })
 }
 
-fn evidence_from_intent(value: &Value) -> Result<NodeAdmissionEvidence, VErr> {
+pub(crate) fn evidence_from_intent(value: &Value) -> Result<NodeAdmissionEvidence, VErr> {
     let authorized = AuthorizedDecision {
         evidence: governed::DecisionEvidence {
             acting_authority_id: value["acting_authority_id"].clone(),
