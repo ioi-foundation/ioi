@@ -2533,7 +2533,7 @@ pub(crate) fn enumerate_family(data_dir: &str, family: &str) -> Result<Vec<(Stri
     Ok(values)
 }
 
-fn ensure_no_pending_intent(data_dir: &str, key: &str) -> Result<(), VErr> {
+pub(crate) fn ensure_no_pending_intent(data_dir: &str, key: &str) -> Result<(), VErr> {
     for operation in [
         SystemLifecycleOperation::Initialize,
         SystemLifecycleOperation::Activate,

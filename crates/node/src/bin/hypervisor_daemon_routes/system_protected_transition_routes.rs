@@ -1234,6 +1234,8 @@ pub(crate) async fn handle_transition(
     }
     let _gate = SYSTEM_ACTIVATION_GATE.lock().await;
     let (source, plan) = match with_source_locks(|| {
+        super::system_activation_routes::ensure_no_pending_intent(&state.data_dir, &key)?;
+        ensure_no_pending_protected_intent(&state.data_dir, &key)?;
         let source = load_protected_source(&state.data_dir, &system_id_for_key(&state.data_dir, &key)?)?;
         check_expected_roots(&body, &source)?;
         let plan = compile_from_source(op, &source)?;
@@ -1529,4 +1531,240 @@ fn system_id_for_key(data_dir: &str, key: &str) -> Result<String, VErr> {
     })?;
     required(&record, "/authorized_genesis/system_id")
         .or_else(|_| required(&record, "/system_id"))
+}
+
+static PROTECTED_REPLAY_CURSOR: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+
+fn verify_protected_intent_coordinates(tail_value: &str, intent: &Value) -> Result<(), VErr> {
+    if intent.get("schema_version").and_then(Value::as_str)
+        != Some("ioi.hypervisor.protected-transition-intent.v1")
+    {
+        return Err(verr(
+            "system_lifecycle_intent_invalid",
+            "intent schema is not the protected-transition intent",
+        ));
+    }
+    let op_name = required(intent, "/op")?;
+    if ProtectedTransitionOp::parse(&op_name).is_none() {
+        return Err(verr(
+            "system_lifecycle_intent_invalid",
+            "intent op is outside the generic protected family",
+        ));
+    }
+    let request_hash = required(intent, "/governed_authority/request_hash")?;
+    if tail_value != tail("asptx_", &request_hash)? {
+        return Err(verr(
+            "system_lifecycle_intent_invalid",
+            "intent tail does not bind its sealed request hash",
+        ));
+    }
+    Ok(())
+}
+
+/// Load the exact chain revision a plan compiled against, by root.
+fn load_chain_by_root(data_dir: &str, chain_root: &str) -> Result<Value, VErr> {
+    record_by_root(data_dir, CHAIN_DIR, "asc_", chain_root, "predecessor chain revision")
+}
+
+/// Reconstruct the durable truth exactly as the sealed plan compiled it:
+/// the predecessor chain revision by its committed root, the log that
+/// revision binds, and the predecessor step that log binds. Append-only
+/// content addressing makes this reconstruction possible even after the
+/// head has moved past this transition.
+fn source_at_plan(
+    data_dir: &str,
+    plan: &CompiledProtectedTransitionPlan,
+) -> Result<ProtectedTransitionSource, VErr> {
+    let chain_root = required(&plan.authority_effect, "/predecessor_chain_head_root")?;
+    let chain_head = load_chain_by_root(data_dir, &chain_root)?;
+    let operation_log = load_log_for_chain(data_dir, &chain_head)?;
+    let previous_step = load_previous_step(data_dir, &operation_log)?;
+    let system_id = required(&plan.authority_effect, "/system_id")?;
+    let activation_effect = load_activation_effect(data_dir, &system_id)?;
+    Ok(ProtectedTransitionSource {
+        activation_effect,
+        previous_step,
+        chain_head,
+        operation_log,
+    })
+}
+
+async fn replay_one_protected(data_dir: &str, tail_value: &str, intent: &Value) -> Result<(), VErr> {
+    verify_intent_seal(intent)?;
+    verify_protected_intent_coordinates(tail_value, intent)?;
+    let plan: CompiledProtectedTransitionPlan =
+        serde_json::from_value(intent["compiled_plan"].clone()).map_err(|error| {
+            verr("system_lifecycle_intent_invalid", error.to_string())
+        })?;
+    let op = plan.op;
+    let source = source_at_plan(data_dir, &plan)?;
+    let recompiled = compile_from_source(op, &source)?;
+    if recompiled != plan {
+        return Err(verr(
+            "system_lifecycle_source_conflict",
+            "replay plan does not reconstruct byte-exactly",
+        ));
+    }
+    let mut evidence = evidence_from_intent(&intent["governed_authority"])?;
+    let governing = required(&source.activation_effect, "/source_governing_authority_ref")?;
+    let rebuilt = prepare_node_evidence_for(
+        &plan.authority_effect,
+        op.as_str(),
+        plan.sequence,
+        op.required_scope(),
+        &governing,
+        &plan.resulting_state_root,
+        evidence.authorized.clone(),
+    )?;
+    if rebuilt.authority_evidence != evidence.authority_evidence
+        || rebuilt.wallet_params.request_hash != evidence.wallet_params.request_hash
+        || rebuilt.wallet_params.consumption_id != evidence.wallet_params.consumption_id
+        || rebuilt.wallet_consumption_ref != evidence.wallet_consumption_ref
+    {
+        return Err(verr(
+            "system_lifecycle_intent_unreadable",
+            "sealed authority or wallet coordinates do not reconstruct",
+        ));
+    }
+    let existing =
+        super::system_activation_routes::recover_wallet_consumption(
+            data_dir,
+            &evidence.wallet_consumption_tail,
+        )?;
+    let wallet_receipt: ApprovalGrantConsumptionReceipt = match existing {
+        Some(value) => serde_json::from_value(value).map_err(|error| {
+            verr(
+                "system_lifecycle_wallet_consumption_invalid",
+                error.to_string(),
+            )
+        })?,
+        None => {
+            match super::wallet_network_capability_client::consume_approval_grant_for_effect_v2(
+                evidence.wallet_params.clone(),
+            )
+            .await
+            {
+                Ok(value) => value,
+                Err(super::wallet_network_capability_client::ResolveError::Refused(message)) => {
+                    if load_required_exact(
+                        data_dir,
+                        AUTHORITY_CONSUMPTION_DIR,
+                        &evidence.wallet_consumption_tail,
+                    )?
+                    .is_none()
+                    {
+                        remove_intent(data_dir, PROTECTED_INTENT_DIR, tail_value)?;
+                    }
+                    return Err(verr(
+                        "system_lifecycle_wallet_consumption_refused",
+                        message,
+                    ));
+                }
+                Err(
+                    super::wallet_network_capability_client::ResolveError::NotConfigured(message)
+                    | super::wallet_network_capability_client::ResolveError::Unavailable(message),
+                ) => {
+                    return Err(verr(
+                        "system_lifecycle_wallet_consumption_unavailable",
+                        message,
+                    ))
+                }
+                Err(super::wallet_network_capability_client::ResolveError::Invalid(message)) => {
+                    return Err(verr(
+                        "system_lifecycle_wallet_consumption_invalid",
+                        message,
+                    ))
+                }
+            }
+        }
+    };
+    let wallet_value = validate_wallet_receipt(&mut evidence, &wallet_receipt)?;
+    let timestamp = ms_to_timestamp(wallet_receipt.consumed_at_ms)?;
+    let tuple = decision_tuple(&evidence)?;
+    let artifacts = build_protected_artifacts(&plan, &source, &tuple, &timestamp)?;
+    with_source_locks(|| {
+        let current = load_local(data_dir, PROTECTED_INTENT_DIR, tail_value)?.ok_or_else(|| {
+            verr(
+                "system_lifecycle_pending_convergence",
+                "replay intent vanished",
+            )
+        })?;
+        if current != *intent {
+            return Err(verr(
+                "system_lifecycle_intent_unreadable",
+                "replay intent changed",
+            ));
+        }
+        persist_protected_graph(data_dir, &artifacts, &evidence, &wallet_value)?;
+        remove_intent(data_dir, PROTECTED_INTENT_DIR, tail_value)
+    })
+}
+
+fn scan_protected_intents(data_dir: &str) -> Result<Vec<(String, Result<Value, VErr>)>, VErr> {
+    Ok(enumerate_family(data_dir, PROTECTED_INTENT_DIR)?
+        .into_iter()
+        .map(|(tail_value, value)| {
+            let checked = (|| {
+                verify_intent_seal(&value)?;
+                verify_protected_intent_coordinates(&tail_value, &value)?;
+                Ok(value)
+            })();
+            (tail_value, checked)
+        })
+        .collect())
+}
+
+/// Refuse a new lifecycle mutation for `key` while any protected intent for
+/// it is still pending; bootstrap pendency is checked by the caller through
+/// the activation module's own choke point.
+pub(crate) fn ensure_no_pending_protected_intent(
+    data_dir: &str,
+    key: &str,
+) -> Result<(), VErr> {
+    for (_tail, intent) in scan_protected_intents(data_dir)? {
+        let intent = intent?;
+        if intent.get("source_record_tail").and_then(Value::as_str) == Some(key) {
+            return Err(verr(
+                "system_lifecycle_pending_convergence",
+                "a protected transition intent is still pending",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Boot/periodic replay driver: converge pending protected intents, keeping
+/// poisoned ones retained with their reasons.
+pub(crate) async fn complete_protected_transition_intents(data_dir: &str, max: usize) {
+    let _gate = SYSTEM_ACTIVATION_GATE.lock().await;
+    let entries = match scan_protected_intents(data_dir) {
+        Ok(entries) => entries,
+        Err((_, message)) => {
+            eprintln!("ProtectedTransition replay scan failed ({message})");
+            return;
+        }
+    };
+    let start = PROTECTED_REPLAY_CURSOR
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    for (offset, (tail_value, result)) in entries.iter().enumerate().take(max) {
+        let _ = offset;
+        let index = (start + offset) % entries.len().max(1);
+        let (tail_value, result) = &entries[index];
+        let intent = match result {
+            Ok(intent) => intent,
+            Err((_, message)) => {
+                eprintln!(
+                    "ProtectedTransition poisoned intent '{tail_value}' retained ({message})"
+                );
+                continue;
+            }
+        };
+        if let Err((_, message)) = replay_one_protected(data_dir, tail_value, intent).await {
+            eprintln!(
+                "ProtectedTransition intent '{tail_value}' retained/incomplete ({message})"
+            );
+        }
+        let _ = tail_value;
+    }
 }

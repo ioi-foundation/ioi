@@ -3312,6 +3312,9 @@ async fn async_main() -> anyhow::Result<()> {
                         governed_max_intents,
                     )
                     .await;
+                    system_protected_transition_routes::complete_protected_transition_intents(&system_data_dir,
+                        governed_max_intents,
+                    ).await;
                 },
             );
             tokio::join!(
