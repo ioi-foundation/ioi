@@ -1,0 +1,45 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-aiip-channel-envelope-profile",
+  "stage_id": "M12",
+  "required_work": [
+    "M12 channel prerequisite"
+  ],
+  "status": "proposed",
+  "objective": "Plan a bilaterally admitted AIIP channel, signed and sequenced envelope family, exact profile negotiation, and mandatory root and receipt manifest between distinct Systems.",
+  "falsifiable_claim": "Only distinct independently governed System endpoints with bilaterally admitted versions, profiles, schemas, roots, and receipts can exchange accepted AIIP packets.",
+  "canon_owners": [
+    "docs/architecture/foundations/aiip.md",
+    "docs/architecture/foundations/common-objects-and-envelopes.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md"
+  ],
+  "contract_families": [
+    "AIIPChannel",
+    "AIIPEnvelope",
+    "AIIPPacketPayload",
+    "AIIPVersionNegotiation",
+    "AIIPProfileManifest",
+    "AIIPSchemaGovernanceDecision",
+    "AIIPMandatoryRootReceiptManifest"
+  ],
+  "dependencies": [
+    "m11-selected-profile-exit-proof",
+    "m5-selected-profile-exit-proof",
+    "m7-semantic-definition-action-plane"
+  ],
+  "exit_criteria": [
+    "Two distinct independently governed System endpoints enroll exact profiles and preserve local operation after disconnect.",
+    "Equal identities and missing endpoint decisions plus version, root, signature, sequence, nonce, and idempotency substitutions fail.",
+    "Retained evidence log contains exactly one literal M12_AIIP_CHANNEL_ENVELOPE_PROFILE_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Substitute equal identity, endpoint decision, profile, version, schema, root, receipt, signature, sequence, nonce, idempotency key, retry state, and disconnect recovery.",
+  "remaining_nonclaims": [
+    "Transport, socket, or node identity does not establish sovereignty.",
+    "No discovery, terms, useful-value, two-sovereign proof, or stage closure claim."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

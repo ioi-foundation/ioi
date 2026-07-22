@@ -493,33 +493,17 @@ const currentHarnessRustCorpus = allFiles(
 const harnessMigrationRow = hypervisorKernelMigrationMatrix
   .split(/\r?\n/u)
   .find((line) => line.startsWith("| `runtime-harness` |"));
-const harnessDeltaRow = canonToCodeDelta
-  .split(/\r?\n/u)
-  .find((line) => line.startsWith("| `HarnessSessionExecutionChain` "));
-for (const [label, row, facts] of [
+for (const [label, row, facts] of [[
+  "_meta/hypervisor-kernel-substrate-migration-matrix.md runtime-harness",
+  harnessMigrationRow,
   [
-    "_meta/hypervisor-kernel-substrate-migration-matrix.md runtime-harness",
-    harnessMigrationRow,
-    [
-      "pure planners over caller-provided proof refs",
-      "No typed `HarnessSessionLaunch` producer existed",
-      "independently loaded a session",
-      "Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach",
-      "Rust did not author or durably admit",
-    ],
+    "pure planners over caller-provided proof refs",
+    "No typed `HarnessSessionLaunch` producer existed",
+    "independently loaded a session",
+    "Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach",
+    "Rust did not author or durably admit",
   ],
-  [
-    "_meta/canon-to-code-delta.md HarnessSessionExecutionChain",
-    harnessDeltaRow,
-    [
-      "pure planners over caller-provided proof refs",
-      "No typed `HarnessSessionLaunch` producer",
-      "independently loads a session",
-      "no end-to-end canonical chain consumption",
-      "route/body marker checks reject a fabricated live-chain claim",
-    ],
-  ],
-]) {
+]]) {
   if (!row) {
     fail(`${label} row is missing.`);
     continue;
@@ -576,16 +560,10 @@ function topLevelRustFunction(source, name) {
   return next < 0 ? tail : tail.slice(0, next);
 }
 
-function requireRowFacts(prefix, facts) {
+function requireMatrixRow(prefix) {
   const row = matrixRow(prefix);
   if (!row) {
-    fail(`_meta/implementation-matrix.md missing source-audited row ${prefix}.`);
-    return "";
-  }
-  for (const fact of facts) {
-    if (!row.includes(fact)) {
-      fail(`_meta/implementation-matrix.md ${prefix} missing honest status fact: ${fact}.`);
-    }
+    fail(`_meta/implementation-matrix.md missing stateless concept-owner row ${prefix}.`);
   }
   return row;
 }
@@ -601,14 +579,6 @@ function mountedRouteMatches(source, routePath, handler) {
 const criticalImplementationSourceAssertions = [
   {
     row: "RuntimeModelRouteSelection`",
-    paths: [
-      "crates/node/src/bin/hypervisor-daemon.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/route_control.rs",
-    ],
-    facts: [
-      "mounted direct-handler compatibility behavior; canonical planner unmounted",
-      "Neither handler calls `plan_route_control`",
-    ],
     mounts: [
       ["/v1/model-mount/routes", "handle_routes_create"],
       ["/v1/model-mount/routes/:id/test", "handle_route_test"],
@@ -630,14 +600,6 @@ const criticalImplementationSourceAssertions = [
   },
   {
     row: "ModelRouteControl`",
-    paths: [
-      "crates/node/src/bin/hypervisor-daemon.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/route_control.rs",
-    ],
-    facts: [
-      "partial direct-handler implementation; canonical planner unmounted",
-      "`plan_route_control` is not called",
-    ],
     mounts: [
       ["/v1/model-mount/routes", "handle_routes_create"],
       ["/v1/model-mount/routes/:id/test", "handle_route_test"],
@@ -659,15 +621,6 @@ const criticalImplementationSourceAssertions = [
   },
   {
     row: "ModelInvocationControl`",
-    paths: [
-      "crates/node/src/bin/hypervisor-daemon.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs",
-    ],
-    facts: [
-      "partial mounted provider-execution path; canonical invocation authority/admission unmounted",
-      "neither `admit_invocation` nor `plan_invocation_authority`",
-    ],
     mounts: [["/v1/model-mount/native-local", "handle_native_local"]],
     functions: [
       {
@@ -680,15 +633,6 @@ const criticalImplementationSourceAssertions = [
   },
   {
     row: "ModelProviderResult`",
-    paths: [
-      "crates/node/src/bin/hypervisor-daemon.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs",
-    ],
-    facts: [
-      "partial execution output; canonical provider-result admission unmounted",
-      "never calls `admit_provider_result`",
-    ],
     mounts: [["/v1/model-mount/native-local", "handle_native_local"]],
     functions: [
       {
@@ -701,14 +645,6 @@ const criticalImplementationSourceAssertions = [
   },
   {
     row: "ModelProviderLifecycle`",
-    paths: [
-      "crates/node/src/bin/hypervisor-daemon.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs",
-    ],
-    facts: [
-      "mounted partial canonical planner",
-      "`lifecycle/provider.rs`",
-    ],
     mounts: [["/v1/model-mount/instances/load", "handle_instances_load"]],
     functions: [
       {
@@ -721,14 +657,6 @@ const criticalImplementationSourceAssertions = [
   },
   {
     row: "ModelLifecycleReceiptControl`",
-    paths: [
-      "crates/node/src/bin/hypervisor-daemon.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs",
-    ],
-    facts: [
-      "partial direct receipt behavior; canonical accepted-receipt planner unmounted",
-      "neither `plan_accepted_receipt_head` nor `plan_accepted_receipt_transition`",
-    ],
     mounts: [["/v1/responses", "handle_responses"]],
     functions: [
       {
@@ -744,14 +672,6 @@ const criticalImplementationSourceAssertions = [
   },
   {
     row: "ModelProviderInventory`",
-    paths: [
-      "crates/node/src/bin/hypervisor-daemon.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs",
-    ],
-    facts: [
-      "partial hand-authored seed/projection; canonical inventory planner unmounted and incompatible",
-      "never calls `plan_provider_inventory`",
-    ],
     functions: [
       {
         source: hypervisorDaemonRoutes,
@@ -767,15 +687,6 @@ const criticalImplementationSourceAssertions = [
   },
   {
     row: "ModelConversationStateControl`",
-    paths: [
-      "crates/node/src/bin/hypervisor-daemon.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/conversation.rs",
-      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/conversation.rs",
-    ],
-    facts: [
-      "partial direct persistence/projection; canonical conversation planner unmounted",
-      "never calls `plan_conversation_state`",
-    ],
     mounts: [["/v1/responses", "handle_responses"]],
     functions: [
       {
@@ -788,18 +699,6 @@ const criticalImplementationSourceAssertions = [
   },
   {
     row: "HypervisorSessionLaunchRecipe`",
-    paths: [
-      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-      "crates/services/src/agentic/runtime/kernel/runtime_hypervisor_session_launch_recipe_admission.rs",
-      "crates/services/src/agentic/runtime/kernel/runtime_harness_session_binding_admission.rs",
-    ],
-    facts: [
-      "planner-only admissions plus an independent host-spawn lane; canonical chain partial/unmounted",
-      "caller-provided",
-      "No typed `HarnessSessionLaunch` producer exists",
-      "does not consume the recipe/binding admission outputs as one launch chain",
-      "Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach",
-    ],
     mounts: [
       [
         "/v1/hypervisor/session-launch-recipe-admissions",
@@ -842,16 +741,6 @@ const criticalImplementationSourceAssertions = [
   },
   {
     row: "HarnessSessionSpawn`",
-    paths: [
-      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-      "crates/services/src/agentic/runtime/kernel/runtime_harness_session_terminal_attach_admission.rs",
-    ],
-    facts: [
-      "consumer-only/partial",
-      "caller-supplied `session_spawn` and `session_readiness`",
-      "does not author or durably admit those input records",
-      "no end-to-end Recipe -> Binding -> Launch -> Spawn -> Readiness -> TerminalAttach consumption",
-    ],
     mounts: [
       [
         "/v1/hypervisor/harness-session-terminal-attachments",
@@ -869,15 +758,6 @@ const criticalImplementationSourceAssertions = [
   },
   {
     row: "RuntimeMcpControl`",
-    paths: [
-      "crates/node/src/bin/hypervisor-daemon.rs",
-      "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-    ],
-    facts: [
-      "`/v1/model-mount/mcp/invoke`",
-      "performs no MCP transport call",
-      "falsely returns `result.status: \"executed\"`",
-    ],
     mounts: [["/v1/model-mount/mcp/invoke", "handle_mcp_invoke"]],
     functions: [
       {
@@ -899,18 +779,11 @@ const criticalImplementationSourceAssertions = [
 ];
 
 for (const assertion of criticalImplementationSourceAssertions) {
-  const row = requireRowFacts(assertion.row, assertion.facts);
-  for (const sourcePath of assertion.paths) {
-    if (row && !row.includes(`\`${sourcePath}\``)) {
-      fail(
-        `_meta/implementation-matrix.md ${assertion.row} must bind owning source ${sourcePath}.`,
-      );
-    }
-  }
+  requireMatrixRow(assertion.row);
   for (const [routePath, handler] of assertion.mounts ?? []) {
     if (!mountedRouteMatches(hypervisorDaemonRoutes, routePath, handler)) {
       fail(
-        `_meta/implementation-matrix.md ${assertion.row} expects ${routePath} to mount ${handler}.`,
+        `source audit for matrix concept ${assertion.row} expects ${routePath} to mount ${handler}.`,
       );
     }
   }
@@ -948,7 +821,7 @@ for (const unmountedDaemonCall of [
 ]) {
   if (hypervisorDaemonRoutes.includes(unmountedDaemonCall)) {
     fail(
-      `Critical model-mount status must be re-audited: hypervisor-daemon.rs now calls ${unmountedDaemonCall}.`,
+      `Critical model-mount source classification must be re-audited: hypervisor-daemon.rs now calls ${unmountedDaemonCall}.`,
     );
   }
 }
@@ -961,7 +834,7 @@ function requireMountedModelRoute(routePath, handler) {
   );
   if (!pattern.test(hypervisorDaemonRoutes)) {
     fail(
-      `crates/node/src/bin/hypervisor-daemon.rs must mount ${routePath} through ${handler} for the source-backed matrix status.`,
+      `crates/node/src/bin/hypervisor-daemon.rs must mount ${routePath} through ${handler} for the direct source audit.`,
     );
   }
 }
@@ -998,11 +871,7 @@ if (
     "Mounted tokenizer handlers must remain wallet-authorized direct whitespace behavior and must not be certified by the unbound tokenizer planner.",
   );
 }
-requireRowFacts("ModelTokenizerControl`", [
-  "mounted direct Rust compatibility implementation",
-  "whitespace",
-  "do not call `model_mount/tokenizer.rs`",
-]);
+requireMatrixRow("ModelTokenizerControl`");
 
 const providerHandler = topLevelRustFunction(
   hypervisorDaemonRoutes,
@@ -1014,13 +883,10 @@ if (
   !providerHandler.includes("secret_ref_hash")
 ) {
   fail(
-    "Mounted provider control status must be backed by wallet authorization, plan_provider_control, and hash-only secret binding.",
+    "Mounted provider control must be backed by wallet authorization, plan_provider_control, and hash-only secret binding.",
   );
 }
-requireRowFacts("ModelProviderControl`", [
-  "calls `plan_provider_control`",
-  "does not prove a live cTEE material adapter",
-]);
+requireMatrixRow("ModelProviderControl`");
 
 const artifactImportHandler = topLevelRustFunction(
   hypervisorDaemonRoutes,
@@ -1037,14 +903,10 @@ if (
   )
 ) {
   fail(
-    "Mounted artifact import/delete status must distinguish the artifact-endpoint planner from the unbound storage-control planner.",
+    "Mounted artifact import/delete source behavior must distinguish the artifact-endpoint planner from the unbound storage-control planner.",
   );
 }
-requireRowFacts("ModelArtifactStorageControl`", [
-  "call `plan_artifact_endpoint`",
-  "artifact deletion are direct daemon handlers",
-  "`storage_control.rs` is not the implementation",
-]);
+requireMatrixRow("ModelArtifactStorageControl`");
 
 const storageDownloadHandlers = [
   "handle_catalog_import_url",
@@ -1062,27 +924,17 @@ if (
     "Mounted catalog/download/storage handlers must remain source-classified as wallet-gated direct fixture/local behavior, not storage-control planner execution.",
   );
 }
-requireRowFacts("ModelCatalogDownloadControl`", [
-  "fixture-only direct Rust implementation",
-  "do not call `storage_control.rs`",
-  "do not",
-  "prove cTEE custody",
-]);
+requireMatrixRow("ModelCatalogDownloadControl`");
 
 if (
   hypervisorDaemonRoutes.includes("/v1/model-mount/catalog/providers") ||
   hypervisorDaemonRoutes.includes("plan_catalog_provider_control")
 ) {
   fail(
-    "Catalog-provider control can no longer be classified as unmounted; update implementation status and conformance.",
+    "Catalog-provider control can no longer be classified as unmounted; update its source audit, crossing index, and conformance.",
   );
 }
-requireRowFacts("ModelCatalogProviderControl`", [
-  "unmounted Rust substrate",
-  "mounts no `/v1/model-mount/catalog/providers*` route",
-  "calls no catalog-provider planner",
-  "not functioning implementation evidence",
-]);
+requireMatrixRow("ModelCatalogProviderControl`");
 
 const receiptGateHandler = topLevelRustFunction(
   hypervisorDaemonRoutes,
@@ -1093,13 +945,10 @@ if (
   receiptGateHandler.includes("plan_receipt_gate")
 ) {
   fail(
-    "Receipt-gate matrix status must be revised if the mounted handler gains authority or planner binding.",
+    "Receipt-gate source classification must be revised if the mounted handler gains authority or planner binding.",
   );
 }
-requireRowFacts("ModelReceiptGateControl`", [
-  "does not authorize the request",
-  "call `receipt_gate.rs`",
-]);
+requireMatrixRow("ModelReceiptGateControl`");
 
 const vaultHandlers = [
   "handle_vault_set",
@@ -1118,10 +967,7 @@ if (
     "Mounted vault routes must remain source-classified as direct wallet-gated hash/in-memory behavior, not vault planner or cTEE custody.",
   );
 }
-requireRowFacts("ModelVaultControl`", [
-  "do not call `vault_control.rs`",
-  "do not use a live cTEE custody adapter",
-]);
+requireMatrixRow("ModelVaultControl`");
 
 const modelMountMcpInvoke = topLevelRustFunction(
   hypervisorDaemonRoutes,
@@ -1139,16 +985,9 @@ if (
     "Model-mount MCP invoke honesty assertion no longer matches the mounted receipt-only handler; inspect behavior before changing canon.",
   );
 }
-requireRowFacts("RuntimeMcpControl`", [
-  "`/v1/model-mount/mcp/invoke`",
-  "performs no MCP transport call",
-  "falsely returns `result.status: \"executed\"`",
-]);
+requireMatrixRow("RuntimeMcpControl`");
 
-requireRowFacts("HarnessContainerLanePlan`", [
-  "not implemented",
-  "no canonical container-lane plan or receipt type is authored",
-]);
+requireMatrixRow("HarnessContainerLanePlan`");
 if (
   !hypervisorDaemonRoutes.includes(
     '"/v1/hypervisor/harness-session-binding-admissions"',
@@ -1167,7 +1006,7 @@ if (
   currentHarnessRustCorpus.includes("HarnessSessionLaunch")
 ) {
   fail(
-    "Harness implementation status must remain bound to pure recipe/binding planners, the independent host-spawn path, caller-supplied terminal-attach records, and an absent typed HarnessSessionLaunch producer.",
+    "Harness source classification must remain bound to pure recipe/binding planners, the independent host-spawn path, caller-supplied terminal-attach records, and an absent typed HarnessSessionLaunch producer.",
   );
 }
 for (const absentType of [
@@ -1289,12 +1128,6 @@ for (const forbidden of [
 
 const mcpStatusRows = [
   [
-    "_meta/implementation-matrix.md",
-    implementationMatrix
-      .split(/\r?\n/)
-      .find((line) => line.startsWith("| `RuntimeMcpControl` |")),
-  ],
-  [
     "_meta/hypervisor-kernel-substrate-migration-matrix.md",
     hypervisorKernelMigrationMatrix
       .split(/\r?\n/)
@@ -1333,12 +1166,6 @@ for (const [rel, row] of mcpStatusRows) {
 }
 
 const modelMountMcpStatusRows = [
-  [
-    "_meta/implementation-matrix.md",
-    implementationMatrix
-      .split(/\r?\n/)
-      .find((line) => line.startsWith("| `ModelMcpWorkflowControl` |")),
-  ],
   [
     "_meta/hypervisor-kernel-substrate-migration-matrix.md",
     hypervisorKernelMigrationMatrix
@@ -2411,9 +2238,6 @@ if (!workProjectionRow) {
 } else {
   for (const required of [
     "typed Work views across GoalRuns, WorkResults, OutcomeRooms, participants, frontier items and claims, Attempts, Findings, VerifierChallenges",
-    "**current compatibility surface only:** current master serves `/__ioi/missions`",
-    "surface registry still declares `owner=Missions`",
-    "those labels are not a visible Work reframing",
     "Work / Rooms with typed WorkResult, OutcomeRoom, participant, frontier/claim, Attempt, Finding, and VerifierChallenge views",
   ]) {
     if (!workProjectionRow.includes(required)) {
@@ -2434,7 +2258,7 @@ const workClaimRow = canonToCodeDelta
   .find((line) => line.startsWith("| `WorkClaimLease` |"));
 if (
   !workClaimRow?.includes(
-    "| implement reassignment; keep acceptance/verdict and federation in their later owner planes |",
+    "| reassignment admission plus acceptance, verdict, and federation at their canonical owner boundaries |",
   )
 ) {
   fail(
@@ -2563,13 +2387,20 @@ for (const required of [
   "`SkillManifest`, `SkillEntry`, `ActiveSkillSetSnapshot`",
   "`RuntimeToolContract`",
   "`MCPPrimitiveNormalization`, `HypervisorMCPGatewayRequirement`, `HypervisorMCPGatewayProfile`",
+]) {
+  if (!implementationMatrix.includes(required)) {
+    fail(`_meta/implementation-matrix.md missing pursuit/skill/MCP concept-owner mapping: ${required}.`);
+  }
+}
+
+for (const required of [
   "raw-tool admission",
   "resource-to-view/lease proof",
   "Task handle distinct from GoalRun identity/status",
   "package requirement/live-profile separation",
 ]) {
   if (!implementationMatrix.includes(required)) {
-    fail(`_meta/implementation-matrix.md missing pursuit/skill/MCP status contract: ${required}.`);
+    fail(`_meta/implementation-matrix.md is missing pursuit/skill/MCP conformance doctrine: ${required}.`);
   }
 }
 
@@ -2580,8 +2411,6 @@ for (const required of [
   "`SkillManifest`, `SkillEntry`, `ActiveSkillSetSnapshot`",
   "`RuntimeToolContract`",
   "`MCPPrimitiveNormalization`, `HypervisorMCPGatewayRequirement`, `HypervisorMCPGatewayProfile`",
-  "top-level `/v1/mcp`",
-  "different protocol/session assumptions",
 ]) {
   if (!canonToCodeDelta.includes(required)) {
     fail(`_meta/canon-to-code-delta.md missing pursuit/skill/MCP implementation drift: ${required}.`);

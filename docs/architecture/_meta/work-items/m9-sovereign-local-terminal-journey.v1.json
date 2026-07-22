@@ -1,0 +1,44 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m9-sovereign-local-terminal-journey",
+  "stage_id": "M9",
+  "required_work": [
+    "M9 minimum sovereign-local lane"
+  ],
+  "status": "proposed",
+  "objective": "Plan the sovereign-local terminal selected journey from package and exact-effect authority through result, delta, export, faults, and offline reconstruction.",
+  "falsifiable_claim": "An independent operator can complete the selected local journey while substitution, revocation, stale fencing, rollback, and retry yield zero unauthorized or duplicate final invocations.",
+  "canon_owners": [
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "docs/architecture/components/wallet-network/doctrine.md",
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md"
+  ],
+  "contract_families": [
+    "LocalIdentitySession",
+    "SovereignLocalExactEffectAuthority",
+    "TemporalVerificationProfile",
+    "TemporalVerificationEvaluation",
+    "EffectAdmissionReceipt",
+    "SelectedM1M8ContractManifest"
+  ],
+  "dependencies": [
+    "Literal selected-profile exits for M1-M8",
+    "Terminal selected routes and gates"
+  ],
+  "exit_criteria": [
+    "An independent operator completes package-to-effect-to-export with the selected local authority path.",
+    "Substitution, revocation, stale fence, rollback, and retry yield zero unauthorized or duplicate final invocations and offline reconstruction passes.",
+    "Retained evidence log contains exactly one literal M9_SOVEREIGN_LOCAL_TERMINAL_JOURNEY_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Substitute principal, session, System, package, intent, grant, resource, effect, fence, result, delta, export, and temporal evidence; inject restart, rollback, revocation, timeout, and retry.",
+  "remaining_nonclaims": [
+    "No portable delegation, managed lane, multi-node, federation, physical action, or public settlement.",
+    "No M9 claim or stage closure without committed terminal evidence."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

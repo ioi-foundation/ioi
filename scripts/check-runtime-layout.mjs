@@ -1082,6 +1082,8 @@ assert(
   "architecture-contract-bar-wiring",
   packageJson.scripts["generate:runtime-action-contracts"] ===
     "node scripts/generate-runtime-action-contracts.mjs --write" &&
+    packageJson.scripts["generate:program-state"] ===
+      "node --test scripts/test-generate-program-state.mjs && node scripts/generate-program-state.mjs" &&
     packageJson.scripts["generate:architecture-contracts"] ===
       "node scripts/generate-architecture-contracts.mjs --write" &&
     packageJson.scripts["check:architecture-contract-bar"] ===
@@ -1094,6 +1096,10 @@ assert(
     ].join(" && ") &&
     packageJson.scripts["check:pre-next-leg"] ===
       "node scripts/check-pre-next-leg.mjs" &&
+    packageJson.scripts["check:canon-to-code-delta"] ===
+      "node --test scripts/test-canon-to-code-delta.mjs && node scripts/check-canon-to-code-delta.mjs" &&
+    packageJson.scripts["check:stateless-master-guide"] ===
+      "node --test scripts/test-stateless-master-guide.mjs && node scripts/check-stateless-master-guide.mjs" &&
     preNextLegSource.includes('"architecture-contract-bar"') &&
     preNextLegSource.includes(
       'args: Object.freeze(["run", "check:architecture-contract-bar"])',
@@ -1101,6 +1107,22 @@ assert(
     preNextLegSource.includes('"conformance-docs"') &&
     preNextLegSource.includes(
       'args: Object.freeze(["run", "check:conformance-docs"])',
+    ) &&
+    preNextLegSource.includes('"canon-to-code-delta"') &&
+    preNextLegSource.includes(
+      'args: Object.freeze(["run", "check:canon-to-code-delta"])',
+    ) &&
+    preNextLegSource.includes('"stateless-master-guide"') &&
+    preNextLegSource.includes(
+      'args: Object.freeze(["run", "check:stateless-master-guide"])',
+    ) &&
+    preNextLegSource.includes('"program-state-generator-regressions"') &&
+    preNextLegSource.includes(
+      '"scripts/test-generate-program-state.mjs"',
+    ) &&
+    preNextLegSource.includes('"work-items"') &&
+    preNextLegSource.includes(
+      'args: Object.freeze(["run", "check:work-items"])',
     ) &&
     preNextLegSource.includes('"compositor"') &&
     preNextLegSource.includes(

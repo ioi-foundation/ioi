@@ -1,0 +1,45 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m8-learning-boundary-provider-exit",
+  "stage_id": "M8",
+  "required_work": [
+    "M8.1-M8.6"
+  ],
+  "status": "proposed",
+  "objective": "Plan admitted institutional-learning boundaries, pre-egress enforcement, rights-eligible export and import, provider removal, model swap continuity, and source-revocation impact.",
+  "falsifiable_claim": "Forbidden evidence stops before egress, eligible lineage remains verifiable, and incumbent provider removal meets frozen continuity floors without hidden tenant or seller crossing.",
+  "canon_owners": [
+    "docs/architecture/foundations/institutional-learning-boundary.md",
+    "docs/architecture/foundations/common-objects-and-envelopes.md",
+    "docs/architecture/components/hypervisor/foundry.md",
+    "docs/architecture/components/hypervisor/evaluations.md"
+  ],
+  "contract_families": [
+    "LearningSourceRightsClaim",
+    "InstitutionalLearningBoundaryProfile",
+    "LearningBoundarySnapshot",
+    "LearningEvidenceEligibility",
+    "LearningEgressReceipt",
+    "LearningExportBundle",
+    "ModelSwapContinuityReport"
+  ],
+  "dependencies": [
+    "m7-semantic-definition-action-plane",
+    "Provider, data, Foundry, evaluation, and rights owner contracts"
+  ],
+  "exit_criteria": [
+    "A forbidden canary stops before egress and seller or cross-tenant cases are denied.",
+    "Eligible lineage exports and imports; incumbent removal meets frozen floors; source revocation triggers its declared impact path.",
+    "Retained evidence log contains exactly one literal M8_LEARNING_BOUNDARY_PROVIDER_EXIT_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Inject forbidden canaries, missing or revoked rights, seller and cross-tenant records, stale boundary snapshots, export omission, provider dependency, model-swap regression, and source revocation.",
+  "remaining_nonclaims": [
+    "No hidden-provider non-learning, equivalent-quality, or model-weight forgetting claim.",
+    "Workflow evidence does not authorize learning or close a stage."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

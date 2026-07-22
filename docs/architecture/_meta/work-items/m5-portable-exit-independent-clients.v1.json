@@ -1,0 +1,41 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m5-portable-exit-independent-clients",
+  "stage_id": "M5",
+  "required_work": [
+    "M5.9",
+    "M5 exit portability proof"
+  ],
+  "status": "proposed",
+  "objective": "Plan a policy-filtered participant state export and two-independent-client conformance proof without host-database dependence.",
+  "falsifiable_claim": "Two independently implemented clients can complete the hosted lifecycle and verify an export bundle that releases live claims and records every exclusion without trusting the host database.",
+  "canon_owners": [
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/foundations/common-objects-and-envelopes.md",
+    "docs/architecture/domains/aiagent/worker-endpoints.md"
+  ],
+  "contract_families": [
+    "ParticipantStateBundle",
+    "ParticipantStateExportReceipt",
+    "ClaimReleaseLineage",
+    "IndependentClientConformanceProfile"
+  ],
+  "dependencies": [
+    "m5-participant-frontier-result-closeout"
+  ],
+  "exit_criteria": [
+    "Two independent clients complete pairing, admission, claim, contribution, revoke-or-retire, and export.",
+    "The bundle verifies without hosted database trust, records exclusions, and releases all live claims.",
+    "Retained evidence log contains exactly one literal M5_PORTABLE_EXIT_INDEPENDENT_CLIENTS_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Omit or mutate participant, claim, result, exclusion, release, predecessor, policy, and host-database fields; attempt export with live claims or foreign roots.",
+  "remaining_nonclaims": [
+    "Portability covers permitted state only; it is not federation or payout.",
+    "No independent-sovereignty, acceptance, settlement, or stage closure claim."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

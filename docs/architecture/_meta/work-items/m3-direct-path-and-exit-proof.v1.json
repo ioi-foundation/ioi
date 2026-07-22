@@ -1,0 +1,41 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m3-direct-path-and-exit-proof",
+  "stage_id": "M3",
+  "required_work": [
+    "M3 aggregate exit",
+    "P0 direct-path prerequisite"
+  ],
+  "status": "proposed",
+  "objective": "Plan an explicit direct pursuit path and aggregate M3 proof so simple eligible work is not forced through rooms, plurality, Campaigns, or System genesis.",
+  "falsifiable_claim": "Simple eligible work completes through one direct path while hard-work fan-out remains optional and every selected M3 exit clause is content-bound.",
+  "canon_owners": [
+    "docs/architecture/foundations/common-objects-and-envelopes.md",
+    "docs/architecture/components/daemon-runtime/default-harness-profile.md",
+    "docs/architecture/components/connectors-tools/contracts.md"
+  ],
+  "contract_families": [
+    "DirectPursuitProfile",
+    "M3EvidenceIndex",
+    "DirectPathRegressionManifest"
+  ],
+  "dependencies": [
+    "m3-pursuit-definition-resolution",
+    "m3-result-lifecycle-negative-retention"
+  ],
+  "exit_criteria": [
+    "Simple eligible work completes without forced room, plurality, Campaign, or System genesis and hard-work fan-out remains opt-in.",
+    "All selected M3 clauses and direct-path regressions are bound into one evidence index.",
+    "Retained evidence log contains exactly one literal M3_DIRECT_PATH_AND_EXIT_PROOF_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Attempt to force a direct-eligible job through room genesis, plurality, Campaign, or System-only paths; replace direct-path result, lifecycle, or evidence roots.",
+  "remaining_nonclaims": [
+    "No P0 readiness, M4 room, independent party, or production claim.",
+    "This proposal closes no M3 stage until its literal exit and record transition are committed."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

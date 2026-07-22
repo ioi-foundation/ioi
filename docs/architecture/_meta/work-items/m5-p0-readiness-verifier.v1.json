@@ -1,0 +1,42 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m5-p0-readiness-verifier",
+  "stage_id": "M5",
+  "required_work": [
+    "P0 after M3-M5"
+  ],
+  "status": "proposed",
+  "objective": "Plan a non-authoritative P0 readiness manifest and verifier that consumes verified M3-M5 exits, preserves the direct path, and exercises one controlled owner boundary.",
+  "falsifiable_claim": "P0 readiness cannot be emitted unless selected M3, M4, and M5 literal exits, a passing direct-path regression, and one controlled owner-boundary fixture are content-bound into one manifest.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/_meta/work-items/README.md",
+    "docs/architecture/foundations/common-objects-and-envelopes.md"
+  ],
+  "contract_families": [
+    "P0ComparisonProtocol",
+    "P0ReadinessManifest",
+    "P0EvidenceIndex",
+    "P0ReadinessChecker"
+  ],
+  "dependencies": [
+    "m3-direct-path-and-exit-proof",
+    "m4-outcome-room-system-spine",
+    "m5-selected-profile-exit-proof"
+  ],
+  "exit_criteria": [
+    "Checker consumes verified literal M3, M4, and M5 exits and proves the simple direct-path regression.",
+    "One controlled owner-boundary fixture emits a hash-bound P0 manifest without granting authority.",
+    "Retained evidence log contains exactly one literal M5_P0_READINESS_VERIFIER_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Substitute, omit, stale, or duplicate any stage exit, direct-path result, owner-boundary fixture, manifest root, evidence index, or success literal.",
+  "remaining_nonclaims": [
+    "P0 is a walking skeleton only: no production, claim-bearing cohort, multi-node, federation, or matched-performance claim.",
+    "Claim-bearing qualification remains M9-gated and this proposal closes no stage."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

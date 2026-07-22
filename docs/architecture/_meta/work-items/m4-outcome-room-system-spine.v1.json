@@ -1,0 +1,49 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m4-outcome-room-system-spine",
+  "stage_id": "M4",
+  "required_work": [
+    "M4.1",
+    "M4.2",
+    "M4.3",
+    "M4.4",
+    "M4.5",
+    "M4.6"
+  ],
+  "status": "proposed",
+  "objective": "Plan the reusable OutcomeRoom package-to-genesis-to-System spine, child admission base, reciprocal membership, receipts, and exported lineage proof.",
+  "falsifiable_claim": "Every exported room child traces to one admitted package, genesis, System, constitution, and room root; stale, wrong-System, unbound, and direct-client mutations cannot bypass the owner boundary.",
+  "canon_owners": [
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/common-objects-and-envelopes.md"
+  ],
+  "contract_families": [
+    "OutcomeRoomPackageRelease",
+    "AutonomousSystemGenesis",
+    "AutonomousSystemConstitution",
+    "ActiveProfileSnapshot",
+    "RoomAdmittedObjectBase",
+    "RoomGoalRunMembership",
+    "RoomTransitionReceipt"
+  ],
+  "dependencies": [
+    "m3-direct-path-and-exit-proof",
+    "M1 and M2 selected System truth"
+  ],
+  "exit_criteria": [
+    "Export verifies package -> genesis -> System -> room -> every child.",
+    "Stale, wrong-System, unbound, and direct-client mutations refuse; hosted aggregation cannot bypass constitution or Agentgres.",
+    "Retained evidence log contains exactly one literal M4_OUTCOME_ROOM_SYSTEM_SPINE_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Substitute package, genesis, System, constitution, room, child base, membership, predecessor, transition root, and direct-client writes.",
+  "remaining_nonclaims": [
+    "Hosted admission only; no external participant or federation claim.",
+    "OutcomeRoom aggregation grants no wallet authority and closes no stage."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

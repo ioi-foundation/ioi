@@ -1,0 +1,41 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m0-literal-exit-evidence-contract",
+  "stage_id": "M0",
+  "required_work": [
+    "M0 proof-bar evidence discipline"
+  ],
+  "status": "proposed",
+  "objective": "Define a machine-checked retained-log contract for literal proof-bar exit values without turning workflow evidence into product authority or reopening M0 capability claims.",
+  "falsifiable_claim": "A proposed proof bar cannot pass when its retained log omits, duplicates, malforms, stales, or reports a non-success exit literal, even when its task process exits successfully.",
+  "canon_owners": [
+    "docs/architecture/_meta/work-items/README.md",
+    "docs/architecture/_meta/source-of-truth-map.md"
+  ],
+  "contract_families": [
+    "ioi.program.work_item.v1",
+    "EvidenceIndex",
+    "RetainedLiteralExitLog"
+  ],
+  "dependencies": [
+    "Existing M0 evidence bundle",
+    "Existing unsigned M0 review hash chain"
+  ],
+  "exit_criteria": [
+    "Checker rejects missing, duplicate, malformed, stale, and non-success *_EXIT literals.",
+    "Evidence index content-binds the retained log while ignoring task process status.",
+    "Retained evidence log contains exactly one literal M0_LITERAL_EXIT_EVIDENCE_CONTRACT_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [
+    "docs/evidence/implementation-plan-reconciliation/m0-exit.v1.txt"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "Predeclare missing, duplicate, conflicting, malformed, stale, truncated, and non-success literal fixtures plus a green-process/no-literal fixture; every fixture must fail closed.",
+  "remaining_nonclaims": [
+    "Unsigned workflow hash chains grant no product authority.",
+    "This proposal reopens no M0 capability claim and closes no stage."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

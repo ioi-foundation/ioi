@@ -1,0 +1,49 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m9-lifecycle-evidence-operator-proof",
+  "stage_id": "M9",
+  "required_work": [
+    "M9.5-M9.9"
+  ],
+  "status": "proposed",
+  "objective": "Plan the restart, provider removal, update, rollback, restore, cleanup, archive, uninstall, retirement, evidence-bundle, and first-operator proof.",
+  "falsifiable_claim": "The selected lifecycle reconstructs and retires without hidden authority or lost obligations, and the offline bundle keeps integrity, valid-as-of, and currentness distinct.",
+  "canon_owners": [
+    "docs/architecture/components/daemon-runtime/platform-operability.md",
+    "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+  ],
+  "contract_families": [
+    "EvidenceIndex",
+    "ReceiptCheckpoint",
+    "OfflineProofBundle",
+    "InstallerUpdateReceipt",
+    "EnvironmentBackupManifest",
+    "HypervisorChangePlan",
+    "ResourceCleanupObligation",
+    "SystemRetirementReceipt",
+    "OperatorUsabilityProtocol"
+  ],
+  "dependencies": [
+    "m9-sovereign-local-terminal-journey",
+    "m9-managed-optionality-overlay where selected",
+    "m9-authority-gateway-equivalence-and-coverage",
+    "Applicable PG-* gates"
+  ],
+  "exit_criteria": [
+    "Restart, provider removal, signed update, rollback, restore, cleanup, archive, uninstall, and retire paths pass.",
+    "Offline evidence and first-operator metrics pass while integrity, valid-as-of, and currentness remain distinct.",
+    "Retained evidence log contains exactly one literal M9_LIFECYCLE_EVIDENCE_OPERATOR_PROOF_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Inject corrupted update, rollback, interrupted restore, missing cleanup, provider loss, stale checkpoint, archive replay, uninstall residue, retirement bypass, and operator-study exclusion.",
+  "remaining_nonclaims": [
+    "No production SLA beyond actually closed gates.",
+    "Lifecycle success cannot promote authority, currentness, product readiness, or stage status by prose."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

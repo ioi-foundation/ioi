@@ -1,0 +1,44 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m1-dual-genesis-and-read-projection",
+  "stage_id": "M1",
+  "required_work": [
+    "M1.6",
+    "M1.7"
+  ],
+  "status": "proposed",
+  "objective": "Plan the distinct-System isolation and honest compact/advanced read-projection proof over the admitted M1 constitutional core.",
+  "falsifiable_claim": "One reusable package can materialize two distinct system identities without shared live identity, lease, credential, or state, while compact and advanced inputs resolve to identical canonical roots and restart-rebuilt projections.",
+  "canon_owners": [
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/common-objects-and-envelopes.md"
+  ],
+  "contract_families": [
+    "AutonomousSystemManifest",
+    "AutonomousSystemGenesis",
+    "AutonomousSystemChain",
+    "ActiveProfileSnapshot",
+    "PolicyFilteredSystemProjection"
+  ],
+  "dependencies": [
+    "m1-genesis-admission",
+    "m1-sequence-zero-materialization",
+    "m1-governed-initialize-activate",
+    "m1-5-protected-transitions"
+  ],
+  "exit_criteria": [
+    "The same package produces two distinct system_id values without shared live identity, lease, credential, or state.",
+    "Compact and advanced inputs resolve identically and restart rebuilds blocker and post-genesis views.",
+    "Retained evidence log contains exactly one literal M1_DUAL_GENESIS_AND_READ_PROJECTION_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Substitute system identity, package root, profile root, projection policy, and live-state references across the two Systems; every cross-System substitution must fail or remain visibly separate.",
+  "remaining_nonclaims": [
+    "No membership, consensus, permanent Systems rail, or network claim.",
+    "This proposed proof activates no M2 work and closes no stage."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

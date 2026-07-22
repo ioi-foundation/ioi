@@ -4,12 +4,16 @@
 // these records carry status, anchors, and proof claims, and this checker
 // keeps them from rotting the way prose status cells do.
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const WORK_ITEMS_DIR = "docs/architecture/_meta/work-items";
 const MATRIX_FILE = "docs/architecture/_meta/implementation-matrix.md";
+const M0_LITERAL_EXIT_LOG =
+  "docs/evidence/implementation-plan-reconciliation/m0-exit.v1.txt";
+const M0_EXIT_REPORT = "docs/evidence/m0-program-control/m0-exit-report.json";
 const STATUSES = new Set([
   "proposed",
   "scoped",
@@ -30,6 +34,13 @@ const REQUIRED_STRING_FIELDS = [
   "source_provenance",
   "last_status_transaction",
 ];
+const PROPOSED_REQUIRED_ARRAY_FIELDS = [
+  "contract_families",
+  "dependencies",
+  "exit_criteria",
+];
+const PROPOSED_SUCCESS_EXIT_LITERAL =
+  /\b[A-Z][A-Z0-9_]*_EXIT=(?:0|PASS|PASSED|SUCCESS|SUCCEEDED|VERIFIED)\b/u;
 
 const errors = [];
 const pending = [];
@@ -44,6 +55,7 @@ const files = fs.readdirSync(dir).filter((name) => name.endsWith(".json")).sort(
 fail(files.length > 0, "no work-item records found");
 
 const seenIds = new Set();
+const recordsById = new Map();
 for (const name of files) {
   const label = `${WORK_ITEMS_DIR}/${name}`;
   let record;
@@ -74,6 +86,7 @@ for (const name of files) {
   );
   fail(!seenIds.has(record.work_item_id), `${label} duplicates work_item_id`);
   seenIds.add(record.work_item_id);
+  recordsById.set(record.work_item_id, record);
   fail(
     /^\d{4}-\d{2}-\d{2}$/u.test(record.last_status_transaction ?? ""),
     `${label} last_status_transaction must be an ISO date`,
@@ -86,6 +99,27 @@ for (const name of files) {
     Array.isArray(record.remaining_nonclaims) && record.remaining_nonclaims.length > 0,
     `${label} must retain explicit nonclaims`,
   );
+
+  if (record.status === "proposed") {
+    for (const field of PROPOSED_REQUIRED_ARRAY_FIELDS) {
+      fail(
+        Array.isArray(record[field]) &&
+          record[field].length > 0 &&
+          record[field].every(
+            (value) => typeof value === "string" && value.trim().length > 0,
+          ),
+        `${label} proposed record must have nonempty string array ${field}`,
+      );
+    }
+    fail(
+      Array.isArray(record.exit_criteria) &&
+        record.exit_criteria.some(
+          (criterion) =>
+            typeof criterion === "string" && PROPOSED_SUCCESS_EXIT_LITERAL.test(criterion),
+        ),
+      `${label} proposed record must declare a literal *_EXIT= success contract`,
+    );
+  }
 
   for (const owner of record.canon_owners ?? []) {
     fail(
@@ -145,6 +179,45 @@ for (const name of files) {
       `${label} is verified but still carries pr_open anchors`,
     );
   }
+}
+
+// M0 is the only stage currently projected as verified. Its legacy JSON exit
+// report is wrapped by one retained literal exit line whose artifact hash is
+// checked here. This does not generalize or close a new bar; the proposed M0
+// record still owns the broader literal-exit contract work.
+try {
+  const log = fs.readFileSync(path.join(repoRoot, M0_LITERAL_EXIT_LOG), "utf8");
+  const literalValues = [...log.matchAll(/^M0_EXIT=(.*)$/gmu)].map(
+    (match) => match[1],
+  );
+  fail(
+    literalValues.length === 1 && literalValues[0] === "0",
+    `${M0_LITERAL_EXIT_LOG} must contain exactly one literal M0_EXIT=0`,
+  );
+  const artifactRefs = [...log.matchAll(/^ARTIFACT=(.*)$/gmu)].map(
+    (match) => match[1],
+  );
+  fail(
+    artifactRefs.length === 1 && artifactRefs[0] === M0_EXIT_REPORT,
+    `${M0_LITERAL_EXIT_LOG} must bind ${M0_EXIT_REPORT}`,
+  );
+  const declaredHashes = [...log.matchAll(/^ARTIFACT_SHA256=([0-9a-f]{64})$/gmu)].map(
+    (match) => match[1],
+  );
+  const reportBytes = fs.readFileSync(path.join(repoRoot, M0_EXIT_REPORT));
+  const actualHash = crypto.createHash("sha256").update(reportBytes).digest("hex");
+  fail(
+    declaredHashes.length === 1 && declaredHashes[0] === actualHash,
+    `${M0_LITERAL_EXIT_LOG} does not bind the current M0 exit-report bytes`,
+  );
+  fail(
+    recordsById
+      .get("m0-literal-exit-evidence-contract")
+      ?.evidence_refs?.includes(M0_LITERAL_EXIT_LOG),
+    `m0-literal-exit-evidence-contract must reference ${M0_LITERAL_EXIT_LOG}`,
+  );
+} catch (error) {
+  errors.push(`cannot validate the retained M0 literal exit: ${error.message}`);
 }
 
 // The matrix must reference every record it delegated status to, and no

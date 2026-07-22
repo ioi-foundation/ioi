@@ -1,0 +1,45 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m11-useful-same-system-distribution",
+  "stage_id": "M11",
+  "required_work": [
+    "M11.1-M11.4"
+  ],
+  "status": "proposed",
+  "objective": "Plan useful complementary-role work across admitted nodes of one System with bounded placement, coordination, reconciliation, and failure semantics.",
+  "falsifiable_claim": "Complementary roles can complete across admitted nodes without placement granting authority or failures creating duplicate effects.",
+  "canon_owners": [
+    "docs/architecture/foundations/common-objects-and-envelopes.md",
+    "docs/architecture/foundations/domain-kernels.md",
+    "docs/architecture/foundations/governed-autonomous-systems.md"
+  ],
+  "contract_families": [
+    "RuntimeAssignment",
+    "RoleTopology",
+    "WorkLease",
+    "ResourceLease",
+    "CapabilityLease",
+    "WorkClaimLease",
+    "CoordinationWatermark",
+    "CoordinationEpoch",
+    "ReconciliationReceipt"
+  ],
+  "dependencies": [
+    "m10-two-failure-domain-continuity"
+  ],
+  "exit_criteria": [
+    "Complementary roles complete across admitted nodes while placement grants no authority.",
+    "Worker, coordinator, node, link, and partition faults yield declared continue, pause, reassign, or fail-closed states with no duplicate effect.",
+    "Retained evidence log contains exactly one literal M11_USEFUL_SAME_SYSTEM_DISTRIBUTION_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Fail workers, coordinators, nodes, links, leases, watermarks, epochs, partitions, reassignment, reconciliation, and final-invoker admission at every boundary.",
+  "remaining_nonclaims": [
+    "Exactly one system_id; no AIIP or independent-party claim.",
+    "No physical-live, cross-sovereign, consensus, or stage closure claim."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

@@ -1,0 +1,45 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-terms-discovery-semantic-negotiation",
+  "stage_id": "M12",
+  "required_work": [
+    "M12.1-M12.6"
+  ],
+  "status": "proposed",
+  "objective": "Plan authority-free discovery, exact CollaborationTerms negotiation, semantic and action profile mapping, and bounded external-protocol bindings.",
+  "falsifiable_claim": "Discovery and protocol completion grant nothing; accepted, countered, declined, expired, or amended terms and mapping risks remain explicit and non-retroactive.",
+  "canon_owners": [
+    "docs/architecture/foundations/aiip.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/foundations/domain-ontologies-and-data-recipes.md",
+    "docs/architecture/domains/aiagent/integration-surface-taxonomy.md"
+  ],
+  "contract_families": [
+    "OutcomeRoomDiscovery",
+    "CollaborationTermsProposal",
+    "CollaborationTermsResponse",
+    "CollaborationTermsReceipt",
+    "OntologyProfile",
+    "ActionProfile",
+    "SemanticMappingDecision",
+    "ExternalProtocolBindingProfile"
+  ],
+  "dependencies": [
+    "m12-aiip-channel-envelope-profile"
+  ],
+  "exit_criteria": [
+    "Accept, counter, decline, expiry, non-retroactive amendment, and mapping-risk cases pass.",
+    "Discovery grants nothing and A2A, MCP, HTTP, or directory completion never becomes IOI authority, verification, or acceptance.",
+    "Retained evidence log contains exactly one literal M12_TERMS_DISCOVERY_SEMANTIC_NEGOTIATION_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Replay, alter, expire, retroactively amend, or cross-bind discovery, terms roots, semantic maps, action profiles, external endpoints, protocol identities, and acceptance decisions.",
+  "remaining_nonclaims": [
+    "No raw private context, shared database, settlement, positive surplus, or stage closure.",
+    "External protocol interoperability is not AIIP authority or verification."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

@@ -1,0 +1,41 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m5-local-agent-pairing",
+  "stage_id": "M5",
+  "required_work": [
+    "M5.1"
+  ],
+  "status": "proposed",
+  "objective": "Plan challenge-bound local-agent pairing across two client implementations with a strict post-pairing proposal boundary.",
+  "falsifiable_claim": "Pairing can be created, inspected, claimed, completed, canceled, expired, and revoked without granting membership, context, budget, tools, reputation, payout, or authority.",
+  "canon_owners": [
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    "docs/architecture/foundations/common-objects-and-envelopes.md",
+    "docs/architecture/domains/aiagent/worker-endpoints.md"
+  ],
+  "contract_families": [
+    "LocalAgentPairingSession",
+    "LocalAgentAdapterProfile",
+    "PairingResolutionSnapshot",
+    "PostPairingProposalBoundary"
+  ],
+  "dependencies": [
+    "m4-outcome-room-system-spine",
+    "Selected identity rail"
+  ],
+  "exit_criteria": [
+    "Two client implementations pass create, inspect, claim, complete, cancel, expire, and revoke.",
+    "Replay and origin, target, key, attempt, or expiry mismatch fail with zero membership, context, budget, tool, or authority grant.",
+    "Retained evidence log contains exactly one literal M5_LOCAL_AGENT_PAIRING_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Replay challenges; substitute origin, target, key, attempt, expiry, adapter, profile, and claimant; race claim, cancel, expire, and revoke.",
+  "remaining_nonclaims": [
+    "Pre-AIIP and proposal-only; no publication, reputation, payout, or federation.",
+    "Pairing is not participation or authority and closes no stage."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

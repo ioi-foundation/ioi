@@ -1,0 +1,43 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m14-l1-authorization-decision",
+  "stage_id": "M14",
+  "required_work": [
+    "M14.5-M14.6"
+  ],
+  "status": "proposed",
+  "objective": "Plan the governed compare-and-authorize decision for an IOI L1 against compatible alternatives, with asset-ledger separation and a valid default no-L1 branch.",
+  "falsifiable_claim": "L1 authorization cannot occur unless a frozen comparison over sovereignty, ordering, security, performance, governance, economics, exit, dispute, and failure passes; the no-L1 branch remains valid.",
+  "canon_owners": [
+    "docs/architecture/foundations/ioi-l1-contract-interfaces.md",
+    "docs/architecture/foundations/ioi-l1-mainnet.md",
+    "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md"
+  ],
+  "contract_families": [
+    "L1CompatibilityComparison",
+    "L1AuthorizationDecision",
+    "SovereigntyOrderingSecurityEvaluation",
+    "PerformanceGovernanceEconomicsEvaluation",
+    "AssetLedgerSeparation",
+    "L1ExitPlan"
+  ],
+  "dependencies": [
+    "m14-demand-security-economics",
+    "All applicable sequencer and assurance gates"
+  ],
+  "exit_criteria": [
+    "The default no-L1 branch remains valid and authorization occurs only when the frozen compatible-alternative comparison passes.",
+    "Exit, dispute, and failure paths already work and credits, provider tokens, cash, payouts, bonds, and native asset remain disjoint.",
+    "Retained evidence log contains exactly one literal M14_L1_AUTHORIZATION_DECISION_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Bias or mutate the comparison, alternative, sovereignty, ordering, security, performance, governance, economics, exit, dispute, failure, or asset-ledger inputs; attempt authorization with an unmet gate.",
+  "remaining_nonclaims": [
+    "No compulsory settlement, token-demand inference, or token-per-worker, run, room, node, or System claim.",
+    "The proposal does not authorize an L1, native asset, mainnet launch, or stage closure."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

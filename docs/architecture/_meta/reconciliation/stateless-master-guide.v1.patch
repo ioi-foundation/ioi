@@ -1,0 +1,2066 @@
+--- a/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
++++ b/internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md
+@@ -1,1968 +1,1938 @@
+ # IOI Target-End-State Master Implementation Guide
+ 
+-Status: internal active implementation master guide.
++Document role: sole internal M0–M14 implementation sequencer.
+ 
+ Authority: [`docs/architecture/_meta/source-of-truth-map.md`](../../docs/architecture/_meta/source-of-truth-map.md)
+ and accepted ADRs. Canon owns meaning; this guide compiles canon into an
+ execution program.
+ 
+ Owns: implementation sequencing, stage dependencies, proof and claim gates,
+ source-plan disposition, and the program evidence index.
+ 
+ Does not own: architecture doctrine, canonical object meaning, authority,
+ runtime truth, implementation-status claims, product membership, or release
+ claims.
+ 
+-Last reconciled against the live worktree: 2026-07-21.
++Status truth rule: durable cut status lives in machine-checked
++[`ioi.program.work_item.v1` records](../../docs/architecture/_meta/work-items/README.md).
++The gitignored [`program-state.json`](./program-state.json) is a derived local
++orientation projection regenerated from those records and retained evidence;
++it is not a second sequencer or status owner. This guide carries doctrine,
++dependencies, activation gates, exit-proof definitions, and pointers only. It
++must not narrate what is currently merged, held, active, blocked, or verified.
+ 
+ Sequencing supersedes: every preserved internal implementation sequence listed
+ in [the source-coverage ledger](#14-source-coverage-and-disposition-ledger).
+ 
+ Sequencing superseded by: none.
+ 
+ Preservation rule: no source plan is deleted, moved, or stripped of detail.
+ Its body remains evidence or specialist guidance, but it schedules work only
+ when this guide activates the corresponding work package.
+ 
+ ## 1. Executive Directive
+ 
+ IOI's next task is not another architecture expansion or a broad application
+ queue. It is to turn the architecture already in canon into one undeniable
+ product proof, then expand only through evidence-bearing distributed,
+ federated, embodied, and public-economic profiles.
+ 
+ The target remains:
+ 
+ > IOI is the open operating stack for bounded distributed autonomous systems.
+ > L0 makes one autonomous institution governable and distributable across its
+ > admitted compute, state, verification, human, and embodied nodes. AIIP makes
+ > selective positive-surplus cooperation between separately sovereign
+ > institutions contractible. IOI L1 supplies optional shared trust and
+ > economic finality only where measured demand justifies it.
+ 
+ The first terminal product proof is narrower:
+ 
+ > An OutcomeRoom-backed bounded software-change institution that a new operator
+ > can create, govern, run, inspect, improve, recover, export, and retire through
+ > supported product surfaces; it admits first-party and local agents, preserves
+ > one durable GoalRun across replaceable sessions and model routes, independently
+ > verifies a proposed change, obtains exact-effect authority, executes once or
+ > refuses, and exports a replayable evidence chain.
+ 
+ This is the minimum profile that can prove the stack is coherent without
+ requiring multi-node continuity, cross-system federation, public settlement,
+ or physical actuation. It is the selected first profile, not the definition of
+ a bounded DAS and not a reason to narrow later horizons.
+ 
+ The expansion order is fixed:
+ 
+ ```text
+ program and claim control
+   -> bounded-System constitutional core
+   -> deployment, membership, transition, and fencing truth
+   -> generic pursuit and result seam
+   -> OutcomeRoom flagship DAS
+   -> admitted participants, local agents, and shared frontier
+   -> honest product workspaces and application catalog
+   -> local ontology and action semantics
+   -> enterprise learning and bounded improvement
+   -> single-node undeniable product proof
+   -> two-failure-domain continuity
+   -> useful same-system distributed work and embodied pre-live proof
+   -> AIIP federation contracts
+   -> two-sovereign Internet-of-Intelligence proof
+   -> demand-gated connected/secured services and optional L1
+ ```
+ 
+ No older phase list may reorder this spine.
+ 
+ ## 2. Authority And Conflict Resolution
+ 
+ ### 2.1 Authority stack
+ 
+ Use the following order when sources disagree:
+ 
+ 1. The subject owner in
+    [`source-of-truth-map.md`](../../docs/architecture/_meta/source-of-truth-map.md)
+    and an accepted ADR.
+ 2. [`execution-horizons.md`](../../docs/architecture/_meta/execution-horizons.md)
+    for canonical build order and claim horizons.
+ 3. [`canon-to-code-delta.md`](../../docs/architecture/_meta/canon-to-code-delta.md)
+    and
+    [`implementation-matrix.md`](../../docs/architecture/_meta/implementation-matrix.md)
+-   for current durable-form and implementation truth.
+-4. The active
++   for non-status object crossings, concept ownership, durable-form doctrine,
++   and code/evidence pointers.
++4. The owning `ioi.program.work_item.v1` record for durable cut status, with
++   `program-state.json` only as its derived session-orientation projection.
++5. Current code and retained evidence for runtime truth and the exact proof
++   scope they actually establish.
++6. The active
+    [`Hypervisor kernel migration matrix`](../../docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md)
+    for the current route-family migration lane.
+-5. This guide for program activation, dependencies, proof aggregation, and
++7. This guide for program activation, dependencies, proof aggregation, and
+    source disposition.
+-6. A specialist ledger or work package explicitly activated by this guide.
+-7. Preserved plans, prompt packs, captures, comparative research, and historical
++8. A specialist ledger or work package explicitly activated by this guide.
++9. Preserved plans, prompt packs, captures, comparative research, and historical
+    evidence.
+ 
+ Publication date, document length, “master” in a title, or an
+ `AUTHORITATIVE` label in an ignored file never outranks that order.
+ 
+ ### 2.2 Conflict procedure
+ 
+ When a conflict appears:
+ 
+ 1. stop only the affected work item;
+ 2. name the exact owner and conflicting statements;
+ 3. determine whether the conflict is doctrine, status, sequencing, or stale
+    implementation detail;
+ 4. resolve doctrine in the owner or an ADR;
+-5. resolve status in the implementation matrix or canon-to-code delta;
++5. resolve durable cut status in the owning work-item record and regenerate
++   `program-state.json` in the same transaction;
+ 6. resolve sequencing in execution horizons;
+-7. update this guide's disposition or stage record;
++7. update this guide only when doctrine, sequencing, an exit-proof definition,
++   or source disposition actually changes through the applicable review;
+ 8. preserve the superseded source and its evidence.
+ 
+ This guide may narrow a claim immediately when evidence fails. It may widen a
+ claim only after owner doctrine, implementation truth, and proof agree.
+ 
+ ### 2.3 Active specialist authorities
+ 
+ Three specialist documents remain active without becoming peer roadmaps:
+ 
+ | Document | Sole active responsibility |
+ | --- | --- |
+ | [`hypervisor-kernel-substrate-unification-master-guide.md`](../../docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md) | Canonical target and terminal contract for convergence on one Rust daemon/Core execution fabric. |
+ | [`hypervisor-kernel-substrate-migration-matrix.md`](../../docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md) | Current macro route-family ownership, remaining terminal blockers, and do-not-recreate ledger. |
+ | [`canon-mechanism-hardening-action-plan.md`](./canon-mechanism-hardening-action-plan.md) | Definitions, evidence, and closure status for the 58 `PG-*` production-integration gates. |
+ 
+ The first two are canonical implementation authorities. The hardening plan is
+ an internal specialist ledger. This guide activates and aggregates their work
+ but does not reproduce their detailed rows.
+ 
+ ## 3. Target Product And Proof Profile
+ 
+ ### 3.1 Target end state
+ 
+ The end state joins one operating fabric rather than a set of adjacent apps:
+ 
+ ```text
+ Product and collaboration
+   Goal Space + Hypervisor clients
+   Home / Systems / Projects / Applications / Work
+   owner, substrate, tool, and extension surfaces
+ 
+ Shared pursuit
+   OutcomeRoom / CollaborativeWorkGraph
+   GoalRunProfile -> GoalRun -> GoalKernel
+   admitted participants, offers, claims, attempts, findings, verification
+ 
+ Governed execution
+   Hypervisor Core + Rust Hypervisor Daemon
+   RuntimeToolContract / HarnessProfile / SkillManifest / WorkflowTemplate
+   Type 1, Type 2, and Type 3 postures over one control plane
+ 
+ Authority, truth, memory, and evidence
+   local/domain policy + wallet.network
+   Agentgres operations, heads, roots, receipts, projections, replay
+   institutional learning boundary + policy-bound MemorySpace
+ 
+ Distribution, federation, and settlement
+   one logical bounded DAS across admitted nodes
+   AIIP only across separately sovereign systems accepting exact terms
+   optional IOI Network services and sparse L1 commitments
+ ```
+ 
+ The five core workspaces are `Home`, `Systems`, `Projects`, `Applications`,
+ and `Work`. The enduring owner applications are `Studio`, `Automations`,
+ `Ontology`, `Data`, `Governance`, `Provenance`, `Evaluations`, `Improvement`,
+ `Foundry`, `Packages`, `Developer Workspace`, and `Developer Console`.
+ `Environments` and `Operations` are substrate applications.
+ `Embodied Systems` is conditional and remains unavailable until its contracts,
+ route, projection, and implementation are real.
+ 
+ ### 3.2 Selected first deployment profile
+ 
+ | Dimension | Frozen first-proof choice |
+ | --- | --- |
+ | Institution | One OutcomeRoom-backed bounded software-change System |
+ | Deployment | One node, one active writer, one failure domain |
+ | Authority | One declared `single_authority` profile with protected amendment |
+ | Admission | One hosted room-admission domain |
+ | Repository | One sandboxed repository and protected sandbox branch |
+ | Pursuit | One immutable GoalRunProfile, one durable GoalRun, optional directed workflow |
+ | Contributors | Human sponsor, disclosed first-party workers, one untrusted local agent |
+ | Verification | One deterministic independent verifier plus retained negative/challenged attempts |
+ | Consequential effect | Apply or refuse one exact verified repository change |
+ | Identity | Deployment-local identity and locally permitted nonportable exact-effect authority; provider-neutral account/session plus passkey-capable step-up is the ordered managed-optionality overlay |
+ | Truth | Agentgres-backed operations, heads, receipts, replay, and export |
+ | Learning | Private correction/eval canary and two substitutable eligible model routes |
+ | Billing | Measured internal cost only |
+ | Network | No AIIP, public payment, IOI enrollment, L1, or native asset dependency |
+ | Embodiment | None |
+ 
+ ### 3.3 Visible terminal journey
+ 
+ A person who did not build IOI must be able to:
+ 
+ 1. obtain a supported release and verify its signer, digest, manifest, and
+    revocation posture without an implicit network fallback;
+ 2. preview install paths, endpoints, custody, supervisor behavior, and egress,
+    then explicitly authorize installation;
+ 3. bootstrap deployment-local identity and locally permitted authority, start
+    the declared local core, observe bounded component readiness, and inspect
+    shared status, doctor, and logs through a supported client;
+ 4. continue through that local identity or, only for the managed-optionality
+    overlay, an eligible identity provider or passkey;
+ 5. choose a bounded software-change template;
+ 6. describe the goal, repository, constraints, budget, verification, data, and
+    authority posture in ordinary product language;
+ 7. review any evidence-bearing project-discovery proposal, select an exact
+    candidate and override set, and explicitly create the resulting Project or
+    development-environment recipe;
+ 8. validate, preview, and simulate the compiled package/genesis proposal;
+ 9. approve genesis and inspect the stable System;
+ 10. start or admit the GoalRun in its OutcomeRoom-backed Work context;
+ 11. pair one local agent through an expiring, origin-bound, proposal-only flow;
+ 12. observe frontier items, claims, attempts, findings, verification, blockers,
+    costs, and course corrections;
+ 13. replace a Session, worker, or eligible model route without replacing the
+    GoalRun;
+ 14. review the exact proposed repository effect and its evidence;
+ 15. unlock a scoped grant with a passkey when the selected authority profile
+     requires it;
+ 16. let the daemon revalidate policy, authority, revocation, information-flow
+     labels, writer fence, target head, idempotency, and effect hash at the final
+     invoker;
+ 17. execute once or refuse with zero unauthorized or duplicate effect;
+ 18. inspect the diff, tests, route, costs, learning eligibility, receipts,
+     state root, and accepted OutcomeDelta;
+ 19. export and verify the evidence offline;
+ 20. disable the incumbent provider and continue above the frozen model-exit
+     threshold using institution-controlled eligible state;
+ 21. exercise signed update, rollback/recall, backup, staged restore,
+     route-binding change, cleanup reconciliation, revocation, archive,
+     stop/uninstall without implicit wipe, and retirement.
+ 
+ The journey fails if any transition requires an unavailable privileged script,
+ hidden database edit, copied bearer authority, fabricated projection, prompt-
+ only state mutation, or manual reconstruction of the proof chain.
+ 
+ ## 4. Program Control Model
+ 
+ ### 4.1 Work-item record
+ 
+ Every implementation unit uses this planning record:
+ 
+ ```text
+ work_item_id
+ stage_id
+ status: proposed | scoped | active | evidence_ready | verified | blocked |
+         superseded | rejected
+ objective
+ falsifiable_claim
+ selected_profile
+ canon_owners
+ current_implementation_evidence
+ dependencies
+ in_scope
+ out_of_scope
+ implementation_actions
+ consequential_effects_and_final_invokers
+ applicable_pg_ids
+ positive_proof
+ adversarial_or_fault_proof
+ product_journey_and_states
+ metrics_and_frozen_thresholds
+ compatibility_and_migration
+ evidence_index
+ remaining_nonclaims
+ rollback_or_stop_rule
+ source_provenance
+ ```
+ 
+ This is internal planning syntax, not a new canonical envelope.
+ 
+ ### 4.2 Admission rule
+ 
+ A work item starts only when:
+ 
+ - its claim can fail;
+-- its owner documents and current status rows have been read;
++- its owner documents and current work-item records have been read;
+ - its selected deployment profile and nonclaims are explicit;
+ - upstream contracts are verified or explicitly simulated;
+ - metrics and thresholds are frozen before observation;
+ - every consequential effect names its final invoker;
+ - applicable `PG-*` gates are mapped without changing their definitions;
+ - negative and inconclusive results have a durable retention path;
+ - the product projection, if any, cannot fabricate missing owner truth.
+ 
+ ### 4.3 Completion bundle
+ 
+ No schema, route, UI, test, or receipt closes a work item alone. A verified item
+ contains all applicable parts of:
+ 
+ ```text
+ owner-approved contract and invariants
+   + registered schema and generated Rust/TypeScript form
+   + compatibility and migration rules
+   + Rust daemon admission/execution path
+   + Agentgres operation/head/root/receipt/replay path
+   + authority, safety, IFC, budget, fence, and idempotency checks
+   + positive, negative, substitution, stale-state, and fault evidence
+   + policy-filtered product projection and honest degraded states
+-  + status-index updates
++  + work-item-record update and regenerated local program-state projection
+   + exported evidence index
+   + explicit remaining nonclaims
+ ```
+ 
+ An item is blocked, not partial-success, when a required owner boundary is
+ replaced by a fixture or manual edit.
+ 
+ ### 4.4 Stage state
+ 
+ Stages use:
+ 
+ | State | Meaning |
+ | --- | --- |
+ | `pending` | Prerequisites or activation decision not yet satisfied. |
+ | `active` | At least one admitted work item is executing. |
+ | `evidence_ready` | Positive path exists; adversarial and release evidence is under review. |
+ | `verified` | The stage exit proof and required rails close. |
+ | `blocked` | A named external decision, authority, dependency, or environment prevents progress. |
+ | `superseded` | Canon changed the stage; evidence is retained and the master is revised. |
+ 
+ Only proof changes a stage to `verified`.
+ 
+-## 5. Current Starting Truth
++## 5. Status Truth And Session Orientation
+ 
+-This is a dated implementation baseline, not a claim that the worktree is
+-clean or every adjacent change is merged:
++This guide intentionally contains no dated implementation baseline. Before
++starting or reviewing a work item:
+ 
+-| Plane | Current truth | Program consequence |
+-| --- | --- | --- |
+-| Contract registry/compiler | A bounded reference mechanism exists for every revision in the canonical registry, with checked fixtures and generated projections; the registry checker owns the exact census. | Expand only for contracts pulled by an active stage; do not attempt a prose-to-schema rewrite of all canon. |
+-| Daemon/Core | The JS runtime daemon is deleted; Rust `hypervisor-daemon` is the sole runtime surface. Route-family authority, replay, projection, and stable protocol depth remain partial. | The kernel migration rail remains active through every stage. Never restore command transport, bridge binaries, JS truth, or fail-open facades. |
+-| Agentgres/proof | Object, replay, branch, fencing, lifecycle, receipt, and proof precursors exist. Production append/checkpoint/export and many canonical objects remain partial or planned. | Every stage must cross a real Agentgres admission/replay boundary before claiming durable truth. |
+-| Wallet authority | Portable v1/v2 grant and proof mechanisms exist. The exact provider-neutral sign-in, WebAuthn review, context-bound v3 grant, recovery, and final-invoker journey is not built. | The managed sign-in-to-effect path is a release blocker only for the M9 managed-optionality overlay. The sovereign-local lane instead requires its terminal deployment-local identity and locally permitted nonportable exact-effect authority path; neither lane may be simulated by UI. |
+-| Bounded System | Canonical package/genesis/constitution/deployment object families are not implemented; fencing has only a partial mechanism. | M1 and M2 precede permanent Systems UX and the flagship proof. |
+-| Pursuit and rooms | Narrow GoalRun and held-stack result/room precedents exist. Complete profile resolution, room commitments, participant leases, frontier, claims, findings, and challenges are absent or partial. | M3–M5 build the generic and collective work spine before calling the room a DAS proof. |
+-| Product taxonomy | A static taxonomy-v2 shadow compiler is partial. Systems has no durable read model; Work is a compatibility projection; dynamic policy filtering and extension lifecycle are missing. | Product migration is pulled by M1–M5 and closes in M6; a capture cannot create product membership. |
+-| Learning/improvement | Foundry, eval, proposal, and rights ingredients exist. The compiled institutional boundary and canonical Campaign spine are not production truth. | M8 proves enterprise-owned learning and one order-0 campaign without making Campaign mandatory. |
+-| Embodied Runtime | Admission/reference mechanisms exist; native compiler, scheduler, local supervisor, adapters, persistent physical receipts, representative hardware proof, and Embodied Systems app remain planned. | M11 first closes simulation/SIL/HIL/shadow; live physical claims use a later overlay and `PG-5.*`. |
+-| Federation/network | AIIP federation, connected/secured services, IOI L1, and native-asset economics remain planned or speculative. | M12–M14 stay gated behind independent systems, positive surplus, real demand, and security economics. |
+-| Managed-work accounting | A deterministic reference mechanism exists. It is not entitlement, supplier reconciliation, cash movement, payout, tax, or a cross-process ledger. | Product telemetry may measure cost early; commercial claims wait for the named production gates. |
+-| Design system | `packages/design-system` exists and Hypervisor Web consumes it. | The original package Track 1 is complete; broader adoption and ESM-native work are conditional UX infrastructure. |
+-
+-Before starting an item, refresh the relevant row from current code and the
+-canonical status indexes. This baseline is not permission to assume stasis.
++1. read the owning `ioi.program.work_item.v1` record under
++   [`docs/architecture/_meta/work-items/`](../../docs/architecture/_meta/work-items/README.md);
++2. validate those records with `npm run check:work-items`;
++3. inspect the relevant canonical owner and the machine-verified
++   [`canon-to-code-delta.md`](../../docs/architecture/_meta/canon-to-code-delta.md)
++   projection;
++4. inspect the named code and retained evidence rather than inferring state
++   from this guide; and
++5. for a local session-wide view, read and validate the derived
++   [`program-state.json`](./program-state.json).
++
++No pointer in this section upgrades a cut, stage, route, contract, product, or
++claim. Only the owning status record and its literal retained exit evidence do
++so.
+ 
+ ## 6. Mandatory Rails
+ 
+ The stages below are the dependency order. These rails advance inside every
+ stage and must not become competing roadmaps:
+ 
+ | Rail | Required behavior |
+ | --- | --- |
+ | `R-CONTRACT` | Owner-approved schema/invariants, registry metadata, generated Rust/TypeScript projections, compatibility rules, and adversarial fixtures. |
+ | `R-RUNTIME` | One Rust-owned daemon/Core admission and execution path; clients, harnesses, MCP, apps, and adapters remain protocol clients. |
+ | `R-TRUTH` | Agentgres operation, exact head/root, artifact/receipt linkage, replay/recovery, projection, and offline evidence where claimed. |
+ | `R-AUTH` | Current policy/authority, revocation, information flow, budget, writer fence, effect recovery, idempotency, and final-invoker revalidation. |
+ | `R-PRODUCT` | Policy-filtered typed views over real state, including empty, denied, unavailable, degraded, recovery, and completed states. |
+ | `R-OPS` | Fault posture, metrics, cost evidence, assurance stage, applicable `PG-*` gates, migration, rollback, and retained nonclaims. |
+ 
+ ### 6.1 Runtime-convergence rail
+ 
+ The canonical kernel guide and migration matrix own this rail. A macro cut is
+ valid only when it:
+ 
+ 1. replaces a fail-closed or split JS surface with a positive Rust daemon API;
+ 2. moves the selected route family's admission, authority, receipt,
+    Agentgres commit, projection, replay, and protocol shape together;
+ 3. deletes or demotes the old authoring path in the same cut;
+ 4. adds positive and negative conformance;
+ 5. updates the migration matrix once at the macro boundary.
+ 
+ Green current-tier conformance is necessary but does not prove terminal
+ ownership. M9 requires terminal ownership for every route used by the selected
+ product proof; later stages require the same for their added routes.
+ 
+ ### 6.2 Production-gate rail
+ 
+ The hardening plan remains the sole definition and closure ledger for the 58
+ `PG-*` gates. This guide records only applicability:
+ 
+ - `required_now`: blocks the selected stage or release profile;
+ - `conditional`: blocks only when the named posture is selected;
+ - `later`: belongs to a later stage;
+ - `out_of_scope`: needs separate commercial, legal, or deployment authority.
+ 
+ No item may close a `PG-*` gate by restating it here.
+ 
+ ## 7. Canonical Execution Spine
+ 
+ M0 is program control. M1–M14 are a one-to-one operationalization of the
+ canonical fourteen-step build sequence in `execution-horizons.md`.
+ 
+ ### M0 — Program Control And Claim Lock
+ 
+-Status: verified (exit proof `docs/evidence/m0-program-control/m0-exit-report.json`,
+-2026-07-21). The M0.9 kernel-namespace residual keeps shrinking under
+-WP-RUNTIME through authority-preserving extractions without reopening this
+-exit claim, and every new externally reachable route still re-enters the M0
+-census and requires a new signed review epoch.
++Status and evidence pointer: read the M0 work-item records, the derived
++`program-state.json` projection, and the literal M0 exit report referenced by
++those records. Every new externally reachable route re-enters the M0 census
++and its unsigned workflow hash-chain review. That workflow evidence grants no
++product authority; wallet grants, sealed intents, and receipts remain the
++product authority model.
+ 
+ Objective: freeze what is being built, what is already true, what every old
+ plan contributes, and which claims remain unavailable.
+ 
+ Required work:
+ 
+ - `M0.1` refresh the source-of-truth owner map and accepted ADR list;
+ - `M0.2` snapshot the canonical delta and relevant implementation-matrix rows;
+ - `M0.3` inventory every externally reachable route in one hashed mount
+   manifest, classify it as authenticated, explicitly public, or internal-only,
+   name the final invoker for every consequential path, and prove that any MCP
+   projection re-enters the same authoritative admission and invocation path;
+ - `M0.4` freeze the selected first deployment profile and nonclaims;
+ - `M0.5` maintain the source-plan disposition ledger in this guide;
+ - `M0.6` map all 58 `PG-*` gates to the selected profile without redefining
+   them;
+ - `M0.7` create the program evidence index, release ladder, and blocker ledger;
+ - `M0.8` record current product, reliability, cost, and comprehension baselines;
+ - `M0.9` freeze the complete `RuntimeKernelService` trust-boundary audit. Every
+   public facade method must appear exactly once with its canonical owner,
+   authority-crossing posture, truth/effect/receipt relevance, proposed
+   disposition, and required negative proof. Method or line count alone is not
+   an extraction criterion; the audit verifier must fail on missing, duplicate,
+   renamed, or newly added unaudited methods.
+ 
+-Current implementation evidence (2026-07-21): the 198-method baseline is
+-frozen and machine checked. `RuntimeKernelService` now exposes only its
+-constructor plus 35 trusted methods; owner and read-only projection methods are
+-separated; two compatibility methods are retired; and eight unproved effects
+-are quarantined behind an explicit compatibility gateway. This closes the
+-service/type-boundary cut, not M0.9 as a whole: 52 residual delegate modules
+-remain across the 134-file physical `runtime/kernel/` namespace, including four
+-mixed-trust modules. The exact residual is held in
+-`runtime-kernel-namespace-residual.v1.json` and must shrink only through
+-authority-, writer-, receipt-, and negative-path-preserving extractions.
+-
+ Exit proof:
+ 
+ - every selected object has an owner;
+ - every selected effect has a final invoker;
+ - the live `RuntimeKernelService` public-method inventory matches the audit
+   exactly, and no proposed extraction is mistaken for completed trust-boundary
+   proof;
+ - every old plan has an explicit disposition and work-item mapping;
+ - the selected profile, thresholds, nonclaims, and rollback rules are frozen;
+ - no ignored guide still functions as a competing sequencer.
+ 
+ Nonclaim: M0 does not close any architecture or production capability.
+ 
+ ### M1 — Bounded-System Constitutional Core
+ 
+-Status: active — M1.1–M1.4 are merged daemon/Agentgres truth (implementation
+-matrix M1 row); the governed initialize/activate prefix is a complete held
+-cut awaiting its sequence-7 review-epoch attestation; M1.5–M1.7 remain
+-pending. The live cut pointer is `program-state.json`.
++Status and evidence pointer: read the M1 work-item records and the derived
++`program-state.json` projection. This stage definition makes no present-tense
++implementation claim.
+ 
+ Canonical build step: 1.
+ 
+ Prerequisites: M0 and registered contracts pulled by this stage.
+ 
+ Objective: let one immutable package instantiate a real bounded System with a
+ protected constitutional and lifecycle identity.
+ 
+ A valid `single_authority` deployment with no distributed consensus is still a
+ bounded intelligent-blockchain state machine when its constitution, admitted
+ transitions, authority, receipts, replay, lifecycle, and effect boundaries are
+ real. Consensus, replication, and public settlement are profile choices, not
+ the definition of boundedness.
+ 
+ Required work:
+ 
+ - `M1.1` define and register the package/release manifest, genesis,
+   constitution, amendment, ordering/admission/finality, oracle/evidence,
+   lifecycle, and optional enrollment contracts;
+ - `M1.2` compile immutable package content into a proposed genesis root without
+   creating live state;
+ - `M1.3` admit genesis through the owning authority, daemon, and Agentgres
+   boundaries;
+ - `M1.4` freeze active component/profile refs and sequence-zero operation,
+   receipt, transition, and state roots;
+ - `M1.5` implement distinct protected amendment, migration/succession,
+   suspension, dissolution, and enrollment transitions;
+ - `M1.6` prove two genesis operations from one package create distinct stable
+   Systems without shared live state;
+ - `M1.7` expose compact preview, advanced declaration, blocker, and post-genesis
+   read projections without permanent Systems navigation.
+ 
+ Exit proof:
+ 
+ - malformed, mismatched, stale, or ordinary-authority attempts admit nothing;
+ - protected fields change only through their declared authority paths;
+ - genesis, active constitution, profiles, roots, and receipts reconstruct
+   after restart;
+ - the package remains reusable and contains no live lease, credential, gateway,
+   run, node, or System identity.
+ 
+ Pulled product surfaces: Studio package/genesis composition, Governance
+ preview, Packages lifecycle, provisional System detail.
+ 
+ Nonclaims: multi-node continuity, public consensus, IOI Network assurance, and
+ general correctness.
+ 
+ ### M2 — Deployment, Membership, Fencing, And Transition Truth
+ 
+ Canonical build step: 2.
+ 
+ Prerequisites: verified M1.
+ 
+ Objective: separate desired topology from observed membership and make every
+ writer/effect transition reconstructable and fenced.
+ 
+ Required work:
+ 
+ - `M2.1` admit deployment, durability, failure-domain, node-role, and failover
+   profiles separately from node identity;
+ - `M2.2` implement membership proposal/admission, role lease, readiness,
+   catch-up, watermark, state-root, drain, removal, and degraded-state records;
+ - `M2.3` bind one single-node active-writer epoch and transition commitment to
+   the System;
+ - `M2.4` make active resource fences daemon-generated and impossible for a
+   caller to author;
+ - `M2.5` bind selected final invokers to current membership, epoch, resource,
+   grant, and effect facts;
+ - `M2.6` preserve lost/ambiguous suffix and reconciliation obligations rather
+   than inferring success from timeout or restore;
+ - `M2.7` rebuild desired and observed projections from Agentgres-backed truth;
+ - `M2.8` implement immutable route bindings whose ownership, TLS, target,
+   observed state, activation head, renewal, detach, and drift remain separate
+   from environment ports;
+ - `M2.9` implement manifest-complete environment backups and staged restore
+   through `HypervisorChangePlan`, including aggregate read-only target preflight,
+   apply-time revalidation, per-secret disposition, full-byte verification, and
+   destination-local credential re-resolution;
+ - `M2.10` make activation a forward-only compare-and-swap and persist resource
+   cleanup obligations across parent deletion, provider loss, rollback,
+   supersession, and ambiguous effects.
+ 
+ Exit proof:
+ 
+ - a stale, foreign, deposed, malformed, or caller-authored writer context
+   reaches zero effectors;
+ - restart repairs projections without hiding fork, gap, tamper, collision, or
+   unreadable legacy state;
+ - node placement cannot widen authority, finality, or System identity;
+ - desired topology and observed readiness remain visibly distinct; and
+ - incomplete backup manifests, stale restore preflights, failed or superseded
+   candidates, and ambiguous cleanup outcomes cannot advance active state or
+   disappear with their parent objects.
+ 
+ Pulled product surfaces: Systems topology preview, Operations member actions,
+ Environments placement, Provenance transition evidence.
+ 
+ Nonclaims: automated failover, leader election, consensus, or two-node
+ continuity.
+ 
+ ### M3 — Generic Pursuit And Result Seam
+ 
+ Canonical build step: 3.
+ 
+ Prerequisites: verified M1–M2 for System-bound work; direct non-System work
+ continues under its own valid profile.
+ 
+ Objective: make pursuit reusable, durable, generic beyond software patches,
+ and independent of one Session, model, worker, or harness.
+ 
+ Required work:
+ 
+ - `M3.1` admit immutable `GoalRunProfile` and `WorkflowTemplate` releases as
+   distinct owners;
+ - `M3.2` resolve exact component requirements and freeze profile revision/hash,
+   admitted overrides, transitive component set, and resolution receipt into
+   every new GoalRun;
+ - `M3.3` bind `SkillManifest`, `SkillEntry`, and
+   `ActiveSkillSetSnapshot` without giving instructions executable authority;
+ - `M3.4` operate the GoalKernel orient-plan-act-observe-verify-correct loop over
+   explicit GoalGroundingLoop state;
+ - `M3.5` bind HarnessProfile/AgentHarnessAdapter resolution and leased
+   RuntimeToolContracts without making MCP or a harness runtime truth;
+ - `M3.6` admit generic `WorkResult` and `OutcomeDelta`, retaining
+   `ImplementationResultPayload` as one profile;
+ - `M3.7` bind typed lifecycle, cancellation fanout, archive, snapshot, and
+   archive-only replay at each owner's legal mutation boundary;
+ - `M3.8` preserve negative, invalid, inconclusive, superseded, and challenged
+   outputs.
+ 
+ Exit proof:
+ 
+ - two runs reuse one profile without shared live state;
+ - a profile, skill, workflow, package, or harness cannot execute, grant
+   authority, or own domain/campaign state;
+ - Session, worker, eligible provider, and harness replacement preserve GoalRun
+   identity and exact history;
+ - cancellation drains, fences, times out, compensates, or reconciles according
+   to typed policy;
+ - generic results work for at least one non-software payload.
+ 
+ Pulled product surfaces: Work / Goals, Sessions, Studio, Automations,
+ Developer Workspace, Provenance.
+ 
+ Nonclaim: collective pursuit or room admission.
+ 
+ ### M4 — OutcomeRoom As The Flagship Bounded DAS
+ 
+ Canonical build step: 4.
+ 
+ Prerequisites: verified M1–M3.
+ 
+ Objective: compile the reusable OutcomeRoom package through genesis into a real
+ bounded-System instance whose shared graph is cryptographically continuous.
+ 
+ Required work:
+ 
+ - `M4.1` bind package/release, room genesis, stable `system_id`, constitution,
+   deployment, admission mode, oracle/evidence, lifecycle, and root set;
+ - `M4.2` require `RoomAdmittedObjectBase` on every durable room child;
+ - `M4.3` bind expected revision, predecessor commitment, decision, resulting
+   commitment/root, and receipt on every shared-state transition;
+ - `M4.4` bind reciprocal room/GoalRun membership without making OutcomeRoom a
+   runtime or GoalRun a global collaboration graph;
+ - `M4.5` implement hosted admission honestly as one declared domain rather than
+   a shared-database shortcut;
+ - `M4.6` expose room lifecycle, graph head, blockers, authority, costs, and
+   evidence from reconstructable truth.
+ 
+ Exit proof:
+ 
+ - every room transition refuses stale heads, unbound actors, wrong System,
+   missing roots, changed bodies, and direct client writes;
+ - package-to-genesis and room-child lineage verifies from exported evidence;
+ - the hosted aggregate cannot bypass the bounded-System constitution or
+   Agentgres admission path.
+ 
+ Pulled product surfaces: ioi.ai Goal Space, Work / Rooms, Systems context,
+ Governance, Provenance.
+ 
+ Nonclaim: external participants, open challenges, or federated admission.
+ 
+ ### M5 — Participants, Local Agents, And Shared Frontier
+ 
+ Canonical build step: 5.
+ 
+ Prerequisites: verified M4 and the selected identity/authority rail.
+ 
+ Objective: let humans and heterogeneous agents contribute useful work without
+ pairing, prompts, rank, or runtime access becoming ambient authority.
+ 
+ Required work:
+ 
+ - `M5.1` implement `LocalAgentPairingSession` create, inspect, claim, complete,
+   cancel, expire, and revoke with challenge, key, origin, target, attempt, and
+   single-use binding;
+ - `M5.2` admit `RoomParticipationRequest` and issue bounded
+   `RoomParticipantLease` only after an explicit decision;
+ - `M5.3` admit resource and capability offers bound to real inventory and
+   eligibility evidence;
+ - `M5.4` implement pull-based `WorkFrontierItem` and `WorkClaimLease`
+   transitions with TTL, heartbeat, backpressure, renewal, release, and
+   revocation;
+ - `M5.5` bind each `Attempt` to one claim and one bounded GoalRun;
+ - `M5.6` admit positive, negative, exploit, invalid, and inconclusive
+   `Finding` records with evidence;
+ - `M5.7` admit `VerifierChallenge`, resolution, and acceptance-blocking rules;
+ - `M5.8` admit room-scoped WorkResult and OutcomeDelta through the exact
+   participant, lease, predecessor, commitment, receipt, and root spine;
+ - `M5.9` export a policy-filtered `ParticipantStateBundle` and release all
+   claims on exit or revocation.
+ 
+ Exit proof:
+ 
+ - pairing grants no membership, context, budget, tools, reputation, payout, or
+   authority;
+ - a guest can propose but cannot self-admit results or effects;
+ - replay, origin mismatch, wrong target, exceeded attempts, expired lease, and
+   revoked participant all fail closed;
+ - revocation releases claims and preserves attribution/evidence;
+ - at least two independently implemented clients complete pairing,
+   participation, one claim, contribution, and exit.
+ 
+ Pulled product surfaces: Add local contributor, aiagent My/Organization
+ workers, Work / Rooms participants/offers/frontier/claims/findings,
+ Evaluations challenges.
+ 
+ Nonclaim: public marketplace publication, federation, correctness, or payout.
+ 
+ ### M6 — Honest Product Workspaces And Application Catalog
+ 
+ Canonical build step: 6.
+ 
+ Prerequisites: real M1–M5 read models. Static shadow compilation may continue
+ before full activation, but permanent migration may not.
+ 
+ Objective: make the product topology reflect canonical objects without moving
+ truth or authority into the shell.
+ 
+ Required work:
+ 
+ - `M6.1` complete the normalized product-surface definition/release/
+   installation/System-interface/serving record split;
+ - `M6.2` make the catalog compiler daemon-admitted, request-scoped,
+   policy-filtered, tenant-safe, and context-safe;
+ - `M6.3` make Systems render identity, constitution, lifecycle, package,
+   desired/observed topology, work, authority, evidence, improvement, and
+   interfaces without owning them;
+ - `M6.4` make Work render typed GoalRun, OutcomeRoom, AutomationRun, Session,
+   WorkItem, WorkRun, queue, review, incident, and history subjects;
+ - `M6.5` stop new generic Mission writes and resolve legacy records to one
+   typed backing subject through reviewable alias/migration receipts;
+ - `M6.6` keep Governance as decision surface, Operations as admitted
+   infrastructure/member action surface, and Provenance as evidence projection;
+ - `M6.7` make Packages own local package lifecycle while Marketplace remains
+   optional discovery/commerce;
+ - `M6.8` preserve direct Session, Project, Automation, and stand-alone GoalRun
+   creation without forced System genesis;
+ - `M6.9` close the post-taxonomy `UX-00` seed-coverage ledger against the
+   current application topology;
+ - `M6.10` migrate canonical routes/navigation only after typed aliases preserve
+   query, hash, embed, return path, Project, System, and subject context.
+ - `M6.11` treat generated React or other domain applications as replaceable
+   System-interface packages and projections; neither one UI instance nor
+   multiple UI replicas becomes the System, its runtime truth, or its
+   failover/coordination layer.
+ 
+ Exit proof:
+ 
+ - shell, catalog, command palette, contextual launch, and API projections
+   compile from one registered source;
+ - no draft, recalled, disabled, unavailable, foreign-tenant, or unbound surface
+   becomes launchable;
+ - every tool has one owner breadcrumb;
+ - no surface is promoted by screenshot, capture, pixel parity, or copied
+   taxonomy;
+ - Systems and Work expose honest empty, denied, unavailable, degraded,
+   recovery, and completed states;
+ - product-usability thresholds in the selected cohort are frozen and met.
+ 
+ Pulled product surfaces: all five core workspaces, twelve owner applications,
+ two substrate applications, conditional Embodied Systems registration, and
+ extension/tool projections.
+ 
+ Nonclaim: operational depth for every registered surface.
+ 
+ ### M7 — Local Ontology And Action Semantics
+ 
+ Canonical build step: 7.
+ 
+ Prerequisites: verified M1–M6 for System-bound semantic state.
+ 
+ Objective: let each domain own versioned meaning and compile semantic intent
+ into typed actions without semantics granting power.
+ 
+ Required work:
+ 
+ - `M7.1` admit immutable ontology versions, overlays, compatibility, and
+   deprecation contracts per namespace;
+ - `M7.2` admit explicit crosswalks and concrete challengeable mapping decisions
+   with loss, ambiguity, scope, and reviewer evidence;
+ - `M7.3` admit provenance assertions with source, valid/transaction time,
+   confidence, evidence, contradiction, and dispute state;
+ - `M7.4` split immutable DataRecipe and ConnectorMapping definitions from
+   TransformationRun execution;
+ - `M7.5` freeze exact semantic component versions/hashes into packages and
+   runs;
+ - `M7.6` admit OntologyActionContracts binding target objects and typed I/O to
+   pre/postconditions, RuntimeToolContracts, authority, risk, idempotency,
+   compensation, verifier, and receipt obligations;
+ - `M7.7` enforce external-fact/oracle evidence profiles at admission and
+   consequence boundaries;
+ - `M7.8` render mapping uncertainty and disputes without pretending one global
+   ontology exists.
+ 
+ Exit proof:
+ 
+ - the same signed package or recipe cannot silently execute against a later
+   semantic head;
+ - changed mapping or ontology content requires a successor definition and
+   explicit resolution;
+ - semantic compatibility, discovery, or mapping never grants capability,
+   authority, truth, or acceptance;
+ - contradictory and uncertain assertions remain inspectable.
+ 
+ Pulled product surfaces: Ontology, Data, Studio, Provenance, Domain/extension
+ interfaces, Developer Console federation configuration.
+ 
+ Nonclaim: globally canonical ontology or cross-system cooperation.
+ 
+ ### M8 — Enterprise Learning And Bounded Improvement
+ 
+ Canonical build step: 8.
+ 
+ Prerequisites: verified M7 plus selected provider, data, Foundry, evaluation,
+ and rights contracts.
+ 
+ Objective: make institutional learning owned, portable, provider-neutral, and
+ improvable without letting search judge or promote itself.
+ 
+ Required work:
+ 
+ - `M8.1` compile source rights, consent, policy-bound views, custody posture,
+   provider/customer route rights, evidence eligibility, retention/export,
+   derivative lineage, jurisdiction, and revocation into one admitted
+   `InstitutionalLearningBoundaryProfile`;
+ - `M8.2` snapshot the effective boundary into Systems, Sessions, GoalRuns,
+   model invocations, transformations, evaluations, and Foundry jobs;
+ - `M8.3` block forbidden provider/cross-tenant egress before network or model
+   invocation and issue `LearningEgressReceipt` for permitted crossings;
+ - `M8.4` export/import only rights-eligible institutional intelligence with
+   transitive lineage and explicit exclusions;
+ - `M8.5` hard-disable one provider and meet frozen model-independence floors
+   through an eligible replacement route using institution-controlled state;
+ - `M8.6` prove source revocation triggers quarantine, reevaluation, recall, or
+   clean rebuild according to policy;
+ - `M8.7` admit immutable `ImprovementGovernanceProfile`, revisioned Agenda,
+   finite Campaign, exact target base, frozen EvaluationEpoch, exposure ledger,
+   order cutoff, and evidence claim;
+ - `M8.8` identify Search, Judgment, and Authority separately, retain negative
+   evidence, enforce finite budgets, reproduce selection against the unchanged
+   epoch, and emit only a target-owner UpgradeProposal;
+ - `M8.9` preserve the direct one-shot proposal path for work that does not need
+   a Campaign.
+ 
+ Exit proof:
+ 
+ - provider removal does not remove institutional ontology, memory, evals,
+   corrections, policies, workflow state, or eligible derived capability;
+ - prohibited canaries reach no forbidden destination;
+ - the seller and other tenants cannot retrieve protected learning material;
+ - the Campaign cannot mutate its selecting evaluator, reset limits by
+   branching, fabricate evidence, promote itself, or mutate production;
+ - all promotion, activation, rollback, recall, and kill decisions cross the
+   target owner's ordinary governance path.
+ 
+ Pulled product surfaces: Governance Enterprise Learning Boundary, Foundry,
+ Evaluations, Improvement, Models/routes, Provenance, Packages.
+ 
+ Nonclaims: hidden provider non-learning, weight-level forgetting, recursive
+ improvement, ignition, or general optimization.
+ 
+ ### M9 — Single-Node Undeniable Product Proof
+ 
+ Canonical build step: 9.
+ 
+ Prerequisites: verified M1–M8 for the selected profile, terminal Rust ownership
+ for every selected route, and all applicable `required_now` plus selected
+ `conditional` `PG-*` gates. The sovereign-local lane requires a locally
+ permitted exact-effect authority path and makes no portable delegated-authority
+ claim. The ordered managed-optionality overlay additionally requires the
+ managed wallet v3 path and its selected conditional gates.
+ 
+ Objective: close the complete terminal journey in section 3 through supported
+ product and public contract surfaces.
+ 
+ Required work:
+ 
+ - `M9.1` integrate the compact and advanced package/genesis paths to identical
+   objects and hashes;
+ - `M9.2` implement and prove two distinct authority lanes. The minimum
+   sovereign-local lane uses deployment-local authentication, a low-risk local
+   product session, a locally permitted nonportable exact-effect authority
+   provider, daemon-side request/subject/equality/constraint verification,
+   revocation, the exact `TemporalVerificationProfile` and
+   `TemporalValidityEvaluation`, and recovery. The ordered managed-optionality
+   overlay adds provider-neutral account/session, WebAuthn begin/finish,
+   factor/guardian lifecycle, the exact request -> canonical review ->
+   presentation evidence -> authenticator ceremony chain, typed exact/batch/
+   standing authorization subjects, `AuthorityReviewReceipt`, a context-bound
+   v3 grant, portable-principal resolution, and the same daemon-side and
+   temporal checks. Passing the local lane never implies the managed lane;
+ - `M9.3` run the contract-pulled Authority Gateway attach proof below against
+   one existing coding agent and one declared MCP server;
+ - `M9.4` run the terminal room, GoalRun, local-agent, verification, and exact
+   repository-effect path end to end while proving complete externally reachable
+   route classification and identical native/MCP policy-enforcement and final-
+   invoker coverage;
+ - `M9.5` prove daemon restart, Session replacement, provider removal, stale
+   head, revoked grant, substituted effect, deposed writer, uncertainty spanning
+   expiry, whole-VM rollback, lost re-anchor, timeout, and retry behavior;
+ - `M9.6` export one immutable evidence index and verify integrity,
+   valid-as-of posture, and currentness as separate conclusions offline;
+ - `M9.7` run first-time operator studies and measure vocabulary exposure,
+   blocker recovery, time to preview/genesis/value, completion, evidence
+   comprehension, and repeat use;
+ - `M9.8` run signed install and update admission, rollback/recall,
+   manifest-complete backup, secret-safe prepare/apply/cancel restore,
+   temporal-floor handoff/revalidation, forward-only activation, persistent
+   cleanup reconciliation, archive, uninstall-without-wipe, and retirement
+   through the product;
+ - `M9.9` publish only the claim level supported by the retained evidence.
+ 
+ #### M9 Authority Gateway attach proof
+ 
+ This is a contract-pulled acceptance slice inside M9's Horizon 1A undeniable-
+ product proof, not a new application, surface track, runtime, plane, canonical
+-object, or peer work package. The current merged `WorkResult`/`OutcomeDelta`
+-and hosted OutcomeRoom room-child substrate makes it a current proof target,
+-not a pre-contract surface experiment. It activates only after the selected
+-M3-M5 contract paths and the applicable local-agent, MCP, tool-contract,
+-authority, receipt, and final-invoker paths close their stage gates. Partial
+-merged substrate does not waive the full M1-M8 verification prerequisite.
++object, or peer work package. It activates only after the selected M3-M5
++contract paths and the applicable local-agent, MCP, tool-contract, authority,
++receipt, and final-invoker paths close their stage gates. Adjacent substrate
++does not waive the full M1-M8 verification prerequisite.
+ Product controls are pulled into the existing Work, Developer Workspace,
+ Developer Console, Governance, and Provenance contexts only as their owner
+ contracts become operable.
+ 
+-Current implementation evidence (2026-07-21): the existing coding-agent
+-workflow-edit route now exercises the route-scoped audit -> exact-action review
+--> one-shot sovereign-local `AuthorityGrant` -> final invoker -> effect receipt
+--> `WorkResult` -> `OutcomeDelta` half of this journey, including substitution,
+-expiry, revocation, and replay negatives. It also emits schema-valid audit-only
+-and active `EnforcementCoverageDeclaration` snapshots whose direct/opaque file
+-paths remain named gaps. These snapshots are deliberately `draft` and
+-`unverified`. The boot-scoped daemon registry validates the registered schema
+-and portable invariants, admits their exact JCS artifacts with immutable
+-admission coordinates, derives currentness, revokes, resolves exact
+-requirements, and can export and restore deterministically, but the daemon does
+-not yet persist or restore that export. M9.3 therefore remains open on declared MCP ingress and native/MCP
+-final-invoker equivalence, verified-current deployment evaluation, durable
+-evidence-index binding/reconstruction, and one independent operator run.
++Status and evidence pointer: read the M9 Authority Gateway work-item record and
++its retained proof refs. This section defines the acceptance contract only.
+ 
+ The selected proof journey is:
+ 
+ ```text
+ one declared existing coding-agent installation + one declared MCP server
+   -> supported adapter/gateway attach in audit mode
+   -> discover exact application, runtime, server, tool, route, and version facts
+   -> attribute actor, principal, Session, GoalRun, OutcomeRoom, and request
+      where evidence supports them; retain confidence, conflicts, and unknowns
+   -> observe one proposed sensitive effect without granting or blocking it
+   -> show the operator the exact effect, policy result, and evidence
+   -> obtain the selected exact-action authorization and the authority artifact
+      required by the selected profile (`CapabilityLease` when wallet.network
+      portable delegation is applicable)
+   -> daemon recomputes and revalidates the effect at the final invoker
+   -> allow exactly once in the positive branch
+   -> block before the invoker in the refusal, substitution, expiry, and
+      revocation branches
+   -> admit effect-bound success/refusal receipts and the resulting
+      WorkResult/OutcomeDelta/room lineage
+   -> export the content-bound `EnforcementCoverageDeclaration` snapshots and
+      evidence index
+ ```
+ 
+ Audit attachment grants no authority and makes no prevention claim. Moving one
+ selected action class from audit to active enforcement requires an explicit,
+ admitted configuration transition and receipt. The coding-agent adapter and MCP
+ binding remain protocol clients: they may observe, attribute, propose, and
+ transport, but cannot mint identity, policy, authority, accepted state, or
+ receipts. Both selected ingress paths must converge on the same policy-
+ enforcement point, applicable `AuthorityGrant`/`CapabilityLease` crossing,
+ final invoker, and receipt spine.
+ 
+ For every selected action class, the retained
+ `EnforcementCoverageDeclaration` assesses six capability facts independently:
+ 
+ ```text
+ discovered | observable | attributable | mediated | preventable | receipted
+ ```
+ 
+ Each asserted property binds the concrete mechanism and version, privilege
+ level, deployment scope, bypass assumptions and tested resistance, online and
+ offline behavior, fail-open/fail-closed posture, decision source, final invoker,
+ and evidence refs. Discovery does not imply observation; observation does not
+ imply attribution; attribution does not imply mediation; mediation does not
+ imply prevention; and a receipt does not prove an unobserved external effect.
+ `uncovered: true` is the mutually exclusive terminal state for an exact scope;
+ partial gaps keep unsupported facts false or `unknown` and record `known_gaps`.
+ Opaque actions outside an admitted adapter, gateway, broker, or instrumented
+ effect boundary remain explicitly uncovered.
+ 
+ The proof fails if an unclassified route starts, audit mode changes an effect,
+ the adapter or MCP server can self-authorize, an expired/revoked/substituted
+ request reaches the invoker, a disconnected observer is reported as
+ preventative, a success receipt is issued without the external effect evidence
+ required by the selected profile, or any coverage claim exceeds the retained
+ mechanism evidence. Passing proves only the named agent, server, versions,
+ action classes, deployment posture, and tested paths. It does not prove
+ universal interception, endpoint-wide control, or coverage of opaque third-
+ party runtimes.
+ 
+ Exit proof:
+ 
+ - one independent operator completes every terminal step without hidden edits
+   or unavailable one-off tools;
+ - zero unauthorized final-invoker calls and zero duplicate effects occur in
+   the adversarial matrix;
+ - all selected state reconstructs after restart and export;
+ - model-route replacement meets the frozen quality, latency, cost, and custody
+   threshold;
+ - the declared coding agent and MCP server complete the audit-to-enforcement
+   journey; the allowed branch executes once, every selected refusal branch
+   reaches zero final-invoker calls, and the exported coverage declaration names
+   both proven and intentionally uncovered seams without upgrading either;
+ - the evidence index links every package, identity, authority, pursuit,
+   verification, effect, outcome, learning, recovery, and lifecycle root.
+ 
+ Pulled product: first standalone Hypervisor minimum-L0 profile plus the
+ supporting workspaces and owner applications; ioi.ai Goal Space participates
+ only in the separately claimed managed-optionality overlay.
+ 
+ Nonclaims: production SLA beyond closed gates, multi-node continuity,
+ federation, physical action, public settlement, or universal correctness.
+ 
+ ### M10 — Two-Failure-Domain Continuity
+ 
+ Canonical build step: 10.
+ 
+ Prerequisites: verified M9.
+ 
+ Objective: prove one logical System can preserve identity, authority, state,
+ and effect history across two admitted nodes and failure domains.
+ 
+ Required work:
+ 
+ - `M10.1` provision and attest a candidate node;
+ - `M10.2` admit membership and assign replica/hot-standby roles;
+ - `M10.3` restore a checkpoint, catch up the ordered log, verify roots and
+   watermarks plus required outside-rollback-domain temporal/key/revocation
+   floors, and mark readiness;
+ - `M10.4` inject writer, node, link, storage, witness, and restart failures;
+ - `M10.5` reconcile active work, perform only policy-controlled promotion,
+   increment the writer epoch, and fence the displaced writer;
+ - `M10.6` replay, drain, remove, and prove declared RPO/RTO and lost-suffix
+   handling;
+ - `M10.7` expose desired/observed topology, root, epoch/fence, degraded state,
+   recovery, and continuity receipts.
+ 
+ Exit proof:
+ 
+ - one stable `system_id`, constitution, owner set, and finality profile survive;
+ - no fault path produces dual accepted effects;
+ - read/execution distribution is demonstrated without calling replication
+   consensus or authority expansion;
+ - automated failover remains unclaimed unless separately proven.
+ 
+ Pulled product surfaces: Systems, Operations, Environments, Provenance.
+ 
+ Nonclaim: useful distributed work or sovereign federation.
+ 
+ ### M11 — Useful Same-System Distributed Work And Embodied Pre-Live Proof
+ 
+ Canonical build step: 11.
+ 
+ Prerequisites: verified M10 and the relevant embodied/safety contract freeze.
+ 
+ Objective: prove L0 distributes useful complementary work, not only replicas,
+ and prove the native embodied graph through non-live promotion stages.
+ 
+ Required software/distributed work:
+ 
+ - `M11.1` bind GoalRun, RoleTopology, work, resource/capability offers, and
+   RuntimeAssignments to the stable System and admitted memberships;
+ - `M11.2` implement allocation leases, backpressure, shared-state watermarks,
+   coordination epochs, fenced reassignment, rebalance, and rejoin;
+ - `M11.3` inject worker, coordinator, node, link, and partition failure during
+   useful work;
+ - `M11.4` reconcile duplicate and ambiguous effects while showing which work
+   continues, pauses, reassigns, or fails closed.
+ 
+ Required embodied work:
+ 
+ - `M11.5` freeze and register graph/profile/stream/action/supervisor/activation/
+   reservation/assurance contracts before implementation;
+ - `M11.5a` admit `EmbodiedUnit` and `EmbodiedResourceGroup` definitions for
+   individual sensors, actuators, controllers, robots, drones, and logical or
+   physical groups without requiring every member to run HypervisorOS;
+ - `M11.6` compile one exact `EmbodiedRuntimeGraphManifest` across `micro`,
+   `edge`, and `site` profiles without changing graph semantics or authority;
+ - `M11.7` prepare and validate resources, stream QoS/time/criticality,
+   supervisor readiness, and single-writer bindings before transactional
+   activation;
+ - `M11.8` run simulation, SIL, HIL, and shadow promotion with proposal-only
+   action chunks, deterministic motion, independent local veto, recovery, and
+   emergency stop;
+ - `M11.9` exercise epoch-fenced allocation and
+   `SpacetimeReservationLease` across units while local safety remains local;
+ - `M11.10` inject deadline, freshness, clock, liveliness, GPU/autonomy,
+   uncertainty-overlap, reboot/restore, lost offline holdover, coordinator,
+   partition, reservation, stale allocation, takeover, and ambiguous-effect
+   faults.
+ 
+ Exit proof:
+ 
+ - complementary roles complete useful work across nodes under unchanged
+   authority;
+ - placement never grants authority;
+ - one active actuator writer, safe local degrade/stop, fenced takeover, and
+   rejoin reconciliation hold in the declared non-live stages;
+ - no model, cloud, chain, remote wallet, or stale telemetry becomes the final
+   control veto or emergency stop;
+ - simulation/SIL/HIL/shadow evidence remains labeled at its actual stage.
+ 
+ Pulled product surfaces: Systems, Work, Operations, Provenance, Foundry, and
+ conditional Embodied Systems.
+ 
+ Nonclaims: live physical mission, generic certification, or cross-system
+ federation.
+ 
+ ### M12 — AIIP Federation Contract
+ 
+ Canonical build step: 12.
+ 
+ Prerequisites: verified M11 plus the M5 participant and M7 semantic contracts.
+ 
+ Objective: let separately sovereign Systems negotiate and exchange bounded work
+ without sharing an operational database, administrator, authority plane, or raw
+ private context.
+ 
+ Required work:
+ 
+ - `M12.1` implement policy-bound OutcomeRoom discovery;
+ - `M12.2` negotiate exact-root CollaborationTerms covering scope, roles,
+   rights, obligations, disclosure, attribution/reward basis, risk, exit,
+   dispute, and settlement;
+ - `M12.3` prove accept, counteroffer, decline, expiry, and non-retroactive
+   amendment;
+ - `M12.4` negotiate versioned ontology/action profiles and mapping risk;
+ - `M12.5` carry signed, sequenced, idempotent, policy-permitted refs and
+   restricted views through AIIP;
+ - `M12.6` normalize A2A, MCP, directory/schema, HTTP/RPC, and settlement
+   bindings without making them IOI authority or assurance;
+ - `M12.7` implement hosted and federated admission modes with explicit ordering,
+   merge, conflict, adjudication, and failover behavior;
+ - `M12.8` preserve independent challenges, acceptance, contribution lineage,
+   dispute state, revocation, and portable participant exit.
+ 
+ Exit proof:
+ 
+ - each System remains locally complete when it declines or disconnects;
+ - neither peer can mutate the other's truth, widen its authority, or send a
+   direct foreign physical-control stream;
+ - external participants retain permitted portable state without continued
+   access to an IOI-hosted room;
+ - protocol completion does not imply verification, acceptance, settlement, or
+   correctness.
+ 
+ Pulled product surfaces: Goal Space invited/open modes, Work / Rooms discovery,
+ Governance collaboration terms, Ontology mappings, Developer Console
+ federation, Provenance.
+ 
+ Nonclaim: positive economic value or an Internet-of-Intelligence proof.
+ 
+ ### M13 — Two-Sovereign Internet-Of-Intelligence Proof
+ 
+ Canonical build step: 13.
+ 
+ Prerequisites: verified M12 and independently operated Systems.
+ 
+ Objective: demonstrate useful, voluntary, positive-surplus cooperation between
+ sovereign institutions while preserving credible exit.
+ 
+ Required work:
+ 
+ - `M13.1` run one customer/data-owner System and one independently governed
+   coordinator/worker System, then add an independent provider or verifier;
+ - `M13.2` freeze each participant's outside option, private valuation method,
+   costs, risks, rights, and contracted benefit before the trial;
+ - `M13.3` repeat useful work across the sovereignty boundary without collapsing
+   identities, truth, admission, or authority;
+ - `M13.4` preserve verification, acceptance, attribution, dispute, and exit;
+ - `M13.5` disclose subsidy and compare against eligible same-domain/direct-local
+   baselines;
+ - `M13.6` run a negative-surplus control in which a System safely declines and
+   continues locally.
+ 
+ Exit proof:
+ 
+ - every required party receives measurable contracted benefit after declared
+   cost and risk;
+ - the sponsor gains measurable value above the frozen outside option;
+ - an external Worker completes discovery, negotiation, admission, leased work,
+   contribution, verification, revocation/retirement, and portable exit;
+ - no proof step requires shared runtime, database, administrator, or continued
+   hosted trust.
+ 
+ Pulled product: invited cross-organization and Network/Open Goal Space modes,
+ aiagent/sas participation surfaces, cross-domain Governance and Provenance.
+ 
+ Nonclaim: broad network effects, live marketplace economics, or L1 demand.
+ 
+ ### M14 — Connected/Secured Services And Demand-Gated L1
+ 
+ Canonical build step: 14.
+ 
+ Prerequisites: repeated M13 evidence, later enterprise/embodied profile demand,
+ and applicable production, commercial, legal, assurance, and economic gates.
+ 
+ Objective: add public shared-trust services only after their value and security
+ economics are real.
+ 
+ Required work:
+ 
+ - `M14.1` prove registry, rights, reputation, security service, escrow, bond,
+   dispute, adjudication, settlement, enrollment, and exit contracts on a
+   devnet or mature compatible settlement environment;
+ - `M14.2` separate `ioi_compatible`, `ioi_connected`, and `ioi_secured`
+   postures and their exact services, terms, fees, and assurances;
+ - `M14.3` measure recurring unrelated external demand, willingness to pay or
+   bear risk, provider/guardian/verifier supply, attack cost, security budget,
+   regulatory burden, and compatible-settlement alternatives;
+ - `M14.4` prove value persists with token-price appreciation set to zero;
+ - `M14.5` authorize a sovereign L1 only when neutral ordering/security,
+   performance, governance, or economics beats the compatible alternative;
+ - `M14.6` keep Work Credits, provider tokens, cash, worker payouts, bonds, and
+   any native asset distinct.
+ 
+ Exit proof:
+ 
+ - at least three unrelated external organizations show recurring paid or
+   risk-bearing demand across at least two public service families for a
+   sustained declared period;
+ - modeled fees and bonded value cover the security/availability budget with a
+   frozen safety margin;
+ - independent operators will supply the selected security, verification,
+   availability, relay, or adjudication services;
+ - exit, dispute, and failure paths work before mainnet or native-asset
+   commitment.
+ 
+ Nonclaims: compulsory settlement, token demand from L0 adoption, generic model-
+ call currency, or one token per worker, GoalRun, room, node, or DAS.
+ 
+ ## 8. Cross-Stage Work Packages
+ 
+ These work packages do not create alternate dependency sequences. Each is
+ activated only inside the M-stage cells shown.
+ 
+ ### WP-RUNTIME — One governed execution fabric
+ 
+ Stages: M0–M14, with selected-route terminality required by M9.
+ 
+ Owner: canonical kernel master guide and migration matrix.
+ 
+ Retained obligations:
+ 
+ - one hashed registry classifies every externally reachable native and projected
+   route, and one authoritative admission/final-invoker path governs equivalent
+   native, MCP, client, and adapter calls;
+ - classify `RuntimeKernelService` membership by required trust rather than
+   facade size. Retain a method in the trusted core only when moving it would
+   weaken deterministic admission, authority/capability enforcement,
+   exact-effect fencing, receipt binding, replay integrity, or the stable
+   invocation contract;
+ - owner-specific marketplace, workspace, coding-tool, model-mount, provider,
+   and projection mechanics may leave the facade only as complete reviewable
+   owner cuts whose consequential paths still re-enter the same applicable
+   `AuthorityGrant` or `CapabilityLease`, policy-enforcement point, admission
+   boundary, final invoker, and receipt spine. Extraction may not create a
+   second authority, accepted-truth, or receipt-authoring path;
+ - one positive Rust daemon/Core API for every live route family;
+ - StepModuleRouter, workload invocation, policy/authority inputs, Agentgres
+   admission, receipts/roots, projection, replay, and stable protocol shape form
+   one path;
+ - clients, SDKs, IDEs, harnesses, MCP, provider adapters, and apps remain
+   projections or protocol clients;
+ - command transport, deleted bridge binaries, JS-authored accepted truth,
+   fixture fallback, copied receipt authority, and compatibility tombstones do
+   not return;
+ - macro cuts retire complete authority boundaries, not one helper at a time.
+ 
+ Terminal evidence: the migration matrix's terminal conditions and full
+ conformance, the exact method-inventory audit verifier, extraction-specific
+ negative tests proving the single-gateway property, and stage-specific live
+ probes for every selected effect family.
+ 
+ ### WP-PROOF — Portable evidence and compositional assurance
+ 
+ Stages: M1–M14.
+ 
+ Owners: daemon events/receipts, Agentgres, verification, assurance, wallet,
+ storage, and domain owners.
+ 
+ Retained obligations:
+ 
+ - distinguish receipt, evidence, verification, acceptance, adjudication, and
+   settlement;
+ - protect exact bodies, refs, roots, signer/key/revocation inputs, checkpoint
+   freshness, artifact availability, and verifier independence;
+ - bind every completed environment backup to a manifest whose referenced
+   artifacts and actual streamed bytes are verified, and bind restore,
+   activation, route, and cleanup outcomes to their exact preconditions and
+   remaining duties;
+ - preserve negative, invalid, inconclusive, exploit, superseded, disputed, and
+   no-fault evidence;
+ - prove selected exports offline without producer database access;
+ - treat storage as bytes and Agentgres refs as meaning/lifecycle/integrity;
+ - make unsupported real-world truth claims impossible to infer from one
+   receipt or attestation.
+ 
+ Terminal evidence: stage evidence indexes, offline verification, independent
+ reproduction, restart/replay, substitution/refusal tests, and explicit
+ assurance stages.
+ 
+ ### WP-WALLET — Familiar identity to exact machine authority
+ 
+ Stages: M0 design, M1–M8 contract integration, M9 terminal proof, later stages
+ for cross-party or public effects.
+ 
+ Owners: wallet.network doctrine/scopes/risk plus product-session owners.
+ 
+ Required experience:
+ 
+ ```text
+ Continue with eligible identity / enterprise SSO / passkey
+   -> native wallet identity linked without protocol ceremony
+   -> ordinary low-risk product session
+   -> consequential action proposed
+   -> immutable request plus exact-effect, batch, or standing authorization subject
+   -> canonical semantic review on a policy-qualified presentation surface
+   -> separately inspectable platform-authenticator step-up when required
+   -> immutable authority-review receipt
+   -> scoped, expiring, revocable grant
+   -> daemon-computed actual effect plus equality, membership, or constraint check
+   -> effect or refusal
+   -> receipt and recovery/revocation visibility
+ ```
+ 
+ Authentication never authorizes an effect by itself. Recovery never silently
+ reconstructs or widens a grant. The request body, canonical reviewed
+ representation, single-use approval-ceremony context, and typed authorization
+ subject are independently inspectable commitments. A generic passkey, hardware
+ security key, user-verification flag, or attestation is authenticator evidence,
+ not proof that an application-defined representation was displayed or
+ understood.
+ 
+ The M9 sovereign-local authority proof must show:
+ 
+ - deployment-local authentication remains distinct from locally permitted
+   nonportable exact-effect authority;
+ - the daemon recomputes the actual effect and verifies exact request, subject,
+   equality or constraint, revocation, temporal validity, budget, and writer
+   fence before the final invocation;
+ - substitution, stale authority, uncertainty, and recovery cases refuse or
+   reconcile without a portable-authority claim; and
+ - ordinary and consequential receipts plus offline export preserve integrity,
+   valid-as-of posture, and currentness as separate conclusions.
+ 
+ When the M9 managed-optionality overlay is selected, its additional authority
+ proof must show:
+ 
+ - exact-effect substitution, changed reviewed representation,
+   principal/session/origin substitution, predecessor edit-and-approve reuse,
+   and caller-asserted factor/guardian participation refuse before the invoker;
+ - every batch effect proves membership and every standing effect proves all
+   active resource, destination, budget, call, time, and policy constraints;
+ - presentation evidence records operator/surface, exact-content binding,
+   request/effect/envelope semantics, enrollment/attestation posture, UP/UV,
+   freshness/replay, and proposer independence through a versioned profile
+   rather than a fixed assurance rank;
+ - one-shot, batch, standing, silent, and after-the-fact receipts state the
+   authority actually used and never upgrade it into a false per-effect
+   human-review claim; and
+-- immutable v1/v2 grants, the legacy review schema, and the built effect-fence
+-  v1 remain unchanged until explicit successor contracts are registered,
++- immutable v1/v2 grant contracts, the legacy review-schema compatibility
++  contract, and the effect-fence v1 compatibility contract remain unchanged
++  until explicit successor contracts are registered,
+   generated, tested, and deployed.
+ 
+ ### WP-UX — Product compression and application depth
+ 
+ Stages: shadow work may occur at M0; contract-pulled implementation occurs in
+ M1–M8; terminal first-user proof occurs at M9; later profiles add depth.
+ 
+ Owners: Hypervisor core clients/surfaces and each application-domain owner.
+ 
+ Retained obligations:
+ 
+ - make the zero-to-operable local journey one coherent experience across signed
+   release verification, install preview, explicit host authorization,
+   deployment-local bootstrap, bounded readiness, shared status/doctor/logs,
+   signed update/rollback, stop/uninstall, separate wipe, and verified recovery;
+ - render project-discovery candidates as evidence-bearing proposals whose exact
+   source snapshot, detector, confidence, conflicts, unknowns, selection, and
+   admitted overrides remain reviewable before Project or recipe creation;
+ - expose route ownership/TLS/drift, backup completeness, staged restore gates,
+   forward-only activation, and outstanding cleanup obligations without
+   fabricating missing runtime truth;
+ - compose real objects through one compact path and one advanced declaration
+   that compile to the same hashes;
+ - lead with Systems, goals, work, sessions, automations, applications,
+   permissions, connected apps, evidence, payments, and revoke;
+ - hide protocol vocabulary from routine work without hiding authority,
+   uncertainty, denial, recovery, or provenance;
+ - use reference-product interaction evidence only for layout grammar,
+   information density, editors, canvases, drawers, diff/review, lineage, and
+   operational affordances;
+ - never let a copied surface, name, screenshot, parity score, or harvest route
+   grant product membership or operational maturity;
+ - close one user journey before broad catalog expansion.
+ 
+ ### WP-ELP — Enterprise-owned learning and provider exit
+ 
+ Stages: M7–M9, then enterprise release overlay after M9.
+ 
+ Owners: Institutional Learning Boundary, model router, Data, Ontology, Foundry,
+ Evaluations, Agentgres, Private Workspace, Governance, and Provenance.
+ 
+ Required proof:
+ 
+ ```text
+ private correction and eval admitted under one boundary revision
+   -> forbidden route blocked before egress
+   -> eligible improvement with transitive lineage
+   -> incumbent provider hard-disabled
+   -> replacement route meets frozen floors using institution-owned state
+   -> seller and cross-tenant access denied
+   -> eligible capability exported and imported into a clean deployment
+   -> one source revoked
+   -> impact quarantined, reevaluated, recalled, or rebuilt as policy declares
+ ```
+ 
+ ### WP-SUPPLY — Model-neutral supply and commercial truth
+ 
+ Stages: M0 rights/baseline work, M3 route integration, M8 provider-exit proof,
+ M9 first product, M13 external procurement, and M14 public economics.
+ 
+ Owners: model router, identity/access/metering, provider plane, Goal Space
+ control plane, institutional learning boundary, economics, and marketplace
+ owners.
+ 
+ Retained obligations:
+ 
+ - sell one Goal Space subscription for conductor, durable goal state, memory,
+   policy, collaboration, receipts, replay, support, and a bounded grant of
+   non-transferable Work Credits;
+ - treat `Auto`/1-of-N, `Pinned`, and `Compare`/N-of-N as routing policies rather
+   than node products or subscription identities;
+ - never pool, browser-automate, share, or resell named-human model workspace
+   subscriptions as production worker capacity without an agreement that
+   explicitly permits the exact use;
+ - source managed cognition from direct APIs, negotiated/dedicated capacity,
+   open/self-hosted weights, customer BYOK/BYOA, and explicitly permitted
+   OEM/reseller paths; use aggregators as replaceable breadth/overflow adapters;
+ - resolve a versioned bidirectional rights contract for every provider/model
+   candidate, including access, automation, downstream use, credential
+   principal, privacy/retention, region, fallback, price, parameters, provider
+   use of customer material, and customer use of outputs;
+ - keep managed Work Credits separate from provider tokens, cash, payouts,
+   bonds, settlement assets, and any IOI native asset;
+ - fund Network/Open contributors from a separate goal budget, bounty,
+   procurement cap, or service order;
+ - commercialize a recurring allowance only after route-attempt telemetry,
+   supplier/broker cost, IOI fee basis, adjustments, overage consent,
+   provider-statement reconciliation, p50/p90/p95 COGS, fallback amplification,
+   accepted outcomes per dollar, and cohort margin are bounded.
+ 
+ The durable margin is governed orchestration, routing, learning ownership,
+ assurance, private deployment, recovery, and outcome coordination—not opaque
+ token resale.
+ 
+ ### WP-IMPROVE — Bounded improvement
+ 
+ Stages: M8 first order-0 Campaign, M9 product integration, M13+ optional
+ higher-order research.
+ 
+ Owners: bounded recursive improvement, Improvement, Evaluations, Foundry,
+ Governance, Work, and Provenance.
+ 
+ The preserved discovery plan supplies statistical, evaluator-integrity,
+ multi-order, and adversarial experiment detail. It does not schedule its own
+ phases. Higher-order or recursive-seat work remains inactive until the order-0
+ Campaign and target-owner proposal handoff pass.
+ 
+ ### WP-EMBODIED — Native embodied stack
+ 
+ Stages: contract freeze in M0/Horizon 0, non-live proof in M11, live release
+ overlay after M11 and applicable safety/production gates.
+ 
+ Owners: Embodied Runtime, Physical Action Safety, daemon runtime, Foundry,
+ Operations, Systems, Provenance, and ecosystem assurance.
+ 
+ The target is a native state-of-the-art compiler/runtime/supervisor stack, not
+ a partner bridge as architecture. EmbodimentAdapter and LocalControlBridge are
+ compatibility surfaces. The native LocalControlSupervisor remains the
+ deterministic execution and assurance root. Robots with their own runtimes may
+ join through bounded adapters; IOI does not require HypervisorOS on every
+ servo, sensor, controller, drone, robot, or certified local safety loop.
+ 
+ ### WP-COOP — Conditional sovereign cooperation
+ 
+ Stages: contracts in M12, proof in M13.
+ 
+ Owners: AIIP, OutcomeRoom, semantic mapping, authority, Agentgres, assurance,
+ and domain owners.
+ 
+ The work package begins only when each required sovereign party may rationally
+ accept exact terms. Compatibility, discovery, room visibility, or a shared goal
+ creates no duty to cooperate. A safe decline is a successful result when
+ surplus is absent.
+ 
+ ### WP-NET — Network services and optional L1
+ 
+ Stage: M14 only.
+ 
+ Owners: IOI Network enrollment, economics, L1, assurance, marketplace/service,
+ dispute, and settlement owners.
+ 
+ Throughput experiments, AFT benchmarks, and chain engineering remain
+ conditional technical satellites. They do not pull M14 forward and cannot
+ substitute for external demand, rights, security, dispute, or economic proof.
+ 
+ ### WP-DOCS — Public builder and product communication
+ 
+ Stages: content architecture may proceed continuously; “Current” claims and
+ launch material are pulled only by verified stages.
+ 
+ Owners: public product surfaces and canonical architecture for linked
+ doctrine.
+ 
+ Builder documentation must distinguish `Current`, `Preview`, and `Concept`,
+ use runnable commands and stable public contracts, and link to canon rather
+ than copying it. A documentation site, screenshot, or static demo never
+ upgrades implementation status.
+ 
+ ## 9. Application And UX Pull Map
+ 
+ Application work is contract-pulled. The canonical object owner must exist
+ before its surface claims operational depth.
+ 
+ | Surface | First meaningful pull | Required owner truth |
+ | --- | --- | --- |
+ | Home | M0/M9 | Product-safe entry, recent typed context, blockers, and journey state |
+ | Systems | M1–M2; permanent in M6 | System identity, genesis, constitution, lifecycle, desired/observed topology |
+ | Projects | Existing plus M6 | Project scope and policy-filtered context; never hidden System creation |
+ | Applications | M6 | Registered definitions plus release/install/System/serving bindings |
+ | Work | M3–M6 | Typed heterogeneous subjects and owner-backed lifecycle projections |
+ | Studio | M1/M3/M7 | Package/genesis, GoalRunProfile/workflow, semantic/action composition |
+ | Automations | M3/M6 | WorkflowTemplate, AutomationSpec, installation binding, AutomationRun |
+ | Ontology | M7 | Versions, overlays, mappings, assertions, action contracts |
+ | Data | M7/M8 | Sources, rights, recipes, mappings, transformations, learning eligibility |
+ | Governance | M1 onward | Constitutions, authority, budgets, protected change, learning, AIIP, lifecycle |
+ | Provenance | M1 onward | Receipts, roots, assertions, lineage, replay, export |
+ | Evaluations | M5/M8 | Findings, challenges, suites, epochs, exposure, judgment |
+ | Improvement | M5/M8 | Proposals, Campaigns, candidates, evidence, rollback/recall recommendations |
+ | Foundry | M8/M11 | Models/routes, datasets, training, experiments, simulation/HIL evidence |
+ | Packages | M1/M6 | Local package admission, releases, dependencies, install, recall, impact |
+ | Developer Workspace | M3/M9 | Environment-bound code/files/terminal/ports/debugging over governed work |
+ | Developer Console | M3/M5/M7/M12 | Tools, connectors, MCP, SDK/client, extension, federation configuration |
+ | Environments | M2/M10 | Providers, runtime nodes, placement, snapshots/restores, readiness |
+ | Operations | M2/M10/M11 | Member/provider/fleet actions, health, spend, incidents, recovery |
+ | Embodied Systems | M11 then live overlay | Embodied graph, units/groups, streams, supervisors, allocations, safety/evidence |
+ 
+ ### 9.1 UX evidence disposition
+ 
+ The reference-product capture estate remains useful for:
+ 
+ - list/detail and split-pane information architecture;
+ - canvas/palette/inspector composition;
+ - preview, simulation, validation, promotion, and review flows;
+ - lineage, object, graph, table, filter, and operational drilldowns;
+ - authority preview, diff, evidence, degraded state, and recovery affordances.
+ 
+ It is not a source for:
+ 
+ - canonical application names or membership;
+ - target object ownership;
+ - runtime authority or truth;
+ - current route/file anchors;
+ - a surface-by-surface implementation queue.
+ 
+ The old autonomous-systems suite and UX graft guides are therefore preserved
+ as discovery and seed evidence. Current UX work enters through `WP-UX`, the M6
+ pull map, the canonical taxonomy, and the `UX-00` ledger in the newer taxonomy
+ plan.
+ 
+ ### 9.2 Seed certification rule
+ 
+ A certified seed or port means only that the captured interaction pattern,
+ asset, or local implementation passed its declared evidence test. It must be
+ reclassified against the current application topology:
+ 
+ ```text
+ seed evidence
+   -> current canonical owner
+   -> owning M-stage contract
+   -> current product registration class
+   -> daemon/Agentgres/authority data source
+   -> honest capability depth and operational state
+   -> focused product and adversarial verifier
+ ```
+ 
+ Seeds with no current owner or contract remain evidence. They do not create
+ another application.
+ 
+ ## 10. Release And Claim Ladder
+ 
+ | Level | Honest minimum claim | Primary closing stage |
+ | --- | --- | --- |
+ | `P0 — walking skeleton` | One fixture traverses selected owner boundaries; not production-ready. | M3–M5 |
+ | `P1 — internal product proof` | Terminal M9 journey works with adversarial evidence in an IOI-controlled environment. | M9 |
+ | `P2 — external design-partner proof` | Independent users complete the journey on their data with disclosed support and limits. | M9 overlay |
+ | `P3 — production-integrated profile` | Applicable `required_now` and selected `conditional` gates close; SRE/recovery thresholds pass. | M9 + `PG-*` |
+ | `P4 — distributed L0 proof` | One logical System preserves continuity and performs useful work across admitted nodes. | M10–M11 |
+ | `P5 — sovereign cooperation proof` | Independently governed Systems demonstrate useful positive-surplus work and portable exit. | M13 |
+ | `P6 — embodied deployment proof` | Selected live hardware profile passes Physical Action Safety, Embodied Runtime, and production gates. | M11 live overlay |
+ | `P7 — public network demand proof` | Connected/secured services show recurring external demand and sustainable security economics. | M14 |
+ 
+ The ladder is evidence-monotonic, not permanently monotonic. A failed
+ reverification, incident, revoked source, compromised key, changed dependency,
+ or lost assurance input may narrow the current claim immediately.
+ 
+ ## 11. Product And Architecture Scorecard
+ 
+ Freeze cohort/profile thresholds before observing results.
+ 
+ | Dimension | Required measure |
+ | --- | --- |
+ | Time to first value | Template-to-valid-preview, preview-to-genesis, and genesis-to-accepted-outcome |
+ | Builder success | Unassisted completion, blocker recovery, abandonment, and repeat-use rate |
+ | Product compression | Protocol vocabulary required in routine flow and advanced-declaration escape rate |
+ | Contract integrity | Generated parity, negative-fixture refusal, migration compatibility |
+ | Durable pursuit | Reconstruction across Session, worker, model, harness, and daemon faults |
+ | Effect safety | Unauthorized final-invoker calls, duplicate effects, ambiguous-effect reconciliation |
+ | Enforcement coverage honesty | Per-action discovered, observable, attributable, mediated, preventable, receipted, and uncovered claims versus mechanism evidence, bypass probes, and declared failure posture |
+ | Information control | Forbidden canary egress, cross-tenant retrieval, declassification correctness |
+ | Evidence portability | Offline verification and independent reproduction rate |
+ | Provider exit | Quality, latency, cost, custody, and rights floors after provider removal |
+ | Local-agent openness | Independent-client pairing, admission, claim, contribution, revoke, and exit |
+ | Distributed continuity | RPO/RTO, catch-up, promotion, fencing, replay, no-dual-effect evidence |
+ | Useful distribution | Accepted outcome per distributed resource cost; failure/reassignment behavior |
+ | Cooperation | Sponsor and participant surplus over frozen outside options; safe declines |
+ | Embodied assurance | Claim stage, denied actuator calls, deadline/freshness faults, safe takeover |
+ | Operability | Fault matrix, load shed, mixed version, rotation, backup/restore, soak, incident recovery |
+ | Economics | Cost per accepted outcome, provider concentration, fallback amplification, margin, disputes |
+ | Public network | External recurring demand, independent supply, security budget, exit, zero-appreciation viability |
+ 
+ Always retain negative/inconclusive results, manual interventions, denial
+ reasons, verifier disagreement, false accepts/rejects, recovery time, cost
+ amplification, and support burden.
+ 
+ ## 12. Adversarial Proof Matrix
+ 
+ Every active stage selects applicable rows:
+ 
+ | Failure class | Minimum question |
+ | --- | --- |
+ | Identity substitution | Can a different principal, session, origin, factor, or device replay the action? |
+ | Body/ref substitution | Can the signed or admitted hash be reused with changed content, target, destination, or version? |
+ | Stale state | Does a stale head, epoch, root, grant, lease, profile, or policy reach an effect? |
+ | Authority bypass | Can UI, client, harness, connector, MCP, provider, or copied receipt fields mint power? |
+ | Route exposure / authorization fork | Is every externally reachable route classified, and can an MCP-only, adapter-only, or unregistered path reach a different policy or final-invoker path? |
+ | Coverage overclaim | Can discovery, observation, attribution, mediation, or receipt presence be misreported as prevention, especially after adapter loss, offline transition, version drift, or an opaque-runtime bypass? |
+ | Information-flow attack | Can untrusted instructions or derived data cross to a forbidden tool, model, tenant, or destination? |
+ | Retry/ambiguity | Can timeout, restart, or uncertain external completion duplicate an effect? |
+ | Writer/failover fault | Can an old, foreign, partitioned, or deposed writer act? |
+ | Truth/projection split | Can cache, UI, search, count, or compatibility data become accepted truth? |
+ | Evidence producer conflict | Does proof require trusting the same producer whose behavior is being proved? |
+ | Verifier manipulation | Can the candidate select, alter, expose, or overfit the judgment path? |
+ | Budget reset | Can branch, retry, order, account, or provider fallback evade finite limits? |
+ | Cross-tenant leak | Can counts, recents, caches, routes, artifacts, memory, or exports reveal another scope? |
+ | Membership/claim leak | Does pairing, discovery, rank, or contribution grant membership, credit allocation, payout, or authority? |
+ | Semantic escalation | Can mapping, compatibility, assertion, or ontology membership authorize an action? |
+ | Dependency outage | Are unavailable, denied, degraded, recovery, and partial-dependency states honest and safe? |
+ | Supply substitution | Does provider/model/worker/tool fallback change rights or semantics without review/evidence? |
+ | Release/update substitution | Can unsigned, revoked, downgraded, digest-mismatched, or manifest-substituted install/update material execute or replace the admitted build? |
+ | Restore-byte or secret substitution | Can same-size changed bytes, loose plaintext, foreign ciphertext, a stale preflight, or an incomplete manifest mutate the target before full verification and destination-local re-resolution? |
+ | Activation/cleanup loss | Can a failed, unknown, late, partial, or superseded change steal the active head, or can deleting a parent erase an unresolved resource-cleanup duty? |
+ | Physical safety fault | Can remote/model/chain failure disable local veto, heartbeat, deterministic motion, or e-stop? |
+ | Economic theater | Does cooperation/network value disappear after subsidy, risk, or token appreciation is removed? |
+ 
+ Positive tests demonstrate a path. These failures determine whether the claim
+ is bounded.
+ 
+ ## 13. Evidence, Validation, And Maintenance
+ 
+ ### 13.1 Evidence index
+ 
+ The program evidence index records:
+ 
+ ```text
+ stage_id / work_item_id
+ selected_profile and frozen thresholds
+ owner and contract revisions
+ code revision / worktree provenance
+ generated schema/projection hashes
+ positive and adversarial test refs
+ Agentgres operation/head/root/checkpoint refs
+ authority/policy/revocation/fence refs
+ artifact and offline proof bundle refs
+ product screenshots or recordings as non-authoritative evidence
+ metrics and nonclaims
+ applicable PG gate refs
+ reviewer and decision
+-status and date
++owning work-item-record ref and status-transaction date
+ ```
+ 
+ ### 13.2 Validation floor
+ 
+ Run focused owner tests plus the repository checks applicable to the touched
+ stage. The standing floor is:
+ 
+ ```text
+ git diff --check
+ npm run check:architecture-docs
+ npm run check:runtime-layout
+ npm run check:wallet-protocol
+ npm run test:wallet-protocol
+ npm run hypervisor-conformance:docs
+ npm run hypervisor-conformance:contracts
+ npm run hypervisor-conformance:proofs
+ npm run hypervisor-conformance:ifc
+ npm run hypervisor-conformance:fencing
+ npm run hypervisor-conformance:work-lifecycle
+ npm run hypervisor-conformance:physical
+ npm run hypervisor-conformance:billing
+ npm run hypervisor-conformance:disputes
+ npm run hypervisor-conformance:attestation
+ npm run hypervisor-conformance:operability
+ npm run hypervisor-conformance:receipts
+ npm run hypervisor-conformance:wallet
+ npm run hypervisor-conformance:negative
+ ```
+ 
+ Use the kernel migration matrix's full `hypervisor-conformance` bar for macro
+ runtime cuts. Use focused Rust, TypeScript, schema, SDK, CLI, browser,
+ usability, chaos, provider-exit, interoperability, and hardware tests when
+ their profiles are selected. A green command proves only its actual scope.
+ 
+ ### 13.3 Status update transaction
+ 
+ When a work item changes durable truth:
+ 
+ 1. update the canonical subject owner if semantics changed;
+ 2. update generated contracts and fixtures if the wire contract changed;
+-3. update `implementation-matrix.md` and `canon-to-code-delta.md` with proven
+-   status and code anchors;
+-4. update the kernel migration matrix if a macro route-family boundary changed;
+-5. update the hardening ledger if a `PG-*` gate actually closed;
+-6. update this guide's stage/evidence/source disposition;
+-7. narrow product copy and public documentation to the resulting claim;
+-8. re-verify every claim in the held PR's body against the new state and
++3. update the owning `ioi.program.work_item.v1` record with the exact status,
++   code anchors, retained evidence, exit lines, and nonclaims;
++4. refresh the machine-verified `canon-to-code-delta.md` projection when its
++   declared owner, target, code-anchor, or crossing facts changed;
++5. update the kernel migration matrix if a macro route-family boundary changed;
++6. update the hardening ledger if a `PG-*` gate actually closed;
++7. update this guide only if approved sequencing, stage doctrine, exit-proof
++   definition, or source disposition changed; never add a live status story;
++8. narrow product copy and public documentation to the resulting claim, then
++   re-verify every claim in the held PR's body against the new state and
+    correct any that aged — a PR body is a ledger entry, not a press release;
+-9. regenerate `internal-docs/implementation/program-state.json` and pass
+-   `node internal-docs/implementation/check-program-state.mjs` so the live
++9. regenerate `internal-docs/implementation/program-state.json` with
++   `npm run generate:program-state` and pass
++   `node internal-docs/implementation/check-program-state.mjs` so the local
+    projection never goes stale.
+ 
+ Do not mark an internal plan complete as a substitute for those updates.
+ 
+ ### 13.4 Stop rules
+ 
+ Stop and correct course when:
+ 
+ - a contract has no clear canonical owner;
+ - an effect path cannot name and guard its final invoker;
+ - accepted truth can originate in a client, JavaScript facade, prompt, harness,
+   MCP transport, adapter, cache, or UI;
+ - proof depends on trusting the producer under evaluation;
+ - a GoalRun, accepted outcome, or System cannot reconstruct after the selected
+   restart/fault profile;
+ - provider exit loses protected institutional state or misses frozen floors;
+ - sovereign cooperation lacks participant-level positive surplus;
+ - embodied promotion requires remote intelligence to become the local safety
+   loop;
+ - public-network economics require compulsory local settlement, internal
+   traffic, subsidy concealment, or token appreciation.
+ 
+ ### 13.5 Relative-comparison research discipline
+ 
+ Use the
+ [`IOI Comparative Architecture Improvement Goal Prompt`](../prompts/architecture-relative-comparison/goal-prompt.md)
+ when a current project, standard, research result, operating mechanism,
+ failure, or user workflow may materially improve one success-critical facet.
+ 
+ Each pass:
+ 
+ - selects one bounded facet or inseparable owner cluster;
+ - freezes current canon, implementation truth, success measures, and the null
+   alternative before external research;
+ - compares current IOI, the strongest current mechanisms, the transformed
+   source-neutral IOI target, and the unchanged path;
+ - requires independent adversarial verification and relevant product, fault,
+   exit, and adoption pressure tests;
+ - may feed a surgical canonical owner or ADR change, an existing M-stage work
+   item, a bounded prototype, a monitoring trigger, or a recorded rejection;
+ - retains its dated report under the ignored prompt pack.
+ 
+ The prompt is a research method, not another work package, architecture owner,
+ or sequencer. Research cannot activate or reorder M-stages, redefine or close a
+ `PG-*` gate, change implementation status without code evidence, or promote
+ external terminology into canon. A verified `no_change` result is complete
+ research when the current IOI shape remains stronger.
+ 
+ ### 13.6 Dated local-first deployment comparison
+ 
+ The 2026-07-20 comparison against the locally inspected
+ [OpenShip revision `081eb2057fc6`](https://github.com/oblien/openship/tree/081eb2057fc69b8c4b2782593ec3f7b9f3d2d294)
+ is retained only as historical research provenance. Its useful pressure was
+ transformed into source-neutral obligations already owned by M0, M2, M9,
+ WP-RUNTIME, WP-PROOF, and WP-UX:
+ 
+ - one honest zero-to-operable local product journey;
+ - evidence-bearing project discovery before Project or recipe creation;
+ - independent route-binding lifecycle and all-route authorization coverage;
+ - manifest-complete backup and secret-safe staged restore;
+ - forward-only activation and persistent cleanup reconciliation; and
+ - adversarial installer, updater, route/MCP, restore, fencing, and writer-
+   quiescence proof.
+ 
+ The comparison creates no canonical object, architecture owner, stage, or
+ implementation claim. Source terminology, best-effort security shortcuts, and
+ repository structure are not imported. Future implementation must resolve
+ against current canon and current code rather than this dated revision.
+ 
+ ## 14. Source Coverage And Disposition Ledger
+ 
+ Disposition values:
+ 
+ | Disposition | Meaning |
+ | --- | --- |
+ | `active_satellite` | Owns specialist evidence or gates; activation/order comes from this guide. |
+ | `conditional_satellite` | Useful only when a named stage/profile pulls it. |
+ | `absorbed_open` | Operative obligations are restated here; remaining detail is reference. |
+ | `absorbed_complete` | Completed work is retained as history and regression evidence. |
+ | `reference_guardrail` | Useful constraint/checklist; refresh current anchors before use. |
+ | `historical_evidence` | Research, comparison, or prior implementation record; schedules nothing. |
+ | `compatibility_pointer` | Stable path retained to route old links. |
+ | `rejected_conflict` | Conflicting target/owner is not executable; useful evidence remains. |
+ 
+ ### 14.1 `internal-docs/implementation/` — complete pre-consolidation inventory
+ 
+ The inventory below covers all twelve files that existed in this directory
+ before this master and README were created.
+ 
+ | Preserved source | Disposition | Master mapping | Retained value / conflict resolution |
+ | --- | --- | --- | --- |
+-| [`bounded-recursive-improvement-campaign-discovery-plan.md`](./bounded-recursive-improvement-campaign-discovery-plan.md) | `conditional_satellite` | M8, WP-IMPROVE | Statistical, evaluator-integrity, exposure, order, fault, and experiment detail. Canon absorption is complete; its phase list does not execute independently. |
++| [`bounded-recursive-improvement-campaign-discovery-plan.md`](./bounded-recursive-improvement-campaign-discovery-plan.md) | `conditional_satellite` | M8, WP-IMPROVE | Statistical, evaluator-integrity, exposure, order, fault, and experiment detail retained for M8. Canon owns Campaign meaning; this source's phase list does not execute independently. |
+ | [`canon-mechanism-hardening-action-plan.md`](./canon-mechanism-hardening-action-plan.md) | `active_satellite` | all stages, `R-OPS` | Sole detailed 58-gate definition/closure ledger and mechanism evidence. This guide never duplicates or closes its gates. |
+ | [`canon-sota-improvement-review.md`](./canon-sota-improvement-review.md) | `historical_evidence` | M0, all rails | Dated 2026-07-16 advisory/research provenance. Adopted lessons are in canon, rails, and work packages; recommendations do not schedule work, and the comparative goal prompt owns the reusable method. |
+ | [`hypervisor-bounded-das-application-taxonomy-winning-state-plan.md`](./hypervisor-bounded-das-application-taxonomy-winning-state-plan.md) | `active_satellite` | M6, M9, WP-UX | Detailed taxonomy migration, `UX-00`, seed coverage, pressure tests, and usability measures. Canon controls current names/owners. |
+ | [`hypervisor-model-mount-rust-consolidation-and-deadcode-retirement.md`](./hypervisor-model-mount-rust-consolidation-and-deadcode-retirement.md) | `absorbed_complete` | WP-RUNTIME | Completed JS-daemon/model-mount retirement checkpoint. Remaining work belongs to the canonical migration matrix; do not replay its phases. |
+-| [`ioi-design-system-portable-package-plan.md`](./ioi-design-system-portable-package-plan.md) | `absorbed_open` | M6, M9, WP-UX | Track 1 is complete (`packages/design-system` exists and Hypervisor Web consumes it). Broader consumers and ESM-native work are conditional. |
++| [`ioi-design-system-portable-package-plan.md`](./ioi-design-system-portable-package-plan.md) | `absorbed_open` | M6, M9, WP-UX | Track 1 is retained as package-adoption history, not current implementation truth. Package presence and consumer adoption require an owning work-item record and committed anchors. Broader-consumer and ESM-native obligations are conditional. |
+ | [`ioi-undeniable-product-proof-implementation-guide.md`](./ioi-undeniable-product-proof-implementation-guide.md) | `absorbed_open` | M0–M14, especially M9 | First-proof profile, goal-pass discipline, repair obligations, scorecard, release ladder, and stop rules are consolidated here; its discovery/canon-feedback method now lives in the comparative goal prompt. Its old dependency graph is superseded. |
+ | [`low-level-implementation-milestones.md`](./low-level-implementation-milestones.md) | `compatibility_pointer` | this guide | Stable historical link target; now routes sequencing here rather than to the stale refine guide. |
+ | [`refine-architecture.md`](./refine-architecture.md) | `historical_evidence` | M0, M3, M6, M9 | June-era architecture pressure audit. Later canon resolved most owner gaps; stale Missions, old app taxonomy, old paths, and its phase order are not executable. Path stays for ADR/test backlinks. |
+ | [`runtime-action-schema.json`](./runtime-action-schema.json) | `reference_guardrail` | `R-CONTRACT` | Byte-identical mirror of the canonical schema at inventory time. Canonical schema is the only owner; this copy is not a plan. |
+ | [`runtime-module-map.md`](./runtime-module-map.md) | `rejected_conflict` | WP-RUNTIME | Names deleted `packages/runtime-daemon` and `ioi-runtime-bridge.rs`; do not use as current layout until refreshed against Rust daemon reality. |
+ | [`runtime-package-boundaries.md`](./runtime-package-boundaries.md) | `reference_guardrail` | WP-RUNTIME | Ownership checklist remains useful; paths/taxonomy require refresh before implementation use. |
+ 
+ ### 14.1A Post-consolidation activated specialist guides
+ 
+ | Preserved source | Disposition | Master mapping | Retained value / conflict resolution |
+ | --- | --- | --- | --- |
+ | [`runtime-kernel-service-trust-boundary-audit.md`](./runtime-kernel-service-trust-boundary-audit.md) | `active_satellite` | M0.9, WP-RUNTIME, M9 | Complete method-by-method classification of the current Rust aggregation facade. Its inventory verifier is binding for coverage, but its proposed extractions activate only as master-pulled owner cuts and may not weaken the single authority/admission/final-invoker/receipt gateway. |
+ 
+ ### 14.2 `.internal/plans/` — complete current inventory
+ 
+ | Preserved source | Disposition | Master mapping | Retained value / conflict resolution |
+ | --- | --- | --- | --- |
+ | [`THROUGHPUT_SCALING_PLAN.md`](../../.internal/plans/THROUGHPUT_SCALING_PLAN.md) | `conditional_satellite` | M14, WP-NET | AFT performance methodology and regression evidence. Does not pull L1 forward or prove network demand/security. |
+ | [`agent-tool-vocabulary-v2.md`](../../.internal/plans/agent-tool-vocabulary-v2.md) | `absorbed_complete` | M3, WP-RUNTIME | Native tool rename cutover evidence. Current canonical tool contracts/vocabulary win; legacy aliases remain migration-only. |
+ | [`architectural-improvements-broad-master-guide.md`](../../.internal/plans/architectural-improvements-broad-master-guide.md) | `historical_evidence` | M3, M6, WP-RUNTIME, WP-UX | May-era execution-surface requirements are largely absorbed into kernel/product canon. Autopilot, deleted JS daemon, and old sequence are stale. |
+ | [`architectural-improvements-broad.md`](../../.internal/plans/architectural-improvements-broad.md) | `historical_evidence` | M3, M6, WP-RUNTIME | Prior competitive roadmap and capability/authority split evidence. Its “canonical roadmap” claim is rejected; canon and this master own direction/order. |
+ | [`benchmark-combination-matrix-plan.md`](../../.internal/plans/benchmark-combination-matrix-plan.md) | `conditional_satellite` | M8, M9, M11 | Evaluation split, scorecard, anti-overfit, and retained-battery detail. Benchmark taxonomy cannot become judgment or promotion authority. |
+ | [`computer-use-external-eval-ingestion-master-guide.md`](../../.internal/plans/computer-use-external-eval-ingestion-master-guide.md) | `conditional_satellite` | M8, M9, WP-PROOF | External evaluation ingestion/failure taxonomy. External suites and traces remain untrusted inputs, not runtime or judgment truth. |
+ | [`developers-ioi-ai-ship-shape-master-guide.md`](../../.internal/plans/developers-ioi-ai-ship-shape-master-guide.md) | `conditional_satellite` | WP-DOCS | Builder IA and maturity-label evidence. Refresh stale Autopilot/JS-daemon claims before implementation; public status follows verified stages. |
+ | [`fqf-wiki-master-guide-plan.md`](../../.internal/plans/fqf-wiki-master-guide-plan.md) | `rejected_conflict` | M3, M7, `R-TRUTH` | Wiki/knowledge UX and promotion ideas remain useful. FQF cannot become a competing canonical truth fabric; current Agentgres/domain/MemorySpace owners win. |
+ | [`isolated-computer-providers-master-guide.md`](../../.internal/plans/isolated-computer-providers-master-guide.md) | `conditional_satellite` | M3, M9, M11 | Leased environment, observation, target, action, cleanup, and trajectory requirements. Its named parent is missing and Autopilot topology is stale. |
+ | [`policy-platform-execution-master-guide.md`](../../.internal/plans/policy-platform-execution-master-guide.md) | `absorbed_open` | `R-AUTH`, M3, M9 | Cross-domain policy visibility and replay obligations are absorbed. Do not create a separate policy runtime/platform or revive the missing parent plan. |
+ | [`private-screenshot-preview-policy-master-guide.md`](../../.internal/plans/private-screenshot-preview-policy-master-guide.md) | `conditional_satellite` | M3, M8, M9 | Local-first preview, retention, redaction, access, and observation-binding requirements. Implement through artifact/IFC/privacy owners, not a renderer truth plane. |
+ 
+ ### 14.3 Ignored prompt, capture, and UX planning estates
+ 
+ These collections are covered as estates because their leaf files are evidence
+ packets under one inherited disposition, not independent executable programs.
+ 
+ | Preserved estate or front door | Disposition | Master mapping | Rule |
+ | --- | --- | --- | --- |
+ | [`architecture-relative-comparison/goal-prompt.md`](../prompts/architecture-relative-comparison/goal-prompt.md) | `reference_guardrail` | M0 + selected M-stage and rails | Reusable current-research, pressure-test, independent-verification, and owner-first absorption method. Its run index preserves decisions and recheck triggers; each dated run is historical evidence and schedules nothing. |
+ | [`autonomous-systems-suite/`](../prompts/autonomous-systems-suite/) | `historical_evidence` | M6, M9, WP-UX | Discovery, capture, seed, and prior adoption evidence. Its thirteen-app/rail/Missions topology is stale; current canon and taxonomy plan win. |
+ | [`hypervisor-application-surface-plans/`](../prompts/hypervisor-application-surface-plans/) | `historical_evidence` | M6, WP-UX | Per-surface captures, extended discovery, playbooks, audits, and graft research. No leaf creates an app or implementation queue. |
+ | [`hypervisor-pressure-tests/`](../prompts/hypervisor-pressure-tests/) | `conditional_satellite` | M0–M14 adversarial matrix | Reusable scenario runbooks and result history. Re-run when a stage selects the scenario; durable outcomes go to owner canon/verifiers. |
+ | [`background-agents-master-audit.md`](../prompts/background-agents-master-audit.md) | `historical_evidence` | M3, M5, M6 | Background-agent UX and execution evidence; current typed work/GoalRun/Automation taxonomy wins. |
+ | [`hypervisor-agent-platform-product-direction.md`](../prompts/hypervisor-agent-platform-product-direction.md) | `historical_evidence` | M3, M6, WP-UX | Competitive/product hypotheses; stale taxonomy cannot schedule implementation. |
+ | [`hypervisor-hosted-autonomous-sdlc-domain-pressure-test.md`](../prompts/hypervisor-hosted-autonomous-sdlc-domain-pressure-test.md) | `conditional_satellite` | M9 | Selected software-change pressure-test evidence; execute through M9 contracts and gates. |
+ | [`hypervisor-lifecycle-control-audit.md`](../prompts/hypervisor-lifecycle-control-audit.md) | `reference_guardrail` | M2, M3, M6 | Lifecycle UX/evidence inventory; owner lifecycles and current code determine implementation. |
+ | [`hypervisor-palantir-application-naming-ledger.md`](../prompts/hypervisor-palantir-application-naming-ledger.md) | `historical_evidence` | M6, WP-UX | Comparative naming provenance only; source-neutral canonical taxonomy wins. |
+ | [`hypervisor-palantir-application-surface-decision-ledger.md`](../prompts/hypervisor-palantir-application-surface-decision-ledger.md) | `historical_evidence` | M6, WP-UX | Historical fold/elevate/seed decisions; current registration owner and `UX-00` win. |
+ | [`hypervisor-palantir-product-environment-graft-map.md`](../prompts/hypervisor-palantir-product-environment-graft-map.md) | `historical_evidence` | M6, WP-UX | Layout and graft provenance; stale anchors and source taxonomy do not direct current code. |
+ | [`ioi-zero-to-hero-autonomy-prompt.md`](../prompts/ioi-zero-to-hero-autonomy-prompt.md) | `historical_evidence` | M0, M9 | Prior execution prompt; this master supplies current sequence and proof gates. |
+ | [`reference-ux-port-game-plan.md`](../reverse-engineering/palantir/reference-ux-port-game-plan.md) | `historical_evidence` | M6, WP-UX | Local-capture, side-by-side, parity-state, and unsupported-control lessons remain useful. Its literal port-first doctrine, PR queue, Missions owner, and dated application topology do not schedule current implementation. |
+ 
+ ### 14.4 Other ignored roadmap and playbook estates
+ 
+ | Preserved source | Disposition | Master mapping | Rule |
+ | --- | --- | --- | --- |
+ | [`tools/roadmap.md`](../../tools/roadmap.md) | `historical_evidence` | M3, M5, M6, WP-UX | May-era product/runtime roadmap. Current GoalRun, Work, Agentgres, worker, and application owners supersede its Autopilot/ioi-memory/phase assumptions. |
+ | [`tools/roadmap_context.md`](../../tools/roadmap_context.md) | `historical_evidence` | M5, M12 | Product-direction input for worker endpoints and persistent workers. Current aiagent and AIIP owners control the contract. |
+ | [`.internal/playbooks/`](../../.internal/playbooks/) | `reference_guardrail` | M0 and per-item operating discipline | Commit hygiene and substrate-absorption rubrics are reusable methods, not implementation sequences or architecture owners. |
+ 
+ ### 14.5 Canonical and archived implementation references
+ 
+ These are not superseded by this guide:
+ 
+ | Source | Relationship |
+ | --- | --- |
+ | [`execution-horizons.md`](../../docs/architecture/_meta/execution-horizons.md) | Owns M1–M14 order and horizon claims. |
+-| [`canon-to-code-delta.md`](../../docs/architecture/_meta/canon-to-code-delta.md) | Owns the object-level next crossing and deferred contract-pulled UX backlog. |
+-| [`implementation-matrix.md`](../../docs/architecture/_meta/implementation-matrix.md) | Owns durable-form/status mapping. |
++| [`canon-to-code-delta.md`](../../docs/architecture/_meta/canon-to-code-delta.md) | Machine-verified authority for stable object-to-owner/code-anchor crossing identities and the deferred contract-pulled UX backlog; it owns no cut status and is validated with `npm run check:canon-to-code-delta`. |
++| [`implementation-matrix.md`](../../docs/architecture/_meta/implementation-matrix.md) | Owns concept-to-owner and durable-form doctrine; points to work-item records for cut status. |
++| [`work-items/`](../../docs/architecture/_meta/work-items/README.md) | Machine-checked durable cut-status records; validate with `npm run check:work-items`. |
+ | [`hypervisor-kernel-substrate-unification-master-guide.md`](../../docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md) | Owns the canonical runtime convergence target and terminal contract. |
+ | [`hypervisor-kernel-substrate-migration-matrix.md`](../../docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md) | Owns current macro migration status. |
+ | [`wallet-protocol-sdk-packaging-plan.md`](../../docs/architecture/_archive/specs/wallet-protocol-sdk-packaging-plan.md) | Archived packaging detail; conditional work is pulled by WP-WALLET and current wallet owners. |
+ 
+ ### 14.6 Consolidation control files
+ 
+ | File | Role |
+ | --- | --- |
+ | [`README.md`](./README.md) | Stable navigation and conflict-order entry point. |
+ | This master guide | Sole active internal sequencer and source-disposition ledger. |
+ | [`hypervisor-unified-rust-daemon-lifecycle-migration.md`](./hypervisor-unified-rust-daemon-lifecycle-migration.md) | Compatibility pointer for three live code/conformance backlinks to a removed plan; it contains no sequence. |
+ 
+ ## 15. Known Stale Conflicts Resolved By This Guide
+ 
+ | Conflict | Resolution |
+ | --- | --- |
+ | `refine-architecture.md` and `ioi-undeniable-product-proof-implementation-guide.md` both claim execution-spine/master status. | This file is the sole active internal sequencer; both bodies remain preserved inputs. |
+ | `low-level-implementation-milestones.md` points to the June refine guide. | It now points here. |
+ | The autonomous-systems suite says `AUTHORITATIVE` and has hundreds of inherited backlinks. | Its front door is reclassified as historical UX/product-discovery evidence and routes here. |
+ | Old application surface indexes say to begin with an archived graft master. | Implementation begins here; graft material is evidence reached through WP-UX/M6. |
+ | `.internal/plans` files call themselves canonical, living, ready, or master guides. | Their exact dispositions are in section 14.2; none is a peer sequencer. |
+ | `runtime-module-map.md` names deleted JS-daemon/bridge roots. | It is `rejected_conflict` until refreshed; current Rust daemon and migration matrix win. |
+ | The `RuntimeKernelService` method count is treated as proof of a monolithic or over-trusted kernel. | Size is only an inventory signal. The method audit and extraction-specific negative proofs decide whether each method belongs in the trusted core, an owner service, a projection boundary, or retirement, while preserving one authority and final-invoker path. |
+ | FQF plan proposes a second canonical state/projection fabric. | Agentgres, domain owners, and MemorySpace retain their canonical responsibilities; only wiki UX/promotion lessons survive. |
+ | Old UX plans use Missions and a pre-refactor rail/application taxonomy. | Generic Mission is retired; current Systems/Work and owner/substrate application taxonomy win. |
+ | Old provider/policy/computer-use guides point to a missing parent plan. | Their useful obligations are conditionally absorbed here; the missing parent is not revived. |
+ | A removed runtime lifecycle plan still has code/conformance backlinks. | A compatibility pointer at the original path routes readers to this guide and current canonical owners. |
+ | `runtime-action-schema.json` duplicates a canonical schema. | Canonical schema is the only owner; the ignored mirror is reference only. |
+ 
+-## 16. Initial Program State And Next Activation
++## 16. Session Orientation And Activation
+ 
+-Initial state at this consolidation:
++This section owns no program snapshot or current next action. At session
++start:
+ 
+-| Item | State | Immediate next evidence |
+-| --- | --- | --- |
+-| M0 | `active` | Complete current effect/final-invoker inventory, selected-profile gate map, evidence index, and dated baselines. |
+-| M1–M8 | `pending` | Activate in order as M0 and prior exits close; allow contract/compiler preparation only when it cannot fabricate downstream truth. |
+-| M9 | `pending` | Requires M1–M8 selected-profile closure, selected-route Rust terminality, and applicable production gates. The sovereign-local lane requires its local authority path; wallet v3 is additionally required only when the managed-optionality overlay is selected. |
+-| M10–M14 | `pending` | No launch or implementation claim before prior-stage proof. Research and contract freeze may continue under explicit nonclaims. |
+-| WP-RUNTIME | `active_satellite` | Verify the complete facade trust audit, then continue only master-pulled macro Rust owner cuts that preserve the single-gateway property and canonical migration matrix. |
+-| `PG-*` ledger | `active_satellite` | Close only with owner integration and production/adversarial evidence. |
+-| WP-UX | `conditional_active` | Finish inventory/crosswalk work; implement only contract-pulled M-stage surfaces. |
+-| WP-IMPROVE | `pending` | Activate the order-0 Campaign slice at M8. |
+-| WP-EMBODIED | `contract_freeze_only` | Maintain contracts/evidence design; implementation proof activates at M11. |
+-| WP-COOP | `pending` | Activates at M12 after one logical System is proven distributed and useful. |
+-| WP-NET | `pending` | Activates at M14 after repeated external demand evidence. |
+-
+-The next implementation move is therefore not chosen from an older plan's
+-remaining checkbox. It is:
+-
+-1. finish M0's current, falsifiable baseline and effect inventory;
+-2. continue the already-active Rust macro migration rail;
+-3. activate M1's smallest complete constitutional vertical;
+-4. refuse new application breadth unless M1–M8 contracts pull it;
+-5. preserve evidence and update status owners after every completed crossing.
+-
+-That is the shortest credible path to the target end state because it closes
+-one real institution and one real product experience before asking
+-distribution, federation, embodiment, or public economics to carry an
+-unproven core.
+-
+-The table above is the dated snapshot taken at consolidation and is not
+-maintained. The live program state — current stage states, the single active
+-cut, and ordered next actions — is the derived projection
+-[`program-state.json`](./program-state.json), regenerated in every status
+-update transaction (section 13.3, step 8) and validated by
+-`node internal-docs/implementation/check-program-state.mjs`. Sessions orient
+-there first instead of re-deriving state from git history, PR bodies, and
+-matrix cells.
++1. read the derived [`program-state.json`](./program-state.json);
++2. regenerate it with `npm run generate:program-state`, then run
++   `node internal-docs/implementation/check-program-state.mjs`;
++3. read and validate the relevant
++   [`ioi.program.work_item.v1` records](../../docs/architecture/_meta/work-items/README.md);
++4. inspect each claimed artifact and literal `*_EXIT=` line; and
++5. follow the M0–M14 dependencies and proof gates defined above.
++
++An older plan's remaining checkbox never activates work. Contract/compiler
++preparation, research, or a nearby implementation precedent does not advance a
++stage, waive a predecessor, or license multi-node, federation, claim-bearing
++cohort, connected/secured-service, or L1 language. Current stage states and
++ordered next actions appear only in the derived local projection, regenerated
++at section 13.3 step 9.

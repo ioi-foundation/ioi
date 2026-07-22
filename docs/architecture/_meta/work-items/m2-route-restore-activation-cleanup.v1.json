@@ -1,0 +1,43 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m2-route-restore-activation-cleanup",
+  "stage_id": "M2",
+  "required_work": [
+    "M2.8",
+    "M2.9",
+    "M2.10"
+  ],
+  "status": "proposed",
+  "objective": "Plan owner-bound route binding, manifest-complete backup and staged restore, forward-only activation, and durable cleanup obligations.",
+  "falsifiable_claim": "Route or owner drift, incomplete restoration, stale activation, and parent or provider loss cannot silently advance state or erase required cleanup.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "contract_families": [
+    "EnvironmentRouteBinding",
+    "HypervisorChangePlan",
+    "EnvironmentBackupManifest",
+    "EnvironmentBackupArtifact",
+    "ActivationHead",
+    "ResourceCleanupObligation"
+  ],
+  "dependencies": [
+    "m2-writer-fence-and-lost-suffix",
+    "Artifact, secret, and provider owner contracts"
+  ],
+  "exit_criteria": [
+    "Route, TLS, and owner drift fail closed; every restored byte and secret disposition verifies before apply.",
+    "Stale or superseded activation cannot advance and parent deletion or provider loss cannot erase cleanup duty.",
+    "Retained evidence log contains exactly one literal M2_ROUTE_RESTORE_ACTIVATION_CLEANUP_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Mutate route owner, TLS identity, manifest bytes, secret disposition, activation predecessor, provider presence, parent existence, and cleanup acknowledgements.",
+  "remaining_nonclaims": [
+    "Environment recovery does not imply outcome recovery.",
+    "No M10 continuity, provider reliability, or stage closure claim."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

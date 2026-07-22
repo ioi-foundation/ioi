@@ -1,0 +1,46 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m10-two-failure-domain-continuity",
+  "stage_id": "M10",
+  "required_work": [
+    "M10.1-M10.7"
+  ],
+  "status": "proposed",
+  "objective": "Plan the two-failure-domain continuity proof over the M2 membership, writer, fence, recovery, checkpoint, and removal families.",
+  "falsifiable_claim": "One System identity, constitution, ownership set, and finality profile survive declared faults without dual accepted effects, while measured recovery and lost suffix remain explicit.",
+  "canon_owners": [
+    "docs/architecture/foundations/governed-autonomous-systems.md",
+    "docs/architecture/foundations/domain-kernels.md",
+    "docs/architecture/components/agentgres/postgres-bridge-and-readiness-contract.md",
+    "docs/architecture/components/daemon-runtime/platform-operability.md"
+  ],
+  "contract_families": [
+    "AutonomousSystemDeploymentProfile",
+    "AutonomousSystemNodeMembership",
+    "AutonomousSystemFailoverProfile",
+    "AutonomousSystemWriterEpochTransition",
+    "LostSuffixRecord",
+    "ConsequentialEffectFenceContext",
+    "ContinuityCheckpoint",
+    "ContinuityReceipt"
+  ],
+  "dependencies": [
+    "m9-lifecycle-evidence-operator-proof",
+    "m2-selected-profile-exit-proof"
+  ],
+  "exit_criteria": [
+    "Two declared failure domains preserve one System identity, constitution, owners, and finality profile with no dual accepted effects.",
+    "RPO, RTO, and lost suffix are measured and drain, removal, restart, and reconstruction pass under declared faults.",
+    "Retained evidence log contains exactly one literal M10_TWO_FAILURE_DOMAIN_CONTINUITY_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Inject writer, node, link, storage, witness, restart, delayed-message, stale-epoch, incomplete-catch-up, drain, removal, and ambiguous-suffix faults.",
+  "remaining_nonclaims": [
+    "Promotion remains operator-controlled unless separately proven.",
+    "No useful distribution, consensus, authority expansion, federation, or stage closure claim."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

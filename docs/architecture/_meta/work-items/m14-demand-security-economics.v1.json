@@ -1,0 +1,44 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m14-demand-security-economics",
+  "stage_id": "M14",
+  "required_work": [
+    "M14.3-M14.4",
+    "M14 exit evidence"
+  ],
+  "status": "proposed",
+  "objective": "Plan the frozen unrelated-organization demand cohort, payment-or-risk ledger, independent supply, attack and security budget, regulatory alternatives, and zero-appreciation counterfactual.",
+  "falsifiable_claim": "Sustained unrelated demand and viable security economics remain after explicit costs, risks, margins, subsidies, and zero asset appreciation are applied.",
+  "canon_owners": [
+    "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md",
+    "docs/architecture/foundations/security-privacy-policy-invariants.md",
+    "docs/architecture/foundations/ecosystem-assurance-certification-liability.md"
+  ],
+  "contract_families": [
+    "DemandCohortProtocol",
+    "DemandPaymentRiskLedger",
+    "ProviderGuardianVerifierSupplyLedger",
+    "AttackSecurityBudget",
+    "RegulatoryAlternativeModel",
+    "ZeroAppreciationCounterfactual",
+    "SubsidyDisclosure"
+  ],
+  "dependencies": [
+    "m14-network-service-devnet"
+  ],
+  "exit_criteria": [
+    "At least three unrelated organizations across two selected service families meet the predeclared sustained period.",
+    "Fees and bonds cover frozen margin, independent supply exists, and results survive zero appreciation and subsidy disclosure.",
+    "Retained evidence log contains exactly one literal M14_DEMAND_SECURITY_ECONOMICS_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Replace unrelated organizations with affiliates or internal traffic; shorten period; collapse service families; omit cost, risk, margin, subsidy, supplier, attack budget, regulation, alternative, or appreciation assumptions.",
+  "remaining_nonclaims": [
+    "Internal traffic, L0 adoption, System or receipt count, and token speculation never qualify as demand.",
+    "No native-asset necessity, compulsory settlement, or stage closure claim."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

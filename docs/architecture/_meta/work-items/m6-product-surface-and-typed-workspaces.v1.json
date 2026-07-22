@@ -1,0 +1,46 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m6-product-surface-and-typed-workspaces",
+  "stage_id": "M6",
+  "required_work": [
+    "M6.1-M6.11"
+  ],
+  "status": "proposed",
+  "objective": "Plan the normalized daemon-admitted product surface compiler, honest Systems and Work views, alias retirement, package and extension lifecycle, UX-00, and frozen usability proof.",
+  "falsifiable_claim": "One registered source can feed shell, catalog, palette, context, and API without fabricating membership or implementation depth, while policy, tenant, context, and alias substitutions fail closed.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/foundations/canonical-enums.md",
+    "docs/architecture/foundations/common-objects-and-envelopes.md"
+  ],
+  "contract_families": [
+    "SurfaceDefinition",
+    "SurfaceRelease",
+    "SurfaceInstallation",
+    "SystemInterfaceBinding",
+    "SurfaceServingRecord",
+    "SurfaceAliasReceipt",
+    "SystemsProjection",
+    "WorkProjection",
+    "PackageExtensionLifecycle"
+  ],
+  "dependencies": [
+    "m5-selected-profile-exit-proof",
+    "Real M1-M5 read models"
+  ],
+  "exit_criteria": [
+    "One registered source feeds shell, catalog, palette, context, and API.",
+    "Policy, tenant, and context negatives fail; typed aliases preserve deep context; direct subjects remain creatable; UX-00 and the frozen usability bar pass.",
+    "Retained evidence log contains exactly one literal M6_PRODUCT_SURFACE_AND_TYPED_WORKSPACES_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Substitute tenant, policy, context, surface release, System binding, alias target, package, extension, deep link, and implementation-depth labels across every projection.",
+  "remaining_nonclaims": [
+    "Screenshot or registry parity does not establish product membership.",
+    "No operational-depth claim for unbuilt owners and no stage closure."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}

@@ -1,0 +1,47 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m13-sovereignty-trial-preregistration",
+  "stage_id": "M13",
+  "required_work": [
+    "M13.1-M13.2"
+  ],
+  "status": "proposed",
+  "objective": "Plan a non-product preregistered sovereignty trial with frozen System independence, an operationally independent provider or verifier, identities, control dependencies, terms, outside options, costs, risks, rights, benefits, and subsidy disclosure.",
+  "falsifiable_claim": "The trial cannot begin until independently operated System identities, methods, comparators, stop rules, participant-specific baselines, and a provider or verifier independent of both sovereign System administrations are frozen without exposing private valuations.",
+  "canon_owners": [
+    "docs/architecture/foundations/aiip.md",
+    "docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md",
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+  ],
+  "contract_families": [
+    "SovereigntyTrialProtocol",
+    "IndependentOperationEvidence",
+    "IndependentProviderOrVerifierEvidence",
+    "CollaborationTermsRoot",
+    "PrivateValuationAttestation",
+    "OutsideOptionLedger",
+    "CostRiskRightsBenefitLedger",
+    "SubsidyLedger"
+  ],
+  "dependencies": [
+    "m12-selected-profile-exit-proof",
+    "Independently operated Systems",
+    "Provider or verifier independently administered from both sovereign System administrations"
+  ],
+  "exit_criteria": [
+    "System identities, control dependencies, and independence criteria freeze before work, including an explicit provider-or-verifier criterion that excludes control by either sovereign System administration.",
+    "Each participant's method and outside option plus direct/local comparator and stop rules commit without exposing private value.",
+    "A retained negative fixture substitutes a provider or verifier controlled by either sovereign System administration and the preregistration verifier rejects the trial.",
+    "Retained evidence log contains exactly one literal M13_SOVEREIGNTY_TRIAL_PREREGISTRATION_EXIT=0; process exit status alone is insufficient."
+  ],
+  "code_anchors": [],
+  "evidence_refs": [],
+  "pr": null,
+  "adversarial_or_fault_proof": "Alter System control, hide shared administration, or replace the independently administered provider or verifier with one controlled by either sovereign System administration; also mutate the terms root, independence criteria, method, outside option, cost, risk, rights, benefit, subsidy, comparator, or stop rule after preregistration.",
+  "remaining_nonclaims": [
+    "The protocol is unsigned or self-declared workflow evidence, not product authority.",
+    "Preregistration is not cooperation success, positive surplus, demand, or stage closure."
+  ],
+  "source_provenance": "Plan-level proposal derived from docs/architecture/_meta/work-items/m0-m14-plan-gap-audit.md at origin/master 61eba1802992c01efa7d3188184ff315ad9d2ba0; status transaction 2026-07-22.",
+  "last_status_transaction": "2026-07-22"
+}
