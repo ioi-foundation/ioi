@@ -12,7 +12,7 @@
 //! `wallet_network_live` (Option A device signer — DECLARED gap unless a live wallet.network
 //! endpoint is configured; never faked). High-risk crossings (`WALLET_REQUIRED`) need a portable
 //! grant; the enterprise provider can issue one; the local lane covers only `LOCAL_ALLOWED`.
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::State;
@@ -23,6 +23,33 @@ use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
 /// Enterprise policy spend ceiling — a real, enforced denial threshold for portable grants.
 const MAX_ENTERPRISE_SPEND: i64 = 100_000;
+
+/// Serializes exact-action grant issue/revoke/consume transitions across the final invoker.
+/// The lock is deliberately authority-owned; the workflow-edit adapter never becomes a second
+/// grant store or revocation source.
+static EXACT_ACTION_GRANT_LOCK: Mutex<()> = Mutex::new(());
+
+#[derive(Debug)]
+pub(crate) struct ExactActionGrantError {
+    pub(crate) code: &'static str,
+    pub(crate) message: String,
+}
+
+impl ExactActionGrantError {
+    fn new(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct ExactActionConsumption<T> {
+    pub(crate) output: T,
+    pub(crate) grant: Value,
+    pub(crate) receipt: Value,
+}
 
 fn now_unix() -> i64 {
     SystemTime::now()
@@ -62,6 +89,15 @@ fn live_grant_status(grant: &Value) -> &'static str {
     {
         return "revoked";
     }
+    match grant
+        .get("consumption_state")
+        .and_then(Value::as_str)
+        .unwrap_or("available")
+    {
+        "consumed" => return "consumed",
+        "prepared" | "failed" => return "prepared",
+        _ => {}
+    }
     let expires = grant
         .get("expires_at_unix")
         .and_then(|v| v.as_i64())
@@ -79,6 +115,72 @@ fn load_grant(data_dir: &str, grant_id: &str) -> Option<Value> {
             g.get("grant_id").and_then(|v| v.as_str()) == Some(grant_id)
                 || g.get("grant_ref").and_then(|v| v.as_str()) == Some(grant_id)
         })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn retained_exact_action_grant(
+    data_dir: &str,
+    subject: &str,
+    action: &str,
+    policy_hash: &str,
+    request_hash: &str,
+    effect_hash: &str,
+    target_ref: &str,
+    proposal_ref: &str,
+) -> Result<Option<Value>, String> {
+    let mut retained = read_record_dir(data_dir, "authority-grants")
+        .into_iter()
+        .filter(|grant| {
+            grant
+                .pointer("/resources/proposal_ref")
+                .and_then(Value::as_str)
+                == Some(proposal_ref)
+        })
+        .collect::<Vec<_>>();
+    if retained.len() > 1 {
+        return Err(format!(
+            "exact-action proposal '{proposal_ref}' has multiple retained grants; authority repair is required"
+        ));
+    }
+    let Some(grant) = retained.pop() else {
+        return Ok(None);
+    };
+    let exact_fields = [
+        ("/schema_version", "ioi.hypervisor.authority-grant.v1"),
+        ("/authority_provider_ref", "authority://local-operator"),
+        ("/provider", "local_operator"),
+        ("/authority_lane", "sovereign_local"),
+        ("/subject", subject),
+        ("/action", action),
+        ("/policy_hash", policy_hash),
+        ("/request_hash", request_hash),
+        ("/effect_hash", effect_hash),
+        ("/resources/proposal_ref", proposal_ref),
+        ("/resources/target_ref", target_ref),
+        ("/resources/effect_hash", effect_hash),
+        ("/resources/request_hash", request_hash),
+    ];
+    for (pointer, expected) in exact_fields {
+        if grant.pointer(pointer).and_then(Value::as_str) != Some(expected) {
+            return Err(format!(
+                "retained exact-action grant for '{proposal_ref}' does not bind {pointer}; authority repair is required"
+            ));
+        }
+    }
+    let grant_id = grant
+        .get("grant_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "retained exact-action grant has no canonical grant_id".to_string())?;
+    let expected_grant_ref = format!("grant://authority.local/{grant_id}");
+    if grant.get("grant_ref").and_then(Value::as_str) != Some(expected_grant_ref.as_str())
+        || grant.get("max_usages").and_then(Value::as_u64) != Some(1)
+    {
+        return Err(format!(
+            "retained exact-action grant for '{proposal_ref}' has invalid identity or usage bounds; authority repair is required"
+        ));
+    }
+    Ok(Some(grant))
 }
 
 /// Emit + persist an authority receipt (neutral `authority_receipt_refs`). Returns the receipt ref.
@@ -109,6 +211,265 @@ fn emit_receipt(
     });
     let _ = persist_record(data_dir, "authority-receipts", &receipt_id, &record);
     receipt_ref
+}
+
+/// Issue one daemon-retained sovereign-local AuthorityGrant for one already-reviewed exact
+/// action. This is intentionally narrower than the portable wallet.network lane: it is valid
+/// only inside this deployment, is one-shot, and binds the exact policy, request, effect, target,
+/// proposal, and subject. The review surface supplies no authority fields of its own.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn issue_exact_action_grant(
+    data_dir: &str,
+    subject: &str,
+    action: &str,
+    policy_hash: &str,
+    request_hash: &str,
+    effect_hash: &str,
+    target_ref: &str,
+    proposal_ref: &str,
+    expiry_seconds: i64,
+) -> Result<Value, String> {
+    if [
+        subject,
+        action,
+        policy_hash,
+        request_hash,
+        effect_hash,
+        target_ref,
+        proposal_ref,
+    ]
+    .iter()
+    .any(|value| value.trim().is_empty())
+    {
+        return Err("exact-action grant coordinates must be nonblank".into());
+    }
+    let _guard = EXACT_ACTION_GRANT_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(grant) = retained_exact_action_grant(
+        data_dir,
+        subject,
+        action,
+        policy_hash,
+        request_hash,
+        effect_hash,
+        target_ref,
+        proposal_ref,
+    )? {
+        return Ok(grant);
+    }
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let grant_id = format!("agr_exact_{nanos:x}");
+    let grant_ref = format!("grant://authority.local/{grant_id}");
+    let now = now_unix();
+    let expires_at_unix = now.saturating_add(expiry_seconds.clamp(1, 86_400));
+    let receipt_ref = emit_receipt(
+        data_dir,
+        "exact_action_granted",
+        &grant_ref,
+        subject,
+        action,
+        "sovereign-local exact-action review admitted",
+    );
+    let record = json!({
+        "schema_version": "ioi.hypervisor.authority-grant.v1",
+        "grant_id": grant_id,
+        "grant_ref": grant_ref,
+        "authority_provider_ref": "authority://local-operator",
+        "provider": "local_operator",
+        "authority_lane": "sovereign_local",
+        "subject": subject,
+        "action": action,
+        "resources": {
+            "proposal_ref": proposal_ref,
+            "target_ref": target_ref,
+            "effect_hash": effect_hash,
+            "request_hash": request_hash,
+        },
+        "policy_hash": policy_hash,
+        "request_hash": request_hash,
+        "effect_hash": effect_hash,
+        "decision": "granted",
+        "reason": "operator reviewed and granted this exact local action",
+        "revoked": false,
+        "revoked_at": Value::Null,
+        "issued_at": iso_now(),
+        "issued_at_unix": now,
+        "expires_at_unix": expires_at_unix,
+        "max_usages": 1,
+        "uses": 0,
+        "consumption_state": "available",
+        "pending_consumption_ref": Value::Null,
+        "consumed_at": Value::Null,
+        "consumption_receipt_ref": Value::Null,
+        "authority_receipt_refs": [receipt_ref],
+    });
+    persist_record(data_dir, "authority-grants", &grant_id, &record)
+        .map_err(|error| format!("exact-action grant persist failed: {error}"))?;
+    Ok(record)
+}
+
+/// Revalidate and consume one exact-action grant while holding the authority mutation lock across
+/// the final invoker. A prepared intent is persisted before the effect; if the process fails
+/// after preparation, replay remains fail-closed instead of double-executing an uncertain effect.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn consume_exact_action_grant<T>(
+    data_dir: &str,
+    grant_ref: &str,
+    subject: &str,
+    action: &str,
+    policy_hash: &str,
+    request_hash: &str,
+    effect_hash: &str,
+    target_ref: &str,
+    final_invoker_ref: &str,
+    invoke: impl FnOnce() -> Result<T, String>,
+) -> Result<ExactActionConsumption<T>, ExactActionGrantError>
+where
+    T: serde::Serialize,
+{
+    let _guard = EXACT_ACTION_GRANT_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut grant = load_grant(data_dir, grant_ref).ok_or_else(|| {
+        ExactActionGrantError::new(
+            "authority_grant_missing",
+            format!("exact-action grant '{grant_ref}' is not retained by this authority provider"),
+        )
+    })?;
+    let status = live_grant_status(&grant);
+    if status != "active" {
+        let code = match status {
+            "revoked" => "authority_grant_revoked",
+            "expired" => "authority_grant_expired",
+            "consumed" | "prepared" => "authority_grant_consumed",
+            _ => "authority_grant_inactive",
+        };
+        return Err(ExactActionGrantError::new(
+            code,
+            format!("exact-action grant is {status}; final invocation refused"),
+        ));
+    }
+    let expected = [
+        ("subject", subject),
+        ("action", action),
+        ("policy_hash", policy_hash),
+        ("request_hash", request_hash),
+        ("effect_hash", effect_hash),
+    ];
+    for (field, value) in expected {
+        if grant.get(field).and_then(Value::as_str) != Some(value) {
+            return Err(ExactActionGrantError::new(
+                "authority_grant_exact_action_mismatch",
+                format!("grant {field} does not bind the final invocation"),
+            ));
+        }
+    }
+    if grant
+        .pointer("/resources/target_ref")
+        .and_then(Value::as_str)
+        != Some(target_ref)
+    {
+        return Err(ExactActionGrantError::new(
+            "authority_grant_target_mismatch",
+            "grant target does not bind the final invocation",
+        ));
+    }
+    if grant.get("max_usages").and_then(Value::as_u64) != Some(1)
+        || grant.get("uses").and_then(Value::as_u64).unwrap_or(0) != 0
+    {
+        return Err(ExactActionGrantError::new(
+            "authority_grant_consumed",
+            "exact-action grant has no remaining usage",
+        ));
+    }
+
+    let consumption_id = format!(
+        "agc_{}",
+        effect_hash
+            .strip_prefix("sha256:")
+            .unwrap_or(effect_hash)
+            .chars()
+            .take(32)
+            .collect::<String>()
+    );
+    let consumption_ref = format!("authority-consumption://{consumption_id}");
+    grant["consumption_state"] = json!("prepared");
+    grant["pending_consumption_ref"] = json!(consumption_ref);
+    let grant_id = grant
+        .get("grant_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    persist_record(data_dir, "authority-grants", &grant_id, &grant).map_err(|error| {
+        ExactActionGrantError::new(
+            "authority_consumption_prepare_failed",
+            format!("could not persist the one-shot consumption intent: {error}"),
+        )
+    })?;
+
+    let output = match invoke() {
+        Ok(output) => output,
+        Err(message) => {
+            grant["consumption_state"] = json!("failed");
+            grant["consumption_failure"] = json!(message.clone());
+            let _ = persist_record(data_dir, "authority-grants", &grant_id, &grant);
+            return Err(ExactActionGrantError::new(
+                "final_invoker_effect_failed",
+                format!("final invoker refused or failed the exact effect: {message}"),
+            ));
+        }
+    };
+
+    let receipt_ref = format!("receipt://hypervisor/authority-grant-consumption/{consumption_id}");
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.authority-grant-consumption-receipt.v1",
+        "receipt_id": consumption_id,
+        "receipt_ref": receipt_ref,
+        "authority_grant_ref": grant_ref,
+        "authority_lane": "sovereign_local",
+        "subject": subject,
+        "action": action,
+        "policy_hash": policy_hash,
+        "request_hash": request_hash,
+        "effect_hash": effect_hash,
+        "target_ref": target_ref,
+        "final_invoker_ref": final_invoker_ref,
+        "status": "effect_committed",
+        "observed_effect": output,
+        "at": iso_now(),
+    });
+    persist_record(data_dir, "authority-receipts", &consumption_id, &receipt).map_err(|error| {
+        ExactActionGrantError::new(
+            "authority_consumption_receipt_failed",
+            format!("effect occurred but its authority receipt could not be retained: {error}"),
+        )
+    })?;
+    grant["uses"] = json!(1);
+    grant["consumption_state"] = json!("consumed");
+    grant["consumed_at"] = receipt["at"].clone();
+    grant["consumption_receipt_ref"] = receipt["receipt_ref"].clone();
+    grant["pending_consumption_ref"] = Value::Null;
+    if let Some(receipts) = grant
+        .get_mut("authority_receipt_refs")
+        .and_then(Value::as_array_mut)
+    {
+        receipts.push(receipt["receipt_ref"].clone());
+    }
+    persist_record(data_dir, "authority-grants", &grant_id, &grant).map_err(|error| {
+        ExactActionGrantError::new(
+            "authority_consumption_commit_failed",
+            format!("effect and receipt exist but grant consumption did not converge: {error}"),
+        )
+    })?;
+    Ok(ExactActionConsumption {
+        output,
+        grant,
+        receipt,
+    })
 }
 
 /// Effects that require portable (wallet.network) authority — blocked/degraded in local mode.
@@ -206,6 +567,9 @@ pub(crate) fn capability_lease_status(data_dir: &str, lease_ref: &str) -> &'stat
 /// by the env port-preview gateway to fail-close a lease on unexpose. Returns true if a granted
 /// lease was revoked. (The HTTP handler keeps its richer response; this is the in-process path.)
 pub(crate) fn revoke_lease(data_dir: &str, key: &str) -> bool {
+    let _guard = EXACT_ACTION_GRANT_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let Some(mut grant) = load_grant(data_dir, key) else {
         return false;
     };
@@ -613,6 +977,9 @@ pub(crate) async fn handle_authority_revoke(
         .and_then(|v| v.as_str())
         .or_else(|| body.get("grant_ref").and_then(|v| v.as_str()))
         .unwrap_or("");
+    let _guard = EXACT_ACTION_GRANT_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let Some(mut grant) = load_grant(data_dir, key) else {
         return Json(
             json!({ "ok": false, "reason": format!("grant '{key}' not found"), "at": iso_now() }),
@@ -892,4 +1259,67 @@ pub(crate) async fn handle_authority_receipts(State(st): State<Arc<DaemonState>>
         "receipts": receipts,
         "at": iso_now()
     }))
+}
+
+#[cfg(test)]
+mod exact_action_authority_tests {
+    use super::*;
+
+    fn temp_data_dir() -> std::path::PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "ioi-exact-action-authority-{}-{nonce:x}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&path).expect("temporary authority data dir");
+        path
+    }
+
+    #[test]
+    fn retry_reuses_one_retained_exact_action_grant_and_refuses_coordinate_drift() {
+        let data_dir = temp_data_dir();
+        let data_dir_string = data_dir.to_string_lossy().to_string();
+        let issue = |effect_hash: &str| {
+            issue_exact_action_grant(
+                &data_dir_string,
+                "agent://agent-a",
+                "workflow.edit.apply",
+                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                effect_hash,
+                "state://workspace-target/target-a",
+                "proposal://workflow-edit/proposal-a",
+                120,
+            )
+        };
+        let effect_hash = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+        let first = issue(effect_hash).expect("initial exact-action grant");
+        let replay = issue(effect_hash).expect("file-backed issue replay");
+        assert_eq!(replay, first);
+        assert_eq!(
+            read_record_dir(&data_dir_string, "authority-grants")
+                .into_iter()
+                .filter(|grant| {
+                    grant
+                        .pointer("/resources/proposal_ref")
+                        .and_then(Value::as_str)
+                        == Some("proposal://workflow-edit/proposal-a")
+                })
+                .count(),
+            1
+        );
+
+        let drift =
+            issue("sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
+                .expect_err("one proposal cannot mint a changed exact-action grant");
+        assert!(drift.contains("does not bind /effect_hash"));
+        assert_eq!(
+            read_record_dir(&data_dir_string, "authority-grants").len(),
+            1
+        );
+        std::fs::remove_dir_all(data_dir).expect("remove temporary authority data dir");
+    }
 }

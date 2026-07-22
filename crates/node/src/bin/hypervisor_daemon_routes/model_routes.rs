@@ -24,7 +24,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 
-use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
+use ioi_services::agentic::runtime::RuntimeOwnerServices;
 
 use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
 
@@ -452,7 +452,7 @@ fn compose_custody_admission(route: &Value) -> Result<Value, (u16, Value)> {
         "required_controls": controls,
         "agentgres_operation_refs": [format!("agentgres://operation/model-route/{}/custody", s(route, "route_id", ""))],
     });
-    RuntimeKernelService::new()
+    RuntimeOwnerServices::new()
         .admit_model_weight_custody(&request, &iso_now())
         .map_err(|e| {
             (
@@ -545,7 +545,7 @@ fn compose_mutation_admission(
             request["provider_credential_lease_ref"] = json!(lease);
         }
     }
-    RuntimeKernelService::new()
+    RuntimeOwnerServices::new()
         .admit_model_route_mutation(&request, &iso_now())
         .map_err(|e| {
             (

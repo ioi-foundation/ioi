@@ -5,6 +5,7 @@ pub mod agent_playbooks;
 pub mod cloud_airlock;
 pub mod connectors;
 pub mod delegation_snapshot;
+pub mod enforcement_coverage;
 pub mod event_log_bridge;
 pub mod execution; // Points to execution/mod.rs now
 pub mod harness;
@@ -12,7 +13,9 @@ pub mod kernel;
 pub mod keys;
 pub mod managed_session_snapshot;
 pub mod middleware;
+pub mod owner_services;
 pub mod policy_lease;
+pub mod projection_service;
 pub(crate) mod resolver;
 pub mod runtime_secret;
 pub mod service;
@@ -27,6 +30,8 @@ pub(crate) mod worker_context;
 pub mod worker_templates;
 pub mod workspace_change;
 
+pub use owner_services::RuntimeOwnerServices;
+pub use projection_service::RuntimeProjectionService;
 pub use service::RuntimeAgentService;
 pub use types::{
     AgentMode, AgentState, AgentStatus, CancelAgentParams, DenyAgentParams, PauseAgentParams,

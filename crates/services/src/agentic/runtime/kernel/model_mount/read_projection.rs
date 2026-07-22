@@ -376,7 +376,7 @@ pub(super) fn model_mount_read_projection(
 mod tests {
     use super::super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
     use super::*;
-    use crate::agentic::runtime::kernel::RuntimeKernelService;
+    use crate::agentic::runtime::RuntimeProjectionService;
     use serde_json::json;
 
     fn write_receipts(state_dir: &std::path::Path, receipts: &[Value]) {
@@ -498,7 +498,7 @@ mod tests {
             }),
         };
 
-        let response = RuntimeKernelService
+        let response = RuntimeProjectionService
             .plan_model_mount_read_projection(&request)
             .expect("read projection plan");
 

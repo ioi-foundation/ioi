@@ -1,0 +1,24 @@
+{
+  "$comment": "Shot manifest consumed by tools/capture-screens.mjs. serveUrl comes from IOI_SERVE_URL env. path values marked confirm:true are finalized at certification time from the app's actual routes; the harness skips them unless --include-unconfirmed. out is relative to src/assets/product/.",
+  "defaults": { "viewport": { "width": 1440, "height": 900 }, "deviceScaleFactor": 2, "settleMs": 1200 },
+  "shots": [
+    { "id": "shell-home", "path": "/ai", "out": "shell-home.png" },
+    { "id": "shell-session-approval", "path": "/ai#session", "confirm": true, "out": "shell-session-approval.png" },
+    { "id": "shell-open-application", "path": "/__ioi/ontology/manager", "confirm": true, "out": "shell-open-application.png" },
+    { "id": "shell-receipts", "path": "/__ioi/home", "confirm": true, "out": "shell-receipts.png" },
+    { "id": "ontology-manager", "path": "/__ioi/ontology/manager", "confirm": true, "out": "ontology-manager.png" },
+    { "id": "studio-manager", "path": "", "confirm": true, "out": "studio-manager.png" },
+    { "id": "automations-manager", "path": "", "confirm": true, "out": "automations-manager.png" },
+    { "id": "data-manager", "path": "", "confirm": true, "out": "data-manager.png" },
+    { "id": "governance-manager", "path": "", "confirm": true, "out": "governance-manager.png" },
+    { "id": "missions-manager", "path": "", "confirm": true, "out": "missions-manager.png" },
+    { "id": "provenance-manager", "path": "", "confirm": true, "out": "provenance-manager.png" },
+    { "id": "evaluations-manager", "path": "", "confirm": true, "out": "evaluations-manager.png" },
+    { "id": "improvement-manager", "path": "", "confirm": true, "out": "improvement-manager.png" },
+    { "id": "foundry-manager", "path": "", "confirm": true, "out": "foundry-manager.png" },
+    { "id": "marketplace-manager", "path": "", "confirm": true, "out": "marketplace-manager.png" },
+    { "id": "workbench-manager", "path": "", "confirm": true, "out": "workbench-manager.png" },
+    { "id": "devconsole-manager", "path": "", "confirm": true, "out": "devconsole-manager.png" },
+    { "id": "gateway-hold", "path": "", "confirm": true, "out": "gateway-hold.png" }
+  ]
+}

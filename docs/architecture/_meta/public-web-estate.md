@@ -86,9 +86,9 @@ attributable / mediated / preventable / receipted / uncovered).
 
 The public master frame for hypervisor.com: Type 1 virtualized hardware,
 Type 2 virtualized operating systems, Type 3 governs autonomous work and
-includes the layers beneath. Definitions live in the estate messaging spine
-(`apps/hypervisor-web/src/config/estateMessaging.js`, pending upstream to the
-ioi-ai owner file). The lineage is a framing claim, not a shipping claim:
+includes the layers beneath. Definitions are owned by the ioi-ai canonical messaging file and vendored
+into the estate messaging spine
+(`apps/hypervisor-web/src/config/estateMessaging.js`). The lineage is a framing claim, not a shipping claim:
 HypervisorOS remains design-stage and must be labeled as such wherever the
 lineage is rendered.
 
@@ -114,11 +114,14 @@ internetofintelligence.com (`tools/audit-seo.mjs`).
 ```text
 product domain      hypervisor.com (app.hypervisor.com · get.hypervisor.com);
                     the .io fork is retired
-RFA                 expands to "Request for Worker" everywhere; the acting
-                    party in public copy is the Worker, not "agent"
-legal entity        OPEN: "IOI, Inc." (hypervisor.com footer) vs
-                    "IOI Foundation" (internetofintelligence.com) — needs an
-                    owner decision before either is propagated further
+request object      "Request for Worker (RFW)"; the legacy "Request for
+                    Agent" / RFA naming is retired; the acting party in
+                    public copy is the Worker, not "agent"
+legal entity        IOI Labs, Inc., doing business as IOI Foundation.
+                    Copyright lines on the commercial product property carry
+                    the legal entity ("© IOI Labs, Inc."); the institutional
+                    property may carry the Foundation dba. "IOI, Inc." is
+                    retired and banned by the estate audit
 ```
 
 ## Gates

@@ -2,13 +2,16 @@
 //!
 //! Part of the unified-Rust-daemon migration: the Rust hypervisor-daemon takes
 //! ownership of the runtime lifecycle surface the JS runtime daemon currently
-//! serves, so the kernel planner calls (`RuntimeKernelService`) become internal
+//! serves, so owner, projection, and trusted-kernel calls become internal
 //! Rust function calls instead of a JS->Rust daemon-core bridge. Handlers here
 //! read/write the unified `state_dir` (`DaemonState::data_dir`) in the
 //! Agentgres record format the kernel planners expect.
 //!
-//! Lifecycle routes are unauthenticated (the JS daemon contract issues them with
-//! no bearer token), so handlers here do NOT call `authorize`.
+//! Most compatibility lifecycle routes are transport-unauthenticated (the JS daemon contract
+//! issues them with no bearer token). Consequential workflow-edit mutation is the narrow
+//! exception: its existing proposal path freezes one exact action, records a scoped audit
+//! declaration, requires exact-action review, and consumes a one-shot sovereign-local
+//! AuthorityGrant at the final invoker. This does not imply universal host interception.
 //!
 //! See `internal-docs/implementation/hypervisor-unified-rust-daemon-lifecycle-migration.md`.
 
@@ -16,7 +19,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::Write as _;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use axum::body::Body;
 use axum::extract::{Path as AxumPath, Query, State};
@@ -113,7 +116,11 @@ use ioi_services::agentic::runtime::kernel::workspace_restore::{
     WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
     WORKSPACE_SNAPSHOT_LIST_REQUEST_SCHEMA_VERSION,
 };
-use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
+use ioi_services::agentic::runtime::{
+    enforcement_coverage::EnforcementCoverageAdmissionRequest,
+    kernel::{RuntimeEffectCompatibilityGateway, RuntimeKernelService},
+    RuntimeOwnerServices, RuntimeProjectionService,
+};
 use jsonwebtoken::{
     encode as jwt_encode, Algorithm as JwtAlgorithm, EncodingKey, Header as JwtHeader,
 };
@@ -126,6 +133,12 @@ use super::{
 const RUNTIME_THREAD_SCHEMA_VERSION: &str = "ioi.runtime.thread.v1";
 const RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION: &str = "ioi.runtime.thread-controls.v1";
 const RUNTIME_TURN_SCHEMA_VERSION: &str = "ioi.runtime.turn.v1";
+
+/// Serializes the proposal-owned pending -> approve/reject transition. Authority grant mutation
+/// has its own owner lock in `authority_routes`; this outer transition lock prevents two daemon
+/// clients from both observing `pending` and asking that owner to mint distinct exact-action
+/// grants for one proposal.
+static WORKFLOW_EDIT_DECISION_LOCK: Mutex<()> = Mutex::new(());
 
 /// Derive the agent id for a thread id (`thread_<x>` -> `agent_<x>`).
 fn agent_id_for_thread(thread_id: &str) -> String {
@@ -174,7 +187,7 @@ fn project_thread_record(st: &DaemonState, thread_id: &str) -> Result<Value, App
         "state_dir": st.data_dir,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let projection = RuntimeKernelService::new()
+    let projection = RuntimeProjectionService::new()
         .project_runtime_thread_turn_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let projected = serde_json::to_value(&projection)
@@ -381,7 +394,7 @@ pub(crate) async fn handle_thread_create(
         "thread": thread,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let planned = RuntimeKernelService::new()
+    let planned = RuntimeOwnerServices::new()
         .plan_thread_create_state_update(&plan_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
 
@@ -471,7 +484,7 @@ pub(crate) async fn handle_agent_create(
         "agent": agent,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let planned = RuntimeKernelService::new()
+    let planned = RuntimeOwnerServices::new()
         .plan_agent_create_state_update(&plan_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     persist_record(st.data_dir.as_str(), "agents", &agent_id, &planned.agent)
@@ -523,7 +536,7 @@ fn operator_turn_control(
             "reason": reason,
         }))
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-        let record = RuntimeKernelService::new()
+        let record = RuntimeOwnerServices::new()
             .plan_operator_interrupt_state_update(&request)
             .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
         persist_operator_run(st, &run_id, kind, &record.run);
@@ -548,7 +561,7 @@ fn operator_turn_control(
             "guidance": guidance,
         }))
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-        let record = RuntimeKernelService::new()
+        let record = RuntimeOwnerServices::new()
             .plan_operator_steer_state_update(&request)
             .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
         persist_operator_run(st, &run_id, kind, &record.run);
@@ -612,7 +625,7 @@ fn project_turn_record(st: &DaemonState, thread_id: &str, run_id: &str) -> Resul
         "state_dir": st.data_dir,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let projection = RuntimeKernelService::new()
+    let projection = RuntimeProjectionService::new()
         .project_runtime_thread_turn_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let projected = serde_json::to_value(&projection)
@@ -796,7 +809,7 @@ fn create_agent_run(
         "run": run,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let planned = RuntimeKernelService::new()
+    let planned = RuntimeOwnerServices::new()
         .plan_run_create_state_update(&plan_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     // Persist the run as the full canonical Agentgres bundle (not just runs/<run>.json).
@@ -954,7 +967,7 @@ fn admit_and_persist_event(st: &DaemonState, event: Value) -> Result<Value, AppE
                 "state_dir": st.data_dir,
             }))
             .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-            let record = RuntimeKernelService::new()
+            let record = RuntimeOwnerServices::new()
                 .admit_runtime_thread_event(&request)
                 .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
             let admitted = serde_json::to_value(&record.event)
@@ -1005,7 +1018,7 @@ fn replay_runtime_events(
         "state_dir": st.data_dir,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let replay = RuntimeKernelService::new()
+    let replay = RuntimeProjectionService::new()
         .project_runtime_thread_event_replay(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let value = serde_json::to_value(&replay)
@@ -1035,7 +1048,7 @@ fn project_runtime_events(
         "state_dir": st.data_dir,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let projection = RuntimeKernelService::new()
+    let projection = RuntimeProjectionService::new()
         .project_runtime_thread_events(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let projected = serde_json::to_value(&projection)
@@ -1256,7 +1269,7 @@ fn run_projection_response(
         "source": "sdk_client",
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_lifecycle(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.projection.clone()))
@@ -1346,7 +1359,7 @@ pub(crate) async fn handle_doctor(
         "source": "rust_daemon./v1/doctor",
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_doctor_report(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.report))
@@ -1375,7 +1388,7 @@ fn lifecycle_projection_response(
     }
     let request: RuntimeLifecycleProjectionRequest = serde_json::from_value(request_json)
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_lifecycle(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.projection.clone()))
@@ -1414,7 +1427,7 @@ pub(crate) async fn handle_studio_intent_frame(
         "source": "rust_daemon./v1/studio/intent-frame",
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_studio_intent_frame(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, format!("{error:?}")))?;
     Ok(Json(record.frame))
@@ -1455,7 +1468,7 @@ fn apply_mcp_control(
         "request": payload,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_mcp_control_agent_state_update(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let mut updated_agent = record.agent.clone();
@@ -2283,79 +2296,233 @@ fn read_workflow_edit_proposal(
         })
 }
 
-/// Mutate the workflow file with the proposal's `workflow_patch` (resolving a relative
-/// `workflow_path` against the thread workspace). No-op when the proposal carries no path/patch.
-fn mutate_workflow_edit_file(record: &Value) -> Result<(), AppError> {
-    let path = record
-        .get("workflow_path")
-        .and_then(Value::as_str)
-        .filter(|value| !value.is_empty());
-    let patch = record.get("workflow_patch").cloned().unwrap_or(Value::Null);
-    let (Some(path), false) = (path, patch.is_null()) else {
-        return Ok(());
+/// Admit one exact route-produced coverage snapshot into this boot's coverage registry. The
+/// evidence receipt already belongs to the observation/effect path; this owner merely binds its
+/// ref to the exact declaration artifact/JCS hash. Registry durability is deliberately reported
+/// as boot-scoped until the daemon persists and restores the deterministic registry export.
+fn retain_authority_gateway_coverage(
+    st: &DaemonState,
+    declaration: &Value,
+    declaration_hash: &str,
+    evidence_receipt_ref: &str,
+) -> Result<Value, AppError> {
+    let artifact_ref = super::authority_gateway_proof::coverage_artifact_ref(declaration_hash);
+    let now_ms = i64::try_from(daemon_now_ms_fail_closed()).unwrap_or(i64::MAX);
+    let admitted_at = time::OffsetDateTime::from_unix_timestamp_nanos(
+        i128::from(now_ms).saturating_mul(1_000_000),
+    )
+    .ok()
+    .and_then(|instant| {
+        instant
+            .format(&time::format_description::well_known::Rfc3339)
+            .ok()
+    })
+    .unwrap_or_else(iso_now);
+    let request = EnforcementCoverageAdmissionRequest {
+        declaration_artifact_ref: artifact_ref.clone(),
+        declaration_content_hash: declaration_hash.to_string(),
+        declaration: declaration.clone(),
+        expected_previous_hash: None,
+        evidence_receipt_ref: evidence_receipt_ref.to_string(),
+        admitted_at,
     };
-    let workspace_root = record
-        .get("workspace_root")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let resolved = if Path::new(path).is_absolute() {
-        Path::new(path).to_path_buf()
-    } else {
-        Path::new(workspace_root).join(path)
-    };
-    let content = format!(
-        "{}\n",
-        serde_json::to_string_pretty(&patch).unwrap_or_default()
-    );
-    fs::write(&resolved, content).map_err(|error| {
+    let mut registry = st
+        .enforcement_coverage_registry
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let operability = registry.admit(request, now_ms).map_err(|error| {
         AppError(
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("workflow-edit file mutation failed: {error}"),
+            format!("{}: {}", error.code, error.message),
         )
-    })
+    })?;
+    let operability = serde_json::to_value(operability).map_err(|error| {
+        AppError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("enforcement coverage operability projection failed: {error}"),
+        )
+    })?;
+    Ok(json!({
+        "artifact_ref": artifact_ref,
+        "content_hash": declaration_hash,
+        "operability": operability,
+        "registry_durability": "boot_scoped_not_restored",
+    }))
 }
 
 /// Record a workflow-edit proposal decision (approve/reject) on the persisted proposal-approval
 /// record if `approval_id` belongs to a workflow-edit proposal on this thread. Returns the
 /// decision response, or `None` to let the caller fall through to the wallet-gated approval path.
-/// This is a lighter, proposal-scoped authority surface (bounded React-Flow edits) — distinct
-/// from the wallet-signed run/agent approval grant, which is left untouched.
+/// Approval is an exact-action review: it binds the frozen effect hash and issues one retained,
+/// expiring, revocable, one-shot sovereign-local AuthorityGrant. Portable CapabilityLease
+/// authority remains the existing alternative for delegated crossings and is not synthesized
+/// for this local edit.
 fn workflow_edit_proposal_decision(
     st: &DaemonState,
     thread_id: &str,
     approval_id: &str,
     decision: &str,
-) -> Option<Json<Value>> {
+    body: &Value,
+) -> Result<Option<Json<Value>>, AppError> {
+    let _decision_guard = WORKFLOW_EDIT_DECISION_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let mut record = read_record_dir(&st.data_dir, "workflow_edit_proposals")
         .into_iter()
         .find(|record| {
             record.get("approval_id").and_then(Value::as_str) == Some(approval_id)
                 && record.get("thread_id").and_then(Value::as_str) == Some(thread_id)
-        })?;
+        });
+    let Some(mut record) = record.take() else {
+        return Ok(None);
+    };
     let proposal_id = record
         .get("proposal_id")
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
+    let current = record
+        .get("decision")
+        .and_then(Value::as_str)
+        .unwrap_or("pending");
+    if current != "pending" && current != decision {
+        return Err(AppError(
+            StatusCode::CONFLICT,
+            format!(
+                "authority_gateway_decision_final: proposal is already {current}; use authority revocation after approval"
+            ),
+        ));
+    }
+
+    if decision == "approve" {
+        let reviewed_effect_hash = body
+            .get("expected_effect_hash")
+            .or_else(|| body.get("expectedEffectHash"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                AppError(
+                    StatusCode::BAD_REQUEST,
+                    "authority_gateway_expected_effect_hash_required: approval must name the exact reviewed effect hash".into(),
+                )
+            })?;
+        if record.get("effect_hash").and_then(Value::as_str) != Some(reviewed_effect_hash) {
+            return Err(AppError(
+                StatusCode::BAD_REQUEST,
+                "authority_gateway_review_substitution_refused: approval effect hash differs from the frozen proposal".into(),
+            ));
+        }
+        if current == "approve" {
+            return Ok(Some(Json(json!({
+                "decision": "approve",
+                "approval_id": approval_id,
+                "proposal_id": proposal_id,
+                "status": "approved",
+                "idempotent_replay": true,
+                "exact_action_review": record["exact_action_review"],
+                "authority_grant_ref": record["authority_grant_ref"],
+                "authority_lane": "sovereign_local",
+                "portable_authority_alternative": { "kind": "CapabilityLease", "selected": false },
+            }))));
+        }
+        let expiry_seconds = body
+            .get("expiry_seconds")
+            .or_else(|| body.get("expirySeconds"))
+            .and_then(Value::as_i64)
+            .unwrap_or(300);
+        let exact = &record["exact_action"];
+        let grant = super::authority_routes::issue_exact_action_grant(
+            &st.data_dir,
+            exact
+                .get("agent_ref")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            super::authority_gateway_proof::EXACT_ACTION,
+            record
+                .get("policy_hash")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            record
+                .get("request_hash")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            reviewed_effect_hash,
+            record
+                .get("target_ref")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            record
+                .get("proposal_ref")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            expiry_seconds,
+        )
+        .map_err(|message| {
+            AppError(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("authority_gateway_grant_issue_failed: {message}"),
+            )
+        })?;
+        record["reviewed_effect_hash"] = json!(reviewed_effect_hash);
+        record["review_receipt_ref"] = grant
+            .get("authority_receipt_refs")
+            .and_then(Value::as_array)
+            .and_then(|refs| refs.first())
+            .cloned()
+            .unwrap_or(Value::Null);
+        record["authority_grant_ref"] = grant["grant_ref"].clone();
+        record["reviewed_at"] = json!(iso_now());
+        record["decision"] = json!(decision);
+        persist_record(
+            &st.data_dir,
+            "workflow_edit_proposals",
+            &proposal_id,
+            &record,
+        )
+        .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+        return Ok(Some(Json(json!({
+            "decision": decision,
+            "approval_id": approval_id,
+            "proposal_id": proposal_id,
+            "status": "approved",
+            "idempotent_replay": false,
+            "exact_action_review": record["exact_action_review"],
+            "authority_grant_ref": grant["grant_ref"],
+            "authority_grant": grant,
+            "authority_lane": "sovereign_local",
+            "portable_authority_alternative": { "kind": "CapabilityLease", "selected": false },
+        }))));
+    }
+
+    if current == "reject" {
+        return Ok(Some(Json(json!({
+            "decision": "reject",
+            "approval_id": approval_id,
+            "proposal_id": proposal_id,
+            "status": "rejected",
+            "idempotent_replay": true,
+        }))));
+    }
     record["decision"] = json!(decision);
-    let _ = persist_record(
+    record["reviewed_at"] = json!(iso_now());
+    persist_record(
         &st.data_dir,
         "workflow_edit_proposals",
         &proposal_id,
         &record,
-    );
-    Some(Json(json!({
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    Ok(Some(Json(json!({
         "decision": decision,
         "approval_id": approval_id,
         "proposal_id": proposal_id,
         "status": if decision == "approve" { "approved" } else { "rejected" },
-    })))
+    }))))
 }
 
-/// POST /v1/threads/:id/workflow-edit-proposals — propose a React Flow workflow edit. Plans +
-/// admits the `workflow.edit_proposed` event AND registers a proposal-approval record gating the
-/// mutation. Returns `{status:"waiting_for_approval", approval_required, mutation_executed:false,
-/// approval_id}` — NO file mutation occurs until the proposal is approved.
+/// POST /v1/threads/:id/workflow-edit-proposals — attach an existing coding-agent adapter in
+/// audit-only mode, attribute and freeze one exact workflow-edit proposal, and admit its observed
+/// control event. The response exposes the exact-action review plus an honest, route-scoped
+/// coverage declaration; no mediation or host-wide prevention is claimed at this stage.
 pub(crate) async fn handle_workflow_edit_propose(
     State(st): State<Arc<DaemonState>>,
     AxumPath(thread_id): AxumPath<String>,
@@ -2368,6 +2535,11 @@ pub(crate) async fn handle_workflow_edit_propose(
         )
     })?;
     let workspace_root = memory_agent_cwd(&agent).unwrap_or_default();
+    let agent_id = agent
+        .get("id")
+        .or_else(|| agent.get("agent_id"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     let proposal_id = coalesce_str(&body, &["proposal_id", "proposalId"])
         .unwrap_or("proposal")
         .to_string();
@@ -2375,17 +2547,22 @@ pub(crate) async fn handle_workflow_edit_propose(
         "approval_workflow_edit_{}",
         short_hash(&format!("{thread_id}:{proposal_id}"))
     );
-    let proposal_record = json!({
-        "proposal_id": proposal_id,
-        "approval_id": approval_id,
-        "thread_id": thread_id,
-        "decision": "pending",
-        "applied_event_id": Value::Null,
-        "workflow_path": coalesce_str(&body, &["workflow_path", "workflowPath"]),
-        "workflow_patch": body.get("workflow_patch").or_else(|| body.get("workflowPatch")).cloned(),
-        "workspace_root": workspace_root,
-        "workflow_graph_id": coalesce_str(&body, &["workflow_graph_id", "workflowGraphId"]),
-        "workflow_node_id": coalesce_str(&body, &["workflow_node_id", "workflowNodeId"]),
+    let prepared = super::authority_gateway_proof::prepare_workflow_edit_proposal(
+        &thread_id,
+        agent_id,
+        &workspace_root,
+        &proposal_id,
+        &approval_id,
+        &body,
+    )?;
+    let mut proposal_record = prepared.record;
+    proposal_record["exact_action_review"] = prepared.review.clone();
+    proposal_record["attribution"] = json!({
+        "actor_ref": format!("agent://{agent_id}"),
+        "thread_ref": format!("thread://{thread_id}"),
+        "goal_ref": proposal_record["goal_ref"],
+        "adapter_ref": proposal_record["exact_action"]["adapter_ref"],
+        "confidence": "route_bound",
     });
     persist_record(
         &st.data_dir,
@@ -2401,6 +2578,44 @@ pub(crate) async fn handle_workflow_edit_propose(
         Some(&proposal_id),
         &body,
     )?;
+    let observation_receipt =
+        super::authority_gateway_proof::observation_receipt(&proposal_record, &event);
+    let observation_receipt_id = observation_receipt
+        .get("receipt_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    persist_record(
+        &st.data_dir,
+        "authority-receipts",
+        observation_receipt_id,
+        &observation_receipt,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let observation_receipt_ref = observation_receipt
+        .get("receipt_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let (coverage, coverage_hash) = super::authority_gateway_proof::coverage_declaration(
+        &proposal_record,
+        "audit_only",
+        observation_receipt_ref,
+    )?;
+    let coverage_artifact_ref =
+        super::authority_gateway_proof::coverage_artifact_ref(&coverage_hash);
+    let coverage_retention =
+        retain_authority_gateway_coverage(&st, &coverage, &coverage_hash, observation_receipt_ref)?;
+    proposal_record["observation_receipt"] = observation_receipt.clone();
+    proposal_record["audit_coverage_declaration"] = coverage.clone();
+    proposal_record["audit_coverage_declaration_hash"] = json!(coverage_hash);
+    proposal_record["audit_coverage_declaration_artifact_ref"] = json!(coverage_artifact_ref);
+    proposal_record["audit_coverage_retention"] = coverage_retention.clone();
+    persist_record(
+        &st.data_dir,
+        "workflow_edit_proposals",
+        &proposal_id,
+        &proposal_record,
+    )
+    .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     Ok(Json(json!({
         "status": "waiting_for_approval",
         "approval_required": true,
@@ -2408,14 +2623,22 @@ pub(crate) async fn handle_workflow_edit_propose(
         "approval_id": approval_id,
         "proposal_id": proposal_id,
         "event": event,
+        "attribution": proposal_record["attribution"],
+        "exact_action_review": prepared.review,
+        "runtime_tool_contract": proposal_record["exact_action"]["runtime_tool_contract"],
+        "observation_receipt": observation_receipt,
+        "enforcement_coverage": coverage,
+        "enforcement_coverage_hash": coverage_hash,
+        "enforcement_coverage_artifact_ref": coverage_artifact_ref,
+        "enforcement_coverage_retention": coverage_retention,
     })))
 }
 
 /// POST /v1/threads/:id/workflow-edit-proposals/:proposal_id/apply — apply a proposed edit,
-/// GATED on the recorded approval decision: pending → `blocked` (approval_required); rejected →
-/// `blocked` (reason `approval_rejected`); approved → MUTATE the workflow file + admit the
-/// `workflow.edit.apply` event + `completed` (mutation_executed). Re-apply is an idempotent replay
-/// (`idempotent_replay`, same event_id, no re-mutation). No file mutation occurs unless approved.
+/// gated on exact review and final-invoker consumption of the selected one-shot AuthorityGrant.
+/// The body cannot substitute the reviewed effect or target. Success retains the effect-bound
+/// authority receipt and admits the existing WorkResult -> OutcomeDelta lineage. Re-apply returns
+/// the retained response without invoking the effect or consuming authority again.
 pub(crate) async fn handle_workflow_edit_apply(
     State(st): State<Arc<DaemonState>>,
     AxumPath((thread_id, proposal_id)): AxumPath<(String, String)>,
@@ -2443,35 +2666,258 @@ pub(crate) async fn handle_workflow_edit_apply(
     let approval_id = record.get("approval_id").cloned().unwrap_or(Value::Null);
     match decision {
         "approve" => {
-            let already_applied = record
-                .get("applied_event_id")
-                .and_then(Value::as_str)
-                .map(str::to_string);
-            let event = plan_and_admit_workflow_edit_event(
-                &st,
-                &thread_id,
-                "workflow.edit.apply",
-                Some(&proposal_id),
-                &body,
-            )?;
-            let event_id = event
-                .get("event_id")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string();
-            if already_applied.is_some() {
-                // The mutation already landed; admission is idempotent (same event_id).
-                return Ok(Json(json!({
-                    "status": "completed",
-                    "mutation_executed": true,
-                    "idempotent_replay": true,
-                    "approval_id": approval_id,
-                    "proposal_id": proposal_id,
-                    "event": event,
-                })));
+            let supplied_grant_ref =
+                super::authority_gateway_proof::validate_apply_request(&record, &body)?;
+            if record.get("authority_grant_ref").and_then(Value::as_str)
+                != Some(supplied_grant_ref.as_str())
+            {
+                return Err(AppError(
+                    StatusCode::BAD_REQUEST,
+                    "authority_gateway_grant_substitution_refused: apply grant differs from the reviewed exact-action grant".into(),
+                ));
             }
-            mutate_workflow_edit_file(&record)?;
-            record["applied_event_id"] = json!(event_id);
+            if let Some(cached) = record
+                .get("execution_response")
+                .filter(|value| value.is_object())
+            {
+                let mut replay = cached.clone();
+                replay["idempotent_replay"] = json!(true);
+                replay["final_invoker_calls"] = json!(0);
+                return Ok(Json(replay));
+            }
+
+            let effect_receipt = if let Some(receipt) = record
+                .get("effect_receipt")
+                .filter(|value| value.is_object())
+                .cloned()
+            {
+                receipt
+            } else {
+                let exact = &record["exact_action"];
+                let consumed = super::authority_routes::consume_exact_action_grant(
+                    &st.data_dir,
+                    &supplied_grant_ref,
+                    exact
+                        .get("agent_ref")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                    super::authority_gateway_proof::EXACT_ACTION,
+                    record
+                        .get("policy_hash")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                    record
+                        .get("request_hash")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                    record
+                        .get("effect_hash")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                    record
+                        .get("target_ref")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                    super::authority_gateway_proof::FINAL_INVOKER_REF,
+                    || super::authority_gateway_proof::execute_sealed_workflow_edit(&record),
+                );
+                let consumed = match consumed {
+                    Ok(value) => value,
+                    Err(error) => {
+                        return Ok(Json(json!({
+                            "status": "blocked",
+                            "approval_required": false,
+                            "mutation_executed": false,
+                            "reason": error.code,
+                            "detail": error.message,
+                            "approval_id": approval_id,
+                            "proposal_id": proposal_id,
+                            "final_invoker_calls": if error.code == "final_invoker_effect_failed" { 1 } else { 0 },
+                        })))
+                    }
+                };
+                record["effect_observation"] = consumed.output;
+                record["consumed_authority_grant"] = consumed.grant;
+                record["effect_receipt"] = consumed.receipt.clone();
+                persist_record(
+                    &st.data_dir,
+                    "workflow_edit_proposals",
+                    &proposal_id,
+                    &record,
+                )
+                .map_err(|error| {
+                    AppError(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("effect committed but proposal checkpoint failed: {error}"),
+                    )
+                })?;
+                consumed.receipt
+            };
+
+            let event = if let Some(event) = record
+                .get("apply_event")
+                .filter(|value| value.is_object())
+                .cloned()
+            {
+                event
+            } else {
+                let mut event_body = record.clone();
+                event_body["approval_id"] = approval_id.clone();
+                event_body["status"] = json!("applied");
+                event_body["receipt_refs"] = json!([effect_receipt
+                    .get("receipt_ref")
+                    .cloned()
+                    .unwrap_or(Value::Null)]);
+                event_body["policy_decision_refs"] = json!([record
+                    .get("review_receipt_ref")
+                    .cloned()
+                    .unwrap_or(Value::Null)]);
+                let event = plan_and_admit_workflow_edit_event(
+                    &st,
+                    &thread_id,
+                    "workflow.edit.apply",
+                    Some(&proposal_id),
+                    &event_body,
+                )?;
+                record["applied_event_id"] = event.get("event_id").cloned().unwrap_or(Value::Null);
+                record["apply_event"] = event.clone();
+                persist_record(
+                    &st.data_dir,
+                    "workflow_edit_proposals",
+                    &proposal_id,
+                    &record,
+                )
+                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+                event
+            };
+
+            let work_result_admission = if let Some(admission) = record
+                .get("work_result_admission")
+                .filter(|value| value.is_object())
+                .cloned()
+            {
+                admission
+            } else {
+                let (status, Json(admission)) =
+                    super::work_result_routes::handle_work_result_create(
+                        State(st.clone()),
+                        Json(super::authority_gateway_proof::work_result_body(
+                            &record,
+                            &effect_receipt,
+                        )),
+                    )
+                    .await;
+                if status != StatusCode::CREATED {
+                    return Err(AppError(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("effect committed but WorkResult admission failed: {admission}"),
+                    ));
+                }
+                record["work_result_admission"] = admission.clone();
+                persist_record(
+                    &st.data_dir,
+                    "workflow_edit_proposals",
+                    &proposal_id,
+                    &record,
+                )
+                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+                admission
+            };
+            let work_result_ref = work_result_admission
+                .pointer("/work_result/work_result_id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    AppError(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "WorkResult admission omitted its canonical identity".into(),
+                    )
+                })?;
+            let outcome_delta_admission = if let Some(admission) = record
+                .get("outcome_delta_admission")
+                .filter(|value| value.is_object())
+                .cloned()
+            {
+                admission
+            } else {
+                let (status, Json(admission)) =
+                    super::work_result_routes::handle_outcome_delta_create(
+                        State(st.clone()),
+                        Json(super::authority_gateway_proof::outcome_delta_body(
+                            &record,
+                            work_result_ref,
+                        )),
+                    )
+                    .await;
+                if status != StatusCode::CREATED {
+                    return Err(AppError(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("effect committed but OutcomeDelta admission failed: {admission}"),
+                    ));
+                }
+                record["outcome_delta_admission"] = admission.clone();
+                persist_record(
+                    &st.data_dir,
+                    "workflow_edit_proposals",
+                    &proposal_id,
+                    &record,
+                )
+                .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+                admission
+            };
+            let outcome_delta_ref = outcome_delta_admission
+                .pointer("/outcome_delta/outcome_delta_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let effect_receipt_ref = effect_receipt
+                .get("receipt_ref")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let (coverage, coverage_hash) = super::authority_gateway_proof::coverage_declaration(
+                &record,
+                "active_enforcement",
+                effect_receipt_ref,
+            )?;
+            let coverage_artifact_ref =
+                super::authority_gateway_proof::coverage_artifact_ref(&coverage_hash);
+            let coverage_retention = retain_authority_gateway_coverage(
+                &st,
+                &coverage,
+                &coverage_hash,
+                effect_receipt_ref,
+            )?;
+            let response = json!({
+                "status": "completed",
+                "mutation_executed": true,
+                "idempotent_replay": false,
+                "approval_id": approval_id,
+                "proposal_id": proposal_id,
+                "event": event,
+                "authority_lane": "sovereign_local",
+                "authority_grant_ref": supplied_grant_ref,
+                "portable_authority_alternative": { "kind": "CapabilityLease", "selected": false },
+                "effect_receipt": effect_receipt,
+                "work_result": work_result_admission["work_result"],
+                "work_result_receipt": work_result_admission["work_result_receipt"],
+                "outcome_delta": outcome_delta_admission["outcome_delta"],
+                "outcome_delta_receipt": outcome_delta_admission["outcome_delta_receipt"],
+                "lineage": {
+                    "proposal_ref": record["proposal_ref"],
+                    "effect_receipt_ref": effect_receipt_ref,
+                    "work_result_ref": work_result_ref,
+                    "outcome_delta_ref": outcome_delta_ref,
+                },
+                "enforcement_coverage": coverage,
+                "enforcement_coverage_hash": coverage_hash,
+                "enforcement_coverage_artifact_ref": coverage_artifact_ref,
+                "enforcement_coverage_retention": coverage_retention,
+                "final_invoker_calls": 1,
+            });
+            record["active_coverage_declaration"] = response["enforcement_coverage"].clone();
+            record["active_coverage_declaration_hash"] =
+                response["enforcement_coverage_hash"].clone();
+            record["active_coverage_declaration_artifact_ref"] =
+                response["enforcement_coverage_artifact_ref"].clone();
+            record["execution_response"] = response.clone();
             persist_record(
                 &st.data_dir,
                 "workflow_edit_proposals",
@@ -2479,14 +2925,7 @@ pub(crate) async fn handle_workflow_edit_apply(
                 &record,
             )
             .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-            Ok(Json(json!({
-                "status": "completed",
-                "mutation_executed": true,
-                "idempotent_replay": false,
-                "approval_id": approval_id,
-                "proposal_id": proposal_id,
-                "event": event,
-            })))
+            Ok(Json(response))
         }
         "reject" => Ok(Json(json!({
             "status": "blocked",
@@ -2659,7 +3098,7 @@ pub(crate) async fn handle_compaction_policy(
         "event_kind": obj.get("event_kind").and_then(|v| v.as_str()).unwrap_or("RuntimeCompactionPolicy.Evaluate"),
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let policy_record = RuntimeKernelService::new()
+    let policy_record = RuntimeOwnerServices::new()
         .evaluate_compaction_policy(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let policy = serde_json::to_value(&policy_record)
@@ -2748,7 +3187,7 @@ pub(crate) async fn handle_context_budget(
         "workflow_node_id": obj.get("workflow_node_id").and_then(|v| v.as_str()).unwrap_or("runtime.context-budget"),
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let policy_record = RuntimeKernelService::new()
+    let policy_record = RuntimeOwnerServices::new()
         .evaluate_context_budget_policy(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let policy = serde_json::to_value(&policy_record)
@@ -2875,7 +3314,7 @@ pub(crate) async fn handle_compact(
         "idempotency_key": body.get("idempotency_key").and_then(|v| v.as_str()),
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let plan = RuntimeKernelService::new()
+    let plan = RuntimeOwnerServices::new()
         .plan_context_compaction(&plan_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let plan = serde_json::to_value(&plan)
@@ -2940,7 +3379,7 @@ pub(crate) async fn handle_compact(
         "scope": scope,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let state_update = RuntimeKernelService::new()
+    let state_update = RuntimeOwnerServices::new()
         .plan_context_compaction_state_update(&state_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let state_update = serde_json::to_value(&state_update)
@@ -3018,7 +3457,7 @@ pub(crate) async fn handle_diagnostics_repair_execute(
         "request": body,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_runtime_diagnostics_repair_control(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let event = serde_json::to_value(&record.event)
@@ -3124,7 +3563,7 @@ pub(crate) async fn handle_approval_request(
         "authority_context": body.get("authority_context").cloned().unwrap_or_else(|| json!({})),
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let authority = RuntimeKernelService::new()
+    let authority = RuntimeOwnerServices::new()
         .authorize_approval_request(&authority_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let authority = serde_json::to_value(&authority)
@@ -3157,7 +3596,7 @@ pub(crate) async fn handle_approval_request(
         "authority_receipt_refs": authority.get("authority_receipt_refs").cloned().unwrap_or_else(|| json!([])),
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_approval_request_state_update(&state_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let mut response = serde_json::to_value(&record)
@@ -3219,7 +3658,7 @@ fn admit_memory_control_event(
         "state_dir": st.data_dir,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let projection_record = RuntimeKernelService::new()
+    let projection_record = RuntimeProjectionService::new()
         .project_runtime_memory_projection(&projection_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let payload = projection_record.projection.clone();
@@ -3253,7 +3692,7 @@ fn admit_memory_control_event(
         },
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_runtime_memory_control(&control_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let event = record.payload.clone();
@@ -3399,7 +3838,7 @@ fn memory_public_projection(
         "source": "runtime.thread_memory_state.public_projection",
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_memory_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(record.projection.clone())
@@ -3497,7 +3936,7 @@ fn handle_memory_control_route(
         ],
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_runtime_memory_control(&control_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
 
@@ -3792,7 +4231,7 @@ pub(crate) async fn handle_thread_usage(
         "source": "sdk_client",
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_lifecycle(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.projection.clone()))
@@ -3967,7 +4406,7 @@ fn apply_approval_decision(
         value["schema_version"] = json!(APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION);
         let request: ApprovalRevokeStateUpdateRequest = serde_json::from_value(value)
             .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-        let record = RuntimeKernelService::new()
+        let record = RuntimeOwnerServices::new()
             .plan_approval_revoke_state_update(&request)
             .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
         serde_json::to_value(&record)
@@ -3987,7 +4426,7 @@ fn apply_approval_decision(
         });
         let request: ApprovalDecisionStateUpdateRequest = serde_json::from_value(value)
             .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-        let record = RuntimeKernelService::new()
+        let record = RuntimeOwnerServices::new()
             .plan_approval_decision_state_update(&request)
             .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
         serde_json::to_value(&record)
@@ -4020,7 +4459,7 @@ pub(crate) async fn handle_approval_decision(
         .to_string();
     if matches!(decision.as_str(), "approve" | "reject") {
         if let Some(response) =
-            workflow_edit_proposal_decision(&st, &thread_id, &approval_id, &decision)
+            workflow_edit_proposal_decision(&st, &thread_id, &approval_id, &decision, &body)?
         {
             return Ok(response);
         }
@@ -4034,10 +4473,10 @@ pub(crate) async fn handle_approval_approve(
     AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    // A workflow-edit proposal approval is a lighter, proposal-scoped decision (recorded here);
-    // a run/agent approval falls through to the wallet-signed decision authority.
+    // Workflow-edit approval issues one exact local grant; unrelated run/agent approval still
+    // falls through to the existing portable wallet-signed decision authority.
     if let Some(response) =
-        workflow_edit_proposal_decision(&st, &thread_id, &approval_id, "approve")
+        workflow_edit_proposal_decision(&st, &thread_id, &approval_id, "approve", &body)?
     {
         return Ok(response);
     }
@@ -4050,7 +4489,8 @@ pub(crate) async fn handle_approval_reject(
     AxumPath((thread_id, approval_id)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    if let Some(response) = workflow_edit_proposal_decision(&st, &thread_id, &approval_id, "reject")
+    if let Some(response) =
+        workflow_edit_proposal_decision(&st, &thread_id, &approval_id, "reject", &body)?
     {
         return Ok(response);
     }
@@ -4094,7 +4534,7 @@ pub(crate) async fn handle_managed_sessions(
         ],
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_managed_session_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(json!({
@@ -4151,7 +4591,7 @@ pub(crate) async fn handle_managed_session_control(
         "request": body,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_runtime_managed_session_control(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let event = serde_json::to_value(&record.event)
@@ -4193,7 +4633,7 @@ pub(crate) async fn handle_workspace_change_reviews(
         ],
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_workspace_change_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(json!({
@@ -4368,7 +4808,7 @@ pub(crate) async fn handle_workspace_change_control(
         "request": body,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_runtime_workspace_change_control(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let event = serde_json::to_value(&record.event)
@@ -4407,7 +4847,7 @@ pub(crate) async fn handle_snapshots(
         "snapshots": snapshots,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let value = RuntimeKernelService::new()
+    let value = RuntimeProjectionService::new()
         .project_workspace_snapshot_list(WorkspaceSnapshotListProtocolRequest { request: inner })
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     // The JS owner returns the envelope's `projection`; fall back to the full envelope.
@@ -4984,7 +5424,7 @@ async fn run_snapshot_restore(
         ));
     }
     let files = restore_files_from_snapshot(&st, &record);
-    let kernel = RuntimeKernelService::new();
+    let owner_services = RuntimeOwnerServices::new();
 
     // Preview is always computed (read-only): the operator-facing diff and — for apply —
     // the input to the server-side apply-policy decision.
@@ -4995,7 +5435,7 @@ async fn run_snapshot_restore(
         "allow_conflicts": Value::Null,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let preview_ops = kernel
+    let preview_ops = owner_services
         .preview_workspace_restore_operations(&preview_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let preview_value = serde_json::to_value(&preview_ops)
@@ -5079,7 +5519,7 @@ async fn run_snapshot_restore(
         "override_conflicts": body.get("override_conflicts"),
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let plan = kernel
+    let plan = owner_services
         .plan_workspace_restore_apply_policy(&policy_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let policy_value = serde_json::to_value(&plan)
@@ -5107,7 +5547,7 @@ async fn run_snapshot_restore(
         "allow_conflicts": plan.allow_conflicts,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let operations = kernel
+    let operations = RuntimeEffectCompatibilityGateway::new()
         .apply_workspace_restore_operations(&apply_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let operations_value = serde_json::to_value(&operations)
@@ -5238,7 +5678,7 @@ pub(crate) async fn handle_artifacts_list(
         ],
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_conversation_artifact_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.projection.clone()))
@@ -5270,7 +5710,7 @@ pub(crate) async fn handle_artifact_create(
         "request": body,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_runtime_conversation_artifact_control(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let artifact_id = record.artifact_id.clone();
@@ -5328,7 +5768,7 @@ pub(crate) async fn handle_conversation_artifacts_list(
     let request: RuntimeConversationArtifactProjectionRequest =
         serde_json::from_value(request_json)
             .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_conversation_artifact_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.projection.clone()))
@@ -5352,7 +5792,7 @@ pub(crate) async fn handle_conversation_artifact_create(
         "request": body,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_runtime_conversation_artifact_control(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let artifact_id = record.artifact_id.clone();
@@ -5379,7 +5819,7 @@ pub(crate) async fn handle_conversation_artifact_get(
         "source": "runtime.conversation_artifact_state",
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_conversation_artifact_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.projection.clone()))
@@ -5399,7 +5839,7 @@ pub(crate) async fn handle_conversation_artifact_revisions(
         "source": "runtime.conversation_artifact_state",
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_conversation_artifact_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(record.projection.clone()))
@@ -5424,7 +5864,7 @@ async fn conversation_artifact_control_mutation(
         "request": body,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_runtime_conversation_artifact_control(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let artifact_id = record.artifact_id.clone();
@@ -5497,7 +5937,7 @@ fn skill_hook_registry_projection(
         "source": "hypervisor_daemon.skill_hook_registry",
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_skill_hook_registry(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(record.projection.clone())
@@ -5536,7 +5976,7 @@ fn repository_workflow_projection(
         "source": "hypervisor_daemon.repository_workflow",
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_repository_workflow(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(record.projection.clone())
@@ -5655,7 +6095,7 @@ pub(crate) async fn handle_tools(
     }
     let request: RuntimeToolCatalogProjectionRequest = serde_json::from_value(request_json)
         .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_runtime_tool_catalog(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     Ok(Json(Value::Array(record.tools.clone())))
@@ -5683,7 +6123,7 @@ pub(crate) async fn handle_core_taxonomy() -> Result<Json<Value>, AppError> {
 pub(crate) async fn handle_model_route_mutation_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_model_route_mutation(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_model_route_mutation(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5703,7 +6143,7 @@ pub(crate) async fn handle_model_route_mutation_admission(
 pub(crate) async fn handle_model_weight_custody_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_model_weight_custody(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_model_weight_custody(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5725,7 +6165,7 @@ pub(crate) async fn handle_model_weight_custody_admission(
 pub(crate) async fn handle_session_launch_recipe_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_hypervisor_session_launch_recipe(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_hypervisor_session_launch_recipe(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5747,7 +6187,7 @@ pub(crate) async fn handle_session_launch_recipe_admission(
 pub(crate) async fn handle_harness_session_binding_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_harness_session_binding(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_harness_session_binding(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5769,7 +6209,7 @@ pub(crate) async fn handle_harness_session_binding_admission(
 pub(crate) async fn handle_private_workspace_mount_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_private_workspace_mount(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_private_workspace_mount(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5791,7 +6231,7 @@ pub(crate) async fn handle_private_workspace_mount_admission(
 pub(crate) async fn handle_physical_action_intent_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_physical_action_intent(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_physical_action_intent(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5813,7 +6253,7 @@ pub(crate) async fn handle_physical_action_intent_admission(
 pub(crate) async fn handle_worker_package_install_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_worker_package_install(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_worker_package_install(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5835,7 +6275,7 @@ pub(crate) async fn handle_worker_package_install_admission(
 pub(crate) async fn handle_managed_worker_lifecycle_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new()
+    match RuntimeOwnerServices::new()
         .admit_managed_worker_instance_lifecycle_transition(&body, &iso_now())
     {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
@@ -5859,7 +6299,7 @@ pub(crate) async fn handle_managed_worker_lifecycle_admission(
 pub(crate) async fn handle_code_editor_adapter_launch_plan_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_code_editor_adapter_launch_plan(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_code_editor_adapter_launch_plan(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5881,7 +6321,7 @@ pub(crate) async fn handle_code_editor_adapter_launch_plan_admission(
 pub(crate) async fn handle_service_composition_receipt_bundle_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_service_composition_receipt_bundle(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_service_composition_receipt_bundle(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5904,7 +6344,7 @@ pub(crate) async fn handle_service_composition_receipt_bundle_admission(
 pub(crate) async fn handle_artifact_availability_incident_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_artifact_availability_incident(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_artifact_availability_incident(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5926,7 +6366,7 @@ pub(crate) async fn handle_artifact_availability_incident_admission(
 pub(crate) async fn handle_harness_session_terminal_attach_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_harness_session_terminal_attach(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_harness_session_terminal_attach(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -5950,7 +6390,7 @@ pub(crate) async fn handle_project_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    let record = match RuntimeKernelService::new().plan_hypervisor_project_create(&body, &iso_now())
+    let record = match RuntimeOwnerServices::new().plan_hypervisor_project_create(&body, &iso_now())
     {
         Ok(record) => record,
         Err(error) => {
@@ -6007,7 +6447,7 @@ pub(crate) async fn handle_project_create(
 pub(crate) async fn handle_approved_operation_admission(
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    match RuntimeKernelService::new().admit_hypervisor_approved_operation(&body, &iso_now()) {
+    match RuntimeOwnerServices::new().admit_hypervisor_approved_operation(&body, &iso_now()) {
         Ok(record) => (StatusCode::ACCEPTED, Json(record)),
         Err(error) => (
             StatusCode::from_u16(error.status).unwrap_or(StatusCode::BAD_REQUEST),
@@ -6211,7 +6651,7 @@ pub(crate) async fn handle_subagent_spawn(
         "agent": child_agent,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let planned_agent = RuntimeKernelService::new()
+    let planned_agent = RuntimeOwnerServices::new()
         .plan_agent_create_state_update(&plan_agent)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     persist_record(
@@ -6231,7 +6671,7 @@ pub(crate) async fn handle_subagent_spawn(
         "run": run,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let planned_run = RuntimeKernelService::new()
+    let planned_run = RuntimeOwnerServices::new()
         .plan_run_create_state_update(&plan_run)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     persist_run_with_bundle(&*st, &run_id, "run.create", &planned_run.run)?;
@@ -6268,7 +6708,7 @@ pub(crate) async fn handle_subagent_spawn(
         "subagent": subagent,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let planned_subagent = RuntimeKernelService::new()
+    let planned_subagent = RuntimeOwnerServices::new()
         .plan_subagent_record_state_update(&plan_subagent)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     persist_record(
@@ -6344,7 +6784,7 @@ fn plan_and_persist_subagent(
         "subagent": subagent,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_subagent_record_state_update(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     persist_record(
@@ -6440,7 +6880,7 @@ pub(crate) async fn handle_subagent_cancel(
                 "canceled_at": now,
             })) {
                 if let Ok(record) =
-                    RuntimeKernelService::new().plan_run_cancel_state_update(&request)
+                    RuntimeOwnerServices::new().plan_run_cancel_state_update(&request)
                 {
                     let _ = persist_run_with_bundle(&*st, &run_id, "run.cancel", &record.run);
                 }
@@ -6527,7 +6967,7 @@ pub(crate) async fn handle_subagents_propagate_cancel(
                 "canceled_at": now,
             })) {
                 if let Ok(record) =
-                    RuntimeKernelService::new().plan_run_cancel_state_update(&request)
+                    RuntimeOwnerServices::new().plan_run_cancel_state_update(&request)
                 {
                     let _ = persist_run_with_bundle(&*st, &run_id, "run.cancel", &record.run);
                 }
@@ -6608,7 +7048,7 @@ fn subagent_run_control(
         "run": run,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let planned_run = RuntimeKernelService::new()
+    let planned_run = RuntimeOwnerServices::new()
         .plan_run_create_state_update(&plan_run)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     persist_run_with_bundle(&*st, &run_id, "run.create", &planned_run.run)?;
@@ -6711,7 +7151,7 @@ fn read_mcp_config_servers(
         Ok(request) => request,
         Err(_) => return Vec::new(),
     };
-    let Ok(record) = RuntimeKernelService::new().project_mcp_server_validation_input(&request)
+    let Ok(record) = RuntimeProjectionService::new().project_mcp_server_validation_input(&request)
     else {
         return Vec::new();
     };
@@ -6772,7 +7212,7 @@ fn discover_mcp_catalog(
         "servers": servers,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let catalog = RuntimeKernelService::new()
+    let catalog = RuntimeProjectionService::new()
         .plan_mcp_manager_catalog_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     serde_json::to_value(&catalog)
@@ -6889,7 +7329,7 @@ pub(crate) async fn handle_mcp_tool_search(
         "live_discovery": false,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeProjectionService::new()
         .project_mcp_tool_search_projection(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let projected = serde_json::to_value(&record)
@@ -6914,7 +7354,7 @@ fn cancel_run_record(st: &DaemonState, run: Value) -> Result<Value, AppError> {
         "canceled_at": iso_now(),
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_run_cancel_state_update(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     commit_run_state_bundle(st, &run_id, "run.cancel", &record.run)?;
@@ -7226,7 +7666,7 @@ fn apply_thread_control(
         "policy_decision_refs": [],
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_thread_control_agent_state_update(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
 
@@ -7346,7 +7786,7 @@ fn emit_workspace_trust_warning(
         "created_at": now,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_workspace_trust_control_state_update(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let record = serde_json::to_value(&record)
@@ -7397,7 +7837,7 @@ pub(crate) async fn handle_workspace_trust_acknowledge(
         "created_at": now,
     }))
     .map_err(|error| AppError(StatusCode::BAD_REQUEST, error.to_string()))?;
-    let record = RuntimeKernelService::new()
+    let record = RuntimeOwnerServices::new()
         .plan_workspace_trust_control_state_update(&request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     let mut response = serde_json::to_value(&record)
@@ -8291,7 +8731,7 @@ fn project_session_environment_status(
     substrate: &ExecutionSubstrate,
     ports: &Value,
 ) -> Value {
-    RuntimeKernelService::new().project_hypervisor_environment_status(&json!({
+    RuntimeProjectionService::new().project_hypervisor_environment_status(&json!({
         "environmentRef": environment_ref,
         "workspaceRoot": workspace_root,
         "workspaceMountPolicy": custody_posture,
@@ -8308,7 +8748,7 @@ fn project_session_environment_status(
 /// workspace: `git` deltas for a work tree, a real file walk for scratch, or the
 /// honest `absent` projection when there is no workspace. No fixtures.
 fn project_session_workspace_diff(workspace_root: &str) -> Value {
-    let service = RuntimeKernelService::new();
+    let service = RuntimeProjectionService::new();
     if workspace_root.is_empty() {
         return service.project_hypervisor_workspace_diff_absent();
     }
@@ -8507,12 +8947,13 @@ pub(crate) async fn handle_session_create(
     };
 
     // Typed workspace initializer (camelCase input mirrors the JS builder args).
-    let initializer = RuntimeKernelService::new().derive_hypervisor_workspace_initializer(&json!({
-        "contextUrl": body.get("context_url"),
-        "gitSpec": body.get("git"),
-        "workspaceMountPolicy": body.get("workspace_mount_policy"),
-        "authorityScopeRefs": body.get("authority_scope_refs"),
-    }));
+    let initializer =
+        RuntimeProjectionService::new().derive_hypervisor_workspace_initializer(&json!({
+            "contextUrl": body.get("context_url"),
+            "gitSpec": body.get("git"),
+            "workspaceMountPolicy": body.get("workspace_mount_policy"),
+            "authorityScopeRefs": body.get("authority_scope_refs"),
+        }));
     let initializer_ref = initializer
         .get("initializer_ref")
         .and_then(Value::as_str)

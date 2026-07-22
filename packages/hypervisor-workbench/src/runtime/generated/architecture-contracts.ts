@@ -339,6 +339,93 @@ export type RuntimeToolContractV1 = {
   registry_status?: "draft" | "released" | "deprecated" | "revoked";
 };
 
+export type EnforcementCoverageDeclarationV1 = {
+  schema_version: "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1";
+  declaration_id: string;
+  subject: {
+      kind: "node_enforcement_profile" | "authority_gateway_profile";
+      profile_or_adapter_ref: string;
+      version: string;
+      content_hash: string;
+      implementation_ref: string;
+      deployment_profile_ref: string;
+    };
+  scope: {
+      surface: string;
+      action_class: string;
+      boundary: "managed_workload" | "host" | "application" | "adapter" | "external_service" | "physical_unit" | "other_declared";
+      scope_ref: string;
+    };
+  claims: {
+      discovered: boolean | "unknown";
+      observable: boolean | "unknown";
+      attributable: boolean | "unknown";
+      mediated: boolean | "unknown";
+      preventable: boolean | "unknown";
+      receipted: boolean | "unknown";
+      uncovered: boolean | "unknown";
+    };
+  mechanisms: Array<{
+        mechanism_id: string;
+        kind: "daemon_gate" | "sandbox" | "seccomp" | "ebpf" | "lsm" | "network_proxy" | "datawall" | "ctee_policy" | "tee_attestation" | "platform_native_user_space" | "platform_native_privileged" | "application_adapter" | "harness_adapter" | "mcp_gateway" | "shell_wrapper" | "filesystem_watcher" | "browser_extension" | "api_gateway" | "ci_gate" | "webhook_gate" | "receipt_ingestion" | "custom_os_kernel_module" | "other_declared";
+        implementation_ref: string;
+        version: string;
+        roles: Array<"discovery" | "observation" | "attribution" | "mediation" | "prevention" | "receipt_emission">;
+      }>;
+  platform: {
+      family: "linux" | "macos" | "windows" | "portable" | "other_declared";
+      version: string;
+      architecture: "x86_64" | "aarch64" | "portable" | "other_declared";
+      execution_context: "user_session" | "managed_host" | "container" | "vm" | "microvm" | "bare_metal" | "hosted_service" | "other_declared";
+      native_security_facility_refs: Array<string>;
+    };
+  required_privilege: "user" | "elevated" | "os_privileged" | "kernel" | "hardware_backed";
+  custom_os_kernel_module_required_for_claim: boolean;
+  bypass: {
+      resistance: "none" | "cooperative" | "best_effort" | "managed_host" | "measured_host";
+      assumptions: Array<string>;
+      known_bypass_refs: Array<string>;
+    };
+  operating_mode: "active_enforcement" | "audit_only" | "passive_observation" | "receipt_ingestion_only" | "uncovered";
+  decision_source: {
+      kind: "daemon_policy_engine" | "owner_policy_service" | "adapter_local_policy" | "human_approval" | "none" | "unknown";
+      decision_source_ref: string | null;
+      policy_ref: string | null;
+      authority_provider_ref: string | null;
+    };
+  final_invoker: {
+      kind: "daemon" | "workload_broker" | "adapter" | "application" | "external_service" | "human" | "none" | "unknown";
+      invoker_ref: string | null;
+    };
+  availability: {
+      online_behavior: "enforce" | "audit" | "deny" | "queue" | "allow" | "quarantine" | "not_applicable" | "unknown";
+      offline_behavior: "enforce" | "audit" | "deny" | "queue" | "allow" | "quarantine" | "not_applicable" | "unknown";
+      failure_posture: "fail_closed" | "fail_open" | "audit_only" | "quarantine" | "not_applicable" | "unknown";
+    };
+  receipt: {
+      scope: "none" | "observation" | "decision" | "effect" | "observation_and_decision" | "observation_and_effect" | "decision_and_effect" | "observation_decision_and_effect";
+      contract_refs: Array<string>;
+      evidence_refs: Array<string>;
+    };
+  verification: {
+      verifier_ref: string;
+      verification_method_ref: string;
+      evidence_refs: Array<string>;
+      evaluated_at: string;
+      freshness_status: "current" | "stale" | "expired" | "unverified";
+      valid_until: string | null;
+      freshness_policy_ref: string | null;
+    };
+  known_gaps: Array<{
+        gap_id: string;
+        description: string;
+        affected_path: string;
+        mitigation_ref: string | null;
+      }>;
+  limitations: Array<string>;
+  status: "draft" | "verified" | "stale" | "revoked";
+};
+
 export type ManagedWorkBillingLedgerBundleV1 = {
   schema_version: "ioi.foundations.managed-work-billing-ledger-bundle.v1";
   bundle_ref: string;
@@ -2030,6 +2117,174 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "enforcement_coverage.receipt.evidence.required_when_receipted"
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "enforcement_coverage.gap.required_when_uncovered"
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -5166,6 +5421,153 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
+    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json",
     "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json",
@@ -6352,6 +6754,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:evidence|assurance-evidence|artifact)://[^\\s]+$",
   "^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,248}$",
   "^(?:evidence|receipt)://[^\\s]{1,248}$",
+  "^(?:evidence|receipt|artifact)://[^\\s]{1,248}$",
   "^(?:network|chain|domain)://[^\\s]{1,248}$",
   "^(?:policy|profile)://[^\\s]{1,248}$",
   "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$",
@@ -6370,6 +6773,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[ -~]{1,2048}$",
   "^[ -~]{1,256}$",
   "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$",
+  "^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$",
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
   "^[A-Z]{3}$",
   "^[A-Za-z0-9_-]{43}$",
@@ -6377,6 +6781,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Za-z0-9_.-]+$",
   "^[^\\s][ -~]{0,2047}$",
   "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
+  "^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$",
   "^[a-z][a-z0-9+.-]*://\\S+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
@@ -6415,6 +6820,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^effect://[^\\s]+$",
   "^embodied-resource-group-revision://[^\\s]+$",
   "^embodied-runtime-graph-manifest://[^\\s]+$",
+  "^enforcement-coverage://[^\\s]{1,248}$",
   "^estop://[^\\s]+$",
   "^fee-basis://[^\\s]{1,248}$",
   "^genesis://[^\\s]{1,248}$",
@@ -6502,6 +6908,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/receipt-proof-bundle/v1": "sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034",
   "schema://ioi/foundations/information-flow-label/v1": "sha256:acf2831bf594c3589bc56419e9736174e2aa9a120e2c7b257940df7fea36a1db",
   "schema://ioi/components/connectors-tools/runtime-tool-contract/v1": "sha256:ac6c0e6bb9b6ec06a1162e4d84b676b2c96bbc9527e50836c04162d788b5f924",
+  "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1": "sha256:53482584c42ada4e9b6eed4ad5f15dab0a83afcddad60276999f161eed1de21c",
   "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1": "sha256:deea4ddad84b377612579947f8c7fecca276962ccbba1cc1fd9232ab3d58d5f2",
   "schema://ioi/foundations/dispute-rail-bundle/v1": "sha256:9397106bbed6d24ce8c9c7c1a8123160102aae677d024636b89ace67d25ae340",
   "schema://ioi/foundations/declassification-approval/v1": "sha256:6b94c87e2891c4389886ad9f8d2f0492ca18e699fb57db5af83c2a21e9817efe",
@@ -9081,6 +9488,1281 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "hash": {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+    "title": "EnforcementCoverageDeclaration",
+    "description": "One evidence-backed enforcement coverage declaration for an exact profile or adapter revision, platform, surface, action class, and scope. The declaration reports coverage facts without owning policy, authority, execution, or durable runtime truth. declaration_id is not self-authenticating: the consuming deployment evidence or operability index must bind the exact declaration artifact reference and content hash. Any change to claims, status, freshness, evidence, or other declaration bytes produces a new content-bound snapshot rather than mutating an accepted snapshot.",
+    "x-ioi-schema-version": "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "declaration_id",
+      "subject",
+      "scope",
+      "claims",
+      "mechanisms",
+      "platform",
+      "required_privilege",
+      "custom_os_kernel_module_required_for_claim",
+      "bypass",
+      "operating_mode",
+      "decision_source",
+      "final_invoker",
+      "availability",
+      "receipt",
+      "verification",
+      "known_gaps",
+      "limitations",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"
+      },
+      "declaration_id": {
+        "type": "string",
+        "pattern": "^enforcement-coverage://[^\\s]{1,248}$",
+        "description": "Stable logical identifier only; consumers must separately verify the exact declaration artifact reference and content hash."
+      },
+      "subject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "profile_or_adapter_ref",
+          "version",
+          "content_hash",
+          "implementation_ref",
+          "deployment_profile_ref"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "node_enforcement_profile",
+              "authority_gateway_profile"
+            ]
+          },
+          "profile_or_adapter_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$",
+            "maxLength": 256
+          },
+          "content_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "implementation_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "deployment_profile_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          }
+        }
+      },
+      "scope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface",
+          "action_class",
+          "boundary",
+          "scope_ref"
+        ],
+        "properties": {
+          "surface": {
+            "$ref": "#/$defs/canonicalName"
+          },
+          "action_class": {
+            "$ref": "#/$defs/canonicalName"
+          },
+          "boundary": {
+            "enum": [
+              "managed_workload",
+              "host",
+              "application",
+              "adapter",
+              "external_service",
+              "physical_unit",
+              "other_declared"
+            ]
+          },
+          "scope_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          }
+        }
+      },
+      "claims": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "discovered",
+          "observable",
+          "attributable",
+          "mediated",
+          "preventable",
+          "receipted",
+          "uncovered"
+        ],
+        "properties": {
+          "discovered": {
+            "$ref": "#/$defs/claimState"
+          },
+          "observable": {
+            "$ref": "#/$defs/claimState"
+          },
+          "attributable": {
+            "$ref": "#/$defs/claimState"
+          },
+          "mediated": {
+            "$ref": "#/$defs/claimState"
+          },
+          "preventable": {
+            "$ref": "#/$defs/claimState"
+          },
+          "receipted": {
+            "$ref": "#/$defs/claimState"
+          },
+          "uncovered": {
+            "$ref": "#/$defs/claimState"
+          }
+        }
+      },
+      "mechanisms": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mechanism_id",
+            "kind",
+            "implementation_ref",
+            "version",
+            "roles"
+          ],
+          "properties": {
+            "mechanism_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+            },
+            "kind": {
+              "enum": [
+                "daemon_gate",
+                "sandbox",
+                "seccomp",
+                "ebpf",
+                "lsm",
+                "network_proxy",
+                "datawall",
+                "ctee_policy",
+                "tee_attestation",
+                "platform_native_user_space",
+                "platform_native_privileged",
+                "application_adapter",
+                "harness_adapter",
+                "mcp_gateway",
+                "shell_wrapper",
+                "filesystem_watcher",
+                "browser_extension",
+                "api_gateway",
+                "ci_gate",
+                "webhook_gate",
+                "receipt_ingestion",
+                "custom_os_kernel_module",
+                "other_declared"
+              ]
+            },
+            "implementation_ref": {
+              "$ref": "#/$defs/canonicalRef"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "discovery",
+                  "observation",
+                  "attribution",
+                  "mediation",
+                  "prevention",
+                  "receipt_emission"
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 6,
+              "uniqueItems": true
+            }
+          }
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "platform": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "family",
+          "version",
+          "architecture",
+          "execution_context",
+          "native_security_facility_refs"
+        ],
+        "properties": {
+          "family": {
+            "enum": [
+              "linux",
+              "macos",
+              "windows",
+              "portable",
+              "other_declared"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "architecture": {
+            "enum": [
+              "x86_64",
+              "aarch64",
+              "portable",
+              "other_declared"
+            ]
+          },
+          "execution_context": {
+            "enum": [
+              "user_session",
+              "managed_host",
+              "container",
+              "vm",
+              "microvm",
+              "bare_metal",
+              "hosted_service",
+              "other_declared"
+            ]
+          },
+          "native_security_facility_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          }
+        }
+      },
+      "required_privilege": {
+        "enum": [
+          "user",
+          "elevated",
+          "os_privileged",
+          "kernel",
+          "hardware_backed"
+        ]
+      },
+      "custom_os_kernel_module_required_for_claim": {
+        "type": "boolean"
+      },
+      "bypass": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resistance",
+          "assumptions",
+          "known_bypass_refs"
+        ],
+        "properties": {
+          "resistance": {
+            "enum": [
+              "none",
+              "cooperative",
+              "best_effort",
+              "managed_host",
+              "measured_host"
+            ]
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "known_bypass_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          }
+        }
+      },
+      "operating_mode": {
+        "enum": [
+          "active_enforcement",
+          "audit_only",
+          "passive_observation",
+          "receipt_ingestion_only",
+          "uncovered"
+        ]
+      },
+      "decision_source": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "decision_source_ref",
+          "policy_ref",
+          "authority_provider_ref"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "daemon_policy_engine",
+              "owner_policy_service",
+              "adapter_local_policy",
+              "human_approval",
+              "none",
+              "unknown"
+            ]
+          },
+          "decision_source_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "policy_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          },
+          "authority_provider_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          }
+        }
+      },
+      "final_invoker": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "invoker_ref"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "daemon",
+              "workload_broker",
+              "adapter",
+              "application",
+              "external_service",
+              "human",
+              "none",
+              "unknown"
+            ]
+          },
+          "invoker_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          }
+        }
+      },
+      "availability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "online_behavior",
+          "offline_behavior",
+          "failure_posture"
+        ],
+        "properties": {
+          "online_behavior": {
+            "$ref": "#/$defs/availabilityBehavior"
+          },
+          "offline_behavior": {
+            "$ref": "#/$defs/availabilityBehavior"
+          },
+          "failure_posture": {
+            "enum": [
+              "fail_closed",
+              "fail_open",
+              "audit_only",
+              "quarantine",
+              "not_applicable",
+              "unknown"
+            ]
+          }
+        }
+      },
+      "receipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scope",
+          "contract_refs",
+          "evidence_refs"
+        ],
+        "properties": {
+          "scope": {
+            "enum": [
+              "none",
+              "observation",
+              "decision",
+              "effect",
+              "observation_and_decision",
+              "observation_and_effect",
+              "decision_and_effect",
+              "observation_decision_and_effect"
+            ]
+          },
+          "contract_refs": {
+            "$ref": "#/$defs/canonicalRefs"
+          },
+          "evidence_refs": {
+            "$ref": "#/$defs/evidenceRefs"
+          }
+        }
+      },
+      "verification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verifier_ref",
+          "verification_method_ref",
+          "evidence_refs",
+          "evaluated_at",
+          "freshness_status",
+          "valid_until",
+          "freshness_policy_ref"
+        ],
+        "properties": {
+          "verifier_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "verification_method_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidenceRef"
+            },
+            "minItems": 1,
+            "maxItems": 128,
+            "uniqueItems": true
+          },
+          "evaluated_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "freshness_status": {
+            "enum": [
+              "current",
+              "stale",
+              "expired",
+              "unverified"
+            ]
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/dateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "freshness_policy_ref": {
+            "$ref": "#/$defs/nullableCanonicalRef"
+          }
+        }
+      },
+      "known_gaps": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gap_id",
+            "description",
+            "affected_path",
+            "mitigation_ref"
+          ],
+          "properties": {
+            "gap_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+            },
+            "description": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "affected_path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "mitigation_ref": {
+              "$ref": "#/$defs/nullableCanonicalRef"
+            }
+          }
+        },
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "limitations": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "verified",
+          "stale",
+          "revoked"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "uncovered": {
+                  "const": true
+                }
+              },
+              "required": [
+                "uncovered"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "discovered": {
+                  "$ref": "#/$defs/notTrueClaimState"
+                },
+                "observable": {
+                  "$ref": "#/$defs/notTrueClaimState"
+                },
+                "attributable": {
+                  "$ref": "#/$defs/notTrueClaimState"
+                },
+                "mediated": {
+                  "$ref": "#/$defs/notTrueClaimState"
+                },
+                "preventable": {
+                  "$ref": "#/$defs/notTrueClaimState"
+                },
+                "receipted": {
+                  "$ref": "#/$defs/notTrueClaimState"
+                }
+              }
+            },
+            "operating_mode": {
+              "const": "uncovered"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "operating_mode": {
+              "const": "uncovered"
+            }
+          },
+          "required": [
+            "operating_mode"
+          ]
+        },
+        "then": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "uncovered": {
+                  "const": true
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "verified"
+            }
+          },
+          "required": [
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "verification": {
+              "type": "object",
+              "properties": {
+                "freshness_status": {
+                  "const": "current"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "mediated": {
+                  "const": true
+                }
+              },
+              "required": [
+                "mediated"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "decision_source": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "daemon_policy_engine",
+                    "owner_policy_service",
+                    "adapter_local_policy",
+                    "human_approval"
+                  ]
+                },
+                "decision_source_ref": {
+                  "$ref": "#/$defs/canonicalRef"
+                }
+              }
+            },
+            "final_invoker": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "daemon",
+                    "workload_broker",
+                    "adapter",
+                    "application",
+                    "external_service",
+                    "human"
+                  ]
+                },
+                "invoker_ref": {
+                  "$ref": "#/$defs/canonicalRef"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "preventable": {
+                  "const": true
+                }
+              },
+              "required": [
+                "preventable"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "mediated": {
+                  "const": true
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "attributable": {
+                  "const": true
+                }
+              },
+              "required": [
+                "attributable"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "observable": {
+                  "const": true
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "receipted": {
+                  "const": true
+                }
+              },
+              "required": [
+                "receipted"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "receipt": {
+              "type": "object",
+              "properties": {
+                "scope": {
+                  "enum": [
+                    "observation",
+                    "decision",
+                    "effect",
+                    "observation_and_decision",
+                    "observation_and_effect",
+                    "decision_and_effect",
+                    "observation_decision_and_effect"
+                  ]
+                },
+                "contract_refs": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "operating_mode": {
+              "enum": [
+                "audit_only",
+                "passive_observation",
+                "receipt_ingestion_only"
+              ]
+            }
+          },
+          "required": [
+            "operating_mode"
+          ]
+        },
+        "then": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "mediated": {
+                  "$ref": "#/$defs/notTrueClaimState"
+                },
+                "preventable": {
+                  "$ref": "#/$defs/notTrueClaimState"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "availability": {
+              "type": "object",
+              "properties": {
+                "failure_posture": {
+                  "const": "audit_only"
+                }
+              },
+              "required": [
+                "failure_posture"
+              ]
+            }
+          },
+          "required": [
+            "availability"
+          ]
+        },
+        "then": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "preventable": {
+                  "$ref": "#/$defs/notTrueClaimState"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "discovered": {
+                  "const": true
+                }
+              },
+              "required": [
+                "discovered"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "mechanisms": {
+              "type": "array",
+              "minItems": 1,
+              "contains": {
+                "$ref": "#/$defs/mechanismWithDiscoveryRole"
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "observable": {
+                  "const": true
+                }
+              },
+              "required": [
+                "observable"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "mechanisms": {
+              "type": "array",
+              "minItems": 1,
+              "contains": {
+                "$ref": "#/$defs/mechanismWithObservationRole"
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "attributable": {
+                  "const": true
+                }
+              },
+              "required": [
+                "attributable"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "mechanisms": {
+              "type": "array",
+              "minItems": 1,
+              "contains": {
+                "$ref": "#/$defs/mechanismWithAttributionRole"
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "mediated": {
+                  "const": true
+                }
+              },
+              "required": [
+                "mediated"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "mechanisms": {
+              "type": "array",
+              "minItems": 1,
+              "contains": {
+                "$ref": "#/$defs/mechanismWithMediationRole"
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "preventable": {
+                  "const": true
+                }
+              },
+              "required": [
+                "preventable"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "mechanisms": {
+              "type": "array",
+              "minItems": 1,
+              "contains": {
+                "$ref": "#/$defs/mechanismWithPreventionRole"
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "claims": {
+              "type": "object",
+              "properties": {
+                "receipted": {
+                  "const": true
+                }
+              },
+              "required": [
+                "receipted"
+              ]
+            }
+          },
+          "required": [
+            "claims"
+          ]
+        },
+        "then": {
+          "properties": {
+            "mechanisms": {
+              "type": "array",
+              "minItems": 1,
+              "contains": {
+                "$ref": "#/$defs/mechanismWithReceiptEmissionRole"
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "custom_os_kernel_module_required_for_claim": {
+              "const": true
+            }
+          },
+          "required": [
+            "custom_os_kernel_module_required_for_claim"
+          ]
+        },
+        "then": {
+          "properties": {
+            "required_privilege": {
+              "const": "kernel"
+            },
+            "mechanisms": {
+              "type": "array",
+              "minItems": 1,
+              "contains": {
+                "$ref": "#/$defs/customOsKernelModuleMechanism"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "claimState": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "const": "unknown"
+          }
+        ]
+      },
+      "notTrueClaimState": {
+        "anyOf": [
+          {
+            "const": false
+          },
+          {
+            "const": "unknown"
+          }
+        ]
+      },
+      "mechanismWithDiscoveryRole": {
+        "$ref": "#/$defs/mechanismRoleDiscovery"
+      },
+      "mechanismWithObservationRole": {
+        "$ref": "#/$defs/mechanismRoleObservation"
+      },
+      "mechanismWithAttributionRole": {
+        "$ref": "#/$defs/mechanismRoleAttribution"
+      },
+      "mechanismWithMediationRole": {
+        "$ref": "#/$defs/mechanismRoleMediation"
+      },
+      "mechanismWithPreventionRole": {
+        "$ref": "#/$defs/mechanismRolePrevention"
+      },
+      "mechanismWithReceiptEmissionRole": {
+        "$ref": "#/$defs/mechanismRoleReceiptEmission"
+      },
+      "mechanismRoleDiscovery": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "contains": {
+              "const": "discovery"
+            }
+          }
+        },
+        "required": [
+          "roles"
+        ]
+      },
+      "mechanismRoleObservation": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "contains": {
+              "const": "observation"
+            }
+          }
+        },
+        "required": [
+          "roles"
+        ]
+      },
+      "mechanismRoleAttribution": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "contains": {
+              "const": "attribution"
+            }
+          }
+        },
+        "required": [
+          "roles"
+        ]
+      },
+      "mechanismRoleMediation": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "contains": {
+              "const": "mediation"
+            }
+          }
+        },
+        "required": [
+          "roles"
+        ]
+      },
+      "mechanismRolePrevention": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "contains": {
+              "const": "prevention"
+            }
+          }
+        },
+        "required": [
+          "roles"
+        ]
+      },
+      "mechanismRoleReceiptEmission": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "contains": {
+              "const": "receipt_emission"
+            }
+          }
+        },
+        "required": [
+          "roles"
+        ]
+      },
+      "customOsKernelModuleMechanism": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "custom_os_kernel_module"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "canonicalName": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9._-]{0,127}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$"
+      },
+      "nullableCanonicalRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|artifact)://[^\\s]{1,248}$"
+      },
+      "evidenceRefs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/evidenceRef"
+        },
+        "maxItems": 128,
+        "uniqueItems": true
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "availabilityBehavior": {
+        "enum": [
+          "enforce",
+          "audit",
+          "deny",
+          "queue",
+          "allow",
+          "quarantine",
+          "not_applicable",
+          "unknown"
+        ]
       }
     }
   },
@@ -18773,6 +20455,32 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1": [
+    {
+      "rule_id": "enforcement_coverage.receipt.evidence.required_when_receipted",
+      "description": "A positive receipted claim binds at least one receipt evidence reference in addition to a non-none receipt scope.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.receipt.evidence_refs",
+        "when_path": "$.claims.receipted",
+        "values": [
+          true
+        ]
+      }
+    },
+    {
+      "rule_id": "enforcement_coverage.gap.required_when_uncovered",
+      "description": "An uncovered claim identifies at least one exact known gap rather than relying on a node-wide label.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.known_gaps",
+        "when_path": "$.claims.uncovered",
+        "values": [
+          true
+        ]
+      }
+    }
+  ],
   "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1": [
     {
       "rule_id": "managed_work_billing.rate_card.window",
@@ -21143,6 +22851,12 @@ export function validateRuntimeToolContractV1(
   value: unknown,
 ): value is RuntimeToolContractV1 {
   return validateArchitectureContract("schema://ioi/components/connectors-tools/runtime-tool-contract/v1", value).ok;
+}
+
+export function validateEnforcementCoverageDeclarationV1(
+  value: unknown,
+): value is EnforcementCoverageDeclarationV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1", value).ok;
 }
 
 export function validateManagedWorkBillingLedgerBundleV1(

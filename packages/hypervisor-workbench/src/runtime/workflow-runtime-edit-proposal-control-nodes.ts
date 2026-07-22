@@ -84,6 +84,8 @@ export interface RuntimeWorkflowEditProposalApplyControlRequestBody {
   workflow_node_id: string;
   proposal_id: string;
   approval_id: string | null;
+  expected_effect_hash: string;
+  authority_grant_ref: string;
   proposal_only: true;
 }
 
@@ -107,6 +109,10 @@ export interface RuntimeWorkflowEditProposalApplyControlRequestInput {
   proposalIdField?: string | null;
   approvalId?: string | null;
   approvalIdField?: string | null;
+  expectedEffectHash?: string | null;
+  expectedEffectHashField?: string | null;
+  authorityGrantRef?: string | null;
+  authorityGrantRefField?: string | null;
   workflowGraphId?: string | null;
   workflowNodeId?: string | null;
   actor?: string | null;
@@ -213,6 +219,24 @@ export function createRuntimeWorkflowEditProposalApplyControlRequest(
   const approvalId =
     cleanString(params.approvalId) ??
     stringAtPath(params.input, params.approvalIdField ?? "approval_id");
+  const expectedEffectHash =
+    cleanString(params.expectedEffectHash) ??
+    stringAtPath(params.input, params.expectedEffectHashField ?? "expected_effect_hash") ??
+    stringAtPath(params.input, "exact_action_review.effect_hash");
+  if (!expectedEffectHash) {
+    throw new Error(
+      "proposal apply controls need the exact reviewed effect hash before dispatch.",
+    );
+  }
+  const authorityGrantRef =
+    cleanString(params.authorityGrantRef) ??
+    stringAtPath(params.input, params.authorityGrantRefField ?? "authority_grant_ref") ??
+    stringAtPath(params.input, "authority_grant.grant_ref");
+  if (!authorityGrantRef) {
+    throw new Error(
+      "proposal apply controls need the selected authorityGrantRef before dispatch.",
+    );
+  }
   const workflowGraphId = cleanString(params.workflowGraphId) ?? null;
   const workflowNodeId =
     cleanString(params.workflowNodeId) ??
@@ -239,6 +263,8 @@ export function createRuntimeWorkflowEditProposalApplyControlRequest(
       workflow_node_id: workflowNodeId,
       proposal_id: proposalId,
       approval_id: approvalId,
+      expected_effect_hash: expectedEffectHash,
+      authority_grant_ref: authorityGrantRef,
       proposal_only: true,
     },
   };

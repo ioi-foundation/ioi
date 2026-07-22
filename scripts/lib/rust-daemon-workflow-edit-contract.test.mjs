@@ -23,9 +23,12 @@ import { startRustHypervisorDaemon } from "./rust-hypervisor-daemon.mjs";
 
 let daemon;
 let stateDir;
+let workflowPath;
 
 beforeEach(async () => {
   stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-rust-wfe-"));
+  workflowPath = path.join(stateDir, "proposal-proof.workflow.json");
+  fs.writeFileSync(workflowPath, '{"version":"0"}\n');
   daemon = await startRustHypervisorDaemon({ stateDir });
 });
 
@@ -58,7 +61,7 @@ test("Rust workflow-edit-proposals propose waits for approval + admits a workflo
   const r = await post(`${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals`, {
     workflow_graph_id: "workflow.react-flow.edit-proposal-proof",
     workflow_node_id: "runtime.workflow-edit-proposal.model",
-    workflow_path: "proposal-proof.workflow.json",
+    workflow_path: workflowPath,
     proposal_id: "proposal-a",
     workflow_patch: { version: "1", metadata: { name: "Proposed edit" } },
   });
@@ -80,6 +83,7 @@ test("Rust workflow-edit apply is BLOCKED without an approval decision (no mutat
   const threadId = await createThread();
   await post(`${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals`, {
     proposal_id: "proposal-a",
+    workflow_path: workflowPath,
     workflow_patch: { version: "1" },
   });
 
@@ -98,6 +102,7 @@ test("Rust workflow-edit proposed event lands on the thread event stream", async
   const threadId = await createThread();
   await post(`${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals`, {
     proposal_id: "proposal-stream",
+    workflow_path: workflowPath,
     workflow_patch: { version: "1" },
   });
   const events = await (

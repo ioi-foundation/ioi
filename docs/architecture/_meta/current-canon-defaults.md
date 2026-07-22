@@ -7,10 +7,10 @@ files named in [source-of-truth-map.md](./source-of-truth-map.md).
 Supersedes: the inline "Current canonical defaults" digest formerly embedded in
 [source-of-truth-map.md](./source-of-truth-map.md).
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-21.
 Doctrine status: canonical
 Implementation status: mixed (cross-owner digest)
-Last implementation audit: 2026-07-19
+Last implementation audit: 2026-07-21
 
 ## Purpose
 
@@ -1028,6 +1028,15 @@ applicable;
 - IOI Authority Gateway is the daemon sidecar/compatibility profile for
   existing IDE, CLI, browser, hosted-agent, and MCP/tool ecosystems; it is
   not a separate runtime;
+- `NodeEnforcementProfile` and Authority Gateway profiles declare required
+  action/surface scopes and posture, while the registered
+  `EnforcementCoverageDeclaration` reports actual deployment evidence for one
+  exact profile revision, platform, and scope. Its six capability facts are
+  independently assessed; `uncovered: true` is a mutually exclusive exact-scope
+  state; every positive claim binds a matching mechanism role and verification
+  evidence; and audit/passive/receipt-ingestion paths cannot be upgraded into
+  mediation or prevention claims. A custom OS kernel module is optional and
+  profile-specific, never a portable prerequisite or universal-control proof;
 - Agentgres is operation-backed domain truth with a Postgres bridge;
 - Agent Wiki / `ioi-memory` is the adjacent context-memory plane for what
   agents can know, retrieve, and remember; Agentgres admits and proves

@@ -29,7 +29,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde_json::{json, Value};
 
-use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
+use ioi_services::agentic::runtime::RuntimeOwnerServices;
 
 use super::lifecycle_routes::{binary_on_path, generic_cli_local_shim_path, model_route_reachable};
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
@@ -257,7 +257,7 @@ fn compose_mutation_admission(
     if let Some(acceptance) = provider_trust_acceptance_ref {
         request["provider_trust_acceptance_ref"] = json!(acceptance);
     }
-    RuntimeKernelService::new()
+    RuntimeOwnerServices::new()
         .admit_harness_profile_mutation(&request, &iso_now())
         .map_err(|e| {
             (

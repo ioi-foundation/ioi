@@ -1,0 +1,12 @@
+{
+  "schema_version": "ioi.evidence.local-collaboration-protocol-manifest.v1",
+  "protocol_id": "p0-local-s1-fn-dr-2026-07-21",
+  "protocol_path": "docs/evidence/p0-collaboration-readiness/comparison-protocol.v1.json",
+  "protocol_sha256": "sha256:bf1100a637d0e2d9eef39895ef96a447d73af8287bcf74fd12b8d11ee89178e6",
+  "frozen_at": "2026-07-21T22:36:24-04:00",
+  "status": "frozen_not_activated",
+  "cohort_executed": false,
+  "claim_advanced": false,
+  "verification_command": "npm run check:p0-collaboration-protocol",
+  "nonclaim": "This manifest binds protocol bytes only; it does not certify M3-M5 readiness or authorize cohort execution."
+}

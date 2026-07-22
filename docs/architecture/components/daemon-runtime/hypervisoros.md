@@ -7,7 +7,7 @@ node integrity receipts, and HypervisorOS deployment profiles.
 Supersedes: wording that treats Hypervisor only as a hosted IDE, local daemon,
 Type-2 runtime, or cloud agent harness.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-21.
 Doctrine status: canonical
 Implementation status: speculative (bare-metal node profile design; no HypervisorOS build)
 Last implementation audit: 2026-07-19
@@ -386,6 +386,52 @@ cTEE / Private Workspace custody checks
 hardware TEE attestation checks where available
 ```
 
+A conformant profile does not require a custom OS kernel module. Daemon gates,
+brokers, proxies, sandboxing, and platform-native user-space controls are the
+portable baseline. `seccomp`, eBPF, LSM, custom privileged hooks, or equivalent
+platform mechanisms are optional, platform-qualified defenses for managed or
+high-assurance nodes. A profile may claim only the mechanism and coverage its
+deployment can verify; the presence of one privileged hook must not be
+generalized into universal interception, prevention, attribution, or receipt
+coverage.
+
+Every profile declares the exact action-class/surface scopes and coverage
+posture its deployment requires. The admitted deployment evidence set must then
+carry one registered [`EnforcementCoverageDeclaration`](../../_meta/schemas/enforcement-coverage-declaration.v1.schema.json)
+for every advertised or required scope, including an explicitly uncovered
+scope. The declaration binds the exact profile or adapter revision and content
+hash, implementation, deployment profile, platform, mechanism versions,
+privilege, bypass assumptions, availability/failure posture, decision source,
+final invoker, receipt scope, verification method, evidence, freshness, gaps,
+and limitations. It is a typed evidence snapshot, not a policy, authority,
+execution, admission, or truth owner.
+
+The six capability claims -- `discovered`, `observable`, `attributable`,
+`mediated`, `preventable`, and `receipted` -- are assessed independently rather
+than treated as one cumulative assurance rank. `discovered` does not imply
+`observable`; `observable` does not imply `attributable` or `mediated`;
+`attributable` does not imply `mediated`; and `mediated` does not imply
+`preventable`. `receipted` means only that the receipt proves its bound
+observation, decision, or effect under the applicable receipt contract. It does
+not by itself prove the assertion correct or establish mediation or prevention.
+Every positive capability claim names a mechanism with the corresponding role
+and cites verification evidence.
+
+`uncovered: true` is the mutually exclusive terminal state for one exact scope:
+none of the six capability claims may be positive in that declaration. A
+partially covered scope instead keeps the unsupported claims false or `unknown`
+and records its `known_gaps` and limitations. Mixed paths must be split into
+narrower declarations rather than summarized as fully controlled. `unknown`
+never inherits `true` from a neighboring declaration or a higher-assurance
+deployment, and `uncovered` never becomes a global label for the node.
+
+The consuming deployment evidence or operability index must bind the exact
+declaration artifact ref and content hash. A status, freshness, evidence, or
+claim change produces a newly content-bound snapshot; it must not mutate a
+previously retained declaration in place. Schema validity alone does not prove
+that a runtime evaluator emitted, verified, admitted, or currently relies on
+the declaration.
+
 This is not a privacy substitute for cTEE. It is the node-control and evidence
 layer that blocks, detects, records, and receipts unsafe behavior such as
 unmanaged executable launches, unscoped egress, private-data leakage attempts,
@@ -545,6 +591,9 @@ historical integrity without proving currentness.
 ```yaml
 NodeEnforcementProfile:
   profile_id: node_enforcement://...
+  revision_ref: node_enforcement://.../revision/...
+  version: 1.0.0
+  content_hash: sha256:...
   node_id: runtime://...
   enforcement_layers:
     - daemon_gate
@@ -556,6 +605,11 @@ NodeEnforcementProfile:
     - datawall
     - ctee_policy
     - tee_attestation
+  enforcement_coverage_contract_ref: schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1
+  enforcement_scope_refs:
+    - enforcement-scope://.../shell/process-spawn
+  enforcement_coverage_requirement_policy_ref: policy://...
+  enforcement_coverage_freshness_policy_ref: policy://...
   executable_policy:
     mode:
       allowlist | denylist | signed_only | policy_declared

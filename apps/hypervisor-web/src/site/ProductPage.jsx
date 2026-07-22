@@ -18,6 +18,7 @@ const React = window.React;
     adk: { verb: "Install", lines: ["$ npm install -g @hypervisor/adk", "✓ adk 1.0 installed", "$ hv adk init worker", "✓ manifest · harness · evals scaffolded"] },
     odk: { verb: "Install", lines: ["$ npm install -g @hypervisor/odk", "✓ odk 1.0 installed", "$ hv odk compile ontology.yaml", "✓ surfaces · domain app generated"] },
     mcp: { verb: "Create a profile", lines: ["$ hv mcp profile create reviewer", "✓ profile reviewer · scoped", "$ hv mcp grant --tools=code.read", "✓ revocable lease issued"] },
+    daemon: { verb: "Install", lines: ["$ curl -fsSL https://get.hypervisor.com | sh", "✓ hv 1.0 installed · daemon ready", "$ hv daemon status", "✓ runtime truth local · receipts on"] },
     os: { verb: "Read the architecture", lines: ["# design stage — specified in the IOI architecture canon", "· measured boot · attested join · kernel-level policy", "· no HypervisorOS build ships today", "→ track it at internetofintelligence.com/roadmap"] },
     embodied: { verb: "Read the architecture", lines: ["# design stage — the authority model, extended to devices", "· safety gates · command queues · receipted telemetry", "· no Embodied Runtime build ships today", "→ track it at internetofintelligence.com/roadmap"] },
   };
@@ -279,7 +280,7 @@ const React = window.React;
             <p style={{ fontFamily: "var(--font-sans)", fontSize: "1.0625rem", color: "rgba(255,255,255,0.6)", marginTop: "1rem", lineHeight: 1.5 }}>{p.sub}</p>
             <div style={{ display: "flex", gap: "0.625rem", marginTop: "2rem" }}>
               <PgButton theme="white">{meta.verb}</PgButton>
-              <PgButton variant="outline" theme="white">Talk to sales</PgButton>
+              <PgButton variant="outline" theme="white" style={{ color: "#fff", borderColor: "rgba(255,255,255,0.45)" }}>Talk to sales</PgButton>
             </div>
           </div>
         </div>

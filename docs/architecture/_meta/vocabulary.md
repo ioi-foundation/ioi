@@ -4,7 +4,7 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for runtime, audit, substrate, projection, and naming vocabulary.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-21.
 Doctrine status: reference
 Implementation status: mixed (naming reference across all maturity levels)
 Last implementation audit: 2026-07-05
@@ -180,10 +180,27 @@ product pitch or routine onboarding flow.
 - `EnvironmentWarmupProfile`: Hypervisor policy object for prebuilds,
   dependency caches, model caches, index warmup, image pulls, and provider warm
   pools. It is a performance projection, not canonical workspace truth.
-- `NodeEnforcementProfile`: HypervisorOS profile declaring daemon gates,
-  sandboxing, executable policy, egress policy, datawall/leakage detection,
-  log/export redaction, cTEE checks, and optional hardware attestation hooks.
-  It is evidence/control posture, not a substitute for cTEE privacy.
+- `NodeEnforcementProfile`: versioned HypervisorOS profile declaring daemon
+  gates, sandboxing, executable policy, egress policy, datawall/leakage
+  detection, log/export redaction, cTEE checks, optional platform-qualified
+  privileged hooks, optional hardware-attestation hooks, required enforcement
+  scopes, and their coverage/freshness policies. Actual deployment claims live
+  in content-bound `EnforcementCoverageDeclaration` evidence snapshots. The
+  profile is control posture, not proof of deployed coverage, not a substitute
+  for cTEE privacy, and it does not require or imply a custom OS kernel module.
+- `EnforcementCoverageDeclaration`: registered, versioned evidence contract for
+  one exact profile or adapter revision, platform, surface, action class, and
+  scope. It independently reports `discovered`, `observable`, `attributable`,
+  `mediated`, `preventable`, and `receipted`; binds mechanism roles, privilege,
+  bypass assumptions, decision source, final invoker, availability/failure
+  behavior, receipt scope, verification evidence, freshness, gaps, and
+  limitations; and uses mutually exclusive `uncovered: true` only when none of
+  those six claims is positive for that exact scope. Partial gaps use false or
+  `unknown` capability claims plus `known_gaps`. A consuming deployment evidence
+  or operability index binds the exact declaration artifact ref and content
+  hash; changed status, freshness, evidence, or claims produce a new snapshot.
+  It owns no policy, authority, admission, execution, receipt truth, or durable
+  runtime state, and schema validity alone is not runtime verification.
 - `ClassicalInfraPrimitive`: any traditional infrastructure object Hypervisor may
   manage or project, including a VM, container, microVM, WASM workload, image,
   volume, network, firewall/egress policy, snapshot, backup, restore point,
@@ -1795,7 +1812,10 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   It routes proposed actions through daemon policy, authority scopes,
   approvals, receipts, and replay. It is not a separate runtime, not merely a
   VS Code plugin identity, and it must be honest about the mediation limits of
-  opaque third-party runtimes.
+  opaque third-party runtimes. Its deployment evidence set carries the same
+  per-action, per-surface `EnforcementCoverageDeclaration` contract used by
+  `NodeEnforcementProfile`; that declaration creates no new authority, policy,
+  admission, execution, or truth owner.
 - `IOIKernelL0` or `L0Substrate`: the reusable IOI kernel substrate for
   instantiating application domains, sovereign execution domains,
   non-intelligent chains/state machines, and intelligent blockchains. It is not

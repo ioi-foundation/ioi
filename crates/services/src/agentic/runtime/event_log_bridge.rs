@@ -31,8 +31,8 @@ use sha2::{Digest, Sha256};
 use super::kernel::runtime_thread_event::{
     RuntimeThreadEventAdmissionRequest, RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
 };
-use super::kernel::RuntimeKernelService;
 use super::managed_session_snapshot::RuntimeManagedSessionSnapshot;
+use super::owner_services::RuntimeOwnerServices;
 
 const MANAGED_SESSION_PROJECTED_EVENT_KIND: &str = "managed_session.projected";
 const MANAGED_SESSION_PROJECTED_PAYLOAD_SCHEMA_VERSION: &str =
@@ -303,7 +303,7 @@ pub fn admit_and_persist_runtime_event(state_dir: &str, event: Value) -> Result<
             "state_dir": state_dir,
         }))
         .map_err(|error| format!("build admission request: {error}"))?;
-        let record = RuntimeKernelService::new()
+        let record = RuntimeOwnerServices::new()
             .admit_runtime_thread_event(&request)
             .map_err(|error| format!("admit runtime thread event: {error:?}"))?;
         let admitted = serde_json::to_value(&record.event)
