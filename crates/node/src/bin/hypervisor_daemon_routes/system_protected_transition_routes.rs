@@ -17,12 +17,25 @@ use ioi_types::app::system_lifecycle_transitions::{
 };
 use serde_json::Value;
 
+use std::sync::Arc;
+
+use axum::extract::{Path as AxumPath, State};
+use axum::http::StatusCode;
+use axum::Json;
+use ioi_services::wallet_network::ApprovalGrantConsumptionReceipt;
 use serde_json::json;
 
+use super::governed_authority::{self as governed, AuthorityPolicyContext, Governance};
+use super::DaemonState;
 use super::system_activation_routes::{
-    canonical_hash_str, enumerate_family, jcs_hash, load_required_exact, required_string,
-    validate_contract, verr, ACTIVATION_RECEIPT_DIR, AUTHORITY_EVIDENCE_DIR, CHAIN_DIR,
-    DECISION_DIR, OPERATION_LOG_DIR, PROPOSAL_DIR, STATE_DIR, TRANSITION_DIR,
+    canonical_hash_str, canonical_system_key, classify, contains_sensitive_key,
+    enumerate_family, evidence_from_intent, evidence_intent_value, forced_fault, intent_seal,
+    jcs_hash, load_local, load_required_exact, ms_to_timestamp, persist_local,
+    prepare_node_evidence_for, remove_intent, required_string, tail, validate_contract,
+    validate_wallet_receipt, verify_intent_seal, verr, with_source_locks,
+    NodeAdmissionEvidence, ACTIVATION_RECEIPT_DIR, AUTHORITY, AUTHORITY_CONSUMPTION_DIR,
+    AUTHORITY_EVIDENCE_DIR, CHAIN_DIR, DECISION_DIR, MAX_REQUEST_BYTES, OPERATION_LOG_DIR,
+    PROPOSAL_DIR, STATE_DIR, SYSTEM_ACTIVATION_GATE, TRANSITION_DIR,
 };
 
 const OPERATION_LOG_V2_ROOT_DOMAIN: &str = "ioi.autonomous-system-operation-log-jcs-sha256.v2";
@@ -1011,4 +1024,509 @@ mod builder_tests {
             assert_eq!(artifacts.chain["status"], expected_status, "{}", op.as_str());
         }
     }
+}
+
+fn validate_protected_request(body: &Value) -> Result<(), VErr> {
+    let encoded = serde_json::to_vec(body)
+        .map_err(|e| verr("system_lifecycle_request_invalid", e.to_string()))?;
+    if encoded.len() > MAX_REQUEST_BYTES {
+        return Err(verr(
+            "system_lifecycle_request_oversize",
+            "request exceeds the 512 KiB closed-input limit",
+        ));
+    }
+    if contains_sensitive_key(body) {
+        return Err(verr(
+            "system_lifecycle_sensitive_field_rejected",
+            "secret-bearing keys are forbidden recursively",
+        ));
+    }
+    let object = body.as_object().ok_or_else(|| {
+        verr(
+            "system_lifecycle_request_invalid",
+            "request must be one JSON object",
+        )
+    })?;
+    const ALLOWED: &[&str] = &[
+        "expected_chain_head_root",
+        "expected_predecessor_state_root",
+        "wallet_approval_grant",
+    ];
+    if let Some(key) = object.keys().find(|key| !ALLOWED.contains(&key.as_str())) {
+        return Err(verr(
+            "system_lifecycle_request_field_unknown",
+            format!("undeclared request field '{key}' is forbidden"),
+        ));
+    }
+    for key in ["expected_chain_head_root", "expected_predecessor_state_root"] {
+        let value = object.get(key).and_then(Value::as_str).unwrap_or("");
+        if !canonical_hash_str(value) {
+            return Err(verr(
+                "system_lifecycle_request_invalid",
+                format!("'{key}' must be a canonical sha256 commitment"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn check_expected_roots(body: &Value, source: &ProtectedTransitionSource) -> Result<(), VErr> {
+    let chain_root = source
+        .chain_head
+        .get("chain_root")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if body.get("expected_chain_head_root") != Some(&json!(chain_root)) {
+        return Err(verr(
+            "system_lifecycle_head_conflict",
+            "the live chain head moved past the caller's expected root",
+        ));
+    }
+    if body.get("expected_predecessor_state_root")
+        != Some(&json!(source.previous_step.state_root))
+    {
+        return Err(verr(
+            "system_lifecycle_head_conflict",
+            "the predecessor state moved past the caller's expected root",
+        ));
+    }
+    Ok(())
+}
+
+fn decision_tuple(evidence: &NodeAdmissionEvidence) -> Result<DecisionAuthorityTuple, VErr> {
+    Ok(DecisionAuthorityTuple {
+        input_hash: evidence.authorized.evidence.request_hash.clone(),
+        policy_hash: evidence.authorized.evidence.policy_hash.clone(),
+        effect_hash: evidence.authorized.evidence.effect_hash.clone(),
+        authority_grant_ref: required(&evidence.authority_evidence, "/authority_grant_ref")?,
+        authority_evidence_ref: evidence.authority_evidence_ref.clone(),
+        authority_evidence_root: evidence.authority_evidence_root.clone(),
+        wallet_grant_consumption_ref: evidence.wallet_consumption_ref.clone(),
+        wallet_grant_consumption_evidence_ref: evidence
+            .wallet_consumption_evidence_ref
+            .clone(),
+    })
+}
+
+fn persist_protected_graph(
+    data_dir: &str,
+    artifacts: &ProtectedStepArtifacts,
+    evidence: &NodeAdmissionEvidence,
+    wallet_consumption: &Value,
+) -> Result<(), VErr> {
+    let consumption_receipt: ApprovalGrantConsumptionReceipt =
+        serde_json::from_value(wallet_consumption.clone()).map_err(|error| {
+            verr(
+                "system_lifecycle_wallet_consumption_invalid",
+                error.to_string(),
+            )
+        })?;
+    let records: Vec<(&str, String, &Value)> = vec![
+        (
+            AUTHORITY_CONSUMPTION_DIR,
+            format!("aslac_{}", hex::encode(consumption_receipt.consumption_id)),
+            wallet_consumption,
+        ),
+        (
+            AUTHORITY_EVIDENCE_DIR,
+            tail("aslae_", &evidence.authority_evidence_root)?,
+            &evidence.authority_evidence,
+        ),
+        (
+            PROPOSAL_DIR,
+            tail("aslp_", &artifacts.step.proposal_root)?,
+            &artifacts.step.proposal,
+        ),
+        (
+            DECISION_DIR,
+            tail("aslad_", &artifacts.step.decision_root)?,
+            &artifacts.step.decision,
+        ),
+        (
+            TRANSITION_DIR,
+            tail("aslt_", &artifacts.step.transition_root)?,
+            &artifacts.step.transition,
+        ),
+        (
+            PROTECTED_RECEIPT_DIR,
+            tail("asptr_", &artifacts.step.receipt_root)?,
+            &artifacts.step.receipt,
+        ),
+        (
+            LIFECYCLE_STATE_DIR,
+            tail("asls_", &artifacts.step.state_root)?,
+            &artifacts.step.state,
+        ),
+        (
+            OPERATION_LOG_DIR,
+            tail(
+                "asol_",
+                required_string(&artifacts.operation_log, "/operation_log_root")?,
+            )?,
+            &artifacts.operation_log,
+        ),
+        (
+            CHAIN_DIR,
+            tail("asc_", required_string(&artifacts.chain, "/chain_root")?)?,
+            &artifacts.chain,
+        ),
+    ];
+    for (family, record_tail, value) in &records {
+        persist_local(data_dir, family, record_tail, value)?;
+        if forced_fault("IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_LOCAL_PERSIST", family) {
+            return Err(verr(
+                "system_lifecycle_pending_convergence",
+                format!("test-forced interruption after local '{family}/{record_tail}'"),
+            ));
+        }
+        super::substrate_store::admit_required(data_dir, family, record_tail, value).map_err(
+            |error| {
+                verr(
+                    "system_lifecycle_agentgres_admission_failed",
+                    format!("required admission for '{family}/{record_tail}' failed ({error})"),
+                )
+            },
+        )?;
+        if forced_fault("IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_AGENTGRES_ADMIT", family) {
+            return Err(verr(
+                "system_lifecycle_pending_convergence",
+                format!("test-forced interruption after Agentgres '{family}/{record_tail}'"),
+            ));
+        }
+    }
+    for (family, record_tail, value) in &records {
+        let loaded = load_required_exact(data_dir, family, record_tail)?.ok_or_else(|| {
+            verr(
+                "system_lifecycle_persist_failed",
+                format!("'{family}/{record_tail}' did not converge"),
+            )
+        })?;
+        if &loaded != *value {
+            return Err(verr(
+                "system_lifecycle_persist_failed",
+                format!("'{family}/{record_tail}' diverged after admission"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// POST /v1/hypervisor/autonomous-systems/:id/transitions/:op
+pub(crate) async fn handle_transition(
+    AxumPath((key, op_name)): AxumPath<(String, String)>,
+    State(state): State<Arc<DaemonState>>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    if !canonical_system_key(&key) {
+        return classify(verr(
+            "system_lifecycle_source_key_invalid",
+            "id must be 'asg_' plus 64 lowercase hexadecimal characters",
+        ));
+    }
+    let Some(op) = ProtectedTransitionOp::parse(&op_name) else {
+        return classify(verr(
+            "system_lifecycle_operation_not_found",
+            format!("'{op_name}' is not a generic protected transition"),
+        ));
+    };
+    if let Err(error) = validate_protected_request(&body) {
+        return classify(error);
+    }
+    let _gate = SYSTEM_ACTIVATION_GATE.lock().await;
+    let (source, plan) = match with_source_locks(|| {
+        let source = load_protected_source(&state.data_dir, &system_id_for_key(&state.data_dir, &key)?)?;
+        check_expected_roots(&body, &source)?;
+        let plan = compile_from_source(op, &source)?;
+        Ok::<_, VErr>((source, plan))
+    }) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let system_id = match required(&plan.authority_effect, "/system_id") {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let genesis_ref = match required(&source.activation_effect, "/genesis_ref") {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let governing = match required(&source.activation_effect, "/source_governing_authority_ref")
+    {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let authorized = match governed::authorize_decision_with_context(
+        AUTHORITY,
+        &body,
+        Governance::Host,
+        AuthorityPolicyContext::SystemGenesis {
+            system_id: &system_id,
+            genesis_id: &genesis_ref,
+        },
+        &governing,
+        &system_id,
+        op.as_str(),
+        plan.sequence,
+        &plan.authority_effect,
+    )
+    .await
+    {
+        Err(response) => return response,
+        Ok(value) => value,
+    };
+    let mut evidence = match prepare_node_evidence_for(
+        &plan.authority_effect,
+        op.as_str(),
+        plan.sequence,
+        op.required_scope(),
+        &governing,
+        &plan.resulting_state_root,
+        authorized,
+    ) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let intent_tail_value =
+        match tail("asptx_", &evidence.authorized.evidence.request_hash) {
+            Ok(value) => value,
+            Err(error) => return classify(error),
+        };
+    let sealed = match with_source_locks(|| {
+        // Revalidate the entire durable truth under the lock, then seal.
+        let fresh = load_protected_source(&state.data_dir, &system_id)?;
+        check_expected_roots(&body, &fresh)?;
+        let recompiled = compile_from_source(op, &fresh)?;
+        if recompiled != plan {
+            return Err(verr(
+                "system_lifecycle_head_conflict",
+                "durable truth changed between authorization and intent sealing",
+            ));
+        }
+        let intent = intent_seal(json!({
+            "schema_version": "ioi.hypervisor.protected-transition-intent.v1",
+            "source_record_tail": key,
+            "op": op.as_str(),
+            "request_body": body,
+            "compiled_plan": serde_json::to_value(&plan)
+                .map_err(|e| verr("system_lifecycle_intent_invalid", e.to_string()))?,
+            "governed_authority": evidence_intent_value(&evidence),
+            "intent_hash": Value::Null,
+        }))?;
+        persist_local(
+            &state.data_dir,
+            PROTECTED_INTENT_DIR,
+            &intent_tail_value,
+            &intent,
+        )?;
+        Ok::<_, VErr>(intent)
+    }) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    drop(sealed);
+    if forced_fault("IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_INTENT", op.as_str()) {
+        return classify(verr(
+            "system_lifecycle_pending_convergence",
+            "test-forced interruption after durable intent",
+        ));
+    }
+    let wallet_receipt =
+        match super::wallet_network_capability_client::consume_approval_grant_for_effect_v2(
+            evidence.wallet_params.clone(),
+        )
+        .await
+        {
+            Ok(value) => value,
+            Err(
+                super::wallet_network_capability_client::ResolveError::NotConfigured(message)
+                | super::wallet_network_capability_client::ResolveError::Unavailable(message),
+            ) => {
+                return classify(verr(
+                    "system_lifecycle_wallet_consumption_unavailable",
+                    message,
+                ))
+            }
+            Err(super::wallet_network_capability_client::ResolveError::Refused(message)) => {
+                let cleanup = with_source_locks(|| {
+                    if load_required_exact(
+                        &state.data_dir,
+                        AUTHORITY_CONSUMPTION_DIR,
+                        &evidence.wallet_consumption_tail,
+                    )?
+                    .is_some()
+                    {
+                        return Err(verr(
+                            "system_lifecycle_pending_convergence",
+                            "wallet refusal conflicts with existing consumption evidence",
+                        ));
+                    }
+                    remove_intent(&state.data_dir, PROTECTED_INTENT_DIR, &intent_tail_value)
+                });
+                if let Err(error) = cleanup {
+                    return classify(error);
+                }
+                return classify(verr(
+                    "system_lifecycle_wallet_consumption_refused",
+                    message,
+                ));
+            }
+            Err(super::wallet_network_capability_client::ResolveError::Invalid(message)) => {
+                return classify(verr(
+                    "system_lifecycle_wallet_consumption_invalid",
+                    message,
+                ))
+            }
+        };
+    let wallet_value = match validate_wallet_receipt(&mut evidence, &wallet_receipt) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    if forced_fault(
+        "IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_WALLET_CONSUMPTION",
+        op.as_str(),
+    ) {
+        return classify(verr(
+            "system_lifecycle_pending_convergence",
+            "test-forced interruption after exact wallet consumption",
+        ));
+    }
+    let timestamp = match ms_to_timestamp(wallet_receipt.consumed_at_ms) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let tuple = match decision_tuple(&evidence) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let artifacts = match build_protected_artifacts(&plan, &source, &tuple, &timestamp) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let result = with_source_locks(|| {
+        let stored = load_local(&state.data_dir, PROTECTED_INTENT_DIR, &intent_tail_value)?
+            .ok_or_else(|| {
+                verr(
+                    "system_lifecycle_pending_convergence",
+                    "durable intent vanished after wallet consumption",
+                )
+            })?;
+        verify_intent_seal(&stored)?;
+        if stored.get("compiled_plan")
+            != Some(&serde_json::to_value(&plan).map_err(|error| {
+                verr("system_lifecycle_intent_unreadable", error.to_string())
+            })?)
+        {
+            return Err(verr(
+                "system_lifecycle_intent_unreadable",
+                "durable intent does not bind the authorized plan",
+            ));
+        }
+        persist_protected_graph(&state.data_dir, &artifacts, &evidence, &wallet_value)?;
+        if forced_fault(
+            "IOI_TEST_FORCE_SYSTEM_LIFECYCLE_BEFORE_TERMINAL_VISIBILITY",
+            op.as_str(),
+        ) {
+            return Err(verr(
+                "system_lifecycle_pending_convergence",
+                "test-forced interruption before terminal intent removal",
+            ));
+        }
+        remove_intent(&state.data_dir, PROTECTED_INTENT_DIR, &intent_tail_value)
+    });
+    if let Err(error) = result {
+        return classify(error);
+    }
+    (
+        StatusCode::OK,
+        Json(json!({
+            "op": op.as_str(),
+            "sequence": plan.sequence,
+            "lifecycle_state": artifacts.step.state,
+            "lifecycle_transition": artifacts.step.transition,
+            "lifecycle_receipt": artifacts.step.receipt,
+            "operation_log": artifacts.operation_log,
+            "autonomous_system_chain": artifacts.chain,
+            "nonclaims": {"runtime_effect":false,"network_effect":false,"membership":false,"writer":false,"settlement":false,"constitution_change":false,"profile_set_change":false}
+        })),
+    )
+}
+
+/// GET /v1/hypervisor/autonomous-systems/:id/transitions/:op
+pub(crate) async fn handle_get_transition(
+    AxumPath((key, op_name)): AxumPath<(String, String)>,
+    State(state): State<Arc<DaemonState>>,
+) -> (StatusCode, Json<Value>) {
+    if !canonical_system_key(&key) {
+        return classify(verr(
+            "system_lifecycle_source_key_invalid",
+            "id must be canonical",
+        ));
+    }
+    let Some(op) = ProtectedTransitionOp::parse(&op_name) else {
+        return classify(verr(
+            "system_lifecycle_operation_not_found",
+            format!("'{op_name}' is not a generic protected transition"),
+        ));
+    };
+    match with_source_locks(|| {
+        let system_id = system_id_for_key(&state.data_dir, &key)?;
+        let source = load_protected_source(&state.data_dir, &system_id)?;
+        let committed: Vec<Value> = source
+            .operation_log
+            .get("entries")
+            .and_then(Value::as_array)
+            .map(|entries| {
+                entries
+                    .iter()
+                    .filter(|entry| {
+                        entry.get("operation_name").and_then(Value::as_str)
+                            == Some(op.as_str())
+                    })
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default();
+        Ok::<_, VErr>(json!({
+            "op": op.as_str(),
+            "eligible_now": {
+                "predecessor_status": source
+                    .chain_head
+                    .get("status")
+                    .cloned()
+                    .unwrap_or(Value::Null),
+                "admits": source
+                    .chain_head
+                    .get("status")
+                    .and_then(Value::as_str)
+                    .and_then(
+                        ioi_types::app::system_lifecycle_transitions::ProtectedLifecycleStatus::parse,
+                    )
+                    .map(|status| op.admits_predecessor(status))
+                    .unwrap_or(false),
+            },
+            "chain_head": source.chain_head,
+            "operation_log_head": source.operation_log["head_entry"],
+            "committed_entries": committed,
+        }))
+    }) {
+        Ok(value) => (StatusCode::OK, Json(value)),
+        Err(error) => classify(error),
+    }
+}
+
+/// Resolve the durable system_id for a caller-facing `asg_` key.
+fn system_id_for_key(data_dir: &str, key: &str) -> Result<String, VErr> {
+    let record = load_required_exact(
+        data_dir,
+        "autonomous-system-genesis-admissions",
+        key,
+    )?
+    .ok_or_else(|| {
+        verr(
+            "system_lifecycle_not_found",
+            "no admitted genesis exists for this id",
+        )
+    })?;
+    required(&record, "/authorized_genesis/system_id")
+        .or_else(|_| required(&record, "/system_id"))
 }

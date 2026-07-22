@@ -2089,6 +2089,14 @@ async fn async_main() -> anyhow::Result<()> {
                 )),
         )
         .route(
+            "/v1/hypervisor/autonomous-systems/:id/transitions/:op",
+            get(system_protected_transition_routes::handle_get_transition)
+                .post(system_protected_transition_routes::handle_transition)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
             "/v1/hypervisor/work-results",
             get(work_result_routes::handle_work_results_list)
                 .post(work_result_routes::handle_work_result_create),

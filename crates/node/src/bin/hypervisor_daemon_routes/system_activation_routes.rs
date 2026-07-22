@@ -69,15 +69,15 @@ const DETERMINISTIC_REF_HASH_PROFILE: &str =
 
 #[derive(Clone)]
 pub(crate) struct NodeAdmissionEvidence {
-    authorized: AuthorizedDecision,
-    authority_evidence: Value,
-    authority_evidence_ref: String,
-    authority_evidence_root: String,
-    wallet_params: ConsumeApprovalGrantForEffectV2Params,
-    wallet_consumption_ref: String,
-    wallet_consumption_tail: String,
-    wallet_consumption_root: String,
-    wallet_consumption_evidence_ref: String,
+    pub(crate) authorized: AuthorizedDecision,
+    pub(crate) authority_evidence: Value,
+    pub(crate) authority_evidence_ref: String,
+    pub(crate) authority_evidence_root: String,
+    pub(crate) wallet_params: ConsumeApprovalGrantForEffectV2Params,
+    pub(crate) wallet_consumption_ref: String,
+    pub(crate) wallet_consumption_tail: String,
+    pub(crate) wallet_consumption_root: String,
+    pub(crate) wallet_consumption_evidence_ref: String,
 }
 
 #[derive(Clone)]
@@ -284,7 +284,7 @@ fn deterministic_receipt_ref(
     Ok(format!("receipt://{prefix}{}", &root[7..]))
 }
 
-fn contains_sensitive_key(value: &Value) -> bool {
+pub(crate) fn contains_sensitive_key(value: &Value) -> bool {
     const SENSITIVE: &[&str] = &[
         "secret",
         "password",
@@ -873,7 +873,7 @@ fn intent_tail(operation: SystemLifecycleOperation, request_hash: &str) -> Resul
     tail(prefix, request_hash)
 }
 
-fn intent_seal(mut intent: Value) -> Result<Value, VErr> {
+pub(crate) fn intent_seal(mut intent: Value) -> Result<Value, VErr> {
     intent["intent_hash"] = Value::Null;
     let hash = jcs_hash(&json!({
         "domain": "ioi.hypervisor.system-lifecycle-intent-jcs-sha256.v1",
@@ -1745,7 +1745,7 @@ fn complete_live_graph(graph: &mut AdmittedGraph, timestamp: &str) -> Result<(),
     Ok(())
 }
 
-fn evidence_intent_value(evidence: &NodeAdmissionEvidence) -> Value {
+pub(crate) fn evidence_intent_value(evidence: &NodeAdmissionEvidence) -> Value {
     json!({
         "acting_authority_id": evidence.authorized.evidence.acting_authority_id,
         "grant_ref": evidence.authorized.evidence.grant_ref,
