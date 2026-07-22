@@ -94,7 +94,7 @@ struct AdmittedGraph {
 }
 
 pub(crate) static SYSTEM_ACTIVATION_LOCK: Mutex<()> = Mutex::new(());
-static SYSTEM_ACTIVATION_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+pub(crate) static SYSTEM_ACTIVATION_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 static INITIALIZE_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 static ACTIVATE_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 
@@ -429,13 +429,37 @@ pub(crate) fn prepare_node_evidence(
     plan: &CompiledSystemLifecyclePlan,
     authorized: AuthorizedDecision,
 ) -> Result<NodeAdmissionEvidence, VErr> {
-    if authorized.evidence.authorized_effect != plan.authority_effect {
+    prepare_node_evidence_for(
+        &plan.authority_effect,
+        plan.operation.as_str(),
+        plan.operation.sequence(),
+        plan.operation.required_scope(),
+        &plan.source.source_governing_authority_ref,
+        &plan.resulting_state_root,
+        authorized,
+    )
+}
+
+/// Operation-agnostic authority evidence preparation over one closed
+/// server-derived effect. The bootstrap wrapper above and the protected
+/// transition runtime both converge here so a single implementation owns
+/// the grant/policy/request/effect binding discipline.
+pub(crate) fn prepare_node_evidence_for(
+    authority_effect: &Value,
+    op_name: &str,
+    sequence: u64,
+    required_scope: &str,
+    source_governing_authority_ref: &str,
+    resulting_state_root: &str,
+    authorized: AuthorizedDecision,
+) -> Result<NodeAdmissionEvidence, VErr> {
+    if authorized.evidence.authorized_effect != *authority_effect {
         return Err(verr(
             "system_lifecycle_authority_invalid",
             "governed authority decision detached the compiled effect",
         ));
     }
-    let effect_hash = governed::decision_effect_hash(AUTHORITY, &plan.authority_effect);
+    let effect_hash = governed::decision_effect_hash(AUTHORITY, authority_effect);
     if authorized.evidence.effect_hash != effect_hash {
         return Err(verr(
             "system_lifecycle_authority_invalid",
@@ -476,8 +500,8 @@ pub(crate) fn prepare_node_evidence(
                 )
             })?
     );
-    let system_id = required_string(&plan.authority_effect, "/system_id")?;
-    let genesis_ref = required_string(&plan.authority_effect, "/genesis_ref")?;
+    let system_id = required_string(authority_effect, "/system_id")?;
+    let genesis_ref = required_string(authority_effect, "/genesis_ref")?;
     let expected_policy_hash = governed::decision_policy_hash_for_context(
         AUTHORITY,
         Governance::Host,
@@ -485,16 +509,16 @@ pub(crate) fn prepare_node_evidence(
             system_id,
             genesis_id: genesis_ref,
         },
-        &plan.source.source_governing_authority_ref,
-        plan.operation.as_str(),
+        source_governing_authority_ref,
+        op_name,
     );
     let expected_request_hash = governed::decision_request_hash(
         AUTHORITY,
         Governance::Host,
         system_id,
-        plan.operation.as_str(),
-        plan.operation.sequence(),
-        &plan.source.source_governing_authority_ref,
+        op_name,
+        sequence,
+        source_governing_authority_ref,
         &effect_hash,
     );
     if authorized.evidence.grant_ref != wallet_grant_ref
@@ -521,8 +545,8 @@ pub(crate) fn prepare_node_evidence(
                 format!("authority binding cannot authorize wallet use ({error})"),
             )
         })?;
-    if expected_principal_authority.principal_ref != plan.source.source_governing_authority_ref
-        || expected_principal_authority.required_scope != plan.operation.required_scope()
+    if expected_principal_authority.principal_ref != source_governing_authority_ref
+        || expected_principal_authority.required_scope != required_scope
         || expected_principal_authority.approval_authority.authority_id != grant.authority_id
         || expected_principal_authority.approval_authority.public_key != grant.approver_public_key
         || expected_principal_authority
@@ -539,11 +563,11 @@ pub(crate) fn prepare_node_evidence(
         "schema_version": "ioi.hypervisor.system-lifecycle-authority-evidence.v1",
         "authority_evidence_ref": Value::Null,
         "authority_evidence_root": Value::Null,
-        "system_id": plan.authority_effect["system_id"],
-        "operation": plan.operation.as_str(),
-        "sequence": plan.operation.sequence(),
-        "required_scope": plan.operation.required_scope(),
-        "source_governing_authority_ref": plan.source.source_governing_authority_ref,
+        "system_id": authority_effect["system_id"],
+        "operation": op_name,
+        "sequence": sequence,
+        "required_scope": required_scope,
+        "source_governing_authority_ref": source_governing_authority_ref,
         "acting_authority_id": authorized.evidence.acting_authority_id,
         "authority_grant_ref": grant_ref,
         "wallet_authority_grant_ref": wallet_grant_ref,
@@ -575,12 +599,12 @@ pub(crate) fn prepare_node_evidence(
     })?;
     let consumption_material = json!({
         "domain": "ioi.hypervisor.system-lifecycle.authority-use.v1",
-        "system_id": plan.authority_effect["system_id"],
-        "operation": plan.operation.as_str(),
-        "sequence": plan.operation.sequence(),
-        "operation_commitment": plan.authority_effect["operation_commitment"],
-        "predecessor_state_root": plan.authority_effect["predecessor_state_root"],
-        "resulting_state_root": plan.resulting_state_root,
+        "system_id": authority_effect["system_id"],
+        "operation": op_name,
+        "sequence": sequence,
+        "operation_commitment": authority_effect["operation_commitment"],
+        "predecessor_state_root": authority_effect["predecessor_state_root"],
+        "resulting_state_root": resulting_state_root,
         "policy_hash": authorized.evidence.policy_hash,
         "request_hash": authorized.evidence.request_hash,
         "effect_hash": authorized.evidence.effect_hash,
@@ -608,7 +632,7 @@ pub(crate) fn prepare_node_evidence(
             grant_hash,
             consumption_id,
             expected_principal_authority,
-            expected_target_label: plan.operation.required_scope().to_owned(),
+            expected_target_label: required_scope.to_owned(),
             expected_max_usages: 1,
         },
         wallet_consumption_ref,
