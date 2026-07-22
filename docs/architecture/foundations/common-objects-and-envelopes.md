@@ -2766,6 +2766,21 @@ The first active head therefore has `latest_transition_commitment_ref: null`.
 `upgrade_policy_ref` is inherited exactly from the admitted constitution; its
 presence binds the governing policy and does not perform an upgrade.
 
+
+The v1 log is deliberately closed to the activation prefix: exactly three
+entries, `snapshot_kind: activation_prefix`, and `latest_sequence: 2`. The
+`ioi.autonomous-system-operation-log.v2` successor generalizes the log for
+protected transitions at sequence three or later — `snapshot_kind:
+lifecycle_log`, unbounded entries (minimum three), `protected_transition`
+entry kind, and a v2 root domain — while retaining the closed activation
+prefix verbatim as an embedded sub-object, so the bootstrap evidence keeps
+its exact v1 shape inside the general log. v1 remains the valid shape for
+the committed sequence-two revision (`predecessor_remains_valid: true`);
+pairwise portable invariants pin the prefix mirror, the 0-to-1 and 1-to-2
+continuity, and the head projection, while general entry-to-entry continuity
+at sequence three or later is enforced by the daemon and proven by the
+journey verifier rather than by index-fixed portable rules.
+
 ### LifecycleTransitionEnvelope
 
 ```yaml

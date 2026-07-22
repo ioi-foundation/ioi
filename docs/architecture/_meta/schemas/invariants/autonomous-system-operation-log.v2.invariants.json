@@ -1,0 +1,439 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-operation-log/identity/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v2",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_operation_log_v2.root.recomputes",
+      "description": "The content root binds the complete immutable log revision except its root-derived reference.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-operation-log-jcs-sha256.v2"
+          },
+          "predecessor_operation_log_ref": {
+            "path": "$.predecessor_operation_log_ref"
+          },
+          "predecessor_operation_log_root": {
+            "path": "$.predecessor_operation_log_root"
+          },
+          "snapshot_kind": {
+            "path": "$.snapshot_kind"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.home_domain_ref"
+          },
+          "home_domain_binding_ref": {
+            "path": "$.home_domain_binding_ref"
+          },
+          "home_domain_binding_root": {
+            "path": "$.home_domain_binding_root"
+          },
+          "policy_root": {
+            "path": "$.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.module_registry_root"
+          },
+          "upgrade_policy_ref": {
+            "path": "$.upgrade_policy_ref"
+          },
+          "activation_prefix": {
+            "path": "$.activation_prefix"
+          },
+          "entries": {
+            "path": "$.entries"
+          },
+          "head_entry": {
+            "path": "$.head_entry"
+          },
+          "latest_sequence": {
+            "path": "$.latest_sequence"
+          },
+          "latest_operation_commitment": {
+            "path": "$.latest_operation_commitment"
+          },
+          "latest_transition_commitment_ref": {
+            "path": "$.latest_transition_commitment_ref"
+          },
+          "latest_transition_ref": {
+            "path": "$.latest_transition_ref"
+          },
+          "latest_transition_root": {
+            "path": "$.latest_transition_root"
+          },
+          "latest_receipt_ref": {
+            "path": "$.latest_receipt_ref"
+          },
+          "latest_receipt_root": {
+            "path": "$.latest_receipt_root"
+          },
+          "latest_state_ref": {
+            "path": "$.latest_state_ref"
+          },
+          "latest_state_root": {
+            "path": "$.latest_state_root"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "created_at": {
+            "path": "$.created_at"
+          },
+          "home_domain_commitment": {
+            "path": "$.home_domain_commitment"
+          }
+        },
+        "expected_path": "$.operation_log_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.sequence_one.operation_commitment_recomputes",
+      "description": "Sequence-one logical operation commitment is recomputable before downstream lifecycle evidence.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-lifecycle-operation-commitment-jcs-sha256.v1"
+          },
+          "operation": {
+            "path": "$.activation_prefix.sequence_one.operation_name"
+          },
+          "required_scope": {
+            "path": "$.activation_prefix.sequence_one.required_scope"
+          },
+          "sequence": {
+            "path": "$.activation_prefix.sequence_one.sequence"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.home_domain_ref"
+          },
+          "home_domain_binding_ref": {
+            "value": null
+          },
+          "home_domain_binding_root": {
+            "value": null
+          },
+          "policy_root": {
+            "path": "$.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.module_registry_root"
+          },
+          "upgrade_policy_ref": {
+            "path": "$.upgrade_policy_ref"
+          },
+          "deployment_profile_ref": {
+            "path": "$.activation_prefix.sequence_one.deployment_profile_ref"
+          },
+          "deployment_profile_root": {
+            "path": "$.activation_prefix.sequence_one.deployment_profile_root"
+          },
+          "predecessor_state_root": {
+            "path": "$.activation_prefix.sequence_one.predecessor_state_root"
+          },
+          "resulting_state_ref": {
+            "path": "$.activation_prefix.sequence_one.state_ref"
+          },
+          "resulting_state_root": {
+            "path": "$.activation_prefix.sequence_one.state_root"
+          },
+          "active_profile_set_ref": {
+            "value": null
+          },
+          "active_profile_set_root": {
+            "value": null
+          },
+          "chain_ref": {
+            "value": null
+          },
+          "live_chain_created": {
+            "value": false
+          },
+          "node_membership_created": {
+            "value": false
+          },
+          "runtime_effect_admitted": {
+            "value": false
+          },
+          "network_effect_admitted": {
+            "value": false
+          },
+          "home_domain_commitment": {
+            "path": "$.home_domain_commitment"
+          }
+        },
+        "expected_path": "$.activation_prefix.sequence_one.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.sequence_two.operation_commitment_recomputes",
+      "description": "Sequence-two logical operation commitment binds the exact admitted home domain and active profile set without importing M2 finality.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-lifecycle-operation-commitment-jcs-sha256.v1"
+          },
+          "operation": {
+            "path": "$.activation_prefix.sequence_two.operation_name"
+          },
+          "required_scope": {
+            "path": "$.activation_prefix.sequence_two.required_scope"
+          },
+          "sequence": {
+            "path": "$.activation_prefix.sequence_two.sequence"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.home_domain_ref"
+          },
+          "home_domain_binding_ref": {
+            "path": "$.home_domain_binding_ref"
+          },
+          "home_domain_binding_root": {
+            "path": "$.home_domain_binding_root"
+          },
+          "policy_root": {
+            "path": "$.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.module_registry_root"
+          },
+          "upgrade_policy_ref": {
+            "path": "$.upgrade_policy_ref"
+          },
+          "deployment_profile_ref": {
+            "path": "$.activation_prefix.sequence_two.deployment_profile_ref"
+          },
+          "deployment_profile_root": {
+            "path": "$.activation_prefix.sequence_two.deployment_profile_root"
+          },
+          "predecessor_state_root": {
+            "path": "$.activation_prefix.sequence_two.predecessor_state_root"
+          },
+          "resulting_state_ref": {
+            "path": "$.activation_prefix.sequence_two.state_ref"
+          },
+          "resulting_state_root": {
+            "path": "$.activation_prefix.sequence_two.state_root"
+          },
+          "active_profile_set_ref": {
+            "path": "$.activation_prefix.sequence_two.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.activation_prefix.sequence_two.active_profile_set_root"
+          },
+          "chain_ref": {
+            "path": "$.activation_prefix.sequence_two.chain_ref"
+          },
+          "live_chain_created": {
+            "value": true
+          },
+          "node_membership_created": {
+            "value": false
+          },
+          "runtime_effect_admitted": {
+            "value": false
+          },
+          "network_effect_admitted": {
+            "value": false
+          },
+          "home_domain_commitment": {
+            "path": "$.home_domain_commitment"
+          }
+        },
+        "expected_path": "$.activation_prefix.sequence_two.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.ref.binds_root",
+      "description": "The immutable revision reference suffix equals its recomputed content root.",
+      "expression": {
+        "operator": "field_suffix_equals_prefixed_field",
+        "source_path": "$.operation_log_ref",
+        "delimiter": "/revision/sha256:",
+        "target_path": "$.operation_log_root",
+        "target_prefix": "sha256:"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.prefix.sequence_zero_matches_entries",
+      "description": "The immutable sequence-zero prefix is entry zero.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.activation_prefix.sequence_zero",
+          "$.entries[0]"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.prefix.sequence_one_matches_entries",
+      "description": "The immutable initialize prefix is entry one.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.activation_prefix.sequence_one",
+          "$.entries[1]"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.prefix.sequence_two_matches_entries",
+      "description": "The immutable activate prefix is entry two.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.activation_prefix.sequence_two",
+          "$.entries[2]"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.zero_to_one.continuity",
+      "description": "Initialize consumes the exact sequence-zero state root.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.activation_prefix.sequence_zero.state_root",
+          "$.activation_prefix.sequence_one.predecessor_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.one_to_two.continuity",
+      "description": "Activate consumes the exact initialized state root.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.activation_prefix.sequence_one.state_root",
+          "$.activation_prefix.sequence_two.predecessor_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.head.sequence",
+      "description": "The declared latest sequence equals the head entry sequence.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_sequence",
+          "$.head_entry.sequence"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.head.transition_commitment",
+      "description": "The declared latest operational commitment equals the head entry commitment posture.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_transition_commitment_ref",
+          "$.head_entry.state_transition_commitment_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.head.operation_commitment",
+      "description": "The declared latest logical operation commitment equals the head entry commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_operation_commitment",
+          "$.head_entry.operation_commitment"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.head.transition_ref",
+      "description": "The declared latest transition ref equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_transition_ref",
+          "$.head_entry.transition_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.head.transition_root",
+      "description": "The declared latest transition root equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_transition_root",
+          "$.head_entry.transition_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.head.receipt_ref",
+      "description": "The declared latest receipt ref equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_receipt_ref",
+          "$.head_entry.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.head.receipt_root",
+      "description": "The declared latest receipt root equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_receipt_root",
+          "$.head_entry.receipt_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.head.state_ref",
+      "description": "The declared latest state ref equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_state_ref",
+          "$.head_entry.state_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_operation_log_v2.head.state_root",
+      "description": "The declared latest state root equals the head entry.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.latest_state_root",
+          "$.head_entry.state_root"
+        ]
+      }
+    }
+  ]
+}
