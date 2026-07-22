@@ -1234,6 +1234,26 @@ test("same-epoch continuations require a changed program source and an unchanged
     () => validateReviewAnchor(reviewLock, fixture, programSource),
     /program-source-only continuation/u,
   );
+
+  const noncontiguous = structuredClone(reviewAnchor);
+  const currentHead = noncontiguous.epochs.at(-1);
+  const olderEpoch = noncontiguous.epochs.at(-3);
+  const replayedOlderEpoch = {
+    ...structuredClone(olderEpoch),
+    predecessor_entry_sha256: reviewAnchorEntrySha256(currentHead),
+    reviewer_id: "reviewer://fixture/noncontiguous-program-source-wave",
+    sequence: currentHead.sequence + 1,
+  };
+  noncontiguous.epochs.push(replayedOlderEpoch);
+  noncontiguous.head = {
+    entry_sha256: reviewAnchorEntrySha256(replayedOlderEpoch),
+    epoch_id: replayedOlderEpoch.epoch_id,
+    sequence: replayedOlderEpoch.sequence,
+  };
+  assert.throws(
+    () => validateReviewAnchor(reviewLock, noncontiguous, programSource),
+    /may immediately repeat a discovery-review epoch/u,
+  );
 });
 
 test("a later supplied lock mismatch leaves every prior retained entry immutable", () => {

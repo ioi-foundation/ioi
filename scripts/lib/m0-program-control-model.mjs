@@ -4153,6 +4153,7 @@ export function validateSuppliedReviewSnapshot(
     );
     const priorSameEpoch = latestAnchorByEpochId.get(entry?.epoch_id);
     const programSourceOnlyContinuation = priorSameEpoch !== undefined
+      && priorSameEpoch === predecessor
       && !isLegacy
       && [
         "latest_epoch_identity_set_sha256",
@@ -4169,7 +4170,7 @@ export function validateSuppliedReviewSnapshot(
     addError(
       errors,
       priorSameEpoch === undefined || programSourceOnlyContinuation,
-      `${label} may repeat a discovery-review epoch only as an unsigned program-source-only continuation with an unchanged review lock and a changed program-source commitment`,
+      `${label} may immediately repeat a discovery-review epoch only as an unsigned program-source-only continuation with an unchanged review lock and a changed program-source commitment`,
     );
     latestAnchorByEpochId.set(entry?.epoch_id, entry);
     addError(

@@ -342,7 +342,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "d3c62ef15418b674855d0935c48cee6f528fca71d55bd9a96ad9956855a4c92a"
+      "source_sha256": "2bebee6d74b483ce6bc95acb59ee417eed657942d35763da55ab901f008f16f3"
     },
     {
       "role": "landed owner canon",
@@ -1562,19 +1562,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "5ad6b8c9c2b93b2ae332fbdedd97e40da8b9ac9ee91c2048f5ecd49e95493770",
+    "program_source_material_sha256": "19d40537def7fd35912eee246e917674cc441b303073353047fe71e2d5644fb3",
     "review_epoch_id": "m1-5b-protected-transitions-review-2026-07-22",
     "review_lock_sha256": "cec30c477e21044761321e0736d4ebe8104a3ff128a7abfdb0670f009cd57934",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "reviewed_as_of": "2026-07-22",
     "reviewed_entry_set_sha256": "2b0253700ebd9bf6aaa93ebd76baaedd1bf6f195f89da38e095873707871fefd",
     "reviewed_identity_set_sha256": "aad009c6446b90a17cad3cb72055b01b29d31468274e0a181b5c32f56dcccad4",
-    "reviewer_label": "reviewer://ioi/m0-program-control-independent-review",
+    "reviewer_label": "reviewer://ioi/implementation-plan-reconciliation-delegated-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "8458febe3e34c9c59fc78a5b5b061ea560bfd39fba4307d51d388009f526edb8",
-    "snapshot_head_sequence": 8,
-    "snapshot_predecessor_entry_sha256": "5660d5bbe6d9dc179eeaf4d52d219203da72c80bf28c6d4312dd3a787524f2a2",
+    "snapshot_head_entry_sha256": "4f698153b61e0f306066ddf6f435ef4f03397b0e11928594143a8cd1ea19e958",
+    "snapshot_head_sequence": 9,
+    "snapshot_predecessor_entry_sha256": "8458febe3e34c9c59fc78a5b5b061ea560bfd39fba4307d51d388009f526edb8",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

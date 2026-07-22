@@ -7,7 +7,7 @@ Implementation status: built (this inventory artifact only; no product, stage, o
 
 Snapshot inputs: ignored implementation estate from
 `feat/estate-camera-pipeline` at `a894b2505`; tracked planning estate from
-`origin/master` at `61eba1802` (the merge of PR #102), inspected on 2026-07-22.
+`origin/master` at `69592149186cb29383a397ad0aa3ad6f5ab4ab7b` (the merge of PR #103), inspected on 2026-07-22.
 The authority findings below also include the approved stateless-guide slice
 applied to the reconciliation worktree's ignored master-guide copy.
 
@@ -90,13 +90,13 @@ master guide's section 14 inventory.
 
 | Source | Exact class | Narrow owner or derivation | Regeneration, validation, and pointer disposition |
 | --- | --- | --- | --- |
-| [`implementation-matrix.md`](../implementation-matrix.md) | `AUTHORITY` | Concept-to-owner and durable-form mapping doctrine. Subject owners still own object meaning; work-item records own cut status. | The live 267-row index is stateless and points to every record. Its former status-bearing body is preserved at [`implementation-matrix-pre-status-truth-snapshot.md`](../../_archive/change-ledgers/implementation-matrix-pre-status-truth-snapshot.md) as non-operative history. Validate with `npm run check:architecture-docs && npm run check:work-items`. |
+| [`implementation-matrix.md`](../implementation-matrix.md) | `AUTHORITY` | Concept-to-owner and durable-form mapping doctrine. Subject owners still own object meaning; work-item records own cut status. | The live 269-row index is stateless and points to every record. Its former status-bearing body is preserved at [`implementation-matrix-pre-status-truth-snapshot.md`](../../_archive/change-ledgers/implementation-matrix-pre-status-truth-snapshot.md) as non-operative history. Validate with `npm run check:architecture-docs && npm run check:work-items`. |
 | [`execution-horizons.md`](../execution-horizons.md) | `AUTHORITY` | Canonical horizon framing, contract dependency order, and claim horizons. It does not activate cuts. | Keep tracked and canonical. Its fourteen-step contract order feeds the master; it must not become a second live sequencer. |
 | [`canon-to-code-delta.md`](../canon-to-code-delta.md) | `AUTHORITY` | Stable object-to-owner/code-anchor crossing identities and contract-dependency pointers to application projections only. Subject docs own doctrine, work-item records own status, and the master owns activation. | Retain bounded owner/code/evidence crossings plus record pointers. Validate with `npm run check:canon-to-code-delta`; that dedicated checker is wired into `npm run check:pre-next-leg`. |
 | [`source-of-truth-map.md`](../source-of-truth-map.md) | `AUTHORITY` | Subject-to-canonical-owner routing and conflict precedence. | Keep tracked and canonical. Validate its structural/owner invariants with `npm run check:architecture-docs`. |
 | [`start-here.md`](../start-here.md) | `AUTHORITY` | First-read orientation and role-based reading paths only. Its summarized doctrine remains owned by the linked subject files. | Keep tracked and canonical. Document-class metadata and stable claim ceilings are not cut status; any durable cut-state assertion routes to work-item records and the local orientation projection. |
 | [`work-items/README.md`](./README.md) | `AUTHORITY` | `ioi.program.work_item.v1` format, validation convention, and rule that each record owns its cut's implementation status. | Keep as the status-layer front door; validate records with `npm run check:work-items`. |
-| `work-items/*.v1.json` | `WORK-RECORD` | One record owns exactly one cut's status, claim, anchors, evidence, and nonclaims. This transaction contains the five pre-existing M0/M1 records plus 36 proposed M0-M14 gap records. | Keep one file per cut, named from `work_item_id`; validate all 41 with `npm run check:work-items`. |
+| `work-items/*.v1.json` | `WORK-RECORD` | One record owns exactly one cut's status, claim, anchors, evidence, and nonclaims. This transaction contains the six pre-existing M0/M1 records plus 36 proposed M0-M14 gap records. | Keep one file per cut, named from `work_item_id`; validate all 42 with `npm run check:work-items`. |
 | [`m0-m14-plan-gap-audit.md`](./m0-m14-plan-gap-audit.md) | `WORK-RECORD` | Snapshot stage-by-stage demanded/specified/proven/missing audit and proposed-cut rationale only. | Keep with the reconciliation PR. It neither amends the sequencer nor owns the status of any proposed record. |
 | [`stateless-master-guide.v1.json`](../reconciliation/stateless-master-guide.v1.json) and [`stateless-master-guide.v1.patch`](../reconciliation/stateless-master-guide.v1.patch) | `WORK-RECORD` | Exact, non-authoritative review representation of the approved stateless change to the ignored sole sequencer, binding the estate base, reviewed result, and full-context unified patch by SHA-256. | Keep with the reconciliation PR. `npm run check:stateless-master-guide` always reconstructs and hash-validates the full base and result from the tracked patch and validates the reconstructed result's stateless semantics; when the ignored guide is present it additionally requires the local bytes to match the reviewed result hash. |
 | `scripts/check-work-items.mjs` | `AUTHORITY` | Machine validation rules for work-item records and matrix-pointer coverage; it owns no cut status. | Run through `npm run check:work-items`; keep it in `check:pre-next-leg`. |
@@ -114,7 +114,7 @@ master guide's section 14 inventory.
 | M8 Campaign meaning in the campaign plan and canon | Canonical bounded-improvement/Common Objects owners | The campaign plan owns experiment methodology only. |
 | Runtime layout/boundaries in the module map, package-boundary checklist, trust audit, archived kernel records, canon, and code | Current daemon subject owners for doctrine; current code plus checked projections for implementation evidence | Module map/package-boundary bodies are reference history. The trust audit owns only its method classification/proof obligations. |
 | Runtime action schema in the ignored and tracked paths | `docs/architecture/_meta/schemas/runtime-action-schema.json` | Ignored file is a byte projection and never a second schema owner. |
-| M1.5 status/design in the ignored Markdown log and tracked JSON record | `m1-5-protected-transitions.v1.json` for status; Markdown for retained cut detail | Add a pointer; do not strip the log. |
+| M1.5 status/design in the ignored Markdown log and tracked JSON records | `m1-5-protected-transitions.v1.json` owns the umbrella cut status; `m1-5b-generic-protected-transitions.v1.json` owns the distinct generic operational slice status; Markdown retains cut detail only | Keep the records distinct and the Markdown pointer-only for status; do not strip the log. |
 
 ## Conflicts that must not be resolved silently
 
@@ -144,7 +144,7 @@ master guide's section 14 inventory.
 
 4. Runtime specialist authority drift. The master guide section 2.3 calls the
    kernel unification guide and migration matrix active canonical
-   implementation authorities. At tracked commit `61eba1802`, the source map
+   implementation authorities. At tracked commit `69592149186cb29383a397ad0aa3ad6f5ab4ab7b`, the source map
    and implementation matrix classify both as archived terminal records with
    no current status, doctrine, or sequence. The master's own precedence gives
    the source map priority, so current daemon owners/code win and the master's
@@ -170,24 +170,26 @@ truth.
 
 ## Validation findings
 
-- `npm run generate:program-state` regenerated the ignored projection from the
-  41-record status layer, the one deduplicated active branch record, and the
-  committed M0 exit artifact. The local checker passed 15 stages, kept P0
-  `planned_not_activated`, and emitted `PROGRAM_STATE_EXIT=0`; it closed no
-  stage.
+- The program-state transaction targets the 42-record status layer, the
+  deduplicated set of ongoing records discovered across the workspace and
+  refs, and the committed M0 exit artifact. Final regeneration and local
+  validation follow the rebased M0 evidence refresh; neither step can close a
+  stage without its committed literal exit proof.
 - The ignored runtime action schema was byte-identical to its tracked canonical
   owner under the `cmp -s` command above.
 - `node scripts/internal/verify-runtime-kernel-trust-audit.mjs` passed the
   198-method baseline, four exact service allowlists, 52-module residual ledger,
   and full Rust-source inherent-implementation scan.
-- `npm run check:work-items` passed all 41 records and found no pending
-  `pr_open` anchors; the 36 new records are `proposed`, as the guide requires.
+- `npm run check:work-items` structurally covers all 42 records and their
+  matrix pointers; the 36 new records are `proposed`, as the guide requires.
+  The final all-green run follows refresh of the M0 literal wrapper against the
+  rebased exit-report hash.
 - `npm run check:stateless-master-guide` verified the tracked `WORK-RECORD`
   manifest and full-context patch hash, reconstructed and hash-validated both
   estate base and reviewed result, matched the local ignored guide to that
   result, and validated all 15 stateless stage definitions. Clean checkouts
   run the same semantic validation over the reconstructed result rather than
-  skipping it. `npm run check:canon-to-code-delta` passed 49 rows with 48
+  skipping it. `npm run check:canon-to-code-delta` passed 50 rows with 54
   explicit implementation-or-precedent anchors.
 - `npm run check:architecture-docs` passed after its matrix integrity checks
   were retargeted from deleted live-status cells to the stateless four-column

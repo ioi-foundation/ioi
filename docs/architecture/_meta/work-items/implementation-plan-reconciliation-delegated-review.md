@@ -7,20 +7,23 @@ Implementation status: built (this review artifact only; no product, cut, or
 stage status)
 
 Reviewed on 2026-07-22 against `origin/master`
-`61eba1802992c01efa7d3188184ff315ad9d2ba0` and the complete reconciliation
-working diff. The review included the gitignored master guide, program-state
-projection, and literal M0 wrapper at their hashes below. This record is not a
-sequencer, architecture owner, implementation-status owner, stage-exit proof,
-or cryptographically independent review.
+`69592149186cb29383a397ad0aa3ad6f5ab4ab7b`, the merge of PR #103, and the
+complete rebased reconciliation working diff. The review included the
+gitignored master guide, program-state projection, and literal M0 wrapper at
+their hashes below. This record is not a sequencer, architecture owner,
+implementation-status owner, stage-exit proof, or cryptographically independent
+review.
 
 ## Disposition
 
-No unresolved request-changes finding remains in the reviewed docs and
-orchestration cut. It is ready for the root agent's single-process
-`check:pre-next-leg` run and then a draft review PR, provided the exact ignored
-M0 literal wrapper is force-added to the PR. The PR is not review-complete if
-that file is absent or if the solo aggregate does not report a zero process
-exit.
+At the pre-aggregate review checkpoint, no unresolved request-changes finding
+remained in the reviewed docs and orchestration cut, and the cut was ready for
+one root-run aggregate. After that checkpoint and this record's final refresh,
+the root agent ran `check:pre-next-leg` alone. The retained log
+`/tmp/ioi-plan-reconciliation-pre-next-rebased-final.log` ends with the literal
+`PRE_NEXT_LEG_EXIT=0`. That value validates only the aggregate's orchestration
+scope; it is not a work-item or stage-exit proof and closes nothing. The draft
+review PR must still force-add the exact ignored M0 literal wrapper.
 
 ## Reviewed scope and immutable observations
 
@@ -32,28 +35,38 @@ exit.
   `c7462a1be1fa16dcdc8fba1a8f40ba7cb8f961f65e4cfee18ad40fb1951f92fc`
   and reconstructs base
   `291be5dce69c71bd09abc029450ef79723a3346968bd2e78b6f31f1744aa56e0`.
-- Regenerated machine-local `program-state.json` SHA-256:
-  `dca408c7ec6f3f2ffba1879b9f57811a04985e9dfae6f3adc49fa1e15f127cfc`.
-  It projects M1 as `evidence_ready`, preserves M0 as the only verified stage,
-  and keeps P0 planned and not activated.
+- Delegated-review checkpoint snapshot of the machine-local
+  `program-state.json`, SHA-256
+  `2f5b0cd31583c6a51727854cd97bcf89d4baccd8cf4307d651cc73a98ca5ec77`.
+  At that checkpoint its `current_cuts[]` contained
+  `m1-5b-generic-protected-transitions` as `evidence_ready` and
+  `m1-5c-amendment-execution` as `active`. The semantic observations remain M1
+  `active`, M0 as the only verified stage, and P0 planned and not activated.
+  This checkpoint hash is not a currentness pin: active refs may advance after
+  review. Publication must regenerate the ignored projection with
+  `npm run generate:program-state` and pass
+  `node internal-docs/implementation/check-program-state.mjs` against the
+  then-current refs.
+- The checked status/planning estate contains 42 work-item records, 269
+  implementation-matrix rows, and 50 canon-to-code delta rows with 54 explicit
+  code anchors.
 - Literal wrapper SHA-256:
-  `1869163b6bf09c0907fb906fbaf81d4819a41bb9d6381c7bb51cf1be96443cef`.
+  `8be731427e32c654e374b19ed475d59581eafb312797cb0bf83c924bce1f355f`.
   It contains exactly one `M0_EXIT=0` and binds the current M0 exit report SHA-256
-  `196752bb534603c102b6e66ecc23971b80736aa1383a892df25b30c60a94205c`.
+  `bbc01680f5a6f292f858ee5e1aae08d12a4ab9c6c462196d5648576659a81633`.
   Because `docs/evidence/*` is ignored, publication must force-add the exact file
   `docs/evidence/implementation-plan-reconciliation/m0-exit.v1.txt` without
   broadening `.gitignore`.
 - The M0 review-lock SHA-256 remains
-  `d2bcaa22f6b2ad4bd74674cc3bd75f8e4d7ba50b25c1c6c79a1d08240c3581b1`.
-  Sequence 7 to 8 changed only predecessor commitment, program-source material,
-  reviewer label, and sequence. Sequence 8 to 9 changed only predecessor
-  commitment, program-source material, and sequence. Both continuations retain
-  the same epoch, date, identity/entry sets, counts, and review-lock commitment.
-  Sequence 9 binds sequence 8 at
-  `29d4eaf2b6a414455e2fd144f7669ba410c4fbb66917c0eb160c8cb1e765f0c2`
-  and is head
-  `07b30335f981df0b99201555dca0ccd95e08f1238eb736b55cb53ec9a99c192d`.
-  Every reviewer label is explicitly self-declared and unsigned.
+  `cec30c477e21044761321e0736d4ebe8104a3ff128a7abfdb0670f009cd57934`.
+  PR #103's authoritative unsigned sequence 8 is preserved as
+  `8458febe3e34c9c59fc78a5b5b061ea560bfd39fba4307d51d388009f526edb8`.
+  The reconciliation appends only the immediate program-source continuation at
+  sequence 9, whose predecessor is exactly that sequence 8 entry and whose head
+  is `4f698153b61e0f306066ddf6f435ef4f03397b0e11928594143a8cd1ea19e958`.
+  The continuation retains the authoritative review lock and creates no new
+  route-review claim. Every reviewer label remains explicitly self-declared and
+  unsigned.
 
 ## Finding resolution
 
@@ -88,12 +101,18 @@ exit.
     longer treats tracked canon as implementation-status authority. Its same-
     epoch continuation rule names the unchanged review commitments and honest
     currentness/non-authorship limits.
-12. Program-state discovery follows the unique ongoing `active |
-    evidence_ready` record, preserves its literal status as `current_cut`,
-    permits a zero-cut boundary, and rejects conflicting ongoing records. The
-    focused regression is wired into pre-next and runtime-layout checks.
+12. Program-state discovery uses zero-or-many `current_cuts[]` entries rather
+    than manufacturing a unique current cut. It preserves each literal
+    `active | evidence_ready` status, projects a stage as `active` when any of
+    its current cuts is active, supports a zero-cut boundary, deduplicates
+    local/origin aliases, and rejects conflicting bodies for one work item.
+    The focused regression is wired into pre-next and runtime-layout checks.
 13. SA-1 through SA-10 remain quarantined review proposals in the explicit
     `SEQUENCER AMENDMENTS` section. SA-10 was not applied to the guide.
+14. PR #103 was rebased and integrated as the reviewed master base without
+    overwriting newer M0 evidence already present in the reconciliation tree.
+    The integration preserves PR #103's authoritative sequence 8 and extends it
+    through the immediate source-only sequence 9 described above.
 
 ## Personally observed review exits
 
@@ -101,28 +120,29 @@ The following are command-level review observations retained here; they are
 not stage-exit proofs and do not substitute for a cut's required evidence log:
 
 ```text
-PROGRAM_STATE_REGRESSION_REVIEW_EXIT=0
-PROGRAM_STATE_PROJECTION_REVIEW_EXIT=0
-STATELESS_MASTER_GUIDE_REVIEW_EXIT=0
-WORK_ITEMS_REVIEW_EXIT=0
-CANON_TO_CODE_DELTA_REVIEW_EXIT=0
 ARCHITECTURE_DOCS_REVIEW_EXIT=0
+WORK_ITEMS_REVIEW_EXIT=0
 DIFF_INTEGRITY_REVIEW_EXIT=0
+PRE_NEXT_LEG_EXIT=0
 ```
 
 The only stage-level literal personally inspected was the content-bound
-`M0_EXIT=0` above. A concurrent attempt to run two M0 suites exposed a shared
-fixture-tamper race; no approval is inferred from that failed concurrent run.
-The root agent must run the final aggregate alone after this attachment exists.
+`M0_EXIT=0` above. I also inspected the final root-run aggregate log named in
+the disposition and observed its terminal `PRE_NEXT_LEG_EXIT=0`. That latter
+literal is an orchestration-check result only: it does not satisfy any cut's
+retained exit contract and does not verify or close an M-stage.
 
 ## Nonclaims
 
 - This cut changes documentation, projections, evidence checking, and gate
   orchestration only. No runtime crate, service, application behavior, wire
-  contract, product authority, or canonical object meaning changes here.
+  contract, product authority, or canonical object meaning changes here. The
+  PR #103 rebase makes its already-integrated base visible; it does not convert
+  base runtime work into reconciliation work or overwrite newer evidence.
 - No work item or M-stage is closed. In particular, there is no M12 federation,
   M13 two-sovereign, M14 connected/secured-service, demand, L1, mainnet, or
-  Internet-of-Intelligence completion claim.
+  Internet-of-Intelligence completion claim. Projecting the two ongoing M1 cuts
+  and M1's `active` state is status orientation, not a new activation or exit.
 - The review anchor is an unsigned workflow hash chain with honest nonclaims.
   It grants no authority and does not establish reviewer identity, accepted-head
   currentness, or rollback resistance between coherent snapshots. Product

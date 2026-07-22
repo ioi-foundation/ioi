@@ -13,7 +13,7 @@ Sequencer read for this audit:
 `internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md`
 from the main checkout, reconciled in this worktree on 2026-07-22. Repository
 snapshot:
-`origin/master` at `61eba1802992c01efa7d3188184ff315ad9d2ba0` on
+`origin/master` at `69592149186cb29383a397ad0aa3ad6f5ab4ab7b` on
 2026-07-22.
 
 Authority remains with the subject owners in
@@ -104,8 +104,18 @@ sequencer and checker change.
   `m1-governed-initialize-activate` point at exact merged schemas and
   `system_genesis_routes.rs`, `system_sequence_zero_routes.rs`, and
   `system_activation_routes.rs`. They prove only their recorded cuts.
-  `m1-5-protected-transitions` scopes later M1.5 work. The activation route
-  explicitly emits no membership, runtime, or network effect.
+  At this named snapshot, the machine record
+  `m1-5b-generic-protected-transitions` carries
+  `status: evidence_ready` and points at the bounded cut evidence in
+  `crates/types/src/app/system_lifecycle_transitions.rs`,
+  `crates/node/src/bin/hypervisor_daemon_routes/system_protected_transition_routes.rs`,
+  the protected-transition proposal/decision schemas, the lifecycle-state
+  schema, and the operation-log v2 schema. Those anchors define and exercise
+  the fourteen-operation predecessor/result table, operation-scoped authority
+  binding, predecessor-root lifecycle successor, and append-only operation-log
+  continuation recorded by that cut. This is cut evidence only; it is not an
+  M1 stage-exit proof. The activation and protected-transition routes establish
+  no membership, runtime, or network effect.
 - **Plan-level missing:** no work-item record owns M1.6's distinct-System
   isolation proof or M1.7's compact/advanced/read-projection proof, and neither
   has a cut-level literal exit definition. Proposed slice:
