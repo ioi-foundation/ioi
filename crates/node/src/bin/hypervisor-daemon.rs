@@ -34,6 +34,8 @@ mod agentops_routes;
 mod akash_candidate_source;
 #[path = "hypervisor_daemon_routes/attempt_finding_routes.rs"]
 mod attempt_finding_routes;
+#[path = "hypervisor_daemon_routes/authority_gateway_proof.rs"]
+mod authority_gateway_proof;
 #[path = "hypervisor_daemon_routes/authority_routes.rs"]
 mod authority_routes;
 #[path = "hypervisor_daemon_routes/aws_candidate_source.rs"]
@@ -171,6 +173,7 @@ use sha2::{Digest, Sha256};
 use tokio::time::sleep;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
+use ioi_services::agentic::runtime::enforcement_coverage::EnforcementCoverageRegistry;
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountArtifactEndpointRequest, ModelMountBackendLifecycleRequest,
     ModelMountBackendProcessMaterializationRequest, ModelMountBackendProcessSupervisionRequest,
@@ -236,6 +239,10 @@ pub(crate) struct DaemonState {
     // Same discipline for the harness-profile registry: serializes its read-modify-write sections
     // (probe persist, lifecycle flips, exactly-one-default). Never held across a probe/network op.
     pub(crate) harness_profile_lock: Mutex<()>,
+    // Route-scoped enforcement-coverage snapshots admitted this boot. The registry owns exact
+    // JCS/hash/head/revocation/currentness semantics and has a deterministic export/restore seam,
+    // but this daemon does not yet persist or restore that export across boots.
+    pub(crate) enforcement_coverage_registry: Mutex<EnforcementCoverageRegistry>,
 }
 
 /// A real running preview listener for a session (a static file server bound to
@@ -517,6 +524,7 @@ async fn async_main() -> anyhow::Result<()> {
         preview_servers: Mutex::new(HashMap::new()),
         model_route_lock: Mutex::new(()),
         harness_profile_lock: Mutex::new(()),
+        enforcement_coverage_registry: Mutex::new(EnforcementCoverageRegistry::default()),
         live_vms: Mutex::new(HashMap::new()),
         terminals: Mutex::new(HashMap::new()),
         editor_runtimes: Mutex::new(HashMap::new()),
@@ -690,7 +698,7 @@ async fn async_main() -> anyhow::Result<()> {
         .route("/v1/hypervisor/session-turns", post(handle_session_turn))
         // Runtime lifecycle family (thread/agent/run/turn/control/events/MCP) — the
         // unified-Rust-daemon migration. Handlers live in a subdir submodule (autobin-safe)
-        // and call the RuntimeKernelService planners directly.
+        // and call the owner-qualified runtime planners directly.
         .route(
             "/v1/agents",
             get(lifecycle_routes::handle_agents_list).post(lifecycle_routes::handle_agent_create),

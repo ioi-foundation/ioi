@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for root/domain kernel boundaries and domain-kernel responsibilities.
 Supersedes: overlapping plan prose when kernel ownership conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-12.
+Last alignment pass: 2026-07-21.
 Doctrine status: canonical
 Implementation status: mixed (daemon + Agentgres substrate real; fractal domain-kernel topology speculative)
 Last implementation audit: 2026-07-05
@@ -16,6 +16,18 @@ transitions, enforces policy and authority decisions from their owning
 providers, manages receipts, coordinates domain-local work, and serves as the
 substrate on which Agentgres domains run. It does not create authority by
 itself.
+
+A domain kernel is an owner-qualified logical deployment and composition, not
+a requirement that every responsibility live in one process, executable,
+source package, or Rust module. A deployment may co-locate or separate its
+owner-specific services across processes and nodes. Every canonical transition
+must nevertheless converge on the same deterministic admission boundary,
+authority crossing, and Agentgres operation log. Extracting mechanics from one
+implementation package is conformant only when it preserves that single-gateway
+property: consequential capability use still crosses the selected provider's
+applicable `AuthorityGrant` or `CapabilityLease` and the daemon/kernel admission
+path, and the extracted service does not become a parallel authority or truth
+owner.
 
 Domain kernels are also where MoW routing becomes operational. They bind user
 intent, worker candidates, policy, authority, runtime placement, receipts, and
@@ -209,7 +221,10 @@ It owns:
 
 ### Application-Domain Kernel
 
-Each serious IOI application domain runs its own kernel/runtime deployment.
+Each serious IOI application domain runs its own owner-qualified kernel/runtime
+deployment. "Owns" below means singular protocol responsibility and admitted
+truth, not that every listed mechanism must be implemented inside one source
+module or process.
 
 Examples:
 
@@ -475,7 +490,10 @@ service selection is independent from the economic rail used to pay its fee.
 
 ## Non-Negotiables
 
-1. Every serious application domain needs its own kernel + Agentgres deployment.
+1. Every serious application domain needs its own logical kernel + Agentgres
+   deployment. The deployment may compose separately packaged or placed
+   owner-specific services, but it must preserve one admission path, one
+   authority-crossing discipline, and one Agentgres truth boundary.
 2. IOI L1 remains the optional shared IOI Network
    registry/settlement/governance layer for explicitly enrolled systems, not
    the domain kernel or L0 substrate.

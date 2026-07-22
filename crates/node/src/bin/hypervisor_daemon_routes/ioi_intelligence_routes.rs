@@ -30,7 +30,7 @@ use std::sync::Arc;
 
 use super::goalrun_routes::{fact_from_profile, live_profiles, route_fact};
 use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
-use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
+use ioi_services::agentic::runtime::RuntimeOwnerServices;
 
 pub(crate) const SPACE_KIND: &str = "memory-spaces";
 pub(crate) const ENTRY_KIND: &str = "memory-entries";
@@ -3343,7 +3343,7 @@ pub(crate) async fn handle_improvement_simulate(
     // Current registry facts (recorded on the report — replay uses TODAY'S probed posture).
     let profiles = live_profiles(&st).await;
     let (route_ref, route_state, _, _) = route_fact(&st, None);
-    let kernel = RuntimeKernelService::new();
+    let owner_services = RuntimeOwnerServices::new();
     let conductor = profiles
         .iter()
         .find(|p| text(p, "harness") == "hypervisor_worker")
@@ -3365,7 +3365,7 @@ pub(crate) async fn handle_improvement_simulate(
                 "privacy": policy.get("privacy").cloned().unwrap_or(json!({})),
             })
         };
-        kernel
+        owner_services
             .select_ioi_agent_execution(&json!({
                 "strategy": strategy,
                 "normalized_goal": goal,

@@ -28,7 +28,7 @@ use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::Json;
-use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
+use ioi_services::agentic::runtime::RuntimeOwnerServices;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1049,7 +1049,7 @@ async fn plan(
             fact
         })
         .collect();
-    let selection = RuntimeKernelService::new()
+    let selection = RuntimeOwnerServices::new()
         .select_ioi_agent_execution(&json!({
             "strategy": strategy,
             "normalized_goal": goal,

@@ -29,7 +29,7 @@
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
+use ioi_services::agentic::runtime::RuntimeOwnerServices;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -794,9 +794,9 @@ pub(crate) async fn handle_goal_runs_create(
 
     let goal_run_id = format!("gr_{:x}", nanos());
     let goal_ref = format!("goal://{goal_run_id}");
-    let kernel = RuntimeKernelService::new();
+    let owner_services = RuntimeOwnerServices::new();
 
-    let topology = match kernel.select_goal_run_role_topology(&json!({
+    let topology = match owner_services.select_goal_run_role_topology(&json!({
         "goal_ref": goal_ref,
         "conductor": conductor,
         "implementer_candidates": implementer_candidates,
@@ -804,7 +804,7 @@ pub(crate) async fn handle_goal_runs_create(
         Ok(selected) => selected,
         Err(error) => return kernel_err(error),
     };
-    let admission = match kernel.admit_goal_run(
+    let admission = match owner_services.admit_goal_run(
         &json!({
             "goal_ref": goal_ref,
             "normalized_goal": goal,
@@ -1454,7 +1454,7 @@ pub(crate) async fn handle_goal_run_start(
         run.pointer("/role_topology/model_route_ref")
             .and_then(Value::as_str),
     );
-    let kernel = RuntimeKernelService::new();
+    let owner_services = RuntimeOwnerServices::new();
     let empty = Vec::new();
     let cells = run
         .get("context_cells")
@@ -1498,7 +1498,7 @@ pub(crate) async fn handle_goal_run_start(
             .find(|p| {
                 text(p, "goal_run_ref") == goal_ref && text(p, "harness_profile_ref") == profile_ref
             });
-        match kernel.admit_goal_run_harness_invocation(&request, &iso_now()) {
+        match owner_services.admit_goal_run_harness_invocation(&request, &iso_now()) {
             Ok(_admitted) => admitted_plans.push(InvocationPlan {
                 role_key,
                 profile_ref,
@@ -1928,8 +1928,8 @@ pub(crate) async fn handle_goal_run_reconcile(
         .map(|v| text(v, "verification_ref").to_string())
         .collect();
 
-    let kernel = RuntimeKernelService::new();
-    let admission = match kernel.admit_goal_run_reconciliation(
+    let owner_services = RuntimeOwnerServices::new();
+    let admission = match owner_services.admit_goal_run_reconciliation(
         &json!({
             "goal_ref": goal_ref,
             "merge_strategy": merge_strategy,

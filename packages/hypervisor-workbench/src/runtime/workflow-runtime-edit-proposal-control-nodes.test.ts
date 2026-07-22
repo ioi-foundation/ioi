@@ -45,6 +45,8 @@ test("builds React Flow workflow edit proposal controls for daemon dispatch", ()
     threadId: "thread-a",
     proposalId: "proposal-a",
     approvalId: "approval-a",
+    expectedEffectHash: `sha256:${"a".repeat(64)}`,
+    authorityGrantRef: "grant://authority.local/grant-a",
     workflowGraphId: "workflow-a",
   });
   assert.equal(
@@ -52,6 +54,8 @@ test("builds React Flow workflow edit proposal controls for daemon dispatch", ()
     "/v1/threads/thread-a/workflow-edit-proposals/proposal-a/apply",
   );
   assert.equal(apply.body.approval_id, "approval-a");
+  assert.equal(apply.body.expected_effect_hash, `sha256:${"a".repeat(64)}`);
+  assert.equal(apply.body.authority_grant_ref, "grant://authority.local/grant-a");
   assert.equal(Object.prototype.hasOwnProperty.call(apply.body, "proposalId"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(apply.body, "approvalId"), false);
   assert.equal(Object.prototype.hasOwnProperty.call(apply.body, "workflowGraphId"), false);
@@ -146,10 +150,17 @@ test("workflow edit proposal controls ignore retired raw input aliases", () => {
       thread_id: "thread-canonical",
       proposal_id: "proposal-canonical",
       approval_id: "approval-canonical",
+      exact_action_review: { effect_hash: `sha256:${"b".repeat(64)}` },
+      authority_grant: { grant_ref: "grant://authority.local/grant-canonical" },
     },
   });
 
   assert.equal(apply.threadId, "thread-canonical");
   assert.equal(apply.proposalId, "proposal-canonical");
   assert.equal(apply.body.approval_id, "approval-canonical");
+  assert.equal(apply.body.expected_effect_hash, `sha256:${"b".repeat(64)}`);
+  assert.equal(
+    apply.body.authority_grant_ref,
+    "grant://authority.local/grant-canonical",
+  );
 });

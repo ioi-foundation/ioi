@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for Hypervisor Daemon, CLI ownership boundaries, and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`api.md`](./api.md).
 Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-21.
 Doctrine status: canonical
 Implementation status: partial (the daemon is the single runtime surface; hosted/DePIN endpoint families planned)
 Implementation refs:
@@ -97,6 +97,21 @@ actions through the daemon. They must not claim total interception over opaque
 third-party runtimes. Their job is to mediate the control points they can
 actually see: shell commands, file mutations, Git operations, MCP/tool calls,
 secret leases, browser actions, deploy/API calls, webhooks, and CI/CD gates.
+Every Authority Gateway profile must therefore declare the exact action-class
+and surface scopes its deployment requires. Its deployment evidence set carries
+the registered `EnforcementCoverageDeclaration` defined in
+[`hypervisoros.md`](./hypervisoros.md#node-enforcement-profile) for each
+advertised or required scope. Each declaration independently assesses the six
+capability facts `discovered`, `observable`, `attributable`, `mediated`,
+`preventable`, and `receipted`, and binds mechanism roles, privilege, bypass
+resistance, decision source, final invoker, online/offline and failure behavior,
+receipt scope, limitations, verification evidence, and freshness. These facts
+are not an assurance ladder: discovery does not imply observation; observation
+does not imply attribution or mediation; mediation does not imply prevention;
+and a receipt proves only its bound observation, decision, or effect, not
+correctness or prevention. `uncovered: true` is the mutually exclusive terminal
+state for that exact scope; partial gaps use false or `unknown` capability facts
+plus `known_gaps`. No claim inherits the posture of the daemon or host.
 
 Compute-node rule:
 
@@ -373,6 +388,19 @@ extensions, terminals, workspace watchers, and MCP gateways. CLI agents can run
 as guest workloads behind shell wrappers and tool proxies. Hosted agent systems
 may require API gateways, GitHub Apps, CI/CD policy gates, webhook mediation, or
 receipt ingestion.
+
+The profile uses the same registered per-action, per-surface
+`EnforcementCoverageDeclaration` as `NodeEnforcementProfile`, even when it is
+not deployed on HypervisorOS. The declaration is content-bound profile evidence,
+not a new policy, authority, admission, execution, or truth owner. Audit-only or
+passive observation must not be presented as mediation; receipt ingestion after
+an effect must not be presented as mediation or prevention; and a
+host-privileged integration must not be presented as universal control over an
+opaque runtime. A custom OS kernel module is neither required nor sufficient.
+Optional platform-qualified privileged mechanisms may deepen coverage on
+managed or high-assurance nodes without changing the daemon admission,
+applicable `AuthorityGrant` or `CapabilityLease`, authority-provider, or
+Agentgres ownership boundaries.
 
 This profile strengthens the marketplace/protocol thesis instead of competing
 with it: developers can first govern existing models and agents, then discover

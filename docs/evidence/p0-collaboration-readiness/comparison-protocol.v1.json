@@ -1,0 +1,305 @@
+{
+  "schema_version": "ioi.evidence.local-collaboration-comparison-protocol.v1",
+  "protocol_id": "p0-local-s1-fn-dr-2026-07-21",
+  "status": "frozen_not_activated",
+  "frozen_at": "2026-07-21T22:36:24-04:00",
+  "active_sequencer_stage_at_freeze": "M0",
+  "purpose": "Predeclare the controlled local S1/F-N/D-R comparison without running it or advancing a collaboration claim.",
+  "authority_boundary": {
+    "sequencing_owner": "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md",
+    "terminal_qualification_owner_stage": "M9",
+    "conductor_posture": "external_daemon_client",
+    "conductor_may": [
+      "select among predeclared eligible paths",
+      "call existing daemon APIs",
+      "retain returned evidence references"
+    ],
+    "conductor_may_not": [
+      "mint identity, membership, leases, grants, receipts, or other authority",
+      "mutate owner records or Agentgres truth directly",
+      "accept an outcome",
+      "become a scheduler, runtime, truth owner, or shared authority plane"
+    ],
+    "forbidden_implementations": [
+      "swarm object",
+      "swarm application",
+      "peer runtime",
+      "shared authority plane",
+      "shared mutable canonical workspace",
+      "conductor-owned truth"
+    ]
+  },
+  "activation": {
+    "activated": false,
+    "activation_command_present": false,
+    "claim_bearing_execution_permitted": false,
+    "prerequisites": [
+      "M3 verified",
+      "M4 verified",
+      "M5 verified",
+      "one readiness verifier passes all five P0 readiness conditions",
+      "a P0 readiness manifest records a go recommendation",
+      "the task manifest, eligible-path snapshot, local cost schedule, rubric release, and arm-order schedule are content-hash sealed before the first arm starts"
+    ],
+    "stop_rules": [
+      "Do not activate from a contract, unit, integration, readiness, or protocol-check command.",
+      "Do not run any claim-bearing arm while this artifact remains frozen_not_activated.",
+      "Any protocol change after the first observed arm output invalidates this cohort rather than tuning it."
+    ]
+  },
+  "cohort": {
+    "design": "matched-task three-arm controlled local crossover",
+    "task_count": 12,
+    "task_strata": [
+      {
+        "name": "bounded_defect_repair",
+        "count": 4
+      },
+      {
+        "name": "bounded_feature_change",
+        "count": 4
+      },
+      {
+        "name": "bounded_repository_maintenance",
+        "count": 4
+      }
+    ],
+    "task_admission": {
+      "same_exact_task_per_arm": true,
+      "repository_base_and_fixture_hash_matched": true,
+      "acceptance_rubric_hash_matched": true,
+      "eligible_model_snapshot_matched": true,
+      "eligible_task_tool_set_matched": true,
+      "budget_envelope_matched": true,
+      "held_out_verifier_profile_matched": true,
+      "selection_rule": "Select twelve previously unobserved local repository tasks satisfying the three frozen strata; seal exact task bodies, bases, fixtures, rubrics, and hashes before any arm output is observed.",
+      "replacement_rule": "No task is dropped, replaced, or relabeled after any arm begins; invalid, failed, collapsed, and inconclusive tasks remain in intention-to-treat results."
+    },
+    "arm_order": {
+      "method": "balanced_latin_square",
+      "orders": [
+        ["S1", "F-N", "D-R"],
+        ["F-N", "D-R", "S1"],
+        ["D-R", "S1", "F-N"]
+      ],
+      "assignment": "Sort sealed task refs lexically and assign the three orders cyclically; do not rerandomize from outcomes."
+    }
+  },
+  "arms": [
+    {
+      "arm_id": "S1",
+      "definition": "The strongest complete direct GoalRun with unified context.",
+      "goal_run_count_per_task": 1,
+      "outcome_room_permitted": false,
+      "implementer_path_count": 1,
+      "context_topology": "one unified context visible only through the admitted direct GoalRun path",
+      "path_selection": "Choose the strongest eligible complete direct path from the sealed eligibility snapshot before cohort activation.",
+      "shared_state": "none beyond the direct GoalRun owner state"
+    },
+    {
+      "arm_id": "F-N",
+      "definition": "The strongest explicitly declared fixed-N GoalRun topology.",
+      "goal_run_count_per_task": 1,
+      "outcome_room_permitted": false,
+      "fixed_n_implementers": 2,
+      "conductor_count": 1,
+      "held_out_verifier_count": 1,
+      "topology_kind": "multi_context_review",
+      "live_basis_ref": "apps/hypervisor/scripts/verify-hypervisor-goalrun-multi-harness.mjs",
+      "path_selection": "Choose the two strongest distinct eligible complete implementer paths from the sealed eligibility snapshot before cohort activation; N remains two for every task.",
+      "shared_state": "no room; isolated candidate contexts reconcile only through the GoalRun owner path"
+    },
+    {
+      "arm_id": "D-R",
+      "definition": "Begin from one GoalRun and use one hosted OutcomeRoom only through bounded room children and owner APIs.",
+      "goal_run_count_per_task": 1,
+      "outcome_room_count_per_task": 1,
+      "participant_path_count": 2,
+      "participant_paths": "Use the same two sealed eligible contributor paths selected for F-N.",
+      "bounds": {
+        "max_admitted_participants": 2,
+        "max_frontier_items": 4,
+        "max_open_claims_per_participant": 1,
+        "max_attempts_per_claim": 1,
+        "max_findings_per_attempt": 4,
+        "max_challenges_per_finding": 1,
+        "max_room_scoped_work_results_per_attempt": 1,
+        "max_room_scoped_outcome_deltas_per_work_result": 1
+      },
+      "permitted_room_children": [
+        "participant",
+        "frontier_item",
+        "claim",
+        "attempt",
+        "finding",
+        "verifier_challenge",
+        "work_result",
+        "outcome_delta"
+      ],
+      "collapse_path": "On the first terminal room unavailability or integrity failure, revoke/release room participation and claims through owner APIs, retain the failure, and continue only through the original direct GoalRun. The task remains classified as D-R collapsed and is never relabeled S1.",
+      "shared_state": "exact-revision room graph only; no shared mutable canonical workspace, runtime ownership, or ambient authority"
+    }
+  ],
+  "matched_resources": {
+    "task_execution_budget_per_arm": {
+      "max_model_input_tokens": 120000,
+      "max_model_output_tokens": 24000,
+      "max_task_tool_calls": 120,
+      "max_effectful_task_tool_calls": 12,
+      "max_wall_clock_seconds": 1800,
+      "max_accounted_cost_microusd": 5000000
+    },
+    "held_out_verification_budget_per_arm": {
+      "max_model_input_tokens": 24000,
+      "max_model_output_tokens": 6000,
+      "max_read_or_test_tool_calls": 40,
+      "max_effectful_tool_calls": 0,
+      "max_wall_clock_seconds": 600,
+      "max_accounted_cost_microusd": 1000000
+    },
+    "allocation_rule": "All orchestration, implementer, room-coordination, recovery, and direct-GoalRun-collapse consumption shares the task execution cap. The held-out verifier cap is separate but identical across arms; all consumption from both caps enters actual cost.",
+    "tools_rule": "The task-capability tool set is identical across arms. D-R room APIs and F-N topology APIs are coordination-only structural calls and cannot add task capability or effect authority.",
+    "model_rule": "All selected paths come from one content-hash-sealed eligible model/harness snapshot. No arm may substitute a model or tool after observing another arm's output.",
+    "budget_exhaustion_rule": "Stop new work at the cap, retain all partial evidence, and classify the run failed or inconclusive according to the frozen rubric. Do not grant a top-up."
+  },
+  "acceptance_rubric": {
+    "held_out": true,
+    "blind_to_arm_label_when_artifact_shape_allows": true,
+    "dimensions": [
+      {
+        "name": "task_correctness",
+        "points": 40
+      },
+      {
+        "name": "acceptance_criteria_completion",
+        "points": 25
+      },
+      {
+        "name": "test_and_regression_evidence",
+        "points": 15
+      },
+      {
+        "name": "reproducibility_and_lineage",
+        "points": 10
+      },
+      {
+        "name": "scope_safety_and_authority_compliance",
+        "points": 10
+      }
+    ],
+    "accepted_threshold": 80,
+    "critical_failures": [
+      "unauthorized final-invoker call",
+      "duplicate consequential effect",
+      "privacy or cross-arm contamination violation",
+      "missing daemon/Agentgres lineage required by the selected profile",
+      "rubric-mandated tests fail",
+      "outcome acceptance authored by conductor or participant"
+    ],
+    "acceptance_owner_rule": "The held-out verifier emits evidence and a recommendation through existing APIs; only the owning acceptance path may admit accepted outcome truth."
+  },
+  "actual_cost_accounting": {
+    "required_measures": [
+      "input and output tokens by invocation",
+      "model and harness identity and revision",
+      "task and coordination tool calls",
+      "wall time",
+      "CPU time",
+      "GPU time where used",
+      "peak memory where available",
+      "energy estimate or explicit unavailable marker",
+      "local price-schedule revision and derived microusd",
+      "conductor, participant, verifier, retry, recovery, and collapse costs"
+    ],
+    "price_schedule_rule": "Seal one local resource price schedule before activation and apply it unchanged to all arms.",
+    "missing_measure_rule": "A missing required cost measure invalidates economic comparison for that run but never removes the run or its other evidence.",
+    "zero_cost_rule": "Zero monetary API spend is not zero cost; local compute and orchestration remain accounted."
+  },
+  "guardrails": {
+    "failure": {
+      "rule": "Every unauthorized, stale, duplicate, revoked, failed, timeout, and inconclusive attempt is retained and included in intention-to-treat denominators.",
+      "retry_policy": "No claim-bearing retry may replace a run. A transport retry is allowed only when daemon truth proves zero model invocation and zero effect; the original attempt and retry cost remain linked."
+    },
+    "collapse": {
+      "rule": "D-R collapse is triggered by a terminal room lifecycle/integrity failure or inability to renew a required bounded lease. Collapse uses owner APIs, preserves the original GoalRun, releases claims, retains room evidence, and never changes arm label.",
+      "maximum_collapses_for_positive_local_signal": 1
+    },
+    "privacy": {
+      "rule": "Use the same information-flow, egress, secret, retention, and tenant boundary in every arm. No arm may read another arm's outputs, traces, memory, or verifier findings before all task executions are sealed.",
+      "hard_stop": "Any confirmed cross-arm contamination or forbidden disclosure makes the cohort ineligible for a positive claim."
+    },
+    "independence": {
+      "rule": "The held-out verifier path is not an implementer or room participant, receives no participant authority, cannot write the candidate workspace, and cannot be selected or modified from observed arm results.",
+      "minimum_distinct_principals": 2
+    },
+    "reliability": {
+      "rule": "Report all twelve matched tasks per arm, all attempts, completion/collapse/recovery rates, and missing evidence. No outlier deletion, best-of retry selection, or silent replacement is permitted.",
+      "evidence_completeness_required_for_claim": 1.0
+    },
+    "economic": {
+      "rule": "Enforce matched hard caps and report total cost, cost per task, and cost per accepted outcome with failed, verifier, coordination, recovery, and collapse costs included.",
+      "maximum_dr_cost_per_accepted_outcome_ratio_vs_strongest_control": 1.5
+    }
+  },
+  "analysis_plan": {
+    "population": "intention_to_treat_all_12_tasks_per_arm",
+    "primary_endpoint": "owner-admitted accepted outcomes out of twelve",
+    "secondary_endpoints": [
+      "held-out rubric score",
+      "actual cost per accepted outcome",
+      "wall-clock time",
+      "complete daemon/Agentgres evidence rate",
+      "collapse and recovery rate",
+      "distinct useful participant contribution rate"
+    ],
+    "paired_reporting": "Report task-level D-R minus S1 and D-R minus F-N differences and exact arm totals. Do not pool away task identity.",
+    "positive_local_signal_requires": [
+      "all hard privacy, authority, duplication, independence, and evidence-completeness guardrails pass",
+      "D-R accepted-outcome count is not lower than either control",
+      "D-R median rubric score is no more than five points below the stronger control",
+      "D-R actual cost per accepted outcome is no more than 1.5 times the stronger control",
+      "at least four D-R tasks have owner-admitted accepted outcomes with separately attributed useful evidence from both admitted participants",
+      "no more than one D-R task collapses to the direct GoalRun path"
+    ],
+    "inconclusive_rule": "Any missing required comparison evidence, mixed threshold result, or unresolved acceptance/challenge state is reported as inconclusive rather than tuned, imputed, or promoted.",
+    "claim_ceiling": "controlled_local_p0_signal_only",
+    "forbidden_claims": [
+      "general collaboration superiority",
+      "production reliability or SLA",
+      "multi-node continuity",
+      "useful cross-node distribution",
+      "federation",
+      "marketplace or payout viability",
+      "live Akash replication",
+      "qualified self-hosted-weight replication",
+      "universal correctness"
+    ]
+  },
+  "retention": {
+    "retain_all_attempt_classes": [
+      "authorized",
+      "unauthorized",
+      "stale",
+      "duplicate",
+      "revoked",
+      "failed",
+      "inconclusive",
+      "collapsed"
+    ],
+    "required_truth_sources": [
+      "daemon route responses and receipts",
+      "Agentgres operations, heads, roots, projections, and replay",
+      "content-bound task, model/tool, budget, rubric, and cost-schedule manifests",
+      "held-out verifier evidence"
+    ],
+    "negative_evidence_deletion_permitted": false
+  },
+  "nonclaims": [
+    "This protocol is evidence, not a canonical architecture object or runtime contract.",
+    "This protocol does not activate an experiment, mint authority, schedule work, or accept outcomes.",
+    "The current worktree is not certified M3, M4, M5, or P0 ready by this artifact.",
+    "M9 remains the owner of terminal matched qualification, accepted-outcome and actual-cost evidence, recovery/export proof, and supported claim level.",
+    "Live Akash and qualified self-hosted weights remain later replication inputs after a controlled local result.",
+    "Multi-node continuity and useful-distribution claims remain gated by M10 and M11."
+  ]
+}

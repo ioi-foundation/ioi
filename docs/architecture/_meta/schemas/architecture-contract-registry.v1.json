@@ -571,6 +571,123 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+      "canonical_name": "EnforcementCoverageDeclaration",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/hypervisoros.md#node-enforcement-profile",
+      "schema_version": "ioi.components.daemon-runtime.enforcement-coverage-declaration.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "enforcement-coverage-declaration.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/daemon-runtime/enforcement-coverage-declaration/evidence-and-gaps/v1",
+          "path": "invariants/enforcement-coverage-declaration.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "EnforcementCoverageDeclarationV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "EnforcementCoverageDeclarationV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json",
+        "fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json",
+        "fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json",
+        "fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "enforcement_coverage.receipt.evidence.required_when_receipted"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "enforcement_coverage.gap.required_when_uncovered"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
       "canonical_name": "ManagedWorkBillingLedgerBundle",
       "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#managed-work-billing-object-family",
