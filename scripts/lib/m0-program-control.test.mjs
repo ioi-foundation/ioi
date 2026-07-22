@@ -1175,8 +1175,8 @@ test("supplied entries form an internally coherent unsigned hash chain with the 
     reviewAnchor,
     programSource,
   ));
-  assert.equal(reviewAnchor.head.sequence, 7);
-  assert.equal(reviewAnchor.epochs.length, 7);
+  assert.equal(reviewAnchor.head.sequence, 8);
+  assert.equal(reviewAnchor.epochs.length, 8);
   assert.ok(
     reviewAnchor.epochs.slice(0, 6).every((entry) => "reviewer_evidence" in entry),
     "legacy entries must retain their historical claims verbatim",
