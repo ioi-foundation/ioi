@@ -71,8 +71,11 @@
     "build:all": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
+    "generate:program-state": "node --test scripts/test-generate-program-state.mjs && node scripts/generate-program-state.mjs",
     "check:m0-program-control": "node --test scripts/lib/m0-program-control.test.mjs && node scripts/m0-program-control.mjs --check",
     "check:architecture-docs": "node scripts/check-architecture-docs.mjs",
+    "check:canon-to-code-delta": "node --test scripts/test-canon-to-code-delta.mjs && node scripts/check-canon-to-code-delta.mjs",
+    "check:stateless-master-guide": "node --test scripts/test-stateless-master-guide.mjs && node scripts/check-stateless-master-guide.mjs",
     "check:pre-next-leg": "node scripts/check-pre-next-leg.mjs",
     "check:work-items": "node scripts/check-work-items.mjs"
   },

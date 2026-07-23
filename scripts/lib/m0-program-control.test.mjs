@@ -1175,8 +1175,8 @@ test("supplied entries form an internally coherent unsigned hash chain with the 
     reviewAnchor,
     programSource,
   ));
-  assert.equal(reviewAnchor.head.sequence, 8);
-  assert.equal(reviewAnchor.epochs.length, 8);
+  assert.equal(reviewAnchor.head.sequence, 11);
+  assert.equal(reviewAnchor.epochs.length, 11);
   assert.ok(
     reviewAnchor.epochs.slice(0, 6).every((entry) => "reviewer_evidence" in entry),
     "legacy entries must retain their historical claims verbatim",
@@ -1212,6 +1212,49 @@ test("supplied entries form an internally coherent unsigned hash chain with the 
     reviewAnchor.epochs[0].total_reviewed_entry_count
       > reviewLock.review_attestation.review_epochs[0].reviewed_entry_count,
     "historical complete-lock evidence must not collapse to today's date partition",
+  );
+});
+
+test("same-epoch continuations require a changed program source and an unchanged review lock", () => {
+  const fixture = structuredClone(reviewAnchor);
+  const predecessor = fixture.epochs.at(-1);
+  const repeated = {
+    ...structuredClone(predecessor),
+    predecessor_entry_sha256: reviewAnchorEntrySha256(predecessor),
+    reviewer_id: "reviewer://fixture/redundant-program-source-wave",
+    sequence: predecessor.sequence + 1,
+  };
+  fixture.epochs.push(repeated);
+  fixture.head = {
+    entry_sha256: reviewAnchorEntrySha256(repeated),
+    epoch_id: repeated.epoch_id,
+    sequence: repeated.sequence,
+  };
+  assert.throws(
+    () => validateReviewAnchor(reviewLock, fixture, programSource),
+    /program-source-only continuation/u,
+  );
+
+  const noncontiguous = structuredClone(reviewAnchor);
+  const currentHead = noncontiguous.epochs.at(-1);
+  const olderEpoch = noncontiguous.epochs.at(-5);
+  const replayedOlderEpoch = {
+    ...structuredClone(olderEpoch),
+    predecessor_entry_sha256: reviewAnchorEntrySha256(currentHead),
+    program_source_material_sha256:
+      programSourceMaterialSha256(programSource),
+    reviewer_id: "reviewer://fixture/noncontiguous-program-source-wave",
+    sequence: currentHead.sequence + 1,
+  };
+  noncontiguous.epochs.push(replayedOlderEpoch);
+  noncontiguous.head = {
+    entry_sha256: reviewAnchorEntrySha256(replayedOlderEpoch),
+    epoch_id: replayedOlderEpoch.epoch_id,
+    sequence: replayedOlderEpoch.sequence,
+  };
+  assert.throws(
+    () => validateReviewAnchor(reviewLock, noncontiguous, programSource),
+    /may immediately repeat a discovery-review epoch/u,
   );
 });
 

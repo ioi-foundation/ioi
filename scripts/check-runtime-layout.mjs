@@ -95,6 +95,10 @@ const preNextLegSource = read("scripts/check-pre-next-leg.mjs");
 const preNextLegGateRegressionSource = read(
   "scripts/test-pre-next-leg-gates.mjs",
 );
+const workItemsCheckSource = read("scripts/check-work-items.mjs");
+const statelessGuideCheckSource = read(
+  "scripts/check-stateless-master-guide.mjs",
+);
 const rustToolchain = read("rust-toolchain.toml");
 const rustHypervisorDaemonSource = read(
   "crates/node/src/bin/hypervisor-daemon.rs",
@@ -1082,6 +1086,8 @@ assert(
   "architecture-contract-bar-wiring",
   packageJson.scripts["generate:runtime-action-contracts"] ===
     "node scripts/generate-runtime-action-contracts.mjs --write" &&
+    packageJson.scripts["generate:program-state"] ===
+      "node --test scripts/test-generate-program-state.mjs && node scripts/generate-program-state.mjs" &&
     packageJson.scripts["generate:architecture-contracts"] ===
       "node scripts/generate-architecture-contracts.mjs --write" &&
     packageJson.scripts["check:architecture-contract-bar"] ===
@@ -1094,6 +1100,10 @@ assert(
     ].join(" && ") &&
     packageJson.scripts["check:pre-next-leg"] ===
       "node scripts/check-pre-next-leg.mjs" &&
+    packageJson.scripts["check:canon-to-code-delta"] ===
+      "node --test scripts/test-canon-to-code-delta.mjs && node scripts/check-canon-to-code-delta.mjs" &&
+    packageJson.scripts["check:stateless-master-guide"] ===
+      "node --test scripts/test-stateless-master-guide.mjs && node scripts/check-stateless-master-guide.mjs" &&
     preNextLegSource.includes('"architecture-contract-bar"') &&
     preNextLegSource.includes(
       'args: Object.freeze(["run", "check:architecture-contract-bar"])',
@@ -1101,6 +1111,22 @@ assert(
     preNextLegSource.includes('"conformance-docs"') &&
     preNextLegSource.includes(
       'args: Object.freeze(["run", "check:conformance-docs"])',
+    ) &&
+    preNextLegSource.includes('"canon-to-code-delta"') &&
+    preNextLegSource.includes(
+      'args: Object.freeze(["run", "check:canon-to-code-delta"])',
+    ) &&
+    preNextLegSource.includes('"stateless-master-guide"') &&
+    preNextLegSource.includes(
+      'args: Object.freeze(["run", "check:stateless-master-guide"])',
+    ) &&
+    preNextLegSource.includes('"program-state-generator-regressions"') &&
+    preNextLegSource.includes(
+      '"scripts/test-generate-program-state.mjs"',
+    ) &&
+    preNextLegSource.includes('"work-items"') &&
+    preNextLegSource.includes(
+      'args: Object.freeze(["run", "check:work-items"])',
     ) &&
     preNextLegSource.includes('"compositor"') &&
     preNextLegSource.includes(
@@ -1139,6 +1165,31 @@ assert(
     ".github/workflows/ci.yml",
   ],
   "The complete generated, schema, projection, architecture/conformance documentation-integrity, Rust contract, readiness, and runtime-layout bar must remain wired into pre-next-leg readiness, conformance, and CI.",
+);
+assert(
+  "private-implementation-work-items-boundary",
+  workItemsCheckSource.includes(
+    'const WORK_ITEMS_DIR = "internal-docs/implementation/work-items"',
+  ) &&
+    workItemsCheckSource.includes(
+      "ignored private implementation estate is absent; no cut or stage status was validated",
+    ) &&
+    !workItemsCheckSource.includes("docs/architecture/_meta/work-items") &&
+    !exists("docs/architecture/_meta/work-items") &&
+    statelessGuideCheckSource.includes(
+      '"internal-docs/implementation/reconciliation/stateless-master-guide.v1.json"',
+    ) &&
+    statelessGuideCheckSource.includes(
+      "ignored private implementation estate is absent; no sequencer semantics or status were validated",
+    ) &&
+    !exists("docs/evidence/implementation-plan-reconciliation"),
+  [
+    "scripts/check-work-items.mjs",
+    "scripts/check-stateless-master-guide.mjs",
+    "docs/architecture/_meta",
+    "docs/evidence",
+  ],
+  "Implementation work items and sequencer review artifacts must remain in the ignored internal estate, and clean checkouts must emit explicit nonclaims.",
 );
 assert(
   "hypervisor-shell-no-generic-surface-placeholders",

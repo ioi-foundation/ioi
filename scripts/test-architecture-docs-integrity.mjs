@@ -54,13 +54,17 @@ test("Implementation refs validate live paths but exclude routes, URIs, and expl
   assert.match(checkImplementationRefs({ root, file, rel: "owner.md", content: missing })[0], /missing live Implementation ref/);
 });
 
-test("implementation matrix rejects stale evidence and enforces cross-boundary owners", () => {
+test("stateless implementation matrix enforces four-column owner boundaries", () => {
   const matrixFile = path.join(
     root,
     "docs/architecture/_meta/implementation-matrix.md",
   );
-  const row = (concept, owners, current = "current Rust implementation") =>
-    `| \`${concept}\` | ${owners} | ${current} | keep | \`scripts/check-runtime-layout.mjs\` | guard |`;
+  const row = (
+    concept,
+    owners,
+    durable = "durable contract family and invariant",
+    verifier = "[checker](../../../scripts/check-runtime-layout.mjs)",
+  ) => `| \`${concept}\` | ${owners} | ${durable} | ${verifier} |`;
   const ownerLink = (fragment) => {
     const target = fragment.startsWith("foundations/")
       ? `../${fragment}`
@@ -77,59 +81,25 @@ test("implementation matrix rejects stale evidence and enforces cross-boundary o
     ),
     row(
       "HypervisorKernelSubstrateMigration",
-      "[matrix](./hypervisor-kernel-substrate-migration-matrix.md), [guide](./hypervisor-kernel-substrate-unification-master-guide.md)",
-      "archived terminal provenance",
-    ).replace(
-      " | keep | ",
-      " | route current implementation through this implementation matrix; archived records may not direct work | ",
+      "Canonical owner: none; archived terminal provenance (archived records may not direct work)",
+      "historical provenance",
+      "[migration matrix](./hypervisor-kernel-substrate-migration-matrix.md), [unification guide](./hypervisor-kernel-substrate-unification-master-guide.md)",
     ),
   ].join("\n");
   assert.deepEqual(
     checkImplementationMatrixEvidence({ root, matrixFile, content: valid }),
     [],
   );
+
   assert.match(
     checkImplementationMatrixEvidence({
       root,
       matrixFile,
-      content: valid.replace(
-        "`scripts/check-runtime-layout.mjs`",
-        "`scripts/missing-current-evidence.mjs`",
-      ),
-    }).join("\n"),
-    /missing current-evidence path/u,
-  );
-  for (const concept of [
-    "HypervisorSessionLaunchRecipe",
-    "RuntimeDoctorReportProjectionControl",
-  ]) {
-    assert.match(
-      checkImplementationMatrixEvidence({
-        root,
-        matrixFile,
-        content: `${valid}\n${row(
-          concept,
-          ownerLink("daemon-runtime/doctrine.md"),
-        ).replace(
-          "`scripts/check-runtime-layout.mjs`",
-          "`docs/architecture/README.md`",
-        )}`,
-      }).join("\n"),
-      new RegExp(
-        `${concept}.*not an allowed source artifact|not an allowed source artifact.*${concept}`,
-        "u",
-      ),
-      `${concept}: README substitution must fail`,
-    );
-  }
-  assert.match(
-    checkImplementationMatrixEvidence({
-      root,
-      matrixFile,
-      content: `${valid}\nJS remains a protocol edge.`,
+      content: `${valid}\nJavaScript remains the live runtime.`,
     }).join("\n"),
     /stale live JavaScript-remains claim/u,
   );
+
   assert.match(
     checkImplementationMatrixEvidence({
       root,
@@ -147,16 +117,36 @@ test("implementation matrix rejects stale evidence and enforces cross-boundary o
     }).join("\n"),
     /ModelCapabilityTokenControl.*wallet-network\/doctrine\.md/u,
   );
+
   assert.match(
     checkImplementationMatrixEvidence({
       root,
       matrixFile,
       content: valid.replace(
-        "archived terminal provenance",
-        "live migration status",
+        "Canonical owner: none; archived terminal provenance (archived records may not direct work)",
+        "live migration owner",
       ),
     }).join("\n"),
-    /classify HypervisorKernelSubstrateMigration/u,
+    /keep HypervisorKernelSubstrateMigration as non-authoritative/u,
+  );
+
+  const legacySixColumnRow = row(
+    "ModelTokenizerControl",
+    `${ownerLink("model-router/doctrine.md")}, ${ownerLink("wallet-network/doctrine.md")}`,
+  ).replace(/ \|$/u, " | live status | evidence |");
+  assert.match(
+    checkImplementationMatrixEvidence({
+      root,
+      matrixFile,
+      content: valid.replace(
+        row(
+          "ModelTokenizerControl",
+          `${ownerLink("model-router/doctrine.md")}, ${ownerLink("wallet-network/doctrine.md")}`,
+        ),
+        legacySixColumnRow,
+      ),
+    }).join("\n"),
+    /missing owner-audited row `ModelTokenizerControl`/u,
   );
 });
 

@@ -46,8 +46,8 @@ is terminal.
 - `program-control-source.json` freezes the selected minimum-L0 profile, visible
   journey, owner sets, PG dispositions, baselines, release ladder, exclusions,
   blocker ledger, and tracked canon anchors. Its supplied-snapshot attestation
-  binds the complete program-source material hash to the supplied signed head
-  and projects the bounded assurance posture above.
+  binds the complete program-source material hash to the supplied unsigned
+  hash-chain head and projects the bounded assurance posture above.
 - The other JSON files are deterministic projections. `manifest.json` binds
   their hashes to all three reviewed sources and the discovered repository
   state.
@@ -57,8 +57,10 @@ The implementation guide and PG ledger paths under
 inputs. M0 does not read, hash, require, or bind them as evidence; they may be
 absent from a checkout. The path pointers are retained only to name the
 operator sequencing context. Tracked `docs/architecture/` canon named in
-`canon_basis` is the committed architecture and status evidence authority;
-tracked `docs/conformance/` entries provide the selected-profile conformance
+`canon_basis` is committed architecture doctrine and bounded source evidence;
+it is not implementation status. Status truth remains only in machine-checked
+work-item records and the machine-local `program-state.json` projection.
+Tracked `docs/conformance/` entries provide the selected-profile conformance
 evidence.
 
 ## Commands
@@ -108,6 +110,13 @@ A new snapshot entry is authored directly against the tracked anchor;
    tracked anchor path above. Predecessor-incoherent, baseline-absent,
    authorship-overclaiming, or supplied-head-mismatched evidence fails before
    the worksheet changes.
+   When only tracked program-source material changes and the discovered review
+   lock is byte-identical, append an unsigned program-source-only continuation
+   under the same discovery-review epoch. Such a continuation must preserve
+   every review-lock, identity-set, entry-set, count, and date commitment while
+   changing the program-source material hash and binding the complete prior
+   anchor entry. It records no new route review and cannot fabricate a later
+   review date.
 4. If accepted-head currentness is required, publish and verify the accepted
    head commitment through an outside rollback-domain checkpoint. The M0 CLI
    neither discovers nor validates such a checkpoint, so its assurance remains

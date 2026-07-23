@@ -445,76 +445,10 @@ function implementationMatrixRows(content) {
       .split("|")
       .slice(1, -1)
       .map((cell) => cell.trim());
-    return cells.length === 6
+    return cells.length === 4
       ? [{ cells, line: index + 1 }]
       : [];
   });
-}
-
-const IMPLEMENTATION_EVIDENCE_SOURCE_EXTENSIONS = new Set([
-  ".js",
-  ".json",
-  ".mjs",
-  ".rs",
-  ".sh",
-  ".toml",
-  ".ts",
-  ".tsx",
-  ".yaml",
-  ".yml",
-]);
-
-function directoryContainsSourceArtifact(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).some((entry) => {
-    const absolute = path.join(directory, entry.name);
-    if (entry.isDirectory()) return directoryContainsSourceArtifact(absolute);
-    return (
-      entry.isFile() &&
-      IMPLEMENTATION_EVIDENCE_SOURCE_EXTENSIONS.has(
-        path.extname(entry.name).toLowerCase(),
-      )
-    );
-  });
-}
-
-function schemaDirectoryContainsStructuredArtifact(directory) {
-  return fs.readdirSync(directory, { withFileTypes: true }).some((entry) => {
-    const absolute = path.join(directory, entry.name);
-    if (entry.isDirectory()) {
-      return schemaDirectoryContainsStructuredArtifact(absolute);
-    }
-    return (
-      entry.isFile() &&
-      new Set([".json", ".yaml", ".yml"]).has(
-        path.extname(entry.name).toLowerCase(),
-      )
-    );
-  });
-}
-
-function implementationEvidenceSourceArtifact(root, candidate, resolved) {
-  const stat = fs.lstatSync(resolved);
-  if (stat.isSymbolicLink()) return false;
-  const relative = normalizeRel(root, resolved);
-  if (stat.isDirectory()) {
-    if (/^docs\/architecture\/_meta\/schemas(?:\/|$)/u.test(relative)) {
-      return schemaDirectoryContainsStructuredArtifact(resolved);
-    }
-    return (
-      /^(?:apps|crates|packages|scripts)\//u.test(`${relative}/`) &&
-      directoryContainsSourceArtifact(resolved)
-    );
-  }
-  if (!stat.isFile()) return false;
-  const extension = path.extname(resolved).toLowerCase();
-  if (!IMPLEMENTATION_EVIDENCE_SOURCE_EXTENSIONS.has(extension)) return false;
-  if (relative.startsWith("docs/")) {
-    return (
-      /^docs\/architecture\/_meta\/schemas\//u.test(relative) &&
-      new Set([".json", ".yaml", ".yml"]).has(extension)
-    );
-  }
-  return /^(?:\.github|apps|crates|packages|scripts)\//u.test(relative);
 }
 
 export const IMPLEMENTATION_MATRIX_CROSS_BOUNDARY_OWNERS = new Map([
@@ -676,40 +610,6 @@ export function checkImplementationMatrixEvidence({
       `${rel} carries RuntimeDaemonCore migration-mechanism rows; keep migration sequencing/status in the non-doctrinal migration matrix.`,
     );
   }
-  for (const { cells, line } of rows) {
-    for (const rawCandidate of [...cells[4].matchAll(/`([^`]+)`/gu)].map(
-      (match) => match[1],
-    )) {
-      const candidate = cleanPathRef(rawCandidate);
-      if (!pathLookingRef(candidate)) continue;
-      const resolved = path.resolve(root, staticGlobPrefix(candidate));
-      if (
-        (!resolved.startsWith(`${root}${path.sep}`) && resolved !== root) ||
-        !fs.existsSync(resolved)
-      ) {
-        failures.push(
-          `${rel}:${line} has missing current-evidence path: ${rawCandidate}.`,
-        );
-      } else if (
-        !implementationEvidenceSourceArtifact(root, candidate, resolved)
-      ) {
-        failures.push(
-          `${rel}:${line} ${cells[0]} current-evidence path is not an allowed source artifact: ${rawCandidate}.`,
-        );
-      }
-    }
-    if (
-      /^`Model/u.test(cells[0]) &&
-      /\b(?:current Rust|mounted|unmounted Rust substrate)\b/iu.test(cells[2]) &&
-      /model[_-]mount/iu.test(`${cells[2]} ${cells[4]}`) &&
-      !cells[4].includes("crates/node/src/bin/hypervisor-daemon.rs")
-    ) {
-      failures.push(
-        `${rel}:${line} must anchor current or route-absence model-mount status in crates/node/src/bin/hypervisor-daemon.rs.`,
-      );
-    }
-  }
-
   const byConcept = new Map(rows.map(({ cells }) => [cells[0], cells]));
   for (const [concept, expectedOwners] of IMPLEMENTATION_MATRIX_CROSS_BOUNDARY_OWNERS) {
     const row = byConcept.get(concept);
@@ -733,20 +633,14 @@ export function checkImplementationMatrixEvidence({
   const migration = byConcept.get("`HypervisorKernelSubstrateMigration`");
   if (
     !migration ||
-    !migration[1].includes(
-      "hypervisor-kernel-substrate-migration-matrix.md",
-    ) ||
-    !migration[1].includes(
-      "hypervisor-kernel-substrate-unification-master-guide.md",
-    ) ||
-    !/archived terminal provenance/iu.test(migration[2]) ||
-    !/route current implementation through this implementation matrix/iu.test(
-      migration[3],
-    ) ||
-    !/archived records may not direct work/iu.test(migration[3])
+    !/Canonical owner: none/iu.test(migration[1]) ||
+    !/archived terminal provenance/iu.test(`${migration[1]} ${migration[2]}`) ||
+    !/archived records may not direct work/iu.test(migration[1]) ||
+    !migration[3].includes("hypervisor-kernel-substrate-migration-matrix.md") ||
+    !migration[3].includes("hypervisor-kernel-substrate-unification-master-guide.md")
   ) {
     failures.push(
-      `${rel} must classify HypervisorKernelSubstrateMigration as archived terminal provenance and route current work through current owners.`,
+      `${rel} must keep HypervisorKernelSubstrateMigration as non-authoritative archived terminal provenance.`,
     );
   }
 

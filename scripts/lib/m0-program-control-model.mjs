@@ -4116,7 +4116,7 @@ export function validateSuppliedReviewSnapshot(
     "signature_base64",
     "signed_payload_sha256",
   ];
-  const anchoredEpochIds = new Set();
+  const latestAnchorByEpochId = new Map();
   let predecessor = null;
   let previousReviewDate = null;
   let unsignedEraStarted = false;
@@ -4151,12 +4151,28 @@ export function validateSuppliedReviewSnapshot(
       isNonEmptyString(entry?.epoch_id),
       `${label} lacks a review-point epoch`,
     );
+    const priorSameEpoch = latestAnchorByEpochId.get(entry?.epoch_id);
+    const programSourceOnlyContinuation = priorSameEpoch !== undefined
+      && priorSameEpoch === predecessor
+      && !isLegacy
+      && [
+        "latest_epoch_identity_set_sha256",
+        "latest_epoch_reviewed_entry_count",
+        "latest_epoch_reviewed_entry_set_sha256",
+        "review_lock_sha256",
+        "reviewed_as_of",
+        "total_reviewed_entry_count",
+        "total_reviewed_entry_set_sha256",
+        "total_reviewed_identity_set_sha256",
+      ].every((field) => entry?.[field] === priorSameEpoch?.[field])
+      && entry?.program_source_material_sha256
+        !== priorSameEpoch?.program_source_material_sha256;
     addError(
       errors,
-      !anchoredEpochIds.has(entry?.epoch_id),
-      `${label} duplicates an anchored epoch`,
+      priorSameEpoch === undefined || programSourceOnlyContinuation,
+      `${label} may immediately repeat a discovery-review epoch only as an unsigned program-source-only continuation with an unchanged review lock and a changed program-source commitment`,
     );
-    anchoredEpochIds.add(entry?.epoch_id);
+    latestAnchorByEpochId.set(entry?.epoch_id, entry);
     addError(
       errors,
       Number.isInteger(entry?.total_reviewed_entry_count)
