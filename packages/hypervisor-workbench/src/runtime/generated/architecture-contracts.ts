@@ -2462,12 +2462,12 @@ export type AutonomousSystemAmendmentExecutionProposalV1 = {
   predecessor_state_root: string;
   predecessor_chain_head_root: string;
   irreversibility: "one_way";
-  required_scope: "scope:autonomous_system.constitution.amend";
+  required_scope: "scope:autonomous_system.lifecycle.amend_constitution";
   operation_commitment: string;
   authority_effect: {
       schema_version: "ioi.autonomous-system-amendment-execution-authority-effect.v1";
       op: "amend_constitution";
-      required_scope: "scope:autonomous_system.constitution.amend";
+      required_scope: "scope:autonomous_system.lifecycle.amend_constitution";
       sequence: number;
       irreversibility: "one_way";
       system_id: string;
@@ -2506,6 +2506,7 @@ export type AutonomousSystemAmendmentExecutionProposalV1 = {
       constitution_changed: true;
       profile_set_changed: true;
       operation_commitment: string;
+      amendment_root: string;
     };
   authority_effect_hash: string;
   status: "proposed";
@@ -2524,7 +2525,7 @@ export type AutonomousSystemAmendmentExecutionDecisionV1 = {
   amendment_ref: string;
   amendment_root: string;
   irreversibility: "one_way";
-  required_scope: "scope:autonomous_system.constitution.amend";
+  required_scope: "scope:autonomous_system.lifecycle.amend_constitution";
   operation_commitment: string;
   input_hash: string;
   policy_hash: string;
@@ -8567,8 +8568,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1": "sha256:c3786dfca242c3dbe75c422b66cbe2c9205a111f5d1f185f5f2688de680d8f48",
   "schema://ioi/foundations/autonomous-system-lifecycle-state/v1": "sha256:0053e6d7285ae284a49befd7775a22b7ab7fac131cf47cf87bd92a196ddd6412",
   "schema://ioi/foundations/autonomous-system-operation-log/v2": "sha256:6f79fef38132de438bdff306c51f0fa88799729c00df3a52d5ea7a2ba516b0a5",
-  "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1": "sha256:14c876ecac15743d973eb5bd886fe72eef015add440a47cc9ee2be8f9c9fa762",
-  "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1": "sha256:159d8106056242083bf57b88b55205568b9435ecc74f7e6d6d39633b5cc56154",
+  "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1": "sha256:3284c935e0d82ceaf92974c4aedcd34c9ef8bb492cba6f19ff041c4094989945",
+  "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1": "sha256:3392fa1a94558489aa4bd632d2bf39ae8eaca776244e9551a5467db1178606e6",
   "schema://ioi/foundations/autonomous-system-active-profile-set/v2": "sha256:051100663f24d5fad21c9a5336813d11b3a7afd935cf36ef9b8d012f349bf6e4"
 } as const;
 
@@ -27849,7 +27850,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "const": "one_way"
       },
       "required_scope": {
-        "const": "scope:autonomous_system.constitution.amend"
+        "const": "scope:autonomous_system.lifecycle.amend_constitution"
       },
       "operation_commitment": {
         "type": "string",
@@ -27893,6 +27894,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "upgrade_policy_ref",
           "deployment_profile_ref",
           "deployment_profile_root",
+          "amendment_root",
           "predecessor_constitution_root",
           "successor_constitution_root",
           "changed_field_paths_commitment",
@@ -27926,7 +27928,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "const": "amend_constitution"
           },
           "required_scope": {
-            "const": "scope:autonomous_system.constitution.amend"
+            "const": "scope:autonomous_system.lifecycle.amend_constitution"
           },
           "sequence": {
             "type": "integer",
@@ -28079,6 +28081,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "operation_commitment": {
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "amendment_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
           }
         }
       }
@@ -28161,7 +28167,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "const": "one_way"
       },
       "required_scope": {
-        "const": "scope:autonomous_system.constitution.amend"
+        "const": "scope:autonomous_system.lifecycle.amend_constitution"
       },
       "operation_commitment": {
         "type": "string",
@@ -32549,6 +32555,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
           "module_registry_root": {
             "path": "$.authority_effect.module_registry_root"
           },
+          "amendment_root": {
+            "path": "$.authority_effect.amendment_root"
+          },
           "predecessor_constitution_root": {
             "path": "$.authority_effect.predecessor_constitution_root"
           },
@@ -32632,6 +32641,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
           },
           "module_registry_root": {
             "path": "$.authority_effect.module_registry_root"
+          },
+          "amendment_root": {
+            "path": "$.authority_effect.amendment_root"
           },
           "predecessor_constitution_root": {
             "path": "$.authority_effect.predecessor_constitution_root"
