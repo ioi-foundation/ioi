@@ -306,7 +306,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 669,
+      "reference_count": 671,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -388,6 +388,7 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/activate",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/amendments",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/initialize",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/transitions/:op",
@@ -677,6 +678,7 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/automations/:id/webhook-rotate",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/activate",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/amendments",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/initialize",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/transitions/:op",
@@ -1558,7 +1560,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "60656afa0cf5f2a22856a3ce81496956b80ef36ec418ea665dbd1b8f167567c7",
+  "build_fingerprint": "892e49e46d96275d090126eb1e7120c515c45e36ab4f9db958499403e96044a3",
   "counts": {
     "by_state": {
       "open": 23,

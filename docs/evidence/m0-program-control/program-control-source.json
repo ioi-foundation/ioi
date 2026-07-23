@@ -342,7 +342,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "d3c62ef15418b674855d0935c48cee6f528fca71d55bd9a96ad9956855a4c92a"
+      "source_sha256": "a8a298a5ff6bf0f880696e61171e8527a8ae3f545e5d8b443b216438646c8f5c"
     },
     {
       "role": "landed owner canon",
@@ -352,12 +352,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "d27e24f6489bc26ad50ac31d49bc745cca5b334fb0f8e907ab0f3f861cce867f"
+      "source_sha256": "613a494758ca785bad3959a47a0d03e582a81f6a4a8f816d5116c8063d7dd590"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/governed-autonomous-systems.md",
-      "source_sha256": "cc80c59fae411bd08b741f9018e47910bad9982aef2e5d6bfa79d389c2ff135b"
+      "source_sha256": "172d5522c76a48860c9449c893fc4aea72d8647c8d76ad42aff785b21d1c2746"
     },
     {
       "role": "landed owner canon",
@@ -397,12 +397,12 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/doctrine.md",
-      "source_sha256": "7fee1911042b7d2220beb54b916e59326c8c02be92cae17cbb96cfc13d308c50"
+      "source_sha256": "23b77987b05e62ef07cf525207b4f31e5cc585cad69726ca68cc8599b86b75ce"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/wallet-network/api-authority-scopes.md",
-      "source_sha256": "2cc7e9b86bcbf7543543569e8955658e2f5a36729ea8fba26c3104114e3057df"
+      "source_sha256": "0a1867424f86e23b59c4f97428ac91967723ab7892a6475df4e23072b1aa9818"
     },
     {
       "role": "landed owner canon",
@@ -469,7 +469,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "e2f8366eae6a38cac7bfea997d6f78b97282dbebb1c27345edce7c6fa397e3ce"
+            "source_sha256": "2b63311c3db6106c9c798c21328e78c9d72b793e2baa9824e5b2f051f0a55d58"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -644,7 +644,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "e2f8366eae6a38cac7bfea997d6f78b97282dbebb1c27345edce7c6fa397e3ce"
+            "source_sha256": "2b63311c3db6106c9c798c21328e78c9d72b793e2baa9824e5b2f051f0a55d58"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -1562,19 +1562,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "5ad6b8c9c2b93b2ae332fbdedd97e40da8b9ac9ee91c2048f5ecd49e95493770",
-    "review_epoch_id": "m1-5b-protected-transitions-review-2026-07-22",
-    "review_lock_sha256": "cec30c477e21044761321e0736d4ebe8104a3ff128a7abfdb0670f009cd57934",
+    "program_source_material_sha256": "64d23a06c5b492176de51da3b2888a0d581c217fc95b0f6e0ac2109a26744540",
+    "review_epoch_id": "m1-5c-amendment-execution-review-2026-07-22",
+    "review_lock_sha256": "e7848c3afed3832b8eee77cc1a5bf2d1c869d0814101c6e203c044e2411d7fea",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "reviewed_as_of": "2026-07-22",
-    "reviewed_entry_set_sha256": "2b0253700ebd9bf6aaa93ebd76baaedd1bf6f195f89da38e095873707871fefd",
-    "reviewed_identity_set_sha256": "aad009c6446b90a17cad3cb72055b01b29d31468274e0a181b5c32f56dcccad4",
+    "reviewed_entry_set_sha256": "4e8dba7ff9d1dee7301a2eb44ab3e09e3892a991d5fb191a9b5382a772450a39",
+    "reviewed_identity_set_sha256": "2d68d56a18c3f971f9acf8652da45eed61f304fc2e809d62bf887ef94e9523cd",
     "reviewer_label": "reviewer://ioi/m0-program-control-independent-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "8458febe3e34c9c59fc78a5b5b061ea560bfd39fba4307d51d388009f526edb8",
-    "snapshot_head_sequence": 8,
-    "snapshot_predecessor_entry_sha256": "5660d5bbe6d9dc179eeaf4d52d219203da72c80bf28c6d4312dd3a787524f2a2",
+    "snapshot_head_entry_sha256": "ba2b0a972da3c51c9a0b8e2af59fa89e299a631a0b2f0a4eda115dcc4e89327b",
+    "snapshot_head_sequence": 9,
+    "snapshot_predecessor_entry_sha256": "8458febe3e34c9c59fc78a5b5b061ea560bfd39fba4307d51d388009f526edb8",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

@@ -204,12 +204,28 @@
       "total_reviewed_entry_count": 1547,
       "total_reviewed_entry_set_sha256": "3e195d0e9be744c91eb1fc435b77dbca3a30d4fdddba03e7476a40bfdca45111",
       "total_reviewed_identity_set_sha256": "0a08defbf1f390a9e0b9fb945b97c4183ac31ebe181ef1a281f1952c3b3bca96"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "m1-5c-amendment-execution-review-2026-07-22",
+      "latest_epoch_identity_set_sha256": "2d68d56a18c3f971f9acf8652da45eed61f304fc2e809d62bf887ef94e9523cd",
+      "latest_epoch_reviewed_entry_count": 1072,
+      "latest_epoch_reviewed_entry_set_sha256": "4e8dba7ff9d1dee7301a2eb44ab3e09e3892a991d5fb191a9b5382a772450a39",
+      "predecessor_entry_sha256": "8458febe3e34c9c59fc78a5b5b061ea560bfd39fba4307d51d388009f526edb8",
+      "program_source_material_sha256": "64d23a06c5b492176de51da3b2888a0d581c217fc95b0f6e0ac2109a26744540",
+      "review_lock_sha256": "e7848c3afed3832b8eee77cc1a5bf2d1c869d0814101c6e203c044e2411d7fea",
+      "reviewed_as_of": "2026-07-22",
+      "reviewer_id": "reviewer://ioi/m0-program-control-independent-review",
+      "sequence": 9,
+      "total_reviewed_entry_count": 1549,
+      "total_reviewed_entry_set_sha256": "f73fc3ceba53500183a82c202378689540f2f73647fb96e0c4c7a7a846e94180",
+      "total_reviewed_identity_set_sha256": "145bbe522675fbe63124efd05dfd063b3e44599ea3e0c137c297097649656ed2"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "8458febe3e34c9c59fc78a5b5b061ea560bfd39fba4307d51d388009f526edb8",
-    "epoch_id": "m1-5b-protected-transitions-review-2026-07-22",
-    "sequence": 8
+    "entry_sha256": "ba2b0a972da3c51c9a0b8e2af59fa89e299a631a0b2f0a4eda115dcc4e89327b",
+    "epoch_id": "m1-5c-amendment-execution-review-2026-07-22",
+    "sequence": 9
   }
 }

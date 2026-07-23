@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-22",
-  "build_fingerprint": "60656afa0cf5f2a22856a3ce81496956b80ef36ec418ea665dbd1b8f167567c7",
+  "build_fingerprint": "892e49e46d96275d090126eb1e7120c515c45e36ab4f9db958499403e96044a3",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -460,7 +460,7 @@
         "claim_state": "verified_effect_leaf",
         "note": "Every admit and refusal branch calls emit_receipt, whose final leaf persists an authority-receipt record.",
         "resolution": "verified_effect_leaf",
-        "source_anchor_sha256": "e2f8366eae6a38cac7bfea997d6f78b97282dbebb1c27345edce7c6fa397e3ce",
+        "source_anchor_sha256": "2b63311c3db6106c9c798c21328e78c9d72b793e2baa9824e5b2f051f0a55d58",
         "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
         "symbol": "persist_record[authority-receipts]"
       },
