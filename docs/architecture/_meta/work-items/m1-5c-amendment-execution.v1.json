@@ -5,7 +5,7 @@
   "required_work": [
     "M1.5 (protected amendment slice)"
   ],
-  "status": "active",
+  "status": "evidence_ready",
   "objective": "Protected constitutional amendment execution: an approved amendment executes on the live chain exactly once, swapping the active constitution to its successor revision under the constitution's own declared amendment governance, with protected clauses unamendable and the predecessor retained as superseded evidence.",
   "falsifiable_claim": "No protected or structural clause changes (declared changed paths must equal the computed predecessor-to-successor diff and avoid protected/structural paths); amendment admits only from active|paused with exact head pinning; the amend scope is satisfiable by no lifecycle scope; execution is exactly-once under race and crash-replay; rollback is forward-only.",
   "canon_owners": [
@@ -35,14 +35,23 @@
       "present_when": "pr_open"
     }
   ],
-  "evidence_refs": [],
+  "evidence_refs": [
+    "crates/types/src/app/system_amendment_execution.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/system_amendment_routes.rs",
+    "docs/architecture/_meta/schemas/autonomous-system-amendment-execution-proposal.v1.schema.json",
+    "docs/architecture/_meta/schemas/autonomous-system-amendment-execution-decision.v1.schema.json",
+    "docs/architecture/_meta/schemas/autonomous-system-active-profile-set.v2.schema.json",
+    "apps/hypervisor/scripts/verify-hypervisor-system-sequence-zero-materialization.mjs",
+    "docs/evidence/m0-program-control/review-epoch-anchor.json",
+    "docs/evidence/m0-program-control/reviewed-entry-lock.json"
+  ],
   "pr": null,
-  "adversarial_or_fault_proof": "Planned: canonical-diff enforcement tests (declared-vs-computed mismatch both directions; protected + structural path refusals; agent_may_commit_amendment=false refusal); scope disjointness vs all 14 lifecycle scopes; race linearization 3x; crash-replay convergence; post-amendment operational continuity journey.",
+  "adversarial_or_fault_proof": "Live constitutional-amendment journey, NINE proofs, focused exit 0 (28/28): eligibility over the live head; declared-diff refusal in BOTH directions (over-declared and undeclared); declared-protected-clause refusal; /governance machine-floor refusal; stale-head 409; wrong-scope 403 \u2014 each with evidence families verified untouched; AMEND race-linearized (eight concurrent real-wallet amendments sharing one grant -> exactly one sequence-three swap, seven refused 409 head_conflict, kind=constitution_amendment, profile-set v2, operational status unchanged); REPLAY (forced crash after exact wallet consumption parks one sealed intent; restart converges exactly one further amendment at sequence four via the background driver, committed=2, intents drained); CONTINUITY (pause+resume at sequences five and six over the AMENDED constitution carrying the successor profile set and preserving its root). Full 12-journey suite 109/109 at literal FULL_EXIT=0 with exact teardown and zero regression in the eleven pre-existing journeys. Types 13/13 amendment + full lib; builder tests 7/7 over the real fixture pair; architecture bar 43 contracts/153 fixtures; architecture-docs; m0 56/56. Census epoch 9 (unsigned v3): 1,549 identities, exit verified. SIX defects found by the live plane and fixed by TIGHTENING (never weakening): constitution root model unified onto the incumbent profile-candidate recipe; caller-input contract violations reclassified 500->422; authority effect and operation commitment now bind amendment_root so one declaration means one authority request; scope aligned to the shared gateway's derivation (user-confirmed); persist keyed by the authoritative candidate root; and one journey-side const-reassignment bug.",
   "remaining_nonclaims": [
     "Migration/succession, dissolution, and enrollment remain m1-5d.",
     "Notice/challenge time-window enforcement is declared governance evidence, not clock-enforced in the single-authority M1 profile; recorded honestly in canon.",
     "No membership/topology (M2), consensus, or multi-node claims."
   ],
   "source_provenance": "Cut from guide M1.5 (distinct protected amendment) after m1-5b merged at 695921491; design in internal-docs/implementation/work-item-m1-5c-amendment-execution.md.",
-  "last_status_transaction": "2026-07-22"
+  "last_status_transaction": "2026-07-23"
 }
