@@ -66,7 +66,7 @@ const SYSTEM_GENESIS_SCOPE: &str = "scope:autonomous_system.genesis_admit";
 const SYSTEM_SEQUENCE_ZERO_SCOPE: &str = "scope:autonomous_system.genesis_materialize";
 const SYSTEM_INITIALIZE_SCOPE: &str = "scope:autonomous_system.lifecycle.initialize";
 const SYSTEM_ACTIVATE_SCOPE: &str = "scope:autonomous_system.lifecycle.activate";
-const SYSTEM_AMENDMENT_SCOPE: &str = "scope:autonomous_system.constitution.amend";
+const SYSTEM_AMENDMENT_SCOPE: &str = "scope:autonomous_system.lifecycle.amend_constitution";
 const SYSTEM_GENESIS_APPROVAL_REASON: &str = "System genesis admission fixture approval";
 const SYSTEM_SEQUENCE_ZERO_APPROVAL_REASON: &str =
     "System sequence-zero materialization fixture approval";

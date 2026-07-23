@@ -127,6 +127,9 @@
           "module_registry_root": {
             "path": "$.authority_effect.module_registry_root"
           },
+          "amendment_root": {
+            "path": "$.authority_effect.amendment_root"
+          },
           "predecessor_constitution_root": {
             "path": "$.authority_effect.predecessor_constitution_root"
           },
@@ -210,6 +213,9 @@
           },
           "module_registry_root": {
             "path": "$.authority_effect.module_registry_root"
+          },
+          "amendment_root": {
+            "path": "$.authority_effect.amendment_root"
           },
           "predecessor_constitution_root": {
             "path": "$.authority_effect.predecessor_constitution_root"

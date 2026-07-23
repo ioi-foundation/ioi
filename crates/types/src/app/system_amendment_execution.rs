@@ -140,11 +140,14 @@ pub fn pointer_is_machine_protected(pointer: &str) -> bool {
 /// JCS domain for the amendment-declaration root.
 pub(crate) const AMENDMENT_DECLARATION_HASH_PROFILE: &str =
     "ioi.autonomous-system-constitution-amendment-jcs-sha256.v1";
-/// JCS domain for a minted (successor) constitution body root. Predecessor
-/// roots created at genesis keep their package-declared binding; every root
-/// minted by amendment execution recomputes under this recipe.
+/// JCS domain for a constitution's authoritative root. This is the SAME
+/// profile-candidate recipe genesis and activation already use, so the
+/// chain, the active profile set, and the amendment families all name a
+/// constitution by one value. The body's own `constitution_root` field is a
+/// declared, non-authoritative field (it cannot hold this root without
+/// self-reference) and is carried verbatim across revisions.
 pub(crate) const CONSTITUTION_HASH_PROFILE: &str =
-    "ioi.autonomous-system-constitution-jcs-sha256.v1";
+    "ioi.autonomous-system-profile-candidate-jcs-sha256.v1";
 /// JCS domain for the changed-path set commitment.
 pub(crate) const CHANGED_PATHS_HASH_PROFILE: &str =
     "ioi.autonomous-system-amendment-changed-paths-jcs-sha256.v1";
@@ -161,7 +164,7 @@ const AMENDMENT_AUTHORITY_EFFECT_SCHEMA: &str =
 pub const AMENDMENT_OP: &str = "amend_constitution";
 /// Exact wallet.network scope for amendment execution; no
 /// `scope:autonomous_system.lifecycle.*` grant may satisfy it.
-pub const AMENDMENT_REQUIRED_SCOPE: &str = "scope:autonomous_system.constitution.amend";
+pub const AMENDMENT_REQUIRED_SCOPE: &str = "scope:autonomous_system.lifecycle.amend_constitution";
 
 /// Compiled amendment-execution plan: every root the commit will persist,
 /// derived server-side from committed truth plus the proposed declaration
@@ -233,31 +236,19 @@ fn pointer_covered_by(pointer: &str, protected: &str) -> bool {
     pointer == protected || pointer.starts_with(&format!("{protected}/"))
 }
 
-/// Recompute a minted constitution body root: the fourteen contract fields
-/// with the domain inline and `constitution_root` itself excluded.
-pub fn minted_constitution_root(constitution: &Value) -> Result<String, String> {
-    let field = |name: &str| {
-        constitution
-            .get(name)
-            .cloned()
-            .ok_or_else(|| format!("constitution lacks {name}"))
-    };
+/// The authoritative root of a constitution body: the profile-candidate
+/// recipe genesis and activation already use, over the WHOLE body.
+///
+/// One constitution therefore has exactly one root everywhere it is named
+/// (chain head, active profile set, amendment declaration, substrate key).
+pub fn constitution_candidate_root(constitution: &Value) -> Result<String, String> {
+    if !constitution.is_object() {
+        return Err("constitution is not an object".to_owned());
+    }
     jcs_hash(&json!({
         "domain": CONSTITUTION_HASH_PROFILE,
-        "schema_version": field("schema_version")?,
-        "constitution_id": field("constitution_id")?,
-        "system_id": field("system_id")?,
-        "version": field("version")?,
-        "predecessor_constitution_ref": field("predecessor_constitution_ref")?,
-        "declared_purpose": field("declared_purpose")?,
-        "normative_constraints": field("normative_constraints")?,
-        "agency_boundary": field("agency_boundary")?,
-        "governance": field("governance")?,
-        "protected_profile_governance": field("protected_profile_governance")?,
-        "shutdown": field("shutdown")?,
-        "activation_receipt_ref": field("activation_receipt_ref")?,
-        "public_commitment_ref": field("public_commitment_ref")?,
-        "status": field("status")?,
+        "kind": "constitution",
+        "candidate": constitution,
     }))
 }
 
@@ -375,12 +366,10 @@ pub fn compile_amendment_execution_plan(
         );
     }
 
-    // Predecessor constitution: bound by the chain's declared root (its
-    // body-to-root binding is inherited from genesis admission).
-    if required_field(predecessor_constitution, "constitution_root", "predecessor constitution")?
-        != chain_constitution_root
-    {
-        return Err("predecessor constitution does not carry the chain's root".to_owned());
+    // Predecessor constitution: the supplied body must BE the constitution
+    // the chain names, proven by recomputing its authoritative root.
+    if constitution_candidate_root(predecessor_constitution)? != chain_constitution_root {
+        return Err("predecessor constitution does not recompute to the chain's root".to_owned());
     }
     if required_field(predecessor_constitution, "system_id", "predecessor constitution")?
         != system_id
@@ -427,11 +416,20 @@ pub fn compile_amendment_execution_plan(
     {
         return Err("amendment declaration names a different successor constitution".to_owned());
     }
-    let successor_constitution_root = minted_constitution_root(successor_constitution)?;
-    if required_field(successor_constitution, "constitution_root", "successor constitution")?
-        != successor_constitution_root
+    let successor_constitution_root = constitution_candidate_root(successor_constitution)?;
+    if successor_constitution_root == chain_constitution_root {
+        return Err("successor constitution is byte-identical to the predecessor".to_owned());
+    }
+    // The body's own `constitution_root` field cannot hold this root without
+    // self-reference; it is structural (diff-excluded) and must be carried
+    // verbatim so the successor never restates a different self-claim.
+    if successor_constitution.get("constitution_root")
+        != predecessor_constitution.get("constitution_root")
     {
-        return Err("successor constitution root does not recompute from its body".to_owned());
+        return Err(
+            "successor constitution must carry the predecessor's declared constitution_root field"
+                .to_owned(),
+        );
     }
     if required_field(amendment, "proposed_successor_constitution_root", "amendment declaration")?
         != successor_constitution_root
@@ -618,6 +616,9 @@ pub fn compile_amendment_execution_plan(
         "profile_set_changed": true,
         "operation_commitment": Value::Null,
     });
+    // Bind the exact governance declaration this effect executes. Set after
+    // the literal so the json! macro stays within its expansion limit.
+    effect["amendment_root"] = Value::String(amendment_root.clone());
     effect["operation_commitment"] = Value::String(amendment_operation_commitment(&effect)?);
 
     Ok(CompiledAmendmentExecutionPlan {
@@ -663,6 +664,7 @@ fn amendment_operation_commitment(effect: &Value) -> Result<String, String> {
         "home_domain_commitment": field("home_domain_commitment")?,
         "policy_root": field("policy_root")?,
         "module_registry_root": field("module_registry_root")?,
+        "amendment_root": field("amendment_root")?,
         "predecessor_constitution_root": field("predecessor_constitution_root")?,
         "successor_constitution_root": field("successor_constitution_root")?,
         "changed_field_paths_commitment": field("changed_field_paths_commitment")?,
@@ -846,8 +848,8 @@ mod tests {
             "active",
         );
         successor["normative_constraints"]["spend_ceiling"] = json!(9);
-        let root = minted_constitution_root(&successor).unwrap();
-        successor["constitution_root"] = json!(root);
+        // Declared self-root is structural and carried verbatim.
+        successor["constitution_root"] = predecessor["constitution_root"].clone();
         (predecessor, successor)
     }
 
@@ -857,9 +859,9 @@ mod tests {
             "amendment_id": "constitution-amendment://fixture/alpha/1",
             "system_id": "system://fixture/alpha",
             "predecessor_constitution_ref": predecessor["constitution_id"],
-            "predecessor_constitution_root": predecessor["constitution_root"],
+            "predecessor_constitution_root": constitution_candidate_root(predecessor).unwrap(),
             "proposed_successor_constitution_ref": successor["constitution_id"],
-            "proposed_successor_constitution_root": successor["constitution_root"],
+            "proposed_successor_constitution_root": constitution_candidate_root(successor).unwrap(),
             "changed_field_paths": ["/normative_constraints/spend_ceiling"],
             "protected_field_paths": ["/declared_purpose"],
             "status": "proposed",
@@ -896,13 +898,14 @@ mod tests {
         let mut amendment = declaration(&predecessor, &successor);
         let mut predecessor = predecessor;
         let mut successor = successor;
-        let mut set = profile_set(&h(0x41));
+        let chain_constitution_root = constitution_candidate_root(&predecessor).unwrap();
+        let mut set = profile_set(&chain_constitution_root);
         mutate(&mut amendment, &mut predecessor, &mut successor, &mut set);
         compile_amendment_execution_plan(
             &activation_effect(),
             &step(7, status),
             &h(0x31),
-            &h(0x41),
+            &chain_constitution_root,
             &amendment,
             &predecessor,
             &successor,
@@ -968,8 +971,7 @@ mod tests {
 
         let underdeclared = compile_fixture("active", |amendment, _, successor, _| {
             successor["shutdown"]["grace_seconds"] = json!(60);
-            let root = minted_constitution_root(successor).unwrap();
-            successor["constitution_root"] = json!(root.clone());
+            let root = constitution_candidate_root(successor).unwrap();
             amendment["proposed_successor_constitution_root"] = json!(root);
         })
         .unwrap_err();
@@ -980,8 +982,7 @@ mod tests {
     fn machine_floor_and_declared_protections_refuse() {
         let governance = compile_fixture("active", |amendment, _, successor, _| {
             successor["governance"]["agent_may_commit_amendment"] = json!(true);
-            let root = minted_constitution_root(successor).unwrap();
-            successor["constitution_root"] = json!(root.clone());
+            let root = constitution_candidate_root(successor).unwrap();
             amendment["proposed_successor_constitution_root"] = json!(root);
             amendment["changed_field_paths"] = json!([
                 "/governance/agent_may_commit_amendment",
@@ -993,8 +994,7 @@ mod tests {
 
         let declared = compile_fixture("active", |amendment, _, successor, _| {
             successor["declared_purpose"] = json!("serve something else");
-            let root = minted_constitution_root(successor).unwrap();
-            successor["constitution_root"] = json!(root.clone());
+            let root = constitution_candidate_root(successor).unwrap();
             amendment["proposed_successor_constitution_root"] = json!(root);
             amendment["changed_field_paths"] =
                 json!(["/declared_purpose", "/normative_constraints/spend_ceiling"]);
@@ -1007,23 +1007,37 @@ mod tests {
     fn lineage_rules_refuse_smuggled_successors() {
         let stale_version = compile_fixture("active", |amendment, _, successor, _| {
             successor["version"] = json!("1.0.0");
-            let root = minted_constitution_root(successor).unwrap();
-            successor["constitution_root"] = json!(root.clone());
+            let root = constitution_candidate_root(successor).unwrap();
             amendment["proposed_successor_constitution_root"] = json!(root);
         })
         .unwrap_err();
         assert!(stale_version.contains("does not advance"));
 
+        // A successor restating a different declared self-root is refused:
+        // that field is structural and must be carried verbatim.
         let tampered_root = compile_fixture("active", |_, _, successor, _| {
             successor["constitution_root"] = json!(h(0x66));
         })
         .unwrap_err();
-        assert!(tampered_root.contains("does not recompute"));
+        assert!(
+            tampered_root.contains("must carry the predecessor's declared constitution_root"),
+            "{tampered_root}",
+        );
+
+        // A predecessor body that does not recompute to the chain's root is
+        // refused even when every declared field looks coherent.
+        let foreign_body = compile_fixture("active", |_, predecessor, _, _| {
+            predecessor["declared_purpose"] = json!("a different constitution");
+        })
+        .unwrap_err();
+        assert!(
+            foreign_body.contains("does not recompute to the chain's root"),
+            "{foreign_body}",
+        );
 
         let identity_reuse = compile_fixture("active", |amendment, _, successor, _| {
             successor["constitution_id"] = json!("constitution://fixture/alpha/1");
-            let root = minted_constitution_root(successor).unwrap();
-            successor["constitution_root"] = json!(root.clone());
+            let root = constitution_candidate_root(successor).unwrap();
             amendment["proposed_successor_constitution_root"] = json!(root);
         })
         .unwrap_err();
@@ -1042,11 +1056,16 @@ mod tests {
             "{foreign_declaration}",
         );
 
-        let foreign_body = compile_fixture("active", |_, predecessor, _, _| {
+        // Any predecessor-body edit breaks its recomputation against the
+        // chain root, including one to the declared self-root field.
+        let tampered_predecessor = compile_fixture("active", |_, predecessor, _, _| {
             predecessor["constitution_root"] = json!(h(0x67));
         })
         .unwrap_err();
-        assert!(foreign_body.contains("does not carry the chain's root"), "{foreign_body}");
+        assert!(
+            tampered_predecessor.contains("does not recompute to the chain's root"),
+            "{tampered_predecessor}",
+        );
     }
 
     #[test]
@@ -1065,8 +1084,7 @@ mod tests {
 
         let nothing = compile_fixture("active", |amendment, _, successor, _| {
             successor["normative_constraints"]["spend_ceiling"] = json!(5);
-            let root = minted_constitution_root(successor).unwrap();
-            successor["constitution_root"] = json!(root.clone());
+            let root = constitution_candidate_root(successor).unwrap();
             amendment["proposed_successor_constitution_root"] = json!(root);
             amendment["changed_field_paths"] = json!([]);
         })

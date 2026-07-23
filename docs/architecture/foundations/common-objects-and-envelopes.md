@@ -2711,7 +2711,7 @@ AutonomousSystemAmendmentExecutionProposalEnvelope:
   predecessor_state_root: sha256:...
   predecessor_chain_head_root: sha256:...
   irreversibility: one_way
-  required_scope: scope:autonomous_system.constitution.amend
+  required_scope: scope:autonomous_system.lifecycle.amend_constitution
   operation_commitment: sha256:...
   authority_effect: exact_closed_server_derived_effect
   authority_effect_hash: sha256:...
@@ -2729,9 +2729,13 @@ amendment is admissible only from an `active` or `paused` predecessor, pinned
 by exact state root and chain head, so a stale, foreign, or replayed head
 admits nothing.
 
-`scope:autonomous_system.constitution.amend` is its own wallet scope and is
-satisfiable by no lifecycle scope: authority to pause, resume, or retire a
-System is never authority to rewrite its constitution, and vice versa. The
+`scope:autonomous_system.lifecycle.amend_constitution` is its own wallet
+scope, disjoint from every one of the fourteen operational transition
+scopes: it satisfies none of them and none of them satisfies it. Authority
+to pause, resume, or retire a System is never authority to rewrite its
+constitution, and vice versa. (The `lifecycle` segment names the daemon's
+System-operation authority namespace, which every governed chain operation
+shares; the operation segment is what separates authority.) The
 op is `one_way` with forward-only rollback: reverting an amendment is a new
 amendment over the successor constitution, never an in-place revert, and the
 predecessor constitution remains retained, content-addressed superseded
@@ -2769,7 +2773,7 @@ AutonomousSystemAmendmentExecutionDecisionEnvelope:
   amendment_ref: constitution-amendment://...
   amendment_root: sha256:...
   irreversibility: one_way
-  required_scope: scope:autonomous_system.constitution.amend
+  required_scope: scope:autonomous_system.lifecycle.amend_constitution
   operation_commitment: sha256:...
   input_hash: sha256:...
   policy_hash: sha256:...

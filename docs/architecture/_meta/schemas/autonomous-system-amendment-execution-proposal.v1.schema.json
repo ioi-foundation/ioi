@@ -106,7 +106,7 @@
       "const": "one_way"
     },
     "required_scope": {
-      "const": "scope:autonomous_system.constitution.amend"
+      "const": "scope:autonomous_system.lifecycle.amend_constitution"
     },
     "operation_commitment": {
       "type": "string",
@@ -150,6 +150,7 @@
         "upgrade_policy_ref",
         "deployment_profile_ref",
         "deployment_profile_root",
+        "amendment_root",
         "predecessor_constitution_root",
         "successor_constitution_root",
         "changed_field_paths_commitment",
@@ -183,7 +184,7 @@
           "const": "amend_constitution"
         },
         "required_scope": {
-          "const": "scope:autonomous_system.constitution.amend"
+          "const": "scope:autonomous_system.lifecycle.amend_constitution"
         },
         "sequence": {
           "type": "integer",
@@ -334,6 +335,10 @@
           "const": true
         },
         "operation_commitment": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "amendment_root": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
         }

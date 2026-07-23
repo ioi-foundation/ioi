@@ -208,17 +208,14 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "chain_root",
             format!("sha256:{}", record_id.strip_prefix("asc_").unwrap_or("")),
         ),
-        "autonomous-system-constitutions" => (
-            "constitution_root",
-            format!("sha256:{}", record_id.strip_prefix("ascn_").unwrap_or("")),
-        ),
         "autonomous-system-lifecycle-authority-consumptions"
         | "autonomous-system-lifecycle-transitions"
         | "autonomous-system-initialize-transition-receipts"
         | "autonomous-system-activation-receipts"
         | "autonomous-system-protected-transition-receipts"
         | "autonomous-system-amendment-receipts"
-        | "autonomous-system-constitution-amendments" => {
+        | "autonomous-system-constitution-amendments"
+        | "autonomous-system-constitutions" => {
             unreachable!("identity is validated by the family-specific branch")
         }
         _ => unreachable!("required-admission domains are exhaustively matched"),
@@ -453,29 +450,6 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
             );
             ("chain_root", Value::Object(material))
         }
-        "autonomous-system-constitutions" => (
-            "constitution_root",
-            fields_material(
-                record,
-                "ioi.autonomous-system-constitution-jcs-sha256.v1",
-                &[
-                    "schema_version",
-                    "constitution_id",
-                    "system_id",
-                    "version",
-                    "predecessor_constitution_ref",
-                    "declared_purpose",
-                    "normative_constraints",
-                    "agency_boundary",
-                    "governance",
-                    "protected_profile_governance",
-                    "shutdown",
-                    "activation_receipt_ref",
-                    "public_commitment_ref",
-                    "status",
-                ],
-            )?,
-        ),
         _ => return Ok(()),
     };
     if record.get(root_field).and_then(Value::as_str) != Some(jcs_root(&material)?.as_str()) {
@@ -556,6 +530,34 @@ fn validate_required_identity(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres wallet consumption key does not match the receipt 'consumption_id'",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-constitutions" {
+        // A constitution is named everywhere by its profile-candidate root —
+        // the same recipe genesis and activation use — so the key recomputes
+        // from the whole body. Its declared `constitution_root` field is a
+        // carried, non-authoritative claim and is never the key.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record.get("constitution_id").and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres constitution lacks 'constitution_id'",
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.autonomous-system-profile-candidate-jcs-sha256.v1",
+            "kind": "constitution",
+            "candidate": record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the constitution candidate root",
             ));
         }
         return Ok(());

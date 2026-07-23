@@ -785,7 +785,7 @@ generic deployment or improvement grant:
 
 ```text
 scope:autonomous_system.genesis_admit
-scope:autonomous_system.constitution_amend
+scope:autonomous_system.lifecycle.amend_constitution
 scope:autonomous_system.node_admit
 scope:autonomous_system.node_role_change
 scope:autonomous_system.writer_promote

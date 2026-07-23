@@ -75,7 +75,7 @@
       "const": "one_way"
     },
     "required_scope": {
-      "const": "scope:autonomous_system.constitution.amend"
+      "const": "scope:autonomous_system.lifecycle.amend_constitution"
     },
     "operation_commitment": {
       "type": "string",

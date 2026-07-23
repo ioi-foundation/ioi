@@ -208,6 +208,21 @@ const agentgresCorruptionProofName = (family) =>
   `GET PROOF: isolated ${family} Agentgres corruption refuses the M1.4 code and restores exactly`;
 const JOURNEY_PROOF_CENSUS = new Map([
   [
+    "constitutional-amendment",
+    {
+      resources: 2,
+      proofs: [
+        "M1.5c ELIGIBILITY: amendment admits from the active head with zero committed amendment evidence",
+        "M1.5c DECLARED DIFF: an over-declared and an undeclared change both refuse before authority with zero evidence",
+        "M1.5c PROTECTED CLAUSE: a change under a declared protected path refuses before authority with zero evidence",
+        "M1.5c MACHINE FLOOR: rewriting the governance subtree refuses as machine-protected with zero evidence",
+        "M1.5c STALE HEAD: an expected chain head that is not the live head refuses conflict with zero evidence",
+        "M1.5c WRONG SCOPE: a pause-scoped grant cannot authorize constitutional amendment",
+        "M1.5c AMEND: a real-wallet amendment swaps the constitution and profile set at one sequence with operational status unchanged",
+      ],
+    },
+  ],
+  [
     "protected-transition",
     {
       resources: 2,
@@ -5442,6 +5457,482 @@ async function runProtectedTransitionJourney() {
   }
 }
 
+const AMENDMENT_SCOPE = "scope:autonomous_system.lifecycle.amend_constitution";
+const AMENDMENT_INTENT_FAMILY = "autonomous-system-amendment-intents";
+const AMENDMENT_RECEIPT_FAMILY = "autonomous-system-amendment-receipts";
+const CONSTITUTION_FAMILY = "autonomous-system-constitutions";
+const AMENDMENT_DECLARATION_FAMILY = "autonomous-system-constitution-amendments";
+
+/// A constitution's authoritative root: the SAME profile-candidate recipe
+/// genesis and activation use, over the whole body. The body's declared
+/// `constitution_root` field is carried, non-authoritative, and never this
+/// value (it cannot be, without self-reference).
+function constitutionCandidateRoot(body) {
+  return artifactHashKind(
+    "ioi.autonomous-system-profile-candidate-jcs-sha256.v1",
+    "constitution",
+    body,
+  );
+}
+
+function artifactHashKind(domain, kind, candidate) {
+  return `sha256:${createHash("sha256")
+    .update(canonicalJson({ domain, kind, candidate }))
+    .digest("hex")}`;
+}
+
+/// Mint a successor constitution from the live predecessor body. Structural
+/// lineage fields (id, version, predecessor ref, status, activation receipt)
+/// are diff-excluded by canon; `mutate` applies the amendable change.
+function successorConstitution(
+  predecessor,
+  { id, version, activationReceiptRef, mutate },
+) {
+  const successor = clone(predecessor);
+  successor.constitution_id = id;
+  successor.version = version;
+  successor.predecessor_constitution_ref = predecessor.constitution_id;
+  successor.status = "active";
+  successor.activation_receipt_ref = activationReceiptRef;
+  mutate(successor);
+  // Structural, diff-excluded and non-authoritative: carried verbatim.
+  successor.constitution_root = predecessor.constitution_root;
+  return successor;
+}
+
+/// A contract-valid amendment declaration binding exactly one predecessor
+/// and successor pair plus the paths it claims to change.
+function amendmentDeclaration({
+  systemId,
+  ordinal,
+  predecessor,
+  predecessorRoot,
+  successor,
+  changedFieldPaths,
+}) {
+  return {
+    schema_version: "ioi.autonomous-system-constitution-amendment.v1",
+    amendment_id: `constitution-amendment://acme/system-alpha/${ordinal}`,
+    system_id: systemId,
+    predecessor_constitution_ref: predecessor.constitution_id,
+    predecessor_constitution_root: predecessorRoot,
+    proposed_successor_constitution_ref: successor.constitution_id,
+    proposed_successor_constitution_root: constitutionCandidateRoot(successor),
+    changed_field_paths: changedFieldPaths,
+    protected_field_paths: ["/declared_purpose"],
+    governing_decision_profile_ref: "policy://acme/governance/amendments",
+    proposal_ref: `proposal://acme/constitution-amendment/${ordinal}`,
+    evidence_refs: [`evidence://acme/amendment/${ordinal}`],
+    authority_requirement_refs: [
+      "authority-requirement://acme/governance/amend",
+    ],
+    proposed_by_ref: "governance://acme/research",
+    decision_ref: null,
+    status: "proposed",
+  };
+}
+
+const AMENDABLE_POINTER =
+  "/normative_constraints/permitted_ontology_action_contract_refs";
+
+async function runConstitutionalAmendmentJourney() {
+  const resolver = await startOwnedWalletResolver();
+  const dataDir = createOwnedTempDir("ioi-constitutional-amendment-");
+  let plane;
+  try {
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5c Hypervisor daemon is not built");
+    }
+    const call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+
+    // Bootstrap one System to its converged ACTIVE head through the real
+    // governed prefix (genesis -> materialize -> initialize -> activate).
+    const genesisBody = exactGenesisBody("genesis://acme/system-alpha/m1-5c");
+    const pinnedDeploymentRevision = lifecycleDeploymentRevisionForGenesis(
+      genesisBody.proposed_instantiation.candidate,
+    );
+    genesisBody.proposed_instantiation.candidate.initial_profile_refs.deployment_profile_ref =
+      pinnedDeploymentRevision.deployment_profile_ref;
+    const source = await admitGenesis(call, resolver, dataDir, { genesisBody });
+    const materializePath =
+      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const materializeRequest = {
+      expected_genesis_admission_record_root: source.recordRoot,
+      expected_genesis_admission_receipt_root: source.receiptRoot,
+    };
+    const materializeAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      materializePath,
+      materializeRequest,
+      MATERIALIZE_SCOPE,
+    );
+    const materialized = await call("POST", materializePath, {
+      ...materializeRequest,
+      wallet_approval_grant: requireValue(
+        materializeAuthority.grant,
+        "M1.5c setup lacks the M1.4 grant",
+      ),
+    });
+    requireValue(
+      materialized.status === 201,
+      `M1.5c setup failed M1.4: ${materialized.status}`,
+    );
+    const materialization =
+      materialized.body.autonomous_system_sequence_zero_materialization;
+    const materializationReceipt =
+      materialized.body.autonomous_system_sequence_zero_materialization_receipt;
+    const revision = lifecycleDeploymentRevision(source);
+    const initializePath = `${GENESIS_ROUTE}/${source.sourceTail}/initialize`;
+    const initializeRequest = {
+      expected_sequence_zero_materialization_root: artifactHash(
+        "ioi.autonomous-system-sequence-zero-materialization-artifact-jcs-sha256.v1",
+        materialization,
+      ),
+      expected_sequence_zero_materialization_receipt_root: artifactHash(
+        "ioi.autonomous-system-sequence-zero-materialization-receipt-artifact-jcs-sha256.v1",
+        materializationReceipt,
+      ),
+      deployment_profile_revision: revision,
+    };
+    const initializeAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      initializePath,
+      initializeRequest,
+      INITIALIZE_SCOPE,
+    );
+    const initialized = await call("POST", initializePath, {
+      ...initializeRequest,
+      wallet_approval_grant: requireValue(
+        initializeAuthority.grant,
+        "M1.5c setup lacks the initialize grant",
+      ),
+    });
+    requireValue(
+      initialized.status === 200,
+      `M1.5c setup failed initialize: ${initialized.status}/${initialized.body.error?.code || "no-code"}`,
+    );
+    const initializedState = initialized.body.autonomous_system_activation_state;
+    const initializedReceipt = initialized.body.lifecycle_receipt;
+    const activatePath = `${GENESIS_ROUTE}/${source.sourceTail}/activate`;
+    const activateRequest = {
+      expected_initialize_proposal_root:
+        initializedReceipt.bound_facts.proposal_root,
+      expected_initialize_decision_root:
+        initializedReceipt.bound_facts.decision_root,
+      expected_initialize_state_root: initializedState.activation_state_root,
+      expected_initialize_transition_root: initializedState.transition_root,
+      expected_initialize_receipt_root: initializedState.transition_receipt_root,
+    };
+    const activateAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      activatePath,
+      activateRequest,
+      ACTIVATE_SCOPE,
+    );
+    const activated = await call("POST", activatePath, {
+      ...activateRequest,
+      wallet_approval_grant: requireValue(
+        activateAuthority.grant,
+        "M1.5c setup lacks the activate grant",
+      ),
+    });
+    requireValue(
+      activated.status === 200,
+      `M1.5c setup failed activate: ${activated.status}/${activated.body.error?.code || "no-code"}`,
+    );
+    const activeChain = requireValue(
+      activated.body.autonomous_system_chain,
+      "M1.5c setup lacks the live chain",
+    );
+    const activeState = activated.body.autonomous_system_activation_state;
+
+    const amendmentPath = `${GENESIS_ROUTE}/${source.sourceTail}/amendments`;
+    const systemId = activeChain.system_id;
+    // The chain's active constitution is the body genesis admitted.
+    const predecessorConstitution = requireValue(
+      source.record.initial_profile_bundle?.constitution,
+      "M1.5c setup lacks the admitted constitution body",
+    );
+    const activationReceiptRef = requireValue(
+      activeState.transition_receipt_ref,
+      "M1.5c setup lacks the activation receipt ref",
+    );
+
+    // 1) Eligibility projects the amendment gate over the live head.
+    const eligibility = await call("GET", amendmentPath);
+    ok(
+      "M1.5c ELIGIBILITY: amendment admits from the active head with zero committed amendment evidence",
+      eligibility.status === 200 &&
+        eligibility.body.eligible_now?.admits === true &&
+        eligibility.body.eligible_now?.predecessor_status === "active" &&
+        eligibility.body.required_scope === AMENDMENT_SCOPE &&
+        eligibility.body.current_constitution?.constitution_root ===
+          activeChain.constitution_root &&
+        eligibility.body.committed_amendments?.length === 0 &&
+        eligibility.body.retained_declarations?.length === 0,
+      `${eligibility.status}/${eligibility.body.eligible_now?.admits} committed=${eligibility.body.committed_amendments?.length} retained=${eligibility.body.retained_declarations?.length}`,
+    );
+
+    const amendmentFamilies = [
+      AMENDMENT_INTENT_FAMILY,
+      AMENDMENT_RECEIPT_FAMILY,
+      CONSTITUTION_FAMILY,
+      AMENDMENT_DECLARATION_FAMILY,
+      LIFECYCLE_STATE_FAMILY,
+    ];
+    const beforeRefusals = familiesSnapshot(dataDir, amendmentFamilies);
+
+    const lawfulSuccessor = successorConstitution(predecessorConstitution, {
+      id: "constitution://acme/system-alpha/v2",
+      version: "1.1.0",
+      activationReceiptRef,
+      mutate: (body) => {
+        body.normative_constraints.permitted_ontology_action_contract_refs = [
+          "ontology-action://acme/amended/v1",
+        ];
+      },
+    });
+    const lawfulDeclaration = amendmentDeclaration({
+      systemId,
+      ordinal: 1,
+      predecessor: predecessorConstitution,
+      predecessorRoot: activeChain.constitution_root,
+      successor: lawfulSuccessor,
+      changedFieldPaths: [AMENDABLE_POINTER],
+    });
+    const pinnedRoots = {
+      expected_chain_head_root: activeChain.chain_root,
+      expected_predecessor_state_root: activeState.activation_state_root,
+    };
+
+    // 2) The declared change set must equal the canonical diff exactly, in
+    //    both directions: neither an extra claimed path nor an undeclared
+    //    real change may pass.
+    const overDeclared = await call("POST", amendmentPath, {
+      ...pinnedRoots,
+      amendment: {
+        ...lawfulDeclaration,
+        changed_field_paths: [AMENDABLE_POINTER, "/shutdown/kill_switch_ref"],
+      },
+      successor_constitution: lawfulSuccessor,
+    });
+    const undeclaredSuccessor = successorConstitution(
+      predecessorConstitution,
+      {
+        id: "constitution://acme/system-alpha/v2-undeclared",
+        version: "1.1.0",
+        activationReceiptRef,
+        mutate: (body) => {
+          body.normative_constraints.permitted_ontology_action_contract_refs = [
+            "ontology-action://acme/amended/v1",
+          ];
+          body.shutdown.kill_switch_ref = "policy://acme/shutdown/smuggled";
+        },
+      },
+    );
+    const underDeclared = await call("POST", amendmentPath, {
+      ...pinnedRoots,
+      amendment: amendmentDeclaration({
+        systemId,
+        ordinal: 1,
+        predecessor: predecessorConstitution,
+        predecessorRoot: activeChain.constitution_root,
+        successor: undeclaredSuccessor,
+        changedFieldPaths: [AMENDABLE_POINTER],
+      }),
+      successor_constitution: undeclaredSuccessor,
+    });
+    ok(
+      "M1.5c DECLARED DIFF: an over-declared and an undeclared change both refuse before authority with zero evidence",
+      overDeclared.status === 422 &&
+        overDeclared.body.error?.code === "system_lifecycle_plan_invalid" &&
+        String(overDeclared.body.error?.message).includes(
+          "do not equal the canonical diff",
+        ) &&
+        underDeclared.status === 422 &&
+        underDeclared.body.error?.code === "system_lifecycle_plan_invalid" &&
+        String(underDeclared.body.error?.message).includes(
+          "do not equal the canonical diff",
+        ) &&
+        sameJson(familiesSnapshot(dataDir, amendmentFamilies), beforeRefusals),
+      `over=${overDeclared.status}/${overDeclared.body.error?.code} under=${underDeclared.status}/${underDeclared.body.error?.code}`,
+    );
+
+    // 3) A clause the declaration itself protects cannot be amended.
+    const protectedSuccessor = successorConstitution(predecessorConstitution, {
+      id: "constitution://acme/system-alpha/v2-protected",
+      version: "1.1.0",
+      activationReceiptRef,
+      mutate: (body) => {
+        body.declared_purpose.statement = "Pursue whatever the operator wants.";
+      },
+    });
+    const protectedRefusal = await call("POST", amendmentPath, {
+      ...pinnedRoots,
+      amendment: amendmentDeclaration({
+        systemId,
+        ordinal: 1,
+        predecessor: predecessorConstitution,
+        predecessorRoot: activeChain.constitution_root,
+        successor: protectedSuccessor,
+        changedFieldPaths: ["/declared_purpose/statement"],
+      }),
+      successor_constitution: protectedSuccessor,
+    });
+    ok(
+      "M1.5c PROTECTED CLAUSE: a change under a declared protected path refuses before authority with zero evidence",
+      protectedRefusal.status === 422 &&
+        protectedRefusal.body.error?.code === "system_lifecycle_plan_invalid" &&
+        String(protectedRefusal.body.error?.message).includes(
+          "protected by declared path",
+        ) &&
+        sameJson(familiesSnapshot(dataDir, amendmentFamilies), beforeRefusals),
+      `${protectedRefusal.status}/${protectedRefusal.body.error?.code}: ${protectedRefusal.body.error?.message}`,
+    );
+
+    // 4) The governance subtree is machine-protected: amendment may never
+    //    rewrite its own amendment rules on this path.
+    const governanceSuccessor = successorConstitution(predecessorConstitution, {
+      id: "constitution://acme/system-alpha/v2-governance",
+      version: "1.1.0",
+      activationReceiptRef,
+      mutate: (body) => {
+        // A contract-LEGAL governance edit, so the refusal proves the
+        // machine floor itself and not schema validation.
+        body.governance.affected_party_policy_ref =
+          "policy://acme/governance/affected-parties-v2";
+      },
+    });
+    const governanceRefusal = await call("POST", amendmentPath, {
+      ...pinnedRoots,
+      amendment: amendmentDeclaration({
+        systemId,
+        ordinal: 1,
+        predecessor: predecessorConstitution,
+        predecessorRoot: activeChain.constitution_root,
+        successor: governanceSuccessor,
+        changedFieldPaths: ["/governance/affected_party_policy_ref"],
+      }),
+      successor_constitution: governanceSuccessor,
+    });
+    ok(
+      "M1.5c MACHINE FLOOR: rewriting the governance subtree refuses as machine-protected with zero evidence",
+      governanceRefusal.status === 422 &&
+        governanceRefusal.body.error?.code ===
+          "system_lifecycle_plan_invalid" &&
+        String(governanceRefusal.body.error?.message).includes(
+          "machine-protected",
+        ) &&
+        sameJson(familiesSnapshot(dataDir, amendmentFamilies), beforeRefusals),
+      `${governanceRefusal.status}/${governanceRefusal.body.error?.code}: ${governanceRefusal.body.error?.message}`,
+    );
+
+    // 5) A stale pinned head refuses as a conflict.
+    const staleRefusal = await call("POST", amendmentPath, {
+      expected_chain_head_root: `sha256:${"5c".repeat(32)}`,
+      expected_predecessor_state_root: activeState.activation_state_root,
+      amendment: lawfulDeclaration,
+      successor_constitution: lawfulSuccessor,
+    });
+    ok(
+      "M1.5c STALE HEAD: an expected chain head that is not the live head refuses conflict with zero evidence",
+      staleRefusal.status === 409 &&
+        staleRefusal.body.error?.code === "system_lifecycle_head_conflict" &&
+        sameJson(familiesSnapshot(dataDir, amendmentFamilies), beforeRefusals),
+      `${staleRefusal.status}/${staleRefusal.body.error?.code}`,
+    );
+
+    // 6) Lifecycle authority is not constitutional authority: a pause-scoped
+    //    grant cannot execute an amendment.
+    // A distinct declaration so this probe carries its own request hash: one
+    // request hash may name exactly one wallet approval decision.
+    const wrongScopeDeclaration = amendmentDeclaration({
+      systemId,
+      ordinal: 9,
+      predecessor: predecessorConstitution,
+      predecessorRoot: activeChain.constitution_root,
+      successor: lawfulSuccessor,
+      changedFieldPaths: [AMENDABLE_POINTER],
+    });
+    const wrongScopeRequest = {
+      ...pinnedRoots,
+      amendment: wrongScopeDeclaration,
+      successor_constitution: lawfulSuccessor,
+    };
+    const pauseScopedAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      amendmentPath,
+      wrongScopeRequest,
+      "scope:autonomous_system.lifecycle.pause",
+    );
+    const wrongScope = await call("POST", amendmentPath, {
+      ...wrongScopeRequest,
+      wallet_approval_grant: pauseScopedAuthority.grant,
+    });
+    ok(
+      "M1.5c WRONG SCOPE: a pause-scoped grant cannot authorize constitutional amendment",
+      wrongScope.status >= 400 &&
+        familyFiles(dataDir, CONSTITUTION_FAMILY).length === 0 &&
+        familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length === 0,
+      `${wrongScope.status}/${wrongScope.body.error?.code} constitutions=${familyFiles(dataDir, CONSTITUTION_FAMILY).length}`,
+    );
+
+    // 7) The lawful amendment executes exactly once: the constitution and the
+    //    active profile set swap while operational status is unchanged.
+    const amendAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      amendmentPath,
+      { ...pinnedRoots, amendment: lawfulDeclaration, successor_constitution: lawfulSuccessor },
+      AMENDMENT_SCOPE,
+    );
+    const amended = await call("POST", amendmentPath, {
+      ...pinnedRoots,
+      amendment: lawfulDeclaration,
+      successor_constitution: lawfulSuccessor,
+      wallet_approval_grant: requireValue(
+        amendAuthority.grant,
+        "M1.5c lacks the amendment grant",
+      ),
+    });
+    const amendedChain = amended.body.autonomous_system_chain;
+    const amendedSet = amended.body.active_profile_set;
+    const priorSet = eligibility.body.current_active_profile_set;
+    ok(
+      "M1.5c AMEND: a real-wallet amendment swaps the constitution and profile set at one sequence with operational status unchanged",
+      amended.status === 200 &&
+        amended.body.sequence === 3 &&
+        amendedChain?.constitution_ref === lawfulSuccessor.constitution_id &&
+        amendedChain?.constitution_root === constitutionCandidateRoot(lawfulSuccessor) &&
+        amendedChain?.latest_sequence === 3 &&
+        amendedChain?.status === "active" &&
+        amended.body.lifecycle_state?.status === "active" &&
+        amended.body.operation_log?.head_entry?.entry_kind ===
+          "constitution_amendment" &&
+        amendedSet?.schema_version ===
+          "ioi.autonomous-system-active-profile-set.v2" &&
+        amendedSet?.supersedes_profile_set_ref ===
+          priorSet?.active_profile_set_ref &&
+        amendedSet?.constitution?.candidate_profile_root ===
+          constitutionCandidateRoot(lawfulSuccessor) &&
+        amended.body.claims?.constitution_changed === true &&
+        amended.body.nonclaims?.status_change === false &&
+        familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length === 0,
+      `${amended.status}/${amended.body.error?.code || "ok"} msg=${String(amended.body.error?.message || "").slice(0, 300)} seq=${amended.body.sequence} kind=${amended.body.operation_log?.head_entry?.entry_kind} set=${amendedSet?.schema_version}`,
+    );
+  } finally {
+    if (plane) await plane.stop();
+    await resolver.stop();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
 async function runSystemActivationJourney() {
   const resolver = await startOwnedWalletResolver();
   const dataDir = createOwnedTempDir("ioi-system-activation-");
@@ -5903,6 +6394,7 @@ async function run() {
       ).length}/${MATERIALIZATION_FAMILIES.length} current-write-only=${productionReceiptBuilder.includes("ReceiptVersion::CurrentV2") && productionIntentCompleter.includes("require_legacy_receipt_preexisting")}`,
     );
     const journeys = new Map([
+      ["constitutional-amendment", runConstitutionalAmendmentJourney],
       ["protected-transition", runProtectedTransitionJourney],
       ["system-activation", runSystemActivationJourney],
       ["primary", runPrimaryJourney],

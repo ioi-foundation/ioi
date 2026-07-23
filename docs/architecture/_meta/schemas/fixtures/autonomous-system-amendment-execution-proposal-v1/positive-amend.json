@@ -1,7 +1,7 @@
 {
   "schema_version": "ioi.autonomous-system-amendment-execution-proposal.v1",
   "proposal_ref": "proposal://fixture/alpha/amend-constitution/7",
-  "proposal_root": "sha256:f0adc9fb7cbe81f9005195c59f06c35d451f77e7b72a70ef285cab605cc95e34",
+  "proposal_root": "sha256:3a20b781fcc22ffda527c4bbe45c0c2fca8043c3323ba7b88014d948a4c7d1ff",
   "system_id": "system://fixture/alpha",
   "genesis_ref": "genesis://fixture/alpha",
   "op": "amend_constitution",
@@ -17,12 +17,12 @@
   "predecessor_state_root": "sha256:2121212121212121212121212121212121212121212121212121212121212121",
   "predecessor_chain_head_root": "sha256:3131313131313131313131313131313131313131313131313131313131313131",
   "irreversibility": "one_way",
-  "required_scope": "scope:autonomous_system.constitution.amend",
-  "operation_commitment": "sha256:7edaa1649cea38a857cb958809d1b65501fa6d3a8fd2c173e1d188dcb62a9b46",
+  "required_scope": "scope:autonomous_system.lifecycle.amend_constitution",
+  "operation_commitment": "sha256:d680c5839d2080ac81a883f8624d3fc53c456db59a868891d82cad2ba99e001c",
   "authority_effect": {
     "schema_version": "ioi.autonomous-system-amendment-execution-authority-effect.v1",
     "op": "amend_constitution",
-    "required_scope": "scope:autonomous_system.constitution.amend",
+    "required_scope": "scope:autonomous_system.lifecycle.amend_constitution",
     "sequence": 7,
     "irreversibility": "one_way",
     "system_id": "system://fixture/alpha",
@@ -37,6 +37,7 @@
     "upgrade_policy_ref": "policy://fixture/upgrade",
     "deployment_profile_ref": "deployment-profile://fixture/alpha",
     "deployment_profile_root": "sha256:1515151515151515151515151515151515151515151515151515151515151515",
+    "amendment_root": "sha256:6161616161616161616161616161616161616161616161616161616161616161",
     "predecessor_constitution_root": "sha256:7171717171717171717171717171717171717171717171717171717171717171",
     "successor_constitution_root": "sha256:7272727272727272727272727272727272727272727272727272727272727272",
     "changed_field_paths_commitment": "sha256:7373737373737373737373737373737373737373737373737373737373737373",
@@ -60,9 +61,9 @@
     "network_effect_admitted": false,
     "constitution_changed": true,
     "profile_set_changed": true,
-    "operation_commitment": "sha256:7edaa1649cea38a857cb958809d1b65501fa6d3a8fd2c173e1d188dcb62a9b46"
+    "operation_commitment": "sha256:d680c5839d2080ac81a883f8624d3fc53c456db59a868891d82cad2ba99e001c"
   },
-  "authority_effect_hash": "sha256:48e85a552da29648125d82e2eb5c938ac13e549a1282cf8f07c86fd182f3b3f9",
+  "authority_effect_hash": "sha256:d1286702df529f712ee083fefc524552bd5b48cf0cf495080f635023288dfc3a",
   "status": "proposed",
   "created_at": "2026-07-22T00:00:00.000Z"
 }

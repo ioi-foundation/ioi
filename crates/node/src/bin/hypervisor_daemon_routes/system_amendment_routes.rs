@@ -10,7 +10,7 @@
 //!
 //! Nothing in this module mints a parallel authority or persistence path:
 //! wallet consumption rides `prepare_node_evidence_for` with the exact
-//! `scope:autonomous_system.constitution.amend` scope, sealed intents ride
+//! `scope:autonomous_system.lifecycle.amend_constitution` scope, sealed intents ride
 //! the same crash-convergent replay discipline, and every family crosses the
 //! required Agentgres admission boundary.
 
@@ -143,10 +143,16 @@ fn load_constitution_body(
                 "admitted genesis lacks its initial profile bundle constitution",
             )
         })?;
-    if bundle.get("constitution_root").and_then(Value::as_str) != Some(constitution_root) {
+    // The chain names a constitution by its authoritative profile-candidate
+    // root, not by the body's declared self-root field.
+    let bundle_root = ioi_types::app::system_amendment_execution::constitution_candidate_root(
+        &bundle,
+    )
+    .map_err(|error| verr("system_lifecycle_artifact_invalid", error))?;
+    if bundle_root != constitution_root {
         return Err(verr(
             "system_lifecycle_artifact_mismatch",
-            "no durable constitution body carries the chain's constitution_root",
+            "no durable constitution body recomputes to the chain's constitution_root",
         ));
     }
     Ok(bundle)
@@ -248,12 +254,20 @@ pub(crate) fn compile_amendment_from_source(
     amendment: &Value,
     successor_constitution: &Value,
 ) -> Result<CompiledAmendmentExecutionPlan, VErr> {
-    validate_contract(AMENDMENT_DECLARATION_CONTRACT, amendment, "amendment declaration")?;
+    // These two bodies are CALLER-supplied: a contract violation here is a
+    // bad request, not a server fault, so it must not classify as a 500 the
+    // way a server-built artifact legitimately does.
+    fn caller_input((_, message): VErr) -> VErr {
+        verr("system_lifecycle_request_invalid", message)
+    }
+    validate_contract(AMENDMENT_DECLARATION_CONTRACT, amendment, "amendment declaration")
+        .map_err(caller_input)?;
     validate_contract(
         CONSTITUTION_CONTRACT,
         successor_constitution,
         "successor constitution",
-    )?;
+    )
+    .map_err(caller_input)?;
     let chain_head_root = required(&source.chain_head, "/chain_root")?;
     let chain_constitution_root = required(&source.chain_head, "/constitution_root")?;
     compile_amendment_execution_plan(
@@ -854,7 +868,13 @@ fn persist_amendment_graph(
             )
         })?;
     let set_root = required(&artifacts.successor_profile_set, "/active_profile_set_root")?;
-    let constitution_root = required(&artifacts.successor_constitution, "/constitution_root")?;
+    // The persisted key is the AUTHORITATIVE candidate root, never the body's
+    // declared self-root field (which is carried verbatim from the
+    // predecessor and is not a content binding).
+    let constitution_root = ioi_types::app::system_amendment_execution::constitution_candidate_root(
+        &artifacts.successor_constitution,
+    )
+    .map_err(|error| verr("system_lifecycle_artifact_invalid", error))?;
     let records: Vec<(&str, String, &Value)> = vec![
         (
             AUTHORITY_CONSUMPTION_DIR,
@@ -1600,7 +1620,7 @@ pub(crate) async fn complete_amendment_intents(data_dir: &str, max: usize) {
 #[cfg(test)]
 mod builder_tests {
     use super::*;
-    use ioi_types::app::system_amendment_execution::minted_constitution_root;
+    use ioi_types::app::system_amendment_execution::constitution_candidate_root;
 
     fn fixture(path: &str) -> Value {
         let root = concat!(
@@ -1786,7 +1806,7 @@ mod builder_tests {
         );
         successor_constitution["normative_constraints"]["permitted_ontology_action_contract_refs"] =
             json!(["ontology-action://acme/added/v1"]);
-        let successor_root = minted_constitution_root(&successor_constitution).unwrap();
+        let successor_root = constitution_candidate_root(&successor_constitution).unwrap();
         successor_constitution["constitution_root"] = json!(successor_root);
         let amendment = json!({
             "schema_version": "ioi.autonomous-system-constitution-amendment.v1",
@@ -1965,7 +1985,7 @@ mod builder_tests {
         assert_eq!(receipt["op"], json!("amend_constitution"));
         assert_eq!(
             receipt["required_scope"],
-            json!("scope:autonomous_system.constitution.amend"),
+            json!("scope:autonomous_system.lifecycle.amend_constitution"),
         );
         assert_eq!(
             receipt["bound_facts"]["successor_constitution_root"],
@@ -1998,7 +2018,7 @@ mod builder_tests {
         assert_eq!(entry["operation_name"], json!("amend_constitution"));
         assert_eq!(
             entry["required_scope"],
-            json!("scope:autonomous_system.constitution.amend"),
+            json!("scope:autonomous_system.lifecycle.amend_constitution"),
         );
         assert_eq!(
             entry["predecessor_state_root"],
