@@ -342,7 +342,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "2bebee6d74b483ce6bc95acb59ee417eed657942d35763da55ab901f008f16f3"
+      "source_sha256": "45ffc1bc34730e8d7c554106b142844ce19022fc93eab999e8af02d5784ae351"
     },
     {
       "role": "landed owner canon",
@@ -1562,19 +1562,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "19d40537def7fd35912eee246e917674cc441b303073353047fe71e2d5644fb3",
+    "program_source_material_sha256": "ac31fe49677fba3787c7a63b10e8e610b427a43c48aea5c861d76f154f9f2655",
     "review_epoch_id": "m1-5b-protected-transitions-review-2026-07-22",
     "review_lock_sha256": "cec30c477e21044761321e0736d4ebe8104a3ff128a7abfdb0670f009cd57934",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "reviewed_as_of": "2026-07-22",
     "reviewed_entry_set_sha256": "2b0253700ebd9bf6aaa93ebd76baaedd1bf6f195f89da38e095873707871fefd",
     "reviewed_identity_set_sha256": "aad009c6446b90a17cad3cb72055b01b29d31468274e0a181b5c32f56dcccad4",
-    "reviewer_label": "reviewer://ioi/implementation-plan-reconciliation-delegated-review",
+    "reviewer_label": "reviewer://ioi/private-implementation-estate-public-evidence-removal",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "4f698153b61e0f306066ddf6f435ef4f03397b0e11928594143a8cd1ea19e958",
-    "snapshot_head_sequence": 9,
-    "snapshot_predecessor_entry_sha256": "8458febe3e34c9c59fc78a5b5b061ea560bfd39fba4307d51d388009f526edb8",
+    "snapshot_head_entry_sha256": "a1e4ba0ba04f622a425fe6a7d66207b5da54729e41914d7360a03f1fadd7ca1c",
+    "snapshot_head_sequence": 11,
+    "snapshot_predecessor_entry_sha256": "ca182f34f43b9ae09fa91ae4be5001bd2d36b2e1d5d6d7d54507636da3c9e305",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

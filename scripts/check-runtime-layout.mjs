@@ -95,6 +95,10 @@ const preNextLegSource = read("scripts/check-pre-next-leg.mjs");
 const preNextLegGateRegressionSource = read(
   "scripts/test-pre-next-leg-gates.mjs",
 );
+const workItemsCheckSource = read("scripts/check-work-items.mjs");
+const statelessGuideCheckSource = read(
+  "scripts/check-stateless-master-guide.mjs",
+);
 const rustToolchain = read("rust-toolchain.toml");
 const rustHypervisorDaemonSource = read(
   "crates/node/src/bin/hypervisor-daemon.rs",
@@ -1161,6 +1165,31 @@ assert(
     ".github/workflows/ci.yml",
   ],
   "The complete generated, schema, projection, architecture/conformance documentation-integrity, Rust contract, readiness, and runtime-layout bar must remain wired into pre-next-leg readiness, conformance, and CI.",
+);
+assert(
+  "private-implementation-work-items-boundary",
+  workItemsCheckSource.includes(
+    'const WORK_ITEMS_DIR = "internal-docs/implementation/work-items"',
+  ) &&
+    workItemsCheckSource.includes(
+      "ignored private implementation estate is absent; no cut or stage status was validated",
+    ) &&
+    !workItemsCheckSource.includes("docs/architecture/_meta/work-items") &&
+    !exists("docs/architecture/_meta/work-items") &&
+    statelessGuideCheckSource.includes(
+      '"internal-docs/implementation/reconciliation/stateless-master-guide.v1.json"',
+    ) &&
+    statelessGuideCheckSource.includes(
+      "ignored private implementation estate is absent; no sequencer semantics or status were validated",
+    ) &&
+    !exists("docs/evidence/implementation-plan-reconciliation"),
+  [
+    "scripts/check-work-items.mjs",
+    "scripts/check-stateless-master-guide.mjs",
+    "docs/architecture/_meta",
+    "docs/evidence",
+  ],
+  "Implementation work items and sequencer review artifacts must remain in the ignored internal estate, and clean checkouts must emit explicit nonclaims.",
 );
 assert(
   "hypervisor-shell-no-generic-surface-placeholders",

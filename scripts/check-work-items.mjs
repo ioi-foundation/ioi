@@ -1,18 +1,16 @@
 #!/usr/bin/env node
-// Read-only validator for docs/architecture/_meta/work-items/ records — the
-// single owner of implementation status truth. Doctrine stays in the matrix;
-// these records carry status, anchors, and proof claims, and this checker
-// keeps them from rotting the way prose status cells do.
+// Read-only validator for the ignored private implementation work-item estate.
+// Architecture doctrine stays in canon; private records carry cut status,
+// anchors, and proof claims without publishing the implementation queue.
 import fs from "node:fs";
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const WORK_ITEMS_DIR = "docs/architecture/_meta/work-items";
-const MATRIX_FILE = "docs/architecture/_meta/implementation-matrix.md";
+const WORK_ITEMS_DIR = "internal-docs/implementation/work-items";
 const M0_LITERAL_EXIT_LOG =
-  "docs/evidence/implementation-plan-reconciliation/m0-exit.v1.txt";
+  "internal-docs/implementation/evidence/m0-exit.v1.txt";
 const M0_EXIT_REPORT = "docs/evidence/m0-program-control/m0-exit-report.json";
 const STATUSES = new Set([
   "proposed",
@@ -51,6 +49,12 @@ const fail = (condition, message) => {
 };
 
 const dir = path.join(repoRoot, WORK_ITEMS_DIR);
+if (!fs.existsSync(dir)) {
+  process.stdout.write(
+    "work-item check skipped: ignored private implementation estate is absent; no cut or stage status was validated.\n",
+  );
+  process.exit(0);
+}
 const files = fs.readdirSync(dir).filter((name) => name.endsWith(".json")).sort();
 fail(files.length > 0, "no work-item records found");
 
@@ -220,20 +224,6 @@ try {
   errors.push(`cannot validate the retained M0 literal exit: ${error.message}`);
 }
 
-// The matrix must reference every record it delegated status to, and no
-// record may be orphaned from the matrix pointer convention.
-try {
-  const matrix = fs.readFileSync(path.join(repoRoot, MATRIX_FILE), "utf8");
-  for (const id of seenIds) {
-    fail(
-      matrix.includes(id),
-      `implementation matrix does not reference work item ${id}`,
-    );
-  }
-} catch (error) {
-  errors.push(`cannot cross-check the implementation matrix: ${error.message}`);
-}
-
 for (const note of pending) {
   process.stdout.write(`pending: ${note}\n`);
 }
@@ -246,5 +236,5 @@ if (errors.length > 0) {
   process.exit(1);
 }
 process.stdout.write(
-  `work-item check passed: ${files.length} records, ${pending.length} pr_open anchors pending in this checkout.\n`,
+  `private work-item check passed: ${files.length} records, ${pending.length} pr_open anchors pending in this checkout.\n`,
 );

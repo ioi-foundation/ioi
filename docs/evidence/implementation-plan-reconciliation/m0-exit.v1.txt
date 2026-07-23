@@ -1,6 +1,0 @@
-IOI_LITERAL_EXIT_LOG_FORMAT=ioi.program.literal_exit.v1
-BAR=M0
-ARTIFACT=docs/evidence/m0-program-control/m0-exit-report.json
-ARTIFACT_SHA256=bbc01680f5a6f292f858ee5e1aae08d12a4ab9c6c462196d5648576659a81633
-M0_EXIT=0
-NONCLAIM=This content-bound workflow log grants no product authority and closes no additional stage or capability.

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // The sole implementation sequencer is intentionally machine-local and
-// gitignored. Its approved stateless rewrite is retained as a tracked,
-// hash-bound work record so a clean checkout can validate the review artifact
-// without pretending that the private guide itself is present.
+// gitignored. Its approved stateless rewrite and review manifest remain beside
+// it in the private estate. A clean checkout reports an honest skip rather
+// than pretending to validate private sequencer semantics.
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -13,9 +13,9 @@ const defaultRepoRoot = path.resolve(path.dirname(scriptPath), "..");
 export const GUIDE_FILE =
   "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md";
 export const GUIDE_PATCH_MANIFEST_FILE =
-  "docs/architecture/_meta/reconciliation/stateless-master-guide.v1.json";
+  "internal-docs/implementation/reconciliation/stateless-master-guide.v1.json";
 export const GUIDE_PATCH_FILE =
-  "docs/architecture/_meta/reconciliation/stateless-master-guide.v1.patch";
+  "internal-docs/implementation/reconciliation/stateless-master-guide.v1.patch";
 
 const GUIDE_PATCH_FORMAT = "ioi.program.stateless_master_guide_patch.v1";
 const GUIDE_BASE_SHA256 =
@@ -80,7 +80,7 @@ function readOptional(repoRoot, relativePath, provided) {
 function parseManifest(source, errors) {
   if (source === null) {
     errors.push(
-      `missing tracked guide-patch manifest ${GUIDE_PATCH_MANIFEST_FILE}`,
+      `missing private guide-patch manifest ${GUIDE_PATCH_MANIFEST_FILE}`,
     );
     return null;
   }
@@ -92,9 +92,9 @@ function parseManifest(source, errors) {
   }
 }
 
-function materializeFullContextPatch(patchSource) {
+export function materializeFullContextPatch(patchSource) {
   if (!patchSource.endsWith("\n")) {
-    throw new Error("tracked guide patch must end with a newline");
+    throw new Error("private guide patch must end with a newline");
   }
   const patchLines = patchSource.slice(0, -1).split("\n");
   const header = patchLines[2] ?? "";
@@ -165,7 +165,7 @@ export function validateTrackedGuidePatch({
   let reviewedResult = null;
 
   if (patchText === null)
-    errors.push(`missing tracked guide patch ${GUIDE_PATCH_FILE}`);
+    errors.push(`missing private guide patch ${GUIDE_PATCH_FILE}`);
   if (manifest) {
     if (manifest.evidence_format !== GUIDE_PATCH_FORMAT) {
       errors.push("guide-patch manifest has an unknown evidence_format");
@@ -298,7 +298,7 @@ export function validateStatelessMasterGuide({
     errors.push("does not declare the sole M0–M14 sequencer role");
   }
   if (
-    !/Status truth rule: durable cut status lives in machine-checked/u.test(
+    !/Status truth rule: durable cut status lives in the ignored, machine-local/u.test(
       guide,
     )
   ) {
@@ -306,6 +306,9 @@ export function validateStatelessMasterGuide({
   }
   if (!/ioi\.program\.work_item\.v1/u.test(guide)) {
     errors.push("does not point durable cut status to work-item records");
+  }
+  if (/docs\/architecture\/_meta\/work-items/u.test(guide)) {
+    errors.push("routes the private implementation queue through architecture canon");
   }
   if (
     !/program-state\.json[^\n]*derived local[\s\S]{0,240}not a second sequencer/u.test(
@@ -341,23 +344,19 @@ export function validateStatelessMasterGuideBundle({
   patchSource,
 } = {}) {
   const localGuide = readOptional(repoRoot, GUIDE_FILE, guideSource);
+  if (localGuide === null) {
+    return { errors: [], skipped: true, stageCount: 0 };
+  }
   const patchResult = validateTrackedGuidePatch({
     repoRoot,
     manifestSource,
     patchSource,
     resultSource: localGuide,
   });
-  const semanticSource = localGuide ?? patchResult.reviewedResult;
-  const guideResult =
-    semanticSource === null
-      ? {
-          errors: [
-            "cannot validate master-guide semantics without a reconstructed reviewed result",
-          ],
-          skipped: false,
-          stageCount: 0,
-        }
-      : validateStatelessMasterGuide({ repoRoot, source: semanticSource });
+  const guideResult = validateStatelessMasterGuide({
+    repoRoot,
+    source: localGuide,
+  });
   return {
     errors: [...patchResult.errors, ...guideResult.errors],
     skipped: localGuide === null,
@@ -377,12 +376,12 @@ export function runStatelessMasterGuideCheck(options) {
   }
   if (result.skipped) {
     process.stdout.write(
-      `stateless master-guide check passed: tracked patch manifest and reconstructed result semantics verified; ${GUIDE_FILE} is intentionally gitignored and absent.\n`,
+      `stateless master-guide check skipped: ignored private implementation estate is absent; no sequencer semantics or status were validated.\n`,
     );
     return 0;
   }
   process.stdout.write(
-    `stateless master-guide check passed: tracked patch manifest and result hash verified; ${result.stageCount} stage definitions, no live status narratives.\n`,
+    `stateless master-guide check passed: private patch manifest and result hash verified; ${result.stageCount} stage definitions, no live status narratives.\n`,
   );
   return 0;
 }

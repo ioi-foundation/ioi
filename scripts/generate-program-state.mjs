@@ -18,11 +18,11 @@ export const REPO_ROOT = path.resolve(
 export const STATE_FILE = "internal-docs/implementation/program-state.json";
 export const GUIDE_FILE =
   "internal-docs/implementation/ioi-target-end-state-master-implementation-guide.md";
-export const WORK_ITEM_DIR = "docs/architecture/_meta/work-items";
+export const WORK_ITEM_DIR = "internal-docs/implementation/work-items";
 export const M0_EXIT_FILE =
   "docs/evidence/m0-program-control/m0-exit-report.json";
 export const M0_LITERAL_EXIT_FILE =
-  "docs/evidence/implementation-plan-reconciliation/m0-exit.v1.txt";
+  "internal-docs/implementation/evidence/m0-exit.v1.txt";
 export const M0_EVIDENCE_FILES = [
   M0_EXIT_FILE,
   M0_LITERAL_EXIT_FILE,
@@ -263,122 +263,19 @@ const isStrictAncestorCommit = (repoRoot, ancestor, descendant) => {
 
 export const discoverWorkItems = (repoRoot = REPO_ROOT) => {
   const workspace = readWorkspaceWorkItems(repoRoot);
-  const refs = listConcreteRefs(repoRoot);
-  const refGroups = refs.map((refInfo) => ({
-    kind: "ref",
-    label: refInfo.ref,
-    entries: readRefWorkItems(repoRoot, refInfo),
-  }));
-  const refRecords = refGroups.flatMap(({ entries }) => entries);
-  const ongoingOccurrences = [...workspace, ...refRecords].filter(
-    ({ record }) => ONGOING_WORK_ITEM_STATUSES.has(record.status),
-  );
-  const ongoingById = new Map();
-  for (const occurrence of ongoingOccurrences) {
-    const entries = ongoingById.get(occurrence.record.work_item_id) ?? [];
-    entries.push(occurrence);
-    ongoingById.set(occurrence.record.work_item_id, entries);
-  }
-  const currentCuts = [...ongoingById.entries()]
-    .sort(([leftId], [rightId]) => compareText(leftId, rightId))
-    .map(([currentWorkItemId, currentSources]) => {
-      const currentVariants = new Set(
-        currentSources.map(({ record }) => stableJson(record)),
-      );
-      if (currentVariants.size !== 1) {
-        fail(
-          `ongoing work item ${currentWorkItemId} has conflicting record bodies across the workspace and refs`,
-        );
-      }
-      const currentRefSources = currentSources.filter(
-        ({ kind }) => kind === "ref",
-      );
-      if (currentRefSources.length === 0) {
-        fail(
-          `ongoing work item ${currentWorkItemId} is not discoverable from a local or origin ref`,
-        );
-      }
-      // Keep the nearest ref tips that carry this exact status transaction.
-      // Descendant branches inherit unchanged records; they must not reassign
-      // an ongoing cut away from the branch where that record first appears.
-      const currentOriginRefSources = currentRefSources.filter(
-        (source) =>
-          !currentRefSources.some((candidate) =>
-            isStrictAncestorCommit(repoRoot, candidate.commit, source.commit),
-          ),
-      );
-      const branches = [
-        ...new Set(
-          currentOriginRefSources.map(({ label }) => normalizedBranch(label)),
-        ),
-      ].sort();
-      if (branches.length !== 1) {
-        fail(
-          `ongoing work item ${currentWorkItemId} is exposed by ambiguous branch names: ${branches.join(", ")}`,
-        );
-      }
-      const sourceRefs = [
-        ...new Set(currentOriginRefSources.map(({ label }) => label)),
-      ].sort();
-      const sourceCommits = Object.fromEntries(
-        sourceRefs.map((ref) => [
-          ref,
-          currentOriginRefSources.find(({ label }) => label === ref).commit,
-        ]),
-      );
-      const currentRecord = currentSources[0].record;
-      return {
-        record: currentRecord,
-        branch: branches[0],
-        source_refs: sourceRefs,
-        source_commits: sourceCommits,
-        record_sha256: sha256(stableJson(currentRecord)),
-      };
-    });
-
-  // Prefer the most complete committed status layer visible locally. The
-  // workspace wins an equal-count tie so an in-transaction regeneration sees
-  // newly authored records; a main checkout that predates the status layer can
-  // still orient through the reconciliation branch once that work is
-  // committed. Feature-only ongoing records are then added without importing
-  // unrelated feature-branch status copies.
-  const statusLayerCandidates = [
-    { kind: "workspace", label: "workspace", entries: workspace },
-    ...refGroups,
-  ].filter(({ entries }) => entries.length > 0);
-  statusLayerCandidates.sort(
-    (left, right) =>
-      right.entries.length - left.entries.length ||
-      (left.kind === "workspace" ? -1 : right.kind === "workspace" ? 1 : 0) ||
-      (left.label.startsWith("origin/")
-        ? 1
-        : right.label.startsWith("origin/")
-          ? -1
-          : 0) ||
-      left.label.localeCompare(right.label),
-  );
-  if (statusLayerCandidates.length === 0) {
+  if (workspace.length === 0) {
     fail(
-      "no work-item status layer is visible in the workspace or local/origin refs",
+      `no private work-item status layer exists at ${WORK_ITEM_DIR}`,
     );
   }
-  const statusLayer = statusLayerCandidates[0];
-  const projectedById = new Map(
-    statusLayer.entries.map((entry) => [entry.record.work_item_id, entry]),
-  );
-  for (const current of currentCuts) {
-    if (projectedById.has(current.record.work_item_id)) {
-      continue;
+  const seenIds = new Set();
+  for (const entry of workspace) {
+    if (seenIds.has(entry.record.work_item_id)) {
+      fail(`private work-item estate duplicates ${entry.record.work_item_id}`);
     }
-    const currentRefSource = ongoingById
-      .get(current.record.work_item_id)
-      .find(({ kind }) => kind === "ref");
-    projectedById.set(current.record.work_item_id, {
-      ...currentRefSource,
-      path: currentRefSource.path,
-    });
+    seenIds.add(entry.record.work_item_id);
   }
-  const projected = [...projectedById.values()].sort((left, right) => {
+  const projected = [...workspace].sort((left, right) => {
     const leftStage = Number(left.record.stage_id.slice(1));
     const rightStage = Number(right.record.stage_id.slice(1));
     return (
@@ -386,13 +283,22 @@ export const discoverWorkItems = (repoRoot = REPO_ROOT) => {
       compareText(left.record.work_item_id, right.record.work_item_id)
     );
   });
+  const currentCuts = projected
+    .filter(({ record }) => ONGOING_WORK_ITEM_STATUSES.has(record.status))
+    .map(({ record }) => ({
+      record,
+      branch: "private-workspace",
+      source_refs: [],
+      source_commits: {},
+      record_sha256: sha256(stableJson(record)),
+    }));
 
   return {
     current_cuts: currentCuts,
     status_layer: {
-      kind: statusLayer.kind,
-      label: statusLayer.label,
-      record_count: statusLayer.entries.length,
+      kind: "private_workspace",
+      label: "ignored internal implementation estate",
+      record_count: workspace.length,
     },
     projected,
     workspace,
@@ -571,7 +477,7 @@ export const buildProgramState = ({
         M0_EXIT_FILE,
         M0_LITERAL_EXIT_FILE,
         `selected status layer: ${discovery.status_layer.label} (${discovery.status_layer.record_count} records)`,
-        "local and origin git refs (current work-item discovery)",
+        "ignored private workspace records only; no tracked or remote-ref status discovery",
       ],
     },
     stages,
@@ -609,7 +515,7 @@ export const buildProgramState = ({
       .map(({ record }) => record.work_item_id),
     session_start_ritual: [
       `Regenerate with node scripts/generate-program-state.mjs and validate with node internal-docs/implementation/check-program-state.mjs.`,
-      "Read every current work-item record from its named ref, then read each master-guide stage and exit definition.",
+      "Read every current private work-item record, then read each master-guide stage and exit definition.",
       "Treat verified work items as cut evidence only; never infer stage verification without the committed stage-exit proof.",
       "Keep multi-node, federation, and claim-bearing cohort language gated to their M9-M13 owners.",
     ],

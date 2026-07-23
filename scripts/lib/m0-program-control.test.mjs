@@ -1175,8 +1175,8 @@ test("supplied entries form an internally coherent unsigned hash chain with the 
     reviewAnchor,
     programSource,
   ));
-  assert.equal(reviewAnchor.head.sequence, 9);
-  assert.equal(reviewAnchor.epochs.length, 9);
+  assert.equal(reviewAnchor.head.sequence, 11);
+  assert.equal(reviewAnchor.epochs.length, 11);
   assert.ok(
     reviewAnchor.epochs.slice(0, 6).every((entry) => "reviewer_evidence" in entry),
     "legacy entries must retain their historical claims verbatim",
@@ -1237,10 +1237,12 @@ test("same-epoch continuations require a changed program source and an unchanged
 
   const noncontiguous = structuredClone(reviewAnchor);
   const currentHead = noncontiguous.epochs.at(-1);
-  const olderEpoch = noncontiguous.epochs.at(-3);
+  const olderEpoch = noncontiguous.epochs.at(-5);
   const replayedOlderEpoch = {
     ...structuredClone(olderEpoch),
     predecessor_entry_sha256: reviewAnchorEntrySha256(currentHead),
+    program_source_material_sha256:
+      programSourceMaterialSha256(programSource),
     reviewer_id: "reviewer://fixture/noncontiguous-program-source-wave",
     sequence: currentHead.sequence + 1,
   };

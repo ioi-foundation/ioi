@@ -6,19 +6,21 @@ Implementation status: built (mapping artifact only; no cut or stage status)
 Document role: canonical concept-owner and durable-form-family index.
 Estate classification: **AUTHORITY** for the mappings in this file only.
 Sequencing authority: the internal M0–M14 master implementation guide remains the sole sequencer.
-Implementation-status authority: machine-checked work-item records and machine-local `program-state.json`.
+Implementation-status authority: the ignored private implementation estate; status is neither published nor linked from canon.
 
 ## Purpose
 
 This matrix answers two stateless questions: which canonical document owns a concept, and which durable-form family the owner governs. It does not order work, admit a cut, or assert that an implementation or proof exists.
 
-If this index conflicts with a linked canonical owner, amend the owner first and align this mapping in the same doctrine transaction. The superseded status-bearing body is retained only as [historical provenance](../_archive/change-ledgers/implementation-matrix-pre-status-truth-snapshot.md).
+If this index conflicts with a linked canonical owner, amend the owner first and align this mapping in the same doctrine transaction. The former status-bearing projection remains recoverable in repository history and is not retained as a public planning document.
 
 ## Status Truth Rule
 
-Durable cut and stage status lives only in one `ioi.program.work_item.v1` record per cut under [work-items](./work-items/README.md) and in machine-local `internal-docs/implementation/program-state.json`. Validate the records with `npm run check:work-items`.
+Durable cut and stage status lives only in the ignored private implementation
+estate. This canonical matrix intentionally publishes no work queue, status
+record, status pointer, or program-state projection.
 
-Rows in this matrix may identify owners, durable-form families, and conformance owners. They must not carry dates, code-proof claims, or merged, held, scoped, active, blocked, verified, or not-started narratives. Code and evidence anchors that support a status transition belong in the owning work-item record. The [canon-to-code delta](./canon-to-code-delta.md) is a separate machine-verified object/code-anchor crossing index with narrow authority over those crossings; it is neither a status owner nor a sequencer.
+Rows in this matrix may identify owners, durable-form families, and conformance owners. They must not carry dates, code-proof claims, or merged, held, scoped, active, blocked, verified, or not-started narratives. The [canon-to-code delta](./canon-to-code-delta.md) is a separate machine-verified object/code-anchor crossing index with narrow authority over those crossings; it is neither a status owner nor a sequencer.
 
 ## Durable-form vocabulary
 
@@ -314,53 +316,6 @@ Rows in this matrix may identify owners, durable-form families, and conformance 
 | `NetworkServiceInvocationEnvelope` | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-l1-contract-interfaces.md`](../foundations/ioi-l1-contract-interfaces.md) | canonical object / operation | Canonical owner |
 | Marketplace listing | [`aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md), [`sas/service-marketplace.md`](../domains/sas/service-marketplace.md) | owner-defined durable form | Canonical owner |
 | ContributionReceipt | [`marketplace-neutrality.md`](../domains/marketplace-neutrality.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | receipt / accountable record | Canonical owner |
-
-## Work-item record index
-
-This is a pointer index only. Each record owns its own status, anchors, evidence, exit criteria, and nonclaims.
-
-- `m0-literal-exit-evidence-contract` — [m0-literal-exit-evidence-contract.v1.json](./work-items/m0-literal-exit-evidence-contract.v1.json)
-- `m0-unsigned-review-anchor` — [m0-unsigned-review-anchor.v1.json](./work-items/m0-unsigned-review-anchor.v1.json)
-- `m1-5-protected-transitions` — [m1-5-protected-transitions.v1.json](./work-items/m1-5-protected-transitions.v1.json)
-- `m1-5b-generic-protected-transitions` — [m1-5b-generic-protected-transitions.v1.json](./work-items/m1-5b-generic-protected-transitions.v1.json)
-- `m1-dual-genesis-and-read-projection` — [m1-dual-genesis-and-read-projection.v1.json](./work-items/m1-dual-genesis-and-read-projection.v1.json)
-- `m1-genesis-admission` — [m1-genesis-admission.v1.json](./work-items/m1-genesis-admission.v1.json)
-- `m1-governed-initialize-activate` — [m1-governed-initialize-activate.v1.json](./work-items/m1-governed-initialize-activate.v1.json)
-- `m1-sequence-zero-materialization` — [m1-sequence-zero-materialization.v1.json](./work-items/m1-sequence-zero-materialization.v1.json)
-- `m10-two-failure-domain-continuity` — [m10-two-failure-domain-continuity.v1.json](./work-items/m10-two-failure-domain-continuity.v1.json)
-- `m11-embodied-nonlive-graph-proof` — [m11-embodied-nonlive-graph-proof.v1.json](./work-items/m11-embodied-nonlive-graph-proof.v1.json)
-- `m11-selected-profile-exit-proof` — [m11-selected-profile-exit-proof.v1.json](./work-items/m11-selected-profile-exit-proof.v1.json)
-- `m11-useful-same-system-distribution` — [m11-useful-same-system-distribution.v1.json](./work-items/m11-useful-same-system-distribution.v1.json)
-- `m12-aiip-channel-envelope-profile` — [m12-aiip-channel-envelope-profile.v1.json](./work-items/m12-aiip-channel-envelope-profile.v1.json)
-- `m12-federated-admission-portable-exit-and-bindings` — [m12-federated-admission-portable-exit-and-bindings.v1.json](./work-items/m12-federated-admission-portable-exit-and-bindings.v1.json)
-- `m12-selected-profile-exit-proof` — [m12-selected-profile-exit-proof.v1.json](./work-items/m12-selected-profile-exit-proof.v1.json)
-- `m12-terms-discovery-semantic-negotiation` — [m12-terms-discovery-semantic-negotiation.v1.json](./work-items/m12-terms-discovery-semantic-negotiation.v1.json)
-- `m13-sovereignty-trial-preregistration` — [m13-sovereignty-trial-preregistration.v1.json](./work-items/m13-sovereignty-trial-preregistration.v1.json)
-- `m13-two-sovereign-surplus-and-decline-proof` — [m13-two-sovereign-surplus-and-decline-proof.v1.json](./work-items/m13-two-sovereign-surplus-and-decline-proof.v1.json)
-- `m14-demand-security-economics` — [m14-demand-security-economics.v1.json](./work-items/m14-demand-security-economics.v1.json)
-- `m14-l1-authorization-decision` — [m14-l1-authorization-decision.v1.json](./work-items/m14-l1-authorization-decision.v1.json)
-- `m14-network-service-devnet` — [m14-network-service-devnet.v1.json](./work-items/m14-network-service-devnet.v1.json)
-- `m2-membership-readiness-plane` — [m2-membership-readiness-plane.v1.json](./work-items/m2-membership-readiness-plane.v1.json)
-- `m2-route-restore-activation-cleanup` — [m2-route-restore-activation-cleanup.v1.json](./work-items/m2-route-restore-activation-cleanup.v1.json)
-- `m2-selected-profile-exit-proof` — [m2-selected-profile-exit-proof.v1.json](./work-items/m2-selected-profile-exit-proof.v1.json)
-- `m2-writer-fence-and-lost-suffix` — [m2-writer-fence-and-lost-suffix.v1.json](./work-items/m2-writer-fence-and-lost-suffix.v1.json)
-- `m3-direct-path-and-exit-proof` — [m3-direct-path-and-exit-proof.v1.json](./work-items/m3-direct-path-and-exit-proof.v1.json)
-- `m3-pursuit-definition-resolution` — [m3-pursuit-definition-resolution.v1.json](./work-items/m3-pursuit-definition-resolution.v1.json)
-- `m3-result-lifecycle-negative-retention` — [m3-result-lifecycle-negative-retention.v1.json](./work-items/m3-result-lifecycle-negative-retention.v1.json)
-- `m4-outcome-room-system-spine` — [m4-outcome-room-system-spine.v1.json](./work-items/m4-outcome-room-system-spine.v1.json)
-- `m5-local-agent-pairing` — [m5-local-agent-pairing.v1.json](./work-items/m5-local-agent-pairing.v1.json)
-- `m5-p0-readiness-verifier` — [m5-p0-readiness-verifier.v1.json](./work-items/m5-p0-readiness-verifier.v1.json)
-- `m5-participant-frontier-result-closeout` — [m5-participant-frontier-result-closeout.v1.json](./work-items/m5-participant-frontier-result-closeout.v1.json)
-- `m5-portable-exit-independent-clients` — [m5-portable-exit-independent-clients.v1.json](./work-items/m5-portable-exit-independent-clients.v1.json)
-- `m5-selected-profile-exit-proof` — [m5-selected-profile-exit-proof.v1.json](./work-items/m5-selected-profile-exit-proof.v1.json)
-- `m6-product-surface-and-typed-workspaces` — [m6-product-surface-and-typed-workspaces.v1.json](./work-items/m6-product-surface-and-typed-workspaces.v1.json)
-- `m7-semantic-definition-action-plane` — [m7-semantic-definition-action-plane.v1.json](./work-items/m7-semantic-definition-action-plane.v1.json)
-- `m8-learning-boundary-provider-exit` — [m8-learning-boundary-provider-exit.v1.json](./work-items/m8-learning-boundary-provider-exit.v1.json)
-- `m8-order-zero-improvement-and-direct-path` — [m8-order-zero-improvement-and-direct-path.v1.json](./work-items/m8-order-zero-improvement-and-direct-path.v1.json)
-- `m9-authority-gateway-equivalence-and-coverage` — [m9-authority-gateway-equivalence-and-coverage.v1.json](./work-items/m9-authority-gateway-equivalence-and-coverage.v1.json)
-- `m9-lifecycle-evidence-operator-proof` — [m9-lifecycle-evidence-operator-proof.v1.json](./work-items/m9-lifecycle-evidence-operator-proof.v1.json)
-- `m9-managed-optionality-overlay` — [m9-managed-optionality-overlay.v1.json](./work-items/m9-managed-optionality-overlay.v1.json)
-- `m9-sovereign-local-terminal-journey` — [m9-sovereign-local-terminal-journey.v1.json](./work-items/m9-sovereign-local-terminal-journey.v1.json)
 
 ## Build rule
 

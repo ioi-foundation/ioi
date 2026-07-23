@@ -13,7 +13,6 @@ const ARCHITECTURE_ROOT = "docs/architecture";
 const EVIDENCE_FORMAT = "ioi.canon_to_code_delta.machine_check.v2";
 const OBJECT_ANCHOR_COVERAGE = new Set(["none", "partial"]);
 const ANCHOR_ROLES = new Set(["implementation", "precedent"]);
-const PROOF_STATUS_POINTER = "[work-item records](./work-items/README.md)";
 const PROHIBITED_TABLE_STATUS_NARRATIVES = Object.freeze([
   /\b(?:merged|landed)\b/iu,
   /\bnot[- ]started\b/iu,
@@ -31,7 +30,6 @@ const TABLE_HEADERS = Object.freeze([
   "Anchor coverage (non-status)",
   "Authority crossing (contract relation)",
   "Owning application projection",
-  "Proof/status routing",
 ]);
 
 function splitTableRow(line) {
@@ -186,6 +184,11 @@ export function validateCanonToCodeDelta({
       };
     }
   }
+  if (deltaSource.includes("work-items/")) {
+    errors.push(
+      "canon-to-code delta must not expose private work-item paths or status pointers",
+    );
+  }
 
   const manifest = parseManifest(deltaSource, errors);
   const tableRows = parseDeltaTable(deltaSource, errors);
@@ -314,12 +317,6 @@ export function validateCanonToCodeDelta({
         `delta table line ${row.line} contains prohibited live/merged implementation-status narrative`,
       );
     }
-    if (row.cells[7] !== PROOF_STATUS_POINTER) {
-      errors.push(
-        `delta table line ${row.line} must route proof/status by work-item pointer only`,
-      );
-    }
-
     const ownerCell = row.cells[1];
     const links = [...ownerCell.matchAll(/\[[^\]]+\]\(([^)]+)\)/gu)];
     const residual = ownerCell

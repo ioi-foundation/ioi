@@ -1,16 +1,10 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
 import test from "node:test";
 import {
-  GUIDE_FILE,
-  GUIDE_PATCH_FILE,
-  GUIDE_PATCH_MANIFEST_FILE,
   validateStatelessMasterGuide,
   validateStatelessMasterGuideBundle,
 } from "./check-stateless-master-guide.mjs";
 
-const repoRoot = path.resolve(import.meta.dirname, "..");
 const stages = Array.from(
   { length: 15 },
   (_, index) =>
@@ -20,21 +14,12 @@ const validGuide = `# IOI Target-End-State Master Implementation Guide
 
 Document role: sole internal M0–M14 implementation sequencer.
 
-Status truth rule: durable cut status lives in machine-checked
+Status truth rule: durable cut status lives in the ignored, machine-local
 ioi.program.work_item.v1 records. program-state.json is a derived local
 orientation projection and not a second sequencer.
 
 ${stages}
 `;
-const manifestSource = fs.readFileSync(
-  path.join(repoRoot, GUIDE_PATCH_MANIFEST_FILE),
-  "utf8",
-);
-const patchSource = fs.readFileSync(
-  path.join(repoRoot, GUIDE_PATCH_FILE),
-  "utf8",
-);
-
 const messages = (source) =>
   validateStatelessMasterGuide({ source }).errors.join("\n");
 
@@ -94,6 +79,15 @@ test("stateless master-guide contract rejects ordinary live status narratives", 
   }
 });
 
+test("stateless master-guide contract rejects a canon-hosted implementation queue", () => {
+  assert.match(
+    messages(
+      `${validGuide}\nRead docs/architecture/_meta/work-items/README.md.`,
+    ),
+    /private implementation queue/u,
+  );
+});
+
 test("stateless master-guide contract rejects an incomplete stage spine", () => {
   assert.match(
     messages(validGuide.replace(/^### M14[^\n]*\n\n[^\n]*$/mu, "")),
@@ -101,65 +95,21 @@ test("stateless master-guide contract rejects an incomplete stage spine", () => 
   );
 });
 
-test("tracked guide-patch work record validates when the private guide is absent", () => {
+test("clean checkout makes an honest private-estate skip", () => {
   const result = validateStatelessMasterGuideBundle({
     guideSource: null,
-    manifestSource,
-    patchSource,
   });
   assert.deepEqual(result.errors, []);
   assert.equal(result.skipped, true);
-  assert.equal(
-    result.stageCount,
-    15,
-    "clean-checkout mode must validate reconstructed guide semantics",
-  );
+  assert.equal(result.stageCount, 0);
 });
 
-test("tracked guide-patch work record rejects tampering", () => {
-  const patchResult = validateStatelessMasterGuideBundle({
-    guideSource: null,
-    manifestSource,
-    patchSource: patchSource.replace(
-      "Document role: sole internal M0–M14 implementation sequencer.",
-      "Document role: changed after review.",
-    ),
+test("a present private guide is validated semantically", () => {
+  const result = validateStatelessMasterGuideBundle({
+    guideSource: validGuide,
+    manifestSource: null,
+    patchSource: null,
   });
-  assert.match(patchResult.errors.join("\n"), /patch sha256/u);
-
-  const manifest = JSON.parse(manifestSource);
-  manifest.classification = "AUTHORITY";
-  const manifestResult = validateStatelessMasterGuideBundle({
-    guideSource: null,
-    manifestSource: `${JSON.stringify(manifest)}\n`,
-    patchSource,
-  });
-  assert.match(manifestResult.errors.join("\n"), /classified WORK-RECORD/u);
+  assert.match(result.errors.join("\n"), /missing private guide patch/u);
+  assert.equal(result.skipped, false);
 });
-
-const guidePath = path.join(repoRoot, GUIDE_FILE);
-test(
-  "a present private guide must match the reviewed result and patch base",
-  { skip: !fs.existsSync(guidePath) },
-  () => {
-    const reviewedGuide = fs.readFileSync(guidePath, "utf8");
-    const reviewed = validateStatelessMasterGuideBundle({
-      guideSource: reviewedGuide,
-      manifestSource,
-      patchSource,
-    });
-    assert.deepEqual(reviewed.errors, []);
-    assert.equal(reviewed.skipped, false);
-
-    const drifted = validateStatelessMasterGuideBundle({
-      guideSource: `${reviewedGuide}\nImplementation merged in PR #999.\n`,
-      manifestSource,
-      patchSource,
-    });
-    assert.match(drifted.errors.join("\n"), /reviewed result sha256/u);
-    assert.match(
-      drifted.errors.join("\n"),
-      /merged-implementation PR narrative/u,
-    );
-  },
-);

@@ -220,12 +220,44 @@
       "total_reviewed_entry_count": 1547,
       "total_reviewed_entry_set_sha256": "3e195d0e9be744c91eb1fc435b77dbca3a30d4fdddba03e7476a40bfdca45111",
       "total_reviewed_identity_set_sha256": "0a08defbf1f390a9e0b9fb945b97c4183ac31ebe181ef1a281f1952c3b3bca96"
+    },
+    {
+      "epoch_id": "m1-5b-protected-transitions-review-2026-07-22",
+      "latest_epoch_identity_set_sha256": "aad009c6446b90a17cad3cb72055b01b29d31468274e0a181b5c32f56dcccad4",
+      "latest_epoch_reviewed_entry_count": 1070,
+      "latest_epoch_reviewed_entry_set_sha256": "2b0253700ebd9bf6aaa93ebd76baaedd1bf6f195f89da38e095873707871fefd",
+      "program_source_material_sha256": "1f277c763854cb3c2ceb4e3533046aa44ea491afd6476efd836c685e3579dcdb",
+      "review_lock_sha256": "cec30c477e21044761321e0736d4ebe8104a3ff128a7abfdb0670f009cd57934",
+      "reviewed_as_of": "2026-07-22",
+      "total_reviewed_entry_count": 1547,
+      "total_reviewed_entry_set_sha256": "3e195d0e9be744c91eb1fc435b77dbca3a30d4fdddba03e7476a40bfdca45111",
+      "total_reviewed_identity_set_sha256": "0a08defbf1f390a9e0b9fb945b97c4183ac31ebe181ef1a281f1952c3b3bca96",
+      "authorship_binding": "self_declared_unsigned",
+      "predecessor_entry_sha256": "4f698153b61e0f306066ddf6f435ef4f03397b0e11928594143a8cd1ea19e958",
+      "reviewer_id": "reviewer://ioi/private-implementation-estate-boundary-correction",
+      "sequence": 10
+    },
+    {
+      "epoch_id": "m1-5b-protected-transitions-review-2026-07-22",
+      "latest_epoch_identity_set_sha256": "aad009c6446b90a17cad3cb72055b01b29d31468274e0a181b5c32f56dcccad4",
+      "latest_epoch_reviewed_entry_count": 1070,
+      "latest_epoch_reviewed_entry_set_sha256": "2b0253700ebd9bf6aaa93ebd76baaedd1bf6f195f89da38e095873707871fefd",
+      "program_source_material_sha256": "ac31fe49677fba3787c7a63b10e8e610b427a43c48aea5c861d76f154f9f2655",
+      "review_lock_sha256": "cec30c477e21044761321e0736d4ebe8104a3ff128a7abfdb0670f009cd57934",
+      "reviewed_as_of": "2026-07-22",
+      "total_reviewed_entry_count": 1547,
+      "total_reviewed_entry_set_sha256": "3e195d0e9be744c91eb1fc435b77dbca3a30d4fdddba03e7476a40bfdca45111",
+      "total_reviewed_identity_set_sha256": "0a08defbf1f390a9e0b9fb945b97c4183ac31ebe181ef1a281f1952c3b3bca96",
+      "authorship_binding": "self_declared_unsigned",
+      "predecessor_entry_sha256": "ca182f34f43b9ae09fa91ae4be5001bd2d36b2e1d5d6d7d54507636da3c9e305",
+      "reviewer_id": "reviewer://ioi/private-implementation-estate-public-evidence-removal",
+      "sequence": 11
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "4f698153b61e0f306066ddf6f435ef4f03397b0e11928594143a8cd1ea19e958",
+    "entry_sha256": "a1e4ba0ba04f622a425fe6a7d66207b5da54729e41914d7360a03f1fadd7ca1c",
     "epoch_id": "m1-5b-protected-transitions-review-2026-07-22",
-    "sequence": 9
+    "sequence": 11
   }
 }

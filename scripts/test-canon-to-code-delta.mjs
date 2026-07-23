@@ -65,7 +65,7 @@ test("canon-to-code delta rejects bad owner links and manifest paths", () => {
   );
 });
 
-test("canon-to-code delta keeps coverage exact and proof/status routing pointer-only", () => {
+test("canon-to-code delta keeps coverage exact and excludes private status routing", () => {
   const driftedCoverage = source.replace(
     "| partial | request/review/receipt",
     "| complete | request/review/receipt",
@@ -75,13 +75,10 @@ test("canon-to-code delta keeps coverage exact and proof/status routing pointer-
     /disagrees with exact table coverage complete/u,
   );
 
-  const proseStatus = source.replace(
-    "[work-item records](./work-items/README.md)",
-    "proof passes in this cut",
-  );
+  const proseStatus = `${source}\nPublic [work-item records](./work-items/README.md).\n`;
   assert.match(
     messages(proseStatus),
-    /must route proof\/status by work-item pointer only/u,
+    /must not expose private work-item paths/u,
   );
 });
 

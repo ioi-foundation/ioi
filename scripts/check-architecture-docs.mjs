@@ -10,6 +10,12 @@ const architectureRoot = path.join(root, "docs/architecture");
 const internalDocsRoot = path.join(root, "internal-docs");
 const failures = [];
 
+if (fs.existsSync(path.join(architectureRoot, "_meta/work-items"))) {
+  failures.push(
+    "docs/architecture/_meta/work-items must not host the private implementation queue; use ignored internal-docs/implementation/work-items.",
+  );
+}
+
 function allMarkdownFiles(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   return entries.flatMap((entry) => {
