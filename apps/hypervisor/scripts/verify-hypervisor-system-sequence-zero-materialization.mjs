@@ -218,7 +218,9 @@ const JOURNEY_PROOF_CENSUS = new Map([
         "M1.5c MACHINE FLOOR: rewriting the governance subtree refuses as machine-protected with zero evidence",
         "M1.5c STALE HEAD: an expected chain head that is not the live head refuses conflict with zero evidence",
         "M1.5c WRONG SCOPE: a pause-scoped grant cannot authorize constitutional amendment",
-        "M1.5c AMEND: a real-wallet amendment swaps the constitution and profile set at one sequence with operational status unchanged",
+        "M1.5c AMEND: eight racing real-wallet amendments linearize to one sequence-three constitution swap with operational status unchanged",
+        "M1.5c REPLAY: a crash after wallet consumption converges exactly one further amendment at sequence four on restart",
+        "M1.5c CONTINUITY: pause and resume continue over the amended constitution carrying the successor profile set",
       ],
     },
   ],
@@ -5544,7 +5546,7 @@ async function runConstitutionalAmendmentJourney() {
     if (!plane) {
       throw new Error("BLOCKED: M1.5c Hypervisor daemon is not built");
     }
-    const call = (method, path, body) =>
+    let call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
 
     // Bootstrap one System to its converged ACTIVE head through the real
@@ -5892,21 +5894,29 @@ async function runConstitutionalAmendmentJourney() {
       { ...pinnedRoots, amendment: lawfulDeclaration, successor_constitution: lawfulSuccessor },
       AMENDMENT_SCOPE,
     );
-    const amended = await call("POST", amendmentPath, {
-      ...pinnedRoots,
-      amendment: lawfulDeclaration,
-      successor_constitution: lawfulSuccessor,
-      wallet_approval_grant: requireValue(
-        amendAuthority.grant,
-        "M1.5c lacks the amendment grant",
+    const amendGrant = requireValue(
+      amendAuthority.grant,
+      "M1.5c lacks the amendment grant",
+    );
+    const amendResponses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        call("POST", amendmentPath, {
+          ...pinnedRoots,
+          amendment: lawfulDeclaration,
+          successor_constitution: lawfulSuccessor,
+          wallet_approval_grant: amendGrant,
+        }),
       ),
-    });
+    );
+    const amendWinners = amendResponses.filter((r) => r.status === 200);
+    const amended = amendWinners[0] ?? { status: 0, body: {} };
     const amendedChain = amended.body.autonomous_system_chain;
     const amendedSet = amended.body.active_profile_set;
     const priorSet = eligibility.body.current_active_profile_set;
     ok(
-      "M1.5c AMEND: a real-wallet amendment swaps the constitution and profile set at one sequence with operational status unchanged",
-      amended.status === 200 &&
+      "M1.5c AMEND: eight racing real-wallet amendments linearize to one sequence-three constitution swap with operational status unchanged",
+      amendWinners.length === 1 &&
+        amended.status === 200 &&
         amended.body.sequence === 3 &&
         amendedChain?.constitution_ref === lawfulSuccessor.constitution_id &&
         amendedChain?.constitution_root === constitutionCandidateRoot(lawfulSuccessor) &&
@@ -5924,7 +5934,156 @@ async function runConstitutionalAmendmentJourney() {
         amended.body.claims?.constitution_changed === true &&
         amended.body.nonclaims?.status_change === false &&
         familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length === 0,
-      `${amended.status}/${amended.body.error?.code || "ok"} msg=${String(amended.body.error?.message || "").slice(0, 300)} seq=${amended.body.sequence} kind=${amended.body.operation_log?.head_entry?.entry_kind} set=${amendedSet?.schema_version}`,
+      `winners=${amendWinners.length} ${amended.status}/${amended.body.error?.code || "ok"} msg=${String(amended.body.error?.message || "").slice(0, 200)} seq=${amended.body.sequence} kind=${amended.body.operation_log?.head_entry?.entry_kind} set=${amendedSet?.schema_version} responses=${amendResponses.map((r) => `${r.status}/${r.body.op || r.body.error?.code || "no-code"}`).join(",")}`,
+    );
+
+    // 8) A crash after exact wallet consumption converges exactly one further
+    //    amendment on restart, through the background replay driver.
+    const secondSuccessor = successorConstitution(lawfulSuccessor, {
+      id: "constitution://acme/system-alpha/v3",
+      version: "1.2.0",
+      activationReceiptRef,
+      mutate: (body) => {
+        body.normative_constraints.permitted_ontology_action_contract_refs = [
+          "ontology-action://acme/amended/v1",
+          "ontology-action://acme/amended/v2",
+        ];
+      },
+    });
+    const secondDeclaration = amendmentDeclaration({
+      systemId,
+      ordinal: 2,
+      predecessor: lawfulSuccessor,
+      predecessorRoot: amendedChain.constitution_root,
+      successor: secondSuccessor,
+      changedFieldPaths: [AMENDABLE_POINTER],
+    });
+    const secondRequest = {
+      expected_chain_head_root: amendedChain.chain_root,
+      expected_predecessor_state_root:
+        amended.body.lifecycle_state.lifecycle_state_root,
+      amendment: secondDeclaration,
+      successor_constitution: secondSuccessor,
+    };
+    const secondAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      amendmentPath,
+      secondRequest,
+      AMENDMENT_SCOPE,
+    );
+    const secondGrant = requireValue(
+      secondAuthority.grant,
+      "M1.5c lacks the second amendment grant",
+    );
+    await plane.stop();
+    plane = await startVerifierPlane({
+      dataDir,
+      env: {
+        ...resolver.env,
+        IOI_TEST_FORCE_SYSTEM_AMENDMENT_AFTER_WALLET_CONSUMPTION:
+          "amend_constitution",
+      },
+    });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5c fault plane is not built");
+    }
+    call = (method, path, requestBody) =>
+      jsonCall(plane.daemonUrl, method, path, requestBody);
+    const interrupted = await call("POST", amendmentPath, {
+      ...secondRequest,
+      wallet_approval_grant: secondGrant,
+    });
+    requireValue(
+      interrupted.status === 500 &&
+        interrupted.body.error?.code ===
+          "system_lifecycle_pending_convergence" &&
+        familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length === 1,
+      `M1.5c fault injection did not park the amendment: ${interrupted.status}/${interrupted.body.error?.code || "no-code"} intents=${familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length}`,
+    );
+    await plane.stop();
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5c replay plane is not built");
+    }
+    call = (method, path, requestBody) =>
+      jsonCall(plane.daemonUrl, method, path, requestBody);
+    const amendmentIntentCleared = await waitForIntentRecordsToClear(
+      dataDir,
+      AMENDMENT_INTENT_FAMILY,
+    );
+    const convergedAmendment = await call("GET", amendmentPath);
+    ok(
+      "M1.5c REPLAY: a crash after wallet consumption converges exactly one further amendment at sequence four on restart",
+      amendmentIntentCleared &&
+        convergedAmendment.status === 200 &&
+        convergedAmendment.body.chain_head?.latest_sequence === 4 &&
+        convergedAmendment.body.chain_head?.constitution_root ===
+          constitutionCandidateRoot(secondSuccessor) &&
+        convergedAmendment.body.committed_amendments?.length === 2 &&
+        familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length === 0,
+      `cleared=${amendmentIntentCleared} seq=${convergedAmendment.body.chain_head?.latest_sequence} committed=${convergedAmendment.body.committed_amendments?.length}`,
+    );
+
+    // 9) Operational transitions continue over the AMENDED constitution and
+    //    carry the successor profile set forward (the m1-5b continuity fix:
+    //    transitions source the set from live state, not the frozen
+    //    sequence-two activation effect).
+    const transitionPath = (op) =>
+      `${GENESIS_ROUTE}/${source.sourceTail}/transitions/${op}`;
+    const headAfterReplay = convergedAmendment.body.chain_head;
+    const pauseRequest = {
+      expected_chain_head_root: headAfterReplay.chain_root,
+      expected_predecessor_state_root: headAfterReplay.latest_state_root,
+    };
+    const pauseAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      transitionPath("pause"),
+      pauseRequest,
+      "scope:autonomous_system.lifecycle.pause",
+    );
+    const pausedAfterAmendment = await call("POST", transitionPath("pause"), {
+      ...pauseRequest,
+      wallet_approval_grant: requireValue(
+        pauseAuthority.grant,
+        "M1.5c lacks the post-amendment pause grant",
+      ),
+    });
+    const pausedChain = pausedAfterAmendment.body.autonomous_system_chain;
+    const pausedState = pausedAfterAmendment.body.lifecycle_state;
+    const resumeRequest = {
+      expected_chain_head_root: pausedChain?.chain_root,
+      expected_predecessor_state_root: pausedState?.lifecycle_state_root,
+    };
+    const resumeAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      transitionPath("resume"),
+      resumeRequest,
+      "scope:autonomous_system.lifecycle.resume",
+    );
+    const resumedAfterAmendment = await call("POST", transitionPath("resume"), {
+      ...resumeRequest,
+      wallet_approval_grant: requireValue(
+        resumeAuthority.grant,
+        "M1.5c lacks the post-amendment resume grant",
+      ),
+    });
+    const resumedChain = resumedAfterAmendment.body.autonomous_system_chain;
+    ok(
+      "M1.5c CONTINUITY: pause and resume continue over the amended constitution carrying the successor profile set",
+      pausedAfterAmendment.status === 200 &&
+        pausedState?.status === "paused" &&
+        pausedState?.active_profile_set_root ===
+          convergedAmendment.body.current_active_profile_set
+            ?.active_profile_set_root &&
+        resumedAfterAmendment.status === 200 &&
+        resumedChain?.latest_sequence === 6 &&
+        resumedChain?.status === "active" &&
+        resumedChain?.constitution_root ===
+          constitutionCandidateRoot(secondSuccessor),
+      `pause=${pausedAfterAmendment.status}/${pausedAfterAmendment.body.error?.code || "ok"} resume=${resumedAfterAmendment.status}/${resumedAfterAmendment.body.error?.code || "ok"} seq=${resumedChain?.latest_sequence} constitution_carried=${resumedChain?.constitution_root === constitutionCandidateRoot(secondSuccessor)}`,
     );
   } finally {
     if (plane) await plane.stop();
