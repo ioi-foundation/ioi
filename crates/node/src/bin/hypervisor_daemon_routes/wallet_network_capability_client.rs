@@ -14,6 +14,9 @@
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
+
 use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_api::state::service_namespace_prefix;
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
@@ -23,9 +26,10 @@ use ioi_ipc::public::{
     GetTransactionStatusRequest, SubmissionStatus, SubmitTransactionRequest, TxStatus,
 };
 use ioi_services::wallet_network::{
-    verify_wallet_signature_proof, ApprovalGrantConsumptionReceipt,
+    verify_wallet_signature_proof, ApprovalGrantConsumptionReceipt, ApprovalGrantState,
     ConsumeApprovalGrantForEffectParams, ConsumeApprovalGrantForEffectV2Params,
 };
+use ioi_types::app::wallet_network::{WalletApprovalDecision, WalletApprovalDecisionKind};
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainId, ChainTransaction,
     PrincipalAuthorityBindingProofV1, PrincipalAuthorityResolutionReceipt,
@@ -40,6 +44,10 @@ use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
 const RECEIPT_PREFIX: &[u8] = b"principal_authority_resolution_receipt::";
 const BINDING_PREFIX: &[u8] = b"principal_authority_binding::";
 const EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] = b"approval_effect_consumption_receipt::";
+const APPROVAL_PREFIX: &[u8] = b"approval::";
+const APPROVAL_GRANT_STATE_PREFIX: &[u8] = b"approval_grant_state::";
+const REVOCATION_EPOCH_KEY: &[u8] = b"revocation_epoch";
+const PANIC_FLAG_KEY: &[u8] = b"panic";
 const DEFAULT_TIMEOUT_MS: u64 = 5_000;
 const MIN_TIMEOUT_MS: u64 = 250;
 const MAX_TIMEOUT_MS: u64 = 180_000;
@@ -64,10 +72,63 @@ struct Config {
     rpc_addr: String,
     chain_id: ChainId,
     client_key: Ed25519KeyPair,
+    transaction_lock_path: PathBuf,
     root: WalletControlPlaneRootRecord,
     tls_ca: Vec<u8>,
     tls_server_name: String,
     timeout: Duration,
+}
+
+#[cfg(unix)]
+struct WalletTransactionProcessLock(std::fs::File);
+
+#[cfg(unix)]
+impl Drop for WalletTransactionProcessLock {
+    fn drop(&mut self) {
+        // SAFETY: the descriptor remains owned by this guard for the call.
+        unsafe {
+            libc::flock(self.0.as_raw_fd(), libc::LOCK_UN);
+        }
+    }
+}
+
+#[cfg(unix)]
+fn lock_wallet_transaction(path: &PathBuf) -> std::io::Result<WalletTransactionProcessLock> {
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(path)?;
+    loop {
+        // SAFETY: `file` owns a valid descriptor and remains alive in the returned guard.
+        let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
+        if result == 0 {
+            return Ok(WalletTransactionProcessLock(file));
+        }
+        let error = std::io::Error::last_os_error();
+        if error.kind() != std::io::ErrorKind::Interrupted {
+            return Err(error);
+        }
+    }
+}
+
+#[cfg(unix)]
+async fn acquire_wallet_transaction_process_lock(
+    path: &PathBuf,
+) -> Result<WalletTransactionProcessLock, ResolveError> {
+    let path = path.clone();
+    tokio::task::spawn_blocking(move || lock_wallet_transaction(&path))
+        .await
+        .map_err(|error| {
+            ResolveError::Unavailable(format!(
+                "wallet.network transaction lock task failed: {error}"
+            ))
+        })?
+        .map_err(|error| {
+            ResolveError::Unavailable(format!(
+                "wallet.network transaction lock could not be acquired: {error}"
+            ))
+        })
 }
 
 pub(crate) fn configured() -> bool {
@@ -201,10 +262,25 @@ fn load_config() -> Result<Config, ResolveError> {
         .and_then(|value| value.trim().parse::<u64>().ok())
         .unwrap_or(DEFAULT_TIMEOUT_MS)
         .clamp(MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
+    let transaction_lock_path = std::env::var("IOI_WALLET_NETWORK_TRANSACTION_LOCK_PATH")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(
+                std::env::var("IOI_HYPERVISOR_DATA_DIR")
+                    .unwrap_or_else(|_| ".ioi/hypervisor/data".to_string()),
+            )
+            .join(".wallet-network-transactions.lock")
+        });
     Ok(Config {
         rpc_addr,
         chain_id,
         client_key,
+        // The capability key is commonly mounted read-only. Transaction
+        // serialization is mutable daemon state and must never be placed
+        // beside that secret merely because its pathname is convenient.
+        transaction_lock_path,
         root,
         tls_ca,
         tls_server_name,
@@ -423,6 +499,9 @@ async fn resolve_inner(
     params: ResolvePrincipalAuthorityParams,
 ) -> Result<AuthenticatedResolution, ResolveError> {
     let _transaction_guard = TRANSACTION_LOCK.lock().await;
+    #[cfg(unix)]
+    let _process_guard =
+        acquire_wallet_transaction_process_lock(&config.transaction_lock_path).await?;
     let mut client = connect(config).await?;
     let encoded = codec::to_bytes_canonical(&params).map_err(|error| {
         ResolveError::Invalid(format!("resolution request encoding failed: {error}"))
@@ -511,6 +590,9 @@ async fn consume_for_effect_inner<P: parity_scale_codec::Encode>(
     receipt_params: &ConsumeApprovalGrantForEffectParams,
 ) -> Result<ApprovalGrantConsumptionReceipt, ResolveError> {
     let _transaction_guard = TRANSACTION_LOCK.lock().await;
+    #[cfg(unix)]
+    let _process_guard =
+        acquire_wallet_transaction_process_lock(&config.transaction_lock_path).await?;
     let mut client = connect(config).await?;
     let encoded = codec::to_bytes_canonical(wire_params).map_err(|error| {
         ResolveError::Invalid(format!(
@@ -607,6 +689,154 @@ pub(crate) async fn consume_approval_grant_for_effect_v2(
     .map_err(|_| {
         ResolveError::Unavailable(format!(
             "authenticated wallet.network grant consumption exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
+}
+
+fn validate_exact_effect_consumption_receipt(
+    params: &ConsumeApprovalGrantForEffectV2Params,
+    receipt: ApprovalGrantConsumptionReceipt,
+) -> Result<ApprovalGrantConsumptionReceipt, ResolveError> {
+    if receipt.schema_version == 1
+        && receipt.request_hash == params.request_hash
+        && receipt.grant_hash == params.grant_hash
+        && receipt.consumption_id == params.consumption_id
+        && receipt.principal_authority == params.expected_principal_authority
+        && receipt.target.canonical_label() == params.expected_target_label
+    {
+        Ok(receipt)
+    } else {
+        Err(ResolveError::Invalid(
+            "wallet.network found a foreign receipt in the requested consumption slot".to_string(),
+        ))
+    }
+}
+
+/// Recover an already committed exact wallet consumption without submitting a second service
+/// transaction. This is the crash boundary used after the wallet returned success but before the
+/// daemon durably projected the receipt into its own evidence families.
+pub(crate) async fn recover_approval_grant_consumption_for_effect_v2(
+    params: &ConsumeApprovalGrantForEffectV2Params,
+) -> Result<Option<ApprovalGrantConsumptionReceipt>, ResolveError> {
+    let config = load_config()?;
+    let timeout = config.timeout;
+    tokio::time::timeout(timeout, async {
+        let _transaction_guard = TRANSACTION_LOCK.lock().await;
+        let mut client = connect(&config).await?;
+        let receipt_key = namespaced_key(EFFECT_CONSUMPTION_RECEIPT_PREFIX, &params.consumption_id);
+        query_raw(&mut client, receipt_key)
+            .await?
+            .map(|bytes| {
+                decode_state_value::<ApprovalGrantConsumptionReceipt>(&bytes)
+                    .and_then(|receipt| validate_exact_effect_consumption_receipt(params, receipt))
+            })
+            .transpose()
+    })
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "authenticated wallet.network consumption recovery exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
+}
+
+/// Read-only fail-fast validation for every wallet-owned precondition that can be established
+/// before a daemon claims the unique chain-writer reservation. The later consume transaction is
+/// still authoritative and atomic; this check exists so an already wrong-target, exhausted,
+/// revoked, or superseded grant cannot poison the predecessor's writer slot. Expiry is left to
+/// the atomic wallet transaction because only wallet.network has authoritative consensus time.
+pub(crate) async fn preflight_approval_grant_for_effect_v2(
+    params: &ConsumeApprovalGrantForEffectV2Params,
+) -> Result<(), ResolveError> {
+    let config = load_config()?;
+    let signer_account = account_id_from_key_material(
+        SignatureSuite::ED25519,
+        &config.client_key.public_key().to_bytes(),
+    )
+    .map_err(|error| {
+        ResolveError::NotConfigured(format!(
+            "Hypervisor capability signer id could not be derived: {error}"
+        ))
+    })?;
+    let timeout = config.timeout;
+    tokio::time::timeout(timeout, async {
+        let _transaction_guard = TRANSACTION_LOCK.lock().await;
+        let mut client = connect(&config).await?;
+
+        let receipt_key = namespaced_key(
+            EFFECT_CONSUMPTION_RECEIPT_PREFIX,
+            &params.consumption_id,
+        );
+        if let Some(bytes) = query_raw(&mut client, receipt_key).await? {
+            let receipt: ApprovalGrantConsumptionReceipt = decode_state_value(&bytes)?;
+            validate_exact_effect_consumption_receipt(params, receipt)?;
+            return Ok(());
+        }
+
+        let grant_key = namespaced_key(APPROVAL_GRANT_STATE_PREFIX, &params.grant_hash);
+        let grant_bytes = query_raw(&mut client, grant_key).await?.ok_or_else(|| {
+            ResolveError::Refused(
+                "wallet.network preflight found no state for the exact approval grant".to_string(),
+            )
+        })?;
+        let grant_state: ApprovalGrantState = decode_state_value(&grant_bytes)?;
+        let grant = grant_state.approval.approval_grant.as_ref().ok_or_else(|| {
+            ResolveError::Invalid(
+                "wallet.network preflight found an approved decision without its grant".to_string(),
+            )
+        })?;
+        let approval_key = namespaced_key(APPROVAL_PREFIX, &params.request_hash);
+        let approval_bytes = query_raw(&mut client, approval_key).await?.ok_or_else(|| {
+            ResolveError::Refused(
+                "wallet.network preflight found no current approval for the exact request"
+                    .to_string(),
+            )
+        })?;
+        let current_approval: WalletApprovalDecision = decode_state_value(&approval_bytes)?;
+        let active_revocation_epoch = match query_raw(
+            &mut client,
+            namespaced_key(REVOCATION_EPOCH_KEY, &[]),
+        )
+        .await?
+        {
+            Some(bytes) => decode_state_value::<u64>(&bytes)?,
+            None => 0,
+        };
+        let panic_active = match query_raw(&mut client, namespaced_key(PANIC_FLAG_KEY, &[])).await? {
+            Some(bytes) => decode_state_value::<bool>(&bytes)?,
+            None => false,
+        };
+        if grant_state.schema_version != 1
+            || grant_state.grant_hash != params.grant_hash
+            || grant_state.approval != current_approval
+            || grant_state.approval.interception.request_hash != params.request_hash
+            || grant.request_hash != params.request_hash
+            || !matches!(
+                grant_state.approval.decision,
+                WalletApprovalDecisionKind::AutoApproved
+                    | WalletApprovalDecisionKind::ApprovedByHuman
+            )
+            || grant_state.approval.interception.target.canonical_label()
+                != params.expected_target_label
+            || grant_state.max_usages != params.expected_max_usages
+            || grant_state.remaining_usages == 0
+            || grant.audience != signer_account
+            || grant_state.issued_revocation_epoch != active_revocation_epoch
+            || panic_active
+        {
+            return Err(ResolveError::Refused(
+                "wallet.network preflight refused the exact target, live approval, one-use budget, audience, or revocation state"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "authenticated wallet.network grant preflight exceeded {} ms",
             timeout.as_millis()
         ))
     })?

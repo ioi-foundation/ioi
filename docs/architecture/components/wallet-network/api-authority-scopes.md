@@ -744,7 +744,7 @@ Protected autonomous-system transitions use separate scopes:
 ```text
 scope:autonomous_system.genesis_admit
 scope:autonomous_system.genesis_materialize
-scope:autonomous_system.constitution_amend
+scope:autonomous_system.lifecycle.amend_constitution
 scope:autonomous_system.deployment_profile_change
 scope:autonomous_system.node_admit
 scope:autonomous_system.node_role_change

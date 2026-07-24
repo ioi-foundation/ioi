@@ -1,0 +1,88 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-amendment-execution-decision/identity/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_amendment_execution_decision.root.recomputes",
+      "description": "The decision root binds exactly one amendment-execution proposal, its amendment declaration, its commitment, and the wallet authority-consumption tuple.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-amendment-execution-decision-jcs-sha256.v1"
+          },
+          "decision_ref": {
+            "path": "$.decision_ref"
+          },
+          "proposal_ref": {
+            "path": "$.proposal_ref"
+          },
+          "proposal_root": {
+            "path": "$.proposal_root"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "op": {
+            "path": "$.op"
+          },
+          "sequence": {
+            "path": "$.sequence"
+          },
+          "amendment_ref": {
+            "path": "$.amendment_ref"
+          },
+          "amendment_root": {
+            "path": "$.amendment_root"
+          },
+          "approval_decision_root": {
+            "path": "$.approval_decision_root"
+          },
+          "irreversibility": {
+            "path": "$.irreversibility"
+          },
+          "required_scope": {
+            "path": "$.required_scope"
+          },
+          "operation_commitment": {
+            "path": "$.operation_commitment"
+          },
+          "input_hash": {
+            "path": "$.input_hash"
+          },
+          "policy_hash": {
+            "path": "$.policy_hash"
+          },
+          "effect_hash": {
+            "path": "$.effect_hash"
+          },
+          "authority_grant_ref": {
+            "path": "$.authority_grant_ref"
+          },
+          "authority_evidence_ref": {
+            "path": "$.authority_evidence_ref"
+          },
+          "authority_evidence_root": {
+            "path": "$.authority_evidence_root"
+          },
+          "wallet_grant_consumption_ref": {
+            "path": "$.wallet_grant_consumption_ref"
+          },
+          "wallet_grant_consumption_evidence_ref": {
+            "path": "$.wallet_grant_consumption_evidence_ref"
+          },
+          "outcome": {
+            "path": "$.outcome"
+          },
+          "decided_at": {
+            "path": "$.decided_at"
+          }
+        },
+        "expected_path": "$.decision_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

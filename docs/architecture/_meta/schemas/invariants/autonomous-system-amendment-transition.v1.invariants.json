@@ -1,0 +1,23 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-amendment-transition/commit/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-amendment-transition/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_amendment_transition.identity.required",
+      "description": "A committed amendment transition retains its exact transition identity.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.lifecycle_transition_id"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_transition.status.unchanged",
+      "description": "Constitutional amendment cannot change operational lifecycle status.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.previous_state", "$.proposed_state"]
+      }
+    }
+  ]
+}

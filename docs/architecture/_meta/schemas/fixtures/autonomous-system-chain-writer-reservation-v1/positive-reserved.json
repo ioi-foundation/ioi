@@ -1,0 +1,11 @@
+{
+  "schema_version": "ioi.autonomous-system-chain-writer-reservation.v1",
+  "reservation_ref": "chain-writer-reservation://sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "system_id": "system://acme/system-alpha",
+  "sequence": 3,
+  "predecessor_chain_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "writer_plan_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "operation_ref": "proposal://acme/system-alpha/amend-constitution/3",
+  "operation_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "operation": "amend_constitution"
+}

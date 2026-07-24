@@ -526,7 +526,7 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
             ? candidate.length > 0
             : typeof candidate === "string" && candidate.length > 0);
       } else if (
-        expression.operator === "fields_equal" &&
+        ["fields_equal", "fields_not_equal"].includes(expression.operator) &&
         Array.isArray(expression.paths) &&
         expression.paths.length === 2
       ) {
@@ -535,7 +535,9 @@ function evaluateInvariants(profiles, value, expectedSchemaHash) {
         valid =
           left !== undefined &&
           right !== undefined &&
-          structuralJsonEqual(left, right);
+          (expression.operator === "fields_equal"
+            ? structuralJsonEqual(left, right)
+            : !structuralJsonEqual(left, right));
       } else if (
         expression.operator === "array_field_equals" &&
         typeof expression.array_path === "string" &&

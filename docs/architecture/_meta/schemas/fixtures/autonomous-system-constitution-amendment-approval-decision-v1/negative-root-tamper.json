@@ -1,0 +1,17 @@
+{
+  "schema_version": "ioi.autonomous-system-constitution-amendment-approval-decision.v1",
+  "decision_ref": "decision://fixture/alpha/amendment/2",
+  "decision_root": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "amendment_ref": "constitution-amendment://fixture/alpha/constitution/2",
+  "amendment_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "proposal_ref": "proposal://fixture/alpha/amendment/2",
+  "system_id": "system://fixture/alpha",
+  "governing_decision_profile_ref": "policy://fixture/governance/amendments",
+  "predecessor_constitution_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "successor_constitution_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "changed_field_paths_commitment": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "evidence_refs": ["evidence://fixture/alpha/amendment/2"],
+  "authority_requirement_refs": ["authority-requirement://fixture/governance/amend"],
+  "outcome": "approved",
+  "decided_at": "2026-07-23T12:00:00Z"
+}

@@ -1,0 +1,34 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-constitution-amendment-approval-decision/root/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment-approval-decision/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_constitution_amendment_approval_decision.root.recomputes",
+      "description": "The approval root binds the exact declaration coordinates, governing profile, evidence and authority requirements.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.autonomous-system-constitution-amendment-approval-decision-jcs-sha256.v1" },
+          "schema_version": { "path": "$.schema_version" },
+          "decision_ref": { "path": "$.decision_ref" },
+          "amendment_ref": { "path": "$.amendment_ref" },
+          "amendment_root": { "path": "$.amendment_root" },
+          "proposal_ref": { "path": "$.proposal_ref" },
+          "system_id": { "path": "$.system_id" },
+          "governing_decision_profile_ref": { "path": "$.governing_decision_profile_ref" },
+          "predecessor_constitution_root": { "path": "$.predecessor_constitution_root" },
+          "successor_constitution_root": { "path": "$.successor_constitution_root" },
+          "changed_field_paths_commitment": { "path": "$.changed_field_paths_commitment" },
+          "evidence_refs": { "path": "$.evidence_refs" },
+          "authority_requirement_refs": { "path": "$.authority_requirement_refs" },
+          "outcome": { "path": "$.outcome" },
+          "decided_at": { "path": "$.decided_at" }
+        },
+        "expected_path": "$.decision_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

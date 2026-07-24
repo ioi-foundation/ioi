@@ -19,7 +19,7 @@ use super::system_activation::{
 };
 
 /// JCS domain for the semantic lifecycle-state root.
-const LIFECYCLE_STATE_HASH_PROFILE: &str =
+pub(crate) const LIFECYCLE_STATE_HASH_PROFILE: &str =
     "ioi.autonomous-system-lifecycle-state-jcs-sha256.v1";
 /// JCS domain for the protected-transition operation commitment.
 const PROTECTED_OPERATION_COMMITMENT_HASH_PROFILE: &str =
@@ -265,7 +265,10 @@ impl ProtectedTransitionOp {
         use ProtectedLifecycleStatus as S;
         match self {
             Self::Pause => S::Paused,
-            Self::Resume | Self::Reinstate | Self::Wake | Self::CompleteRecovery
+            Self::Resume
+            | Self::Reinstate
+            | Self::Wake
+            | Self::CompleteRecovery
             | Self::ReleaseQuarantine => S::Active,
             Self::Suspend => S::Suspended,
             Self::EnterDormancy => S::Dormant,
@@ -409,7 +412,11 @@ mod tests {
                 ],
                 "revoked",
             ),
-            ("decommission", &["retired", "archived", "revoked"], "decommissioned"),
+            (
+                "decommission",
+                &["retired", "archived", "revoked"],
+                "decommissioned",
+            ),
         ];
         assert_eq!(canon.len(), ProtectedTransitionOp::ALL.len());
         for (name, predecessors, result) in canon {
@@ -446,7 +453,7 @@ pub struct CompiledProtectedTransitionPlan {
     pub authority_effect: Value,
 }
 
-fn required_effect_string<'a>(effect: &'a Value, name: &str) -> Result<&'a str, String> {
+pub(crate) fn required_effect_string<'a>(effect: &'a Value, name: &str) -> Result<&'a str, String> {
     effect
         .get(name)
         .and_then(Value::as_str)
@@ -457,7 +464,7 @@ fn required_effect_string<'a>(effect: &'a Value, name: &str) -> Result<&'a str, 
 /// Validate the committed sequence-two activation effect as the identity
 /// carrier for a live System and refuse anything that is not exactly the
 /// admitted live posture.
-fn validate_activation_identity(effect: &Value) -> Result<(), String> {
+pub(crate) fn validate_activation_identity(effect: &Value) -> Result<(), String> {
     if required_effect_string(effect, "schema_version")?
         != "ioi.autonomous-system-lifecycle-authority-effect.v1"
     {
@@ -485,7 +492,7 @@ fn validate_activation_identity(effect: &Value) -> Result<(), String> {
 /// activation state or a prior protected lifecycle state. Returns the state
 /// ref, sequence, and status; the bootstrap statuses `draft`/`initialized`
 /// refuse because only activation may leave them.
-fn predecessor_state_facts(
+pub(crate) fn predecessor_state_facts(
     state: &Value,
 ) -> Result<(String, u64, ProtectedLifecycleStatus), String> {
     let (ref_key, is_activation) = if state.get("activation_state_ref").is_some() {
@@ -545,10 +552,18 @@ pub fn compile_protected_transition_plan(
         .checked_add(1)
         .filter(|next| *next >= 3)
         .ok_or("resulting sequence is not three or later")?;
+    // Profile-set coordinates come from the predecessor STATE, not the frozen
+    // sequence-two activation effect: a constitutional amendment swaps the
+    // active set, and every later transition must carry the current one. The
+    // two sources agree until the first amendment; afterwards only the state
+    // is truthful. The activation effect must still declare its own admission
+    // coordinates to remain a valid identity carrier.
+    required_effect_string(activation_effect, "active_profile_set_ref")?;
+    required_effect_string(activation_effect, "active_profile_set_root")?;
     let active_profile_set_ref =
-        required_effect_string(activation_effect, "active_profile_set_ref")?;
+        required_string(&previous_step.state, "/active_profile_set_ref")?.to_owned();
     let active_profile_set_root =
-        required_effect_string(activation_effect, "active_profile_set_root")?;
+        required_string(&previous_step.state, "/active_profile_set_root")?.to_owned();
     let chain_ref = required_effect_string(activation_effect, "chain_ref")?;
     let resulting_status = op.resulting_status();
 
@@ -635,8 +650,7 @@ pub fn compile_protected_transition_plan(
         "profile_set_changed": false,
         "operation_commitment": Value::Null,
     });
-    effect["operation_commitment"] =
-        Value::String(protected_operation_commitment(&effect)?);
+    effect["operation_commitment"] = Value::String(protected_operation_commitment(&effect)?);
 
     Ok(CompiledProtectedTransitionPlan {
         op,
@@ -723,6 +737,8 @@ mod compile_tests {
                 "system_id": "system://fixture/alpha",
                 "sequence": 2,
                 "status": status,
+                "active_profile_set_ref": "active-profile-set://fixture/alpha",
+                "active_profile_set_root": h(0x16),
             })
         } else {
             json!({
@@ -731,6 +747,8 @@ mod compile_tests {
                 "system_id": "system://fixture/alpha",
                 "sequence": sequence,
                 "status": status,
+                "active_profile_set_ref": "active-profile-set://fixture/alpha",
+                "active_profile_set_root": h(0x16),
             })
         };
         UnverifiedCommittedSystemLifecycleStep {
@@ -751,9 +769,17 @@ mod compile_tests {
     fn every_legal_matrix_row_compiles_and_every_illegal_row_refuses() {
         use ProtectedLifecycleStatus as S;
         let all = [
-            S::Active, S::Degraded, S::Paused, S::Suspended, S::Dormant,
-            S::Recovering, S::Quarantined, S::Retired, S::Archived,
-            S::Revoked, S::Decommissioned,
+            S::Active,
+            S::Degraded,
+            S::Paused,
+            S::Suspended,
+            S::Dormant,
+            S::Recovering,
+            S::Quarantined,
+            S::Retired,
+            S::Archived,
+            S::Revoked,
+            S::Decommissioned,
         ];
         for op in ProtectedTransitionOp::ALL {
             for predecessor in all {
@@ -765,17 +791,18 @@ mod compile_tests {
                 );
                 if op.admits_predecessor(predecessor) {
                     let plan = outcome.unwrap_or_else(|error| {
-                        panic!("{} over {} refused: {error}", op.as_str(), predecessor.as_str())
+                        panic!(
+                            "{} over {} refused: {error}",
+                            op.as_str(),
+                            predecessor.as_str()
+                        )
                     });
                     assert_eq!(plan.sequence, 8);
                     assert_eq!(
                         plan.authority_effect["resulting_status"],
                         op.resulting_status().as_str(),
                     );
-                    assert_eq!(
-                        plan.authority_effect["required_scope"],
-                        op.required_scope(),
-                    );
+                    assert_eq!(plan.authority_effect["required_scope"], op.required_scope(),);
                     assert_eq!(
                         plan.authority_effect["irreversibility"],
                         op.irreversibility().as_str(),
@@ -802,10 +829,7 @@ mod compile_tests {
         )
         .expect("pause over the activation step");
         assert_eq!(plan.sequence, 3);
-        assert_eq!(
-            plan.semantic_state["predecessor_state_root"],
-            h(0x21),
-        );
+        assert_eq!(plan.semantic_state["predecessor_state_root"], h(0x21),);
     }
 
     #[test]
@@ -882,9 +906,7 @@ mod compile_tests {
         );
         assert_eq!(
             first.authority_effect["operation_commitment"],
-            Value::String(
-                protected_operation_commitment(&first.authority_effect).unwrap()
-            ),
+            Value::String(protected_operation_commitment(&first.authority_effect).unwrap()),
             "commitment recomputes from the closed effect",
         );
     }

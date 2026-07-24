@@ -47,6 +47,7 @@
       "amendment_mode": "external_governance_only",
       "amendment_decision_profile_ref": "policy://acme/governance/amendments",
       "protected_clause_refs": ["constitution-clause://acme/purpose"],
+      "protected_field_paths": ["/declared_purpose"],
       "agent_may_propose_amendment": true,
       "agent_may_commit_amendment": false,
       "emergency_pause_authority_refs": ["wallet://acme/governance"],

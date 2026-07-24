@@ -1,6 +1,6 @@
 {
   "architecture_or_production_capability_closure": false,
-  "as_of_date": "2026-07-22",
+  "as_of_date": "2026-07-23",
   "assurance_posture": {
     "accepted_head_currentness": "not_established",
     "authorship_binding": "self_declared_label_unsigned",
@@ -9,12 +9,12 @@
     "repository_baseline_present": true,
     "snapshot_head_binding": "verified"
   },
-  "build_fingerprint": "60656afa0cf5f2a22856a3ce81496956b80ef36ec418ea665dbd1b8f167567c7",
+  "build_fingerprint": "95d4553a45cb8b291f0a90abb4d012f956a3a902d36c569ef1316b1959c67a86",
   "census_counts": {
-    "consequential": 973,
-    "partial_consequential": 955,
+    "consequential": 974,
+    "partial_consequential": 956,
     "terminal_consequential": 0,
-    "total": 1547,
+    "total": 1549,
     "unavailable_consequential": 18
   },
   "claim_scope": "M0 program control and claim lock only",

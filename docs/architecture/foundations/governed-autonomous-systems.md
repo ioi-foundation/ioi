@@ -178,8 +178,13 @@ Ordinary work and improvement proposals may change governed mutable objects;
 they may not silently rewrite the constitution that defines whether the system
 is bounded. Constitution amendment uses a distinct high-assurance path with
 declared notice, approval, challenge, activation, rollback, and affected-party
-obligations. A system without an enforceable change boundary is an automated
-application, not yet a safely bounded autonomous institution.
+obligations. In the M1 single-authority profile, notice and challenge windows
+are declared governance evidence, not clock-enforced runtime gates — an honest
+nonclaim until multi-party governance arrives. Execution of an approved
+amendment is chain-committed exactly once, and rollback is forward-only: a
+revert is a new amendment, never an in-place rewrite. A system without an
+enforceable change boundary is an automated application, not yet a safely
+bounded autonomous institution.
 
 ### Intelligence Is Upstream; Admission Is Deterministic
 

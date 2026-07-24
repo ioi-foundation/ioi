@@ -138,10 +138,12 @@ mod substrate_store;
 mod supervisor_routes;
 #[path = "hypervisor_daemon_routes/system_activation_routes.rs"]
 mod system_activation_routes;
-#[path = "hypervisor_daemon_routes/system_protected_transition_routes.rs"]
-mod system_protected_transition_routes;
+#[path = "hypervisor_daemon_routes/system_amendment_routes.rs"]
+mod system_amendment_routes;
 #[path = "hypervisor_daemon_routes/system_genesis_routes.rs"]
 mod system_genesis_routes;
+#[path = "hypervisor_daemon_routes/system_protected_transition_routes.rs"]
+mod system_protected_transition_routes;
 #[path = "hypervisor_daemon_routes/system_sequence_zero_routes.rs"]
 mod system_sequence_zero_routes;
 #[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
@@ -2097,6 +2099,14 @@ async fn async_main() -> anyhow::Result<()> {
                 )),
         )
         .route(
+            "/v1/hypervisor/autonomous-systems/:id/amendments",
+            get(system_amendment_routes::handle_get_amendment)
+                .post(system_amendment_routes::handle_amendment)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
             "/v1/hypervisor/work-results",
             get(work_result_routes::handle_work_results_list)
                 .post(work_result_routes::handle_work_result_create),
@@ -3312,9 +3322,16 @@ async fn async_main() -> anyhow::Result<()> {
                         governed_max_intents,
                     )
                     .await;
-                    system_protected_transition_routes::complete_protected_transition_intents(&system_data_dir,
+                    system_protected_transition_routes::complete_protected_transition_intents(
+                        &system_data_dir,
                         governed_max_intents,
-                    ).await;
+                    )
+                    .await;
+                    system_amendment_routes::complete_amendment_intents(
+                        &system_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
                 },
             );
             tokio::join!(

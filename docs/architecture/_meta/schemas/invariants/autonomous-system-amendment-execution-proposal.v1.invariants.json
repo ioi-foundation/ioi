@@ -1,0 +1,296 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-amendment-execution-proposal/identity/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_amendment_execution_proposal.root.recomputes",
+      "description": "The proposal root binds the exact server-derived closed effect, the approved amendment declaration, the predecessor and successor constitution roots, the changed-path commitment, and the transition coordinates.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-amendment-execution-proposal-jcs-sha256.v1"
+          },
+          "proposal_ref": {
+            "path": "$.proposal_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.genesis_ref"
+          },
+          "op": {
+            "path": "$.op"
+          },
+          "sequence": {
+            "path": "$.sequence"
+          },
+          "amendment_ref": {
+            "path": "$.amendment_ref"
+          },
+          "amendment_root": {
+            "path": "$.amendment_root"
+          },
+          "approval_decision_root": {
+            "path": "$.approval_decision_root"
+          },
+          "predecessor_constitution_ref": {
+            "path": "$.predecessor_constitution_ref"
+          },
+          "predecessor_constitution_root": {
+            "path": "$.predecessor_constitution_root"
+          },
+          "successor_constitution_ref": {
+            "path": "$.successor_constitution_ref"
+          },
+          "successor_constitution_root": {
+            "path": "$.successor_constitution_root"
+          },
+          "changed_field_paths_commitment": {
+            "path": "$.changed_field_paths_commitment"
+          },
+          "predecessor_status": {
+            "path": "$.predecessor_status"
+          },
+          "predecessor_state_root": {
+            "path": "$.predecessor_state_root"
+          },
+          "predecessor_chain_head_root": {
+            "path": "$.predecessor_chain_head_root"
+          },
+          "irreversibility": {
+            "path": "$.irreversibility"
+          },
+          "required_scope": {
+            "path": "$.required_scope"
+          },
+          "operation_commitment": {
+            "path": "$.operation_commitment"
+          },
+          "authority_effect": {
+            "path": "$.authority_effect"
+          },
+          "authority_effect_hash": {
+            "path": "$.authority_effect_hash"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "created_at": {
+            "path": "$.created_at"
+          }
+        },
+        "expected_path": "$.proposal_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_execution_proposal.operation_commitment.recomputes",
+      "description": "The amendment operation commitment derives from the closed effect exactly as the server computes it, binding the predecessor and successor constitution roots and the changed-path commitment before any downstream decision, transition, receipt, or chain root.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-amendment-execution-commitment-jcs-sha256.v1"
+          },
+          "op": {
+            "path": "$.authority_effect.op"
+          },
+          "required_scope": {
+            "path": "$.authority_effect.required_scope"
+          },
+          "sequence": {
+            "path": "$.authority_effect.sequence"
+          },
+          "irreversibility": {
+            "path": "$.authority_effect.irreversibility"
+          },
+          "system_id": {
+            "path": "$.authority_effect.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.authority_effect.genesis_ref"
+          },
+          "source_governing_authority_ref": {
+            "path": "$.authority_effect.source_governing_authority_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.authority_effect.home_domain_ref"
+          },
+          "home_domain_commitment": {
+            "path": "$.authority_effect.home_domain_commitment"
+          },
+          "policy_root": {
+            "path": "$.authority_effect.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.authority_effect.module_registry_root"
+          },
+          "amendment_root": {
+            "path": "$.authority_effect.amendment_root"
+          },
+          "approval_decision_root": {
+            "path": "$.authority_effect.approval_decision_root"
+          },
+          "approval_authority_evidence_root": {
+            "path": "$.authority_effect.approval_authority_evidence_root"
+          },
+          "predecessor_constitution_root": {
+            "path": "$.authority_effect.predecessor_constitution_root"
+          },
+          "successor_constitution_root": {
+            "path": "$.authority_effect.successor_constitution_root"
+          },
+          "changed_field_paths_commitment": {
+            "path": "$.authority_effect.changed_field_paths_commitment"
+          },
+          "predecessor_status": {
+            "path": "$.authority_effect.predecessor_status"
+          },
+          "predecessor_state_root": {
+            "path": "$.authority_effect.predecessor_state_root"
+          },
+          "predecessor_chain_head_root": {
+            "path": "$.authority_effect.predecessor_chain_head_root"
+          },
+          "resulting_status": {
+            "path": "$.authority_effect.resulting_status"
+          },
+          "resulting_state_ref": {
+            "path": "$.authority_effect.resulting_state_ref"
+          },
+          "resulting_state_root": {
+            "path": "$.authority_effect.resulting_state_root"
+          },
+          "active_profile_set_ref": {
+            "path": "$.authority_effect.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.authority_effect.active_profile_set_root"
+          },
+          "chain_ref": {
+            "path": "$.authority_effect.chain_ref"
+          }
+        },
+        "expected_path": "$.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_execution_proposal.effect_commitment.matches",
+      "description": "The top-level operation commitment and the closed effect's embedded commitment are the same value.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-amendment-execution-commitment-jcs-sha256.v1"
+          },
+          "op": {
+            "path": "$.authority_effect.op"
+          },
+          "required_scope": {
+            "path": "$.authority_effect.required_scope"
+          },
+          "sequence": {
+            "path": "$.authority_effect.sequence"
+          },
+          "irreversibility": {
+            "path": "$.authority_effect.irreversibility"
+          },
+          "system_id": {
+            "path": "$.authority_effect.system_id"
+          },
+          "genesis_ref": {
+            "path": "$.authority_effect.genesis_ref"
+          },
+          "source_governing_authority_ref": {
+            "path": "$.authority_effect.source_governing_authority_ref"
+          },
+          "home_domain_ref": {
+            "path": "$.authority_effect.home_domain_ref"
+          },
+          "home_domain_commitment": {
+            "path": "$.authority_effect.home_domain_commitment"
+          },
+          "policy_root": {
+            "path": "$.authority_effect.policy_root"
+          },
+          "module_registry_root": {
+            "path": "$.authority_effect.module_registry_root"
+          },
+          "amendment_root": {
+            "path": "$.authority_effect.amendment_root"
+          },
+          "approval_decision_root": {
+            "path": "$.authority_effect.approval_decision_root"
+          },
+          "approval_authority_evidence_root": {
+            "path": "$.authority_effect.approval_authority_evidence_root"
+          },
+          "predecessor_constitution_root": {
+            "path": "$.authority_effect.predecessor_constitution_root"
+          },
+          "successor_constitution_root": {
+            "path": "$.authority_effect.successor_constitution_root"
+          },
+          "changed_field_paths_commitment": {
+            "path": "$.authority_effect.changed_field_paths_commitment"
+          },
+          "predecessor_status": {
+            "path": "$.authority_effect.predecessor_status"
+          },
+          "predecessor_state_root": {
+            "path": "$.authority_effect.predecessor_state_root"
+          },
+          "predecessor_chain_head_root": {
+            "path": "$.authority_effect.predecessor_chain_head_root"
+          },
+          "resulting_status": {
+            "path": "$.authority_effect.resulting_status"
+          },
+          "resulting_state_ref": {
+            "path": "$.authority_effect.resulting_state_ref"
+          },
+          "resulting_state_root": {
+            "path": "$.authority_effect.resulting_state_root"
+          },
+          "active_profile_set_ref": {
+            "path": "$.authority_effect.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.authority_effect.active_profile_set_root"
+          },
+          "chain_ref": {
+            "path": "$.authority_effect.chain_ref"
+          }
+        },
+        "expected_path": "$.authority_effect.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_execution_proposal.authority_effect_hash.recomputes",
+      "description": "The declared authority-effect hash is the canonical JCS hash of the exact embedded closed effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_path": "$.authority_effect",
+        "expected_path": "$.authority_effect_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_execution_proposal.status.proposed",
+      "description": "The retained proposal is pinned to proposed status: the literal is schema-enforced (const) and bound into the recomputable proposal-root material; this record asserts the field is present and nonempty.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.status"
+      }
+    }
+  ]
+}

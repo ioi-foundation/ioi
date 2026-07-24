@@ -1,0 +1,474 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-amendment-transition/v1",
+  "title": "AutonomousSystemAmendmentTransition",
+  "description": "Committed transition for one approved constitutional amendment execution; distinct from generic protected lifecycle operations.",
+  "x-ioi-schema-version": "ioi.autonomous-system-amendment-transition.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lifecycle_transition_id",
+    "system_id",
+    "resulting_or_related_system_id",
+    "lifecycle_profile_ref",
+    "transition_kind",
+    "genesis_ref",
+    "manifest_ref",
+    "admitted_manifest_root",
+    "previous_state",
+    "proposed_state",
+    "trigger_evidence_refs",
+    "oracle_evidence_profile_refs",
+    "proposal_ref",
+    "decision_ref",
+    "authority_grant_refs",
+    "challenge_opened_at",
+    "challenge_closes_at",
+    "predecessor_state_root",
+    "resulting_state_root",
+    "operation_commitment",
+    "state_transition_commitment_ref",
+    "lineage_ref",
+    "identity_continuity_decision_ref",
+    "disposition_receipt_refs",
+    "receipt_refs",
+    "public_commitment_ref",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-amendment-transition.v1"
+    },
+    "lifecycle_transition_id": {
+      "type": "string",
+      "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+    },
+    "system_id": {
+      "$ref": "#/$defs/systemRef"
+    },
+    "resulting_or_related_system_id": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/systemRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lifecycle_profile_ref": {
+      "type": "string",
+      "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+    },
+    "transition_kind": {
+      "const": "amend_constitution"
+    },
+    "genesis_ref": {
+      "$ref": "#/$defs/nullableGenesisRef"
+    },
+    "manifest_ref": {
+      "$ref": "#/$defs/nullablePackageReleaseRef"
+    },
+    "admitted_manifest_root": {
+      "$ref": "#/$defs/nullableHash"
+    },
+    "previous_state": {
+      "$ref": "#/$defs/lifecycleState"
+    },
+    "proposed_state": {
+      "$ref": "#/$defs/lifecycleState"
+    },
+    "trigger_evidence_refs": {
+      "$ref": "#/$defs/evidenceRefs"
+    },
+    "oracle_evidence_profile_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^oracle-evidence-profile://[^\\s]{1,248}$"
+      },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "proposal_ref": {
+      "type": "string",
+      "pattern": "^proposal://[^\\s]{1,248}$"
+    },
+    "decision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^decision://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "authority_grant_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^grant://[^\\s]{1,248}$"
+      },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "challenge_opened_at": {
+      "$ref": "#/$defs/nullableCanonicalDateTime"
+    },
+    "challenge_closes_at": {
+      "$ref": "#/$defs/nullableCanonicalDateTime"
+    },
+    "predecessor_state_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "resulting_state_root": {
+      "$ref": "#/$defs/nullableHash"
+    },
+    "operation_commitment": {
+      "$ref": "#/$defs/nullableHash"
+    },
+    "state_transition_commitment_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^transition://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lineage_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^provenance://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "identity_continuity_decision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^decision://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "disposition_receipt_refs": {
+      "$ref": "#/$defs/receiptRefs"
+    },
+    "receipt_refs": {
+      "$ref": "#/$defs/receiptRefs"
+    },
+    "public_commitment_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:commitment|settlement|tx)://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "evidence_pending",
+        "challenge_open",
+        "approved",
+        "executing",
+        "committed",
+        "rejected",
+        "rolled_back",
+        "failed_closed"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "transition_kind": {
+            "enum": [
+              "initialize",
+              "activate"
+            ]
+          }
+        },
+        "required": [
+          "transition_kind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "genesis_ref": {
+            "$ref": "#/$defs/genesisRef"
+          },
+          "manifest_ref": {
+            "$ref": "#/$defs/packageReleaseRef"
+          },
+          "admitted_manifest_root": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "genesis_ref": {
+            "type": "null"
+          },
+          "manifest_ref": {
+            "type": "null"
+          },
+          "admitted_manifest_root": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "challenge_open"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "challenge_opened_at": {
+            "$ref": "#/$defs/canonicalDateTime"
+          },
+          "challenge_closes_at": {
+            "$ref": "#/$defs/canonicalDateTime"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "proposed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decision_ref": {
+            "type": "null"
+          },
+          "authority_grant_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "resulting_state_root": {
+            "type": "null"
+          },
+          "operation_commitment": {
+            "type": "null"
+          },
+          "state_transition_commitment_ref": {
+            "type": "null"
+          },
+          "disposition_receipt_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "receipt_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "public_commitment_ref": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "committed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decision_ref": {
+            "type": "string",
+            "pattern": "^decision://[^\\s]{1,248}$"
+          },
+          "authority_grant_refs": {
+            "type": "array",
+            "minItems": 1
+          },
+          "resulting_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "operation_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "receipt_refs": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "committed"
+          },
+          "transition_kind": {
+            "enum": [
+              "initialize",
+              "activate"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "transition_kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "operation_commitment"
+        ],
+        "properties": {
+          "operation_commitment": {
+            "$ref": "#/$defs/hash"
+          },
+          "state_transition_commitment_ref": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "nullableHash": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/hash"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "genesisRef": {
+      "type": "string",
+      "pattern": "^genesis://[^\\s]{1,248}$"
+    },
+    "nullableGenesisRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/genesisRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "packageReleaseRef": {
+      "type": "string",
+      "pattern": "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$"
+    },
+    "nullablePackageReleaseRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/packageReleaseRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lifecycleState": {
+      "enum": [
+        "draft",
+        "initialized",
+        "active",
+        "degraded",
+        "paused",
+        "suspended",
+        "dormant",
+        "recovering",
+        "quarantined",
+        "succession_pending",
+        "successor_governed",
+        "dissolution_pending",
+        "dissolving",
+        "dissolved",
+        "retired",
+        "archived",
+        "decommissioned",
+        "revoked"
+      ]
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "receiptRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "canonicalDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "nullableCanonicalDateTime": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/canonicalDateTime"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
