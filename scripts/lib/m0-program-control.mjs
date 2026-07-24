@@ -1326,7 +1326,9 @@ function knownExternalRustEffect(call, resolved = call) {
       .test(symbol)
     || /^std::os::(?:unix|windows)::fs::(?:symlink|symlink_dir|symlink_file)$/u
       .test(symbol)
-    || /^(?:std::thread|tokio)::spawn$/u.test(symbol)
+    || /^(?:std::thread|tokio|tokio::task)::spawn$/u.test(symbol)
+    || symbol === "tokio::task::spawn_blocking"
+    || symbol === "libc::flock"
     || symbol === "libc::write"
   ));
 }

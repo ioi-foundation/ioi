@@ -41,7 +41,8 @@ pub(crate) const ACTIVATE_INTENT_DIR: &str = "autonomous-system-activate-intents
 pub(crate) const STATE_DIR: &str = "autonomous-system-activation-states";
 const DEPLOYMENT_DIR: &str = "autonomous-system-deployment-profile-revisions";
 pub(crate) const AUTHORITY_EVIDENCE_DIR: &str = "autonomous-system-lifecycle-authority-evidence";
-pub(crate) const AUTHORITY_CONSUMPTION_DIR: &str = "autonomous-system-lifecycle-authority-consumptions";
+pub(crate) const AUTHORITY_CONSUMPTION_DIR: &str =
+    "autonomous-system-lifecycle-authority-consumptions";
 pub(crate) const PROPOSAL_DIR: &str = "autonomous-system-lifecycle-proposals";
 pub(crate) const DECISION_DIR: &str = "autonomous-system-lifecycle-authority-decisions";
 pub(crate) const TRANSITION_DIR: &str = "autonomous-system-lifecycle-transitions";
@@ -94,7 +95,8 @@ struct AdmittedGraph {
 }
 
 pub(crate) static SYSTEM_ACTIVATION_LOCK: Mutex<()> = Mutex::new(());
-pub(crate) static SYSTEM_ACTIVATION_GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+pub(crate) static SYSTEM_ACTIVATION_GATE: tokio::sync::Mutex<()> =
+    tokio::sync::Mutex::const_new(());
 static INITIALIZE_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 static ACTIVATE_REPLAY_CURSOR: AtomicUsize = AtomicUsize::new(0);
 
@@ -228,7 +230,7 @@ pub(crate) fn validate_contract(contract: &str, value: &Value, label: &str) -> R
     })
 }
 
-fn hash_bytes(value: &str, label: &str) -> Result<[u8; 32], VErr> {
+pub(crate) fn hash_bytes(value: &str, label: &str) -> Result<[u8; 32], VErr> {
     let tail = value
         .strip_prefix("sha256:")
         .filter(|tail| {
@@ -388,7 +390,9 @@ fn validate_request(operation: SystemLifecycleOperation, body: &Value) -> Result
     Ok(())
 }
 
-fn canonical_grant(authorized: &AuthorizedDecision) -> Result<(ApprovalGrant, String), VErr> {
+pub(crate) fn canonical_grant(
+    authorized: &AuthorizedDecision,
+) -> Result<(ApprovalGrant, String), VErr> {
     let (grant, canonical) = governed::canonicalize_approval_grant(
         &authorized.evidence.wallet_approval_grant,
     )
@@ -727,7 +731,12 @@ fn map_commit_failure(error: super::durable_fs::CommitFailure) -> VErr {
     }
 }
 
-pub(crate) fn persist_local(data_dir: &str, family: &str, tail: &str, value: &Value) -> Result<(), VErr> {
+pub(crate) fn persist_local(
+    data_dir: &str,
+    family: &str,
+    tail: &str,
+    value: &Value,
+) -> Result<(), VErr> {
     super::durable_fs::persist_receipt_no_clobber(data_dir, family, tail, value)
         .map_err(map_commit_failure)
 }
@@ -766,7 +775,11 @@ pub(crate) fn load_local(data_dir: &str, family: &str, tail: &str) -> Result<Opt
     })
 }
 
-pub(crate) fn load_required_exact(data_dir: &str, family: &str, tail: &str) -> Result<Option<Value>, VErr> {
+pub(crate) fn load_required_exact(
+    data_dir: &str,
+    family: &str,
+    tail: &str,
+) -> Result<Option<Value>, VErr> {
     let local = load_local(data_dir, family, tail)?;
     match local {
         Some(value) => {
@@ -794,7 +807,10 @@ pub(crate) fn load_required_exact(data_dir: &str, family: &str, tail: &str) -> R
     }
 }
 
-pub(crate) fn recover_wallet_consumption(data_dir: &str, tail: &str) -> Result<Option<Value>, VErr> {
+pub(crate) fn recover_wallet_consumption(
+    data_dir: &str,
+    tail: &str,
+) -> Result<Option<Value>, VErr> {
     let local = load_local(data_dir, AUTHORITY_CONSUMPTION_DIR, tail)?;
     let agentgres =
         super::substrate_store::read_required_exact(data_dir, AUTHORITY_CONSUMPTION_DIR, tail)

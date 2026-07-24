@@ -17,6 +17,7 @@
     "sequence",
     "amendment_ref",
     "amendment_root",
+    "approval_decision_root",
     "irreversibility",
     "required_scope",
     "operation_commitment",
@@ -68,6 +69,10 @@
       "pattern": "^constitution-amendment://[^\\s]{1,248}$"
     },
     "amendment_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "approval_decision_root": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
     },

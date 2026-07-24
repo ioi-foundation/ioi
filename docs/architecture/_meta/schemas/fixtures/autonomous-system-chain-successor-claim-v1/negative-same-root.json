@@ -1,0 +1,12 @@
+{
+  "schema_version": "ioi.autonomous-system-chain-successor-claim.v1",
+  "claim_ref": "chain-successor-claim://sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "system_id": "system://acme/system-alpha",
+  "sequence": 3,
+  "predecessor_chain_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "successor_chain_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "operation_ref": "proposal://acme/system-alpha/amend-constitution/3",
+  "operation_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "operation": "amend_constitution",
+  "committed_at": "2026-07-23T12:00:00Z"
+}

@@ -28,6 +28,7 @@ import protoLoader from "@grpc/proto-loader";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
 import {
   DAEMON_BINARY,
+  isIsolatedDaemonLogName,
   startIsolatedPlane,
 } from "./lib/isolated-daemon.mjs";
 import {
@@ -41,7 +42,14 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..", "..");
 const VERIFIER_SOURCE = fileURLToPath(import.meta.url);
-const FIXTURES = join(REPO, "docs", "architecture", "_meta", "schemas", "fixtures");
+const FIXTURES = join(
+  REPO,
+  "docs",
+  "architecture",
+  "_meta",
+  "schemas",
+  "fixtures",
+);
 const IPC_PROTO_ROOT = join(REPO, "crates", "ipc", "proto");
 const PUBLIC_PROTO = join(IPC_PROTO_ROOT, "public", "v1", "public.proto");
 const SYSTEM_SEQUENCE_ZERO_SOURCE = join(
@@ -53,10 +61,8 @@ const SYSTEM_SEQUENCE_ZERO_SOURCE = join(
   "hypervisor_daemon_routes",
   "system_sequence_zero_routes.rs",
 );
-const COMPATIBILITY_BASE_COMMIT =
-  "562d1b08999be2e9bbb967ef60bb250f440452e5";
-const LEGACY_RECEIPT_WRITER_COMMIT =
-  "7280df95cc5f327f86b99f7d204674602c086a6a";
+const COMPATIBILITY_BASE_COMMIT = "562d1b08999be2e9bbb967ef60bb250f440452e5";
+const LEGACY_RECEIPT_WRITER_COMMIT = "7280df95cc5f327f86b99f7d204674602c086a6a";
 const COMPATIBILITY_FIXTURE_SHA256 = new Map([
   [
     "autonomous-system-genesis-v1/positive-proposed.json",
@@ -83,6 +89,16 @@ const COMPATIBILITY_FIXTURE_SHA256 = new Map([
     "78be672419d800a4b02c43735400259ca44cc32c7f8623efdc6ea65836519066",
   ],
 ]);
+const LEGACY_RECEIPT_FIXTURE_SHA256 = new Map([
+  [
+    "autonomous-system-genesis-v1/positive-proposed.json",
+    "8b1609f27487d1f93da18baf9afe3c55b5ec7a85341de0eef7d9b600023066d5",
+  ],
+  ...[...COMPATIBILITY_FIXTURE_SHA256].filter(
+    ([relativePath]) =>
+      relativePath !== "autonomous-system-genesis-v1/positive-proposed.json",
+  ),
+]);
 const GENESIS_ROUTE = "/v1/hypervisor/autonomous-systems";
 const OWNER = "org://acme/research";
 const OWNER_APPROVER_SEED = "07".repeat(32);
@@ -99,12 +115,9 @@ const CURRENT_RECEIPT_SCHEMA =
   "ioi.autonomous-system-sequence-zero-materialization-receipt.v2";
 const CURRENT_RECEIPT_PROFILE =
   "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2";
-const JOURNEY_SELECTOR_ENV =
-  "IOI_SYSTEM_SEQUENCE_ZERO_VERIFIER_JOURNEYS";
-const FOCUSED_VERIFIER_OPT_IN_ENV =
-  "IOI_SYSTEM_SEQUENCE_ZERO_ALLOW_FOCUSED";
-const CERTIFICATION_MODE_ENV =
-  "IOI_SYSTEM_SEQUENCE_ZERO_CERTIFY";
+const JOURNEY_SELECTOR_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_VERIFIER_JOURNEYS";
+const FOCUSED_VERIFIER_OPT_IN_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_ALLOW_FOCUSED";
+const CERTIFICATION_MODE_ENV = "IOI_SYSTEM_SEQUENCE_ZERO_CERTIFY";
 const POST_WALLET_CRASH_PAUSE_ENV =
   "IOI_TEST_PAUSE_SYSTEM_SEQUENCE_ZERO_AFTER_WALLET_CONSUMPTION_EVIDENCE";
 const POST_WALLET_CRASH_MARKER_ENV =
@@ -139,8 +152,7 @@ const MATERIALIZATION_FAMILIES = [
   "autonomous-system-sequence-zero-component-registries",
   "autonomous-system-sequence-zero-authority-consumptions",
 ];
-const INTENT_FAMILY =
-  "autonomous-system-sequence-zero-materialization-intents";
+const INTENT_FAMILY = "autonomous-system-sequence-zero-materialization-intents";
 const MATERIALIZATION_RESPONSE_FIELDS = [
   "autonomous_system_sequence_zero_materialization",
   "autonomous_system_sequence_zero_materialization_receipt",
@@ -210,17 +222,22 @@ const JOURNEY_PROOF_CENSUS = new Map([
   [
     "constitutional-amendment",
     {
-      resources: 2,
+      resources: 4,
       proofs: [
         "M1.5c ELIGIBILITY: amendment admits from the active head with zero committed amendment evidence",
         "M1.5c DECLARED DIFF: an over-declared and an undeclared change both refuse before authority with zero evidence",
+        "M1.5c GOVERNANCE APPROVAL: profile, evidence, and root substitutions refuse before authority with zero evidence",
+        "M1.5c AUTHENTIC APPROVAL: a caller-computed approval hash without the resolved governance authority's signed grant remains only a challenge and writes nothing",
+        "M1.5c COMMITTED BINDINGS: protection understatement and activation-receipt substitution refuse before authority",
         "M1.5c PROTECTED CLAUSE: a change under a declared protected path refuses before authority with zero evidence",
         "M1.5c MACHINE FLOOR: rewriting the governance subtree refuses as machine-protected with zero evidence",
         "M1.5c STALE HEAD: an expected chain head that is not the live head refuses conflict with zero evidence",
         "M1.5c WRONG SCOPE: a pause-scoped grant cannot authorize constitutional amendment",
+        "M1.5c APPROVAL REPLAY: a crash after governance wallet consumption converges durable approval evidence from its sealed intent",
         "M1.5c AMEND: eight racing real-wallet amendments linearize to one sequence-three constitution swap with operational status unchanged",
         "M1.5c REPLAY: a crash after wallet consumption converges exactly one further amendment at sequence four on restart",
         "M1.5c CONTINUITY: pause and resume continue over the amended constitution carrying the successor profile set",
+        "M1.5c CROSS-PROCESS CAS: two independent daemons racing different successors select one sequence-seven writer before wallet consumption",
       ],
     },
   ],
@@ -440,7 +457,9 @@ function ok(name, pass, detail = "") {
     pass: Boolean(pass),
     detail,
   });
-  console.log(`${pass ? "PASS" : "FAIL"}: ${name}${detail ? ` - ${detail}` : ""}`);
+  console.log(
+    `${pass ? "PASS" : "FAIL"}: ${name}${detail ? ` - ${detail}` : ""}`,
+  );
 }
 
 function requireValue(value, message) {
@@ -453,10 +472,15 @@ function clone(value) {
 }
 
 function createOwnedTempDir(prefix) {
-  requireValue(activeJourney, "verifier-owned resources require an active journey");
+  requireValue(
+    activeJourney,
+    "verifier-owned resources require an active journey",
+  );
   const resourceDir = mkdtempSync(join(tmpdir(), prefix));
   if (ownedResources.has(resourceDir)) {
-    throw new Error(`verifier-owned resource was registered twice: ${resourceDir}`);
+    throw new Error(
+      `verifier-owned resource was registered twice: ${resourceDir}`,
+    );
   }
   writeFileSync(
     join(resourceDir, VERIFIER_OWNER_MARKER),
@@ -489,7 +513,9 @@ async function waitForCrashMarker(markerPath, timeoutMs = 90_000) {
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(`crash marker did not appear within ${timeoutMs}ms: ${markerPath}`);
+  throw new Error(
+    `crash marker did not appear within ${timeoutMs}ms: ${markerPath}`,
+  );
 }
 
 function observedRequest(promise) {
@@ -522,10 +548,7 @@ async function sigkillPlaneAtMarker({
     );
   }
   const markerBytes = firstBoundary.markerBytes;
-  requireValue(
-    markerBytes.length > 0,
-    `crash marker is empty: ${markerPath}`,
-  );
+  requireValue(markerBytes.length > 0, `crash marker is empty: ${markerPath}`);
   requireValue(
     boundaryReady(),
     `durable crash boundary is incomplete at marker ${markerPath}`,
@@ -551,9 +574,11 @@ async function sigkillPlaneAtMarker({
 }
 
 function ownedTempPolicy(entryName) {
-  return VERIFIER_TEMP_OWNER_POLICIES.find(
-    ({ prefix }) => entryName.startsWith(prefix),
-  ) || null;
+  return (
+    VERIFIER_TEMP_OWNER_POLICIES.find(({ prefix }) =>
+      entryName.startsWith(prefix),
+    ) || null
+  );
 }
 
 function exactOwnedMarker(entryName, marker) {
@@ -596,9 +621,10 @@ function exactProvisionalOwnedMarker(entryName, marker) {
 }
 
 function markerlessWalletOwnerMarker(entryName) {
-  const match = /^ioi-wallet-network-pa-([1-9][0-9]*)-([0-9]+)-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.exec(
-    entryName,
-  );
+  const match =
+    /^ioi-wallet-network-pa-([1-9][0-9]*)-([0-9]+)-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.exec(
+      entryName,
+    );
   if (match === null) return null;
   const ownerPid = Number(match[1]);
   if (!Number.isSafeInteger(ownerPid)) return null;
@@ -664,9 +690,10 @@ async function reapMarkedWalletFixtureProcessGroup(policy, marker) {
   return !walletFixtureProcessGroupIdentityMatches(marker);
 }
 
-async function scavengeDeadVerifierTempDirs(
-  { beforeRevalidate, beforeQuarantine } = {},
-) {
+async function scavengeDeadVerifierTempDirs({
+  beforeRevalidate,
+  beforeQuarantine,
+} = {}) {
   const removed = [];
   for (const entry of readdirSync(tmpdir(), { withFileTypes: true })) {
     if (!entry.isDirectory() || ownedTempPolicy(entry.name) === null) {
@@ -681,8 +708,7 @@ async function scavengeDeadVerifierTempDirs(
     const marker = readOwnedMarkerEvidence(resource, entry.name);
     const policy = ownedTempPolicy(entry.name);
     const finalMarker = exactOwnedMarker(entry.name, marker);
-    const provisionalMarker =
-      exactProvisionalOwnedMarker(entry.name, marker);
+    const provisionalMarker = exactProvisionalOwnedMarker(entry.name, marker);
     if (
       (!finalMarker && !provisionalMarker) ||
       ownedMarkerOwnerIsAlive(policy, marker)
@@ -724,18 +750,10 @@ async function scavengeDeadVerifierTempDirs(
     } catch {
       continue;
     }
-    const quarantinedMarker = readOwnedMarkerEvidence(
-      quarantine,
-      entry.name,
-    );
+    const quarantinedMarker = readOwnedMarkerEvidence(quarantine, entry.name);
     if (
-      (
-        exactOwnedMarker(basename(quarantine), quarantinedMarker) ||
-        exactProvisionalOwnedMarker(
-          basename(quarantine),
-          quarantinedMarker,
-        )
-      ) &&
+      (exactOwnedMarker(basename(quarantine), quarantinedMarker) ||
+        exactProvisionalOwnedMarker(basename(quarantine), quarantinedMarker)) &&
       sameJson(marker, quarantinedMarker) &&
       !ownedMarkerOwnerIsAlive(policy, quarantinedMarker)
     ) {
@@ -791,12 +809,7 @@ async function staleTempScavengerSelfTest() {
     join(tmpdir(), "ioi-wallet-network-pa-stale-reused-group-"),
   );
   const displacedOwnedPath = `${replacedBeforeQuarantine}-owned`;
-  const writeMarker = (
-    resource,
-    schemaVersion,
-    ownerKind,
-    extra = {},
-  ) => {
+  const writeMarker = (resource, schemaVersion, ownerKind, extra = {}) => {
     writeFileSync(
       join(resource, VERIFIER_OWNER_MARKER),
       JSON.stringify({
@@ -841,22 +854,19 @@ async function staleTempScavengerSelfTest() {
     writeMarker(wrongPrefixOwner, 1, "system-sequence-zero-held-bar");
     writeMarker(changedBeforeRemoval, 1, "system-sequence-zero-held-bar");
     writeMarker(replacedBeforeQuarantine, 1, "system-sequence-zero-held-bar");
-    writeMarker(
-      orphanWallet,
-      2,
-      "wallet-network-principal-authority-fixture",
-      {
-        owner_pid: process.pid,
-        owner_start_time_ticks: `${BigInt(
+    writeMarker(orphanWallet, 2, "wallet-network-principal-authority-fixture", {
+      owner_pid: process.pid,
+      owner_start_time_ticks: `${
+        BigInt(
           requireValue(
             walletFixtureProcessGroupStartTimeTicks(process.pid),
             "scavenger fixture owner lacks its process identity",
           ),
-        ) + 1n}`,
-        process_group_id: orphanProcess.pid,
-        process_group_start_time_ticks: orphanProcessStartTimeTicks,
-      },
-    );
+        ) + 1n
+      }`,
+      process_group_id: orphanProcess.pid,
+      process_group_start_time_ticks: orphanProcessStartTimeTicks,
+    });
     writeMarker(
       provisionalWallet,
       2,
@@ -872,8 +882,7 @@ async function staleTempScavengerSelfTest() {
       "wallet-network-principal-authority-fixture",
       {
         process_group_id: reusedProcess.pid,
-        process_group_start_time_ticks:
-          `${BigInt(reusedProcessStartTimeTicks) + 1n}`,
+        process_group_start_time_ticks: `${BigInt(reusedProcessStartTimeTicks) + 1n}`,
       },
     );
     const removed = await scavengeDeadVerifierTempDirs({
@@ -998,7 +1007,10 @@ function startVerifierPlane({ dataDir, env = {}, ...options } = {}) {
 }
 
 async function startOwnedWalletResolver(options = {}) {
-  requireValue(activeJourney, "wallet fixture resources require an active journey");
+  requireValue(
+    activeJourney,
+    "wallet fixture resources require an active journey",
+  );
   const resolver = await startRealWalletNetworkPrincipalAuthorityFixture({
     baseEnv: sanitizedProcessEnv(),
     ...options,
@@ -1018,7 +1030,9 @@ async function startOwnedWalletResolver(options = {}) {
   );
   if (ownedResources.has(resourceDir)) {
     await resolver.stop();
-    throw new Error(`wallet fixture resource was registered twice: ${resourceDir}`);
+    throw new Error(
+      `wallet fixture resource was registered twice: ${resourceDir}`,
+    );
   }
   ownedResources.set(resourceDir, activeJourney);
   return resolver;
@@ -1061,11 +1075,9 @@ async function walletFixtureGuardianOwnerDeathSelfTest() {
     join(tmpdir(), "ioi-wallet-network-pa-guardian-bin-"),
   );
   symlinkSync(process.execPath, join(fakeBin, "cargo"));
-  const owner = spawn(
-    process.execPath,
-    ["-e", "setInterval(() => {}, 1000)"],
-    { stdio: "ignore" },
-  );
+  const owner = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
+    stdio: "ignore",
+  });
   const ownerExit = new Promise((resolve) => owner.once("exit", resolve));
   let guardian;
   let guardianExit;
@@ -1073,8 +1085,7 @@ async function walletFixtureGuardianOwnerDeathSelfTest() {
     const ownerDeadline = Date.now() + 10_000;
     let ownerStartTimeTicks;
     while (Date.now() < ownerDeadline) {
-      ownerStartTimeTicks =
-        walletFixtureProcessGroupStartTimeTicks(owner.pid);
+      ownerStartTimeTicks = walletFixtureProcessGroupStartTimeTicks(owner.pid);
       if (ownerStartTimeTicks !== null) break;
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
@@ -1094,26 +1105,28 @@ async function walletFixtureGuardianOwnerDeathSelfTest() {
       }),
       { mode: 0o600 },
     );
-    guardian = spawn(process.execPath, [
-      join(HERE, "lib", "wallet-network-fixture-guardian.mjs"),
-    ], {
-      cwd: REPO,
-      detached: true,
-      env: {
-        ...sanitizedProcessEnv(),
-        PATH: `${fakeBin}:${process.env.PATH || ""}`,
-        IOI_HYPERVISOR_WALLET_FIXTURE_DIR: fixtureDir,
-        IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_PID: String(owner.pid),
-        IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_START_TIME_TICKS:
-          ownerStartTimeTicks,
-        IOI_WALLET_FIXTURE_GUARDIAN_CARGO_ARGS: JSON.stringify([
-          "-e",
-          "setInterval(() => {}, 1000)",
-        ]),
-        IOI_WALLET_FIXTURE_GUARDIAN_CARGO_CWD: REPO,
+    guardian = spawn(
+      process.execPath,
+      [join(HERE, "lib", "wallet-network-fixture-guardian.mjs")],
+      {
+        cwd: REPO,
+        detached: true,
+        env: {
+          ...sanitizedProcessEnv(),
+          PATH: `${fakeBin}:${process.env.PATH || ""}`,
+          IOI_HYPERVISOR_WALLET_FIXTURE_DIR: fixtureDir,
+          IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_PID: String(owner.pid),
+          IOI_HYPERVISOR_WALLET_FIXTURE_OWNER_START_TIME_TICKS:
+            ownerStartTimeTicks,
+          IOI_WALLET_FIXTURE_GUARDIAN_CARGO_ARGS: JSON.stringify([
+            "-e",
+            "setInterval(() => {}, 1000)",
+          ]),
+          IOI_WALLET_FIXTURE_GUARDIAN_CARGO_CWD: REPO,
+        },
+        stdio: "ignore",
       },
-      stdio: "ignore",
-    });
+    );
     const guardianStartTimeTicks = requireValue(
       walletFixtureProcessGroupStartTimeTicks(guardian.pid),
       "guardian owner-death self-test lacks a process-group identity",
@@ -1151,25 +1164,23 @@ async function walletFixtureGuardianOwnerDeathSelfTest() {
     ]);
     const groupDeadline = Date.now() + 30_000;
     while (
-      ownedProcessGroupIdentityIsAlive(
-        guardian.pid,
-        guardianStartTimeTicks,
-      ) &&
+      ownedProcessGroupIdentityIsAlive(guardian.pid, guardianStartTimeTicks) &&
       Date.now() < groupDeadline
     ) {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
     return (
-      !ownedProcessGroupIdentityIsAlive(
-        guardian.pid,
-        guardianStartTimeTicks,
-      ) &&
+      !ownedProcessGroupIdentityIsAlive(guardian.pid, guardianStartTimeTicks) &&
       readOwnedMarker(fixtureDir)?.owner_start_time_ticks ===
         ownerStartTimeTicks
     );
   } finally {
     if (processIsAlive(owner.pid)) {
-      try { owner.kill("SIGKILL"); } catch { /* already exited */ }
+      try {
+        owner.kill("SIGKILL");
+      } catch {
+        /* already exited */
+      }
       await ownerExit;
     }
     if (
@@ -1211,12 +1222,10 @@ function exactJourneyCensus(name, observedProofs, observedResources) {
       `journey '${name}' resource census mismatch: expected=${expected.resources} observed=${observedResources.length}`,
     );
   }
-  if (
-    observedResources.some(
-      (path) => ownedResources.get(path) !== name,
-    )
-  ) {
-    throw new Error(`journey '${name}' resource census contains an unowned path`);
+  if (observedResources.some((path) => ownedResources.get(path) !== name)) {
+    throw new Error(
+      `journey '${name}' resource census contains an unowned path`,
+    );
   }
 }
 
@@ -1247,7 +1256,9 @@ async function noopJourneysRefuseCertification() {
     const resultStart = results.length;
     const resourcesBefore = new Set(ownedResources.keys());
     await (async () => {})();
-    const observedProofs = results.slice(resultStart).map((result) => result.name);
+    const observedProofs = results
+      .slice(resultStart)
+      .map((result) => result.name);
     const observedResources = [...ownedResources.keys()].filter(
       (path) => !resourcesBefore.has(path),
     );
@@ -1263,7 +1274,11 @@ async function noopJourneysRefuseCertification() {
   return true;
 }
 
-function teardownComplete(resources, selectedJourneys, processGroups = ownedProcessGroups) {
+function teardownComplete(
+  resources,
+  selectedJourneys,
+  processGroups = ownedProcessGroups,
+) {
   if (resources.size === 0 || selectedJourneys.length === 0) return false;
   const expectedResources = selectedJourneys.reduce(
     (total, name) => total + JOURNEY_PROOF_CENSUS.get(name).resources,
@@ -1271,16 +1286,11 @@ function teardownComplete(resources, selectedJourneys, processGroups = ownedProc
   );
   return (
     resources.size === expectedResources &&
-    selectedJourneys.every((name) =>
-      [...resources.values()].includes(name),
-    ) &&
+    selectedJourneys.every((name) => [...resources.values()].includes(name)) &&
     [...resources.keys()].every((path) => !existsSync(path)) &&
     [...processGroups].every(
       ([processGroupId, startTimeTicks]) =>
-        !ownedProcessGroupIdentityIsAlive(
-          processGroupId,
-          startTimeTicks,
-        ),
+        !ownedProcessGroupIdentityIsAlive(processGroupId, startTimeTicks),
     )
   );
 }
@@ -1328,15 +1338,16 @@ function lifecycleDeploymentRevisionForGenesis(genesis) {
   revision.profile.ordering_admission_finality_profile_ref =
     genesis.initial_profile_refs.ordering_admission_finality_profile_ref;
   const root = `sha256:${createHash("sha256")
-    .update(canonicalJson({
-      domain:
-        "ioi.autonomous-system-deployment-profile-revision-jcs-sha256.v1",
-      profile: revision.profile,
-    }))
+    .update(
+      canonicalJson({
+        domain:
+          "ioi.autonomous-system-deployment-profile-revision-jcs-sha256.v1",
+        profile: revision.profile,
+      }),
+    )
     .digest("hex")}`;
   revision.deployment_profile_root = root;
-  revision.deployment_profile_ref =
-    `${revision.profile.deployment_profile_id}/revision/${root}`;
+  revision.deployment_profile_ref = `${revision.profile.deployment_profile_id}/revision/${root}`;
   return revision;
 }
 
@@ -1373,9 +1384,7 @@ function recordOutputHash(record, excludes = []) {
 function walletConsumptionReceiptHash(receipt) {
   const material = clone(receipt);
   material.receipt_hash = Array(32).fill(0);
-  return [
-    ...createHash("sha256").update(canonicalJson(material)).digest(),
-  ];
+  return [...createHash("sha256").update(canonicalJson(material)).digest()];
 }
 
 function recomputeReleaseHashes(release) {
@@ -1426,7 +1435,8 @@ function exactGenesisBody(
         deployment_template_ref:
           release.required_profile_templates.deployment_template_ref,
         ordering_admission_finality_template_ref:
-          release.required_profile_templates.ordering_admission_finality_template_ref,
+          release.required_profile_templates
+            .ordering_admission_finality_template_ref,
         oracle_evidence_template_refs:
           release.required_profile_templates.oracle_evidence_template_refs,
         lifecycle_continuity_template_ref:
@@ -1441,9 +1451,7 @@ function exactGenesisBody(
         "ordering-admission-finality-profile-v1/positive-single-authority.json",
       ),
       oracle_profiles: [
-        fixtureLoader(
-          "oracle-evidence-profile-v1/positive-fail-closed.json",
-        ),
+        fixtureLoader("oracle-evidence-profile-v1/positive-fail-closed.json"),
       ],
       lifecycle_profile: fixtureLoader(
         "lifecycle-continuity-profile-v1/positive-successor-governed.json",
@@ -1489,7 +1497,9 @@ function familyFiles(dataDir, family) {
 }
 
 function strictFamilyEnumerationSelfTest() {
-  const dataDir = mkdtempSync(join(tmpdir(), "ioi-evidence-family-enumeration-"));
+  const dataDir = mkdtempSync(
+    join(tmpdir(), "ioi-evidence-family-enumeration-"),
+  );
   const family = "fixture-family";
   const familyDir = join(dataDir, family);
   mkdirSync(familyDir);
@@ -1510,7 +1520,8 @@ function strictFamilyEnumerationSelfTest() {
 
     writeFileSync(join(familyDir, "record.json"), "{}");
     writeFileSync(join(familyDir, "record.json.bak"), "{}");
-    if (!refuses(/unexpected non-json entry 'record[.]json[.]bak'/u)) return false;
+    if (!refuses(/unexpected non-json entry 'record[.]json[.]bak'/u))
+      return false;
     rmSync(join(familyDir, "record.json.bak"));
 
     mkdirSync(join(familyDir, "nonregular.json"));
@@ -1528,6 +1539,18 @@ function familyBytes(dataDir, family) {
     name,
     readFileSync(join(dataDir, family, name), "utf8"),
   ]);
+}
+
+function familyRecords(dataDir, family) {
+  return familyFiles(dataDir, family).map((name) => {
+    try {
+      return JSON.parse(readFileSync(join(dataDir, family, name), "utf8"));
+    } catch (error) {
+      throw new Error(
+        `evidence family '${family}' contains invalid JSON in '${name}': ${error.message}`,
+      );
+    }
+  });
 }
 
 function singleFamilyRecord(dataDir, family) {
@@ -1572,7 +1595,11 @@ function recursiveBytesSnapshot(root, { ignoredRootNames = new Set() } = {}) {
         rows.push(["directory", nextRelative, null]);
         walk(absolute, nextRelative);
       } else if (stat.isFile()) {
-        rows.push(["file", nextRelative, readFileSync(absolute).toString("base64")]);
+        rows.push([
+          "file",
+          nextRelative,
+          readFileSync(absolute).toString("base64"),
+        ]);
       } else {
         throw new Error(`snapshot refuses nonregular entry: ${absolute}`);
       }
@@ -1589,10 +1616,7 @@ function recursiveBytesSnapshot(root, { ignoredRootNames = new Set() } = {}) {
 
 function recursiveDataDirSnapshot(root) {
   const ignoredRootNames = new Set(
-    readdirSync(root)
-      .filter((name) =>
-        /^isolated-daemon(?:-restart-\d+)?[.]log$/u.test(name)
-      ),
+    readdirSync(root).filter(isIsolatedDaemonLogName),
   );
   return recursiveBytesSnapshot(root, { ignoredRootNames });
 }
@@ -1616,21 +1640,16 @@ async function stableDataDirSnapshot(dataDir) {
 
 function dataDirSnapshotDelta(before, after) {
   const beforeRows = new Map(
-    JSON.parse(before).map((row) => [
-      row[1],
-      canonicalJson(row),
-    ]),
+    JSON.parse(before).map((row) => [row[1], canonicalJson(row)]),
   );
   const afterRows = new Map(
-    JSON.parse(after).map((row) => [
-      row[1],
-      canonicalJson(row),
-    ]),
+    JSON.parse(after).map((row) => [row[1], canonicalJson(row)]),
   );
   return [...new Set([...beforeRows.keys(), ...afterRows.keys()])]
-    .filter((relativePath) => (
-      beforeRows.get(relativePath) !== afterRows.get(relativePath)
-    ))
+    .filter(
+      (relativePath) =>
+        beforeRows.get(relativePath) !== afterRows.get(relativePath),
+    )
     .sort();
 }
 
@@ -1731,7 +1750,9 @@ async function walletConsumptionStateBytes(resolver, requestHash) {
     .replace(/^sha256:/, "")
     .toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(normalized)) {
-    throw new Error("wallet consumption state query requires an exact request hash");
+    throw new Error(
+      "wallet consumption state query requires an exact request hash",
+    );
   }
   const key = Buffer.concat([
     Buffer.from("_service_data::wallet_network::approval_consumption::"),
@@ -1743,14 +1764,7 @@ async function walletConsumptionStateBytes(resolver, requestHash) {
 function buildCurrentDaemon() {
   const result = spawnSync(
     "cargo",
-    [
-      "build",
-      "--locked",
-      "-p",
-      "ioi-node",
-      "--bin",
-      "hypervisor-daemon",
-    ],
+    ["build", "--locked", "-p", "ioi-node", "--bin", "hypervisor-daemon"],
     {
       cwd: REPO,
       env: {
@@ -1761,7 +1775,9 @@ function buildCurrentDaemon() {
     },
   );
   if (result.error) {
-    throw new Error(`current daemon build could not start: ${result.error.message}`);
+    throw new Error(
+      `current daemon build could not start: ${result.error.message}`,
+    );
   }
   if (result.status !== 0) {
     throw new Error(
@@ -1777,7 +1793,9 @@ function buildCurrentDaemon() {
     );
   }
   if (!binaryStat.isFile()) {
-    throw new Error(`current daemon build output is not a regular file: ${DAEMON_BINARY}`);
+    throw new Error(
+      `current daemon build output is not a regular file: ${DAEMON_BINARY}`,
+    );
   }
 }
 
@@ -1799,11 +1817,7 @@ function checkedSpawnSync(command, args, options, label) {
   return result;
 }
 
-function buildPinnedCompatibilityDaemon({
-  commit,
-  buildPrefix,
-  label,
-}) {
+function buildPinnedCompatibilityDaemon({ commit, buildPrefix, label }) {
   const buildRoot = createOwnedTempDir(buildPrefix);
   const worktree = join(buildRoot, "worktree");
   const targetDir = join(buildRoot, "target");
@@ -1819,14 +1833,7 @@ function buildPinnedCompatibilityDaemon({
     worktreeAdded = true;
     checkedSpawnSync(
       "cargo",
-      [
-        "build",
-        "--locked",
-        "-p",
-        "ioi-node",
-        "--bin",
-        "hypervisor-daemon",
-      ],
+      ["build", "--locked", "-p", "ioi-node", "--bin", "hypervisor-daemon"],
       {
         cwd: worktree,
         env: {
@@ -1839,7 +1846,9 @@ function buildPinnedCompatibilityDaemon({
     );
     const binary = join(targetDir, "debug", "hypervisor-daemon");
     if (!lstatSync(binary).isFile()) {
-      throw new Error(`${label} daemon output is not a regular file: ${binary}`);
+      throw new Error(
+        `${label} daemon output is not a regular file: ${binary}`,
+      );
     }
     keepBuild = true;
     return {
@@ -1865,24 +1874,22 @@ function buildPinnedCompatibilityDaemon({
   }
 }
 
-function buildCompatibilityBaseDaemon() {
-  const commit = COMPATIBILITY_BASE_COMMIT;
+function loadPinnedFixtureBundle({ commit, expectedHashes, label }) {
   const fixtureBundle = new Map();
-  for (const [relativePath, expectedHash] of COMPATIBILITY_FIXTURE_SHA256) {
-    const repositoryPath =
-      `docs/architecture/_meta/schemas/fixtures/${relativePath}`;
+  for (const [relativePath, expectedHash] of expectedHashes) {
+    const repositoryPath = `docs/architecture/_meta/schemas/fixtures/${relativePath}`;
     const bytes = Buffer.from(
       checkedSpawnSync(
         "git",
         ["show", `${commit}:${repositoryPath}`],
         { cwd: REPO, encoding: null, maxBuffer: 4 * 1024 * 1024 },
-        `pinned M1.3 fixture read (${relativePath})`,
+        `${label} fixture read (${relativePath})`,
       ).stdout,
     );
     const observedHash = createHash("sha256").update(bytes).digest("hex");
     if (observedHash !== expectedHash) {
       throw new Error(
-        `pinned M1.3 fixture digest mismatch for ${relativePath}: expected=${expectedHash} observed=${observedHash}`,
+        `${label} fixture digest mismatch for ${relativePath}: expected=${expectedHash} observed=${observedHash}`,
       );
     }
     fixtureBundle.set(relativePath, {
@@ -1891,13 +1898,26 @@ function buildCompatibilityBaseDaemon() {
       hash: observedHash,
     });
   }
+  return fixtureBundle;
+}
+
+function buildCompatibilityBaseDaemon() {
+  const commit = COMPATIBILITY_BASE_COMMIT;
+  const fixtureBundle = loadPinnedFixtureBundle({
+    commit,
+    expectedHashes: COMPATIBILITY_FIXTURE_SHA256,
+    label: "pinned M1.3",
+  });
   const fixtureLoader = (relativePath) =>
-    clone(requireValue(
-      fixtureBundle.get(relativePath)?.json,
-      `pinned M1.3 fixture bundle lacks ${relativePath}`,
-    ));
-  const candidateFixture =
-    fixtureBundle.get("autonomous-system-genesis-v1/positive-proposed.json");
+    clone(
+      requireValue(
+        fixtureBundle.get(relativePath)?.json,
+        `pinned M1.3 fixture bundle lacks ${relativePath}`,
+      ),
+    );
+  const candidateFixture = fixtureBundle.get(
+    "autonomous-system-genesis-v1/positive-proposed.json",
+  );
   return {
     ...buildPinnedCompatibilityDaemon({
       commit,
@@ -1963,9 +1983,9 @@ async function startVerifierPlaneFromBinary({ binary, dataDir, env }) {
   };
   for (let attempt = 0; attempt < 120; attempt += 1) {
     if (exited) break;
-    const healthy = await fetch(
-      `${daemonUrl}/v1/hypervisor/data-sources`,
-    ).then((response) => response.ok).catch(() => false);
+    const healthy = await fetch(`${daemonUrl}/v1/hypervisor/data-sources`)
+      .then((response) => response.ok)
+      .catch(() => false);
     if (healthy) {
       return { daemonUrl, dataDir, stop };
     }
@@ -1987,7 +2007,9 @@ function parseMuxFrames(bytes) {
     }
     const length = bytes.readUInt32LE(offset);
     if (length === 0 || offset + 4 + length > bytes.length) {
-      throw new Error(`mux log has an invalid frame length ${length} at byte ${offset}`);
+      throw new Error(
+        `mux log has an invalid frame length ${length} at byte ${offset}`,
+      );
     }
     const encoded = bytes.subarray(offset, offset + 4 + length);
     const body = encoded.subarray(4);
@@ -2042,7 +2064,9 @@ function mutateLengthPreservingScalar(value) {
 
 function corruptAgentgresFamily(bytes, targetFamily) {
   const frames = parseMuxFrames(bytes);
-  const roundTrip = Buffer.concat(frames.map(({ value }) => encodeMuxFrame(value)));
+  const roundTrip = Buffer.concat(
+    frames.map(({ value }) => encodeMuxFrame(value)),
+  );
   requireValue(
     roundTrip.equals(bytes),
     "Agentgres mux log is not byte-exactly JSON round-trippable",
@@ -2078,9 +2102,7 @@ function corruptAgentgresFamily(bytes, targetFamily) {
         Buffer.from(JSON.stringify(frame.op)),
       );
       const encoded = encodeMuxFrame(frame);
-      state.pendingHashes.push(
-        createHash("sha256").update(encoded).digest(),
-      );
+      state.pendingHashes.push(createHash("sha256").update(encoded).digest());
       state.pendingHeads.set(frame.op.object_ref, frame.new_head);
       return encoded;
     }
@@ -2152,11 +2174,11 @@ function requiredDomainIsNonVacuous(response, family) {
   const state = requiredDomainState(response, family);
   return Boolean(
     response?.status === 200 &&
-      state &&
-      typeof state.root === "string" &&
-      state.root.length > 0 &&
-      Number.isInteger(Number(state.admitted_seq)) &&
-      Number(state.admitted_seq) > 0,
+    state &&
+    typeof state.root === "string" &&
+    state.root.length > 0 &&
+    Number.isInteger(Number(state.admitted_seq)) &&
+    Number(state.admitted_seq) > 0,
   );
 }
 
@@ -2190,8 +2212,7 @@ function legacySignedGrantIdentity(receipt) {
     /^grant:\/\/wallet[.]network\/approval\/sha256:([0-9a-f]{64})$/u,
   )?.[1];
   if (!artifactHash) return null;
-  const walletGrantRef =
-    `wallet.network://grant/approval/${artifactHash}`;
+  const walletGrantRef = `wallet.network://grant/approval/${artifactHash}`;
   return `grant://wallet.network/approval/sha256:${createHash("sha256")
     .update(walletGrantRef)
     .digest("hex")}`;
@@ -2221,9 +2242,7 @@ function receiptBoundaryRefOracle(receipt, sourceRecord, version) {
     facts?.genesis_admission_receipt_ref,
     facts?.governing_authority_ref,
     grantId,
-    ...(version === "current-v2"
-      ? [facts?.wallet_grant_consumption_ref]
-      : []),
+    ...(version === "current-v2" ? [facts?.wallet_grant_consumption_ref] : []),
     facts?.wallet_grant_consumption_evidence_ref,
   ];
   const oracleRefs = profiles?.oracle_evidence_profile_refs ?? [];
@@ -2265,7 +2284,8 @@ function boundaryRefOracleSelfTest() {
       genesis_admission_record_root: "sha256:a",
       genesis_admission_receipt_ref: "receipt://a",
       governing_authority_ref: "org://a",
-      wallet_grant_consumption_ref: "wallet.network://approval-effect-consumption/a",
+      wallet_grant_consumption_ref:
+        "wallet.network://approval-effect-consumption/a",
       wallet_grant_consumption_evidence_ref:
         "system-sequence-zero-authority-consumption://a",
       profile_refs: {
@@ -2307,7 +2327,7 @@ function boundaryRefOracleSelfTest() {
     copiedGrantIdentity.attested_boundary_fact_refs.map((reference) =>
       reference === receipt.authority_grant_id
         ? copiedGrantIdentity.authority_grant_id
-        : reference
+        : reference,
     );
   return (
     receiptHasExactBoundaryRefs(receipt) &&
@@ -2373,11 +2393,7 @@ async function admitGenesis(
   call,
   resolver,
   dataDir,
-  {
-    exerciseWrongScope = false,
-    genesisBody = null,
-    genesisId = null,
-  } = {},
+  { exerciseWrongScope = false, genesisBody = null, genesisId = null } = {},
 ) {
   const body = genesisBody ? clone(genesisBody) : exactGenesisBody(genesisId);
   if (exerciseWrongScope) {
@@ -2409,10 +2425,7 @@ async function admitGenesis(
     );
     const beforeWrongScope = await stableDataPlaneSnapshot(call, dataDir);
     const walletStateBeforeWrongScope = requireValue(
-      await walletConsumptionStateBytes(
-        resolver,
-        probeApproval.request_hash,
-      ),
+      await walletConsumptionStateBytes(resolver, probeApproval.request_hash),
       "M1.3 wrong-scope grant lacks committed wallet consumption state",
     );
     const wrongScope = await call("POST", GENESIS_ROUTE, {
@@ -2420,14 +2433,12 @@ async function admitGenesis(
       wallet_approval_grant: wrongScopeGrant,
     });
     const walletStateAfterWrongScope = requireValue(
-      await walletConsumptionStateBytes(
-        resolver,
-        probeApproval.request_hash,
-      ),
+      await walletConsumptionStateBytes(resolver, probeApproval.request_hash),
       "M1.3 wrong-scope refusal removed wallet consumption state",
     );
-    const walletStateUnchanged =
-      walletStateBeforeWrongScope.equals(walletStateAfterWrongScope);
+    const walletStateUnchanged = walletStateBeforeWrongScope.equals(
+      walletStateAfterWrongScope,
+    );
     const dataPlaneUnchanged = await dataPlaneStayedByteExact(
       call,
       dataDir,
@@ -2513,8 +2524,7 @@ async function admitGenesis(
 }
 
 async function materializeGenesisSource(call, resolver, source) {
-  const path =
-    `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+  const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
   const request = {
     expected_genesis_admission_record_root: source.recordRoot,
     expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -2663,10 +2673,8 @@ function recomputeMaterialization(source, materialization) {
       profile_refs: genesis.initial_profile_refs,
     },
   );
-  const componentRegistryRef =
-    `agentgres://object-set/autonomous-system-components/${componentRegistryRoot}`;
-  const materializationId =
-    `system-materialization://sequence-zero/${source.recordRoot}`;
+  const componentRegistryRef = `agentgres://object-set/autonomous-system-components/${componentRegistryRoot}`;
+  const materializationId = `system-materialization://sequence-zero/${source.recordRoot}`;
   const operationCommitment = domainHash(
     "ioi.autonomous-system-sequence-zero-operation-jcs-sha256.v1",
     {
@@ -2730,8 +2738,7 @@ function recomputeMaterialization(source, materialization) {
       status: "materialized_pending_activation",
     },
   );
-  const materializationReceiptRef =
-    `receipt://aszmr_${operationCommitment.replace("sha256:", "")}`;
+  const materializationReceiptRef = `receipt://aszmr_${operationCommitment.replace("sha256:", "")}`;
   const initialReceiptRoot = domainHash(
     "ioi.autonomous-system-sequence-zero-receipt-jcs-sha256.v1",
     {
@@ -2768,18 +2775,19 @@ function recomputeMaterialization(source, materialization) {
     initialStateRoot,
     initialReceiptRoot,
     materializationReceiptRef,
-    transitionCommitmentRef:
-      `commitment://ioi/system-sequence-zero/${transitionHash}`,
+    transitionCommitmentRef: `commitment://ioi/system-sequence-zero/${transitionHash}`,
     responseMatches:
       materialization.component_registry_root === componentRegistryRoot &&
       materialization.profile_bundle_root === profileBundleRoot &&
-      materialization.profile_materialization_root === profileMaterializationRoot &&
+      materialization.profile_materialization_root ===
+        profileMaterializationRoot &&
       materialization.deployment_profile_root === deploymentRoot &&
       materialization.materialization_id === materializationId &&
       materialization.operation_commitment === operationCommitment &&
       materialization.initial_state_root === initialStateRoot &&
       materialization.initial_receipt_root === initialReceiptRoot &&
-      materialization.materialization_receipt_ref === materializationReceiptRef &&
+      materialization.materialization_receipt_ref ===
+        materializationReceiptRef &&
       materialization.transition_commitment_ref ===
         `commitment://ioi/system-sequence-zero/${transitionHash}`,
   };
@@ -2793,13 +2801,11 @@ async function runPrimaryJourney() {
   let foreignRootResolver;
   try {
     plane = await startVerifierPlane({ dataDir, env: resolver.env });
-    if (!plane) throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
+    if (!plane)
+      throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
     const call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
-    const catalogSeedBefore = familiesSnapshot(
-      dataDir,
-      CATALOG_SEED_FAMILIES,
-    );
+    const catalogSeedBefore = familiesSnapshot(dataDir, CATALOG_SEED_FAMILIES);
     requireValue(
       CATALOG_SEED_FAMILIES.every(
         (family) => familyFiles(dataDir, family).length > 0,
@@ -2809,10 +2815,12 @@ async function runPrimaryJourney() {
     const source = await admitGenesis(call, resolver, dataDir, {
       exerciseWrongScope: true,
     });
-    const path =
-      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
     const sourceBytesBefore = familiesSnapshot(dataDir, SOURCE_FAMILIES);
-    const sourceStatusBefore = await call("GET", "/v1/hypervisor/substrate/status");
+    const sourceStatusBefore = await call(
+      "GET",
+      "/v1/hypervisor/substrate/status",
+    );
     const sourceEvidence = [
       [SOURCE_FAMILIES[0], source.record],
       [SOURCE_FAMILIES[1], source.receipt],
@@ -2825,11 +2833,13 @@ async function runPrimaryJourney() {
           sameJson(singleFamilyRecord(dataDir, family), expected) &&
           requiredDomainIsNonVacuous(sourceStatusBefore, family),
       ),
-      `families=${sourceEvidence.filter(
-        ([family, expected]) =>
-          sameJson(singleFamilyRecord(dataDir, family), expected) &&
-          requiredDomainIsNonVacuous(sourceStatusBefore, family),
-      ).length}/${sourceEvidence.length}`,
+      `families=${
+        sourceEvidence.filter(
+          ([family, expected]) =>
+            sameJson(singleFamilyRecord(dataDir, family), expected) &&
+            requiredDomainIsNonVacuous(sourceStatusBefore, family),
+        ).length
+      }/${sourceEvidence.length}`,
     );
     const request = {
       expected_genesis_admission_record_root: source.recordRoot,
@@ -2859,7 +2869,9 @@ async function runPrimaryJourney() {
       secret.status === 422 &&
         secret.body.error?.code ===
           "system_sequence_zero_sensitive_field_rejected" &&
-        !JSON.stringify(secret.body).includes("SEQUENCE_ZERO_SECRET_SENTINEL") &&
+        !JSON.stringify(secret.body).includes(
+          "SEQUENCE_ZERO_SECRET_SENTINEL",
+        ) &&
         (await dataPlaneStayedByteExact(call, dataDir, unknownBefore)),
       `${secret.status}/${secret.body.error?.code || "no-code"}`,
     );
@@ -2881,8 +2893,7 @@ async function runPrimaryJourney() {
     plane = undefined;
     await resolver.stop();
     resolver = undefined;
-    wrongScopeResolver =
-      await startOwnedWalletResolver();
+    wrongScopeResolver = await startOwnedWalletResolver();
     plane = await startVerifierPlane({
       dataDir,
       env: wrongScopeResolver.env,
@@ -2892,8 +2903,7 @@ async function runPrimaryJourney() {
     }
     ok(
       "CATALOG SEED IDEMPOTENCY: two consecutive fresh-daemon boots preserve exact seed-catalog names and bytes",
-      catalogSeedBefore ===
-        familiesSnapshot(dataDir, CATALOG_SEED_FAMILIES),
+      catalogSeedBefore === familiesSnapshot(dataDir, CATALOG_SEED_FAMILIES),
       `families=${CATALOG_SEED_FAMILIES.join(",")}`,
     );
     const wrongScopeChallenge = await call("POST", path, request);
@@ -2937,8 +2947,9 @@ async function runPrimaryJourney() {
       ),
       "M1.4 wrong-scope refusal removed wallet consumption state",
     );
-    const walletStateUnchanged =
-      walletStateBeforeWrongScope.equals(walletStateAfterWrongScope);
+    const walletStateUnchanged = walletStateBeforeWrongScope.equals(
+      walletStateAfterWrongScope,
+    );
     const dataPlaneUnchanged = await dataPlaneStayedByteExact(
       call,
       dataDir,
@@ -3125,8 +3136,14 @@ async function runPrimaryJourney() {
     ok(
       "ROOTS: all six sequence-zero commitments recompute independently from M1.3 truth",
       recomputed.responseMatches &&
-        sameJson(materialization.component_bindings, recomputed.componentBindings) &&
-        sameJson(componentRegistry.component_bindings, recomputed.componentBindings) &&
+        sameJson(
+          materialization.component_bindings,
+          recomputed.componentBindings,
+        ) &&
+        sameJson(
+          componentRegistry.component_bindings,
+          recomputed.componentBindings,
+        ) &&
         componentRegistry.component_registry_root ===
           recomputed.componentRegistryRoot &&
         componentRegistry.component_registry_ref ===
@@ -3136,9 +3153,11 @@ async function runPrimaryJourney() {
     ok(
       "TRACE: proposal roots remain explicit history and never become operational roots",
       materialization.proposed_initial_state_root ===
-        source.record.authorized_genesis.cryptographic_origin.initial_state_root &&
+        source.record.authorized_genesis.cryptographic_origin
+          .initial_state_root &&
         materialization.proposed_initial_receipt_root ===
-          source.record.authorized_genesis.cryptographic_origin.initial_receipt_root &&
+          source.record.authorized_genesis.cryptographic_origin
+            .initial_receipt_root &&
         materialization.initial_state_root !==
           materialization.proposed_initial_state_root &&
         materialization.initial_receipt_root !==
@@ -3172,9 +3191,9 @@ async function runPrimaryJourney() {
         receipt.public_commitment_ref === null &&
         !Object.hasOwn(receipt, "l1_commitment") &&
         receiptHasExactBoundaryRefs(receipt) &&
-        String(receipt.bound_facts?.wallet_grant_consumption_ref || "").startsWith(
-          "wallet.network://approval-effect-consumption/",
-        ) &&
+        String(
+          receipt.bound_facts?.wallet_grant_consumption_ref || "",
+        ).startsWith("wallet.network://approval-effect-consumption/") &&
         receipt.assurance_posture ===
           "sequence_zero_materialized_not_activated",
       `${receipt.output_hash}/${receipt.authority_scopes?.join(",")}`,
@@ -3199,19 +3218,23 @@ async function runPrimaryJourney() {
       `${read.status}/${read.body.error?.code || "ok"}`,
     );
 
-    const sourceStatusAfter = await call("GET", "/v1/hypervisor/substrate/status");
+    const sourceStatusAfter = await call(
+      "GET",
+      "/v1/hypervisor/substrate/status",
+    );
     ok(
       "SOURCE IMMUTABILITY: M1.3 bytes and Agentgres heads are unchanged",
       sourceBytesBefore === familiesSnapshot(dataDir, SOURCE_FAMILIES) &&
         sourceStatusBefore.status === 200 &&
         sourceStatusAfter.status === 200 &&
-        SOURCE_FAMILIES.every((family) =>
-          requiredDomainIsNonVacuous(sourceStatusBefore, family) &&
-          requiredDomainIsNonVacuous(sourceStatusAfter, family) &&
-          sameJson(
-            requiredDomainState(sourceStatusBefore, family),
-            requiredDomainState(sourceStatusAfter, family),
-          ),
+        SOURCE_FAMILIES.every(
+          (family) =>
+            requiredDomainIsNonVacuous(sourceStatusBefore, family) &&
+            requiredDomainIsNonVacuous(sourceStatusAfter, family) &&
+            sameJson(
+              requiredDomainState(sourceStatusBefore, family),
+              requiredDomainState(sourceStatusAfter, family),
+            ),
         ),
       `bytes=${sourceBytesBefore === familiesSnapshot(dataDir, SOURCE_FAMILIES)}`,
     );
@@ -3238,19 +3261,14 @@ async function runPrimaryJourney() {
       ),
     );
 
-    const convergedBytes = familiesSnapshot(
-      dataDir,
-      MATERIALIZATION_FAMILIES,
-    );
+    const convergedBytes = familiesSnapshot(dataDir, MATERIALIZATION_FAMILIES);
     await plane.stop();
     plane = undefined;
     foreignRootResolver = await startOwnedWalletResolver({
       rootSeedHex: FOREIGN_WALLET_ROOT_SEED,
     });
     requireValue(
-      !readFileSync(
-        resolver.env.IOI_WALLET_NETWORK_ROOT_RECORD_PATH,
-      ).equals(
+      !readFileSync(resolver.env.IOI_WALLET_NETWORK_ROOT_RECORD_PATH).equals(
         readFileSync(
           foreignRootResolver.env.IOI_WALLET_NETWORK_ROOT_RECORD_PATH,
         ),
@@ -3270,8 +3288,7 @@ async function runPrimaryJourney() {
       foreignRootRead.status === 500 &&
         foreignRootRead.body.error?.code ===
           "system_sequence_zero_receipt_authority_root_invalid" &&
-        familiesSnapshot(dataDir, MATERIALIZATION_FAMILIES) ===
-          convergedBytes,
+        familiesSnapshot(dataDir, MATERIALIZATION_FAMILIES) === convergedBytes,
       `${foreignRootRead.status}/${foreignRootRead.body.error?.code || "no-code"}`,
     );
     await plane.stop();
@@ -3280,14 +3297,15 @@ async function runPrimaryJourney() {
     foreignRootResolver = undefined;
     plane = await startVerifierPlane({ dataDir, env: resolver.env });
     if (!plane) {
-      throw new Error("BLOCKED: post-foreign-root restoration daemon is not built");
+      throw new Error(
+        "BLOCKED: post-foreign-root restoration daemon is not built",
+      );
     }
     const restoredRootRead = await call("GET", path);
     requireValue(
       restoredRootRead.status === 200 &&
         responseHasExactEvidence(restoredRootRead.body, exactEvidence) &&
-        familiesSnapshot(dataDir, MATERIALIZATION_FAMILIES) ===
-          convergedBytes,
+        familiesSnapshot(dataDir, MATERIALIZATION_FAMILIES) === convergedBytes,
       "foreign-root GET probe did not restore the original configured-root view",
     );
 
@@ -3318,7 +3336,8 @@ async function runPrimaryJourney() {
         expectedCode: "system_sequence_zero_agentgres_evidence_mismatch",
         corrupt(value) {
           const consumedAt = Number(value.consumed_at_ms);
-          value.consumed_at_ms = consumedAt > 1 ? consumedAt - 1 : consumedAt + 1;
+          value.consumed_at_ms =
+            consumedAt > 1 ? consumedAt - 1 : consumedAt + 1;
           value.receipt_hash = walletConsumptionReceiptHash(value);
         },
       },
@@ -3430,8 +3449,7 @@ async function runPostWalletSigkillCase(resolver) {
       genesisId: "genesis://acme/system-alpha/post-wallet-sigkill",
     });
     const sourceBefore = familiesSnapshot(dataDir, SOURCE_FAMILIES);
-    const path =
-      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
     const request = {
       expected_genesis_admission_record_root: source.recordRoot,
       expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -3534,12 +3552,12 @@ async function runCrashReplayJourney() {
         IOI_TEST_FORCE_SYSTEM_SEQUENCE_ZERO_AFTER_WALLET_CONSUME: "1",
       },
     });
-    if (!plane) throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
+    if (!plane)
+      throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
     let call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
     const source = await admitGenesis(call, resolver, dataDir);
-    const path =
-      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
     const sourceBefore = familiesSnapshot(dataDir, SOURCE_FAMILIES);
     const request = {
       expected_genesis_admission_record_root: source.recordRoot,
@@ -3591,8 +3609,7 @@ async function runCrashReplayJourney() {
         }),
       )
       .digest();
-    const forgedBindingRef =
-      `wallet.network://principal-authority-binding/${forgedBindingHash.toString("hex")}`;
+    const forgedBindingRef = `wallet.network://principal-authority-binding/${forgedBindingHash.toString("hex")}`;
     forgedProof.binding_hash = [...forgedBindingHash];
     forgedProof.binding_ref = forgedBindingRef;
     forgedBinding.coordinates.binding_hash = [...forgedBindingHash];
@@ -3602,7 +3619,8 @@ async function runCrashReplayJourney() {
     const forgedIntentBytes = Buffer.from(JSON.stringify(forgedIntent));
     writeFileSync(intentPath, forgedIntentBytes);
     plane = await startVerifierPlane({ dataDir, env: resolver.env });
-    if (!plane) throw new Error("BLOCKED: forged-intent replay daemon is not built");
+    if (!plane)
+      throw new Error("BLOCKED: forged-intent replay daemon is not built");
     call = (method, route, body) =>
       jsonCall(plane.daemonUrl, method, route, body);
     const forgedRead = await call("GET", path);
@@ -3641,7 +3659,8 @@ async function runCrashReplayJourney() {
           (family) => familyFiles(dataDir, family).length === 1,
         ) &&
         converged.body.wallet_grant_consumption_receipt?.usage_ordinal === 1 &&
-        converged.body.wallet_grant_consumption_receipt?.remaining_usages === 0 &&
+        converged.body.wallet_grant_consumption_receipt?.remaining_usages ===
+          0 &&
         sourceBefore === familiesSnapshot(dataDir, SOURCE_FAMILIES) &&
         tempResidue(dataDir).length === 0,
       `${converged?.status || "none"}/${converged?.body?.error?.code || "ok"}`,
@@ -3664,7 +3683,9 @@ async function runPartialPrefixReplayJourney() {
       try {
         plane = await startVerifierPlane({ dataDir, env: resolver.env });
         if (!plane) {
-          throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
+          throw new Error(
+            "BLOCKED: target/debug/hypervisor-daemon is not built",
+          );
         }
         let call = (method, path, body) =>
           jsonCall(plane.daemonUrl, method, path, body);
@@ -3672,8 +3693,7 @@ async function runPartialPrefixReplayJourney() {
           genesisId: `genesis://acme/system-alpha/prefix-${index}`,
         });
         const sourceBefore = familiesSnapshot(dataDir, SOURCE_FAMILIES);
-        const path =
-          `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+        const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
         const request = {
           expected_genesis_admission_record_root: source.recordRoot,
           expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -3766,7 +3786,8 @@ async function runDependencyOrderedReplayJourney() {
         IOI_TEST_FORCE_SYSTEM_GENESIS_AFTER_AGENTGRES: "1",
       },
     });
-    if (!plane) throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
+    if (!plane)
+      throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
     let call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
     const genesisBody = exactGenesisBody(
@@ -3839,8 +3860,7 @@ async function runDependencyOrderedReplayJourney() {
     if (!plane) throw new Error("BLOCKED: M1.4 prepare plane is not built");
     call = (method, route, body) =>
       jsonCall(plane.daemonUrl, method, route, body);
-    const path =
-      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
     const request = {
       expected_genesis_admission_record_root: source.recordRoot,
       expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -3918,12 +3938,12 @@ async function runUnconsumedRevocationJourney() {
         IOI_TEST_FORCE_SYSTEM_SEQUENCE_ZERO_AFTER_PREPARE: "1",
       },
     });
-    if (!plane) throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
+    if (!plane)
+      throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
     let call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
     const source = await admitGenesis(call, resolver, dataDir);
-    const path =
-      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
     const sourceBefore = familiesSnapshot(dataDir, SOURCE_FAMILIES);
     const request = {
       expected_genesis_admission_record_root: source.recordRoot,
@@ -3936,7 +3956,10 @@ async function runUnconsumedRevocationJourney() {
       request,
       MATERIALIZE_SCOPE,
     );
-    requireValue(grant, "unconsumed-revocation lane did not mint the M1.4 grant");
+    requireValue(
+      grant,
+      "unconsumed-revocation lane did not mint the M1.4 grant",
+    );
     const interrupted = await call("POST", path, {
       ...request,
       wallet_approval_grant: grant,
@@ -3985,12 +4008,7 @@ async function runUnconsumedRevocationJourney() {
 async function runLegacyM13IntentUpgradeCase(
   base,
   resolver,
-  {
-    faultEnv,
-    genesisId,
-    proofName,
-    forceUnrelatedFamilyWatchdog = false,
-  },
+  { faultEnv, genesisId, proofName, forceUnrelatedFamilyWatchdog = false },
 ) {
   const dataDir = createOwnedTempDir("ioi-system-genesis-legacy-upgrade-");
   let basePlane;
@@ -4021,15 +4039,16 @@ async function runLegacyM13IntentUpgradeCase(
       wallet_approval_grant: grant,
     });
     const intentFiles = familyFiles(dataDir, SOURCE_INTENT_FAMILY);
-    const intentPath = intentFiles.length === 1
-      ? join(dataDir, SOURCE_INTENT_FAMILY, intentFiles[0])
-      : null;
-    const intentBeforeStop = intentPath === null
-      ? null
-      : readFileSync(intentPath);
-    const intentRecord = intentBeforeStop === null
-      ? null
-      : JSON.parse(intentBeforeStop.toString("utf8"));
+    const intentPath =
+      intentFiles.length === 1
+        ? join(dataDir, SOURCE_INTENT_FAMILY, intentFiles[0])
+        : null;
+    const intentBeforeStop =
+      intentPath === null ? null : readFileSync(intentPath);
+    const intentRecord =
+      intentBeforeStop === null
+        ? null
+        : JSON.parse(intentBeforeStop.toString("utf8"));
     const consumptionBeforeRestart = requestHash
       ? await walletConsumptionStateBytes(resolver, requestHash)
       : null;
@@ -4133,9 +4152,7 @@ async function runCrossVersionCompatibilityJourney() {
       `pinned M1.3 fixture no longer has the expected unversioned deployment profile: ${unversionedDeploymentRef}`,
     );
     resolver = await startOwnedWalletResolver();
-    dataDir = createOwnedTempDir(
-      "ioi-system-sequence-zero-cross-version-",
-    );
+    dataDir = createOwnedTempDir("ioi-system-sequence-zero-cross-version-");
     basePlane = await startVerifierPlaneFromBinary({
       binary: base.binary,
       dataDir,
@@ -4178,8 +4195,7 @@ async function runCrossVersionCompatibilityJourney() {
     }
     call = (method, path, body) =>
       jsonCall(headPlane.daemonUrl, method, path, body);
-    const path =
-      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
     const request = {
       expected_genesis_admission_record_root: source.recordRoot,
       expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -4198,26 +4214,23 @@ async function runCrossVersionCompatibilityJourney() {
         })
       : challenge;
     const read = await call("GET", path);
-    const statusAfter = await call(
-      "GET",
-      "/v1/hypervisor/substrate/status",
-    );
-    const exactEvidence = materialized.status === 201
-      ? Object.fromEntries(
-          MATERIALIZATION_RESPONSE_FIELDS.map((field) => [
-            field,
-            materialized.body[field],
-          ]),
-        )
-      : null;
+    const statusAfter = await call("GET", "/v1/hypervisor/substrate/status");
+    const exactEvidence =
+      materialized.status === 201
+        ? Object.fromEntries(
+            MATERIALIZATION_RESPONSE_FIELDS.map((field) => [
+              field,
+              materialized.body[field],
+            ]),
+          )
+        : null;
     const persistedEvidence = exactEvidence
       ? MATERIALIZATION_FAMILIES.every(
           (family, index) =>
             sameJson(
               singleFamilyRecord(dataDir, family),
               exactEvidence[MATERIALIZATION_RESPONSE_FIELDS[index]],
-            ) &&
-            requiredDomainIsNonVacuous(statusAfter, family),
+            ) && requiredDomainIsNonVacuous(statusAfter, family),
         )
       : false;
     ok(
@@ -4240,9 +4253,9 @@ async function runCrossVersionCompatibilityJourney() {
       "COMPAT IMMUTABILITY: HEAD leaves predecessor M1.3 local bytes and Agentgres domain coordinates unchanged",
       sourceBytesBefore === familiesSnapshot(dataDir, SOURCE_FAMILIES) &&
         sameJson(sourceDomainsAfter, sourceDomainsBefore) &&
-        singleFamilyRecord(dataDir, SOURCE_FAMILIES[0])
-          ?.proposed_genesis?.initial_profile_refs
-          ?.deployment_profile_ref === unversionedDeploymentRef &&
+        singleFamilyRecord(dataDir, SOURCE_FAMILIES[0])?.proposed_genesis
+          ?.initial_profile_refs?.deployment_profile_ref ===
+          unversionedDeploymentRef &&
         tempResidue(dataDir).length === 0,
       `local-bytes=${sourceBytesBefore === familiesSnapshot(dataDir, SOURCE_FAMILIES)} agentgres-domains=${sameJson(sourceDomainsAfter, sourceDomainsBefore)}`,
     );
@@ -4281,12 +4294,20 @@ async function runReceiptVersionCompatibilityJourney() {
       buildPrefix: "ioi-m14-v1-receipt-compatibility-build-",
       label: "pinned v1 receipt writer",
     });
-    legacyDataDir = createOwnedTempDir(
-      "ioi-system-sequence-zero-receipt-v1-",
-    );
-    currentDataDir = createOwnedTempDir(
-      "ioi-system-sequence-zero-receipt-v2-",
-    );
+    const legacyFixtureBundle = loadPinnedFixtureBundle({
+      commit: LEGACY_RECEIPT_WRITER_COMMIT,
+      expectedHashes: LEGACY_RECEIPT_FIXTURE_SHA256,
+      label: "pinned v1 receipt writer",
+    });
+    const legacyFixtureLoader = (relativePath) =>
+      clone(
+        requireValue(
+          legacyFixtureBundle.get(relativePath)?.json,
+          `pinned v1 receipt writer fixture bundle lacks ${relativePath}`,
+        ),
+      );
+    legacyDataDir = createOwnedTempDir("ioi-system-sequence-zero-receipt-v1-");
+    currentDataDir = createOwnedTempDir("ioi-system-sequence-zero-receipt-v2-");
     plane = await startVerifierPlaneFromBinary({
       binary: legacyWriter.binary,
       dataDir: legacyDataDir,
@@ -4298,10 +4319,13 @@ async function runReceiptVersionCompatibilityJourney() {
     let call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
     const legacySource = await admitGenesis(call, resolver, legacyDataDir, {
-      genesisId: "genesis://acme/system-alpha/receipt-compatibility-v1",
+      genesisBody: exactGenesisBody(
+        "genesis://acme/system-alpha/receipt-compatibility-v1",
+        null,
+        legacyFixtureLoader,
+      ),
     });
-    const legacyPath =
-      `${GENESIS_ROUTE}/${legacySource.sourceTail}/sequence-zero-materialization`;
+    const legacyPath = `${GENESIS_ROUTE}/${legacySource.sourceTail}/sequence-zero-materialization`;
     const legacyRequest = {
       expected_genesis_admission_record_root: legacySource.recordRoot,
       expected_genesis_admission_receipt_root: legacySource.receiptRoot,
@@ -4327,10 +4351,10 @@ async function runReceiptVersionCompatibilityJourney() {
           "system_sequence_zero_pending_convergence",
       `historical compatibility interruption failed: ${JSON.stringify(interrupted)}`,
     );
-    const interruptedBytes = familiesSnapshot(
-      legacyDataDir,
-      [...MATERIALIZATION_FAMILIES, INTENT_FAMILY],
-    );
+    const interruptedBytes = familiesSnapshot(legacyDataDir, [
+      ...MATERIALIZATION_FAMILIES,
+      INTENT_FAMILY,
+    ]);
 
     await plane.stop();
     plane = undefined;
@@ -4342,7 +4366,9 @@ async function runReceiptVersionCompatibilityJourney() {
       },
     });
     if (!plane) {
-      throw new Error("BLOCKED: current historical-replay guard daemon is not built");
+      throw new Error(
+        "BLOCKED: current historical-replay guard daemon is not built",
+      );
     }
     call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
@@ -4356,10 +4382,10 @@ async function runReceiptVersionCompatibilityJourney() {
         familyFiles(legacyDataDir, MATERIALIZATION_FAMILIES[1]).length === 0 &&
         familyFiles(legacyDataDir, MATERIALIZATION_FAMILIES[2]).length === 1 &&
         familyFiles(legacyDataDir, MATERIALIZATION_FAMILIES[3]).length === 1 &&
-        familiesSnapshot(
-          legacyDataDir,
-          [...MATERIALIZATION_FAMILIES, INTENT_FAMILY],
-        ) === interruptedBytes,
+        familiesSnapshot(legacyDataDir, [
+          ...MATERIALIZATION_FAMILIES,
+          INTENT_FAMILY,
+        ]) === interruptedBytes,
       `${guardedRead.status}/${guardedRead.body.error?.code || "no-code"} receipt-count=${familyFiles(legacyDataDir, MATERIALIZATION_FAMILIES[1]).length}`,
     );
 
@@ -4425,12 +4451,11 @@ async function runReceiptVersionCompatibilityJourney() {
         !legacyReceipt.attested_boundary_fact_refs.includes(
           legacyReceipt.bound_facts?.wallet_grant_consumption_ref,
         ) &&
-        MATERIALIZATION_FAMILIES.every(
-          (family, index) =>
-            sameJson(
-              singleFamilyRecord(legacyDataDir, family),
-              legacyExactEvidence[MATERIALIZATION_RESPONSE_FIELDS[index]],
-            ),
+        MATERIALIZATION_FAMILIES.every((family, index) =>
+          sameJson(
+            singleFamilyRecord(legacyDataDir, family),
+            legacyExactEvidence[MATERIALIZATION_RESPONSE_FIELDS[index]],
+          ),
         ),
       `${legacyReceipt.schema_version}/${legacyBoundary.grantId || "missing-grant"}`,
     );
@@ -4442,7 +4467,9 @@ async function runReceiptVersionCompatibilityJourney() {
       env: resolver.env,
     });
     if (!plane) {
-      throw new Error("BLOCKED: current compatibility reader daemon is not built");
+      throw new Error(
+        "BLOCKED: current compatibility reader daemon is not built",
+      );
     }
     call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
@@ -4464,7 +4491,9 @@ async function runReceiptVersionCompatibilityJourney() {
       env: resolver.env,
     });
     if (!plane) {
-      throw new Error("BLOCKED: current-receipt compatibility daemon is not built");
+      throw new Error(
+        "BLOCKED: current-receipt compatibility daemon is not built",
+      );
     }
     call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
@@ -4508,14 +4537,11 @@ async function runReceiptVersionCompatibilityJourney() {
         legacyReceipt.receipt_profile_ref !==
           currentReceipt.receipt_profile_ref &&
         legacyBoundary.grantId !== currentBoundary.grantId &&
-        legacyBoundary.grantId ===
-          legacySignedGrantIdentity(legacyReceipt) &&
+        legacyBoundary.grantId === legacySignedGrantIdentity(legacyReceipt) &&
         currentBoundary.grantId ===
           retainedSignedGrantIdentity(currentReceipt) &&
-        legacyBoundary.grantId !==
-          retainedSignedGrantIdentity(legacyReceipt) &&
-        currentBoundary.grantId !==
-          legacySignedGrantIdentity(currentReceipt),
+        legacyBoundary.grantId !== retainedSignedGrantIdentity(legacyReceipt) &&
+        currentBoundary.grantId !== legacySignedGrantIdentity(currentReceipt),
       `${legacyReceipt.schema_version} -> ${currentReceipt.schema_version}`,
     );
   } finally {
@@ -4523,7 +4549,8 @@ async function runReceiptVersionCompatibilityJourney() {
     if (resolver) await resolver.stop();
     legacyWriter?.cleanup();
     if (legacyDataDir) rmSync(legacyDataDir, { recursive: true, force: true });
-    if (currentDataDir) rmSync(currentDataDir, { recursive: true, force: true });
+    if (currentDataDir)
+      rmSync(currentDataDir, { recursive: true, force: true });
   }
 }
 
@@ -4567,7 +4594,10 @@ async function runPreconditionCleanupJourney() {
         body,
         MATERIALIZE_SCOPE,
       );
-      requireValue(grant, "M1.3 cleanup journey did not mint a wrong-target grant");
+      requireValue(
+        grant,
+        "M1.3 cleanup journey did not mint a wrong-target grant",
+      );
       const familyPreexisted = existsSync(
         join(genesisDataDir, SOURCE_INTENT_FAMILY),
       );
@@ -4580,7 +4610,8 @@ async function runPreconditionCleanupJourney() {
         "CLEANUP M1.3 PREPARE: a wrong-target grant adds one record to the daemon-owned intent family",
         familyPreexisted &&
           interrupted.status === 500 &&
-          interrupted.body.error?.code === "system_genesis_pending_convergence" &&
+          interrupted.body.error?.code ===
+            "system_genesis_pending_convergence" &&
           familyFiles(genesisDataDir, SOURCE_INTENT_FAMILY).length === 1 &&
           singleFamilyRecord(genesisDataDir, SOURCE_INTENT_FAMILY)
             ?.intent_family_created_by_request === false &&
@@ -4663,8 +4694,7 @@ async function runPreconditionCleanupJourney() {
       }
       call = (method, path, body) =>
         jsonCall(materializationPlane.daemonUrl, method, path, body);
-      const path =
-        `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+      const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
       const request = {
         expected_genesis_admission_record_root: source.recordRoot,
         expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -4676,11 +4706,16 @@ async function runPreconditionCleanupJourney() {
         request,
         GENESIS_SCOPE,
       );
-      requireValue(grant, "M1.4 cleanup journey did not mint a wrong-target grant");
+      requireValue(
+        grant,
+        "M1.4 cleanup journey did not mint a wrong-target grant",
+      );
       const familyPreexisted = existsSync(
         join(materializationDataDir, INTENT_FAMILY),
       );
-      const preRequestShape = await stableDataDirSnapshot(materializationDataDir);
+      const preRequestShape = await stableDataDirSnapshot(
+        materializationDataDir,
+      );
       const interrupted = await call("POST", path, {
         ...request,
         wallet_approval_grant: grant,
@@ -4695,7 +4730,8 @@ async function runPreconditionCleanupJourney() {
           singleFamilyRecord(materializationDataDir, INTENT_FAMILY)
             ?.intent_family_created_by_request === false &&
           MATERIALIZATION_FAMILIES.every(
-            (family) => familyFiles(materializationDataDir, family).length === 0,
+            (family) =>
+              familyFiles(materializationDataDir, family).length === 0,
           ),
         `${interrupted.status}/${interrupted.body.error?.code || "no-code"}: ${interrupted.body.error?.message || "no-message"}`,
       );
@@ -4723,12 +4759,11 @@ async function runPreconditionCleanupJourney() {
           familyRetained &&
           familyFiles(materializationDataDir, INTENT_FAMILY).length === 0 &&
           restoredShape === preRequestShape &&
-          sourceBefore === familiesSnapshot(
-            materializationDataDir,
-            SOURCE_FAMILIES,
-          ) &&
+          sourceBefore ===
+            familiesSnapshot(materializationDataDir, SOURCE_FAMILIES) &&
           MATERIALIZATION_FAMILIES.every(
-            (family) => familyFiles(materializationDataDir, family).length === 0,
+            (family) =>
+              familyFiles(materializationDataDir, family).length === 0,
           ) &&
           tempResidue(materializationDataDir).length === 0,
         `intent-cleared=${intentCleared} family-retained=${familyRetained} shape-delta=${shapeDelta.join(",") || "none"}`,
@@ -4839,10 +4874,7 @@ async function runTerminalIntentDurabilityJourney() {
       });
       call = (method, path, body) =>
         jsonCall(genesisPlane.daemonUrl, method, path, body);
-      const restarted = await call(
-        "GET",
-        `${GENESIS_ROUTE}/${sourceTail}`,
-      );
+      const restarted = await call("GET", `${GENESIS_ROUTE}/${sourceTail}`);
       ok(
         "TERMINAL M1.3 RESTART: the same data directory serves the exact admission with no replay anchor",
         restarted.status === 200 &&
@@ -4850,7 +4882,7 @@ async function runTerminalIntentDurabilityJourney() {
           familiesSnapshot(genesisDataDir, SOURCE_FAMILIES) ===
             sourceEvidence.bytes &&
           SOURCE_RESPONSE_FIELDS.every((field) =>
-            sameJson(restarted.body[field], sourceEvidence.evidence[field])
+            sameJson(restarted.body[field], sourceEvidence.evidence[field]),
           ),
         `${restarted.status}/${restarted.body.error?.code || "admitted"}`,
       );
@@ -4876,15 +4908,20 @@ async function runTerminalIntentDurabilityJourney() {
       }
       let call = (method, path, body) =>
         jsonCall(materializationPlane.daemonUrl, method, path, body);
-      const source = await admitGenesis(call, resolver, materializationDataDir, {
-        genesisId: "genesis://acme/system-alpha/terminal-materialization-unlink",
-      });
+      const source = await admitGenesis(
+        call,
+        resolver,
+        materializationDataDir,
+        {
+          genesisId:
+            "genesis://acme/system-alpha/terminal-materialization-unlink",
+        },
+      );
       const sourceBefore = familiesSnapshot(
         materializationDataDir,
         SOURCE_FAMILIES,
       );
-      const path =
-        `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+      const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
       const request = {
         expected_genesis_admission_record_root: source.recordRoot,
         expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -4924,7 +4961,8 @@ async function runTerminalIntentDurabilityJourney() {
         boundaryReady: () =>
           familyFiles(materializationDataDir, INTENT_FAMILY).length === 0 &&
           MATERIALIZATION_FAMILIES.every(
-            (family) => familyFiles(materializationDataDir, family).length === 1,
+            (family) =>
+              familyFiles(materializationDataDir, family).length === 1,
           ),
         captureAtBoundary: () => ({
           bytes: familiesSnapshot(
@@ -4952,17 +4990,14 @@ async function runTerminalIntentDurabilityJourney() {
         crashed.daemonExited &&
           crashed.requestOutcome.kind === "error" &&
           familyFiles(materializationDataDir, INTENT_FAMILY).length === 0 &&
-          familiesSnapshot(
-            materializationDataDir,
-            MATERIALIZATION_FAMILIES,
-          ) === materializationEvidence.bytes &&
+          familiesSnapshot(materializationDataDir, MATERIALIZATION_FAMILIES) ===
+            materializationEvidence.bytes &&
           MATERIALIZATION_FAMILIES.every(
-            (family) => familyFiles(materializationDataDir, family).length === 1,
+            (family) =>
+              familyFiles(materializationDataDir, family).length === 1,
           ) &&
-          sourceBefore === familiesSnapshot(
-            materializationDataDir,
-            SOURCE_FAMILIES,
-          ),
+          sourceBefore ===
+            familiesSnapshot(materializationDataDir, SOURCE_FAMILIES),
         `exited=${crashed.daemonExited} request=${crashed.requestOutcome.kind} intent-count=${familyFiles(materializationDataDir, INTENT_FAMILY).length}`,
       );
       materializationPlane = await startVerifierPlane({
@@ -4976,26 +5011,22 @@ async function runTerminalIntentDurabilityJourney() {
         "TERMINAL M1.4 RESTART: the same data directory serves all exact materialization evidence with no replay anchor",
         restarted.status === 200 &&
           familyFiles(materializationDataDir, INTENT_FAMILY).length === 0 &&
-          familiesSnapshot(
-            materializationDataDir,
-            MATERIALIZATION_FAMILIES,
-          ) === materializationEvidence.bytes &&
+          familiesSnapshot(materializationDataDir, MATERIALIZATION_FAMILIES) ===
+            materializationEvidence.bytes &&
           responseHasExactEvidence(
             restarted.body,
             materializationEvidence.evidence,
           ) &&
-          MATERIALIZATION_FAMILIES.every(
-            (family, index) =>
-              sameJson(
-                singleFamilyRecord(materializationDataDir, family),
-                materializationEvidence.evidence[
-                  MATERIALIZATION_RESPONSE_FIELDS[index]
-                ],
-              ),
-        ),
+          MATERIALIZATION_FAMILIES.every((family, index) =>
+            sameJson(
+              singleFamilyRecord(materializationDataDir, family),
+              materializationEvidence.evidence[
+                MATERIALIZATION_RESPONSE_FIELDS[index]
+              ],
+            ),
+          ),
         `${restarted.status}/${restarted.body.error?.code || "materialized"}`,
       );
-
     } finally {
       if (materializationPlane) await materializationPlane.stop();
       rmSync(materializationDataDir, { recursive: true, force: true });
@@ -5021,11 +5052,9 @@ async function runTerminalIntentDurabilityJourney() {
       let call = (method, path, body) =>
         jsonCall(restorationPlane.daemonUrl, method, path, body);
       const source = await admitGenesis(call, resolver, restorationDataDir, {
-        genesisId:
-          "genesis://acme/system-alpha/terminal-pre-fsync-restoration",
+        genesisId: "genesis://acme/system-alpha/terminal-pre-fsync-restoration",
       });
-      const path =
-        `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+      const path = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
       const request = {
         expected_genesis_admission_record_root: source.recordRoot,
         expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -5087,10 +5116,7 @@ async function runTerminalIntentDurabilityJourney() {
             restorationDataDir,
             MATERIALIZATION_FAMILIES,
           ),
-          intentBytes: familiesSnapshot(
-            restorationDataDir,
-            [INTENT_FAMILY],
-          ),
+          intentBytes: familiesSnapshot(restorationDataDir, [INTENT_FAMILY]),
         }),
       });
       restorationPlane = undefined;
@@ -5106,10 +5132,8 @@ async function runTerminalIntentDurabilityJourney() {
           MATERIALIZATION_FAMILIES.every(
             (family) => familyFiles(restorationDataDir, family).length === 1,
           ) &&
-          familiesSnapshot(
-            restorationDataDir,
-            MATERIALIZATION_FAMILIES,
-          ) === restoredBoundary.evidenceBytes &&
+          familiesSnapshot(restorationDataDir, MATERIALIZATION_FAMILIES) ===
+            restoredBoundary.evidenceBytes &&
           familiesSnapshot(restorationDataDir, [INTENT_FAMILY]) ===
             restoredBoundary.intentBytes &&
           tempResidue(restorationDataDir).length === 0,
@@ -5138,10 +5162,8 @@ async function runTerminalIntentDurabilityJourney() {
           familyFiles(restorationDataDir, INTENT_FAMILY).length === 0 &&
           restoredBoundary.intentBytes !==
             familiesSnapshot(restorationDataDir, [INTENT_FAMILY]) &&
-          familiesSnapshot(
-            restorationDataDir,
-            MATERIALIZATION_FAMILIES,
-          ) === restoredBoundary.evidenceBytes &&
+          familiesSnapshot(restorationDataDir, MATERIALIZATION_FAMILIES) ===
+            restoredBoundary.evidenceBytes &&
           tempResidue(restorationDataDir).length === 0,
         `${restoredRead.status}/${restoredRead.body.error?.code || "materialized"} intent-cleared=${restoredIntentCleared} intent-count=${familyFiles(restorationDataDir, INTENT_FAMILY).length}`,
       );
@@ -5154,7 +5176,8 @@ async function runTerminalIntentDurabilityJourney() {
   }
 }
 
-const PROTECTED_INTENT_FAMILY = "autonomous-system-protected-transition-intents";
+const PROTECTED_INTENT_FAMILY =
+  "autonomous-system-protected-transition-intents";
 const LIFECYCLE_STATE_FAMILY = "autonomous-system-lifecycle-states";
 
 async function runProtectedTransitionJourney() {
@@ -5178,8 +5201,7 @@ async function runProtectedTransitionJourney() {
     genesisBody.proposed_instantiation.candidate.initial_profile_refs.deployment_profile_ref =
       pinnedDeploymentRevision.deployment_profile_ref;
     const source = await admitGenesis(call, resolver, dataDir, { genesisBody });
-    const materializePath =
-      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const materializePath = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
     const materializeRequest = {
       expected_genesis_admission_record_root: source.recordRoot,
       expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -5237,7 +5259,8 @@ async function runProtectedTransitionJourney() {
       initialized.status === 200,
       `M1.5b setup failed initialize: ${initialized.status}/${initialized.body.error?.code || "no-code"}`,
     );
-    const initializedState = initialized.body.autonomous_system_activation_state;
+    const initializedState =
+      initialized.body.autonomous_system_activation_state;
     const initializedReceipt = initialized.body.lifecycle_receipt;
     const activatePath = `${GENESIS_ROUTE}/${source.sourceTail}/activate`;
     const activateRequest = {
@@ -5247,7 +5270,8 @@ async function runProtectedTransitionJourney() {
         initializedReceipt.bound_facts.decision_root,
       expected_initialize_state_root: initializedState.activation_state_root,
       expected_initialize_transition_root: initializedState.transition_root,
-      expected_initialize_receipt_root: initializedState.transition_receipt_root,
+      expected_initialize_receipt_root:
+        initializedState.transition_receipt_root,
     };
     const activateAuthority = await challengeAndGrant(
       call,
@@ -5408,14 +5432,16 @@ async function runProtectedTransitionJourney() {
     if (!plane) {
       throw new Error("BLOCKED: M1.5b fault plane is not built");
     }
-    call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+    call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
     const interrupted = await call("POST", transitionPath("resume"), {
       ...resumeRequest,
       wallet_approval_grant: resumeGrant,
     });
     requireValue(
       interrupted.status === 500 &&
-        interrupted.body.error?.code === "system_lifecycle_pending_convergence" &&
+        interrupted.body.error?.code ===
+          "system_lifecycle_pending_convergence" &&
         familyFiles(dataDir, PROTECTED_INTENT_FAMILY).length === 1,
       `M1.5b fault injection did not park the resume: ${interrupted.status}/${interrupted.body.error?.code || "no-code"} intents=${familyFiles(dataDir, PROTECTED_INTENT_FAMILY).length}`,
     );
@@ -5424,7 +5450,8 @@ async function runProtectedTransitionJourney() {
     if (!plane) {
       throw new Error("BLOCKED: M1.5b replay plane is not built");
     }
-    call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
+    call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
     const protectedIntentCleared = await waitForIntentRecordsToClear(
       dataDir,
       PROTECTED_INTENT_FAMILY,
@@ -5460,10 +5487,22 @@ async function runProtectedTransitionJourney() {
 }
 
 const AMENDMENT_SCOPE = "scope:autonomous_system.lifecycle.amend_constitution";
+const AMENDMENT_APPROVAL_SCOPE =
+  "scope:autonomous_system.governance.approve_constitution_amendment";
 const AMENDMENT_INTENT_FAMILY = "autonomous-system-amendment-intents";
+const AMENDMENT_APPROVAL_INTENT_FAMILY =
+  "autonomous-system-amendment-governance-approval-intents";
 const AMENDMENT_RECEIPT_FAMILY = "autonomous-system-amendment-receipts";
 const CONSTITUTION_FAMILY = "autonomous-system-constitutions";
-const AMENDMENT_DECLARATION_FAMILY = "autonomous-system-constitution-amendments";
+const AMENDMENT_DECLARATION_FAMILY =
+  "autonomous-system-constitution-amendments";
+const AMENDMENT_APPROVAL_DECISION_FAMILY =
+  "autonomous-system-constitution-amendment-approval-decisions";
+const CHAIN_SUCCESSOR_CLAIM_FAMILY = "autonomous-system-chain-successor-claims";
+const CHAIN_WRITER_RESERVATION_FAMILY =
+  "autonomous-system-chain-writer-reservations";
+const AMENDMENT_APPROVAL_AUTHORITY_EVIDENCE_FAMILY =
+  "autonomous-system-constitution-amendment-approval-authority-evidence";
 
 /// A constitution's authoritative root: the SAME profile-candidate recipe
 /// genesis and activation use, over the whole body. The body's declared
@@ -5488,14 +5527,14 @@ function artifactHashKind(domain, kind, candidate) {
 /// are diff-excluded by canon; `mutate` applies the amendable change.
 function successorConstitution(
   predecessor,
-  { id, version, activationReceiptRef, mutate },
+  { id, version, activationReceiptRef: _activationReceiptRef, mutate },
 ) {
   const successor = clone(predecessor);
   successor.constitution_id = id;
   successor.version = version;
   successor.predecessor_constitution_ref = predecessor.constitution_id;
   successor.status = "active";
-  successor.activation_receipt_ref = activationReceiptRef;
+  successor.activation_receipt_ref = _activationReceiptRef;
   mutate(successor);
   // Structural, diff-excluded and non-authoritative: carried verbatim.
   successor.constitution_root = predecessor.constitution_root;
@@ -5529,18 +5568,99 @@ function amendmentDeclaration({
       "authority-requirement://acme/governance/amend",
     ],
     proposed_by_ref: "governance://acme/research",
-    decision_ref: null,
-    status: "proposed",
+    decision_ref: `decision://acme/constitution-amendment/${ordinal}`,
+    status: "approved",
   };
+}
+
+function amendmentApprovalDecision(amendment) {
+  const changedFieldPathsCommitment = `sha256:${createHash("sha256")
+    .update(
+      canonicalJson({
+        domain: "ioi.autonomous-system-amendment-changed-paths-jcs-sha256.v1",
+        changed_field_paths: [...amendment.changed_field_paths].sort(),
+      }),
+    )
+    .digest("hex")}`;
+  const decision = {
+    schema_version:
+      "ioi.autonomous-system-constitution-amendment-approval-decision.v1",
+    decision_ref: amendment.decision_ref,
+    decision_root: null,
+    amendment_ref: amendment.amendment_id,
+    amendment_root: `sha256:${createHash("sha256")
+      .update(
+        canonicalJson({
+          domain:
+            "ioi.autonomous-system-constitution-amendment-jcs-sha256.v1",
+          amendment,
+        }),
+      )
+      .digest("hex")}`,
+    proposal_ref: amendment.proposal_ref,
+    system_id: amendment.system_id,
+    governing_decision_profile_ref: amendment.governing_decision_profile_ref,
+    predecessor_constitution_root: amendment.predecessor_constitution_root,
+    successor_constitution_root: amendment.proposed_successor_constitution_root,
+    changed_field_paths_commitment: changedFieldPathsCommitment,
+    evidence_refs: amendment.evidence_refs,
+    authority_requirement_refs: amendment.authority_requirement_refs,
+    outcome: "approved",
+    decided_at: "2026-07-23T12:00:00Z",
+  };
+  decision.decision_root = amendmentApprovalDecisionRoot(decision);
+  return decision;
+}
+
+async function governAmendmentAndChallengeExecution(
+  call,
+  resolver,
+  amendmentPath,
+  request,
+  executionScope = AMENDMENT_SCOPE,
+) {
+  const governance = await challengeAndGrant(
+    call,
+    resolver,
+    amendmentPath,
+    request,
+    AMENDMENT_APPROVAL_SCOPE,
+  );
+  const approvedRequest = {
+    ...request,
+    amendment_governance_approval_grant: requireValue(
+      governance.grant,
+      "M1.5c lacks the external-governance approval grant",
+    ),
+  };
+  const execution = await challengeAndGrant(
+    call,
+    resolver,
+    amendmentPath,
+    approvedRequest,
+    executionScope,
+  );
+  return { governance, approvedRequest, execution, grant: execution.grant };
+}
+
+function amendmentApprovalDecisionRoot(decision) {
+  const material = clone(decision);
+  delete material.decision_root;
+  material.domain =
+    "ioi.autonomous-system-constitution-amendment-approval-decision-jcs-sha256.v1";
+  return `sha256:${createHash("sha256")
+    .update(canonicalJson(material))
+    .digest("hex")}`;
 }
 
 const AMENDABLE_POINTER =
   "/normative_constraints/permitted_ontology_action_contract_refs";
 
 async function runConstitutionalAmendmentJourney() {
-  const resolver = await startOwnedWalletResolver();
+  let resolver = await startOwnedWalletResolver();
   const dataDir = createOwnedTempDir("ioi-constitutional-amendment-");
   let plane;
+  let competingPlanes = [];
   try {
     plane = await startVerifierPlane({ dataDir, env: resolver.env });
     if (!plane) {
@@ -5558,8 +5678,7 @@ async function runConstitutionalAmendmentJourney() {
     genesisBody.proposed_instantiation.candidate.initial_profile_refs.deployment_profile_ref =
       pinnedDeploymentRevision.deployment_profile_ref;
     const source = await admitGenesis(call, resolver, dataDir, { genesisBody });
-    const materializePath =
-      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const materializePath = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
     const materializeRequest = {
       expected_genesis_admission_record_root: source.recordRoot,
       expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -5617,7 +5736,8 @@ async function runConstitutionalAmendmentJourney() {
       initialized.status === 200,
       `M1.5c setup failed initialize: ${initialized.status}/${initialized.body.error?.code || "no-code"}`,
     );
-    const initializedState = initialized.body.autonomous_system_activation_state;
+    const initializedState =
+      initialized.body.autonomous_system_activation_state;
     const initializedReceipt = initialized.body.lifecycle_receipt;
     const activatePath = `${GENESIS_ROUTE}/${source.sourceTail}/activate`;
     const activateRequest = {
@@ -5627,7 +5747,8 @@ async function runConstitutionalAmendmentJourney() {
         initializedReceipt.bound_facts.decision_root,
       expected_initialize_state_root: initializedState.activation_state_root,
       expected_initialize_transition_root: initializedState.transition_root,
-      expected_initialize_receipt_root: initializedState.transition_receipt_root,
+      expected_initialize_receipt_root:
+        initializedState.transition_receipt_root,
     };
     const activateAuthority = await challengeAndGrant(
       call,
@@ -5685,6 +5806,10 @@ async function runConstitutionalAmendmentJourney() {
       AMENDMENT_RECEIPT_FAMILY,
       CONSTITUTION_FAMILY,
       AMENDMENT_DECLARATION_FAMILY,
+      AMENDMENT_APPROVAL_DECISION_FAMILY,
+      AMENDMENT_APPROVAL_AUTHORITY_EVIDENCE_FAMILY,
+      CHAIN_SUCCESSOR_CLAIM_FAMILY,
+      CHAIN_WRITER_RESERVATION_FAMILY,
       LIFECYCLE_STATE_FAMILY,
     ];
     const beforeRefusals = familiesSnapshot(dataDir, amendmentFamilies);
@@ -5715,38 +5840,43 @@ async function runConstitutionalAmendmentJourney() {
     // 2) The declared change set must equal the canonical diff exactly, in
     //    both directions: neither an extra claimed path nor an undeclared
     //    real change may pass.
+    const overDeclaredAmendment = {
+      ...lawfulDeclaration,
+      changed_field_paths: [AMENDABLE_POINTER, "/shutdown/kill_switch_ref"],
+    };
     const overDeclared = await call("POST", amendmentPath, {
       ...pinnedRoots,
-      amendment: {
-        ...lawfulDeclaration,
-        changed_field_paths: [AMENDABLE_POINTER, "/shutdown/kill_switch_ref"],
-      },
+      amendment: overDeclaredAmendment,
+      amendment_approval_decision: amendmentApprovalDecision(
+        overDeclaredAmendment,
+      ),
       successor_constitution: lawfulSuccessor,
     });
-    const undeclaredSuccessor = successorConstitution(
-      predecessorConstitution,
-      {
-        id: "constitution://acme/system-alpha/v2-undeclared",
-        version: "1.1.0",
-        activationReceiptRef,
-        mutate: (body) => {
-          body.normative_constraints.permitted_ontology_action_contract_refs = [
-            "ontology-action://acme/amended/v1",
-          ];
-          body.shutdown.kill_switch_ref = "policy://acme/shutdown/smuggled";
-        },
+    const undeclaredSuccessor = successorConstitution(predecessorConstitution, {
+      id: "constitution://acme/system-alpha/v2-undeclared",
+      version: "1.1.0",
+      activationReceiptRef,
+      mutate: (body) => {
+        body.normative_constraints.permitted_ontology_action_contract_refs = [
+          "ontology-action://acme/amended/v1",
+        ];
+        body.shutdown.kill_switch_ref = "policy://acme/shutdown/smuggled";
       },
-    );
+    });
+    const underDeclaredAmendment = amendmentDeclaration({
+      systemId,
+      ordinal: 1,
+      predecessor: predecessorConstitution,
+      predecessorRoot: activeChain.constitution_root,
+      successor: undeclaredSuccessor,
+      changedFieldPaths: [AMENDABLE_POINTER],
+    });
     const underDeclared = await call("POST", amendmentPath, {
       ...pinnedRoots,
-      amendment: amendmentDeclaration({
-        systemId,
-        ordinal: 1,
-        predecessor: predecessorConstitution,
-        predecessorRoot: activeChain.constitution_root,
-        successor: undeclaredSuccessor,
-        changedFieldPaths: [AMENDABLE_POINTER],
-      }),
+      amendment: underDeclaredAmendment,
+      amendment_approval_decision: amendmentApprovalDecision(
+        underDeclaredAmendment,
+      ),
       successor_constitution: undeclaredSuccessor,
     });
     ok(
@@ -5765,6 +5895,111 @@ async function runConstitutionalAmendmentJourney() {
       `over=${overDeclared.status}/${overDeclared.body.error?.code} under=${underDeclared.status}/${underDeclared.body.error?.code}`,
     );
 
+    const exactApproval = amendmentApprovalDecision(lawfulDeclaration);
+    const wrongProfileApproval = clone(exactApproval);
+    wrongProfileApproval.governing_decision_profile_ref =
+      "policy://acme/governance/foreign";
+    wrongProfileApproval.decision_root =
+      amendmentApprovalDecisionRoot(wrongProfileApproval);
+    const wrongEvidenceApproval = clone(exactApproval);
+    wrongEvidenceApproval.evidence_refs = ["evidence://acme/foreign-approval"];
+    wrongEvidenceApproval.decision_root = amendmentApprovalDecisionRoot(
+      wrongEvidenceApproval,
+    );
+    const wrongRootApproval = clone(exactApproval);
+    wrongRootApproval.decision_root = `sha256:${"70".repeat(32)}`;
+    const approvalSubstitutions = await Promise.all(
+      [wrongProfileApproval, wrongEvidenceApproval, wrongRootApproval].map(
+        (amendment_approval_decision) =>
+          call("POST", amendmentPath, {
+            ...pinnedRoots,
+            amendment: lawfulDeclaration,
+            amendment_approval_decision,
+            successor_constitution: lawfulSuccessor,
+          }),
+      ),
+    );
+    ok(
+      "M1.5c GOVERNANCE APPROVAL: profile, evidence, and root substitutions refuse before authority with zero evidence",
+      approvalSubstitutions.every((response) => response.status === 422) &&
+        approvalSubstitutions
+          .slice(0, 2)
+          .every(
+            (response) =>
+              response.body.error?.code === "system_lifecycle_plan_invalid",
+          ) &&
+        approvalSubstitutions[2].body.error?.code ===
+          "system_lifecycle_request_invalid" &&
+        sameJson(familiesSnapshot(dataDir, amendmentFamilies), beforeRefusals),
+      approvalSubstitutions
+        .map((response) => `${response.status}/${response.body.error?.code}`)
+        .join(","),
+    );
+
+    const unsignedApproval = await call("POST", amendmentPath, {
+      ...pinnedRoots,
+      amendment: lawfulDeclaration,
+      amendment_approval_decision: exactApproval,
+      successor_constitution: lawfulSuccessor,
+    });
+    ok(
+      "M1.5c AUTHENTIC APPROVAL: a caller-computed approval hash without the resolved governance authority's signed grant remains only a challenge and writes nothing",
+      unsignedApproval.status === 403 &&
+        unsignedApproval.body.error?.required_scope ===
+          AMENDMENT_APPROVAL_SCOPE &&
+        unsignedApproval.body.error?.approval?.policy_hash &&
+        unsignedApproval.body.error?.approval?.request_hash &&
+        sameJson(familiesSnapshot(dataDir, amendmentFamilies), beforeRefusals),
+      `${unsignedApproval.status}/${unsignedApproval.body.error?.code || "no-code"} scope=${unsignedApproval.body.error?.required_scope || "no-scope"}`,
+    );
+
+    const understatedAmendment = {
+      ...lawfulDeclaration,
+      protected_field_paths: ["/shutdown"],
+    };
+    const understated = await call("POST", amendmentPath, {
+      ...pinnedRoots,
+      amendment: understatedAmendment,
+      amendment_approval_decision:
+        amendmentApprovalDecision(understatedAmendment),
+      successor_constitution: lawfulSuccessor,
+    });
+    const substitutedActivationSuccessor = clone(lawfulSuccessor);
+    substitutedActivationSuccessor.activation_receipt_ref =
+      "receipt://asar_ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    const substitutedActivationAmendment = amendmentDeclaration({
+      systemId,
+      ordinal: 8,
+      predecessor: predecessorConstitution,
+      predecessorRoot: activeChain.constitution_root,
+      successor: substitutedActivationSuccessor,
+      changedFieldPaths: [AMENDABLE_POINTER],
+    });
+    const substitutedActivation = await call("POST", amendmentPath, {
+      ...pinnedRoots,
+      amendment: substitutedActivationAmendment,
+      amendment_approval_decision: amendmentApprovalDecision(
+        substitutedActivationAmendment,
+      ),
+      successor_constitution: substitutedActivationSuccessor,
+    });
+    ok(
+      "M1.5c COMMITTED BINDINGS: protection understatement and activation-receipt substitution refuse before authority",
+      understated.status === 422 &&
+        understated.body.error?.code === "system_lifecycle_plan_invalid" &&
+        String(understated.body.error?.message).includes(
+          "committed constitution truth",
+        ) &&
+        substitutedActivation.status === 422 &&
+        substitutedActivation.body.error?.code ===
+          "system_lifecycle_plan_invalid" &&
+        String(substitutedActivation.body.error?.message).includes(
+          "committed activation_receipt_ref",
+        ) &&
+        sameJson(familiesSnapshot(dataDir, amendmentFamilies), beforeRefusals),
+      `protected=${understated.status}/${understated.body.error?.code} activation=${substitutedActivation.status}/${substitutedActivation.body.error?.code}`,
+    );
+
     // 3) A clause the declaration itself protects cannot be amended.
     const protectedSuccessor = successorConstitution(predecessorConstitution, {
       id: "constitution://acme/system-alpha/v2-protected",
@@ -5774,16 +6009,19 @@ async function runConstitutionalAmendmentJourney() {
         body.declared_purpose.statement = "Pursue whatever the operator wants.";
       },
     });
+    const protectedAmendment = amendmentDeclaration({
+      systemId,
+      ordinal: 1,
+      predecessor: predecessorConstitution,
+      predecessorRoot: activeChain.constitution_root,
+      successor: protectedSuccessor,
+      changedFieldPaths: ["/declared_purpose/statement"],
+    });
     const protectedRefusal = await call("POST", amendmentPath, {
       ...pinnedRoots,
-      amendment: amendmentDeclaration({
-        systemId,
-        ordinal: 1,
-        predecessor: predecessorConstitution,
-        predecessorRoot: activeChain.constitution_root,
-        successor: protectedSuccessor,
-        changedFieldPaths: ["/declared_purpose/statement"],
-      }),
+      amendment: protectedAmendment,
+      amendment_approval_decision:
+        amendmentApprovalDecision(protectedAmendment),
       successor_constitution: protectedSuccessor,
     });
     ok(
@@ -5810,16 +6048,19 @@ async function runConstitutionalAmendmentJourney() {
           "policy://acme/governance/affected-parties-v2";
       },
     });
+    const governanceAmendment = amendmentDeclaration({
+      systemId,
+      ordinal: 1,
+      predecessor: predecessorConstitution,
+      predecessorRoot: activeChain.constitution_root,
+      successor: governanceSuccessor,
+      changedFieldPaths: ["/governance/affected_party_policy_ref"],
+    });
     const governanceRefusal = await call("POST", amendmentPath, {
       ...pinnedRoots,
-      amendment: amendmentDeclaration({
-        systemId,
-        ordinal: 1,
-        predecessor: predecessorConstitution,
-        predecessorRoot: activeChain.constitution_root,
-        successor: governanceSuccessor,
-        changedFieldPaths: ["/governance/affected_party_policy_ref"],
-      }),
+      amendment: governanceAmendment,
+      amendment_approval_decision:
+        amendmentApprovalDecision(governanceAmendment),
       successor_constitution: governanceSuccessor,
     });
     ok(
@@ -5839,6 +6080,7 @@ async function runConstitutionalAmendmentJourney() {
       expected_chain_head_root: `sha256:${"5c".repeat(32)}`,
       expected_predecessor_state_root: activeState.activation_state_root,
       amendment: lawfulDeclaration,
+      amendment_approval_decision: amendmentApprovalDecision(lawfulDeclaration),
       successor_constitution: lawfulSuccessor,
     });
     ok(
@@ -5853,57 +6095,153 @@ async function runConstitutionalAmendmentJourney() {
     //    grant cannot execute an amendment.
     // A distinct declaration so this probe carries its own request hash: one
     // request hash may name exactly one wallet approval decision.
+    const wrongScopeSuccessor = successorConstitution(
+      predecessorConstitution,
+      {
+        id: "constitution://acme/system-alpha/v2-wrong-scope",
+        version: "1.1.1",
+        activationReceiptRef,
+        mutate: (body) => {
+          body.normative_constraints.permitted_ontology_action_contract_refs = [
+            "ontology-action://acme/amended/wrong-scope",
+          ];
+        },
+      },
+    );
     const wrongScopeDeclaration = amendmentDeclaration({
       systemId,
       ordinal: 9,
       predecessor: predecessorConstitution,
       predecessorRoot: activeChain.constitution_root,
-      successor: lawfulSuccessor,
+      successor: wrongScopeSuccessor,
       changedFieldPaths: [AMENDABLE_POINTER],
     });
     const wrongScopeRequest = {
       ...pinnedRoots,
       amendment: wrongScopeDeclaration,
-      successor_constitution: lawfulSuccessor,
+      amendment_approval_decision: amendmentApprovalDecision(
+        wrongScopeDeclaration,
+      ),
+      successor_constitution: wrongScopeSuccessor,
     };
-    const pauseScopedAuthority = await challengeAndGrant(
+    const pauseScopedAuthority = await governAmendmentAndChallengeExecution(
       call,
       resolver,
       amendmentPath,
       wrongScopeRequest,
       "scope:autonomous_system.lifecycle.pause",
     );
+    const pauseScopedGrant = requireValue(
+      pauseScopedAuthority.grant,
+      `M1.5c lacks the intentionally wrong-scoped execution grant: ${pauseScopedAuthority.execution.challenge.status}/${pauseScopedAuthority.execution.challenge.body.error?.code || "no-code"}`,
+    );
     const wrongScope = await call("POST", amendmentPath, {
-      ...wrongScopeRequest,
-      wallet_approval_grant: pauseScopedAuthority.grant,
+      ...pauseScopedAuthority.approvedRequest,
+      wallet_approval_grant: pauseScopedGrant,
     });
     ok(
       "M1.5c WRONG SCOPE: a pause-scoped grant cannot authorize constitutional amendment",
-      wrongScope.status >= 400 &&
+      wrongScope.status === 403 &&
+        wrongScope.body.error?.code ===
+          "system_lifecycle_wallet_consumption_refused" &&
         familyFiles(dataDir, CONSTITUTION_FAMILY).length === 0 &&
-        familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length === 0,
-      `${wrongScope.status}/${wrongScope.body.error?.code} constitutions=${familyFiles(dataDir, CONSTITUTION_FAMILY).length}`,
+        familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length === 0 &&
+        familyFiles(dataDir, CHAIN_WRITER_RESERVATION_FAMILY).length === 0,
+      `${wrongScope.status}/${wrongScope.body.error?.code} constitutions=${familyFiles(dataDir, CONSTITUTION_FAMILY).length} reservations=${familyFiles(dataDir, CHAIN_WRITER_RESERVATION_FAMILY).length}`,
     );
 
     // 7) The lawful amendment executes exactly once: the constitution and the
     //    active profile set swap while operational status is unchanged.
-    const amendAuthority = await challengeAndGrant(
+    const lawfulRequest = {
+      ...pinnedRoots,
+      amendment: lawfulDeclaration,
+      amendment_approval_decision:
+        amendmentApprovalDecision(lawfulDeclaration),
+      successor_constitution: lawfulSuccessor,
+    };
+    const lawfulGovernance = await challengeAndGrant(
       call,
       resolver,
       amendmentPath,
-      { ...pinnedRoots, amendment: lawfulDeclaration, successor_constitution: lawfulSuccessor },
+      lawfulRequest,
+      AMENDMENT_APPROVAL_SCOPE,
+    );
+    const approvedLawfulRequest = {
+      ...lawfulRequest,
+      amendment_governance_approval_grant: requireValue(
+        lawfulGovernance.grant,
+        "M1.5c lacks the lawful governance approval grant",
+      ),
+    };
+    await plane.stop();
+    plane = await startVerifierPlane({
+      dataDir,
+      env: {
+        ...resolver.env,
+        IOI_TEST_FORCE_SYSTEM_AMENDMENT_AFTER_GOVERNANCE_APPROVAL_WALLET_CONSUMPTION:
+          "approve_constitution_amendment",
+      },
+    });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5c approval-fault plane is not built");
+    }
+    call = (method, path, requestBody) =>
+      jsonCall(plane.daemonUrl, method, path, requestBody);
+    const interruptedApproval = await call(
+      "POST",
+      amendmentPath,
+      approvedLawfulRequest,
+    );
+    requireValue(
+      interruptedApproval.status === 500 &&
+        interruptedApproval.body.error?.code ===
+          "system_lifecycle_pending_convergence" &&
+        familyFiles(dataDir, AMENDMENT_APPROVAL_INTENT_FAMILY).length === 1,
+      `M1.5c governance approval fault did not retain one sealed intent: ${interruptedApproval.status}/${interruptedApproval.body.error?.code || "no-code"} intents=${familyFiles(dataDir, AMENDMENT_APPROVAL_INTENT_FAMILY).length}`,
+    );
+    await plane.stop();
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5c approval-replay plane is not built");
+    }
+    call = (method, path, requestBody) =>
+      jsonCall(plane.daemonUrl, method, path, requestBody);
+    const approvalIntentCleared = await waitForIntentRecordsToClear(
+      dataDir,
+      AMENDMENT_APPROVAL_INTENT_FAMILY,
+    );
+    const lawfulExecution = await challengeAndGrant(
+      call,
+      resolver,
+      amendmentPath,
+      approvedLawfulRequest,
       AMENDMENT_SCOPE,
     );
+    ok(
+      "M1.5c APPROVAL REPLAY: a crash after governance wallet consumption converges durable approval evidence from its sealed intent",
+      approvalIntentCleared &&
+        familyFiles(
+          dataDir,
+          AMENDMENT_APPROVAL_AUTHORITY_EVIDENCE_FAMILY,
+        ).length > 0 &&
+        lawfulExecution.challenge.body.error?.code ===
+          "system_lifecycle_host_authority_required",
+      `cleared=${approvalIntentCleared} evidence=${familyFiles(dataDir, AMENDMENT_APPROVAL_AUTHORITY_EVIDENCE_FAMILY).length} challenge=${lawfulExecution.challenge.status}/${lawfulExecution.challenge.body.error?.code || "no-code"}`,
+    );
+    const amendAuthority = {
+      governance: lawfulGovernance,
+      approvedRequest: approvedLawfulRequest,
+      execution: lawfulExecution,
+      grant: lawfulExecution.grant,
+    };
     const amendGrant = requireValue(
       amendAuthority.grant,
-      "M1.5c lacks the amendment grant",
+      `M1.5c lacks the amendment grant: execution=${amendAuthority.execution.challenge.status}/${amendAuthority.execution.challenge.body.error?.code || "no-code"} message=${amendAuthority.execution.challenge.body.error?.message || "no-message"}`,
     );
     const amendResponses = await Promise.all(
       Array.from({ length: 8 }, () =>
         call("POST", amendmentPath, {
-          ...pinnedRoots,
-          amendment: lawfulDeclaration,
-          successor_constitution: lawfulSuccessor,
+          ...amendAuthority.approvedRequest,
           wallet_approval_grant: amendGrant,
         }),
       ),
@@ -5913,13 +6251,49 @@ async function runConstitutionalAmendmentJourney() {
     const amendedChain = amended.body.autonomous_system_chain;
     const amendedSet = amended.body.active_profile_set;
     const priorSet = eligibility.body.current_active_profile_set;
+    const claimsAfterAmend = familyRecords(
+      dataDir,
+      CHAIN_SUCCESSOR_CLAIM_FAMILY,
+    );
+    const amendmentClaim = claimsAfterAmend.find(
+      (claim) => claim.sequence === 3,
+    );
+    const reservationsAfterAmend = familyRecords(
+      dataDir,
+      CHAIN_WRITER_RESERVATION_FAMILY,
+    );
+    const amendmentReservation = reservationsAfterAmend.find(
+      (reservation) => reservation.sequence === 3,
+    );
+    const lawfulApprovalDecisionRoot =
+      amendmentApprovalDecision(lawfulDeclaration).decision_root;
+    const lawfulApprovalEvidence = familyRecords(
+      dataDir,
+      AMENDMENT_APPROVAL_AUTHORITY_EVIDENCE_FAMILY,
+    ).find(
+      (evidence) =>
+        evidence.approval_decision_root === lawfulApprovalDecisionRoot,
+    );
+    const lawfulApprovalConsumption =
+      lawfulApprovalEvidence?.wallet_grant_consumption;
+    const amendmentConsumption = familyRecords(
+      dataDir,
+      "autonomous-system-lifecycle-authority-consumptions",
+    ).find(
+      (receipt) =>
+        artifactHash(
+          "ioi.hypervisor.system-lifecycle-authority-consumption-jcs-sha256.v1",
+          receipt,
+        ) === amended.body.lifecycle_receipt?.wallet_grant_consumption_root,
+    );
     ok(
       "M1.5c AMEND: eight racing real-wallet amendments linearize to one sequence-three constitution swap with operational status unchanged",
       amendWinners.length === 1 &&
         amended.status === 200 &&
         amended.body.sequence === 3 &&
         amendedChain?.constitution_ref === lawfulSuccessor.constitution_id &&
-        amendedChain?.constitution_root === constitutionCandidateRoot(lawfulSuccessor) &&
+        amendedChain?.constitution_root ===
+          constitutionCandidateRoot(lawfulSuccessor) &&
         amendedChain?.latest_sequence === 3 &&
         amendedChain?.status === "active" &&
         amended.body.lifecycle_state?.status === "active" &&
@@ -5933,9 +6307,50 @@ async function runConstitutionalAmendmentJourney() {
           constitutionCandidateRoot(lawfulSuccessor) &&
         amended.body.claims?.constitution_changed === true &&
         amended.body.nonclaims?.status_change === false &&
+        claimsAfterAmend.length === 1 &&
+        amendmentClaim?.operation === "amend_constitution" &&
+        amendmentClaim?.predecessor_chain_root === activeChain.chain_root &&
+        amendmentClaim?.successor_chain_root === amendedChain?.chain_root &&
+        reservationsAfterAmend.length === 1 &&
+        amendmentReservation?.operation === "amend_constitution" &&
+        amendmentReservation?.predecessor_chain_root ===
+          activeChain.chain_root &&
+        amendmentReservation?.writer_plan_hash ===
+          amendmentReservation?.operation_root &&
+        lawfulApprovalEvidence?.authorized_effect?.approval_decision_root ===
+          lawfulApprovalDecisionRoot &&
+        lawfulApprovalEvidence?.authorized_effect?.amendment_root ===
+          amended.body.amendment_root &&
+        lawfulApprovalEvidence?.wallet_grant_consumption_ref?.startsWith(
+          "wallet.network://approval-effect-consumption/",
+        ) &&
+        lawfulApprovalConsumption &&
+        lawfulApprovalEvidence?.wallet_grant_consumption_root ===
+          artifactHash(
+            "ioi.hypervisor.constitution-amendment-governance-approval-consumption-jcs-sha256.v1",
+            lawfulApprovalConsumption,
+          ) &&
+        amendmentConsumption &&
         familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length === 0,
-      `winners=${amendWinners.length} ${amended.status}/${amended.body.error?.code || "ok"} msg=${String(amended.body.error?.message || "").slice(0, 200)} seq=${amended.body.sequence} kind=${amended.body.operation_log?.head_entry?.entry_kind} set=${amendedSet?.schema_version} responses=${amendResponses.map((r) => `${r.status}/${r.body.op || r.body.error?.code || "no-code"}`).join(",")}`,
+      `winners=${amendWinners.length} ${amended.status}/${amended.body.error?.code || "ok"} msg=${String(amended.body.error?.message || "").slice(0, 200)} seq=${amended.body.sequence} kind=${amended.body.operation_log?.head_entry?.entry_kind} set=${amendedSet?.schema_version} claims=${claimsAfterAmend.length} reservations=${reservationsAfterAmend.length} approval=${!!lawfulApprovalEvidence} receipt-root=${!!amendmentConsumption} responses=${amendResponses.map((r) => `${r.status}/${r.body.op || r.body.error?.code || "no-code"}`).join(",")}`,
     );
+
+    // Governance approval consumption adds another real transaction to each
+    // amendment. Rotate the in-process TestCluster before its execution
+    // worker reaches the same bounded-lifetime edge already handled below.
+    // The control root and authority keys are deterministic; no evidence is
+    // synthesized, and the next tranche still records and consumes every
+    // grant through a fresh real wallet.network chain.
+    await plane.stop();
+    plane = null;
+    await resolver.stop();
+    resolver = await startOwnedWalletResolver();
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5c replay-tranche plane is not built");
+    }
+    call = (method, path, requestBody) =>
+      jsonCall(plane.daemonUrl, method, path, requestBody);
 
     // 8) A crash after exact wallet consumption converges exactly one further
     //    amendment on restart, through the background replay driver.
@@ -5963,9 +6378,10 @@ async function runConstitutionalAmendmentJourney() {
       expected_predecessor_state_root:
         amended.body.lifecycle_state.lifecycle_state_root,
       amendment: secondDeclaration,
+      amendment_approval_decision: amendmentApprovalDecision(secondDeclaration),
       successor_constitution: secondSuccessor,
     };
-    const secondAuthority = await challengeAndGrant(
+    const secondAuthority = await governAmendmentAndChallengeExecution(
       call,
       resolver,
       amendmentPath,
@@ -5991,7 +6407,7 @@ async function runConstitutionalAmendmentJourney() {
     call = (method, path, requestBody) =>
       jsonCall(plane.daemonUrl, method, path, requestBody);
     const interrupted = await call("POST", amendmentPath, {
-      ...secondRequest,
+      ...secondAuthority.approvedRequest,
       wallet_approval_grant: secondGrant,
     });
     requireValue(
@@ -6013,6 +6429,15 @@ async function runConstitutionalAmendmentJourney() {
       AMENDMENT_INTENT_FAMILY,
     );
     const convergedAmendment = await call("GET", amendmentPath);
+    const claimsAfterReplay = familyRecords(
+      dataDir,
+      CHAIN_SUCCESSOR_CLAIM_FAMILY,
+    );
+    const replayClaim = claimsAfterReplay.find((claim) => claim.sequence === 4);
+    const reservationsAfterReplay = familyRecords(
+      dataDir,
+      CHAIN_WRITER_RESERVATION_FAMILY,
+    );
     ok(
       "M1.5c REPLAY: a crash after wallet consumption converges exactly one further amendment at sequence four on restart",
       amendmentIntentCleared &&
@@ -6021,9 +6446,35 @@ async function runConstitutionalAmendmentJourney() {
         convergedAmendment.body.chain_head?.constitution_root ===
           constitutionCandidateRoot(secondSuccessor) &&
         convergedAmendment.body.committed_amendments?.length === 2 &&
+        claimsAfterReplay.length === 2 &&
+        replayClaim?.operation === "amend_constitution" &&
+        replayClaim?.predecessor_chain_root === amendedChain.chain_root &&
+        replayClaim?.successor_chain_root ===
+          convergedAmendment.body.chain_head?.chain_root &&
+        reservationsAfterReplay.length === 2 &&
+        reservationsAfterReplay.some(
+          (reservation) => reservation.sequence === 4,
+        ) &&
         familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length === 0,
-      `cleared=${amendmentIntentCleared} seq=${convergedAmendment.body.chain_head?.latest_sequence} committed=${convergedAmendment.body.committed_amendments?.length}`,
+      `cleared=${amendmentIntentCleared} seq=${convergedAmendment.body.chain_head?.latest_sequence} committed=${convergedAmendment.body.committed_amendments?.length} claims=${claimsAfterReplay.length} reservations=${reservationsAfterReplay.length}`,
     );
+
+    // The in-process TestCluster execution endpoint loses its worker after
+    // this journey's long first transaction tranche. Bound the harness
+    // lifetime by rotating only after the crash boundary is fully
+    // converged and verified. The fixture root and authority keys are
+    // deterministic, while every later approval is still committed through a
+    // fresh real wallet.network chain rather than synthesized in the verifier.
+    await plane.stop();
+    plane = null;
+    await resolver.stop();
+    resolver = await startOwnedWalletResolver();
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) {
+      throw new Error("BLOCKED: M1.5c continuity plane is not built");
+    }
+    call = (method, path, requestBody) =>
+      jsonCall(plane.daemonUrl, method, path, requestBody);
 
     // 9) Operational transitions continue over the AMENDED constitution and
     //    carry the successor profile set forward (the m1-5b continuity fix:
@@ -6071,6 +6522,20 @@ async function runConstitutionalAmendmentJourney() {
       ),
     });
     const resumedChain = resumedAfterAmendment.body.autonomous_system_chain;
+    const claimsAfterContinuity = familyRecords(
+      dataDir,
+      CHAIN_SUCCESSOR_CLAIM_FAMILY,
+    );
+    const pauseClaim = claimsAfterContinuity.find(
+      (claim) => claim.sequence === 5,
+    );
+    const resumeClaim = claimsAfterContinuity.find(
+      (claim) => claim.sequence === 6,
+    );
+    const reservationsAfterContinuity = familyRecords(
+      dataDir,
+      CHAIN_WRITER_RESERVATION_FAMILY,
+    );
     ok(
       "M1.5c CONTINUITY: pause and resume continue over the amended constitution carrying the successor profile set",
       pausedAfterAmendment.status === 200 &&
@@ -6082,10 +6547,136 @@ async function runConstitutionalAmendmentJourney() {
         resumedChain?.latest_sequence === 6 &&
         resumedChain?.status === "active" &&
         resumedChain?.constitution_root ===
-          constitutionCandidateRoot(secondSuccessor),
-      `pause=${pausedAfterAmendment.status}/${pausedAfterAmendment.body.error?.code || "ok"} resume=${resumedAfterAmendment.status}/${resumedAfterAmendment.body.error?.code || "ok"} seq=${resumedChain?.latest_sequence} constitution_carried=${resumedChain?.constitution_root === constitutionCandidateRoot(secondSuccessor)}`,
+          constitutionCandidateRoot(secondSuccessor) &&
+        claimsAfterContinuity.length === 4 &&
+        pauseClaim?.operation === "pause" &&
+        pauseClaim?.predecessor_chain_root === headAfterReplay.chain_root &&
+        pauseClaim?.successor_chain_root === pausedChain?.chain_root &&
+        resumeClaim?.operation === "resume" &&
+        resumeClaim?.predecessor_chain_root === pausedChain?.chain_root &&
+        resumeClaim?.successor_chain_root === resumedChain?.chain_root &&
+        reservationsAfterContinuity.length === 4 &&
+        [3, 4, 5, 6].every((sequence) =>
+          reservationsAfterContinuity.some(
+            (reservation) => reservation.sequence === sequence,
+          ),
+        ),
+      `pause=${pausedAfterAmendment.status}/${pausedAfterAmendment.body.error?.code || "ok"} resume=${resumedAfterAmendment.status}/${resumedAfterAmendment.body.error?.code || "ok"} seq=${resumedChain?.latest_sequence} constitution_carried=${resumedChain?.constitution_root === constitutionCandidateRoot(secondSuccessor)} claims=${claimsAfterContinuity.length} reservations=${reservationsAfterContinuity.length}`,
+    );
+
+    // 10) Two independent daemon processes race DIFFERENT successors from
+    //     the same predecessor. The durable reservation must select a writer
+    //     before either process consumes its execution grant.
+    const crossProcessSuccessors = ["left", "right"].map((side, index) =>
+      successorConstitution(secondSuccessor, {
+        id: `constitution://acme/system-alpha/v4-${side}`,
+        version: `1.3.${index}`,
+        activationReceiptRef,
+        mutate: (body) => {
+          body.normative_constraints.permitted_ontology_action_contract_refs = [
+            "ontology-action://acme/amended/v1",
+            "ontology-action://acme/amended/v2",
+            `ontology-action://acme/cross-process-${side}/v1`,
+          ];
+        },
+      }),
+    );
+    const crossProcessRequests = crossProcessSuccessors.map(
+      (successor, index) => {
+        const declaration = amendmentDeclaration({
+          systemId,
+          ordinal: 30 + index,
+          predecessor: secondSuccessor,
+          predecessorRoot: resumedChain.constitution_root,
+          successor,
+          changedFieldPaths: [AMENDABLE_POINTER],
+        });
+        return {
+          expected_chain_head_root: resumedChain.chain_root,
+          expected_predecessor_state_root:
+            resumedAfterAmendment.body.lifecycle_state.lifecycle_state_root,
+          amendment: declaration,
+          amendment_approval_decision: amendmentApprovalDecision(declaration),
+          successor_constitution: successor,
+        };
+      },
+    );
+    const crossProcessAuthorities = [];
+    for (const request of crossProcessRequests) {
+      crossProcessAuthorities.push(
+        await governAmendmentAndChallengeExecution(
+          call,
+          resolver,
+          amendmentPath,
+          request,
+          AMENDMENT_SCOPE,
+        ),
+      );
+    }
+    const consumptionsBeforeCrossProcessRace = familyFiles(
+      dataDir,
+      "autonomous-system-lifecycle-authority-consumptions",
+    ).length;
+    await plane.stop();
+    plane = null;
+    competingPlanes = await Promise.all([
+      startVerifierPlane({ dataDir, env: resolver.env }),
+      startVerifierPlane({ dataDir, env: resolver.env }),
+    ]);
+    requireValue(
+      competingPlanes.every(Boolean),
+      "BLOCKED: M1.5c independent-process race planes are not built",
+    );
+    const crossProcessResponses = await Promise.all(
+      competingPlanes.map((candidatePlane, index) =>
+        jsonCall(candidatePlane.daemonUrl, "POST", amendmentPath, {
+          ...crossProcessAuthorities[index].approvedRequest,
+          wallet_approval_grant: crossProcessAuthorities[index].grant,
+        }),
+      ),
+    );
+    await Promise.all(competingPlanes.map((candidatePlane) => candidatePlane.stop()));
+    competingPlanes = [];
+    const crossProcessWinners = crossProcessResponses.filter(
+      (response) => response.status === 200,
+    );
+    const crossProcessLosers = crossProcessResponses.filter(
+      (response) => response.status === 409,
+    );
+    const crossProcessWinner = crossProcessWinners[0];
+    const reservationsAfterCrossProcessRace = familyRecords(
+      dataDir,
+      CHAIN_WRITER_RESERVATION_FAMILY,
+    );
+    ok(
+      "M1.5c CROSS-PROCESS CAS: two independent daemons racing different successors select one sequence-seven writer before wallet consumption",
+      crossProcessWinners.length === 1 &&
+        crossProcessLosers.length === 1 &&
+        crossProcessLosers[0].body.error?.code ===
+          "system_lifecycle_head_conflict" &&
+        crossProcessWinner?.body.sequence === 7 &&
+        crossProcessSuccessors.some(
+          (successor) =>
+            constitutionCandidateRoot(successor) ===
+            crossProcessWinner?.body.autonomous_system_chain
+              ?.constitution_root,
+        ) &&
+        familyFiles(
+          dataDir,
+          "autonomous-system-lifecycle-authority-consumptions",
+        ).length ===
+          consumptionsBeforeCrossProcessRace + 1 &&
+        reservationsAfterCrossProcessRace.length === 5 &&
+        reservationsAfterCrossProcessRace.filter(
+          (reservation) => reservation.sequence === 7,
+        ).length === 1 &&
+        familyFiles(dataDir, AMENDMENT_INTENT_FAMILY).length === 0,
+      `responses=${crossProcessResponses.map((response) => `${response.status}/${response.body.op || response.body.error?.code || "no-code"}`).join(",")} consumptions=${familyFiles(dataDir, "autonomous-system-lifecycle-authority-consumptions").length - consumptionsBeforeCrossProcessRace} reservations=${reservationsAfterCrossProcessRace.length}`,
     );
   } finally {
+    await Promise.all(
+      competingPlanes.filter(Boolean).map((candidatePlane) => candidatePlane.stop()),
+    );
     if (plane) await plane.stop();
     await resolver.stop();
     rmSync(dataDir, { recursive: true, force: true });
@@ -6103,9 +6694,7 @@ async function runSystemActivationJourney() {
     }
     let call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
-    const genesisBody = exactGenesisBody(
-      "genesis://acme/system-alpha/m1-5a",
-    );
+    const genesisBody = exactGenesisBody("genesis://acme/system-alpha/m1-5a");
     const pinnedDeploymentRevision = lifecycleDeploymentRevisionForGenesis(
       genesisBody.proposed_instantiation.candidate,
     );
@@ -6114,8 +6703,7 @@ async function runSystemActivationJourney() {
     const source = await admitGenesis(call, resolver, dataDir, {
       genesisBody,
     });
-    const materializePath =
-      `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+    const materializePath = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
     const materializeRequest = {
       expected_genesis_admission_record_root: source.recordRoot,
       expected_genesis_admission_receipt_root: source.receiptRoot,
@@ -6146,10 +6734,10 @@ async function runSystemActivationJourney() {
       materialized.body.autonomous_system_sequence_zero_materialization_receipt,
       "M1.5a setup lacks M1.4 receipt",
     );
-    const predecessorBytes = familiesSnapshot(
-      dataDir,
-      [...SOURCE_FAMILIES, ...MATERIALIZATION_FAMILIES],
-    );
+    const predecessorBytes = familiesSnapshot(dataDir, [
+      ...SOURCE_FAMILIES,
+      ...MATERIALIZATION_FAMILIES,
+    ]);
 
     const revision = lifecycleDeploymentRevision(source);
     const initializePath = `${GENESIS_ROUTE}/${source.sourceTail}/initialize`;
@@ -6232,7 +6820,8 @@ async function runSystemActivationJourney() {
       `M1.5a initialize did not produce one winner: ${JSON.stringify(initializeResponses)}`,
     );
     const initializeGet = await call("GET", initializePath);
-    const initializedState = initializeGet.body.autonomous_system_activation_state;
+    const initializedState =
+      initializeGet.body.autonomous_system_activation_state;
     const initializedReceipt = initializeGet.body.lifecycle_receipt;
     ok(
       "M1.5a INITIALIZE GET: complete graph is exact and carries no active set or chain",
@@ -6311,14 +6900,16 @@ async function runSystemActivationJourney() {
         ).length === 2 &&
         familyFiles(dataDir, "autonomous-system-activation-states").length ===
           1,
-      race.map((response) => `${response.status}/${response.body.operation || response.body.error?.code}`).join(","),
+      race
+        .map(
+          (response) =>
+            `${response.status}/${response.body.operation || response.body.error?.code}`,
+        )
+        .join(","),
     );
 
     await plane.stop();
-    const [activationIntentName] = familyFiles(
-      dataDir,
-      ACTIVATE_INTENT_FAMILY,
-    );
+    const [activationIntentName] = familyFiles(dataDir, ACTIVATE_INTENT_FAMILY);
     const relocatedIntentName = `asaci_${"f".repeat(64)}.json`;
     requireValue(
       activationIntentName && activationIntentName !== relocatedIntentName,
@@ -6385,7 +6976,10 @@ async function runSystemActivationJourney() {
     const activeState = activateGet.body.autonomous_system_activation_state;
     const operationLog = activateGet.body.operation_log;
     const chain = activateGet.body.autonomous_system_chain;
-    const substrateStatus = await call("GET", "/v1/hypervisor/substrate/status");
+    const substrateStatus = await call(
+      "GET",
+      "/v1/hypervisor/substrate/status",
+    );
     const expectedCounts = new Map([
       ["autonomous-system-deployment-profile-revisions", 1],
       ["autonomous-system-lifecycle-authority-evidence", 2],
@@ -6406,7 +7000,10 @@ async function runSystemActivationJourney() {
       activateGet.status === 200 &&
         activeState?.sequence === 2 &&
         activeState?.status === "active" &&
-        sameJson(operationLog?.entries?.map((entry) => entry.sequence), [0, 1, 2]) &&
+        sameJson(
+          operationLog?.entries?.map((entry) => entry.sequence),
+          [0, 1, 2],
+        ) &&
         sameJson(chain?.node_membership_refs, []) &&
         sameJson(chain?.worker_instance_refs, []) &&
         sameJson(chain?.workflow_refs, []) &&
@@ -6415,7 +7012,8 @@ async function runSystemActivationJourney() {
         chain?.latest_transition_commitment_ref === null &&
         LIFECYCLE_FAMILIES.every(
           (family) =>
-            familyFiles(dataDir, family).length === expectedCounts.get(family) &&
+            familyFiles(dataDir, family).length ===
+              expectedCounts.get(family) &&
             requiredDomainIsNonVacuous(substrateStatus, family),
         ),
       `${activateGet.status}/${activateGet.body.error?.code || activeState?.status}`,
@@ -6423,7 +7021,10 @@ async function runSystemActivationJourney() {
     ok(
       "M1.5a SOURCE: real M1.3/M1.4 bytes remain unchanged across initialize and activate",
       predecessorBytes ===
-        familiesSnapshot(dataDir, [...SOURCE_FAMILIES, ...MATERIALIZATION_FAMILIES]),
+        familiesSnapshot(dataDir, [
+          ...SOURCE_FAMILIES,
+          ...MATERIALIZATION_FAMILIES,
+        ]),
       `byte-exact=${predecessorBytes === familiesSnapshot(dataDir, [...SOURCE_FAMILIES, ...MATERIALIZATION_FAMILIES])}`,
     );
   } finally {
@@ -6478,8 +7079,7 @@ function sameJourneySet(left, right) {
 
 function selectionMayRun(selectedJourneys, requiredJourneys, focusedOptIn) {
   return (
-    sameJourneySet(selectedJourneys, requiredJourneys) ||
-    focusedOptIn === "1"
+    sameJourneySet(selectedJourneys, requiredJourneys) || focusedOptIn === "1"
   );
 }
 
@@ -6548,9 +7148,11 @@ async function run() {
           "require_legacy_receipt_preexisting",
         ) < productionIntentCompleter.indexOf("persist_immutable") &&
         verifierSource.includes(LEGACY_RECEIPT_WRITER_COMMIT),
-      `families=${MATERIALIZATION_FAMILIES.filter((family) =>
-        routeSource.includes(`"${family}"`),
-      ).length}/${MATERIALIZATION_FAMILIES.length} current-write-only=${productionReceiptBuilder.includes("ReceiptVersion::CurrentV2") && productionIntentCompleter.includes("require_legacy_receipt_preexisting")}`,
+      `families=${
+        MATERIALIZATION_FAMILIES.filter((family) =>
+          routeSource.includes(`"${family}"`),
+        ).length
+      }/${MATERIALIZATION_FAMILIES.length} current-write-only=${productionReceiptBuilder.includes("ReceiptVersion::CurrentV2") && productionIntentCompleter.includes("require_legacy_receipt_preexisting")}`,
     );
     const journeys = new Map([
       ["constitutional-amendment", runConstitutionalAmendmentJourney],
@@ -6562,10 +7164,7 @@ async function run() {
       ["dependency-ordered-replay", runDependencyOrderedReplayJourney],
       ["unconsumed-revocation", runUnconsumedRevocationJourney],
       ["cross-version-compatibility", runCrossVersionCompatibilityJourney],
-      [
-        "receipt-version-compatibility",
-        runReceiptVersionCompatibilityJourney,
-      ],
+      ["receipt-version-compatibility", runReceiptVersionCompatibilityJourney],
       ["precondition-cleanup", runPreconditionCleanupJourney],
       ["terminal-intent-durability", runTerminalIntentDurabilityJourney],
     ]);
@@ -6601,6 +7200,16 @@ async function run() {
       "SELF-TEST: exact boundary refs admit the nullable profile lane but refuse omission and stuffing",
       boundaryRefOracleSelfTest(),
     );
+    ok(
+      "SELF-TEST: durable-state snapshots exclude only exact verifier transport-log names",
+      isIsolatedDaemonLogName("isolated-daemon.log") &&
+        isIsolatedDaemonLogName(
+          "isolated-daemon-restart-1784842557247-1350453-40301.log",
+        ) &&
+        !isIsolatedDaemonLogName("isolated-daemon-restart-1.log") &&
+        !isIsolatedDaemonLogName("isolated-daemon-restart-1-2-3.log.bak") &&
+        !isIsolatedDaemonLogName("production-record.json"),
+    );
     const scrubbedEnv = sanitizeVerifierEnv({
       PATH: "/bin",
       IOI_TEST_FAULT_SENTINEL: "1",
@@ -6616,10 +7225,7 @@ async function run() {
     );
     ok(
       "SELECTOR: an omitted selector defaults to every journey",
-      sameJson(
-        selectJourneys(undefined, requiredJourneys),
-        requiredJourneys,
-      ),
+      sameJson(selectJourneys(undefined, requiredJourneys), requiredJourneys),
     );
     ok(
       "SELECTOR: delimiter-only and empty-token selectors fail closed",
@@ -6648,13 +7254,10 @@ async function run() {
     );
     ok(
       "SELECTOR: a valid subset remains focused and ordered",
-      sameJson(
-        selectJourneys(
-          "wallet-replay, primary",
-          requiredJourneys,
-        ),
-        ["wallet-replay", "primary"],
-      ),
+      sameJson(selectJourneys("wallet-replay, primary", requiredJourneys), [
+        "wallet-replay",
+        "primary",
+      ]),
     );
     ok(
       "SELECTOR: a focused subset requires the explicit non-certifying opt-in",
@@ -6662,12 +7265,7 @@ async function run() {
         ["wallet-replay", "primary"],
         requiredJourneys,
         undefined,
-      ) &&
-        selectionMayRun(
-          ["wallet-replay", "primary"],
-          requiredJourneys,
-          "1",
-        ),
+      ) && selectionMayRun(["wallet-replay", "primary"], requiredJourneys, "1"),
     );
     ok(
       "CERTIFICATION MODE: selectors and focused opt-ins cannot produce a held-bar certificate",
@@ -6690,11 +7288,13 @@ async function run() {
       process.env[JOURNEY_SELECTOR_ENV],
       requiredJourneys,
     );
-    if (!selectionMayRun(
-      selectedJourneys,
-      requiredJourneys,
-      process.env[FOCUSED_VERIFIER_OPT_IN_ENV],
-    )) {
+    if (
+      !selectionMayRun(
+        selectedJourneys,
+        requiredJourneys,
+        process.env[FOCUSED_VERIFIER_OPT_IN_ENV],
+      )
+    ) {
       throw new Error(
         `${FOCUSED_VERIFIER_OPT_IN_ENV}=1 is required to run a non-certifying journey subset`,
       );

@@ -37,6 +37,9 @@
           "amendment_root": {
             "path": "$.amendment_root"
           },
+          "approval_decision_root": {
+            "path": "$.approval_decision_root"
+          },
           "irreversibility": {
             "path": "$.irreversibility"
           },

@@ -18,7 +18,8 @@
 //! evidence lane proven by `substrate-parity`.
 
 use agentgres::mux::{
-    spawn_mux_writer_cfg, ExactProjection, MuxAdmitError, MuxEngine, MuxHandle, WriterConfig,
+    spawn_mux_writer_cfg, ExactProjection, MuxAdmitError, MuxEngine, MuxHandle, MuxStatusSnapshot,
+    WriterConfig,
 };
 use agentgres::replica::ReplicaLink;
 use agentgres::{parse_rfc3339_ms, AdmitAck, Operation, Refusal};
@@ -26,7 +27,12 @@ use axum::{extract::State, Json};
 use serde_json::{json, Value};
 use sha2::Digest;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
+
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
 
 /// Families whose truth is the substrate engine. Extend only after the
 /// candidate family has passed a dual-write soak with clean parity.
@@ -55,14 +61,38 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-home-bindings",
     "autonomous-system-operation-log-revisions",
     "autonomous-system-chain-revisions",
+    "autonomous-system-chain-successor-claims",
+    "autonomous-system-chain-writer-reservations",
     "autonomous-system-lifecycle-states",
     "autonomous-system-protected-transition-receipts",
     "autonomous-system-amendment-receipts",
     "autonomous-system-constitution-amendments",
+    "autonomous-system-constitution-amendment-approval-decisions",
+    "autonomous-system-constitution-amendment-approval-authority-evidence",
     "autonomous-system-constitutions",
 ];
 
-static HANDLE: OnceLock<Option<MuxHandle>> = OnceLock::new();
+struct HandleSlot {
+    data_dir: String,
+    handle: MuxHandle,
+    log_generation: LogGeneration,
+}
+
+/// Constant-time identity for the append-only mux log. Length detects every
+/// normal commit; file identity catches replacement/recovery even if a new log
+/// happens to have the same length. Modified time is the portable fallback.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct LogGeneration {
+    len: u64,
+    modified: Option<std::time::SystemTime>,
+    #[cfg(unix)]
+    device: u64,
+    #[cfg(unix)]
+    inode: u64,
+}
+
+static HANDLE: OnceLock<Mutex<Option<HandleSlot>>> = OnceLock::new();
+static LAST_INITIALIZATION_ERROR: OnceLock<Mutex<Option<(String, String)>>> = OnceLock::new();
 static ADMITTED: AtomicU64 = AtomicU64::new(0);
 static ERRORS: AtomicU64 = AtomicU64::new(0);
 static BACKFILLED: AtomicU64 = AtomicU64::new(0);
@@ -90,6 +120,153 @@ fn soak_domains() -> Vec<String> {
 
 fn engine_dir(data_dir: &str) -> std::path::PathBuf {
     std::path::Path::new(data_dir).join("substrate")
+}
+
+fn writer_lock_path(data_dir: &str) -> std::path::PathBuf {
+    engine_dir(data_dir).join("expected-absent-writer.lock")
+}
+
+fn log_generation(data_dir: &str) -> std::io::Result<LogGeneration> {
+    match std::fs::metadata(engine_dir(data_dir).join("muxlog.bin")) {
+        Ok(metadata) => Ok(LogGeneration {
+            len: metadata.len(),
+            modified: metadata.modified().ok(),
+            #[cfg(unix)]
+            device: metadata.dev(),
+            #[cfg(unix)]
+            inode: metadata.ino(),
+        }),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(LogGeneration {
+            len: 0,
+            modified: None,
+            #[cfg(unix)]
+            device: 0,
+            #[cfg(unix)]
+            inode: 0,
+        }),
+        Err(error) => Err(error),
+    }
+}
+
+#[cfg(unix)]
+struct ExpectedAbsentProcessLock(std::fs::File);
+
+#[cfg(unix)]
+impl Drop for ExpectedAbsentProcessLock {
+    fn drop(&mut self) {
+        // SAFETY: the descriptor remains owned by `self` for the whole call.
+        unsafe {
+            libc::flock(self.0.as_raw_fd(), libc::LOCK_UN);
+        }
+    }
+}
+
+#[cfg(unix)]
+fn lock_expected_absent_writer(data_dir: &str) -> std::io::Result<ExpectedAbsentProcessLock> {
+    let dir = engine_dir(data_dir);
+    std::fs::create_dir_all(&dir)?;
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(writer_lock_path(data_dir))?;
+    loop {
+        // SAFETY: `file` owns a valid descriptor and stays alive in the returned guard.
+        let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
+        if result == 0 {
+            return Ok(ExpectedAbsentProcessLock(file));
+        }
+        let error = std::io::Error::last_os_error();
+        if error.kind() != std::io::ErrorKind::Interrupted {
+            return Err(error);
+        }
+    }
+}
+
+/// Read-only status may acquire an established process lock, but must never
+/// create it (or initialize/backfill the engine) from a GET. If no lock exists,
+/// the caller scans and then rechecks existence to close the creation race.
+#[cfg(unix)]
+fn lock_existing_writer(data_dir: &str) -> std::io::Result<Option<ExpectedAbsentProcessLock>> {
+    let file = match std::fs::File::open(writer_lock_path(data_dir)) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    loop {
+        // SAFETY: `file` owns a valid descriptor and remains alive in the guard.
+        let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
+        if result == 0 {
+            return Ok(Some(ExpectedAbsentProcessLock(file)));
+        }
+        let error = std::io::Error::last_os_error();
+        if error.kind() != std::io::ErrorKind::Interrupted {
+            return Err(error);
+        }
+    }
+}
+
+fn reservation_fence_path(data_dir: &str, record_id: &str) -> std::path::PathBuf {
+    engine_dir(data_dir)
+        .join("expected-absent-fences")
+        .join(format!("{record_id}.json"))
+}
+
+fn read_reservation_fence(data_dir: &str, record_id: &str) -> std::io::Result<Option<Value>> {
+    let path = reservation_fence_path(data_dir, record_id);
+    match std::fs::read(&path) {
+        Ok(bytes) => serde_json::from_slice(&bytes).map(Some).map_err(|error| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("cross-process reservation fence is unreadable: {error}"),
+            )
+        }),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+fn write_reservation_fence(data_dir: &str, record_id: &str, record: &Value) -> std::io::Result<()> {
+    use std::io::Write;
+
+    let path = reservation_fence_path(data_dir, record_id);
+    let directory = path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("reservation fence path has no parent"))?;
+    std::fs::create_dir_all(directory)?;
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let temporary = directory.join(format!(
+        ".{record_id}.{}-{nonce}.pending",
+        std::process::id()
+    ));
+    let bytes = serde_json::to_vec(record).map_err(std::io::Error::other)?;
+    let mut file = std::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&temporary)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    std::fs::rename(&temporary, &path)?;
+    std::fs::File::open(directory)?.sync_all()
+}
+
+#[cfg(not(unix))]
+fn lock_expected_absent_writer(_data_dir: &str) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "cross-process expected-absent admission requires an OS advisory lock",
+    ))
+}
+
+#[cfg(not(unix))]
+fn lock_existing_writer(_data_dir: &str) -> std::io::Result<Option<()>> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "cross-process substrate status requires an OS advisory lock",
+    ))
 }
 
 fn confirm_required_admission_durability(data_dir: &str) -> std::io::Result<()> {
@@ -207,6 +384,14 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         "autonomous-system-chain-revisions" => (
             "chain_root",
             format!("sha256:{}", record_id.strip_prefix("asc_").unwrap_or("")),
+        ),
+        "autonomous-system-chain-successor-claims" => (
+            "predecessor_chain_root",
+            format!("sha256:{}", record_id.strip_prefix("ascsc_").unwrap_or("")),
+        ),
+        "autonomous-system-chain-writer-reservations" => (
+            "predecessor_chain_root",
+            format!("sha256:{}", record_id.strip_prefix("ascwr_").unwrap_or("")),
         ),
         "autonomous-system-lifecycle-authority-consumptions"
         | "autonomous-system-lifecycle-transitions"
@@ -489,11 +674,15 @@ fn validate_required_identity(
         "autonomous-system-protected-transition-receipts" => "asptr_",
         "autonomous-system-amendment-receipts" => "asamr_",
         "autonomous-system-constitution-amendments" => "asca_",
+        "autonomous-system-constitution-amendment-approval-decisions" => "ascaad_",
+        "autonomous-system-constitution-amendment-approval-authority-evidence" => "ascaae_",
         "autonomous-system-constitutions" => "ascn_",
         "autonomous-system-active-profile-sets" => "asaps_",
         "autonomous-system-home-bindings" => "ashdb_",
         "autonomous-system-operation-log-revisions" => "asol_",
         "autonomous-system-chain-revisions" => "asc_",
+        "autonomous-system-chain-successor-claims" => "ascsc_",
+        "autonomous-system-chain-writer-reservations" => "ascwr_",
         _ => unreachable!("required-admission domains are exhaustively matched"),
     };
     if !record_id.strip_prefix(required_prefix).is_some_and(|tail| {
@@ -542,7 +731,11 @@ fn validate_required_identity(
         let encoded = record_id
             .strip_prefix(required_prefix)
             .expect("required prefix was validated");
-        if record.get("constitution_id").and_then(Value::as_str).is_none() {
+        if record
+            .get("constitution_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres constitution lacks 'constitution_id'",
@@ -588,6 +781,66 @@ fn validate_required_identity(
         }
         return Ok(());
     }
+    if record_dir == "autonomous-system-constitution-amendment-approval-decisions" {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let mut material = record.as_object().cloned().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres amendment approval decision is not an object",
+            )
+        })?;
+        material.remove("decision_root");
+        material.insert(
+            "domain".to_owned(),
+            json!("ioi.autonomous-system-constitution-amendment-approval-decision-jcs-sha256.v1"),
+        );
+        let bytes = serde_jcs::to_vec(&Value::Object(material)).map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the amendment approval decision root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-constitution-amendment-approval-authority-evidence" {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record.get("approval_decision_root").and_then(Value::as_str)
+            != Some(format!("sha256:{encoded}").as_str())
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres approval evidence key does not match approval_decision_root",
+            ));
+        }
+        let mut evidence = record.clone();
+        let expected_root = evidence
+            .get("approval_authority_evidence_root")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "required Agentgres approval evidence lacks its root",
+                )
+            })?
+            .to_owned();
+        evidence["approval_authority_evidence_root"] = Value::Null;
+        let computed = jcs_root(&json!({
+            "domain": "ioi.hypervisor.constitution-amendment-governance-approval-evidence-jcs-sha256.v1",
+            "evidence": evidence,
+        }))?;
+        if computed != expected_root {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres approval authority evidence root does not recompute",
+            ));
+        }
+        return Ok(());
+    }
     if matches!(
         record_dir,
         "autonomous-system-lifecycle-transitions"
@@ -601,7 +854,13 @@ fn validate_required_identity(
             .expect("required prefix was validated");
         let (domain, identity_field) = match record_dir {
             "autonomous-system-lifecycle-transitions" => (
-                "ioi.autonomous-system-lifecycle-transition-jcs-sha256.v1",
+                if record.get("schema_version").and_then(Value::as_str)
+                    == Some("ioi.autonomous-system-amendment-transition.v1")
+                {
+                    "ioi.autonomous-system-amendment-transition-jcs-sha256.v1"
+                } else {
+                    "ioi.autonomous-system-lifecycle-transition-jcs-sha256.v1"
+                },
                 "lifecycle_transition_id",
             ),
             "autonomous-system-initialize-transition-receipts" => (
@@ -617,7 +876,18 @@ fn validate_required_identity(
                 "receipt_ref",
             ),
             "autonomous-system-amendment-receipts" => (
-                "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1",
+                match record.get("schema_version").and_then(Value::as_str) {
+                    Some("ioi.autonomous-system-amendment-receipt.v1") => {
+                        "ioi.autonomous-system-amendment-receipt-artifact-jcs-sha256.v1"
+                    }
+                    Some("ioi.lifecycle-transition-receipt.v1") => {
+                        "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1"
+                    }
+                    _ => return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "required Agentgres amendment receipt has an unsupported schema version",
+                    )),
+                },
                 "receipt_ref",
             ),
             _ => unreachable!(),
@@ -926,29 +1196,130 @@ fn initialize_handle_with(
     Some(handle)
 }
 
-fn handle(data_dir: &str) -> &'static Option<MuxHandle> {
-    HANDLE.get_or_init(|| {
-        let addrs = replica_addrs();
-        let async_flush =
-            std::env::var("IOI_SUBSTRATE_ASYNC_FLUSH").map(|v| v == "1").unwrap_or(false);
-        // Conservative default: device-flush sync mode. Async flush (the
-        // replicated-latency posture) is opt-in AND requires a connected
-        // replica; otherwise the fail-safe below restores per-batch sync.
-        let want_async = !addrs.is_empty() && async_flush;
-        match MuxEngine::open(&engine_dir(data_dir), !want_async) {
-            Ok(engine) => initialize_handle_with(
-                data_dir,
-                engine,
-                addrs,
-                want_async,
-                backfill_promoted_domains,
-            ),
-            Err(e) => {
-                eprintln!("substrate-store: engine open FAILED ({e}) — promoted-family persistence will fail loudly");
-                None
+fn open_handle(data_dir: &str) -> std::io::Result<MuxHandle> {
+    let addrs = replica_addrs();
+    let async_flush = std::env::var("IOI_SUBSTRATE_ASYNC_FLUSH")
+        .map(|v| v == "1")
+        .unwrap_or(false);
+    // Conservative default: device-flush sync mode. Async flush (the
+    // replicated-latency posture) is opt-in AND requires a connected
+    // replica; otherwise the fail-safe below restores per-batch sync.
+    let want_async = !addrs.is_empty() && async_flush;
+    let engine = MuxEngine::open(&engine_dir(data_dir), !want_async).map_err(|error| {
+        eprintln!(
+            "substrate-store: engine open FAILED ({error}) — promoted-family persistence will fail loudly"
+        );
+        error
+    })?;
+    initialize_handle_with(
+        data_dir,
+        engine,
+        addrs,
+        want_async,
+        backfill_promoted_domains,
+    )
+    .ok_or_else(|| std::io::Error::other("substrate engine backfill failed"))
+}
+
+/// Serialize every access to the shared mux log across both threads and daemon processes. Before
+/// using the process-local writer, compare its cached file generation and live length with
+/// constant-time metadata. If another daemon committed while this process was idle, stop and
+/// reopen the writer under the same OS lock. No stale writer may project or append, and normal
+/// traffic never replays the append-only log merely to establish currentness.
+fn with_current_handle<T>(
+    data_dir: &str,
+    operation: impl FnOnce(&MuxHandle) -> std::io::Result<T>,
+) -> std::io::Result<T> {
+    let _process_lock = lock_expected_absent_writer(data_dir)?;
+    let mut slot = HANDLE
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .map_err(|_| std::io::Error::other("substrate writer lock is poisoned"))?;
+
+    let disk_generation = log_generation(data_dir)?;
+    let must_reopen = match slot.as_ref() {
+        Some(current) if current.data_dir == data_dir => match current.handle.status_snapshot() {
+            Ok(memory) => {
+                current.log_generation != disk_generation || memory.log_bytes != disk_generation.len
+            }
+            Err(_) => true,
+        },
+        Some(_) => true,
+        None => true,
+    };
+    if must_reopen {
+        if let Some(current) = slot.take() {
+            // A generation mismatch normally has a healthy writer and shuts
+            // down cleanly. A closed writer channel is exactly why reopening
+            // is required, so its shutdown error must not permanently poison
+            // this process-local slot.
+            if let Err(error) = current.handle.shutdown() {
+                eprintln!("substrate-store: stale writer shutdown was unavailable ({error}); reopening from durable log");
             }
         }
-    })
+        let handle = match open_handle(data_dir) {
+            Ok(handle) => {
+                *LAST_INITIALIZATION_ERROR
+                    .get_or_init(|| Mutex::new(None))
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+                handle
+            }
+            Err(error) => {
+                *LAST_INITIALIZATION_ERROR
+                    .get_or_init(|| Mutex::new(None))
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+                    Some((data_dir.to_owned(), error.to_string()));
+                return Err(error);
+            }
+        };
+        *slot = Some(HandleSlot {
+            data_dir: data_dir.to_string(),
+            handle,
+            log_generation: log_generation(data_dir)?,
+        });
+    }
+    let result = operation(&slot.as_ref().expect("substrate writer initialized").handle);
+    // Admissions append before acknowledging; reads leave this unchanged.
+    // Refresh even after an operation error so the next call can distinguish
+    // a durable append from an externally replaced or advanced log.
+    if let Ok(generation) = log_generation(data_dir) {
+        slot.as_mut()
+            .expect("substrate writer initialized")
+            .log_generation = generation;
+    }
+    result
+}
+
+/// Obtain a coherent status snapshot without turning the GET endpoint into an
+/// engine-opening/backfill mutation. An established writer lock linearizes the
+/// read with all admissions. If the lock has not existed yet, inspect first and
+/// recheck its existence; creation during the scan retries under the lock.
+fn read_only_status_snapshot(data_dir: &str) -> std::io::Result<MuxStatusSnapshot> {
+    loop {
+        if let Some(_process_lock) = lock_existing_writer(data_dir)? {
+            let slot = HANDLE
+                .get_or_init(|| Mutex::new(None))
+                .lock()
+                .map_err(|_| std::io::Error::other("substrate writer lock is poisoned"))?;
+            let disk_generation = log_generation(data_dir)?;
+            if let Some(current) = slot
+                .as_ref()
+                .filter(|current| current.data_dir == data_dir)
+                .filter(|current| current.log_generation == disk_generation)
+            {
+                return current.handle.status_snapshot();
+            }
+            return MuxEngine::inspect(&engine_dir(data_dir));
+        }
+
+        let snapshot = MuxEngine::inspect(&engine_dir(data_dir));
+        if writer_lock_path(data_dir).try_exists()? {
+            continue;
+        }
+        return snapshot;
+    }
 }
 
 fn replica_addrs() -> Vec<String> {
@@ -977,49 +1348,40 @@ fn admit_required_inner(
     record_id: &str,
     record: &Value,
 ) -> std::io::Result<()> {
-    let Some(h) = handle(data_dir) else {
-        ERRORS.fetch_add(1, Ordering::Relaxed);
-        return Err(std::io::Error::other("substrate engine unavailable"));
-    };
-    match h.admit(build_op(record_dir, record_id, record)) {
-        Ok(_) => {
-            ADMITTED.fetch_add(1, Ordering::Relaxed);
-            Ok(())
+    with_current_handle(data_dir, |handle| {
+        match handle.admit(build_op(record_dir, record_id, record)) {
+            Ok(_) => {
+                ADMITTED.fetch_add(1, Ordering::Relaxed);
+                Ok(())
+            }
+            Err(error) => {
+                ERRORS.fetch_add(1, Ordering::Relaxed);
+                eprintln!(
+                    "substrate-store: admission failed ({error}) record={record_dir}/{record_id}"
+                );
+                Err(std::io::Error::other(format!(
+                    "substrate admission failed: {error}"
+                )))
+            }
         }
-        Err(error) => {
-            ERRORS.fetch_add(1, Ordering::Relaxed);
-            eprintln!(
-                "substrate-store: admission failed ({error}) record={record_dir}/{record_id}"
-            );
-            Err(std::io::Error::other(format!(
-                "substrate admission failed: {error}"
-            )))
-        }
-    }
+    })
 }
 
-/// Synchronous Agentgres boundary for a declared pre-promotion family.
-///
-/// The caller owns its crash-convergent intent and local projection. It may clear that intent only
-/// after this admission succeeds; retries are idempotent on the exact record id and bytes.
-pub(crate) fn admit_required(
+fn admit_required_with_handle(
     data_dir: &str,
+    handle: &MuxHandle,
     record_dir: &str,
     record_id: &str,
     record: &Value,
 ) -> std::io::Result<()> {
-    validate_required_domain(record_dir)?;
-    validate_required_identity(record_dir, record_id, record)?;
-    let Some(h) = handle(data_dir) else {
-        ERRORS.fetch_add(1, Ordering::Relaxed);
-        return Err(std::io::Error::other("substrate engine unavailable"));
-    };
     let object_ref = required_object_ref(record_dir, record_id);
     let operation = build_required_op(record_dir, record_id, record);
-    let existing = h.project_exact(record_dir, &object_ref).map_err(|error| {
-        ERRORS.fetch_add(1, Ordering::Relaxed);
-        error
-    })?;
+    let existing = handle
+        .project_exact(record_dir, &object_ref)
+        .map_err(|error| {
+            ERRORS.fetch_add(1, Ordering::Relaxed);
+            error
+        })?;
     if let Some(existing) = existing {
         classify_required_existing(record_dir, record_id, &operation, &existing).map_err(
             |error| {
@@ -1035,13 +1397,15 @@ pub(crate) fn admit_required(
         })?;
         return Ok(());
     }
-    let ack = match h.admit(operation.clone()) {
+    let ack = match handle.admit(operation.clone()) {
         Ok(ack) => ack,
         Err(MuxAdmitError::Refused(Refusal::ExpectedAbsentConflict { .. })) => {
-            let existing = h.project_exact(record_dir, &object_ref).map_err(|error| {
-                ERRORS.fetch_add(1, Ordering::Relaxed);
-                error
-            })?;
+            let existing = handle
+                .project_exact(record_dir, &object_ref)
+                .map_err(|error| {
+                    ERRORS.fetch_add(1, Ordering::Relaxed);
+                    error
+                })?;
             let Some(existing) = existing else {
                 ERRORS.fetch_add(1, Ordering::Relaxed);
                 return Err(std::io::Error::other(format!(
@@ -1079,17 +1443,87 @@ pub(crate) fn admit_required(
             ack.durability
         ))
     })?;
-    let exact =
-        verify_required_exact(data_dir, record_dir, record_id, record).map_err(|error| {
-            ERRORS.fetch_add(1, Ordering::Relaxed);
-            error
-        })?;
+    let exact = verify_required_projection(
+        record_dir,
+        record_id,
+        record,
+        handle.project_exact(record_dir, &object_ref)?,
+    )
+    .map_err(|error| {
+        ERRORS.fetch_add(1, Ordering::Relaxed);
+        error
+    })?;
     verify_required_ack(record_dir, record_id, &ack, &exact).map_err(|error| {
         ERRORS.fetch_add(1, Ordering::Relaxed);
         error
     })?;
     ADMITTED.fetch_add(1, Ordering::Relaxed);
     Ok(())
+}
+
+/// Synchronous Agentgres boundary for a declared pre-promotion family.
+///
+/// The caller owns its crash-convergent intent and local projection. It may clear that intent only
+/// after this admission succeeds; retries are idempotent on the exact record id and bytes.
+pub(crate) fn admit_required(
+    data_dir: &str,
+    record_dir: &str,
+    record_id: &str,
+    record: &Value,
+) -> std::io::Result<()> {
+    validate_required_domain(record_dir)?;
+    validate_required_identity(record_dir, record_id, record)?;
+    with_current_handle(data_dir, |handle| {
+        admit_required_with_handle(data_dir, handle, record_dir, record_id, record)
+    })
+}
+
+/// The narrow multi-process CAS boundary for the chain-writer reservation.
+///
+/// Agentgres is intentionally a single-writer engine. Two daemon processes may nevertheless race
+/// this one expected-absent key, so they first serialize through an OS-owned lock, reconstruct the
+/// exact substrate state from disk while holding it, and only the process that observes ABSENT may
+/// submit to its writer. A loser returns the immutable-key conflict without touching its stale
+/// process-local writer or consuming downstream authority.
+pub(crate) fn admit_chain_writer_reservation(
+    data_dir: &str,
+    record_id: &str,
+    record: &Value,
+) -> std::io::Result<()> {
+    const DOMAIN: &str = "autonomous-system-chain-writer-reservations";
+    validate_required_domain(DOMAIN)?;
+    validate_required_identity(DOMAIN, record_id, record)?;
+
+    with_current_handle(data_dir, |handle| {
+        let proposed = build_required_op(DOMAIN, record_id, record);
+        if let Some(existing_record) = read_reservation_fence(data_dir, record_id)? {
+            if existing_record != *record {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::AlreadyExists,
+                    format!(
+                        "Agentgres key '{DOMAIN}/{record_id}' already holds different immutable evidence"
+                    ),
+                ));
+            }
+            // The fence is only a cross-process acceleration artifact. It can
+            // outlive a restored or recovery-truncated mux log, so it may
+            // never stand in for the authoritative expected-absent record.
+            let exact = handle.project_exact(DOMAIN, &required_object_ref(DOMAIN, record_id))?;
+            verify_required_projection(DOMAIN, record_id, record, exact)?;
+            confirm_required_admission_durability(data_dir)?;
+            return Ok(());
+        }
+        if let Some(existing) =
+            handle.project_exact(DOMAIN, &required_object_ref(DOMAIN, record_id))?
+        {
+            classify_required_existing(DOMAIN, record_id, &proposed, &existing)?;
+            confirm_required_admission_durability(data_dir)?;
+            write_reservation_fence(data_dir, record_id, record)?;
+            return Ok(());
+        }
+        admit_required_with_handle(data_dir, handle, DOMAIN, record_id, record)?;
+        write_reservation_fence(data_dir, record_id, record)
+    })
 }
 
 /// Strict writer-thread projection for a required-admission key. Callers use
@@ -1101,10 +1535,9 @@ pub(crate) fn read_required_exact(
     record_id: &str,
 ) -> std::io::Result<Option<ExactProjection>> {
     validate_required_domain(record_dir)?;
-    let Some(handle) = handle(data_dir) else {
-        return Err(std::io::Error::other("substrate engine unavailable"));
-    };
-    handle.project_exact(record_dir, &required_object_ref(record_dir, record_id))
+    with_current_handle(data_dir, |handle| {
+        handle.project_exact(record_dir, &required_object_ref(record_dir, record_id))
+    })
 }
 
 /// Verify that a required-admission key contains this exact record and return
@@ -1127,11 +1560,7 @@ pub(crate) fn verify_required_exact(
 /// Read path for promoted families: last-write-wins projection served by
 /// the writer thread (consistent — never observes a torn tail).
 pub(crate) fn read_promoted(data_dir: &str, record_dir: &str) -> Vec<Value> {
-    let Some(h) = handle(data_dir) else {
-        eprintln!("substrate-store: read with engine unavailable for {record_dir} — returning empty (loud, not fake)");
-        return Vec::new();
-    };
-    match h.project_latest(record_dir) {
+    match with_current_handle(data_dir, |handle| handle.project_latest(record_dir)) {
         Ok(records) => records,
         Err(e) => {
             eprintln!("substrate-store: projection FAILED for {record_dir}: {e}");
@@ -1149,8 +1578,11 @@ pub(crate) fn dual_write(data_dir: &str, record_dir: &str, record_id: &str, reco
     if !soak_domains().iter().any(|d| d == record_dir) {
         return;
     }
-    let Some(h) = handle(data_dir) else { return };
-    match h.admit(build_op(record_dir, record_id, record)) {
+    match with_current_handle(data_dir, |handle| {
+        handle
+            .admit(build_op(record_dir, record_id, record))
+            .map_err(std::io::Error::other)
+    }) {
         Ok(_) => {
             ADMITTED.fetch_add(1, Ordering::Relaxed);
         }
@@ -1169,14 +1601,14 @@ pub(crate) async fn handle_substrate_status(
 ) -> Json<Value> {
     let dir = engine_dir(&st.data_dir);
     let mut engine_domains = json!({});
-    let mut engine_open_error = matches!(HANDLE.get(), Some(None))
-        .then(|| "substrate engine unavailable after initialization failure".to_string());
+    let mut engine_open_error = LAST_INITIALIZATION_ERROR
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
+        .and_then(|(failed_data_dir, error)| (failed_data_dir == st.data_dir).then_some(error));
     let mut engine_recovery = Value::Null;
-    let snapshot = match HANDLE.get() {
-        Some(Some(handle)) => handle.status_snapshot(),
-        Some(None) => MuxEngine::inspect(&dir),
-        None => MuxEngine::inspect(&dir),
-    };
+    let snapshot = read_only_status_snapshot(&st.data_dir);
     match snapshot {
         Ok(snapshot) => {
             engine_recovery = serde_json::to_value(&snapshot.recovery).unwrap_or_else(
@@ -1386,6 +1818,46 @@ mod tests {
     }
 
     #[test]
+    fn reservation_fence_cannot_substitute_for_missing_agentgres_record() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let data_dir = std::env::temp_dir().join(format!(
+            "ioi-substrate-orphan-reservation-fence-{}-{nonce}",
+            std::process::id()
+        ));
+        let predecessor = "66".repeat(32);
+        let record_id = format!("ascwr_{predecessor}");
+        let record = json!({
+            "schema_version": "ioi.hypervisor.autonomous-system-chain-writer-reservation.v1",
+            "predecessor_chain_root": format!("sha256:{predecessor}"),
+            "successor_chain_root": format!("sha256:{}", "77".repeat(32)),
+            "sequence": 7,
+        });
+        write_reservation_fence(data_dir.to_str().unwrap(), &record_id, &record).unwrap();
+
+        let error = admit_chain_writer_reservation(data_dir.to_str().unwrap(), &record_id, &record)
+            .expect_err("an orphan fence must not satisfy authoritative CAS");
+        assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+
+        let mut cached = HANDLE.get_or_init(|| Mutex::new(None)).lock().unwrap();
+        let owned_slot = if cached
+            .as_ref()
+            .is_some_and(|slot| slot.data_dir == data_dir.to_str().unwrap())
+        {
+            cached.take()
+        } else {
+            None
+        };
+        drop(cached);
+        if let Some(slot) = owned_slot {
+            slot.handle.shutdown().unwrap();
+        }
+        std::fs::remove_dir_all(data_dir).unwrap();
+    }
+
+    #[test]
     fn wallet_consumption_required_identity_binds_canonical_key_to_receipt_bytes() {
         let consumption_id = [0xabu8; 32];
         let record_id = format!("asgc_{}", hex::encode(consumption_id));
@@ -1586,5 +2058,52 @@ mod tests {
             validate_required_identity(family, &format!("{prefix}{}", hex::encode(root)), &record)
                 .unwrap();
         }
+        for (schema_version, domain) in [
+            (
+                "ioi.lifecycle-transition-receipt.v1",
+                "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1",
+            ),
+            (
+                "ioi.autonomous-system-amendment-receipt.v1",
+                "ioi.autonomous-system-amendment-receipt-artifact-jcs-sha256.v1",
+            ),
+        ] {
+            let record = json!({
+                "schema_version": schema_version,
+                "receipt_ref": "receipt://legacy-or-current-amendment",
+            });
+            let root = sha2::Sha256::digest(
+                serde_jcs::to_vec(&json!({"domain":domain,"artifact":record})).unwrap(),
+            );
+            validate_required_identity(
+                "autonomous-system-amendment-receipts",
+                &format!("asamr_{}", hex::encode(root)),
+                &record,
+            )
+            .unwrap();
+        }
+        assert!(validate_required_identity(
+            "autonomous-system-amendment-receipts",
+            &format!("asamr_{}", "88".repeat(32)),
+            &json!({
+                "schema_version": "ioi.foreign-receipt.v1",
+                "receipt_ref": "receipt://foreign",
+            }),
+        )
+        .is_err());
+        let predecessor = "77".repeat(32);
+        let claim = json!({"predecessor_chain_root": format!("sha256:{predecessor}")});
+        validate_required_identity(
+            "autonomous-system-chain-successor-claims",
+            &format!("ascsc_{predecessor}"),
+            &claim,
+        )
+        .unwrap();
+        assert!(validate_required_identity(
+            "autonomous-system-chain-successor-claims",
+            &format!("ascsc_{}", "78".repeat(32)),
+            &claim,
+        )
+        .is_err());
     }
 }

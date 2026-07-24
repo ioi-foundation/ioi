@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1",
+  "title": "AutonomousSystemChainSuccessorClaim",
+  "x-ioi-schema-version": "ioi.autonomous-system-chain-successor-claim.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "claim_ref",
+    "system_id",
+    "sequence",
+    "predecessor_chain_root",
+    "successor_chain_root",
+    "operation_ref",
+    "operation_root",
+    "operation",
+    "committed_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-chain-successor-claim.v1"
+    },
+    "claim_ref": {
+      "type": "string",
+      "pattern": "^chain-successor-claim://sha256:[0-9a-f]{64}$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 9007199254740991
+    },
+    "predecessor_chain_root": { "$ref": "#/$defs/hash" },
+    "successor_chain_root": { "$ref": "#/$defs/hash" },
+    "operation_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operation_root": { "$ref": "#/$defs/hash" },
+    "operation": {
+      "type": "string",
+      "enum": [
+        "pause",
+        "resume",
+        "suspend",
+        "reinstate",
+        "enter_dormancy",
+        "wake",
+        "begin_recovery",
+        "complete_recovery",
+        "quarantine",
+        "release_quarantine",
+        "retire",
+        "archive",
+        "revoke",
+        "decommission",
+        "amend_constitution"
+      ]
+    },
+    "committed_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

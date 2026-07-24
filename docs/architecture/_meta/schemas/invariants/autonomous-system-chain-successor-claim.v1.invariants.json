@@ -1,0 +1,33 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-chain-successor-claim/advance/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_chain_successor_claim.operation.required",
+      "description": "The durable claim names the operation whose successor it reserves.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.operation_ref"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_chain_successor_claim.root.advances",
+      "description": "A successor reservation must name a different chain root from its predecessor.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": ["$.predecessor_chain_root", "$.successor_chain_root"]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_chain_successor_claim.identity.binds_predecessor",
+      "description": "The claim identity is keyed by the exact predecessor chain root.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.claim_ref",
+        "prefix": "chain-successor-claim://",
+        "expected_path": "$.predecessor_chain_root"
+      }
+    }
+  ]
+}

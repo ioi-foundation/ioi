@@ -22,21 +22,22 @@ use std::sync::Arc;
 use axum::extract::{Path as AxumPath, State};
 use axum::http::StatusCode;
 use axum::Json;
-use ioi_services::wallet_network::ApprovalGrantConsumptionReceipt;
+use ioi_services::wallet_network::{
+    ApprovalGrantConsumptionReceipt, ConsumeApprovalGrantForEffectV2Params,
+};
 use serde_json::json;
 
 use super::governed_authority::{self as governed, AuthorityPolicyContext, Governance};
-use super::DaemonState;
 use super::system_activation_routes::{
-    canonical_hash_str, canonical_system_key, classify, contains_sensitive_key,
-    enumerate_family, evidence_from_intent, evidence_intent_value, forced_fault, intent_seal,
-    jcs_hash, load_local, load_required_exact, ms_to_timestamp, persist_local,
-    prepare_node_evidence_for, remove_intent, required_string, tail, validate_contract,
-    validate_wallet_receipt, verify_intent_seal, verr, with_source_locks,
-    NodeAdmissionEvidence, ACTIVATION_RECEIPT_DIR, AUTHORITY, AUTHORITY_CONSUMPTION_DIR,
-    AUTHORITY_EVIDENCE_DIR, CHAIN_DIR, DECISION_DIR, MAX_REQUEST_BYTES, OPERATION_LOG_DIR,
-    PROPOSAL_DIR, STATE_DIR, SYSTEM_ACTIVATION_GATE, TRANSITION_DIR,
+    canonical_hash_str, canonical_system_key, classify, contains_sensitive_key, enumerate_family,
+    evidence_from_intent, evidence_intent_value, forced_fault, intent_seal, jcs_hash, load_local,
+    load_required_exact, ms_to_timestamp, persist_local, prepare_node_evidence_for, remove_intent,
+    required_string, tail, validate_contract, validate_wallet_receipt, verify_intent_seal, verr,
+    with_source_locks, NodeAdmissionEvidence, ACTIVATION_RECEIPT_DIR, AUTHORITY,
+    AUTHORITY_CONSUMPTION_DIR, AUTHORITY_EVIDENCE_DIR, CHAIN_DIR, DECISION_DIR, MAX_REQUEST_BYTES,
+    OPERATION_LOG_DIR, PROPOSAL_DIR, STATE_DIR, SYSTEM_ACTIVATION_GATE, TRANSITION_DIR,
 };
+use super::DaemonState;
 
 const OPERATION_LOG_V2_ROOT_DOMAIN: &str = "ioi.autonomous-system-operation-log-jcs-sha256.v2";
 const CHAIN_ROOT_DOMAIN: &str = "ioi.autonomous-system-chain-jcs-sha256.v1";
@@ -55,11 +56,19 @@ const PROTECTED_DECISION_CONTRACT: &str =
 const LIFECYCLE_STATE_CONTRACT: &str =
     "schema://ioi/foundations/autonomous-system-lifecycle-state/v1";
 const LIFECYCLE_TRANSITION_CONTRACT: &str = "schema://ioi/foundations/lifecycle-transition/v1";
-const LIFECYCLE_RECEIPT_CONTRACT: &str =
-    "schema://ioi/foundations/lifecycle-transition-receipt/v1";
+const LIFECYCLE_RECEIPT_CONTRACT: &str = "schema://ioi/foundations/lifecycle-transition-receipt/v1";
 const OPERATION_LOG_V2_CONTRACT: &str =
     "schema://ioi/foundations/autonomous-system-operation-log/v2";
 const SYSTEM_CHAIN_CONTRACT: &str = "schema://ioi/foundations/autonomous-system-chain/v1";
+const CHAIN_SUCCESSOR_CLAIM_CONTRACT: &str =
+    "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1";
+const CHAIN_WRITER_RESERVATION_CONTRACT: &str =
+    "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1";
+
+/// Durable compare-and-set claims keyed by predecessor chain root.
+pub(crate) const CHAIN_SUCCESSOR_CLAIM_DIR: &str = "autonomous-system-chain-successor-claims";
+/// Pre-wallet expected-absent reservations keyed by predecessor chain root.
+pub(crate) const CHAIN_WRITER_RESERVATION_DIR: &str = "autonomous-system-chain-writer-reservations";
 
 /// The wallet/authority tuple a decision commits. 4b-2 fills this from
 /// NodeAdmissionEvidence; tests fill synthetic canonical values.
@@ -71,6 +80,7 @@ pub(crate) struct DecisionAuthorityTuple {
     pub authority_evidence_ref: String,
     pub authority_evidence_root: String,
     pub wallet_grant_consumption_ref: String,
+    pub wallet_grant_consumption_root: String,
     pub wallet_grant_consumption_evidence_ref: String,
 }
 
@@ -83,6 +93,29 @@ pub(crate) struct ProtectedStepArtifacts {
 }
 
 type VErr = (String, String);
+
+pub(crate) async fn preflight_chain_writer_grant(
+    params: &ConsumeApprovalGrantForEffectV2Params,
+) -> Result<(), VErr> {
+    match super::wallet_network_capability_client::preflight_approval_grant_for_effect_v2(params)
+        .await
+    {
+        Ok(()) => Ok(()),
+        Err(
+            super::wallet_network_capability_client::ResolveError::NotConfigured(message)
+            | super::wallet_network_capability_client::ResolveError::Unavailable(message),
+        ) => Err(verr(
+            "system_lifecycle_wallet_consumption_unavailable",
+            message,
+        )),
+        Err(super::wallet_network_capability_client::ResolveError::Refused(message)) => {
+            Err(verr("system_lifecycle_wallet_consumption_refused", message))
+        }
+        Err(super::wallet_network_capability_client::ResolveError::Invalid(message)) => {
+            Err(verr("system_lifecycle_wallet_consumption_invalid", message))
+        }
+    }
+}
 
 /// Post-activation lifecycle states (`ioi.autonomous-system-lifecycle-state.v1`).
 pub(crate) const LIFECYCLE_STATE_DIR: &str = "autonomous-system-lifecycle-states";
@@ -115,13 +148,161 @@ pub(crate) fn load_chain_head(data_dir: &str, system_id: &str) -> Result<Value, 
     select_chain_head(enumerate_family(data_dir, CHAIN_DIR)?, system_id)
 }
 
+/// Atomically reserve one successor for a predecessor chain root. The local
+/// append-only slot and Agentgres expected-absent admission use the same key,
+/// so independent daemon processes cannot commit sibling successors.
+pub(crate) fn claim_chain_successor(
+    data_dir: &str,
+    system_id: &str,
+    sequence: u64,
+    predecessor_chain_root: &str,
+    successor_chain_root: &str,
+    operation_ref: &str,
+    operation_root: &str,
+    operation: &str,
+    committed_at: &str,
+) -> Result<(), VErr> {
+    let current = load_chain_head(data_dir, system_id)?;
+    if predecessor_chain_root == successor_chain_root {
+        return Err(verr(
+            "system_lifecycle_artifact_invalid",
+            "successor chain root does not advance its predecessor",
+        ));
+    }
+    let current_root = required_string(&current, "/chain_root")?;
+    if current_root != predecessor_chain_root && current_root != successor_chain_root {
+        return Err(verr(
+            "system_lifecycle_head_conflict",
+            "the durable chain head already has a different successor",
+        ));
+    }
+    let encoded = predecessor_chain_root
+        .strip_prefix("sha256:")
+        .filter(|value| value.len() == 64)
+        .ok_or_else(|| {
+            verr(
+                "system_lifecycle_artifact_invalid",
+                "predecessor chain root is not canonical",
+            )
+        })?;
+    let record_tail = format!("ascsc_{encoded}");
+    let claim = json!({
+        "schema_version": "ioi.autonomous-system-chain-successor-claim.v1",
+        "claim_ref": format!("chain-successor-claim://sha256:{encoded}"),
+        "system_id": system_id,
+        "sequence": sequence,
+        "predecessor_chain_root": predecessor_chain_root,
+        "successor_chain_root": successor_chain_root,
+        "operation_ref": operation_ref,
+        "operation_root": operation_root,
+        "operation": operation,
+        "committed_at": committed_at,
+    });
+    validate_contract(
+        CHAIN_SUCCESSOR_CLAIM_CONTRACT,
+        &claim,
+        "chain successor claim",
+    )?;
+    persist_local(data_dir, CHAIN_SUCCESSOR_CLAIM_DIR, &record_tail, &claim).map_err(
+        |(code, message)| {
+            if code == "system_lifecycle_conflict" {
+                verr("system_lifecycle_head_conflict", message)
+            } else {
+                (code, message)
+            }
+        },
+    )?;
+    super::substrate_store::admit_required(
+        data_dir,
+        CHAIN_SUCCESSOR_CLAIM_DIR,
+        &record_tail,
+        &claim,
+    )
+    .map_err(|error| {
+        let code = if error.kind() == std::io::ErrorKind::AlreadyExists {
+            "system_lifecycle_head_conflict"
+        } else {
+            "system_lifecycle_agentgres_admission_failed"
+        };
+        verr(code, format!("durable successor claim failed ({error})"))
+    })?;
+    let loaded = load_required_exact(data_dir, CHAIN_SUCCESSOR_CLAIM_DIR, &record_tail)?
+        .ok_or_else(|| {
+            verr(
+                "system_lifecycle_persist_failed",
+                "durable successor claim did not converge",
+            )
+        })?;
+    if loaded != claim {
+        return Err(verr(
+            "system_lifecycle_head_conflict",
+            "durable predecessor claim belongs to a different successor",
+        ));
+    }
+    Ok(())
+}
+
+/// Reserve the only writer permitted to advance a predecessor before wallet
+/// consumption. Agentgres is admitted first: an independent-process loser
+/// never consumes and may safely delete its local sealed intent.
+pub(crate) fn reserve_chain_writer(
+    data_dir: &str,
+    system_id: &str,
+    sequence: u64,
+    predecessor_chain_root: &str,
+    writer_plan_hash: &str,
+    operation_ref: &str,
+    operation_root: &str,
+    operation: &str,
+) -> Result<(), VErr> {
+    let encoded = predecessor_chain_root
+        .strip_prefix("sha256:")
+        .filter(|value| value.len() == 64)
+        .ok_or_else(|| {
+            verr(
+                "system_lifecycle_artifact_invalid",
+                "predecessor chain root is not canonical",
+            )
+        })?;
+    let record_tail = format!("ascwr_{encoded}");
+    let reservation = json!({
+        "schema_version": "ioi.autonomous-system-chain-writer-reservation.v1",
+        "reservation_ref": format!("chain-writer-reservation://sha256:{encoded}"),
+        "system_id": system_id,
+        "sequence": sequence,
+        "predecessor_chain_root": predecessor_chain_root,
+        "writer_plan_hash": writer_plan_hash,
+        "operation_ref": operation_ref,
+        "operation_root": operation_root,
+        "operation": operation,
+    });
+    validate_contract(
+        CHAIN_WRITER_RESERVATION_CONTRACT,
+        &reservation,
+        "chain writer reservation",
+    )?;
+    super::substrate_store::admit_chain_writer_reservation(data_dir, &record_tail, &reservation)
+        .map_err(|error| {
+            let code = if error.kind() == std::io::ErrorKind::AlreadyExists {
+                "system_lifecycle_head_conflict"
+            } else {
+                "system_lifecycle_agentgres_admission_failed"
+            };
+            verr(code, format!("durable writer reservation failed ({error})"))
+        })?;
+    persist_local(
+        data_dir,
+        CHAIN_WRITER_RESERVATION_DIR,
+        &record_tail,
+        &reservation,
+    )?;
+    Ok(())
+}
+
 /// Pure head selection over enumerated chain revisions: the head is the
 /// unique revision with the highest `latest_sequence` for the System;
 /// duplicate heads at that sequence are corruption and refuse.
-fn select_chain_head(
-    records: Vec<(String, Value)>,
-    system_id: &str,
-) -> Result<Value, VErr> {
+fn select_chain_head(records: Vec<(String, Value)>, system_id: &str) -> Result<Value, VErr> {
     let mut best: Option<(u64, Value)> = None;
     let mut duplicate_at: Option<u64> = None;
     for (_tail, value) in records {
@@ -222,18 +403,25 @@ pub(crate) fn load_previous_step(
             "operation log lacks a head entry",
         )
     })?;
-    let sequence = head.get("sequence").and_then(Value::as_u64).ok_or_else(|| {
-        verr(
-            "system_lifecycle_artifact_invalid",
-            "operation-log head lacks a sequence",
-        )
-    })?;
+    let sequence = head
+        .get("sequence")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| {
+            verr(
+                "system_lifecycle_artifact_invalid",
+                "operation-log head lacks a sequence",
+            )
+        })?;
     let proposal_root = required(head, "/proposal_root")?;
     let decision_root = required(head, "/decision_root")?;
     let transition_root = required(head, "/transition_root")?;
     let receipt_root = required(head, "/receipt_root")?;
     let state_root = required(head, "/state_root")?;
-    let state_family = if sequence == 2 { STATE_DIR } else { LIFECYCLE_STATE_DIR };
+    let state_family = if sequence == 2 {
+        STATE_DIR
+    } else {
+        LIFECYCLE_STATE_DIR
+    };
     let receipt = if sequence == 2 {
         record_by_root(
             data_dir,
@@ -473,7 +661,10 @@ pub(crate) fn build_protected_artifacts(
     let scope = plan.op.required_scope();
     let irreversibility = plan.op.irreversibility().as_str();
 
-    let proposal_ref = format!("proposal://{}/lifecycle/sequence/{sequence}", ns(&system_id)?);
+    let proposal_ref = format!(
+        "proposal://{}/lifecycle/sequence/{sequence}",
+        ns(&system_id)?
+    );
     let proposal_material = json!({
         "domain": PROTECTED_PROPOSAL_HASH_DOMAIN,
         "proposal_ref": proposal_ref,
@@ -499,7 +690,10 @@ pub(crate) fn build_protected_artifacts(
     proposal["proposal_root"] = json!(proposal_root);
     validate_contract(PROTECTED_PROPOSAL_CONTRACT, &proposal, "protected proposal")?;
 
-    let decision_ref = format!("decision://{}/lifecycle/sequence/{sequence}", ns(&system_id)?);
+    let decision_ref = format!(
+        "decision://{}/lifecycle/sequence/{sequence}",
+        ns(&system_id)?
+    );
     let decision_material = json!({
         "domain": PROTECTED_DECISION_HASH_DOMAIN,
         "decision_ref": decision_ref,
@@ -525,8 +719,7 @@ pub(crate) fn build_protected_artifacts(
     let decision_root = jcs_hash(&decision_material)?;
     let mut decision = decision_material;
     decision.as_object_mut().expect("object").remove("domain");
-    decision["schema_version"] =
-        json!("ioi.autonomous-system-protected-transition-decision.v1");
+    decision["schema_version"] = json!("ioi.autonomous-system-protected-transition-decision.v1");
     decision["decision_root"] = json!(decision_root);
     validate_contract(PROTECTED_DECISION_CONTRACT, &decision, "protected decision")?;
 
@@ -542,7 +735,9 @@ pub(crate) fn build_protected_artifacts(
     }))?;
     let receipt_ref = format!(
         "receipt://ltr_{}",
-        receipt_root_seed.strip_prefix("sha256:").expect("hash prefix")
+        receipt_root_seed
+            .strip_prefix("sha256:")
+            .expect("hash prefix")
     );
 
     let mut state = plan.semantic_state.clone();
@@ -580,7 +775,11 @@ pub(crate) fn build_protected_artifacts(
         "public_commitment_ref": Value::Null,
         "status": "committed",
     });
-    validate_contract(LIFECYCLE_TRANSITION_CONTRACT, &transition, "protected transition")?;
+    validate_contract(
+        LIFECYCLE_TRANSITION_CONTRACT,
+        &transition,
+        "protected transition",
+    )?;
     let transition_root = artifact_root_with(LIFECYCLE_TRANSITION_HASH_DOMAIN, &transition)?;
 
     state["transition_root"] = json!(transition_root);
@@ -670,7 +869,7 @@ pub(crate) fn build_protected_artifacts(
         "authority_evidence_ref": authority.authority_evidence_ref,
         "authority_evidence_root": authority.authority_evidence_root,
         "wallet_grant_consumption_ref": authority.wallet_grant_consumption_ref,
-        "wallet_grant_consumption_root": authority.effect_hash,
+        "wallet_grant_consumption_root": authority.wallet_grant_consumption_root,
         "wallet_grant_consumption_evidence_ref":
             authority.wallet_grant_consumption_evidence_ref,
         "primitive_capabilities": [], "artifact_refs": [], "evidence_bundle_refs": [],
@@ -849,8 +1048,7 @@ pub(crate) fn continue_chain(
 ) -> Result<Value, VErr> {
     let mut chain = source.chain_head.clone();
     chain["latest_sequence"] = json!(plan.sequence);
-    chain["latest_operation_commitment"] =
-        plan.authority_effect["operation_commitment"].clone();
+    chain["latest_operation_commitment"] = plan.authority_effect["operation_commitment"].clone();
     chain["latest_transition_id"] = step.transition["lifecycle_transition_id"].clone();
     chain["latest_transition_root"] = json!(step.transition_root);
     chain["latest_receipt_ref"] = step.receipt["receipt_ref"].clone();
@@ -878,11 +1076,12 @@ mod builder_tests {
     use serde_json::json;
 
     fn fixture(path: &str) -> Value {
-        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/architecture/_meta/schemas/fixtures/");
-        serde_json::from_str(
-            &std::fs::read_to_string(format!("{root}{path}")).expect(path),
-        )
-        .expect(path)
+        let root = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/architecture/_meta/schemas/fixtures/"
+        );
+        serde_json::from_str(&std::fs::read_to_string(format!("{root}{path}")).expect(path))
+            .expect(path)
     }
 
     fn h(marker: u8) -> String {
@@ -906,6 +1105,8 @@ mod builder_tests {
                 "system_id": log["system_id"],
                 "sequence": 2,
                 "status": "active",
+                "active_profile_set_ref": chain["active_profile_set_ref"],
+                "active_profile_set_root": chain["active_profile_set_root"],
             }),
             transition: json!({"lifecycle_transition_id": head["transition_ref"]}),
             receipt: json!({"receipt_ref": head["receipt_ref"]}),
@@ -983,6 +1184,7 @@ mod builder_tests {
                 "56".repeat(32),
                 "58".repeat(32)
             ),
+            wallet_grant_consumption_root: h(0x56),
             wallet_grant_consumption_evidence_ref: format!(
                 "system-lifecycle-authority-consumption://aslac_{}",
                 "57".repeat(32)
@@ -1024,6 +1226,14 @@ mod builder_tests {
             source.operation_log["latest_state_root"],
         );
         assert_eq!(artifacts.step.receipt["op"], "pause");
+        assert_eq!(
+            artifacts.step.receipt["wallet_grant_consumption_root"],
+            json!(h(0x56)),
+        );
+        assert_ne!(
+            artifacts.step.receipt["wallet_grant_consumption_root"],
+            artifacts.step.receipt["effect_hash"],
+        );
     }
 
     #[test]
@@ -1058,7 +1268,12 @@ mod builder_tests {
                 "2026-07-22T12:00:00.000Z",
             )
             .expect(op.as_str());
-            assert_eq!(artifacts.chain["status"], expected_status, "{}", op.as_str());
+            assert_eq!(
+                artifacts.chain["status"],
+                expected_status,
+                "{}",
+                op.as_str()
+            );
         }
     }
 }
@@ -1095,7 +1310,10 @@ fn validate_protected_request(body: &Value) -> Result<(), VErr> {
             format!("undeclared request field '{key}' is forbidden"),
         ));
     }
-    for key in ["expected_chain_head_root", "expected_predecessor_state_root"] {
+    for key in [
+        "expected_chain_head_root",
+        "expected_predecessor_state_root",
+    ] {
         let value = object.get(key).and_then(Value::as_str).unwrap_or("");
         if !canonical_hash_str(value) {
             return Err(verr(
@@ -1119,8 +1337,7 @@ fn check_expected_roots(body: &Value, source: &ProtectedTransitionSource) -> Res
             "the live chain head moved past the caller's expected root",
         ));
     }
-    if body.get("expected_predecessor_state_root")
-        != Some(&json!(source.previous_step.state_root))
+    if body.get("expected_predecessor_state_root") != Some(&json!(source.previous_step.state_root))
     {
         return Err(verr(
             "system_lifecycle_head_conflict",
@@ -1139,9 +1356,8 @@ fn decision_tuple(evidence: &NodeAdmissionEvidence) -> Result<DecisionAuthorityT
         authority_evidence_ref: evidence.authority_evidence_ref.clone(),
         authority_evidence_root: evidence.authority_evidence_root.clone(),
         wallet_grant_consumption_ref: evidence.wallet_consumption_ref.clone(),
-        wallet_grant_consumption_evidence_ref: evidence
-            .wallet_consumption_evidence_ref
-            .clone(),
+        wallet_grant_consumption_root: evidence.wallet_consumption_root.clone(),
+        wallet_grant_consumption_evidence_ref: evidence.wallet_consumption_evidence_ref.clone(),
     })
 }
 
@@ -1158,6 +1374,29 @@ fn persist_protected_graph(
                 error.to_string(),
             )
         })?;
+    claim_chain_successor(
+        data_dir,
+        required_string(&artifacts.chain, "/system_id")?,
+        artifacts
+            .chain
+            .get("latest_sequence")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| {
+                verr(
+                    "system_lifecycle_artifact_invalid",
+                    "successor chain lacks latest_sequence",
+                )
+            })?,
+        required_string(
+            &artifacts.step.proposal,
+            "/authority_effect/predecessor_chain_head_root",
+        )?,
+        required_string(&artifacts.chain, "/chain_root")?,
+        required_string(&artifacts.step.proposal, "/proposal_ref")?,
+        &artifacts.step.proposal_root,
+        required_string(&artifacts.step.receipt, "/op")?,
+        required_string(&artifacts.step.receipt, "/timestamp")?,
+    )?;
     let records: Vec<(&str, String, &Value)> = vec![
         (
             AUTHORITY_CONSUMPTION_DIR,
@@ -1210,7 +1449,10 @@ fn persist_protected_graph(
     ];
     for (family, record_tail, value) in &records {
         persist_local(data_dir, family, record_tail, value)?;
-        if forced_fault("IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_LOCAL_PERSIST", family) {
+        if forced_fault(
+            "IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_LOCAL_PERSIST",
+            family,
+        ) {
             return Err(verr(
                 "system_lifecycle_pending_convergence",
                 format!("test-forced interruption after local '{family}/{record_tail}'"),
@@ -1224,7 +1466,10 @@ fn persist_protected_graph(
                 )
             },
         )?;
-        if forced_fault("IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_AGENTGRES_ADMIT", family) {
+        if forced_fault(
+            "IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_AGENTGRES_ADMIT",
+            family,
+        ) {
             return Err(verr(
                 "system_lifecycle_pending_convergence",
                 format!("test-forced interruption after Agentgres '{family}/{record_tail}'"),
@@ -1273,11 +1518,9 @@ pub(crate) async fn handle_transition(
     let (source, plan) = match with_source_locks(|| {
         super::system_activation_routes::ensure_no_pending_intent(&state.data_dir, &key)?;
         ensure_no_pending_protected_intent(&state.data_dir, &key)?;
-        super::system_amendment_routes::ensure_no_pending_amendment_intent(
-            &state.data_dir,
-            &key,
-        )?;
-        let source = load_protected_source(&state.data_dir, &system_id_for_key(&state.data_dir, &key)?)?;
+        super::system_amendment_routes::ensure_no_pending_amendment_intent(&state.data_dir, &key)?;
+        let source =
+            load_protected_source(&state.data_dir, &system_id_for_key(&state.data_dir, &key)?)?;
         check_expected_roots(&body, &source)?;
         let plan = compile_from_source(op, &source)?;
         Ok::<_, VErr>((source, plan))
@@ -1293,8 +1536,7 @@ pub(crate) async fn handle_transition(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
-    let governing = match required(&source.activation_effect, "/source_governing_authority_ref")
-    {
+    let governing = match required(&source.activation_effect, "/source_governing_authority_ref") {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
@@ -1329,12 +1571,14 @@ pub(crate) async fn handle_transition(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
-    let intent_tail_value =
-        match tail("asptx_", &evidence.authorized.evidence.request_hash) {
-            Ok(value) => value,
-            Err(error) => return classify(error),
-        };
-    let sealed = match with_source_locks(|| {
+    if let Err(error) = preflight_chain_writer_grant(&evidence.wallet_params).await {
+        return classify(error);
+    }
+    let intent_tail_value = match tail("asptx_", &evidence.authorized.evidence.request_hash) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
+    let _sealed = match with_source_locks(|| {
         // Revalidate the entire durable truth under the lock, then seal.
         let fresh = load_protected_source(&state.data_dir, &system_id)?;
         check_expected_roots(&body, &fresh)?;
@@ -1366,7 +1610,48 @@ pub(crate) async fn handle_transition(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
-    drop(sealed);
+    // The predecessor reservation selects the immutable compiled operation,
+    // not one particular authorization attempt. A refused/revoked grant may
+    // therefore be replaced without poisoning this predecessor forever,
+    // while a competing successor still conflicts before wallet use.
+    let writer_plan_hash = plan.authority_effect["operation_commitment"]
+        .as_str()
+        .unwrap_or("");
+    let operation_ref = match ns(&system_id) {
+        Ok(namespace) => format!(
+            "proposal://{namespace}/lifecycle/sequence/{}",
+            plan.sequence
+        ),
+        Err(error) => return classify(error),
+    };
+    let reservation = reserve_chain_writer(
+        &state.data_dir,
+        &system_id,
+        plan.sequence,
+        plan.authority_effect["predecessor_chain_head_root"]
+            .as_str()
+            .unwrap_or(""),
+        writer_plan_hash,
+        &operation_ref,
+        plan.authority_effect["operation_commitment"]
+            .as_str()
+            .unwrap_or(""),
+        op.as_str(),
+    );
+    if let Err(error) = reservation {
+        if error.0 == "system_lifecycle_head_conflict" {
+            if let Err(cleanup_error) =
+                remove_intent(&state.data_dir, PROTECTED_INTENT_DIR, &intent_tail_value)
+            {
+                // The losing request has not consumed its wallet grant, but
+                // its sealed intent still interlocks the System. Surface the
+                // cleanup failure so recovery converges it before callers act
+                // on the competing-head result.
+                return classify(cleanup_error);
+            }
+        }
+        return classify(error);
+    }
     if forced_fault("IOI_TEST_FORCE_SYSTEM_LIFECYCLE_AFTER_INTENT", op.as_str()) {
         return classify(verr(
             "system_lifecycle_pending_convergence",
@@ -1408,16 +1693,10 @@ pub(crate) async fn handle_transition(
                 if let Err(error) = cleanup {
                     return classify(error);
                 }
-                return classify(verr(
-                    "system_lifecycle_wallet_consumption_refused",
-                    message,
-                ));
+                return classify(verr("system_lifecycle_wallet_consumption_refused", message));
             }
             Err(super::wallet_network_capability_client::ResolveError::Invalid(message)) => {
-                return classify(verr(
-                    "system_lifecycle_wallet_consumption_invalid",
-                    message,
-                ))
+                return classify(verr("system_lifecycle_wallet_consumption_invalid", message))
             }
         };
     let wallet_value = match validate_wallet_receipt(&mut evidence, &wallet_receipt) {
@@ -1445,37 +1724,38 @@ pub(crate) async fn handle_transition(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
-    let result = with_source_locks(|| {
-        let stored = load_local(&state.data_dir, PROTECTED_INTENT_DIR, &intent_tail_value)?
-            .ok_or_else(|| {
-                verr(
+    let result =
+        with_source_locks(|| {
+            let stored = load_local(&state.data_dir, PROTECTED_INTENT_DIR, &intent_tail_value)?
+                .ok_or_else(|| {
+                    verr(
+                        "system_lifecycle_pending_convergence",
+                        "durable intent vanished after wallet consumption",
+                    )
+                })?;
+            verify_intent_seal(&stored)?;
+            if stored.get("compiled_plan")
+                != Some(&serde_json::to_value(&plan).map_err(|error| {
+                    verr("system_lifecycle_intent_unreadable", error.to_string())
+                })?)
+            {
+                return Err(verr(
+                    "system_lifecycle_intent_unreadable",
+                    "durable intent does not bind the authorized plan",
+                ));
+            }
+            persist_protected_graph(&state.data_dir, &artifacts, &evidence, &wallet_value)?;
+            if forced_fault(
+                "IOI_TEST_FORCE_SYSTEM_LIFECYCLE_BEFORE_TERMINAL_VISIBILITY",
+                op.as_str(),
+            ) {
+                return Err(verr(
                     "system_lifecycle_pending_convergence",
-                    "durable intent vanished after wallet consumption",
-                )
-            })?;
-        verify_intent_seal(&stored)?;
-        if stored.get("compiled_plan")
-            != Some(&serde_json::to_value(&plan).map_err(|error| {
-                verr("system_lifecycle_intent_unreadable", error.to_string())
-            })?)
-        {
-            return Err(verr(
-                "system_lifecycle_intent_unreadable",
-                "durable intent does not bind the authorized plan",
-            ));
-        }
-        persist_protected_graph(&state.data_dir, &artifacts, &evidence, &wallet_value)?;
-        if forced_fault(
-            "IOI_TEST_FORCE_SYSTEM_LIFECYCLE_BEFORE_TERMINAL_VISIBILITY",
-            op.as_str(),
-        ) {
-            return Err(verr(
-                "system_lifecycle_pending_convergence",
-                "test-forced interruption before terminal intent removal",
-            ));
-        }
-        remove_intent(&state.data_dir, PROTECTED_INTENT_DIR, &intent_tail_value)
-    });
+                    "test-forced interruption before terminal intent removal",
+                ));
+            }
+            remove_intent(&state.data_dir, PROTECTED_INTENT_DIR, &intent_tail_value)
+        });
     if let Err(error) = result {
         return classify(error);
     }
@@ -1522,8 +1802,7 @@ pub(crate) async fn handle_get_transition(
                 entries
                     .iter()
                     .filter(|entry| {
-                        entry.get("operation_name").and_then(Value::as_str)
-                            == Some(op.as_str())
+                        entry.get("operation_name").and_then(Value::as_str) == Some(op.as_str())
                     })
                     .cloned()
                     .collect()
@@ -1602,7 +1881,13 @@ fn verify_protected_intent_coordinates(tail_value: &str, intent: &Value) -> Resu
 
 /// Load the exact chain revision a plan compiled against, by root.
 fn load_chain_by_root(data_dir: &str, chain_root: &str) -> Result<Value, VErr> {
-    record_by_root(data_dir, CHAIN_DIR, "asc_", chain_root, "predecessor chain revision")
+    record_by_root(
+        data_dir,
+        CHAIN_DIR,
+        "asc_",
+        chain_root,
+        "predecessor chain revision",
+    )
 }
 
 /// Reconstruct the durable truth exactly as the sealed plan compiled it:
@@ -1628,13 +1913,16 @@ fn source_at_plan(
     })
 }
 
-async fn replay_one_protected(data_dir: &str, tail_value: &str, intent: &Value) -> Result<(), VErr> {
+async fn replay_one_protected(
+    data_dir: &str,
+    tail_value: &str,
+    intent: &Value,
+) -> Result<(), VErr> {
     verify_intent_seal(intent)?;
     verify_protected_intent_coordinates(tail_value, intent)?;
     let plan: CompiledProtectedTransitionPlan =
-        serde_json::from_value(intent["compiled_plan"].clone()).map_err(|error| {
-            verr("system_lifecycle_intent_invalid", error.to_string())
-        })?;
+        serde_json::from_value(intent["compiled_plan"].clone())
+            .map_err(|error| verr("system_lifecycle_intent_invalid", error.to_string()))?;
     let op = plan.op;
     let source = source_at_plan(data_dir, &plan)?;
     let recompiled = compile_from_source(op, &source)?;
@@ -1665,11 +1953,31 @@ async fn replay_one_protected(data_dir: &str, tail_value: &str, intent: &Value) 
             "sealed authority or wallet coordinates do not reconstruct",
         ));
     }
-    let existing =
-        super::system_activation_routes::recover_wallet_consumption(
-            data_dir,
-            &evidence.wallet_consumption_tail,
-        )?;
+    let system_id = required(&plan.authority_effect, "/system_id")?;
+    let reservation = reserve_chain_writer(
+        data_dir,
+        &system_id,
+        plan.sequence,
+        required(&plan.authority_effect, "/predecessor_chain_head_root")?.as_str(),
+        required(&plan.authority_effect, "/operation_commitment")?.as_str(),
+        &format!(
+            "proposal://{}/lifecycle/sequence/{}",
+            ns(&system_id)?,
+            plan.sequence
+        ),
+        required(&plan.authority_effect, "/operation_commitment")?.as_str(),
+        op.as_str(),
+    );
+    if let Err(error) = reservation {
+        if error.0 == "system_lifecycle_head_conflict" {
+            remove_intent(data_dir, PROTECTED_INTENT_DIR, tail_value)?;
+        }
+        return Err(error);
+    }
+    let existing = super::system_activation_routes::recover_wallet_consumption(
+        data_dir,
+        &evidence.wallet_consumption_tail,
+    )?;
     let wallet_receipt: ApprovalGrantConsumptionReceipt = match existing {
         Some(value) => serde_json::from_value(value).map_err(|error| {
             verr(
@@ -1694,10 +2002,7 @@ async fn replay_one_protected(data_dir: &str, tail_value: &str, intent: &Value) 
                     {
                         remove_intent(data_dir, PROTECTED_INTENT_DIR, tail_value)?;
                     }
-                    return Err(verr(
-                        "system_lifecycle_wallet_consumption_refused",
-                        message,
-                    ));
+                    return Err(verr("system_lifecycle_wallet_consumption_refused", message));
                 }
                 Err(
                     super::wallet_network_capability_client::ResolveError::NotConfigured(message)
@@ -1709,10 +2014,7 @@ async fn replay_one_protected(data_dir: &str, tail_value: &str, intent: &Value) 
                     ))
                 }
                 Err(super::wallet_network_capability_client::ResolveError::Invalid(message)) => {
-                    return Err(verr(
-                        "system_lifecycle_wallet_consumption_invalid",
-                        message,
-                    ))
+                    return Err(verr("system_lifecycle_wallet_consumption_invalid", message))
                 }
             }
         }
@@ -1803,10 +2105,7 @@ fn scan_protected_intents(data_dir: &str) -> Result<Vec<(String, Result<Value, V
 /// Refuse a new lifecycle mutation for `key` while any protected intent for
 /// it is still pending; bootstrap pendency is checked by the caller through
 /// the activation module's own choke point.
-pub(crate) fn ensure_no_pending_protected_intent(
-    data_dir: &str,
-    key: &str,
-) -> Result<(), VErr> {
+pub(crate) fn ensure_no_pending_protected_intent(data_dir: &str, key: &str) -> Result<(), VErr> {
     for (_tail, intent) in scan_protected_intents(data_dir)? {
         let intent = intent?;
         if intent.get("source_record_tail").and_then(Value::as_str) == Some(key) {
@@ -1830,8 +2129,7 @@ pub(crate) async fn complete_protected_transition_intents(data_dir: &str, max: u
             return;
         }
     };
-    let start = PROTECTED_REPLAY_CURSOR
-        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let start = PROTECTED_REPLAY_CURSOR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     for (offset, (tail_value, result)) in entries.iter().enumerate().take(max) {
         let _ = offset;
         let index = (start + offset) % entries.len().max(1);
@@ -1846,9 +2144,7 @@ pub(crate) async fn complete_protected_transition_intents(data_dir: &str, max: u
             }
         };
         if let Err((_, message)) = replay_one_protected(data_dir, tail_value, intent).await {
-            eprintln!(
-                "ProtectedTransition intent '{tail_value}' retained/incomplete ({message})"
-            );
+            eprintln!("ProtectedTransition intent '{tail_value}' retained/incomplete ({message})");
         }
         let _ = tail_value;
     }

@@ -1,0 +1,31 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-amendment-receipt/binding/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-amendment-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_amendment_receipt.identity.matches",
+      "description": "The amendment receipt carries one identity.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.receipt_id", "$.receipt_ref"]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_receipt.operation.matches",
+      "description": "The receipt and its bound facts name the same amendment operation.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.op", "$.bound_facts.operation"]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_amendment_receipt.approval.required",
+      "description": "The receipt binds the external-governance approval decision root.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.bound_facts.approval_decision_root"
+      }
+    }
+  ]
+}

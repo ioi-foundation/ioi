@@ -14,13 +14,16 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
+
 use anyhow::{anyhow, Context, Result};
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_api::state::service_namespace_prefix;
 use ioi_cli::testing::{
     build_test_artifacts,
-    rpc::{get_chain_timestamp, query_state_key},
+    rpc::{get_chain_height, get_chain_timestamp, query_state_key},
     submit_transaction, wait_for_height, TestCluster,
 };
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
@@ -67,6 +70,8 @@ const SYSTEM_SEQUENCE_ZERO_SCOPE: &str = "scope:autonomous_system.genesis_materi
 const SYSTEM_INITIALIZE_SCOPE: &str = "scope:autonomous_system.lifecycle.initialize";
 const SYSTEM_ACTIVATE_SCOPE: &str = "scope:autonomous_system.lifecycle.activate";
 const SYSTEM_AMENDMENT_SCOPE: &str = "scope:autonomous_system.lifecycle.amend_constitution";
+const SYSTEM_AMENDMENT_APPROVAL_SCOPE: &str =
+    "scope:autonomous_system.governance.approve_constitution_amendment";
 const SYSTEM_GENESIS_APPROVAL_REASON: &str = "System genesis admission fixture approval";
 const SYSTEM_SEQUENCE_ZERO_APPROVAL_REASON: &str =
     "System sequence-zero materialization fixture approval";
@@ -74,12 +79,24 @@ const SYSTEM_INITIALIZE_APPROVAL_REASON: &str = "System lifecycle initialize fix
 const SYSTEM_ACTIVATE_APPROVAL_REASON: &str = "System lifecycle activate fixture approval";
 const PROTECTED_TRANSITION_APPROVAL_REASON: &str =
     "System protected lifecycle transition fixture approval";
-const SYSTEM_AMENDMENT_APPROVAL_REASON: &str =
-    "System constitutional amendment fixture approval";
+const SYSTEM_AMENDMENT_APPROVAL_REASON: &str = "System constitutional amendment fixture approval";
+const SYSTEM_AMENDMENT_GOVERNANCE_APPROVAL_REASON: &str =
+    "System constitutional amendment governance fixture approval";
 const PROTECTED_TRANSITION_OPS: [&str; 14] = [
-    "pause", "resume", "suspend", "reinstate", "enter_dormancy", "wake",
-    "begin_recovery", "complete_recovery", "quarantine", "release_quarantine",
-    "retire", "archive", "revoke", "decommission",
+    "pause",
+    "resume",
+    "suspend",
+    "reinstate",
+    "enter_dormancy",
+    "wake",
+    "begin_recovery",
+    "complete_recovery",
+    "quarantine",
+    "release_quarantine",
+    "retire",
+    "archive",
+    "revoke",
+    "decommission",
 ];
 
 fn protected_transition_scope(target_scope: &str) -> bool {
@@ -223,11 +240,14 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
             SYSTEM_INITIALIZE_SCOPE.to_string(),
             SYSTEM_ACTIVATE_SCOPE.to_string(),
             SYSTEM_AMENDMENT_SCOPE.to_string(),
+            SYSTEM_AMENDMENT_APPROVAL_SCOPE.to_string(),
         ]
         .into_iter()
-        .chain(PROTECTED_TRANSITION_OPS.iter().map(|op| {
-            format!("scope:autonomous_system.lifecycle.{op}")
-        }))
+        .chain(
+            PROTECTED_TRANSITION_OPS
+                .iter()
+                .map(|op| format!("scope:autonomous_system.lifecycle.{op}")),
+        )
         .collect(),
     )
 }
@@ -625,6 +645,7 @@ async fn submit_record_approval(
         SYSTEM_INITIALIZE_SCOPE => SYSTEM_INITIALIZE_APPROVAL_REASON,
         SYSTEM_ACTIVATE_SCOPE => SYSTEM_ACTIVATE_APPROVAL_REASON,
         SYSTEM_AMENDMENT_SCOPE => SYSTEM_AMENDMENT_APPROVAL_REASON,
+        SYSTEM_AMENDMENT_APPROVAL_SCOPE => SYSTEM_AMENDMENT_GOVERNANCE_APPROVAL_REASON,
         scope if protected_transition_scope(scope) => PROTECTED_TRANSITION_APPROVAL_REASON,
         _ => {
             return Err(anyhow!(
@@ -695,7 +716,7 @@ async fn submit_record_approval(
         decided_at_ms,
     };
     let nonce = account_nonce(rpc_addr, &capability_account_id).await?;
-    submit(
+    if let Err(error) = submit(
         rpc_addr,
         capability,
         chain_id,
@@ -703,7 +724,16 @@ async fn submit_record_approval(
         "record_approval@v1",
         &approval,
     )
-    .await?;
+    .await
+    {
+        let observed_nonce = account_nonce(rpc_addr, &capability_account_id)
+            .await
+            .unwrap_or(u64::MAX);
+        let observed_height = get_chain_height(rpc_addr).await.unwrap_or(u64::MAX);
+        return Err(error.context(format!(
+            "record_approval diagnostic: submitted_nonce={nonce} observed_nonce={observed_nonce} observed_height={observed_height}"
+        )));
+    }
 
     let persisted_bytes = query_state_key(rpc_addr, &approval_key)
         .await?
@@ -829,6 +859,7 @@ fn write_command_response(command_dir: &Path, response: &FixtureCommandResponse)
 
 async fn process_fixture_commands(
     commands_dir: &Path,
+    transaction_lock_path: &Path,
     rpc_addr: &str,
     chain_id: ChainId,
     capability: &Ed25519KeyPair,
@@ -875,15 +906,22 @@ async fn process_fixture_commands(
                         .context("wallet fixture command is invalid JSON")
                 }) {
                 Ok(command) => match command.operation.as_str() {
-                    "record_approval" => submit_record_approval(
-                        rpc_addr,
-                        chain_id,
-                        capability,
-                        capability_account_id,
-                        command,
-                    )
-                    .await
-                    .map(FixtureCommandResult::Approval),
+                    "record_approval" => {
+                        // The daemon and fixture command processor transact
+                        // from the same capability account. Serialize nonce
+                        // query + submission across both processes.
+                        let _transaction_lock =
+                            acquire_fixture_transaction_lock(transaction_lock_path).await?;
+                        submit_record_approval(
+                            rpc_addr,
+                            chain_id,
+                            capability,
+                            capability_account_id,
+                            command,
+                        )
+                        .await
+                        .map(FixtureCommandResult::Approval)
+                    }
                     "revoke_principal_authority" => submit_revoke_principal_authority(
                         rpc_addr,
                         chain_id,
@@ -1404,6 +1442,7 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         write_atomic_durable(&root_record_path, &serde_json::to_vec_pretty(&root_record)?)?;
         let commands_dir = fixture_dir.join("commands");
         std::fs::create_dir(&commands_dir)?;
+        let transaction_lock_path = fixture_dir.join("hypervisor-wallet-transactions.lock");
         std::fs::File::open(&fixture_dir)?.sync_all()?;
         let manifest = serde_json::json!({
             "rpc_addr": rpc_addr,
@@ -1412,6 +1451,7 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
             "capability_account_id": hex::encode(capability_account_id),
             "root_record_path": root_record_path,
             "commands_dir": commands_dir,
+            "transaction_lock_path": transaction_lock_path,
             "guardian_key_pass": "hypervisor-held-bar",
         });
         let ready_bytes = if std::env::var("IOI_TEST_WALLET_FIXTURE_MALFORMED_READY")
@@ -1429,6 +1469,7 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         while !shutdown.exists() {
             process_fixture_commands(
                 &commands_dir,
+                &transaction_lock_path,
                 &rpc_addr,
                 chain_id,
                 &capability,
@@ -1446,4 +1487,46 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
     let shutdown_result = cluster.shutdown().await;
     shutdown_result?;
     setup
+}
+#[cfg(unix)]
+struct FixtureTransactionLock(std::fs::File);
+
+#[cfg(unix)]
+impl Drop for FixtureTransactionLock {
+    fn drop(&mut self) {
+        // SAFETY: the descriptor remains owned by this guard.
+        unsafe {
+            libc::flock(self.0.as_raw_fd(), libc::LOCK_UN);
+        }
+    }
+}
+
+#[cfg(unix)]
+async fn acquire_fixture_transaction_lock(path: &Path) -> Result<FixtureTransactionLock> {
+    let path = path.to_owned();
+    tokio::task::spawn_blocking(move || {
+        let file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(&path)?;
+        loop {
+            // SAFETY: `file` owns a live descriptor for the duration of flock.
+            if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } == 0 {
+                return Ok(FixtureTransactionLock(file));
+            }
+            let error = std::io::Error::last_os_error();
+            if error.kind() != std::io::ErrorKind::Interrupted {
+                return Err(error);
+            }
+        }
+    })
+    .await
+    .context("wallet fixture transaction-lock task failed")?
+    .context("wallet fixture transaction lock could not be acquired")
+}
+
+#[cfg(not(unix))]
+async fn acquire_fixture_transaction_lock(_path: &Path) -> Result<()> {
+    Ok(())
 }

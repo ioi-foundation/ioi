@@ -265,7 +265,10 @@ impl ProtectedTransitionOp {
         use ProtectedLifecycleStatus as S;
         match self {
             Self::Pause => S::Paused,
-            Self::Resume | Self::Reinstate | Self::Wake | Self::CompleteRecovery
+            Self::Resume
+            | Self::Reinstate
+            | Self::Wake
+            | Self::CompleteRecovery
             | Self::ReleaseQuarantine => S::Active,
             Self::Suspend => S::Suspended,
             Self::EnterDormancy => S::Dormant,
@@ -409,7 +412,11 @@ mod tests {
                 ],
                 "revoked",
             ),
-            ("decommission", &["retired", "archived", "revoked"], "decommissioned"),
+            (
+                "decommission",
+                &["retired", "archived", "revoked"],
+                "decommissioned",
+            ),
         ];
         assert_eq!(canon.len(), ProtectedTransitionOp::ALL.len());
         for (name, predecessors, result) in canon {
@@ -643,8 +650,7 @@ pub fn compile_protected_transition_plan(
         "profile_set_changed": false,
         "operation_commitment": Value::Null,
     });
-    effect["operation_commitment"] =
-        Value::String(protected_operation_commitment(&effect)?);
+    effect["operation_commitment"] = Value::String(protected_operation_commitment(&effect)?);
 
     Ok(CompiledProtectedTransitionPlan {
         op,
@@ -763,9 +769,17 @@ mod compile_tests {
     fn every_legal_matrix_row_compiles_and_every_illegal_row_refuses() {
         use ProtectedLifecycleStatus as S;
         let all = [
-            S::Active, S::Degraded, S::Paused, S::Suspended, S::Dormant,
-            S::Recovering, S::Quarantined, S::Retired, S::Archived,
-            S::Revoked, S::Decommissioned,
+            S::Active,
+            S::Degraded,
+            S::Paused,
+            S::Suspended,
+            S::Dormant,
+            S::Recovering,
+            S::Quarantined,
+            S::Retired,
+            S::Archived,
+            S::Revoked,
+            S::Decommissioned,
         ];
         for op in ProtectedTransitionOp::ALL {
             for predecessor in all {
@@ -777,17 +791,18 @@ mod compile_tests {
                 );
                 if op.admits_predecessor(predecessor) {
                     let plan = outcome.unwrap_or_else(|error| {
-                        panic!("{} over {} refused: {error}", op.as_str(), predecessor.as_str())
+                        panic!(
+                            "{} over {} refused: {error}",
+                            op.as_str(),
+                            predecessor.as_str()
+                        )
                     });
                     assert_eq!(plan.sequence, 8);
                     assert_eq!(
                         plan.authority_effect["resulting_status"],
                         op.resulting_status().as_str(),
                     );
-                    assert_eq!(
-                        plan.authority_effect["required_scope"],
-                        op.required_scope(),
-                    );
+                    assert_eq!(plan.authority_effect["required_scope"], op.required_scope(),);
                     assert_eq!(
                         plan.authority_effect["irreversibility"],
                         op.irreversibility().as_str(),
@@ -814,10 +829,7 @@ mod compile_tests {
         )
         .expect("pause over the activation step");
         assert_eq!(plan.sequence, 3);
-        assert_eq!(
-            plan.semantic_state["predecessor_state_root"],
-            h(0x21),
-        );
+        assert_eq!(plan.semantic_state["predecessor_state_root"], h(0x21),);
     }
 
     #[test]
@@ -894,9 +906,7 @@ mod compile_tests {
         );
         assert_eq!(
             first.authority_effect["operation_commitment"],
-            Value::String(
-                protected_operation_commitment(&first.authority_effect).unwrap()
-            ),
+            Value::String(protected_operation_commitment(&first.authority_effect).unwrap()),
             "commitment recomputes from the closed effect",
         );
     }

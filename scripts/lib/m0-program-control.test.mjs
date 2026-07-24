@@ -538,6 +538,7 @@ test("external Rust method effects stay distinct from unresolved helpers", () =>
       fn handler() {
         client().send();
         command().spawn();
+        tokio::task::spawn_blocking(|| 1);
         MuxEngine::open(path, false);
         external.read();
       }
@@ -561,6 +562,7 @@ test("external Rust method effects stay distinct from unresolved helpers", () =>
     assert.deepEqual(entries[0].handler_effect_calls, [
       ".send",
       ".spawn",
+      "tokio::task::spawn_blocking",
       "MuxEngine::open",
     ]);
   } finally {
@@ -1175,8 +1177,8 @@ test("supplied entries form an internally coherent unsigned hash chain with the 
     reviewAnchor,
     programSource,
   ));
-  assert.equal(reviewAnchor.head.sequence, 9);
-  assert.equal(reviewAnchor.epochs.length, 9);
+  assert.equal(reviewAnchor.head.sequence, 10);
+  assert.equal(reviewAnchor.epochs.length, 10);
   assert.ok(
     reviewAnchor.epochs.slice(0, 6).every((entry) => "reviewer_evidence" in entry),
     "legacy entries must retain their historical claims verbatim",

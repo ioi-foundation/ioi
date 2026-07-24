@@ -70,7 +70,7 @@ impl AuthorityContract {
 }
 
 /// Byte-stable authority evidence retained by governed receipts and intents.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct DecisionEvidence {
     pub(crate) acting_authority_id: Value,
     pub(crate) grant_ref: String,
@@ -84,7 +84,7 @@ pub(crate) struct DecisionEvidence {
 
 /// One online authorization also returns wallet.network's authenticated committed time. Callers
 /// may use it as a lease clock; it is not added to legacy #74 evidence or hash domains.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct AuthorizedDecision {
     pub(crate) evidence: DecisionEvidence,
     pub(crate) resolved_at_ms: u64,
@@ -235,6 +235,52 @@ pub(crate) fn verify_retained_authority_binding_root(value: &Value) -> Result<()
         &binding.binding_proof,
     )
     .map_err(|error| format!("{error:?}"))
+}
+
+/// Revalidate a retained governed-decision tuple without rewriting history or requiring the
+/// authority grant to remain unexpired today. The signed grant and authority binding must both
+/// have been valid at the authenticated resolution time captured by the original decision.
+pub(crate) fn verify_retained_decision_evidence(
+    evidence: &DecisionEvidence,
+    resolved_at_ms: u64,
+    required_authority: &str,
+    required_scope: &str,
+) -> Result<(), String> {
+    let (grant, canonical_grant) = canonicalize_approval_grant(&evidence.wallet_approval_grant)?;
+    if canonical_grant != evidence.wallet_approval_grant {
+        return Err("retained approval grant is not its canonical typed projection".into());
+    }
+    let binding_value =
+        canonicalize_authority_binding(&evidence.authority_binding, resolved_at_ms)?;
+    if binding_value != evidence.authority_binding {
+        return Err("retained authority binding is not its canonical typed projection".into());
+    }
+    verify_retained_authority_binding_root(&binding_value)?;
+    let binding: StableAuthorityBindingV1 = serde_json::from_value(binding_value)
+        .map_err(|error| format!("retained authority binding is malformed: {error}"))?;
+    if binding.principal_ref != required_authority || binding.required_scope != required_scope {
+        return Err("retained authority binding names a foreign principal or scope".into());
+    }
+    if grant.authority_id != binding.approval_authority.authority_id
+        || grant.approver_public_key != binding.approval_authority.public_key
+        || grant.approver_suite != binding.approval_authority.signature_suite
+    {
+        return Err(
+            "retained approval signer tuple differs from the bound authority snapshot".into(),
+        );
+    }
+    let verified = verify_wallet_approval_grant_binding(
+        &canonical_grant,
+        Some(resolved_at_ms),
+        Some(&evidence.policy_hash),
+        Some(&evidence.request_hash),
+    )?;
+    if verified.grant_ref != evidence.grant_ref
+        || canonical_grant.get("authority_id") != Some(&evidence.acting_authority_id)
+    {
+        return Err("retained approval identity or grant reference does not recompute".into());
+    }
+    Ok(())
 }
 
 fn local_now_ms() -> u64 {

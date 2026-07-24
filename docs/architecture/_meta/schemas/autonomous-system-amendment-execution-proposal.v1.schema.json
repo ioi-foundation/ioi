@@ -16,6 +16,7 @@
     "sequence",
     "amendment_ref",
     "amendment_root",
+    "approval_decision_root",
     "predecessor_constitution_ref",
     "predecessor_constitution_root",
     "successor_constitution_ref",
@@ -65,6 +66,10 @@
       "pattern": "^constitution-amendment://[^\\s]{1,248}$"
     },
     "amendment_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "approval_decision_root": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
     },
@@ -151,6 +156,8 @@
         "deployment_profile_ref",
         "deployment_profile_root",
         "amendment_root",
+        "approval_decision_root",
+        "approval_authority_evidence_root",
         "predecessor_constitution_root",
         "successor_constitution_root",
         "changed_field_paths_commitment",
@@ -339,6 +346,14 @@
           "pattern": "^sha256:[0-9a-f]{64}$"
         },
         "amendment_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "approval_decision_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "approval_authority_evidence_root": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
         }

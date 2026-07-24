@@ -43,6 +43,16 @@ const APP = join(HERE, "..", "..");
 const REPO = join(APP, "..", "..");
 export const DAEMON_BINARY = join(REPO, "target", "debug", "hypervisor-daemon");
 
+// Keep the verifier-only transport-log boundary beside the helper that owns the
+// filenames. Durable-state snapshots may exclude exactly these root files, but
+// must continue to census every production-owned record and unknown residue.
+export function isIsolatedDaemonLogName(name) {
+  return (
+    name === "isolated-daemon.log" ||
+    /^isolated-daemon-restart-\d+-\d+-\d+[.]log$/u.test(name)
+  );
+}
+
 // A genuinely free ephemeral port, handed back by the kernel (listen on 0, read, close).
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -97,7 +107,9 @@ export async function startIsolatedPlane({
   const daemonUrl = `http://127.0.0.1:${daemonPort}`;
   const logPath = join(
     dataDir,
-    reused ? `isolated-daemon-restart-${Date.now()}.log` : "isolated-daemon.log",
+    reused
+      ? `isolated-daemon-restart-${Date.now()}-${process.pid}-${daemonPort}.log`
+      : "isolated-daemon.log",
   );
   const logFd = openSync(logPath, "w");
   const children = [];

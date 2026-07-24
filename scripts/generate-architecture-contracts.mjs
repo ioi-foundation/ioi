@@ -2600,7 +2600,7 @@ function generatorInvariantErrors(contract, value) {
           ) ||
           generatorNonEmpty(generatorValueAtPath(value, expression.path));
       } else if (
-        expression.operator === "fields_equal" &&
+        ["fields_equal", "fields_not_equal"].includes(expression.operator) &&
         Array.isArray(expression.paths) &&
         expression.paths.length === 2
       ) {
@@ -2609,7 +2609,9 @@ function generatorInvariantErrors(contract, value) {
         valid =
           left !== undefined &&
           right !== undefined &&
-          canonicalJson(left) === canonicalJson(right);
+          (expression.operator === "fields_equal"
+            ? canonicalJson(left) === canonicalJson(right)
+            : canonicalJson(left) !== canonicalJson(right));
       } else if (
         expression.operator === "array_field_equals" &&
         typeof expression.array_path === "string" &&
@@ -3830,6 +3832,13 @@ function invariantErrors(contractId: string, rules: Array<JsonObject>, value: un
         left !== undefined &&
         right !== undefined &&
         jsonSchemaEqual(left, right);
+    } else if (operator === "fields_not_equal" && Array.isArray(expression.paths) && expression.paths.length === 2) {
+      const left = valueAtPath(value, expression.paths[0]);
+      const right = valueAtPath(value, expression.paths[1]);
+      valid =
+        left !== undefined &&
+        right !== undefined &&
+        !jsonSchemaEqual(left, right);
     } else if (
       operator === "array_field_equals" &&
       typeof expression.array_path === "string" &&
@@ -5440,6 +5449,17 @@ fn validate_invariants(contract_id: &str, rules: &Value, value: &Value) -> Resul
                     ))
                 })
                 .is_some_and(|(left, right)| json_schema_equal(left, right)),
+            Some("fields_not_equal") => expression
+                .get("paths")
+                .and_then(Value::as_array)
+                .filter(|paths| paths.len() == 2)
+                .and_then(|paths| {
+                    Some((
+                        value_at_path(value, paths.first()?.as_str()?)?,
+                        value_at_path(value, paths.get(1)?.as_str()?)?,
+                    ))
+                })
+                .is_some_and(|(left, right)| !json_schema_equal(left, right)),
             Some("array_field_equals") => expression
                 .get("array_path")
                 .and_then(Value::as_str)

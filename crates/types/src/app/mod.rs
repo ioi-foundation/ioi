@@ -42,9 +42,9 @@ pub mod runtime_contracts;
 pub mod settlement;
 pub mod system_activation;
 pub mod system_amendment_execution;
-pub mod system_lifecycle_transitions;
 /// Pure compiler for package-bound proposed System genesis artifacts.
 pub mod system_genesis;
+pub mod system_lifecycle_transitions;
 /// Data structures for deterministic block timing.
 pub mod timing; // [NEW]
 /// Data structures for wallet.network control-plane and session artifacts.

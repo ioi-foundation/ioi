@@ -369,6 +369,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   let manifest;
   let capabilityAccountId;
   let commandsDir;
+  let transactionLockPath;
   try {
     const readyPath = path.join(fixtureDir, "ready.json");
     const deadline = Date.now() + 600_000;
@@ -410,6 +411,17 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
     commandsDir = path.resolve(String(manifest.commands_dir || ""));
     if (commandsDir !== path.join(fixtureDir, "commands")) {
       throw new Error("real wallet.network fixture returned an unexpected command directory");
+    }
+    transactionLockPath = path.resolve(
+      String(manifest.transaction_lock_path || ""),
+    );
+    if (
+      transactionLockPath !==
+      path.join(fixtureDir, "hypervisor-wallet-transactions.lock")
+    ) {
+      throw new Error(
+        "real wallet.network fixture returned an unexpected transaction lock path",
+      );
     }
     tlsProxy = await startPinnedTlsProxy(manifest.rpc_addr, fixtureDir);
   } catch (error) {
@@ -470,7 +482,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
     }
     if (!response.ok) {
       throw new Error(
-        `wallet.network ${payload.operation} refused: ${response.error || "unknown error"}`,
+        `wallet.network ${payload.operation} refused: ${response.error || "unknown error"}\n${output}`,
       );
     }
     return response;
@@ -543,6 +555,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
       IOI_WALLET_NETWORK_RPC_ADDR: tlsProxy.rpcAddr,
       IOI_WALLET_NETWORK_CHAIN_ID: String(manifest.chain_id),
       IOI_HYPERVISOR_WALLET_CLIENT_KEY_PATH: manifest.capability_key_path,
+      IOI_WALLET_NETWORK_TRANSACTION_LOCK_PATH: transactionLockPath,
       IOI_WALLET_NETWORK_ROOT_RECORD_PATH: manifest.root_record_path,
       IOI_WALLET_NETWORK_TLS_CA_PATH: tlsProxy.caPath,
       IOI_WALLET_NETWORK_TLS_SERVER_NAME: tlsProxy.serverName,

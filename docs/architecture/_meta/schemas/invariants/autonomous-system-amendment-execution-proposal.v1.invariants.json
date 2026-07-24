@@ -34,6 +34,9 @@
           "amendment_root": {
             "path": "$.amendment_root"
           },
+          "approval_decision_root": {
+            "path": "$.approval_decision_root"
+          },
           "predecessor_constitution_ref": {
             "path": "$.predecessor_constitution_ref"
           },
@@ -130,6 +133,12 @@
           "amendment_root": {
             "path": "$.authority_effect.amendment_root"
           },
+          "approval_decision_root": {
+            "path": "$.authority_effect.approval_decision_root"
+          },
+          "approval_authority_evidence_root": {
+            "path": "$.authority_effect.approval_authority_evidence_root"
+          },
           "predecessor_constitution_root": {
             "path": "$.authority_effect.predecessor_constitution_root"
           },
@@ -216,6 +225,12 @@
           },
           "amendment_root": {
             "path": "$.authority_effect.amendment_root"
+          },
+          "approval_decision_root": {
+            "path": "$.authority_effect.approval_decision_root"
+          },
+          "approval_authority_evidence_root": {
+            "path": "$.authority_effect.approval_authority_evidence_root"
           },
           "predecessor_constitution_root": {
             "path": "$.authority_effect.predecessor_constitution_root"

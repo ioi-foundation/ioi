@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-constitution-amendment-approval-decision/v1",
+  "title": "AutonomousSystemConstitutionAmendmentApprovalDecision",
+  "description": "External-governance decision approving one exact constitutional amendment declaration before execution authority is considered.",
+  "x-ioi-schema-version": "ioi.autonomous-system-constitution-amendment-approval-decision.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "decision_ref",
+    "decision_root",
+    "amendment_ref",
+    "amendment_root",
+    "proposal_ref",
+    "system_id",
+    "governing_decision_profile_ref",
+    "predecessor_constitution_root",
+    "successor_constitution_root",
+    "changed_field_paths_commitment",
+    "evidence_refs",
+    "authority_requirement_refs",
+    "outcome",
+    "decided_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-constitution-amendment-approval-decision.v1"
+    },
+    "decision_ref": { "type": "string", "pattern": "^decision://[^\\s]{1,248}$" },
+    "decision_root": { "$ref": "#/$defs/hash" },
+    "amendment_ref": { "type": "string", "pattern": "^constitution-amendment://[^\\s]{1,248}$" },
+    "amendment_root": { "$ref": "#/$defs/hash" },
+    "proposal_ref": { "type": "string", "pattern": "^proposal://[^\\s]{1,248}$" },
+    "system_id": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "governing_decision_profile_ref": { "type": "string", "pattern": "^policy://[^\\s]{1,248}$" },
+    "predecessor_constitution_root": { "$ref": "#/$defs/hash" },
+    "successor_constitution_root": { "$ref": "#/$defs/hash" },
+    "changed_field_paths_commitment": { "$ref": "#/$defs/hash" },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^(?:evidence|artifact|receipt)://[^\\s]{1,248}$" },
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "authority_requirement_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$" },
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "outcome": { "const": "approved" },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

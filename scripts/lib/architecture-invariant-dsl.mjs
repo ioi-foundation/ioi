@@ -294,6 +294,7 @@ const SUPPORTED_OPERATORS = new Set([
   "field_starts_with_path",
   "field_suffix_equals_prefixed_field",
   "fields_equal",
+  "fields_not_equal",
   "jcs_sha256_equals",
   "matches_contract_schema_hash",
   "non_empty",
@@ -405,6 +406,7 @@ function validateExpression(rootSchema, expression, at, errors) {
       }
       break;
     case "fields_equal":
+    case "fields_not_equal":
     case "numbers_lte":
     case "numbers_lt":
       requirePaths("paths", 2);

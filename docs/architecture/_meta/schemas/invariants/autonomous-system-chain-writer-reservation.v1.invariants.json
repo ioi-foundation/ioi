@@ -1,0 +1,25 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-chain-writer-reservation/binding/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_chain_writer_reservation.identity.binds_predecessor",
+      "description": "The reservation identity is keyed by the exact predecessor chain root.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.reservation_ref",
+        "prefix": "chain-writer-reservation://",
+        "expected_path": "$.predecessor_chain_root"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_chain_writer_reservation.plan.binds_operation",
+      "description": "The retry-stable writer plan is the exact compiled operation commitment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.writer_plan_hash", "$.operation_root"]
+      }
+    }
+  ]
+}

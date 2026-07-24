@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-22",
+  "as_of_date": "2026-07-23",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -352,7 +352,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "613a494758ca785bad3959a47a0d03e582a81f6a4a8f816d5116c8063d7dd590"
+      "source_sha256": "c1e6f15651b5710b27e4b64ff89d0ef444bd181741b586072cbc429fe03803bd"
     },
     {
       "role": "landed owner canon",
@@ -469,7 +469,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "2b63311c3db6106c9c798c21328e78c9d72b793e2baa9824e5b2f051f0a55d58"
+            "source_sha256": "663859bcfcebe9aeb4b9b50b3dae8ba669392567ad4451a1e55d196681c51766"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -644,7 +644,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "2b63311c3db6106c9c798c21328e78c9d72b793e2baa9824e5b2f051f0a55d58"
+            "source_sha256": "663859bcfcebe9aeb4b9b50b3dae8ba669392567ad4451a1e55d196681c51766"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -1562,19 +1562,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "64d23a06c5b492176de51da3b2888a0d581c217fc95b0f6e0ac2109a26744540",
-    "review_epoch_id": "m1-5c-amendment-execution-review-2026-07-22",
-    "review_lock_sha256": "e7848c3afed3832b8eee77cc1a5bf2d1c869d0814101c6e203c044e2411d7fea",
+    "program_source_material_sha256": "0dae066cda7503bb8b2eef713a78bb6728b0fe8e07f718f05461dc429a678129",
+    "review_epoch_id": "m1-5c-hardening-review-2026-07-23",
+    "review_lock_sha256": "9667808f4437af34be00ca8cda51514b4e10ce2cc5236e5e8f94b0f9f4cd9fc2",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
-    "reviewed_as_of": "2026-07-22",
-    "reviewed_entry_set_sha256": "4e8dba7ff9d1dee7301a2eb44ab3e09e3892a991d5fb191a9b5382a772450a39",
-    "reviewed_identity_set_sha256": "2d68d56a18c3f971f9acf8652da45eed61f304fc2e809d62bf887ef94e9523cd",
+    "reviewed_as_of": "2026-07-23",
+    "reviewed_entry_set_sha256": "bba53bd7bcfc414e0ca0d5e8920b4699cca4d072b7e1a54133d639bc9b1fb823",
+    "reviewed_identity_set_sha256": "0500a1de07acd127f6161e29b48aff2a7618eada7ce1a6a98e727215fbbf2c25",
     "reviewer_label": "reviewer://ioi/m0-program-control-independent-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "ba2b0a972da3c51c9a0b8e2af59fa89e299a631a0b2f0a4eda115dcc4e89327b",
-    "snapshot_head_sequence": 9,
-    "snapshot_predecessor_entry_sha256": "8458febe3e34c9c59fc78a5b5b061ea560bfd39fba4307d51d388009f526edb8",
+    "snapshot_head_entry_sha256": "ea5f152f4331fa03eec439c8841816afc130085ff106f97bb0abf0fcb76f2cf2",
+    "snapshot_head_sequence": 10,
+    "snapshot_predecessor_entry_sha256": "ba2b0a972da3c51c9a0b8e2af59fa89e299a631a0b2f0a4eda115dcc4e89327b",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

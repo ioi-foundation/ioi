@@ -133,13 +133,17 @@ fn parse_semver(text: &str) -> Result<(u64, u64, u64), String> {
 /// appear in a diff at all because [`canonical_constitution_diff`] excludes
 /// them before comparison.
 pub fn pointer_is_machine_protected(pointer: &str) -> bool {
-    pointer == MACHINE_PROTECTED_POINTER_PREFIX
-        || pointer.starts_with("/governance/")
+    pointer == MACHINE_PROTECTED_POINTER_PREFIX || pointer.starts_with("/governance/")
 }
 
 /// JCS domain for the amendment-declaration root.
 pub(crate) const AMENDMENT_DECLARATION_HASH_PROFILE: &str =
     "ioi.autonomous-system-constitution-amendment-jcs-sha256.v1";
+/// JCS domain for the external-governance approval decision that makes a
+/// declaration eligible for execution. This is deliberately distinct from
+/// the later wallet-backed execution decision.
+pub(crate) const AMENDMENT_APPROVAL_DECISION_HASH_PROFILE: &str =
+    "ioi.autonomous-system-constitution-amendment-approval-decision-jcs-sha256.v1";
 /// JCS domain for a constitution's authoritative root. This is the SAME
 /// profile-candidate recipe genesis and activation already use, so the
 /// chain, the active profile set, and the amendment families all name a
@@ -177,10 +181,14 @@ pub struct CompiledAmendmentExecutionPlan {
     pub status: ProtectedLifecycleStatus,
     /// Explicitly unverified predecessor step artifacts.
     pub previous_step: UnverifiedCommittedSystemLifecycleStep,
-    /// The verbatim proposed declaration (retained evidence).
+    /// The verbatim approved declaration (retained evidence).
     pub amendment: Value,
     /// Recomputed declaration root.
     pub amendment_root: String,
+    /// The external-governance decision approving this exact declaration.
+    pub approval_decision: Value,
+    /// Recomputed approval-decision root.
+    pub approval_decision_root: String,
     /// The successor constitution exactly as it will persist.
     pub successor_constitution: Value,
     /// Recomputed successor constitution root.
@@ -232,8 +240,41 @@ fn string_array(value: &Value, name: &str, what: &str) -> Result<Vec<String>, St
         .collect()
 }
 
+/// Resolve the explicit M1 pointer protections, with a narrow migration for
+/// constitutions admitted before `protected_field_paths` existed. Legacy
+/// clause references are never silently dropped: every reference must have a
+/// known deterministic pointer meaning or amendment fails closed.
+fn constitution_protected_paths(governance: &Value) -> Result<Vec<String>, String> {
+    if governance.get("protected_field_paths").is_some() {
+        return string_array(
+            governance,
+            "protected_field_paths",
+            "predecessor constitution governance",
+        );
+    }
+    let clauses = string_array(
+        governance,
+        "protected_clause_refs",
+        "predecessor constitution governance",
+    )?;
+    clauses
+        .into_iter()
+        .map(|clause| {
+            if clause.ends_with("/purpose") {
+                Ok("/declared_purpose".to_owned())
+            } else {
+                Err(format!(
+                    "legacy protected clause {clause} has no deterministic field-path migration"
+                ))
+            }
+        })
+        .collect()
+}
+
 fn pointer_covered_by(pointer: &str, protected: &str) -> bool {
-    pointer == protected || pointer.starts_with(&format!("{protected}/"))
+    pointer == protected
+        || pointer.starts_with(&format!("{protected}/"))
+        || protected.starts_with(&format!("{pointer}/"))
 }
 
 /// The authoritative root of a constitution body: the profile-candidate
@@ -258,6 +299,23 @@ pub fn amendment_declaration_root(amendment: &Value) -> Result<String, String> {
         "domain": AMENDMENT_DECLARATION_HASH_PROFILE,
         "amendment": amendment,
     }))
+}
+
+/// Recompute an external-governance amendment approval decision. The root
+/// field is excluded from its own material; every other closed field is
+/// retained, so the decision cannot be copied across declarations, profiles,
+/// evidence sets, or authority requirements.
+pub fn amendment_approval_decision_root(decision: &Value) -> Result<String, String> {
+    let mut material = decision
+        .as_object()
+        .cloned()
+        .ok_or("amendment approval decision is not an object")?;
+    material.remove("decision_root");
+    material.insert(
+        "domain".to_owned(),
+        Value::String(AMENDMENT_APPROVAL_DECISION_HASH_PROFILE.to_owned()),
+    );
+    jcs_hash(&Value::Object(material))
 }
 
 /// Recompute the changed-path commitment over the computed canonical diff.
@@ -308,7 +366,10 @@ pub fn compile_amendment_execution_plan(
     previous_step: &UnverifiedCommittedSystemLifecycleStep,
     chain_head_root: &str,
     chain_constitution_root: &str,
+    activation_receipt_ref: &str,
     amendment: &Value,
+    approval_decision: &Value,
+    approval_authority_evidence_root: &str,
     predecessor_constitution: &Value,
     successor_constitution: &Value,
     predecessor_profile_set: &Value,
@@ -316,6 +377,13 @@ pub fn compile_amendment_execution_plan(
     validate_activation_identity(activation_effect)?;
     canonical_hash_or_err(chain_head_root, "predecessor chain head root")?;
     canonical_hash_or_err(chain_constitution_root, "chain constitution root")?;
+    canonical_hash_or_err(
+        approval_authority_evidence_root,
+        "approval authority evidence root",
+    )?;
+    if !activation_receipt_ref.starts_with("receipt://") {
+        return Err("active chain carries a non-canonical activation receipt ref".to_owned());
+    }
 
     let system_id = required_effect_string(activation_effect, "system_id")?;
     let (predecessor_state_ref, predecessor_sequence, status) =
@@ -337,19 +405,17 @@ pub fn compile_amendment_execution_plan(
         .filter(|next| *next >= 3)
         .ok_or("resulting sequence is not three or later")?;
 
-    // Declaration discipline: the M1 single-authority path executes a
-    // verbatim proposed declaration; the execution decision is the approval
-    // record. Multi-party approved/evidence_pending lifecycles remain a
-    // named later path.
+    // Declaration discipline: execution consumes an already-approved
+    // declaration. The wallet-backed decision minted later authorizes the
+    // chain effect; it must never substitute for the constitution's external
+    // governance decision that approved the declaration itself.
     if required_field(amendment, "schema_version", "amendment declaration")?
         != "ioi.autonomous-system-constitution-amendment.v1"
     {
         return Err("amendment declaration carries a foreign schema_version".to_owned());
     }
-    if required_field(amendment, "status", "amendment declaration")? != "proposed" {
-        return Err(
-            "only a verbatim proposed declaration may execute on the M1 path".to_owned(),
-        );
+    if required_field(amendment, "status", "amendment declaration")? != "approved" {
+        return Err("only an approved amendment declaration may execute".to_owned());
     }
     if required_field(amendment, "system_id", "amendment declaration")? != system_id {
         return Err("amendment declaration detaches from the identity System".to_owned());
@@ -358,52 +424,128 @@ pub fn compile_amendment_execution_plan(
     if !amendment_id.starts_with("constitution-amendment://") {
         return Err("amendment declaration id is not a constitution-amendment ref".to_owned());
     }
-    if required_field(amendment, "predecessor_constitution_root", "amendment declaration")?
-        != chain_constitution_root
+    if required_field(
+        amendment,
+        "predecessor_constitution_root",
+        "amendment declaration",
+    )? != chain_constitution_root
     {
         return Err(
             "amendment declaration does not bind the chain's active constitution".to_owned(),
         );
     }
+    let declaration_decision_ref =
+        required_field(amendment, "decision_ref", "approved amendment declaration")?;
 
     // Predecessor constitution: the supplied body must BE the constitution
     // the chain names, proven by recomputing its authoritative root.
     if constitution_candidate_root(predecessor_constitution)? != chain_constitution_root {
         return Err("predecessor constitution does not recompute to the chain's root".to_owned());
     }
-    if required_field(predecessor_constitution, "system_id", "predecessor constitution")?
-        != system_id
+    if required_field(
+        predecessor_constitution,
+        "system_id",
+        "predecessor constitution",
+    )? != system_id
     {
         return Err("predecessor constitution detaches from the identity System".to_owned());
     }
-    let predecessor_constitution_id =
-        required_field(predecessor_constitution, "constitution_id", "predecessor constitution")?;
-    if required_field(amendment, "predecessor_constitution_ref", "amendment declaration")?
-        != predecessor_constitution_id
+    let predecessor_constitution_id = required_field(
+        predecessor_constitution,
+        "constitution_id",
+        "predecessor constitution",
+    )?;
+    if required_field(
+        amendment,
+        "predecessor_constitution_ref",
+        "amendment declaration",
+    )? != predecessor_constitution_id
     {
         return Err("amendment declaration names a different predecessor constitution".to_owned());
     }
 
+    // The active constitution, never the request, owns amendment governance.
+    let governance = predecessor_constitution
+        .get("governance")
+        .and_then(Value::as_object)
+        .ok_or("predecessor constitution lacks governance")?;
+    if governance.get("amendment_mode").and_then(Value::as_str) != Some("external_governance_only")
+    {
+        return Err("active constitution does not admit external-governance amendment".to_owned());
+    }
+    if governance.get("agent_may_commit_amendment") != Some(&Value::Bool(false)) {
+        return Err("active constitution does not forbid agent amendment commit".to_owned());
+    }
+    let governing_profile = governance
+        .get("amendment_decision_profile_ref")
+        .and_then(Value::as_str)
+        .ok_or("active constitution lacks amendment_decision_profile_ref")?;
+    if required_field(
+        amendment,
+        "governing_decision_profile_ref",
+        "amendment declaration",
+    )? != governing_profile
+    {
+        return Err("amendment declaration names a foreign governance decision profile".to_owned());
+    }
+    let execution_authority =
+        required_effect_string(activation_effect, "source_governing_authority_ref")?;
+    if execution_authority.starts_with("system://") || execution_authority.starts_with("agent://") {
+        return Err(
+            "agent or System principal may not commit a constitutional amendment".to_owned(),
+        );
+    }
+    let governance_owners = string_array(
+        &Value::Object(governance.clone()),
+        "governance_owner_refs",
+        "predecessor constitution governance",
+    )?;
+    let accountable = string_array(
+        &Value::Object(governance.clone()),
+        "accountable_principal_refs",
+        "predecessor constitution governance",
+    )?;
+    if !governance_owners
+        .iter()
+        .chain(accountable.iter())
+        .any(|value| value == execution_authority)
+    {
+        return Err("execution authority is not an accountable constitutional governor".to_owned());
+    }
+
     // Successor lineage.
-    if required_field(successor_constitution, "system_id", "successor constitution")? != system_id
+    if required_field(
+        successor_constitution,
+        "system_id",
+        "successor constitution",
+    )? != system_id
     {
         return Err("successor constitution detaches from the identity System".to_owned());
     }
-    let successor_constitution_id =
-        required_field(successor_constitution, "constitution_id", "successor constitution")?;
+    let successor_constitution_id = required_field(
+        successor_constitution,
+        "constitution_id",
+        "successor constitution",
+    )?;
     if successor_constitution_id == predecessor_constitution_id {
         return Err("successor constitution reuses the predecessor identity".to_owned());
     }
-    if required_field(successor_constitution, "predecessor_constitution_ref", "successor constitution")?
-        != predecessor_constitution_id
+    if required_field(
+        successor_constitution,
+        "predecessor_constitution_ref",
+        "successor constitution",
+    )? != predecessor_constitution_id
     {
         return Err("successor constitution does not name its predecessor".to_owned());
     }
     if required_field(successor_constitution, "status", "successor constitution")? != "active" {
         return Err("successor constitution must persist as active".to_owned());
     }
-    let predecessor_version =
-        required_field(predecessor_constitution, "version", "predecessor constitution")?;
+    let predecessor_version = required_field(
+        predecessor_constitution,
+        "version",
+        "predecessor constitution",
+    )?;
     let successor_version =
         required_field(successor_constitution, "version", "successor constitution")?;
     if !semver_strictly_greater(successor_version, predecessor_version)? {
@@ -411,8 +553,11 @@ pub fn compile_amendment_execution_plan(
             "successor version {successor_version} does not advance {predecessor_version}",
         ));
     }
-    if required_field(amendment, "proposed_successor_constitution_ref", "amendment declaration")?
-        != successor_constitution_id
+    if required_field(
+        amendment,
+        "proposed_successor_constitution_ref",
+        "amendment declaration",
+    )? != successor_constitution_id
     {
         return Err("amendment declaration names a different successor constitution".to_owned());
     }
@@ -431,11 +576,28 @@ pub fn compile_amendment_execution_plan(
                 .to_owned(),
         );
     }
-    if required_field(amendment, "proposed_successor_constitution_root", "amendment declaration")?
-        != successor_constitution_root
+    if required_field(
+        amendment,
+        "proposed_successor_constitution_root",
+        "amendment declaration",
+    )? != successor_constitution_root
+    {
+        return Err("amendment declaration does not bind the recomputed successor root".to_owned());
+    }
+    // All diff-excluded structural fields must be enforced explicitly. The
+    // identity, version, predecessor ref, root, system id, and status checks
+    // above cover seven fields; activation receipt continuity closes the
+    // eighth instead of letting it disappear from the canonical diff. The
+    // admitted genesis body is a draft and therefore carries null here; an
+    // active successor must bind the sequence-two receipt proven by the
+    // operation log, never a caller-selected value.
+    if successor_constitution
+        .get("activation_receipt_ref")
+        .and_then(Value::as_str)
+        != Some(activation_receipt_ref)
     {
         return Err(
-            "amendment declaration does not bind the recomputed successor root".to_owned(),
+            "successor constitution does not bind the committed activation_receipt_ref".to_owned(),
         );
     }
 
@@ -454,7 +616,18 @@ pub fn compile_amendment_execution_plan(
             "declared changed paths do not equal the canonical diff (declared {declared:?}, computed {changed_field_paths:?})",
         ));
     }
-    let protected = string_array(amendment, "protected_field_paths", "amendment declaration")?;
+    let mut protected = constitution_protected_paths(&Value::Object(governance.clone()))?;
+    protected.sort();
+    protected.dedup();
+    let mut declared_protected =
+        string_array(amendment, "protected_field_paths", "amendment declaration")?;
+    declared_protected.sort();
+    declared_protected.dedup();
+    if declared_protected != protected {
+        return Err(
+            "declared protected paths do not equal committed constitution truth".to_owned(),
+        );
+    }
     for pointer in &changed_field_paths {
         if pointer_is_machine_protected(pointer) {
             return Err(format!("{pointer} is machine-protected in M1"));
@@ -469,8 +642,11 @@ pub fn compile_amendment_execution_plan(
     // must pin the constitution being amended.
     let state_set_ref = required_string(&previous_step.state, "/active_profile_set_ref")?;
     let state_set_root = required_string(&previous_step.state, "/active_profile_set_root")?;
-    if required_field(predecessor_profile_set, "active_profile_set_ref", "active profile set")?
-        != state_set_ref
+    if required_field(
+        predecessor_profile_set,
+        "active_profile_set_ref",
+        "active profile set",
+    )? != state_set_ref
     {
         return Err("supplied profile set is not the predecessor state's set".to_owned());
     }
@@ -565,6 +741,102 @@ pub fn compile_amendment_execution_plan(
     });
 
     let amendment_root = amendment_declaration_root(amendment)?;
+    if required_field(
+        approval_decision,
+        "schema_version",
+        "amendment approval decision",
+    )? != "ioi.autonomous-system-constitution-amendment-approval-decision.v1"
+    {
+        return Err("amendment approval decision carries a foreign schema_version".to_owned());
+    }
+    if required_field(approval_decision, "outcome", "amendment approval decision")? != "approved" {
+        return Err("amendment approval decision is not approved".to_owned());
+    }
+    if required_field(
+        approval_decision,
+        "decision_ref",
+        "amendment approval decision",
+    )? != declaration_decision_ref
+        || required_field(
+            approval_decision,
+            "amendment_ref",
+            "amendment approval decision",
+        )? != amendment_id
+        || required_field(
+            approval_decision,
+            "amendment_root",
+            "amendment approval decision",
+        )? != amendment_root
+        || required_field(
+            approval_decision,
+            "proposal_ref",
+            "amendment approval decision",
+        )? != required_field(amendment, "proposal_ref", "amendment declaration")?
+        || required_field(
+            approval_decision,
+            "system_id",
+            "amendment approval decision",
+        )? != system_id
+        || required_field(
+            approval_decision,
+            "governing_decision_profile_ref",
+            "amendment approval decision",
+        )? != governing_profile
+        || required_field(
+            approval_decision,
+            "predecessor_constitution_root",
+            "amendment approval decision",
+        )? != chain_constitution_root
+        || required_field(
+            approval_decision,
+            "successor_constitution_root",
+            "amendment approval decision",
+        )? != successor_constitution_root
+        || required_field(
+            approval_decision,
+            "changed_field_paths_commitment",
+            "amendment approval decision",
+        )? != changed_field_paths_commitment
+    {
+        return Err("amendment approval decision does not bind the exact declaration".to_owned());
+    }
+    let mut approval_evidence = string_array(
+        approval_decision,
+        "evidence_refs",
+        "amendment approval decision",
+    )?;
+    let mut declaration_evidence =
+        string_array(amendment, "evidence_refs", "amendment declaration")?;
+    approval_evidence.sort();
+    declaration_evidence.sort();
+    let mut approval_requirements = string_array(
+        approval_decision,
+        "authority_requirement_refs",
+        "amendment approval decision",
+    )?;
+    let mut declaration_requirements = string_array(
+        amendment,
+        "authority_requirement_refs",
+        "amendment declaration",
+    )?;
+    approval_requirements.sort();
+    declaration_requirements.sort();
+    if approval_evidence != declaration_evidence
+        || approval_requirements != declaration_requirements
+    {
+        return Err(
+            "amendment approval decision changes evidence or authority requirements".to_owned(),
+        );
+    }
+    let approval_decision_root = amendment_approval_decision_root(approval_decision)?;
+    if required_field(
+        approval_decision,
+        "decision_root",
+        "amendment approval decision",
+    )? != approval_decision_root
+    {
+        return Err("amendment approval decision root does not recompute".to_owned());
+    }
 
     let mut effect = json!({
         "schema_version": AMENDMENT_AUTHORITY_EFFECT_SCHEMA,
@@ -619,6 +891,9 @@ pub fn compile_amendment_execution_plan(
     // Bind the exact governance declaration this effect executes. Set after
     // the literal so the json! macro stays within its expansion limit.
     effect["amendment_root"] = Value::String(amendment_root.clone());
+    effect["approval_decision_root"] = Value::String(approval_decision_root.clone());
+    effect["approval_authority_evidence_root"] =
+        Value::String(approval_authority_evidence_root.to_owned());
     effect["operation_commitment"] = Value::String(amendment_operation_commitment(&effect)?);
 
     Ok(CompiledAmendmentExecutionPlan {
@@ -627,6 +902,8 @@ pub fn compile_amendment_execution_plan(
         previous_step: previous_step.clone(),
         amendment: amendment.clone(),
         amendment_root,
+        approval_decision: approval_decision.clone(),
+        approval_decision_root,
         successor_constitution: successor_constitution.clone(),
         successor_constitution_root,
         changed_field_paths,
@@ -665,6 +942,8 @@ fn amendment_operation_commitment(effect: &Value) -> Result<String, String> {
         "policy_root": field("policy_root")?,
         "module_registry_root": field("module_registry_root")?,
         "amendment_root": field("amendment_root")?,
+        "approval_decision_root": field("approval_decision_root")?,
+        "approval_authority_evidence_root": field("approval_authority_evidence_root")?,
         "predecessor_constitution_root": field("predecessor_constitution_root")?,
         "successor_constitution_root": field("successor_constitution_root")?,
         "changed_field_paths_commitment": field("changed_field_paths_commitment")?,
@@ -747,7 +1026,15 @@ mod tests {
         assert!(semver_strictly_greater("2.0.0", "1.999999999.999999999").unwrap());
         assert!(!semver_strictly_greater("1.0.0", "1.0.0").unwrap());
         assert!(!semver_strictly_greater("1.0.0", "1.0.1").unwrap());
-        for bad in ["1.0", "1.0.0.0", "1.0.-1", "v1.0.0", "1.0.01", "1..0", "1.0.0-rc1"] {
+        for bad in [
+            "1.0",
+            "1.0.0.0",
+            "1.0.-1",
+            "v1.0.0",
+            "1.0.01",
+            "1..0",
+            "1.0.0-rc1",
+        ] {
             assert!(semver_strictly_greater(bad, "1.0.0").is_err(), "{bad}");
         }
     }
@@ -808,7 +1095,13 @@ mod tests {
         }
     }
 
-    fn constitution(id: &str, version: &str, root: &str, predecessor_ref: &str, status: &str) -> Value {
+    fn constitution(
+        id: &str,
+        version: &str,
+        root: &str,
+        predecessor_ref: &str,
+        status: &str,
+    ) -> Value {
         json!({
             "schema_version": "ioi.autonomous-system-constitution.v1",
             "constitution_id": id,
@@ -816,12 +1109,22 @@ mod tests {
             "version": version,
             "predecessor_constitution_ref": predecessor_ref,
             "declared_purpose": "serve the fixture estate",
-            "normative_constraints": {"spend_ceiling": 5},
+            "normative_constraints": {
+                "spend_ceiling": 5,
+                "invariant_refs": ["constraint://fixture/immutable", "constraint://fixture/mutable"],
+            },
             "agency_boundary": {"may_execute": false},
             "governance": {
+                "governance_owner_refs": ["wallet://fixture/governing"],
+                "accountable_principal_refs": ["wallet://fixture/governing"],
                 "amendment_mode": "external_governance_only",
+                "amendment_decision_profile_ref": "policy://fixture/governance/amendments",
                 "agent_may_commit_amendment": false,
                 "protected_clause_refs": ["constitution-clause://fixture/purpose"],
+                "protected_field_paths": [
+                    "/declared_purpose",
+                    "/normative_constraints/invariant_refs/0"
+                ],
             },
             "protected_profile_governance": {"deployment_constraint_ref": "constraint://fixture/deploy"},
             "shutdown": {"grace_seconds": 30},
@@ -863,9 +1166,41 @@ mod tests {
             "proposed_successor_constitution_ref": successor["constitution_id"],
             "proposed_successor_constitution_root": constitution_candidate_root(successor).unwrap(),
             "changed_field_paths": ["/normative_constraints/spend_ceiling"],
-            "protected_field_paths": ["/declared_purpose"],
-            "status": "proposed",
+            "protected_field_paths": [
+                "/declared_purpose",
+                "/normative_constraints/invariant_refs/0"
+            ],
+            "governing_decision_profile_ref": "policy://fixture/governance/amendments",
+            "proposal_ref": "proposal://fixture/alpha/amendment/1",
+            "evidence_refs": ["evidence://fixture/alpha/amendment/1"],
+            "authority_requirement_refs": ["authority-requirement://fixture/governance/amend"],
+            "proposed_by_ref": "governance://fixture/alpha",
+            "decision_ref": "decision://fixture/alpha/amendment/1",
+            "status": "approved",
         })
+    }
+
+    fn approval_decision(predecessor: &Value, successor: &Value, amendment: &Value) -> Value {
+        let paths = canonical_constitution_diff(predecessor, successor);
+        let mut decision = json!({
+            "schema_version": "ioi.autonomous-system-constitution-amendment-approval-decision.v1",
+            "decision_ref": amendment["decision_ref"],
+            "decision_root": Value::Null,
+            "amendment_ref": amendment["amendment_id"],
+            "amendment_root": amendment_declaration_root(amendment).unwrap(),
+            "proposal_ref": amendment["proposal_ref"],
+            "system_id": amendment["system_id"],
+            "governing_decision_profile_ref": amendment["governing_decision_profile_ref"],
+            "predecessor_constitution_root": amendment["predecessor_constitution_root"],
+            "successor_constitution_root": amendment["proposed_successor_constitution_root"],
+            "changed_field_paths_commitment": changed_paths_commitment(&paths).unwrap(),
+            "evidence_refs": amendment["evidence_refs"],
+            "authority_requirement_refs": amendment["authority_requirement_refs"],
+            "outcome": "approved",
+            "decided_at": "2026-07-23T12:00:00Z",
+        });
+        decision["decision_root"] = json!(amendment_approval_decision_root(&decision).unwrap());
+        decision
     }
 
     fn profile_set(constitution_root: &str) -> Value {
@@ -901,12 +1236,40 @@ mod tests {
         let chain_constitution_root = constitution_candidate_root(&predecessor).unwrap();
         let mut set = profile_set(&chain_constitution_root);
         mutate(&mut amendment, &mut predecessor, &mut successor, &mut set);
+        let decision = approval_decision(&predecessor, &successor, &amendment);
         compile_amendment_execution_plan(
             &activation_effect(),
             &step(7, status),
             &h(0x31),
             &chain_constitution_root,
+            "receipt://fixture/activation",
             &amendment,
+            &decision,
+            &h(0x32),
+            &predecessor,
+            &successor,
+            &set,
+        )
+    }
+
+    fn compile_fixture_with_approval_mutation(
+        mutate: impl FnOnce(&mut Value),
+    ) -> Result<CompiledAmendmentExecutionPlan, String> {
+        let (predecessor, successor) = fixture_pair();
+        let amendment = declaration(&predecessor, &successor);
+        let chain_constitution_root = constitution_candidate_root(&predecessor).unwrap();
+        let set = profile_set(&chain_constitution_root);
+        let mut decision = approval_decision(&predecessor, &successor, &amendment);
+        mutate(&mut decision);
+        compile_amendment_execution_plan(
+            &activation_effect(),
+            &step(7, "active"),
+            &h(0x31),
+            &chain_constitution_root,
+            "receipt://fixture/activation",
+            &amendment,
+            &decision,
+            &h(0x32),
             &predecessor,
             &successor,
             &set,
@@ -925,12 +1288,18 @@ mod tests {
         let again = compile_fixture("active", |_, _, _, _| {}).unwrap();
         assert_eq!(plan.resulting_state_root, again.resulting_state_root);
         assert_eq!(plan.authority_effect, again.authority_effect);
-        assert_eq!(plan.successor_profile_set_root, again.successor_profile_set_root);
+        assert_eq!(
+            plan.successor_profile_set_root,
+            again.successor_profile_set_root
+        );
         // Status is unchanged and the effect claims exactly its authorized change.
         assert_eq!(plan.authority_effect["resulting_status"], json!("active"));
         assert_eq!(plan.authority_effect["constitution_changed"], json!(true));
         assert_eq!(plan.authority_effect["profile_set_changed"], json!(true));
-        assert_eq!(plan.authority_effect["runtime_effect_admitted"], json!(false));
+        assert_eq!(
+            plan.authority_effect["runtime_effect_admitted"],
+            json!(false)
+        );
         // The successor set swaps only the constitution entry.
         assert_eq!(
             plan.successor_profile_set["constitution"]["candidate_profile_root"],
@@ -954,7 +1323,14 @@ mod tests {
     #[test]
     fn paused_predecessor_compiles_and_others_refuse() {
         assert!(compile_fixture("paused", |_, _, _, _| {}).is_ok());
-        for refused in ["suspended", "dormant", "recovering", "quarantined", "retired", "degraded"] {
+        for refused in [
+            "suspended",
+            "dormant",
+            "recovering",
+            "quarantined",
+            "retired",
+            "degraded",
+        ] {
             let error = compile_fixture(refused, |_, _, _, _| {}).unwrap_err();
             assert!(error.contains("cannot execute from"), "{refused}: {error}");
         }
@@ -963,8 +1339,10 @@ mod tests {
     #[test]
     fn declared_diff_must_equal_computed_diff_in_both_directions() {
         let overdeclared = compile_fixture("active", |amendment, _, _, _| {
-            amendment["changed_field_paths"] =
-                json!(["/normative_constraints/spend_ceiling", "/shutdown/grace_seconds"]);
+            amendment["changed_field_paths"] = json!([
+                "/normative_constraints/spend_ceiling",
+                "/shutdown/grace_seconds"
+            ]);
         })
         .unwrap_err();
         assert!(overdeclared.contains("do not equal the canonical diff"));
@@ -1000,7 +1378,121 @@ mod tests {
                 json!(["/declared_purpose", "/normative_constraints/spend_ceiling"]);
         })
         .unwrap_err();
-        assert!(declared.contains("protected by declared path"), "{declared}");
+        assert!(
+            declared.contains("protected by declared path"),
+            "{declared}"
+        );
+
+        let understated = compile_fixture("active", |amendment, _, _, _| {
+            amendment["protected_field_paths"] = json!([]);
+        })
+        .unwrap_err();
+        assert!(
+            understated.contains("do not equal committed constitution truth"),
+            "{understated}",
+        );
+
+        let protected_array_element = compile_fixture("active", |amendment, _, successor, _| {
+            successor["normative_constraints"]["invariant_refs"] = json!([
+                "constraint://fixture/replaced",
+                "constraint://fixture/mutable"
+            ]);
+            amendment["proposed_successor_constitution_root"] =
+                json!(constitution_candidate_root(successor).unwrap());
+            amendment["changed_field_paths"] = json!([
+                "/normative_constraints/invariant_refs",
+                "/normative_constraints/spend_ceiling"
+            ]);
+        })
+        .unwrap_err();
+        assert!(
+            protected_array_element
+                .contains("protected by declared path /normative_constraints/invariant_refs/0"),
+            "{protected_array_element}",
+        );
+    }
+
+    #[test]
+    fn legacy_clause_protection_migrates_fail_closed() {
+        let mut legacy = constitution(
+            "constitution://fixture/alpha/1",
+            "1.0.0",
+            &h(1),
+            "constitution://fixture/root-lineage",
+            "active",
+        );
+        legacy["governance"]
+            .as_object_mut()
+            .unwrap()
+            .remove("protected_field_paths");
+        assert_eq!(
+            constitution_protected_paths(&legacy["governance"]).unwrap(),
+            vec!["/declared_purpose"]
+        );
+
+        legacy["governance"]["protected_clause_refs"] =
+            json!(["constitution-clause://fixture/unknown"]);
+        let unknown = constitution_protected_paths(&legacy["governance"]).unwrap_err();
+        assert!(
+            unknown.contains("has no deterministic field-path migration"),
+            "{unknown}"
+        );
+    }
+
+    #[test]
+    fn external_approval_must_bind_the_exact_declaration() {
+        let wrong_profile = compile_fixture_with_approval_mutation(|decision| {
+            decision["governing_decision_profile_ref"] = json!("policy://foreign/profile");
+            decision["decision_root"] = json!(amendment_approval_decision_root(decision).unwrap());
+        })
+        .unwrap_err();
+        assert!(
+            wrong_profile.contains("does not bind the exact declaration"),
+            "{wrong_profile}",
+        );
+
+        let wrong_evidence = compile_fixture_with_approval_mutation(|decision| {
+            decision["evidence_refs"] = json!(["evidence://foreign/approval"]);
+            decision["decision_root"] = json!(amendment_approval_decision_root(decision).unwrap());
+        })
+        .unwrap_err();
+        assert!(
+            wrong_evidence.contains("changes evidence or authority requirements"),
+            "{wrong_evidence}",
+        );
+
+        let root_tamper = compile_fixture_with_approval_mutation(|decision| {
+            decision["decision_root"] = json!(h(0x70));
+        })
+        .unwrap_err();
+        assert!(
+            root_tamper.contains("root does not recompute"),
+            "{root_tamper}"
+        );
+
+        let (predecessor, successor) = fixture_pair();
+        let mut substituted = declaration(&predecessor, &successor);
+        let decision = approval_decision(&predecessor, &successor, &substituted);
+        substituted["proposed_by_ref"] = json!("governance://fixture/substitute");
+        let chain_constitution_root = constitution_candidate_root(&predecessor).unwrap();
+        let error = compile_amendment_execution_plan(
+            &activation_effect(),
+            &step(7, "active"),
+            &h(0x31),
+            &chain_constitution_root,
+            "receipt://fixture/activation",
+            &substituted,
+            &decision,
+            &h(0x32),
+            &predecessor,
+            &successor,
+            &profile_set(&chain_constitution_root),
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("does not bind the exact declaration"),
+            "{error}",
+        );
     }
 
     #[test]
@@ -1022,6 +1514,17 @@ mod tests {
         assert!(
             tampered_root.contains("must carry the predecessor's declared constitution_root"),
             "{tampered_root}",
+        );
+
+        let swapped_activation_receipt = compile_fixture("active", |amendment, _, successor, _| {
+            successor["activation_receipt_ref"] = json!("receipt://foreign/activation");
+            amendment["proposed_successor_constitution_root"] =
+                json!(constitution_candidate_root(successor).unwrap());
+        })
+        .unwrap_err();
+        assert!(
+            swapped_activation_receipt.contains("activation_receipt_ref"),
+            "{swapped_activation_receipt}",
         );
 
         // A predecessor body that does not recompute to the chain's root is
@@ -1069,12 +1572,12 @@ mod tests {
     }
 
     #[test]
-    fn declaration_discipline_refuses_foreign_or_preapproved() {
-        let approved = compile_fixture("active", |amendment, _, _, _| {
-            amendment["status"] = json!("approved");
+    fn declaration_discipline_refuses_unapproved_or_foreign() {
+        let proposed = compile_fixture("active", |amendment, _, _, _| {
+            amendment["status"] = json!("proposed");
         })
         .unwrap_err();
-        assert!(approved.contains("verbatim proposed declaration"));
+        assert!(proposed.contains("only an approved amendment declaration"));
 
         let unbound_set = compile_fixture("active", |_, _, _, set| {
             set["constitution"]["candidate_profile_root"] = json!(h(0x68));
@@ -1097,7 +1600,9 @@ mod tests {
         let plan = compile_fixture("active", |_, _, _, _| {}).unwrap();
         let mut tampered = plan.authority_effect.clone();
         tampered["successor_constitution_root"] = json!(h(0x69));
-        let original = plan.authority_effect["operation_commitment"].as_str().unwrap();
+        let original = plan.authority_effect["operation_commitment"]
+            .as_str()
+            .unwrap();
         let recomputed = super::amendment_operation_commitment(&tampered).unwrap();
         assert_ne!(original, recomputed);
     }
@@ -1106,9 +1611,13 @@ mod tests {
     fn governance_subtree_is_machine_protected() {
         assert!(pointer_is_machine_protected("/governance"));
         assert!(pointer_is_machine_protected("/governance/amendment_mode"));
-        assert!(pointer_is_machine_protected("/governance/protected_clause_refs"));
+        assert!(pointer_is_machine_protected(
+            "/governance/protected_clause_refs"
+        ));
         assert!(!pointer_is_machine_protected("/governance_adjacent"));
         assert!(!pointer_is_machine_protected("/declared_purpose"));
-        assert!(!pointer_is_machine_protected("/normative_constraints/spend_ceiling"));
+        assert!(!pointer_is_machine_protected(
+            "/normative_constraints/spend_ceiling"
+        ));
     }
 }
