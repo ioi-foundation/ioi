@@ -5,7 +5,7 @@
   "required_work": [
     "M1.5 (protected amendment slice)"
   ],
-  "status": "evidence_ready",
+  "status": "verified",
   "objective": "Protected constitutional amendment execution: an approved amendment executes on the live chain exactly once, swapping the active constitution to its successor revision under the constitution's own declared amendment governance, with protected clauses unamendable and the predecessor retained as superseded evidence.",
   "falsifiable_claim": "No protected or structural clause changes (declared changed paths must equal the computed predecessor-to-successor diff and avoid protected/structural paths); amendment admits only from active|paused with exact head pinning; the amend scope is satisfiable by no lifecycle scope; execution is exactly-once under race and crash-replay; rollback is forward-only.",
   "canon_owners": [
@@ -15,24 +15,24 @@
   "code_anchors": [
     {
       "path": "docs/architecture/_meta/schemas/autonomous-system-amendment-execution-proposal.v1.schema.json",
-      "present_when": "pr_open"
+      "present_when": "merged"
     },
     {
       "path": "docs/architecture/_meta/schemas/autonomous-system-amendment-execution-decision.v1.schema.json",
-      "present_when": "pr_open"
+      "present_when": "merged"
     },
     {
       "path": "docs/architecture/_meta/schemas/autonomous-system-active-profile-set.v2.schema.json",
-      "present_when": "pr_open"
+      "present_when": "merged"
     },
     {
-      "path": "crates/types/src/app/system_lifecycle_transitions.rs",
+      "path": "crates/types/src/app/system_amendment_execution.rs",
       "must_contain": "compile_amendment_execution_plan",
-      "present_when": "pr_open"
+      "present_when": "merged"
     },
     {
       "path": "crates/node/src/bin/hypervisor_daemon_routes/system_amendment_routes.rs",
-      "present_when": "pr_open"
+      "present_when": "merged"
     }
   ],
   "evidence_refs": [
@@ -45,13 +45,13 @@
     "docs/evidence/m0-program-control/review-epoch-anchor.json",
     "docs/evidence/m0-program-control/reviewed-entry-lock.json"
   ],
-  "pr": null,
-  "adversarial_or_fault_proof": "Live constitutional-amendment journey, NINE proofs, focused exit 0 (28/28): eligibility over the live head; declared-diff refusal in BOTH directions (over-declared and undeclared); declared-protected-clause refusal; /governance machine-floor refusal; stale-head 409; wrong-scope 403 \u2014 each with evidence families verified untouched; AMEND race-linearized (eight concurrent real-wallet amendments sharing one grant -> exactly one sequence-three swap, seven refused 409 head_conflict, kind=constitution_amendment, profile-set v2, operational status unchanged); REPLAY (forced crash after exact wallet consumption parks one sealed intent; restart converges exactly one further amendment at sequence four via the background driver, committed=2, intents drained); CONTINUITY (pause+resume at sequences five and six over the AMENDED constitution carrying the successor profile set and preserving its root). Full 12-journey suite 109/109 at literal FULL_EXIT=0 with exact teardown and zero regression in the eleven pre-existing journeys. Types 13/13 amendment + full lib; builder tests 7/7 over the real fixture pair; architecture bar 43 contracts/153 fixtures; architecture-docs; m0 56/56. Census epoch 9 (unsigned v3): 1,549 identities, exit verified. SIX defects found by the live plane and fixed by TIGHTENING (never weakening): constitution root model unified onto the incumbent profile-candidate recipe; caller-input contract violations reclassified 500->422; authority effect and operation commitment now bind amendment_root so one declaration means one authority request; scope aligned to the shared gateway's derivation (user-confirmed); persist keyed by the authoritative candidate root; and one journey-side const-reassignment bug.",
+  "pr": 105,
+  "adversarial_or_fault_proof": "MERGED at a44f8c670 (PR #105). Held live constitutional-amendment proof plus all eleven prior journeys passed 115/115: canonical-diff refusal in BOTH directions; protected, structural, and /governance refusals; stale-head and wrong-scope refusals; declaration-bound governance approval and exact wallet consumption; eight-way real-wallet race with exactly one successor; forced-crash sealed-intent convergence; legacy receipt and protection migration; independent-daemon compare-and-swap; and pause/resume continuity over the amended constitution without profile reversion. Daemon tests 333/333; architecture bar 48 contracts/165 fixtures, 283 TypeScript differential cases, 15 docs tests, and 14 Rust tests; check:pre-next-leg and GitHub CI green; M0 56/56 at fingerprint 95d4553a45cb8b291f0a90abb4d012f956a3a902d36c569ef1316b1959c67a86. Exact-head independent review found no actionable correctness defects.",
   "remaining_nonclaims": [
     "Migration/succession, dissolution, and enrollment remain m1-5d.",
     "Notice/challenge time-window enforcement is declared governance evidence, not clock-enforced in the single-authority M1 profile; recorded honestly in canon.",
     "No membership/topology (M2), consensus, or multi-node claims."
   ],
-  "source_provenance": "Cut from guide M1.5 (distinct protected amendment) after m1-5b merged at 695921491; design in internal-docs/implementation/work-item-m1-5c-amendment-execution.md.",
-  "last_status_transaction": "2026-07-23"
+  "source_provenance": "Cut from guide M1.5 (distinct protected amendment) after m1-5b merged at 695921491; design in internal-docs/implementation/work-item-m1-5c-amendment-execution.md. Implemented at f8d44a8e7 and merged to master as a44f8c670 in PR #105.",
+  "last_status_transaction": "2026-07-24"
 }
