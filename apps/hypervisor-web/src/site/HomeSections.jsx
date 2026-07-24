@@ -38,20 +38,12 @@ function Hero() {
 
 /* ---------------- Proof bar (credibility strip under hero) ---------------- */
 function ProofBar() {
-  const badges = [["soc-2", "SOC 2 Type II"], ["gdpr", "GDPR compliant"], ["fortune-500", "Fortune 500 trusted"]];
-  const proofs = ["Runs in your VPC", "Deterministic replay"];
+  const proofs = ["Runs in your infrastructure", "Deterministic replay", "Receipts on every action", "Architecture published — whitepaper v1.10.0"];
   return (
     <div className="hv-proofbar" style={{ ...wrap, marginTop: "3.25rem" }}>
       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "1.25rem 2rem", padding: "1.25rem 0", borderTop: "0.5px solid var(--color-grey-500)", borderBottom: "0.5px solid var(--color-grey-500)" }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>Proven in production</span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>Local private preview</span>
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "1.25rem 1.75rem", marginLeft: "auto" }}>
-          {badges.map(([f, label]) => (
-            <span key={f} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <img src={`assets/badges/${f}.svg`} alt="" width="28" height="28" />
-              <span style={{ fontFamily: "var(--font-sans)", fontSize: "0.875rem", color: "var(--color-grey-800)" }}>{label}</span>
-            </span>
-          ))}
-          <span style={{ width: "0.5px", height: 20, background: "var(--color-grey-500)" }} />
           {proofs.map((p) => (
             <span key={p} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontFamily: "var(--font-sans)", fontSize: "0.875rem", color: "var(--color-grey-800)" }}><GreenCheck />{p}</span>
           ))}
@@ -309,8 +301,8 @@ function Features() {
 function Govern() {
   const WM = window.WorkersMotion;
   const govStats = [
-    { to: 1.2, decimals: 1, suffix: "M+", label: "sessions under scoped authority" },
     { to: 100, decimals: 0, suffix: "%", label: "consequential actions receipted" },
+    { to: 0, decimals: 0, suffix: "", label: "raw credentials held by workers" },
     { to: 6, decimals: 0, suffix: "", label: "controls between intent and effect" },
   ];
   const govNum = { fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: "2.5rem", lineHeight: 1, letterSpacing: "-0.02em", color: "var(--color-link-green)", fontVariantNumeric: "tabular-nums" };
@@ -332,7 +324,7 @@ function Govern() {
             Traditional security protects systems from malicious software. Hypervisor protects systems from authorized-but-unbounded autonomous software.
           </p>
           <div style={{ marginTop: "2rem" }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>Production telemetry · trailing 30 days</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-grey-700)" }}>Design guarantees · enforced by the runtime</div>
             <div className="hv-gov-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", marginTop: "1rem", borderTop: "0.5px solid var(--color-grey-500)" }}>
               {govStats.map((s, i) => (
                 <div key={s.label} style={{ padding: "1.25rem 1.25rem 0", paddingLeft: i ? "1.25rem" : 0, borderLeft: i ? "0.5px solid var(--color-grey-500)" : "none", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
@@ -386,6 +378,7 @@ function Home() {
       <ProofBar />
       <Problem />
       <CapabilityCards />
+      <Doctrine />
       <Features />
       <Govern />
       <CTA />
