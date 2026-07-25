@@ -4,6 +4,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
+import http from "node:http";
 import {
   closeSync,
   existsSync,
@@ -219,6 +220,40 @@ const localCorruptionProofName = (family) =>
 const agentgresCorruptionProofName = (family) =>
   `GET PROOF: isolated ${family} Agentgres corruption refuses the M1.4 code and restores exactly`;
 const JOURNEY_PROOF_CENSUS = new Map([
+  [
+    "dual-system-projection",
+    {
+      resources: 2,
+      proofs: [
+        "M1.7 HONEST EMPTY: compact projection reports no admitted Systems without fabricated defaults",
+        "M1.6 DUAL GENESIS: one reusable package admits and activates two distinct System identities with distinct live roots",
+        "M1.6 ISOLATION: cross-System live roots refuse before authority and leave both chains unchanged",
+        "M1.7 COMPACT/ADVANCED: both views expose identical canonical roots from verified owner reconstruction",
+        "M1.7 FILTER: exact System selection never substitutes the other admitted System",
+        "M1.7 COMPLETENESS: a local admission loss with retained Agentgres truth fails closed instead of claiming honest empty",
+        "M1.7 RESTART: projections rebuild byte-exactly without persisted projection truth",
+      ],
+    },
+  ],
+  [
+    "named-continuity",
+    {
+      resources: 2,
+      proofs: [
+        "M1.5d ELIGIBILITY: named succession exposes its distinct scope and evidence blockers over the live head",
+        "M1.5d ENROLLMENT FLOOR: widening to a connected profile refuses without durable continuity evidence",
+        "M1.5d ENROLLMENT RACE: eight real-wallet attempts linearize to one local-only enrollment",
+        "M1.5d APPROVAL REPLAY: the consumed enroll grant cannot authorize local exit",
+        "M1.5d MIGRATION ACK: independent daemons reserve one destination, recover exact wallet consumption, and converge the durable acknowledgement after restart",
+        "M1.5d SUCCESSOR AUTHORITY: the former owner refuses and the verified successor alone pauses and resumes the live System",
+        "M1.5d SUCCESSOR AMENDMENT: the former owner refuses and the verified successor alone executes the governed constitution change",
+        "M1.5d LIVE EFFECT FLOOR: dissolution carrying a live effect refuses before authority",
+        "M1.5d RESIDUAL FLOOR: caller-authored disposition evidence cannot close server-owned residual truth",
+        "M1.5d REPLAY: a crash after exact wallet consumption converges one named transition on restart",
+        "M1.5d CONTINUITY: local enrollment, exit, verified migration, succession, and residual-closed dissolution commit as one exact chain",
+      ],
+    },
+  ],
   [
     "constitutional-amendment",
     {
@@ -1332,6 +1367,17 @@ function lifecycleDeploymentRevisionForGenesis(genesis) {
   const revision = fixture(
     "autonomous-system-deployment-profile-revision-v1/positive-candidate.json",
   );
+  const deploymentProfileRef =
+    genesis.initial_profile_refs.deployment_profile_ref;
+  const deploymentProfileIdentity =
+    typeof deploymentProfileRef === "string"
+      ? deploymentProfileRef.replace(/\/revision\/sha256:[0-9a-f]{64}$/, "")
+      : null;
+  requireValue(
+    deploymentProfileIdentity?.startsWith("deployment-profile://"),
+    "genesis deployment profile lacks a canonical identity",
+  );
+  revision.profile.deployment_profile_id = deploymentProfileIdentity;
   revision.profile.system_id = genesis.system_id;
   revision.profile.constitution_ref = genesis.constitution_ref;
   revision.profile.manifest_ref = genesis.manifest_ref;
@@ -1461,16 +1507,91 @@ function exactGenesisBody(
   };
 }
 
+function rebindGenesisBodySystem(
+  source,
+  {
+    systemId,
+    genesisId,
+    constitutionRef,
+    deploymentProfileRef,
+    orderingProfileRef,
+    oracleProfileRef,
+    lifecycleProfileRef,
+  },
+) {
+  const body = clone(source);
+  const proposed = body.proposed_instantiation;
+  const candidate = proposed.candidate;
+  candidate.system_id = systemId;
+  candidate.genesis_id = genesisId;
+  candidate.constitution_ref = constitutionRef;
+  candidate.initial_profile_refs.deployment_profile_ref = deploymentProfileRef;
+  candidate.initial_profile_refs.ordering_admission_finality_profile_ref =
+    orderingProfileRef;
+  candidate.initial_profile_refs.oracle_evidence_profile_refs = [
+    oracleProfileRef,
+  ];
+  candidate.initial_profile_refs.lifecycle_continuity_profile_ref =
+    lifecycleProfileRef;
+  proposed.constitution.system_id = systemId;
+  proposed.constitution.constitution_id = constitutionRef;
+  proposed.ordering_profile.system_id = systemId;
+  proposed.ordering_profile.constitution_ref = constitutionRef;
+  proposed.ordering_profile.ordering_profile_id = orderingProfileRef;
+  proposed.oracle_profiles[0].system_id = systemId;
+  proposed.oracle_profiles[0].oracle_evidence_profile_id = oracleProfileRef;
+  proposed.lifecycle_profile.system_id = systemId;
+  proposed.lifecycle_profile.constitution_ref = constitutionRef;
+  proposed.lifecycle_profile.lifecycle_profile_id = lifecycleProfileRef;
+  return body;
+}
+
 async function jsonCall(base, method, path, body) {
-  const response = await fetch(`${base}${path}`, {
-    method,
-    headers: { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
+  // Some governed routes synchronously wait on the real wallet fixture for
+  // longer than undici's fixed 300s response-header limit under host load.
+  // Keep the held proof above that production boundary while retaining a
+  // finite 15-minute transport ceiling.
+  const target = new URL(`${base}${path}`);
+  const payload = body === undefined ? null : JSON.stringify(body);
+  return await new Promise((resolve, reject) => {
+    const request = http.request(
+      {
+        hostname: target.hostname,
+        port: target.port,
+        path: `${target.pathname}${target.search}`,
+        method,
+        headers: {
+          "content-type": "application/json",
+          ...(payload === null
+            ? {}
+            : { "content-length": Buffer.byteLength(payload) }),
+        },
+      },
+      (response) => {
+        let raw = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          raw += chunk;
+        });
+        response.on("error", reject);
+        response.on("end", () => {
+          let parsed = {};
+          try {
+            parsed = JSON.parse(raw);
+          } catch {
+            parsed = {};
+          }
+          resolve({ status: response.statusCode, body: parsed });
+        });
+      },
+    );
+    request.on("error", reject);
+    request.setTimeout(900_000, () => {
+      request.destroy(new Error(`JSON call timed out: ${method} ${path}`));
+    });
+    if (payload !== null) request.write(payload);
+    request.end();
   });
-  return {
-    status: response.status,
-    body: await response.json().catch(() => ({})),
-  };
 }
 
 function familyFiles(dataDir, family) {
@@ -2337,20 +2458,32 @@ function boundaryRefOracleSelfTest() {
   );
 }
 
-async function challengeAndGrant(call, resolver, path, body, scope) {
+async function challengeAndGrant(
+  call,
+  resolver,
+  path,
+  body,
+  scope,
+  expectedPrincipalRef = OWNER,
+) {
   const challenge = await call("POST", path, body);
   const approval = challenge.body.error?.approval;
+  requireValue(
+    challenge.body.error?.required_authority_ref === expectedPrincipalRef,
+    `authority challenge selected ${challenge.body.error?.required_authority_ref || "no-principal"}; expected ${expectedPrincipalRef}: ${challenge.status}/${challenge.body.error?.code || "no-code"}`,
+  );
+  const principalRef = expectedPrincipalRef;
   const grant =
     approval?.policy_hash && approval?.request_hash
       ? resolver.mintForCapability(
-          OWNER,
+          principalRef,
           approval.policy_hash,
           approval.request_hash,
         )
       : null;
   if (grant) {
     await resolver.recordApproval(
-      OWNER,
+      principalRef,
       approval.policy_hash,
       approval.request_hash,
       grant,
@@ -2366,20 +2499,26 @@ async function challengeAndWrongTargetGrant(
   path,
   body,
   wrongTargetScope,
+  expectedPrincipalRef = OWNER,
 ) {
   const challenge = await call("POST", path, body);
   const approval = challenge.body.error?.approval;
+  requireValue(
+    challenge.body.error?.required_authority_ref === expectedPrincipalRef,
+    `authority challenge selected ${challenge.body.error?.required_authority_ref || "no-principal"}; expected ${expectedPrincipalRef}: ${challenge.status}/${challenge.body.error?.code || "no-code"}`,
+  );
+  const principalRef = expectedPrincipalRef;
   const grant =
     approval?.policy_hash && approval?.request_hash
       ? resolver.mintForCapability(
-          OWNER,
+          principalRef,
           approval.policy_hash,
           approval.request_hash,
         )
       : null;
   if (grant) {
     await resolver.recordApproval(
-      OWNER,
+      principalRef,
       approval.policy_hash,
       approval.request_hash,
       grant,
@@ -5180,6 +5319,100 @@ const PROTECTED_INTENT_FAMILY =
   "autonomous-system-protected-transition-intents";
 const LIFECYCLE_STATE_FAMILY = "autonomous-system-lifecycle-states";
 
+async function bootstrapActiveSystem(call, resolver, dataDir, genesisRef) {
+  const genesisBody =
+    typeof genesisRef === "string"
+      ? exactGenesisBody(genesisRef)
+      : clone(genesisRef);
+  const pinned = lifecycleDeploymentRevisionForGenesis(
+    genesisBody.proposed_instantiation.candidate,
+  );
+  genesisBody.proposed_instantiation.candidate.initial_profile_refs.deployment_profile_ref =
+    pinned.deployment_profile_ref;
+  const source = await admitGenesis(call, resolver, dataDir, { genesisBody });
+  const materializePath = `${GENESIS_ROUTE}/${source.sourceTail}/sequence-zero-materialization`;
+  const materializeRequest = {
+    expected_genesis_admission_record_root: source.recordRoot,
+    expected_genesis_admission_receipt_root: source.receiptRoot,
+  };
+  const materializeAuthority = await challengeAndGrant(
+    call,
+    resolver,
+    materializePath,
+    materializeRequest,
+    MATERIALIZE_SCOPE,
+  );
+  const materialized = await call("POST", materializePath, {
+    ...materializeRequest,
+    wallet_approval_grant: requireValue(
+      materializeAuthority.grant,
+      "continuity setup lacks the M1.4 grant",
+    ),
+  });
+  requireValue(materialized.status === 201, "continuity setup failed M1.4");
+  const materialization =
+    materialized.body.autonomous_system_sequence_zero_materialization;
+  const materializationReceipt =
+    materialized.body.autonomous_system_sequence_zero_materialization_receipt;
+  const initializePath = `${GENESIS_ROUTE}/${source.sourceTail}/initialize`;
+  const initializeRequest = {
+    expected_sequence_zero_materialization_root: artifactHash(
+      "ioi.autonomous-system-sequence-zero-materialization-artifact-jcs-sha256.v1",
+      materialization,
+    ),
+    expected_sequence_zero_materialization_receipt_root: artifactHash(
+      "ioi.autonomous-system-sequence-zero-materialization-receipt-artifact-jcs-sha256.v1",
+      materializationReceipt,
+    ),
+    deployment_profile_revision: lifecycleDeploymentRevision(source),
+  };
+  const initializeAuthority = await challengeAndGrant(
+    call,
+    resolver,
+    initializePath,
+    initializeRequest,
+    INITIALIZE_SCOPE,
+  );
+  const initialized = await call("POST", initializePath, {
+    ...initializeRequest,
+    wallet_approval_grant: requireValue(
+      initializeAuthority.grant,
+      "continuity setup lacks the initialize grant",
+    ),
+  });
+  requireValue(initialized.status === 200, "continuity setup failed initialize");
+  const state = initialized.body.autonomous_system_activation_state;
+  const receipt = initialized.body.lifecycle_receipt;
+  const activatePath = `${GENESIS_ROUTE}/${source.sourceTail}/activate`;
+  const activateRequest = {
+    expected_initialize_proposal_root: receipt.bound_facts.proposal_root,
+    expected_initialize_decision_root: receipt.bound_facts.decision_root,
+    expected_initialize_state_root: state.activation_state_root,
+    expected_initialize_transition_root: state.transition_root,
+    expected_initialize_receipt_root: state.transition_receipt_root,
+  };
+  const activateAuthority = await challengeAndGrant(
+    call,
+    resolver,
+    activatePath,
+    activateRequest,
+    ACTIVATE_SCOPE,
+  );
+  const activated = await call("POST", activatePath, {
+    ...activateRequest,
+    wallet_approval_grant: requireValue(
+      activateAuthority.grant,
+      "continuity setup lacks the activate grant",
+    ),
+  });
+  requireValue(activated.status === 200, "continuity setup failed activate");
+  return {
+    source,
+    chain: activated.body.autonomous_system_chain,
+    state: activated.body.autonomous_system_activation_state,
+  };
+}
+
 async function runProtectedTransitionJourney() {
   const resolver = await startOwnedWalletResolver();
   const dataDir = createOwnedTempDir("ioi-protected-transition-");
@@ -5478,6 +5711,836 @@ async function runProtectedTransitionJourney() {
         converged.body.committed_entries?.length === 1 &&
         familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length === 2,
       `cleared=${protectedIntentCleared} sequence=${converged.body.chain_head?.latest_sequence} status=${converged.body.chain_head?.status} daemon=${JSON.stringify(daemonReplayLines)}`,
+    );
+  } finally {
+    if (plane) await plane.stop();
+    await resolver.stop();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
+const CONTINUITY_INTENT_FAMILY =
+  "autonomous-system-continuity-transition-intents";
+const CONTINUITY_RECEIPT_FAMILY =
+  "autonomous-system-continuity-transition-receipts";
+const MIGRATION_ACK_INTENT_FAMILY =
+  "autonomous-system-migration-destination-acknowledgement-intents";
+const MIGRATION_ACK_FAMILY =
+  "autonomous-system-migration-destination-acknowledgements";
+const MIGRATION_ACK_RECEIPT_FAMILY =
+  "autonomous-system-migration-destination-acknowledgement-receipts";
+
+async function runNamedContinuityJourney() {
+  const resolver = await startOwnedWalletResolver();
+  const dataDir = createOwnedTempDir("ioi-named-continuity-");
+  let plane;
+  let peerPlane;
+  try {
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) throw new Error("BLOCKED: M1.5d daemon is not built");
+    let call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+    const active = await bootstrapActiveSystem(
+      call,
+      resolver,
+      dataDir,
+      "genesis://acme/system-alpha/m1-5d",
+    );
+    const pathFor = (op) =>
+      `${GENESIS_ROUTE}/${active.source.sourceTail}/continuity/${op}`;
+    let chain = active.chain;
+    let state = active.state;
+    let expectedAuthority = OWNER;
+    const stateRoot = () =>
+      state.lifecycle_state_root || state.activation_state_root;
+    const requestFor = (declaration = {}) => ({
+      expected_chain_head_root: chain.chain_root,
+      expected_predecessor_state_root: stateRoot(),
+      ...declaration,
+    });
+    const commit = async (op, scope, declaration = {}) => {
+      console.log(`M1.5d progress: authorizing ${op}`);
+      const request = requestFor(declaration);
+      const authority = await challengeAndGrant(
+        call,
+        resolver,
+        pathFor(op),
+        request,
+        scope,
+        expectedAuthority,
+      );
+      const authorizedRequest = {
+        ...request,
+        wallet_approval_grant: requireValue(
+          authority.grant,
+          `M1.5d ${op} challenge lacks a grant`,
+        ),
+      };
+      let response = await call("POST", pathFor(op), authorizedRequest);
+      for (
+        let retry = 0;
+        retry < 3 &&
+        response.status === 503 &&
+        response.body.error?.code ===
+          "system_lifecycle_authority_resolver_unavailable";
+        retry += 1
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        response = await call("POST", pathFor(op), authorizedRequest);
+      }
+      requireValue(
+        response.status === 200,
+        `M1.5d ${op} failed: ${response.status}/${response.body.error?.code || "no-code"}/${response.body.error?.message || "no-message"}`,
+      );
+      chain = response.body.autonomous_system_chain;
+      state = response.body.lifecycle_state;
+      console.log(
+        `M1.5d progress: committed ${op} at sequence ${chain.latest_sequence}`,
+      );
+      return response.body;
+    };
+
+    const eligibility = await call("GET", pathFor("initiate_succession"));
+    ok(
+      "M1.5d ELIGIBILITY: named succession exposes its distinct scope and evidence blockers over the live head",
+      eligibility.status === 200 &&
+        eligibility.body.required_scope ===
+          "scope:autonomous_system.continuity.initiate_succession" &&
+        eligibility.body.eligible_now?.status_admitted === true &&
+        eligibility.body.required_declaration_evidence?.successor_candidate ===
+          true &&
+        eligibility.body.nonclaims?.wallet_authorized === false,
+      `${eligibility.status}/${eligibility.body.required_scope || eligibility.body.error?.code}`,
+    );
+
+    const enrollment = fixture(
+      "ioi-network-enrollment-v1/positive-local-only.json",
+    );
+    enrollment.network_enrollment_id =
+      "network-enrollment://acme/system-alpha/m1-5d-local";
+    enrollment.system_id = chain.system_id;
+    enrollment.constitution_ref = chain.constitution_ref;
+    enrollment.manifest_ref = chain.manifest_ref;
+    enrollment.predecessor_enrollment_ref = null;
+    enrollment.governing_decision_ref =
+      "decision://acme/system-alpha/continuity/sequence/3";
+    const widened = clone(enrollment);
+    widened.profile = "ioi_connected";
+    widened.status = "active";
+    widened.connection.network_ref = "network://ioi-l1";
+    const continuityFamilies = [
+      CONTINUITY_INTENT_FAMILY,
+      CONTINUITY_RECEIPT_FAMILY,
+      MIGRATION_ACK_INTENT_FAMILY,
+      MIGRATION_ACK_FAMILY,
+      MIGRATION_ACK_RECEIPT_FAMILY,
+      LIFECYCLE_STATE_FAMILY,
+    ];
+    const beforeWidening = familiesSnapshot(dataDir, continuityFamilies);
+    const widening = await call(
+      "POST",
+      pathFor("enroll_local"),
+      requestFor({ network_enrollment: widened }),
+    );
+    ok(
+      "M1.5d ENROLLMENT FLOOR: widening to a connected profile refuses without durable continuity evidence",
+      widening.status === 422 &&
+        beforeWidening === familiesSnapshot(dataDir, continuityFamilies),
+      `${widening.status}/${widening.body.error?.code || "no-code"}`,
+    );
+
+    const enrollRequest = requestFor({ network_enrollment: enrollment });
+    const enrollAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      pathFor("enroll_local"),
+      enrollRequest,
+      "scope:autonomous_system.network_enrollment.local.enroll",
+    );
+    const enrollGrant = requireValue(
+      enrollAuthority.grant,
+      "M1.5d enrollment challenge lacks a grant",
+    );
+    const enrollResponses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        call("POST", pathFor("enroll_local"), {
+          ...enrollRequest,
+          wallet_approval_grant: enrollGrant,
+        }),
+      ),
+    );
+    const enrollWinners = enrollResponses.filter(
+      (response) => response.status === 200,
+    );
+    ok(
+      "M1.5d ENROLLMENT RACE: eight real-wallet attempts linearize to one local-only enrollment",
+      enrollWinners.length === 1 &&
+        enrollWinners[0].body.autonomous_system_chain?.latest_sequence === 3 &&
+        enrollWinners[0].body.autonomous_system_chain?.network_enrollment_ref ===
+          enrollment.network_enrollment_id,
+      `winners=${enrollWinners.length} responses=${enrollResponses.map((response) => `${response.status}/${response.body.error?.code || response.body.op || "no-code"}/${response.body.error?.message || "no-message"}`).join(",")}`,
+    );
+    requireValue(enrollWinners.length === 1, "M1.5d enrollment race has no unique winner");
+    chain = enrollWinners[0].body.autonomous_system_chain;
+    state = enrollWinners[0].body.lifecycle_state;
+    const exitDeclaration = {
+      network_enrollment: enrollment,
+    };
+    const beforeGrantReplay = familiesSnapshot(dataDir, continuityFamilies);
+    const grantReplay = await call("POST", pathFor("exit_local_enrollment"), {
+      ...requestFor(exitDeclaration),
+      wallet_approval_grant: enrollGrant,
+    });
+    ok(
+      "M1.5d APPROVAL REPLAY: the consumed enroll grant cannot authorize local exit",
+      grantReplay.status !== 200 &&
+        beforeGrantReplay === familiesSnapshot(dataDir, continuityFamilies),
+      `${grantReplay.status}/${grantReplay.body.error?.code || "no-code"}`,
+    );
+    await commit(
+      "exit_local_enrollment",
+      "scope:autonomous_system.network_enrollment.local.exit",
+      exitDeclaration,
+    );
+    const migrationAckPath = `${GENESIS_ROUTE}/${active.source.sourceTail}/continuity/migration-destination-acknowledgements`;
+    const migrationAckRequest = requestFor({
+      destination_ref: "deployment-profile://acme/system-alpha/migrated",
+      acknowledged_state_root: stateRoot(),
+    });
+    const competingAckRequest = requestFor({
+      destination_ref: "deployment-profile://acme/system-alpha/competing",
+      acknowledged_state_root: stateRoot(),
+    });
+    const migrationAckAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      migrationAckPath,
+      migrationAckRequest,
+      "scope:autonomous_system.continuity.migration_destination_acknowledge",
+      expectedAuthority,
+    );
+    const competingAckAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      migrationAckPath,
+      competingAckRequest,
+      "scope:autonomous_system.continuity.migration_destination_acknowledge",
+      expectedAuthority,
+    );
+    await plane.stop();
+    plane = await startVerifierPlane({
+      dataDir,
+      env: {
+        ...resolver.env,
+        IOI_HYPERVISOR_GOVERNED_REPLAY_INTERVAL_MS: "600000",
+        IOI_TEST_FORCE_SYSTEM_MIGRATION_ACK_AFTER_INTENT:
+          "acknowledge_migration_destination",
+      },
+    });
+    peerPlane = await startVerifierPlane({
+      dataDir,
+      env: {
+        ...resolver.env,
+        IOI_HYPERVISOR_GOVERNED_REPLAY_INTERVAL_MS: "600000",
+        IOI_TEST_FORCE_SYSTEM_MIGRATION_ACK_AFTER_WALLET_CONSUMPTION:
+          "acknowledge_migration_destination",
+      },
+    });
+    const exactAuthorizedRequest = {
+      ...migrationAckRequest,
+      wallet_approval_grant: requireValue(
+        migrationAckAuthority.grant,
+        "M1.5d migration acknowledgement challenge lacks a grant",
+      ),
+    };
+    const parked = await jsonCall(
+      plane.daemonUrl,
+      "POST",
+      migrationAckPath,
+      exactAuthorizedRequest,
+    );
+    const competing = await jsonCall(
+      peerPlane.daemonUrl,
+      "POST",
+      migrationAckPath,
+      {
+        ...competingAckRequest,
+        wallet_approval_grant: requireValue(
+          competingAckAuthority.grant,
+          "M1.5d competing migration acknowledgement challenge lacks a grant",
+        ),
+      },
+    );
+    const consumedThenInterrupted = await jsonCall(
+      peerPlane.daemonUrl,
+      "POST",
+      migrationAckPath,
+      exactAuthorizedRequest,
+    );
+    const parkedIntent =
+      familyFiles(dataDir, MIGRATION_ACK_INTENT_FAMILY).length === 1;
+    await plane.stop();
+    await peerPlane.stop();
+    peerPlane = undefined;
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+    const ackIntentCleared = await waitForIntentRecordsToClear(
+      dataDir,
+      MIGRATION_ACK_INTENT_FAMILY,
+    );
+    const acknowledgementFiles = familyFiles(dataDir, MIGRATION_ACK_FAMILY);
+    const migrationAckReplayLog = readdirSync(dataDir)
+      .filter((name) => isIsolatedDaemonLogName(name))
+      .sort()
+      .map((name) => readFileSync(join(dataDir, name), "utf8"))
+      .flatMap((log) =>
+        log
+          .split("\n")
+          .filter((line) =>
+            line.includes("MigrationDestinationAcknowledgement"),
+          ),
+      )
+      .join(" | ");
+    const migrationAcknowledgement =
+      acknowledgementFiles.length === 1
+        ? JSON.parse(
+            readFileSync(
+              join(dataDir, MIGRATION_ACK_FAMILY, acknowledgementFiles[0]),
+              "utf8",
+            ),
+          )
+        : null;
+    ok(
+      "M1.5d MIGRATION ACK: independent daemons reserve one destination, recover exact wallet consumption, and converge the durable acknowledgement after restart",
+      parked.status === 500 &&
+        competing.status === 409 &&
+        consumedThenInterrupted.status === 500 &&
+        parkedIntent &&
+        ackIntentCleared &&
+        migrationAcknowledgement?.destination_ref ===
+          migrationAckRequest.destination_ref &&
+        migrationAcknowledgement?.acknowledged_state_root === stateRoot(),
+      `parked=${parked.status} competing=${competing.status}/${competing.body.error?.code || "no-code"} consumed=${consumedThenInterrupted.status} cleared=${ackIntentCleared} records=${acknowledgementFiles.length} replay=${migrationAckReplayLog || "no-log"}`,
+    );
+    await commit("migrate", "scope:autonomous_system.continuity.migrate", {
+      trigger_evidence_refs: ["evidence://acme/migration/verified"],
+      migration_destination_ack_ref:
+        migrationAcknowledgement?.acknowledgement_ref,
+      migration_destination_ack_root:
+        migrationAcknowledgement?.acknowledgement_root,
+    });
+    await commit(
+      "initiate_succession",
+      "scope:autonomous_system.continuity.initiate_succession",
+      {
+        trigger_evidence_refs: ["evidence://acme/succession/trigger"],
+        successor_candidate_ref: "org://acme/successor",
+      },
+    );
+    await commit(
+      "complete_succession",
+      "scope:autonomous_system.continuity.complete_succession",
+      {
+        trigger_evidence_refs: ["evidence://acme/succession/selected"],
+        successor_candidate_ref: "org://acme/successor",
+        successor_authority_ref: "org://acme/successor-authority",
+      },
+    );
+    expectedAuthority = "org://acme/successor-authority";
+
+    const protectedPathFor = (op) =>
+      `${GENESIS_ROUTE}/${active.source.sourceTail}/transitions/${op}`;
+    const pauseRequest = requestFor();
+    console.log("M1.5d progress: probing former owner on successor pause");
+    const pauseChallenge = await call(
+      "POST",
+      protectedPathFor("pause"),
+      pauseRequest,
+    );
+    const pauseApproval = requireValue(
+      pauseChallenge.body.error?.approval,
+      "M1.5d successor pause did not expose an authority challenge",
+    );
+    requireValue(
+      pauseChallenge.body.error?.required_authority_ref === expectedAuthority,
+      `M1.5d pause selected ${pauseChallenge.body.error?.required_authority_ref || "no-principal"} instead of the installed successor`,
+    );
+    const formerOwnerPauseGrant = resolver.mintForCapability(
+      OWNER,
+      pauseApproval.policy_hash,
+      pauseApproval.request_hash,
+    );
+    const beforeFormerOwnerPause = familiesSnapshot(dataDir, [
+      PROTECTED_INTENT_FAMILY,
+      LIFECYCLE_STATE_FAMILY,
+      "autonomous-system-protected-transition-receipts",
+      "autonomous-system-chain-revisions",
+    ]);
+    const formerOwnerPause = await call("POST", protectedPathFor("pause"), {
+      ...pauseRequest,
+      wallet_approval_grant: formerOwnerPauseGrant,
+    });
+    const formerOwnerPauseLeftNoMutation =
+      beforeFormerOwnerPause ===
+      familiesSnapshot(dataDir, [
+        PROTECTED_INTENT_FAMILY,
+        LIFECYCLE_STATE_FAMILY,
+        "autonomous-system-protected-transition-receipts",
+        "autonomous-system-chain-revisions",
+      ]);
+    const successorPauseAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      protectedPathFor("pause"),
+      pauseRequest,
+      "scope:autonomous_system.lifecycle.pause",
+      expectedAuthority,
+    );
+    console.log("M1.5d progress: executing successor pause");
+    const paused = await call("POST", protectedPathFor("pause"), {
+      ...pauseRequest,
+      wallet_approval_grant: requireValue(
+        successorPauseAuthority.grant,
+        "M1.5d successor pause lacks a grant",
+      ),
+    });
+    requireValue(
+      paused.status === 200,
+      `M1.5d successor pause failed: ${paused.status}/${paused.body.error?.code || "no-code"}/${paused.body.error?.message || "no-message"}`,
+    );
+    chain = paused.body.autonomous_system_chain;
+    state = paused.body.lifecycle_state;
+    const resumeRequest = requestFor();
+    const successorResumeAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      protectedPathFor("resume"),
+      resumeRequest,
+      "scope:autonomous_system.lifecycle.resume",
+      expectedAuthority,
+    );
+    console.log("M1.5d progress: executing successor resume");
+    const resumed = await call("POST", protectedPathFor("resume"), {
+      ...resumeRequest,
+      wallet_approval_grant: requireValue(
+        successorResumeAuthority.grant,
+        "M1.5d successor resume lacks a grant",
+      ),
+    });
+    requireValue(
+      resumed.status === 200,
+      `M1.5d successor resume failed: ${resumed.status}/${resumed.body.error?.code || "no-code"}`,
+    );
+    chain = resumed.body.autonomous_system_chain;
+    state = resumed.body.lifecycle_state;
+    ok(
+      "M1.5d SUCCESSOR AUTHORITY: the former owner refuses and the verified successor alone pauses and resumes the live System",
+      formerOwnerPause.status === 403 &&
+        formerOwnerPauseLeftNoMutation &&
+        chain.latest_sequence === 9 &&
+        chain.status === "active" &&
+        chain.governance_owner_refs?.length === 1 &&
+        chain.governance_owner_refs[0] === expectedAuthority &&
+        state.governing_authority_ref === expectedAuthority,
+      `former=${formerOwnerPause.status}/${formerOwnerPause.body.error?.code || "no-code"} sequence=${chain.latest_sequence} owner=${chain.governance_owner_refs?.join(",")}`,
+    );
+
+    const amendmentPath = `${GENESIS_ROUTE}/${active.source.sourceTail}/amendments`;
+    const predecessorConstitution = requireValue(
+      active.source.record.initial_profile_bundle?.constitution,
+      "M1.5d successor amendment lacks the admitted constitution",
+    );
+    const successorConstitutionBody = successorConstitution(
+      predecessorConstitution,
+      {
+        id: "constitution://acme/system-alpha/m1-5d-successor-v2",
+        version: "1.1.0",
+        activationReceiptRef: active.state.transition_receipt_ref,
+        mutate: (body) => {
+          body.normative_constraints.permitted_ontology_action_contract_refs = [
+            "ontology-action://acme/successor-governed/v1",
+          ];
+        },
+      },
+    );
+    const successorAmendment = amendmentDeclaration({
+      systemId: chain.system_id,
+      ordinal: 50,
+      predecessor: predecessorConstitution,
+      predecessorRoot: chain.constitution_root,
+      successor: successorConstitutionBody,
+      changedFieldPaths: [AMENDABLE_POINTER],
+    });
+    const amendmentRequest = {
+      ...requestFor(),
+      amendment: successorAmendment,
+      amendment_approval_decision:
+        amendmentApprovalDecision(successorAmendment),
+      successor_constitution: successorConstitutionBody,
+    };
+    const amendmentGovernance = await challengeAndGrant(
+      call,
+      resolver,
+      amendmentPath,
+      amendmentRequest,
+      AMENDMENT_APPROVAL_SCOPE,
+      OWNER,
+    );
+    console.log("M1.5d progress: governance approved successor amendment");
+    const approvedAmendmentRequest = {
+      ...amendmentRequest,
+      amendment_governance_approval_grant: requireValue(
+        amendmentGovernance.grant,
+        "M1.5d successor amendment lacks governance approval",
+      ),
+    };
+    const amendmentExecutionChallenge = await call(
+      "POST",
+      amendmentPath,
+      approvedAmendmentRequest,
+    );
+    const amendmentExecutionApproval = requireValue(
+      amendmentExecutionChallenge.body.error?.approval,
+      "M1.5d successor amendment did not expose an execution challenge",
+    );
+    requireValue(
+      amendmentExecutionChallenge.body.error?.required_authority_ref ===
+        expectedAuthority,
+      `M1.5d amendment selected ${amendmentExecutionChallenge.body.error?.required_authority_ref || "no-principal"} instead of the installed successor`,
+    );
+    const formerOwnerAmendmentGrant = resolver.mintForCapability(
+      OWNER,
+      amendmentExecutionApproval.policy_hash,
+      amendmentExecutionApproval.request_hash,
+    );
+    const amendmentMutationFamilies = [
+      AMENDMENT_INTENT_FAMILY,
+      AMENDMENT_RECEIPT_FAMILY,
+      CONSTITUTION_FAMILY,
+      CHAIN_SUCCESSOR_CLAIM_FAMILY,
+      CHAIN_WRITER_RESERVATION_FAMILY,
+      LIFECYCLE_STATE_FAMILY,
+      "autonomous-system-chain-revisions",
+    ];
+    const beforeFormerOwnerAmendment = familiesSnapshot(
+      dataDir,
+      amendmentMutationFamilies,
+    );
+    const formerOwnerAmendment = await call("POST", amendmentPath, {
+      ...approvedAmendmentRequest,
+      wallet_approval_grant: formerOwnerAmendmentGrant,
+    });
+    const formerOwnerAmendmentLeftNoMutation =
+      beforeFormerOwnerAmendment ===
+      familiesSnapshot(dataDir, amendmentMutationFamilies);
+    const successorAmendmentAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      amendmentPath,
+      approvedAmendmentRequest,
+      AMENDMENT_SCOPE,
+      expectedAuthority,
+    );
+    console.log("M1.5d progress: executing successor amendment");
+    const amended = await call("POST", amendmentPath, {
+      ...approvedAmendmentRequest,
+      wallet_approval_grant: requireValue(
+        successorAmendmentAuthority.grant,
+        "M1.5d successor amendment lacks its execution grant",
+      ),
+    });
+    requireValue(
+      amended.status === 200,
+      `M1.5d successor amendment failed: ${amended.status}/${amended.body.error?.code || "no-code"}/${amended.body.error?.message || "no-message"}`,
+    );
+    chain = amended.body.autonomous_system_chain;
+    state = amended.body.lifecycle_state;
+    ok(
+      "M1.5d SUCCESSOR AMENDMENT: the former owner refuses and the verified successor alone executes the governed constitution change",
+      formerOwnerAmendment.status === 403 &&
+        formerOwnerAmendmentLeftNoMutation &&
+        chain.latest_sequence === 10 &&
+        chain.constitution_ref === successorConstitutionBody.constitution_id &&
+        chain.governance_owner_refs?.length === 1 &&
+        chain.governance_owner_refs[0] === expectedAuthority &&
+        state.governing_authority_ref === expectedAuthority,
+      `former=${formerOwnerAmendment.status}/${formerOwnerAmendment.body.error?.code || "no-code"} sequence=${chain.latest_sequence} constitution=${chain.constitution_ref}`,
+    );
+
+    const beforeLiveEffect = familiesSnapshot(dataDir, continuityFamilies);
+    const liveEffect = await call(
+      "POST",
+      pathFor("initiate_dissolution"),
+      requestFor({
+        trigger_evidence_refs: ["evidence://acme/dissolution/trigger"],
+        live_effect_refs: ["artifact://acme/live-work"],
+      }),
+    );
+    ok(
+      "M1.5d LIVE EFFECT FLOOR: dissolution carrying a live effect refuses before authority",
+      liveEffect.status === 422 &&
+        beforeLiveEffect === familiesSnapshot(dataDir, continuityFamilies),
+      `${liveEffect.status}/${liveEffect.body.error?.code || "no-code"}`,
+    );
+    await commit(
+      "initiate_dissolution",
+      "scope:autonomous_system.continuity.initiate_dissolution",
+      { trigger_evidence_refs: ["evidence://acme/dissolution/trigger"] },
+    );
+
+    const beforeOrphan = familiesSnapshot(dataDir, continuityFamilies);
+    const callerAuthoredResidual = await call(
+      "POST",
+      pathFor("complete_dissolution"),
+      requestFor({
+        trigger_evidence_refs: ["evidence://acme/dissolution/approved"],
+        residual_disposition_receipt_refs: [
+          "receipt://acme/system-alpha/caller-authored-disposition",
+        ],
+      }),
+    );
+    ok(
+      "M1.5d RESIDUAL FLOOR: caller-authored disposition evidence cannot close server-owned residual truth",
+      callerAuthoredResidual.status === 422 &&
+        beforeOrphan === familiesSnapshot(dataDir, continuityFamilies),
+      `${callerAuthoredResidual.status}/${callerAuthoredResidual.body.error?.code || "no-code"}`,
+    );
+
+    const completeRequest = requestFor({
+      trigger_evidence_refs: ["evidence://acme/dissolution/approved"],
+    });
+    const completeAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      pathFor("complete_dissolution"),
+      completeRequest,
+      "scope:autonomous_system.continuity.complete_dissolution",
+      expectedAuthority,
+    );
+    await plane.stop();
+    plane = await startVerifierPlane({
+      dataDir,
+      env: {
+        ...resolver.env,
+        IOI_TEST_FORCE_SYSTEM_CONTINUITY_AFTER_WALLET_CONSUMPTION:
+          "complete_dissolution",
+      },
+    });
+    call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+    const interrupted = await call("POST", pathFor("complete_dissolution"), {
+      ...completeRequest,
+      wallet_approval_grant: requireValue(
+        completeAuthority.grant,
+        "M1.5d complete dissolution lacks a grant",
+      ),
+    });
+    requireValue(
+      interrupted.status === 500 &&
+        familyFiles(dataDir, CONTINUITY_INTENT_FAMILY).length === 1,
+      "M1.5d fault did not park the continuity intent",
+    );
+    await plane.stop();
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+    const cleared = await waitForIntentRecordsToClear(
+      dataDir,
+      CONTINUITY_INTENT_FAMILY,
+    );
+    const final = await call("GET", pathFor("complete_dissolution"));
+    ok(
+      "M1.5d REPLAY: a crash after exact wallet consumption converges one named transition on restart",
+      cleared &&
+        final.status === 200 &&
+        final.body.chain_head?.latest_sequence === 12 &&
+        final.body.chain_head?.status === "dissolved" &&
+        final.body.committed_entries?.length === 1,
+      `cleared=${cleared} sequence=${final.body.chain_head?.latest_sequence} status=${final.body.chain_head?.status}`,
+    );
+    ok(
+      "M1.5d CONTINUITY: local enrollment, exit, verified migration, succession, and residual-closed dissolution commit as one exact chain",
+      final.status === 200 &&
+        final.body.chain_head?.latest_sequence === 12 &&
+        familyFiles(dataDir, CONTINUITY_RECEIPT_FAMILY).length === 7 &&
+        familyFiles(dataDir, MIGRATION_ACK_RECEIPT_FAMILY).length === 1 &&
+        familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length === 10 &&
+        final.body.chain_head?.network_enrollment_ref === null,
+      `receipts=${familyFiles(dataDir, CONTINUITY_RECEIPT_FAMILY).length} states=${familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length}`,
+    );
+  } finally {
+    if (peerPlane) await peerPlane.stop();
+    if (plane) await plane.stop();
+    await resolver.stop();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+
+async function runDualSystemProjectionJourney() {
+  const resolver = await startOwnedWalletResolver();
+  const dataDir = createOwnedTempDir("ioi-dual-system-projection-");
+  let plane;
+  try {
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    if (!plane) throw new Error("BLOCKED: M1.6/M1.7 daemon is not built");
+    let call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+    const projectionPath = `${GENESIS_ROUTE}/projection`;
+    const empty = await call("GET", `${projectionPath}?view=compact`);
+    ok(
+      "M1.7 HONEST EMPTY: compact projection reports no admitted Systems without fabricated defaults",
+      empty.status === 200 &&
+        empty.body.state === "honest_empty" &&
+        empty.body.systems?.length === 0 &&
+        empty.body.nonclaims?.authority === false,
+      `${empty.status}/${empty.body.state || empty.body.error?.code}`,
+    );
+    const alphaBody = exactGenesisBody();
+    const betaBody = rebindGenesisBodySystem(alphaBody, {
+      systemId: "system://acme/system-beta",
+      genesisId: "genesis://acme/system-beta/zero",
+      constitutionRef: "constitution://acme/system-beta/v1",
+      deploymentProfileRef:
+        "deployment-profile://acme/system-beta/local/revision/sha256:" +
+        "d".repeat(64),
+      orderingProfileRef: "ordering-profile://acme/system-beta/poa1",
+      oracleProfileRef:
+        "oracle-evidence-profile://acme/system-beta/public-records",
+      lifecycleProfileRef: "lifecycle-profile://acme/system-beta/default",
+    });
+    const alpha = await bootstrapActiveSystem(
+      call,
+      resolver,
+      dataDir,
+      alphaBody,
+    );
+    const beta = await bootstrapActiveSystem(
+      call,
+      resolver,
+      dataDir,
+      betaBody,
+    );
+    ok(
+      "M1.6 DUAL GENESIS: one reusable package admits and activates two distinct System identities with distinct live roots",
+      alpha.chain.system_id !== beta.chain.system_id &&
+        alpha.chain.package_id === beta.chain.package_id &&
+        alpha.chain.manifest_ref === beta.chain.manifest_ref &&
+        alpha.chain.chain_root !== beta.chain.chain_root &&
+        alpha.state.activation_state_root !== beta.state.activation_state_root,
+      `${alpha.chain.system_id}/${beta.chain.system_id} package=${alpha.chain.package_id === beta.chain.package_id}`,
+    );
+
+    const beforeIsolation = familiesSnapshot(dataDir, [
+      CONTINUITY_INTENT_FAMILY,
+      CONTINUITY_RECEIPT_FAMILY,
+      "autonomous-system-chain-revisions",
+    ]);
+    const substituted = await call(
+      "POST",
+      `${GENESIS_ROUTE}/${beta.source.sourceTail}/continuity/migrate`,
+      {
+        expected_chain_head_root: alpha.chain.chain_root,
+        expected_predecessor_state_root: alpha.state.activation_state_root,
+        trigger_evidence_refs: ["evidence://acme/cross-system/substitution"],
+        migration_destination_ack_ref:
+          "migration-destination-acknowledgement://acme/system-beta/substituted",
+        migration_destination_ack_root: `sha256:${"c".repeat(64)}`,
+      },
+    );
+    ok(
+      "M1.6 ISOLATION: cross-System live roots refuse before authority and leave both chains unchanged",
+      substituted.status === 409 &&
+        substituted.body.error?.code === "system_lifecycle_head_conflict" &&
+        beforeIsolation ===
+          familiesSnapshot(dataDir, [
+            CONTINUITY_INTENT_FAMILY,
+            CONTINUITY_RECEIPT_FAMILY,
+            "autonomous-system-chain-revisions",
+          ]),
+      `${substituted.status}/${substituted.body.error?.code || "no-code"}`,
+    );
+
+    const compact = await call("GET", `${projectionPath}?view=compact`);
+    const advanced = await call("GET", `${projectionPath}?view=advanced`);
+    const compactById = new Map(
+      (compact.body.systems || []).map((system) => [system.system_id, system]),
+    );
+    const advancedById = new Map(
+      (advanced.body.systems || []).map((system) => [
+        system.compact?.system_id,
+        system,
+      ]),
+    );
+    const identities = [alpha.chain.system_id, beta.chain.system_id];
+    ok(
+      "M1.7 COMPACT/ADVANCED: both views expose identical canonical roots from verified owner reconstruction",
+      compact.status === 200 &&
+        advanced.status === 200 &&
+        compact.body.projection_source === "verified_owner_reconstruction" &&
+        identities.every(
+          (systemId) =>
+            sameJson(
+              compactById.get(systemId)?.canonical_roots,
+              advancedById.get(systemId)?.compact?.canonical_roots,
+            ) &&
+            advancedById.get(systemId)?.chain_head?.system_id === systemId,
+        ),
+      `compact=${compact.body.systems?.length} advanced=${advanced.body.systems?.length}`,
+    );
+    const filtered = await call(
+      "GET",
+      `${projectionPath}?view=advanced&system_id=${encodeURIComponent(beta.chain.system_id)}`,
+    );
+    ok(
+      "M1.7 FILTER: exact System selection never substitutes the other admitted System",
+      filtered.status === 200 &&
+        filtered.body.systems?.length === 1 &&
+        filtered.body.systems[0]?.compact?.system_id === beta.chain.system_id &&
+        !JSON.stringify(filtered.body.systems[0]).includes(alpha.chain.system_id),
+      `${filtered.status}/${filtered.body.systems?.length}`,
+    );
+
+    const alphaAdmissionPath = join(
+      dataDir,
+      SOURCE_FAMILIES[0],
+      `${alpha.source.sourceTail}.json`,
+    );
+    const heldAlphaAdmissionPath = `${alphaAdmissionPath}.held-for-completeness-proof`;
+    renameSync(alphaAdmissionPath, heldAlphaAdmissionPath);
+    let incomplete;
+    try {
+      incomplete = await call("GET", `${projectionPath}?view=compact`);
+    } finally {
+      renameSync(heldAlphaAdmissionPath, alphaAdmissionPath);
+    }
+    ok(
+      "M1.7 COMPLETENESS: a local admission loss with retained Agentgres truth fails closed instead of claiming honest empty",
+      incomplete.status === 422 &&
+        incomplete.body.error?.code === "system_projection_source_incomplete",
+      `${incomplete.status}/${incomplete.body.error?.code || incomplete.body.state || "no-code"}`,
+    );
+
+    const beforeRestart = canonicalJson({
+      compact: compact.body,
+      advanced: advanced.body,
+    });
+    await plane.stop();
+    plane = await startVerifierPlane({ dataDir, env: resolver.env });
+    call = (method, path, body) =>
+      jsonCall(plane.daemonUrl, method, path, body);
+    const compactAfter = await call("GET", `${projectionPath}?view=compact`);
+    const advancedAfter = await call("GET", `${projectionPath}?view=advanced`);
+    ok(
+      "M1.7 RESTART: projections rebuild byte-exactly without persisted projection truth",
+      beforeRestart ===
+        canonicalJson({
+          compact: compactAfter.body,
+          advanced: advancedAfter.body,
+        }) &&
+        familyFiles(dataDir, "autonomous-system-read-projections").length ===
+          0,
+      `compact=${compactAfter.status} advanced=${advancedAfter.status}`,
     );
   } finally {
     if (plane) await plane.stop();
@@ -7155,6 +8218,8 @@ async function run() {
       }/${MATERIALIZATION_FAMILIES.length} current-write-only=${productionReceiptBuilder.includes("ReceiptVersion::CurrentV2") && productionIntentCompleter.includes("require_legacy_receipt_preexisting")}`,
     );
     const journeys = new Map([
+      ["dual-system-projection", runDualSystemProjectionJourney],
+      ["named-continuity", runNamedContinuityJourney],
       ["constitutional-amendment", runConstitutionalAmendmentJourney],
       ["protected-transition", runProtectedTransitionJourney],
       ["system-activation", runSystemActivationJourney],

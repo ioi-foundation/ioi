@@ -32,12 +32,14 @@ const seeds = new Map([
   ["worker://replication-lab-two", "0a".repeat(32)],
   ["worker://replication-lab-three", "0b".repeat(32)],
   ["worker://frontier-only-lab", "0c".repeat(32)],
+  ["org://acme/successor-authority", "0d".repeat(32)],
 ]);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_PENDING_COMMANDS = 64;
 const MAX_COMMAND_BYTES = 64 * 1024;
 const COMMAND_TIMEOUT_MS = 180_000;
+const WALLET_FIXTURE_MIN_STACK_BYTES = 32 * 1024 * 1024;
 
 function publishFixtureOwnerMarker(
   fixtureDir,
@@ -295,6 +297,10 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
           ownerStartTimeTicks,
         IOI_WALLET_FIXTURE_GUARDIAN_CARGO_ARGS: JSON.stringify(cargoArgs),
         IOI_WALLET_FIXTURE_GUARDIAN_CARGO_CWD: repoRoot,
+        // Long held journeys execute enough IAVL-backed wallet blocks to make
+        // the debug runtime's default worker stack unsafe. Keep this fixture
+        // process-local; it changes no chain or authorization semantics.
+        RUST_MIN_STACK: String(WALLET_FIXTURE_MIN_STACK_BYTES),
         ...(normalizedRootSeed
           ? { IOI_HYPERVISOR_WALLET_FIXTURE_ROOT_SEED_HEX: normalizedRootSeed }
           : {}),
@@ -508,7 +514,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
       throw new Error("approval grant does not target the fixture capability account");
     }
 
-    const response = await runCommand({
+    const command = {
       schema_version: 1,
       operation: "record_approval",
       principal_ref: principalRef,
@@ -516,7 +522,30 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
       request_hash: normalizedRequestHash,
       approval_grant: grant,
       target_scope: targetScope,
-    });
+    };
+    let response;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        response = await runCommand(command);
+        break;
+      } catch (error) {
+        const message = String(error?.message || error);
+        if (
+          attempt === 2 ||
+          !message.includes("wallet.network record_approval refused") ||
+          !message.includes("Timeout waiting for tx")
+        ) {
+          throw error;
+        }
+        // record_approval is keyed by request_hash. The fixture checks that
+        // exact key before submitting, so retrying this byte-identical command
+        // observes a late commit or safely resubmits after a transport timeout.
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    }
+    if (!response) {
+      throw new Error("wallet.network record_approval produced no response");
+    }
     if (response.request_hash !== normalizedRequestHash) {
       throw new Error("wallet.network record_approval response named a different request hash");
     }

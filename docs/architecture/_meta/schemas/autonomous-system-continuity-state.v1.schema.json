@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+  "title": "AutonomousSystemContinuityState",
+  "description": "Committed state for named succession, migration, dissolution, and local-enrollment transitions.",
+  "x-ioi-schema-version": "ioi.autonomous-system-continuity-state.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "lifecycle_state_ref", "lifecycle_state_root", "system_id", "sequence", "status", "predecessor_state_root", "transition_ref", "transition_root", "transition_receipt_ref", "transition_receipt_root", "active_profile_set_ref", "active_profile_set_root", "governing_authority_ref", "pending_successor_candidate_ref", "network_enrollment_ref", "network_enrollment_root", "migration_destination_ref", "chain_ref", "created_at"],
+  "properties": {
+    "schema_version": {"const": "ioi.autonomous-system-continuity-state.v1"},
+    "lifecycle_state_ref": {"type": "string", "pattern": "^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},
+    "lifecycle_state_root": {"$ref": "#/$defs/hash"},
+    "system_id": {"type": "string", "pattern": "^system://[A-Za-z0-9._:/-]+$"},
+    "sequence": {"type": "integer", "minimum": 3, "maximum": 9007199254740991},
+    "status": {"enum": ["active", "succession_pending", "successor_governed", "dissolution_pending", "dissolved"]},
+    "predecessor_state_root": {"$ref": "#/$defs/hash"},
+    "transition_ref": {"type": "string", "pattern": "^lifecycle-transition://[A-Za-z0-9._:/-]+$"},
+    "transition_root": {"$ref": "#/$defs/hash"},
+    "transition_receipt_ref": {"type": "string", "pattern": "^receipt://[A-Za-z0-9._:/-]+$"},
+    "transition_receipt_root": {"$ref": "#/$defs/hash"},
+    "active_profile_set_ref": {"type": "string", "pattern": "^active-profile-set://[A-Za-z0-9._:/-]+$"},
+    "active_profile_set_root": {"$ref": "#/$defs/hash"},
+    "governing_authority_ref": {"type": "string", "pattern": "^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$"},
+    "pending_successor_candidate_ref": {"oneOf": [{"type": "string", "pattern": "^(?:principal|wallet|organization|org)://[^\\s]{1,248}$"}, {"type": "null"}]},
+    "network_enrollment_ref": {"oneOf": [{"type": "string", "pattern": "^network-enrollment://[^\\s]{1,248}$"}, {"type": "null"}]},
+    "network_enrollment_root": {"oneOf": [{"$ref": "#/$defs/hash"}, {"type": "null"}]},
+    "migration_destination_ref": {"oneOf": [{"type": "string", "pattern": "^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$"}, {"type": "null"}]},
+    "chain_ref": {"type": "string", "pattern": "^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},
+    "created_at": {"type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}
+  },
+  "allOf": [
+    {"if": {"properties": {"status": {"const": "succession_pending"}}}, "then": {"properties": {"pending_successor_candidate_ref": {"type": "string"}}}},
+    {"if": {"properties": {"network_enrollment_ref": {"type": "null"}}}, "then": {"properties": {"network_enrollment_root": {"type": "null"}}}},
+    {"if": {"properties": {"network_enrollment_ref": {"type": "string"}}}, "then": {"properties": {"network_enrollment_root": {"$ref": "#/$defs/hash"}}}}
+  ],
+  "$defs": {"hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-23",
+  "as_of_date": "2026-07-25",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -352,7 +352,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "c1e6f15651b5710b27e4b64ff89d0ef444bd181741b586072cbc429fe03803bd"
+      "source_sha256": "ae64105d7bd6dcf088dd06c393324b64e4daa39114db00696728526698f87a63"
     },
     {
       "role": "landed owner canon",
@@ -469,7 +469,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "663859bcfcebe9aeb4b9b50b3dae8ba669392567ad4451a1e55d196681c51766"
+            "source_sha256": "234679ff0e256683ae473f357ad1dce029449d92d52f0bac6e89f5d7ca6023f2"
           },
           {
             "note": "enumerated IBC HTTP registry",
@@ -644,7 +644,7 @@
           {
             "note": "enumerated Hypervisor daemon registry",
             "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
-            "source_sha256": "663859bcfcebe9aeb4b9b50b3dae8ba669392567ad4451a1e55d196681c51766"
+            "source_sha256": "234679ff0e256683ae473f357ad1dce029449d92d52f0bac6e89f5d7ca6023f2"
           },
           {
             "note": "enumerated signer POST /sign surface",
@@ -1562,19 +1562,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "0dae066cda7503bb8b2eef713a78bb6728b0fe8e07f718f05461dc429a678129",
-    "review_epoch_id": "m1-5c-hardening-review-2026-07-23",
-    "review_lock_sha256": "9667808f4437af34be00ca8cda51514b4e10ce2cc5236e5e8f94b0f9f4cd9fc2",
+    "program_source_material_sha256": "543a8f127937657bc050b7808cb48dcb3ddb795f8a9d5846e98018eb27751e0d",
+    "review_epoch_id": "m1-continuity-projection-review-2026-07-25",
+    "review_lock_sha256": "3743f6cd2514c0682b3df3685c653cf5937de32fff00616999940fd14ab59818",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
-    "reviewed_as_of": "2026-07-23",
-    "reviewed_entry_set_sha256": "bba53bd7bcfc414e0ca0d5e8920b4699cca4d072b7e1a54133d639bc9b1fb823",
-    "reviewed_identity_set_sha256": "0500a1de07acd127f6161e29b48aff2a7618eada7ce1a6a98e727215fbbf2c25",
-    "reviewer_label": "reviewer://ioi/m0-program-control-independent-review",
+    "reviewed_as_of": "2026-07-25",
+    "reviewed_entry_set_sha256": "60b486c50d460122ceb6b1194a15bae0db6a4a1c9f5d14142fdafc23baae405a",
+    "reviewed_identity_set_sha256": "fce8aab13d56701d41b4fe565c4e773f9e9c8a848969b9374d922f6f445427bd",
+    "reviewer_label": "reviewer://ioi/m0-program-control-m1-exit-source-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "ea5f152f4331fa03eec439c8841816afc130085ff106f97bb0abf0fcb76f2cf2",
-    "snapshot_head_sequence": 10,
-    "snapshot_predecessor_entry_sha256": "ba2b0a972da3c51c9a0b8e2af59fa89e299a631a0b2f0a4eda115dcc4e89327b",
+    "snapshot_head_entry_sha256": "ad88761c74adfa7b6cc3bc66d808cddf65e9dd426e1aa1530c88364d07b75ee4",
+    "snapshot_head_sequence": 11,
+    "snapshot_predecessor_entry_sha256": "ea5f152f4331fa03eec439c8841816afc130085ff106f97bb0abf0fcb76f2cf2",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

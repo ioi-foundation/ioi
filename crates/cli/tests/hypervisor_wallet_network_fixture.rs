@@ -59,6 +59,7 @@ const PARTICIPANT_SEED: [u8; 32] = [0x09; 32];
 const PARTICIPANT_TWO_SEED: [u8; 32] = [0x0a; 32];
 const PARTICIPANT_THREE_SEED: [u8; 32] = [0x0b; 32];
 const SCOPE_LIMITED_PARTICIPANT_SEED: [u8; 32] = [0x0c; 32];
+const SUCCESSOR_AUTHORITY_SEED: [u8; 32] = [0x0d; 32];
 const ROOT_SEED: [u8; 32] = [0x41; 32];
 const CAPABILITY_SEED: [u8; 32] = [0x31; 32];
 const EXPIRES_AT_MS: u64 = 1_850_000_000_000;
@@ -82,6 +83,8 @@ const PROTECTED_TRANSITION_APPROVAL_REASON: &str =
 const SYSTEM_AMENDMENT_APPROVAL_REASON: &str = "System constitutional amendment fixture approval";
 const SYSTEM_AMENDMENT_GOVERNANCE_APPROVAL_REASON: &str =
     "System constitutional amendment governance fixture approval";
+const NAMED_CONTINUITY_APPROVAL_REASON: &str =
+    "System named continuity transition fixture approval";
 const PROTECTED_TRANSITION_OPS: [&str; 14] = [
     "pause",
     "resume",
@@ -98,11 +101,25 @@ const PROTECTED_TRANSITION_OPS: [&str; 14] = [
     "revoke",
     "decommission",
 ];
+const NAMED_CONTINUITY_SCOPES: [&str; 8] = [
+    "scope:autonomous_system.continuity.initiate_succession",
+    "scope:autonomous_system.continuity.complete_succession",
+    "scope:autonomous_system.continuity.migrate",
+    "scope:autonomous_system.continuity.migration_destination_acknowledge",
+    "scope:autonomous_system.continuity.initiate_dissolution",
+    "scope:autonomous_system.continuity.complete_dissolution",
+    "scope:autonomous_system.network_enrollment.local.enroll",
+    "scope:autonomous_system.network_enrollment.local.exit",
+];
 
 fn protected_transition_scope(target_scope: &str) -> bool {
     target_scope
         .strip_prefix("scope:autonomous_system.lifecycle.")
         .is_some_and(|op| PROTECTED_TRANSITION_OPS.contains(&op))
+}
+
+fn named_continuity_scope(target_scope: &str) -> bool {
+    NAMED_CONTINUITY_SCOPES.contains(&target_scope)
 }
 
 #[derive(Debug, Deserialize)]
@@ -248,6 +265,11 @@ fn approval_authority(seed: &[u8; 32]) -> Result<ApprovalAuthority> {
                 .iter()
                 .map(|op| format!("scope:autonomous_system.lifecycle.{op}")),
         )
+        .chain(
+            NAMED_CONTINUITY_SCOPES
+                .iter()
+                .map(|scope| (*scope).to_owned()),
+        )
         .collect(),
     )
 }
@@ -339,6 +361,7 @@ fn authority_for_principal(principal_ref: &str) -> Result<ApprovalAuthority> {
             &SCOPE_LIMITED_PARTICIPANT_SEED,
             vec!["work_frontier.*".to_string()],
         ),
+        "org://acme/successor-authority" => approval_authority(&SUCCESSOR_AUTHORITY_SEED),
         _ => Err(anyhow!(
             "wallet.network fixture has no approval authority for {principal_ref}"
         )),
@@ -647,6 +670,7 @@ async fn submit_record_approval(
         SYSTEM_AMENDMENT_SCOPE => SYSTEM_AMENDMENT_APPROVAL_REASON,
         SYSTEM_AMENDMENT_APPROVAL_SCOPE => SYSTEM_AMENDMENT_GOVERNANCE_APPROVAL_REASON,
         scope if protected_transition_scope(scope) => PROTECTED_TRANSITION_APPROVAL_REASON,
+        scope if named_continuity_scope(scope) => NAMED_CONTINUITY_APPROVAL_REASON,
         _ => {
             return Err(anyhow!(
                 "record_approval target_scope is not one of the fixture's governed System scopes"
@@ -711,7 +735,7 @@ async fn submit_record_approval(
             intercepted_at_ms: decided_at_ms.saturating_sub(1),
         },
         decision: WalletApprovalDecisionKind::ApprovedByHuman,
-        approval_grant: Some(grant),
+        approval_grant: Some(grant.clone()),
         surface: VaultSurface::Desktop,
         decided_at_ms,
     };
@@ -726,6 +750,47 @@ async fn submit_record_approval(
     )
     .await
     {
+        // Transaction-status polling can time out after the validator has
+        // already advanced the account nonce and committed the approval.
+        // Recover only from the same complete logical approval at the exact
+        // request-key. A byte-identical retry may carry a later server clock,
+        // so timestamps are checked by the same invariant used above rather
+        // than requiring byte equality. Conflicting records still fail.
+        let recovery_started = std::time::Instant::now();
+        loop {
+            match query_state_key(rpc_addr, &approval_key).await {
+                Ok(Some(persisted_bytes)) => {
+                    let persisted: WalletApprovalDecision = match decode_state_value(
+                        &persisted_bytes,
+                        "approval decision after timeout",
+                    ) {
+                        Ok(persisted) => persisted,
+                        Err(decode_error) => {
+                            return Err(error.context(format!(
+                                "record_approval timeout recovery found undecodable state: {decode_error}"
+                            )));
+                        }
+                    };
+                    if existing_approval_matches(
+                        &persisted,
+                        request_hash,
+                        policy_hash,
+                        &grant,
+                        target_scope,
+                        reason,
+                    ) {
+                        return Ok(request_hash);
+                    }
+                    return Err(error.context(
+                        "record_approval timeout recovery found a different approval decision",
+                    ));
+                }
+                Ok(None) | Err(_) if recovery_started.elapsed() < Duration::from_secs(10) => {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+                _ => break,
+            }
+        }
         let observed_nonce = account_nonce(rpc_addr, &capability_account_id)
             .await
             .unwrap_or(u64::MAX);
@@ -740,9 +805,16 @@ async fn submit_record_approval(
         .ok_or_else(|| anyhow!("committed record_approval emitted no approval decision"))?;
     let persisted: WalletApprovalDecision =
         decode_state_value(&persisted_bytes, "approval decision")?;
-    if persisted != approval {
+    if !existing_approval_matches(
+        &persisted,
+        request_hash,
+        policy_hash,
+        &grant,
+        target_scope,
+        reason,
+    ) {
         return Err(anyhow!(
-            "persisted wallet approval decision differs from the submitted decision"
+            "persisted wallet approval decision differs from the submitted logical approval"
         ));
     }
     Ok(request_hash)
@@ -1368,6 +1440,10 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
                     &SCOPE_LIMITED_PARTICIPANT_SEED,
                     vec!["work_frontier.*".to_string()],
                 )?,
+            ),
+            (
+                "org://acme/successor-authority",
+                approval_authority(&SUCCESSOR_AUTHORITY_SEED)?,
             ),
         ];
         submit(

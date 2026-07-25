@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
   "title": "AutonomousSystemLifecycleState",
-  "description": "Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds only predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic. Succession, dissolution, and enrollment statuses are reserved for their named owner families.",
+  "description": "Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds predecessor, sequence, status, the unchanged profile-set coordinates, and the live governing authority; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic.",
   "x-ioi-schema-version": "ioi.autonomous-system-lifecycle-state.v1",
   "type": "object",
   "additionalProperties": false,
@@ -20,6 +20,7 @@
     "transition_receipt_root",
     "active_profile_set_ref",
     "active_profile_set_root",
+    "governing_authority_ref",
     "chain_ref",
     "created_at"
   ],
@@ -47,6 +48,7 @@
     "status": {
       "enum": [
         "active",
+        "successor_governed",
         "paused",
         "suspended",
         "dormant",
@@ -113,6 +115,10 @@
     "active_profile_set_root": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "governing_authority_ref": {
+      "type": "string",
+      "pattern": "^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$"
     },
     "chain_ref": {
       "type": "string",

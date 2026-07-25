@@ -328,6 +328,12 @@ pub(crate) fn compile_amendment_from_source(
     .map_err(caller_input)?;
     let chain_head_root = required(&source.chain_head, "/chain_root")?;
     let chain_constitution_root = required(&source.chain_head, "/constitution_root")?;
+    let governing = super::system_protected_transition_routes::current_governing_authority(
+        &source.previous_step,
+        &source.chain_head,
+    )?;
+    let mut live_activation_effect = source.activation_effect.clone();
+    live_activation_effect["source_governing_authority_ref"] = json!(governing);
     let activation_receipt_ref = source
         .operation_log
         .get("entries")
@@ -346,7 +352,7 @@ pub(crate) fn compile_amendment_from_source(
             )
         })?;
     compile_amendment_execution_plan(
-        &source.activation_effect,
+        &live_activation_effect,
         &source.previous_step,
         &chain_head_root,
         &chain_constitution_root,
@@ -1877,6 +1883,7 @@ pub(crate) async fn handle_amendment(
         super::system_activation_routes::ensure_no_pending_intent(&state.data_dir, &key)?;
         ensure_no_pending_protected_intent(&state.data_dir, &key)?;
         ensure_no_pending_amendment_intent(&state.data_dir, &key)?;
+        super::system_continuity_routes::ensure_no_pending_migration_ack(&state.data_dir, &key)?;
         let (system_id, source) = load_amendment_source(&state.data_dir, &key)?;
         check_expected_roots(&body, &source)?;
         let plan = compile_amendment_from_source(
@@ -1896,7 +1903,10 @@ pub(crate) async fn handle_amendment(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
-    let governing = match required(&source.activation_effect, "/source_governing_authority_ref") {
+    let governing = match required(
+        &provisional_plan.authority_effect,
+        "/source_governing_authority_ref",
+    ) {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
@@ -2593,7 +2603,7 @@ fn validate_legacy_amendment_intent(
     }
 
     let mut evidence = evidence_from_intent(&intent["governed_authority"])?;
-    let governing = required(&source.activation_effect, "/source_governing_authority_ref")?;
+    let governing = required(&effect, "/source_governing_authority_ref")?;
     let sequence = sealed_plan
         .get("sequence")
         .and_then(Value::as_u64)
@@ -2758,6 +2768,7 @@ async fn replay_one_amendment(
         return migrate_legacy_amendment_intent(data_dir, tail_value, intent).await;
     }
     let key = required(intent, "/source_record_tail")?;
+    super::system_continuity_routes::ensure_no_pending_migration_ack(data_dir, &key)?;
     let sealed_plan = intent.get("compiled_plan").cloned().ok_or_else(|| {
         verr(
             "system_lifecycle_intent_invalid",
@@ -2823,7 +2834,7 @@ async fn replay_one_amendment(
         ));
     }
     let mut evidence = evidence_from_intent(&intent["governed_authority"])?;
-    let governing = required(&source.activation_effect, "/source_governing_authority_ref")?;
+    let governing = required(&plan.authority_effect, "/source_governing_authority_ref")?;
     let rebuilt = prepare_node_evidence_for(
         &plan.authority_effect,
         AMENDMENT_OP,
@@ -2959,6 +2970,7 @@ async fn replay_one_approval_intent(
     verify_intent_seal(intent)?;
     verify_approval_intent_coordinates(tail_value, intent)?;
     let key = required(intent, "/source_record_tail")?;
+    super::system_continuity_routes::ensure_no_pending_migration_ack(data_dir, &key)?;
     let body = intent.get("request_body").cloned().ok_or_else(|| {
         verr(
             "system_lifecycle_intent_invalid",
@@ -3515,6 +3527,7 @@ mod builder_tests {
                 "status": "active",
                 "active_profile_set_ref": chain["active_profile_set_ref"],
                 "active_profile_set_root": chain["active_profile_set_root"],
+                "governing_authority_ref": "org://acme/research",
             }),
             transition: json!({"lifecycle_transition_id": head["transition_ref"]}),
             receipt: json!({"receipt_ref": head["receipt_ref"]}),
@@ -3544,7 +3557,7 @@ mod builder_tests {
             "materialization_wallet_consumption_root":
                 log["entries"][0]["wallet_consumption_root"],
             "profile_bundle_root": h(0x72),
-            "source_governing_authority_ref": "wallet://acme/governance",
+            "source_governing_authority_ref": "org://acme/research",
             "home_domain_ref": log["home_domain_ref"],
             "home_domain_commitment": log["home_domain_commitment"],
             "home_domain_binding_ref": log["home_domain_binding_ref"],
@@ -3734,6 +3747,32 @@ mod builder_tests {
             governance_approval_request_hash(&source, &plan, &effect_hash)
                 .expect("stable governance request hash"),
             request_hash,
+        );
+    }
+
+    #[test]
+    fn amendment_compiler_uses_the_live_successor_authority() {
+        let (mut source, amendment, approval_decision, successor) = amendment_fixture();
+        source.chain_head["governance_owner_refs"] = json!(["org://acme/successor-authority"]);
+        source.previous_step.state["governing_authority_ref"] =
+            json!("org://acme/successor-authority");
+        let plan = compile_amendment_from_source(
+            &source,
+            &amendment,
+            &approval_decision,
+            &h(0x59),
+            &successor,
+        )
+        .expect("successor-governed amendment plan");
+        assert_eq!(
+            plan.authority_effect["source_governing_authority_ref"],
+            "org://acme/successor-authority"
+        );
+        let artifacts = build_amendment_artifacts(&plan, &source, &authority_tuple(), TS)
+            .expect("successor-governed amendment artifacts");
+        assert_eq!(
+            artifacts.chain["governance_owner_refs"],
+            json!(["org://acme/successor-authority"])
         );
     }
 

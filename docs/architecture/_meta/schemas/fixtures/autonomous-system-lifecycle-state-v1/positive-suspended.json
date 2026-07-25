@@ -1,7 +1,7 @@
 {
   "schema_version": "ioi.autonomous-system-lifecycle-state.v1",
   "lifecycle_state_ref": "system-lifecycle-state://fixture/alpha/sequence/6",
-  "lifecycle_state_root": "sha256:d28a3b22c36fac4cf3bd4e7108e542c683e14225731cc8431f561332475357ce",
+  "lifecycle_state_root": "sha256:c7a8f2d7e461ad7cd93ca59891562c9b4de34f66860c0ae02be0299449248d4f",
   "system_id": "system://fixture/alpha",
   "sequence": 6,
   "status": "suspended",
@@ -12,6 +12,7 @@
   "transition_receipt_root": null,
   "active_profile_set_ref": "active-profile-set://fixture/alpha",
   "active_profile_set_root": "sha256:1616161616161616161616161616161616161616161616161616161616161616",
+  "governing_authority_ref": "wallet://fixture/governing",
   "chain_ref": "autonomous-system-chain://fixture/alpha",
   "created_at": null
 }

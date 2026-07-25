@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+  "title": "AutonomousSystemMigrationDestinationAcknowledgement",
+  "description": "A separately authorized, content-addressed acknowledgement that an exact live System state is durably available at a distinct migration destination before the migrate transition may execute.",
+  "x-ioi-schema-version": "ioi.autonomous-system-migration-destination-acknowledgement.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "acknowledgement_ref", "acknowledgement_root", "system_id",
+    "predecessor_state_ref", "predecessor_state_root", "predecessor_chain_head_root",
+    "source_deployment_profile_ref", "destination_ref", "acknowledged_state_root", "required_scope", "operation_commitment",
+    "authority_effect_material", "authority_grant_refs", "authority_evidence_ref",
+    "authority_evidence_root", "wallet_consumption_ref", "wallet_consumption_root",
+    "receipt_ref", "receipt_root", "status", "created_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "ioi.autonomous-system-migration-destination-acknowledgement.v1"},
+    "acknowledgement_ref": {"type": "string", "pattern": "^migration-destination-acknowledgement://[^\\s]{1,248}$"},
+    "acknowledgement_root": {"$ref": "#/$defs/hash"},
+    "system_id": {"type": "string", "pattern": "^system://[^\\s]{1,248}$"},
+    "predecessor_state_ref": {"type": "string", "pattern": "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},
+    "predecessor_state_root": {"$ref": "#/$defs/hash"},
+    "predecessor_chain_head_root": {"$ref": "#/$defs/hash"},
+    "source_deployment_profile_ref": {"type": "string", "pattern": "^deployment-profile://[^\\s]{1,248}$"},
+    "destination_ref": {"type": "string", "pattern": "^deployment-profile://[^\\s]{1,248}$"},
+    "acknowledged_state_root": {"$ref": "#/$defs/hash"},
+    "required_scope": {"const": "scope:autonomous_system.continuity.migration_destination_acknowledge"},
+    "operation_commitment": {"$ref": "#/$defs/hash"},
+    "authority_effect_material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "op", "required_scope", "sequence", "system_id", "genesis_ref",
+        "source_governing_authority_ref", "predecessor_state_ref", "predecessor_state_root",
+        "predecessor_chain_head_root", "source_deployment_profile_ref", "destination_ref", "acknowledged_state_root",
+        "identity_preserved", "operation_commitment"
+      ],
+      "properties": {
+        "schema_version": {"const": "ioi.autonomous-system-migration-destination-acknowledgement-effect.v1"},
+        "op": {"const": "acknowledge_migration_destination"},
+        "required_scope": {"const": "scope:autonomous_system.continuity.migration_destination_acknowledge"},
+        "sequence": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+        "system_id": {"type": "string", "pattern": "^system://[^\\s]{1,248}$"},
+        "genesis_ref": {"type": "string", "pattern": "^genesis://[^\\s]{1,248}$"},
+        "source_governing_authority_ref": {"type": "string", "minLength": 1, "maxLength": 256},
+        "predecessor_state_ref": {"type": "string", "pattern": "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},
+        "predecessor_state_root": {"$ref": "#/$defs/hash"},
+        "predecessor_chain_head_root": {"$ref": "#/$defs/hash"},
+        "source_deployment_profile_ref": {"type": "string", "pattern": "^deployment-profile://[^\\s]{1,248}$"},
+        "destination_ref": {"type": "string", "pattern": "^deployment-profile://[^\\s]{1,248}$"},
+        "acknowledged_state_root": {"$ref": "#/$defs/hash"},
+        "identity_preserved": {"const": true},
+        "operation_commitment": {"type": "null"}
+      }
+    },
+    "authority_grant_refs": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "string", "pattern": "^grant://[^\\s]{1,248}$"}},
+    "authority_evidence_ref": {"type": "string", "pattern": "^system-lifecycle-authority-evidence://[^\\s]{1,248}$"},
+    "authority_evidence_root": {"$ref": "#/$defs/hash"},
+    "wallet_consumption_ref": {"type": "string", "pattern": "^wallet[.]network://approval-effect-consumption/[^\\s]{1,248}$"},
+    "wallet_consumption_root": {"$ref": "#/$defs/hash"},
+    "receipt_ref": {"type": "string", "pattern": "^receipt://[^\\s]{1,248}$"},
+    "receipt_root": {"$ref": "#/$defs/hash"},
+    "status": {"const": "committed"},
+    "created_at": {"type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

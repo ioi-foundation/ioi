@@ -33,7 +33,7 @@ use super::DaemonState;
 
 pub(crate) type VErr = (String, String);
 
-const RECORD_DIR: &str = "autonomous-system-genesis-registry";
+pub(crate) const RECORD_DIR: &str = "autonomous-system-genesis-registry";
 const RECEIPT_DIR: &str = "autonomous-system-genesis-receipts";
 pub(crate) const INTENT_DIR: &str = "autonomous-system-genesis-intents";
 const CONSUMPTION_DIR: &str = "autonomous-system-genesis-authority-consumptions";
@@ -183,7 +183,7 @@ fn deterministic_tail(prefix: &str, material: &Value) -> String {
     format!("{prefix}{}", hash.strip_prefix("sha256:").unwrap_or(&hash))
 }
 
-fn record_tail(system_id: &str) -> String {
+pub(crate) fn record_tail(system_id: &str) -> String {
     deterministic_tail(
         "asg_",
         &json!({
@@ -1074,7 +1074,7 @@ pub(crate) fn load_verified_admission_by_key(
     }))
 }
 
-fn scan_records(data_dir: &str) -> Result<Vec<Value>, String> {
+pub(crate) fn scan_records(data_dir: &str) -> Result<Vec<Value>, String> {
     let directory = match super::durable_fs::open_family_dir_pinned(data_dir, RECORD_DIR) {
         Ok(value) => value,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),

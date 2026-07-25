@@ -61,7 +61,30 @@ impl AuthorityContract {
     }
 
     pub(crate) fn operation_scope(self, op: &str) -> String {
-        format!("{}.{op}", self.scope_prefix)
+        // Named M1.5d continuity and local-enrollment operations have owner
+        // scopes deliberately disjoint from the generic lifecycle family.
+        // Keep the mapping here because this function owns every policy,
+        // request, live-resolution, and sealed-replay scope coordinate.
+        if self.scope_prefix != "scope:autonomous_system.lifecycle" {
+            return format!("{}.{op}", self.scope_prefix);
+        }
+        match op {
+            "initiate_succession"
+            | "complete_succession"
+            | "migrate"
+            | "initiate_dissolution"
+            | "complete_dissolution" => {
+                format!("scope:autonomous_system.continuity.{op}")
+            }
+            "acknowledge_migration_destination" => {
+                "scope:autonomous_system.continuity.migration_destination_acknowledge".to_owned()
+            }
+            "enroll_local" => "scope:autonomous_system.network_enrollment.local.enroll".to_owned(),
+            "exit_local_enrollment" => {
+                "scope:autonomous_system.network_enrollment.local.exit".to_owned()
+            }
+            _ => format!("{}.{op}", self.scope_prefix),
+        }
     }
 
     fn code(self, suffix: &str) -> String {

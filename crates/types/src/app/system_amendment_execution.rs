@@ -393,7 +393,9 @@ pub fn compile_amendment_execution_plan(
     }
     if !matches!(
         status,
-        ProtectedLifecycleStatus::Active | ProtectedLifecycleStatus::Paused
+        ProtectedLifecycleStatus::Active
+            | ProtectedLifecycleStatus::SuccessorGoverned
+            | ProtectedLifecycleStatus::Paused
     ) {
         return Err(format!(
             "constitutional amendment cannot execute from {}",
@@ -505,11 +507,20 @@ pub fn compile_amendment_execution_plan(
         "accountable_principal_refs",
         "predecessor constitution governance",
     )?;
-    if !governance_owners
+    let constitutionally_accountable = governance_owners
         .iter()
         .chain(accountable.iter())
-        .any(|value| value == execution_authority)
-    {
+        .any(|value| value == execution_authority);
+    // A completed succession changes the committed lifecycle state's
+    // governing authority without rewriting the active constitution. The
+    // constitution's external governors still approve the declaration, while
+    // the exact successor recorded by the live state authorizes execution.
+    let live_successor = previous_step
+        .state
+        .get("governing_authority_ref")
+        .and_then(Value::as_str)
+        .is_some_and(|value| value == execution_authority);
+    if !constitutionally_accountable && !live_successor {
         return Err("execution authority is not an accountable constitutional governor".to_owned());
     }
 
@@ -720,6 +731,7 @@ pub fn compile_amendment_execution_plan(
         "predecessor_state_root": previous_step.state_root,
         "active_profile_set_ref": successor_set_ref,
         "active_profile_set_root": successor_profile_set_root,
+        "governing_authority_ref": execution_authority,
     });
     let resulting_state_root = jcs_hash(&state_material)?;
     let semantic_state = json!({
@@ -736,6 +748,7 @@ pub fn compile_amendment_execution_plan(
         "transition_receipt_root": Value::Null,
         "active_profile_set_ref": successor_set_ref,
         "active_profile_set_root": successor_profile_set_root,
+        "governing_authority_ref": execution_authority,
         "chain_ref": required_effect_string(activation_effect, "chain_ref")?,
         "created_at": Value::Null,
     });

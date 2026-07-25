@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-23",
+  "as_of_date": "2026-07-25",
   "blockers": [
     {
       "blocker_id": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -306,7 +306,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 670,
+      "reference_count": 674,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -389,9 +389,11 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/activate",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/amendments",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/continuity/:op",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/initialize",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/transitions/:op",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/projection",
         "http:hypervisor-daemon:GET /v1/hypervisor/budget",
         "http:hypervisor-daemon:GET /v1/hypervisor/capability-leases",
         "http:hypervisor-daemon:GET /v1/hypervisor/cloud-candidates/candidate-sources",
@@ -678,6 +680,8 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/activate",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/amendments",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/continuity/:op",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/continuity/migration-destination-acknowledgements",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/initialize",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/transitions/:op",
@@ -1559,7 +1563,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "95d4553a45cb8b291f0a90abb4d012f956a3a902d36c569ef1316b1959c67a86",
+  "build_fingerprint": "e544985e96304fa04d76e1a4ccfa5a09851c3a8dce6a6eb9789f15edbf984001",
   "counts": {
     "by_state": {
       "open": 23,
