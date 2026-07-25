@@ -71,6 +71,7 @@
     "predecessor_status": {
       "enum": [
         "active",
+        "successor_governed",
         "degraded",
         "paused",
         "suspended",
@@ -155,6 +156,7 @@
           "predecessor_status": {
             "enum": [
               "active",
+              "successor_governed",
               "degraded"
             ]
           },
@@ -173,6 +175,7 @@
               "predecessor_status": {
                 "enum": [
                   "active",
+                  "successor_governed",
                   "degraded"
                 ]
               },
@@ -255,6 +258,7 @@
           "predecessor_status": {
             "enum": [
               "active",
+              "successor_governed",
               "degraded",
               "paused"
             ]
@@ -274,6 +278,7 @@
               "predecessor_status": {
                 "enum": [
                   "active",
+                  "successor_governed",
                   "degraded",
                   "paused"
                 ]
@@ -357,6 +362,7 @@
           "predecessor_status": {
             "enum": [
               "active",
+              "successor_governed",
               "paused"
             ]
           },
@@ -375,6 +381,7 @@
               "predecessor_status": {
                 "enum": [
                   "active",
+                  "successor_governed",
                   "paused"
                 ]
               },
@@ -559,6 +566,7 @@
           "predecessor_status": {
             "enum": [
               "active",
+              "successor_governed",
               "degraded",
               "paused",
               "recovering"
@@ -579,6 +587,7 @@
               "predecessor_status": {
                 "enum": [
                   "active",
+                  "successor_governed",
                   "degraded",
                   "paused",
                   "recovering"
@@ -663,6 +672,7 @@
           "predecessor_status": {
             "enum": [
               "active",
+              "successor_governed",
               "paused",
               "suspended",
               "dormant"
@@ -683,6 +693,7 @@
               "predecessor_status": {
                 "enum": [
                   "active",
+                  "successor_governed",
                   "paused",
                   "suspended",
                   "dormant"
@@ -767,6 +778,7 @@
           "predecessor_status": {
             "enum": [
               "active",
+              "successor_governed",
               "degraded",
               "paused",
               "suspended",
@@ -792,6 +804,7 @@
               "predecessor_status": {
                 "enum": [
                   "active",
+                  "successor_governed",
                   "degraded",
                   "paused",
                   "suspended",
@@ -1016,6 +1029,7 @@
         "predecessor_status": {
           "enum": [
             "active",
+            "successor_governed",
             "degraded",
             "paused",
             "suspended",

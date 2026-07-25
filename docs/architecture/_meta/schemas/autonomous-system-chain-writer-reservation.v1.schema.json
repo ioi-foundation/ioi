@@ -30,7 +30,10 @@
       "enum": [
         "pause", "resume", "suspend", "reinstate", "enter_dormancy", "wake",
         "begin_recovery", "complete_recovery", "quarantine", "release_quarantine",
-        "retire", "archive", "revoke", "decommission", "amend_constitution"
+        "retire", "archive", "revoke", "decommission", "amend_constitution",
+        "initiate_succession", "complete_succession", "migrate",
+        "initiate_dissolution", "complete_dissolution", "enroll_local",
+        "exit_local_enrollment"
       ]
     }
   },

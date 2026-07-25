@@ -58,7 +58,14 @@
         "archive",
         "revoke",
         "decommission",
-        "amend_constitution"
+        "amend_constitution",
+        "initiate_succession",
+        "complete_succession",
+        "migrate",
+        "initiate_dissolution",
+        "complete_dissolution",
+        "enroll_local",
+        "exit_local_enrollment"
       ]
     },
     "committed_at": {

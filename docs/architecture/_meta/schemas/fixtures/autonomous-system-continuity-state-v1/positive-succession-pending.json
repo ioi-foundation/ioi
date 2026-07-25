@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.autonomous-system-continuity-state.v1",
+  "lifecycle_state_ref": "system-lifecycle-state://acme/system-alpha/sequence/3",
+  "lifecycle_state_root": "sha256:2d7989e852e6dc8e38ddab31abbb83297836239ec4236c03bd26479892d752cd",
+  "system_id": "system://acme/system-alpha",
+  "sequence": 3,
+  "status": "succession_pending",
+  "predecessor_state_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "transition_ref": "lifecycle-transition://acme/system-alpha/continuity/sequence/3",
+  "transition_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "transition_receipt_ref": "receipt://acme/system-alpha/continuity/sequence/3",
+  "transition_receipt_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "active_profile_set_ref": "active-profile-set://acme/system-alpha/v1",
+  "active_profile_set_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "governing_authority_ref": "org://acme/research",
+  "pending_successor_candidate_ref": "org://acme/successor",
+  "network_enrollment_ref": null,
+  "network_enrollment_root": null,
+  "migration_destination_ref": null,
+  "chain_ref": "autonomous-system-chain://acme/system-alpha",
+  "created_at": "2026-07-23T12:00:00Z"
+}

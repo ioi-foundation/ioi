@@ -1,0 +1,84 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-migration-destination-acknowledgement/exact-effect/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.operation_commitment.recomputes",
+      "description": "The acknowledgement operation commitment recomputes from its complete closed authority effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {"value": "ioi.autonomous-system-migration-destination-acknowledgement-operation-jcs-sha256.v1"},
+          "effect": {"path": "$.authority_effect_material"}
+        },
+        "expected_path": "$.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.root.recomputes",
+      "description": "The acknowledgement root binds the exact source state, live head, target, acknowledged state, scope, and operation commitment.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {"value": "ioi.autonomous-system-migration-destination-acknowledgement-jcs-sha256.v1"},
+          "acknowledgement_ref": {"path": "$.acknowledgement_ref"},
+          "system_id": {"path": "$.system_id"},
+          "predecessor_state_ref": {"path": "$.predecessor_state_ref"},
+          "predecessor_state_root": {"path": "$.predecessor_state_root"},
+          "predecessor_chain_head_root": {"path": "$.predecessor_chain_head_root"},
+          "source_deployment_profile_ref": {"path": "$.source_deployment_profile_ref"},
+          "destination_ref": {"path": "$.destination_ref"},
+          "acknowledged_state_root": {"path": "$.acknowledged_state_root"},
+          "required_scope": {"path": "$.required_scope"},
+          "operation_commitment": {"path": "$.operation_commitment"}
+        },
+        "expected_path": "$.acknowledgement_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.system.matches_effect",
+      "description": "The acknowledgement and governed effect bind the same System.",
+      "expression": {"operator": "fields_equal", "paths": ["$.system_id", "$.authority_effect_material.system_id"]}
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.predecessor_ref.matches_effect",
+      "description": "The acknowledged predecessor ref cannot be substituted outside the authority effect.",
+      "expression": {"operator": "fields_equal", "paths": ["$.predecessor_state_ref", "$.authority_effect_material.predecessor_state_ref"]}
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.predecessor_root.matches_effect",
+      "description": "The acknowledged predecessor root cannot be substituted outside the authority effect.",
+      "expression": {"operator": "fields_equal", "paths": ["$.predecessor_state_root", "$.authority_effect_material.predecessor_state_root"]}
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.chain_head.matches_effect",
+      "description": "The exact live chain head cannot be substituted outside the authority effect.",
+      "expression": {"operator": "fields_equal", "paths": ["$.predecessor_chain_head_root", "$.authority_effect_material.predecessor_chain_head_root"]}
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.source_profile.matches_effect",
+      "description": "The source deployment profile cannot be substituted outside the authority effect.",
+      "expression": {"operator": "fields_equal", "paths": ["$.source_deployment_profile_ref", "$.authority_effect_material.source_deployment_profile_ref"]}
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.state.matches_effect",
+      "description": "The acknowledged state root cannot be substituted outside the authority effect.",
+      "expression": {"operator": "fields_equal", "paths": ["$.acknowledged_state_root", "$.authority_effect_material.acknowledged_state_root"]}
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.destination.matches_effect",
+      "description": "The destination cannot be substituted outside the authority effect.",
+      "expression": {"operator": "fields_equal", "paths": ["$.destination_ref", "$.authority_effect_material.destination_ref"]}
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.destination.differs_from_source",
+      "description": "A migration destination acknowledgement cannot certify a no-op destination equal to the current deployment profile.",
+      "expression": {"operator": "fields_not_equal", "paths": ["$.source_deployment_profile_ref", "$.destination_ref"]}
+    }
+  ]
+}

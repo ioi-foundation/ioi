@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.autonomous-system-network-enrollment-transition.v1",
+  "lifecycle_transition_id": "lifecycle-transition://acme/system-alpha/continuity/sequence/4",
+  "system_id": "system://acme/system-alpha",
+  "op": "exit_local_enrollment",
+  "sequence": 4,
+  "proposal_ref": "proposal://acme/system-alpha/continuity/sequence/4",
+  "proposal_root": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "decision_ref": "decision://acme/system-alpha/continuity/sequence/4",
+  "decision_root": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "predecessor_state_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "resulting_state_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "predecessor_enrollment_ref": "network-enrollment://acme/system-alpha/local",
+  "predecessor_enrollment_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "resulting_enrollment_ref": "network-enrollment://acme/system-alpha/local",
+  "resulting_enrollment_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "operation_commitment": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "authority_effect_material": {},
+  "authority_grant_refs": ["grant://wallet.network/approval/sha256:4444444444444444444444444444444444444444444444444444444444444444"],
+  "receipt_refs": ["receipt://acme/system-alpha/continuity/sequence/4"],
+  "status": "committed"
+}

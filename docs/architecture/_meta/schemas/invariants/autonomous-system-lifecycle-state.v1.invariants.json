@@ -5,7 +5,7 @@
   "rules": [
     {
       "rule_id": "autonomous_system_lifecycle_state.root.recomputes",
-      "description": "The semantic lifecycle-state root binds predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation is deliberately excluded so the commitment graph is acyclic.",
+      "description": "The semantic lifecycle-state root binds predecessor, sequence, status, the unchanged profile-set coordinates, and the live governing authority; transition, receipt, chain, and created_at navigation is deliberately excluded so the commitment graph is acyclic.",
       "expression": {
         "operator": "jcs_sha256_equals",
         "algorithm": "jcs_sha256",
@@ -33,6 +33,9 @@
           },
           "active_profile_set_root": {
             "path": "$.active_profile_set_root"
+          },
+          "governing_authority_ref": {
+            "path": "$.governing_authority_ref"
           }
         },
         "expected_path": "$.lifecycle_state_root",

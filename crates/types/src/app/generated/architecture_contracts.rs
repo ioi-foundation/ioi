@@ -193,7 +193,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
-        "sha256:e98ab969ff40ac8bc19079c9f4f6df6f0a75d8d2b3d4a91b4fd721536d60dd61",
+        "sha256:2137a6b27fe3ef6a0a72047fc4484c874dcb825939f651204538f9883706e0af",
     ),
     (
         "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
@@ -201,7 +201,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
-        "sha256:0053e6d7285ae284a49befd7775a22b7ab7fac131cf47cf87bd92a196ddd6412",
+        "sha256:8ba7a13ea9b9c6a1a5e7f2804ef0ea2de2cf65be11600bd784157bce260361c4",
     ),
     (
         "schema://ioi/foundations/autonomous-system-operation-log/v2",
@@ -217,11 +217,11 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1",
-        "sha256:824dc90710f2649d0ea10e00113748b757df6f03bcf5cebacb944412f3c14ca0",
+        "sha256:a0ae601ec1c69c0e6b2717d1b776ec31cf98485bc74b95b3d57b88fdf306a0e8",
     ),
     (
         "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1",
-        "sha256:91f4c82506ed0645a35495e65145d68f08993099de7c4dce97c1cd2bc2c6d73a",
+        "sha256:e0d60d363cab0d338cdc87058ba927a299cdd1bd240141ca326149b61678674c",
     ),
     (
         "schema://ioi/foundations/autonomous-system-amendment-transition/v1",
@@ -234,6 +234,18 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     (
         "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
         "sha256:051100663f24d5fad21c9a5336813d11b3a7afd935cf36ef9b8d012f349bf6e4",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+        "sha256:5ad0f84a10bb89f930e5d04fd2f76a56fb902faa1a464670faad1058ddc7d261",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+        "sha256:ddae020709d8d73124c561a94812c2d8d3c3e12053d8ddee5c1fad0b4fe82d67",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
+        "sha256:6a8401ac0ea076022e78b2103109842fac414269ab56a0fe39159f048491db4d",
     ),
 ];
 
@@ -24792,7 +24804,7 @@ impl<'de> serde::Deserialize<'de> for AutonomousSystemProtectedTransitionProposa
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1","title":"AutonomousSystemProtectedTransitionProposal","description":"Immutable server-derived proposal for one generic protected operational lifecycle transition of a live Autonomous System at sequence three or later. It embeds the exact closed server-derived authority effect, is evidence only, grants no authority, never stands for bootstrap initialize/activate, and never stands for amendment, migration/succession, dissolution, or enrollment, which retain their named owners.","x-ioi-schema-version":"ioi.autonomous-system-protected-transition-proposal.v1","type":"object","additionalProperties":false,"required":["schema_version","proposal_ref","proposal_root","system_id","genesis_ref","op","sequence","predecessor_status","predecessor_state_root","predecessor_chain_head_root","irreversibility","required_scope","operation_commitment","authority_effect","authority_effect_hash","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-proposal.v1"},"proposal_ref":{"type":"string","pattern":"^proposal://[A-Za-z0-9._:/-]+$"},"proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"irreversibility":{"enum":["reversible","one_way","terminal"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_effect":{"$ref":"#/$defs/authorityEffect"},"authority_effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"const":"proposed"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"op":{"const":"pause"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","degraded"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"pause"},"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","degraded"]},"resulting_status":{"const":"paused"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"resume"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"resume"},"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"suspend"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","degraded","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"suspend"},"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","degraded","paused"]},"resulting_status":{"const":"suspended"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"reinstate"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"reinstate"},"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"enter_dormancy"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"enter_dormancy"},"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","paused"]},"resulting_status":{"const":"dormant"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"wake"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"wake"},"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"begin_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"begin_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"resulting_status":{"const":"recovering"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"complete_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"complete_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","degraded","paused","recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","degraded","paused","recovering"]},"resulting_status":{"const":"quarantined"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"release_quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"release_quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"retire"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","paused","suspended","dormant"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"retire"},"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","paused","suspended","dormant"]},"resulting_status":{"const":"retired"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"archive"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"archive"},"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"resulting_status":{"const":"archived"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"revoke"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"revoke"},"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"resulting_status":{"const":"revoked"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"decommission"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"irreversibility":{"const":"terminal"},"authority_effect":{"type":"object","properties":{"op":{"const":"decommission"},"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"resulting_status":{"const":"decommissioned"},"irreversibility":{"const":"terminal"}}}}}}],"$defs":{"authorityEffect":{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","irreversibility","system_id","genesis_ref","source_governing_authority_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","deployment_profile_ref","deployment_profile_root","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_proposal_root","predecessor_decision_root","predecessor_transition_root","predecessor_receipt_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","active_profile_set_ref","active_profile_set_root","chain_ref","live_chain_created","node_membership_created","runtime_effect_admitted","network_effect_admitted","constitution_changed","profile_set_changed","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-authority-effect.v1"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"home_domain_binding_ref":{"type":"string","pattern":"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"},"home_domain_binding_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"module_registry_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"upgrade_policy_ref":{"type":"string","pattern":"^policy://[A-Za-z0-9._:/-]+$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[A-Za-z0-9._:/-]+$"},"deployment_profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_ref":{"type":"string","pattern":"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_transition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resulting_status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"resulting_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"live_chain_created":{"const":false},"node_membership_created":{"const":false},"runtime_effect_admitted":{"const":false},"network_effect_admitted":{"const":false},"constitution_changed":{"const":false},"profile_set_changed":{"const":false},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1","title":"AutonomousSystemProtectedTransitionProposal","description":"Immutable server-derived proposal for one generic protected operational lifecycle transition of a live Autonomous System at sequence three or later. It embeds the exact closed server-derived authority effect, is evidence only, grants no authority, never stands for bootstrap initialize/activate, and never stands for amendment, migration/succession, dissolution, or enrollment, which retain their named owners.","x-ioi-schema-version":"ioi.autonomous-system-protected-transition-proposal.v1","type":"object","additionalProperties":false,"required":["schema_version","proposal_ref","proposal_root","system_id","genesis_ref","op","sequence","predecessor_status","predecessor_state_root","predecessor_chain_head_root","irreversibility","required_scope","operation_commitment","authority_effect","authority_effect_hash","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-proposal.v1"},"proposal_ref":{"type":"string","pattern":"^proposal://[A-Za-z0-9._:/-]+$"},"proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"irreversibility":{"enum":["reversible","one_way","terminal"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_effect":{"$ref":"#/$defs/authorityEffect"},"authority_effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"const":"proposed"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"op":{"const":"pause"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","successor_governed","degraded"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"pause"},"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","successor_governed","degraded"]},"resulting_status":{"const":"paused"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"resume"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"resume"},"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"suspend"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"suspend"},"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused"]},"resulting_status":{"const":"suspended"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"reinstate"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"reinstate"},"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"enter_dormancy"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","successor_governed","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"enter_dormancy"},"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","successor_governed","paused"]},"resulting_status":{"const":"dormant"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"wake"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"wake"},"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"begin_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"begin_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"resulting_status":{"const":"recovering"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"complete_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"complete_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","recovering"]},"resulting_status":{"const":"quarantined"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"release_quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"release_quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"retire"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","successor_governed","paused","suspended","dormant"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"retire"},"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","successor_governed","paused","suspended","dormant"]},"resulting_status":{"const":"retired"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"archive"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"archive"},"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"resulting_status":{"const":"archived"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"revoke"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"revoke"},"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"resulting_status":{"const":"revoked"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"decommission"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"irreversibility":{"const":"terminal"},"authority_effect":{"type":"object","properties":{"op":{"const":"decommission"},"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"resulting_status":{"const":"decommissioned"},"irreversibility":{"const":"terminal"}}}}}}],"$defs":{"authorityEffect":{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","irreversibility","system_id","genesis_ref","source_governing_authority_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","deployment_profile_ref","deployment_profile_root","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_proposal_root","predecessor_decision_root","predecessor_transition_root","predecessor_receipt_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","active_profile_set_ref","active_profile_set_root","chain_ref","live_chain_created","node_membership_created","runtime_effect_admitted","network_effect_admitted","constitution_changed","profile_set_changed","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-authority-effect.v1"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"home_domain_binding_ref":{"type":"string","pattern":"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"},"home_domain_binding_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"module_registry_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"upgrade_policy_ref":{"type":"string","pattern":"^policy://[A-Za-z0-9._:/-]+$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[A-Za-z0-9._:/-]+$"},"deployment_profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_ref":{"type":"string","pattern":"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_transition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resulting_status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"resulting_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"live_chain_created":{"const":false},"node_membership_created":{"const":false},"runtime_effect_admitted":{"const":false},"network_effect_admitted":{"const":false},"constitution_changed":{"const":false},"profile_set_changed":{"const":false},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -24961,6 +24973,8 @@ pub enum AutonomousSystemProtectedTransitionProposalV1Op {
 pub enum AutonomousSystemProtectedTransitionProposalV1PredecessorStatus {
     #[serde(rename = r#"active"#)]
     Active,
+    #[serde(rename = r#"successor_governed"#)]
+    SuccessorGoverned,
     #[serde(rename = r#"degraded"#)]
     Degraded,
     #[serde(rename = r#"paused"#)]
@@ -25082,7 +25096,7 @@ impl<'de> serde::Deserialize<'de> for AutonomousSystemProtectedTransitionProposa
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1"#,
-            r#"{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","irreversibility","system_id","genesis_ref","source_governing_authority_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","deployment_profile_ref","deployment_profile_root","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_proposal_root","predecessor_decision_root","predecessor_transition_root","predecessor_receipt_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","active_profile_set_ref","active_profile_set_root","chain_ref","live_chain_created","node_membership_created","runtime_effect_admitted","network_effect_admitted","constitution_changed","profile_set_changed","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-authority-effect.v1"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"home_domain_binding_ref":{"type":"string","pattern":"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"},"home_domain_binding_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"module_registry_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"upgrade_policy_ref":{"type":"string","pattern":"^policy://[A-Za-z0-9._:/-]+$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[A-Za-z0-9._:/-]+$"},"deployment_profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_ref":{"type":"string","pattern":"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_transition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resulting_status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"resulting_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"live_chain_created":{"const":false},"node_membership_created":{"const":false},"runtime_effect_admitted":{"const":false},"network_effect_admitted":{"const":false},"constitution_changed":{"const":false},"profile_set_changed":{"const":false},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","irreversibility","system_id","genesis_ref","source_governing_authority_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","deployment_profile_ref","deployment_profile_root","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_proposal_root","predecessor_decision_root","predecessor_transition_root","predecessor_receipt_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","active_profile_set_ref","active_profile_set_root","chain_ref","live_chain_created","node_membership_created","runtime_effect_admitted","network_effect_admitted","constitution_changed","profile_set_changed","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-authority-effect.v1"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"home_domain_binding_ref":{"type":"string","pattern":"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"},"home_domain_binding_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"module_registry_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"upgrade_policy_ref":{"type":"string","pattern":"^policy://[A-Za-z0-9._:/-]+$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[A-Za-z0-9._:/-]+$"},"deployment_profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_ref":{"type":"string","pattern":"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_transition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resulting_status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"resulting_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"live_chain_created":{"const":false},"node_membership_created":{"const":false},"runtime_effect_admitted":{"const":false},"network_effect_admitted":{"const":false},"constitution_changed":{"const":false},"profile_set_changed":{"const":false},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -25445,6 +25459,8 @@ pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectIrreversibi
 pub enum AutonomousSystemProtectedTransitionProposalV1AuthorityEffectPredecessorStatus {
     #[serde(rename = r#"active"#)]
     Active,
+    #[serde(rename = r#"successor_governed"#)]
+    SuccessorGoverned,
     #[serde(rename = r#"degraded"#)]
     Degraded,
     #[serde(rename = r#"paused"#)]
@@ -25983,6 +25999,7 @@ pub struct AutonomousSystemLifecycleStateV1 {
     pub transition_receipt_root: Option<String>,
     pub active_profile_set_ref: String,
     pub active_profile_set_root: String,
+    pub governing_authority_ref: String,
     pub chain_ref: String,
     pub created_at: Option<String>,
 }
@@ -25995,7 +26012,7 @@ impl<'de> serde::Deserialize<'de> for AutonomousSystemLifecycleStateV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/autonomous-system-lifecycle-state/v1"#,
-            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-lifecycle-state/v1","title":"AutonomousSystemLifecycleState","description":"Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds only predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic. Succession, dissolution, and enrollment statuses are reserved for their named owner families.","x-ioi-schema-version":"ioi.autonomous-system-lifecycle-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-lifecycle-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"transition_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_receipt_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-lifecycle-state/v1","title":"AutonomousSystemLifecycleState","description":"Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds predecessor, sequence, status, the unchanged profile-set coordinates, and the live governing authority; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic.","x-ioi-schema-version":"ioi.autonomous-system-lifecycle-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","governing_authority_ref","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-lifecycle-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","successor_governed","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"transition_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_receipt_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"governing_authority_ref":{"type":"string","pattern":"^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -26083,6 +26100,12 @@ impl<'de> serde::Deserialize<'de> for AutonomousSystemLifecycleStateV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_root"#))?,
             )
             .map_err(serde::de::Error::custom)?,
+            governing_authority_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"governing_authority_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             chain_ref: serde_json::from_value::<String>(
                 object
                     .remove(r#"chain_ref"#)
@@ -26109,6 +26132,8 @@ pub enum AutonomousSystemLifecycleStateV1SchemaVersion {
 pub enum AutonomousSystemLifecycleStateV1Status {
     #[serde(rename = r#"active"#)]
     Active,
+    #[serde(rename = r#"successor_governed"#)]
+    SuccessorGoverned,
     #[serde(rename = r#"paused"#)]
     Paused,
     #[serde(rename = r#"suspended"#)]
@@ -28179,7 +28204,7 @@ impl<'de> serde::Deserialize<'de> for AutonomousSystemChainWriterReservationV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","title":"AutonomousSystemChainWriterReservation","description":"Expected-absent predecessor ownership reserved before wallet consumption so only one independent writer can materialize the next chain revision.","x-ioi-schema-version":"ioi.autonomous-system-chain-writer-reservation.v1","type":"object","additionalProperties":false,"required":["schema_version","reservation_ref","system_id","sequence","predecessor_chain_root","writer_plan_hash","operation_ref","operation_root","operation"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-writer-reservation.v1"},"reservation_ref":{"type":"string","pattern":"^chain-writer-reservation://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"writer_plan_hash":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","title":"AutonomousSystemChainWriterReservation","description":"Expected-absent predecessor ownership reserved before wallet consumption so only one independent writer can materialize the next chain revision.","x-ioi-schema-version":"ioi.autonomous-system-chain-writer-reservation.v1","type":"object","additionalProperties":false,"required":["schema_version","reservation_ref","system_id","sequence","predecessor_chain_root","writer_plan_hash","operation_ref","operation_root","operation"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-writer-reservation.v1"},"reservation_ref":{"type":"string","pattern":"^chain-writer-reservation://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"writer_plan_hash":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","complete_dissolution","enroll_local","exit_local_enrollment"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -28286,6 +28311,20 @@ pub enum AutonomousSystemChainWriterReservationV1Operation {
     Decommission,
     #[serde(rename = r#"amend_constitution"#)]
     AmendConstitution,
+    #[serde(rename = r#"initiate_succession"#)]
+    InitiateSuccession,
+    #[serde(rename = r#"complete_succession"#)]
+    CompleteSuccession,
+    #[serde(rename = r#"migrate"#)]
+    Migrate,
+    #[serde(rename = r#"initiate_dissolution"#)]
+    InitiateDissolution,
+    #[serde(rename = r#"complete_dissolution"#)]
+    CompleteDissolution,
+    #[serde(rename = r#"enroll_local"#)]
+    EnrollLocal,
+    #[serde(rename = r#"exit_local_enrollment"#)]
+    ExitLocalEnrollment,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -28310,7 +28349,7 @@ impl<'de> serde::Deserialize<'de> for AutonomousSystemChainSuccessorClaimV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1","title":"AutonomousSystemChainSuccessorClaim","x-ioi-schema-version":"ioi.autonomous-system-chain-successor-claim.v1","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","system_id","sequence","predecessor_chain_root","successor_chain_root","operation_ref","operation_root","operation","committed_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-successor-claim.v1"},"claim_ref":{"type":"string","pattern":"^chain-successor-claim://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"successor_chain_root":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"type":"string","enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution"]},"committed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1","title":"AutonomousSystemChainSuccessorClaim","x-ioi-schema-version":"ioi.autonomous-system-chain-successor-claim.v1","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","system_id","sequence","predecessor_chain_root","successor_chain_root","operation_ref","operation_root","operation","committed_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-successor-claim.v1"},"claim_ref":{"type":"string","pattern":"^chain-successor-claim://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"successor_chain_root":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"type":"string","enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","complete_dissolution","enroll_local","exit_local_enrollment"]},"committed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -28423,6 +28462,20 @@ pub enum AutonomousSystemChainSuccessorClaimV1Operation {
     Decommission,
     #[serde(rename = r#"amend_constitution"#)]
     AmendConstitution,
+    #[serde(rename = r#"initiate_succession"#)]
+    InitiateSuccession,
+    #[serde(rename = r#"complete_succession"#)]
+    CompleteSuccession,
+    #[serde(rename = r#"migrate"#)]
+    Migrate,
+    #[serde(rename = r#"initiate_dissolution"#)]
+    InitiateDissolution,
+    #[serde(rename = r#"complete_dissolution"#)]
+    CompleteDissolution,
+    #[serde(rename = r#"enroll_local"#)]
+    EnrollLocal,
+    #[serde(rename = r#"exit_local_enrollment"#)]
+    ExitLocalEnrollment,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -30122,6 +30175,1267 @@ pub enum AutonomousSystemActiveProfileSetV2Status {
     Active,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemMigrationDestinationAcknowledgementV1 {
+    pub schema_version: AutonomousSystemMigrationDestinationAcknowledgementV1SchemaVersion,
+    pub acknowledgement_ref: String,
+    pub acknowledgement_root: String,
+    pub system_id: String,
+    pub predecessor_state_ref: String,
+    pub predecessor_state_root: String,
+    pub predecessor_chain_head_root: String,
+    pub source_deployment_profile_ref: String,
+    pub destination_ref: String,
+    pub acknowledged_state_root: String,
+    pub required_scope: AutonomousSystemMigrationDestinationAcknowledgementV1RequiredScope,
+    pub operation_commitment: String,
+    pub authority_effect_material:
+        AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterial,
+    pub authority_grant_refs: Vec<String>,
+    pub authority_evidence_ref: String,
+    pub authority_evidence_root: String,
+    pub wallet_consumption_ref: String,
+    pub wallet_consumption_root: String,
+    pub receipt_ref: String,
+    pub receipt_root: String,
+    pub status: AutonomousSystemMigrationDestinationAcknowledgementV1Status,
+    pub created_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemMigrationDestinationAcknowledgementV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1","title":"AutonomousSystemMigrationDestinationAcknowledgement","description":"A separately authorized, content-addressed acknowledgement that an exact live System state is durably available at a distinct migration destination before the migrate transition may execute.","x-ioi-schema-version":"ioi.autonomous-system-migration-destination-acknowledgement.v1","type":"object","additionalProperties":false,"required":["schema_version","acknowledgement_ref","acknowledgement_root","system_id","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","source_deployment_profile_ref","destination_ref","acknowledged_state_root","required_scope","operation_commitment","authority_effect_material","authority_grant_refs","authority_evidence_ref","authority_evidence_root","wallet_consumption_ref","wallet_consumption_root","receipt_ref","receipt_root","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-migration-destination-acknowledgement.v1"},"acknowledgement_ref":{"type":"string","pattern":"^migration-destination-acknowledgement://[^\\s]{1,248}$"},"acknowledgement_root":{"$ref":"#/$defs/hash"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"predecessor_state_ref":{"type":"string","pattern":"^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"source_deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"destination_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"acknowledged_state_root":{"$ref":"#/$defs/hash"},"required_scope":{"const":"scope:autonomous_system.continuity.migration_destination_acknowledge"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","source_deployment_profile_ref","destination_ref","acknowledged_state_root","identity_preserved","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-migration-destination-acknowledgement-effect.v1"},"op":{"const":"acknowledge_migration_destination"},"required_scope":{"const":"scope:autonomous_system.continuity.migration_destination_acknowledge"},"sequence":{"type":"integer","minimum":2,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_state_ref":{"type":"string","pattern":"^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"source_deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"destination_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"acknowledged_state_root":{"$ref":"#/$defs/hash"},"identity_preserved":{"const":true},"operation_commitment":{"type":"null"}}},"authority_grant_refs":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"}},"authority_evidence_ref":{"type":"string","pattern":"^system-lifecycle-authority-evidence://[^\\s]{1,248}$"},"authority_evidence_root":{"$ref":"#/$defs/hash"},"wallet_consumption_ref":{"type":"string","pattern":"^wallet[.]network://approval-effect-consumption/[^\\s]{1,248}$"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"receipt_root":{"$ref":"#/$defs/hash"},"status":{"const":"committed"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemMigrationDestinationAcknowledgementV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acknowledgement_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"acknowledgement_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acknowledgement_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acknowledgement_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"acknowledgement_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acknowledgement_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_chain_head_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_chain_head_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_chain_head_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_deployment_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"source_deployment_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            destination_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"destination_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"destination_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acknowledged_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"acknowledged_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acknowledged_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<
+                AutonomousSystemMigrationDestinationAcknowledgementV1RequiredScope,
+            >(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_effect_material: serde_json::from_value::<
+                AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterial,
+            >(
+                object
+                    .remove(r#"authority_effect_material"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_effect_material"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_evidence_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_evidence_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_evidence_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            wallet_consumption_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"wallet_consumption_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"wallet_consumption_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            wallet_consumption_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"wallet_consumption_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"wallet_consumption_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<
+                AutonomousSystemMigrationDestinationAcknowledgementV1Status,
+            >(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMigrationDestinationAcknowledgementV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-migration-destination-acknowledgement.v1"#)]
+    IoiAutonomousSystemMigrationDestinationAcknowledgementV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMigrationDestinationAcknowledgementV1RequiredScope {
+    #[serde(rename = r#"scope:autonomous_system.continuity.migration_destination_acknowledge"#)]
+    ScopeAutonomousSystemContinuityMigrationDestinationAcknowledge,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterial {
+    pub schema_version: AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialSchemaVersion,
+    pub op: AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialOp,
+    pub required_scope: AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialRequiredScope,
+    pub sequence: ArchitectureContractInteger,
+    pub system_id: String,
+    pub genesis_ref: String,
+    pub source_governing_authority_ref: String,
+    pub predecessor_state_ref: String,
+    pub predecessor_state_root: String,
+    pub predecessor_chain_head_root: String,
+    pub source_deployment_profile_ref: String,
+    pub destination_ref: String,
+    pub acknowledged_state_root: String,
+    pub identity_preserved: AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialIdentityPreserved,
+    pub operation_commitment: (),
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterial
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","source_deployment_profile_ref","destination_ref","acknowledged_state_root","identity_preserved","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-migration-destination-acknowledgement-effect.v1"},"op":{"const":"acknowledge_migration_destination"},"required_scope":{"const":"scope:autonomous_system.continuity.migration_destination_acknowledge"},"sequence":{"type":"integer","minimum":2,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_state_ref":{"type":"string","pattern":"^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"source_deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"destination_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"acknowledged_state_root":{"$ref":"#/$defs/hash"},"identity_preserved":{"const":true},"operation_commitment":{"type":"null"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialOp>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialRequiredScope>(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_governing_authority_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_governing_authority_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_governing_authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_chain_head_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_chain_head_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_chain_head_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            destination_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"destination_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"destination_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acknowledged_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"acknowledged_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acknowledged_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_preserved: serde_json::from_value::<AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialIdentityPreserved>(
+                object
+                    .remove(r#"identity_preserved"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"identity_preserved"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<()>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialSchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-migration-destination-acknowledgement-effect.v1"#)]
+    IoiAutonomousSystemMigrationDestinationAcknowledgementEffectV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialOp {
+    #[serde(rename = r#"acknowledge_migration_destination"#)]
+    AcknowledgeMigrationDestination,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialRequiredScope {
+    #[serde(rename = r#"scope:autonomous_system.continuity.migration_destination_acknowledge"#)]
+    ScopeAutonomousSystemContinuityMigrationDestinationAcknowledge,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialIdentityPreserved
+{
+    True,
+}
+
+impl serde::Serialize for AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialIdentityPreserved {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemMigrationDestinationAcknowledgementV1AuthorityEffectMaterialIdentityPreserved {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMigrationDestinationAcknowledgementV1Status {
+    #[serde(rename = r#"committed"#)]
+    Committed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemContinuityStateV1 {
+    pub schema_version: AutonomousSystemContinuityStateV1SchemaVersion,
+    pub lifecycle_state_ref: String,
+    pub lifecycle_state_root: String,
+    pub system_id: String,
+    pub sequence: ArchitectureContractInteger,
+    pub status: AutonomousSystemContinuityStateV1Status,
+    pub predecessor_state_root: String,
+    pub transition_ref: String,
+    pub transition_root: String,
+    pub transition_receipt_ref: String,
+    pub transition_receipt_root: String,
+    pub active_profile_set_ref: String,
+    pub active_profile_set_root: String,
+    pub governing_authority_ref: String,
+    pub pending_successor_candidate_ref: Option<String>,
+    pub network_enrollment_ref: Option<String>,
+    pub network_enrollment_root: Option<String>,
+    pub migration_destination_ref: Option<String>,
+    pub chain_ref: String,
+    pub created_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemContinuityStateV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-continuity-state/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-continuity-state/v1","title":"AutonomousSystemContinuityState","description":"Committed state for named succession, migration, dissolution, and local-enrollment transitions.","x-ioi-schema-version":"ioi.autonomous-system-continuity-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","governing_authority_ref","pending_successor_candidate_ref","network_enrollment_ref","network_enrollment_root","migration_destination_ref","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"$ref":"#/$defs/hash"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","succession_pending","successor_governed","dissolution_pending","dissolved"]},"predecessor_state_root":{"$ref":"#/$defs/hash"},"transition_ref":{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},"transition_root":{"$ref":"#/$defs/hash"},"transition_receipt_ref":{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},"transition_receipt_root":{"$ref":"#/$defs/hash"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"governing_authority_ref":{"type":"string","pattern":"^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$"},"pending_successor_candidate_ref":{"oneOf":[{"type":"string","pattern":"^(?:principal|wallet|organization|org)://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_ref":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_root":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"migration_destination_ref":{"oneOf":[{"type":"string","pattern":"^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$"},{"type":"null"}]},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"status":{"const":"succession_pending"}}},"then":{"properties":{"pending_successor_candidate_ref":{"type":"string"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"null"}}},"then":{"properties":{"network_enrollment_root":{"type":"null"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"string"}}},"then":{"properties":{"network_enrollment_root":{"$ref":"#/$defs/hash"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<AutonomousSystemContinuityStateV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            lifecycle_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemContinuityStateV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transition_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transition_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_receipt_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transition_receipt_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_receipt_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_profile_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_profile_set_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_authority_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"governing_authority_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pending_successor_candidate_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"pending_successor_candidate_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"pending_successor_candidate_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"network_enrollment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_enrollment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_enrollment_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"network_enrollment_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_enrollment_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration_destination_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"migration_destination_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"migration_destination_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"chain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemContinuityStateV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-continuity-state.v1"#)]
+    IoiAutonomousSystemContinuityStateV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemContinuityStateV1Status {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"succession_pending"#)]
+    SuccessionPending,
+    #[serde(rename = r#"successor_governed"#)]
+    SuccessorGoverned,
+    #[serde(rename = r#"dissolution_pending"#)]
+    DissolutionPending,
+    #[serde(rename = r#"dissolved"#)]
+    Dissolved,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemNetworkEnrollmentTransitionV1 {
+    pub schema_version: AutonomousSystemNetworkEnrollmentTransitionV1SchemaVersion,
+    pub lifecycle_transition_id: String,
+    pub system_id: String,
+    pub op: AutonomousSystemNetworkEnrollmentTransitionV1Op,
+    pub sequence: ArchitectureContractInteger,
+    pub proposal_ref: String,
+    pub proposal_root: String,
+    pub decision_ref: String,
+    pub decision_root: String,
+    pub predecessor_state_root: String,
+    pub resulting_state_root: String,
+    pub predecessor_enrollment_ref: Option<String>,
+    pub predecessor_enrollment_root: Option<String>,
+    pub resulting_enrollment_ref: Option<String>,
+    pub resulting_enrollment_root: Option<String>,
+    pub operation_commitment: String,
+    pub authority_effect_material:
+        AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterial,
+    pub authority_grant_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub status: AutonomousSystemNetworkEnrollmentTransitionV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemNetworkEnrollmentTransitionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1","title":"AutonomousSystemNetworkEnrollmentTransition","description":"Committed compare-and-swap transition for local-only enrollment admission or exit.","x-ioi-schema-version":"ioi.autonomous-system-network-enrollment-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_transition_id","system_id","op","sequence","proposal_ref","proposal_root","decision_ref","decision_root","predecessor_state_root","resulting_state_root","predecessor_enrollment_ref","predecessor_enrollment_root","resulting_enrollment_ref","resulting_enrollment_root","operation_commitment","authority_effect_material","authority_grant_refs","receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-network-enrollment-transition.v1"},"lifecycle_transition_id":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"op":{"enum":["enroll_local","exit_local_enrollment"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"decision_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/hash"},"predecessor_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"predecessor_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_enrollment_root":{"$ref":"#/$defs/nullableHash"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","transition_kind","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","resulting_governing_authority_ref","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","constitution_ref","lifecycle_profile_ref","active_profile_set_ref","active_profile_set_root","chain_ref","current_network_enrollment_ref","current_network_enrollment_root","resulting_network_enrollment_ref","resulting_network_enrollment_root","trigger_evidence_refs","successor_candidate_ref","successor_authority_ref","successor_authority_binding","migration_destination_ack_ref","migration_destination_ack_root","migration_destination_ref","verified_migration_state_root","residual_disposition","live_effect_refs","identity_preserved","authority_widened","network_assurance_admitted","runtime_effect_admitted","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-authority-effect.v1"},"op":{"enum":["enroll_local","exit_local_enrollment"]},"transition_kind":{"type":"null"},"required_scope":{"enum":["scope:autonomous_system.network_enrollment.local.enroll","scope:autonomous_system.network_enrollment.local.exit"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"resulting_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_status":{"enum":["active","successor_governed"]},"predecessor_state_ref":{"type":"string","pattern":"^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"resulting_status":{"enum":["active","successor_governed"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"resulting_state_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"current_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"current_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"trigger_evidence_refs":{"type":"array","maxItems":0},"successor_candidate_ref":{"type":"null"},"successor_authority_ref":{"type":"null"},"successor_authority_binding":{"type":"null"},"migration_destination_ack_ref":{"type":"null"},"migration_destination_ack_root":{"type":"null"},"migration_destination_ref":{"type":"null"},"verified_migration_state_root":{"type":"null"},"residual_disposition":{"type":"null"},"live_effect_refs":{"type":"array","maxItems":0},"identity_preserved":{"const":true},"authority_widened":{"const":false},"network_assurance_admitted":{"const":false},"runtime_effect_admitted":{"const":false},"operation_commitment":{"type":"null"}}},"authority_grant_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}},"status":{"const":"committed"}},"allOf":[{"if":{"properties":{"op":{"const":"enroll_local"}}},"then":{"properties":{"resulting_enrollment_ref":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"resulting_enrollment_root":{"$ref":"#/$defs/hash"}}}},{"if":{"properties":{"op":{"const":"exit_local_enrollment"}}},"then":{"properties":{"predecessor_enrollment_ref":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"predecessor_enrollment_root":{"$ref":"#/$defs/hash"},"resulting_enrollment_ref":{"type":"null"},"resulting_enrollment_root":{"type":"null"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableEnrollment":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"nullableHash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemNetworkEnrollmentTransitionV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_transition_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_transition_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_transition_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1Op>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_enrollment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_enrollment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_enrollment_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_enrollment_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_enrollment_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_enrollment_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resulting_enrollment_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_enrollment_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_enrollment_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resulting_enrollment_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_effect_material: serde_json::from_value::<
+                AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterial,
+            >(
+                object
+                    .remove(r#"authority_effect_material"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_effect_material"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-network-enrollment-transition.v1"#)]
+    IoiAutonomousSystemNetworkEnrollmentTransitionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1Op {
+    #[serde(rename = r#"enroll_local"#)]
+    EnrollLocal,
+    #[serde(rename = r#"exit_local_enrollment"#)]
+    ExitLocalEnrollment,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterial {
+    pub schema_version: AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialSchemaVersion,
+    pub op: AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialOp,
+    pub transition_kind: (),
+    pub required_scope: AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialRequiredScope,
+    pub sequence: ArchitectureContractInteger,
+    pub system_id: String,
+    pub genesis_ref: String,
+    pub source_governing_authority_ref: String,
+    pub resulting_governing_authority_ref: String,
+    pub predecessor_status: AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialPredecessorStatus,
+    pub predecessor_state_ref: String,
+    pub predecessor_state_root: String,
+    pub predecessor_chain_head_root: String,
+    pub resulting_status: AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialResultingStatus,
+    pub resulting_state_ref: String,
+    pub resulting_state_root: String,
+    pub constitution_ref: String,
+    pub lifecycle_profile_ref: String,
+    pub active_profile_set_ref: String,
+    pub active_profile_set_root: String,
+    pub chain_ref: String,
+    pub current_network_enrollment_ref: Option<String>,
+    pub current_network_enrollment_root: Option<String>,
+    pub resulting_network_enrollment_ref: Option<String>,
+    pub resulting_network_enrollment_root: Option<String>,
+    pub trigger_evidence_refs: Vec<serde_json::Value>,
+    pub successor_candidate_ref: (),
+    pub successor_authority_ref: (),
+    pub successor_authority_binding: (),
+    pub migration_destination_ack_ref: (),
+    pub migration_destination_ack_root: (),
+    pub migration_destination_ref: (),
+    pub verified_migration_state_root: (),
+    pub residual_disposition: (),
+    pub live_effect_refs: Vec<serde_json::Value>,
+    pub identity_preserved: AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialIdentityPreserved,
+    pub authority_widened: AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialAuthorityWidened,
+    pub network_assurance_admitted: AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialNetworkAssuranceAdmitted,
+    pub runtime_effect_admitted: AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialRuntimeEffectAdmitted,
+    pub operation_commitment: (),
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterial
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","op","transition_kind","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","resulting_governing_authority_ref","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","constitution_ref","lifecycle_profile_ref","active_profile_set_ref","active_profile_set_root","chain_ref","current_network_enrollment_ref","current_network_enrollment_root","resulting_network_enrollment_ref","resulting_network_enrollment_root","trigger_evidence_refs","successor_candidate_ref","successor_authority_ref","successor_authority_binding","migration_destination_ack_ref","migration_destination_ack_root","migration_destination_ref","verified_migration_state_root","residual_disposition","live_effect_refs","identity_preserved","authority_widened","network_assurance_admitted","runtime_effect_admitted","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-authority-effect.v1"},"op":{"enum":["enroll_local","exit_local_enrollment"]},"transition_kind":{"type":"null"},"required_scope":{"enum":["scope:autonomous_system.network_enrollment.local.enroll","scope:autonomous_system.network_enrollment.local.exit"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"resulting_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_status":{"enum":["active","successor_governed"]},"predecessor_state_ref":{"type":"string","pattern":"^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"resulting_status":{"enum":["active","successor_governed"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"resulting_state_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"current_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"current_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"trigger_evidence_refs":{"type":"array","maxItems":0},"successor_candidate_ref":{"type":"null"},"successor_authority_ref":{"type":"null"},"successor_authority_binding":{"type":"null"},"migration_destination_ack_ref":{"type":"null"},"migration_destination_ack_root":{"type":"null"},"migration_destination_ref":{"type":"null"},"verified_migration_state_root":{"type":"null"},"residual_disposition":{"type":"null"},"live_effect_refs":{"type":"array","maxItems":0},"identity_preserved":{"const":true},"authority_widened":{"const":false},"network_assurance_admitted":{"const":false},"runtime_effect_admitted":{"const":false},"operation_commitment":{"type":"null"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialOp>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_kind: serde_json::from_value::<()>(
+                object
+                    .remove(r#"transition_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialRequiredScope>(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_governing_authority_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_governing_authority_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_governing_authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_governing_authority_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_governing_authority_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_governing_authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_status: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialPredecessorStatus>(
+                object
+                    .remove(r#"predecessor_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_chain_head_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_chain_head_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_chain_head_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_status: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialResultingStatus>(
+                object
+                    .remove(r#"resulting_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_profile_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_profile_set_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"chain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            current_network_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"current_network_enrollment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"current_network_enrollment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            current_network_enrollment_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"current_network_enrollment_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"current_network_enrollment_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_network_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_network_enrollment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_network_enrollment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_network_enrollment_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_network_enrollment_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_network_enrollment_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trigger_evidence_refs: serde_json::from_value::<Vec<serde_json::Value>>(
+                object
+                    .remove(r#"trigger_evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"trigger_evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_candidate_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"successor_candidate_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"successor_candidate_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_authority_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"successor_authority_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"successor_authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_authority_binding: serde_json::from_value::<()>(
+                object
+                    .remove(r#"successor_authority_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"successor_authority_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration_destination_ack_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"migration_destination_ack_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration_destination_ack_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration_destination_ack_root: serde_json::from_value::<()>(
+                object
+                    .remove(r#"migration_destination_ack_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration_destination_ack_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration_destination_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"migration_destination_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration_destination_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verified_migration_state_root: serde_json::from_value::<()>(
+                object
+                    .remove(r#"verified_migration_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verified_migration_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            residual_disposition: serde_json::from_value::<()>(
+                object
+                    .remove(r#"residual_disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"residual_disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            live_effect_refs: serde_json::from_value::<Vec<serde_json::Value>>(
+                object
+                    .remove(r#"live_effect_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"live_effect_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_preserved: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialIdentityPreserved>(
+                object
+                    .remove(r#"identity_preserved"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"identity_preserved"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_widened: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialAuthorityWidened>(
+                object
+                    .remove(r#"authority_widened"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_widened"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_assurance_admitted: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialNetworkAssuranceAdmitted>(
+                object
+                    .remove(r#"network_assurance_admitted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_assurance_admitted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_effect_admitted: serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialRuntimeEffectAdmitted>(
+                object
+                    .remove(r#"runtime_effect_admitted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_effect_admitted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<()>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialSchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-continuity-authority-effect.v1"#)]
+    IoiAutonomousSystemContinuityAuthorityEffectV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialOp {
+    #[serde(rename = r#"enroll_local"#)]
+    EnrollLocal,
+    #[serde(rename = r#"exit_local_enrollment"#)]
+    ExitLocalEnrollment,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialRequiredScope {
+    #[serde(rename = r#"scope:autonomous_system.network_enrollment.local.enroll"#)]
+    ScopeAutonomousSystemNetworkEnrollmentLocalEnroll,
+    #[serde(rename = r#"scope:autonomous_system.network_enrollment.local.exit"#)]
+    ScopeAutonomousSystemNetworkEnrollmentLocalExit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialPredecessorStatus {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"successor_governed"#)]
+    SuccessorGoverned,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialResultingStatus {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"successor_governed"#)]
+    SuccessorGoverned,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialIdentityPreserved {
+    True,
+}
+
+impl serde::Serialize
+    for AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialIdentityPreserved
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialIdentityPreserved
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialAuthorityWidened {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialAuthorityWidened
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialAuthorityWidened
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialNetworkAssuranceAdmitted
+{
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialNetworkAssuranceAdmitted
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialNetworkAssuranceAdmitted
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialRuntimeEffectAdmitted {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialRuntimeEffectAdmitted
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemNetworkEnrollmentTransitionV1AuthorityEffectMaterialRuntimeEffectAdmitted
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNetworkEnrollmentTransitionV1Status {
+    #[serde(rename = r#"committed"#)]
+    Committed,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -31448,6 +32762,54 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
         path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_migration_destination_acknowledgement.root.recomputes"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -34855,6 +36217,72 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-continuity-state/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-continuity-state/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -36399,7 +37827,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
-        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1","title":"AutonomousSystemProtectedTransitionProposal","description":"Immutable server-derived proposal for one generic protected operational lifecycle transition of a live Autonomous System at sequence three or later. It embeds the exact closed server-derived authority effect, is evidence only, grants no authority, never stands for bootstrap initialize/activate, and never stands for amendment, migration/succession, dissolution, or enrollment, which retain their named owners.","x-ioi-schema-version":"ioi.autonomous-system-protected-transition-proposal.v1","type":"object","additionalProperties":false,"required":["schema_version","proposal_ref","proposal_root","system_id","genesis_ref","op","sequence","predecessor_status","predecessor_state_root","predecessor_chain_head_root","irreversibility","required_scope","operation_commitment","authority_effect","authority_effect_hash","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-proposal.v1"},"proposal_ref":{"type":"string","pattern":"^proposal://[A-Za-z0-9._:/-]+$"},"proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"irreversibility":{"enum":["reversible","one_way","terminal"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_effect":{"$ref":"#/$defs/authorityEffect"},"authority_effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"const":"proposed"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"op":{"const":"pause"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","degraded"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"pause"},"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","degraded"]},"resulting_status":{"const":"paused"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"resume"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"resume"},"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"suspend"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","degraded","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"suspend"},"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","degraded","paused"]},"resulting_status":{"const":"suspended"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"reinstate"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"reinstate"},"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"enter_dormancy"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"enter_dormancy"},"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","paused"]},"resulting_status":{"const":"dormant"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"wake"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"wake"},"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"begin_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"begin_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"resulting_status":{"const":"recovering"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"complete_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"complete_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","degraded","paused","recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","degraded","paused","recovering"]},"resulting_status":{"const":"quarantined"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"release_quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"release_quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"retire"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","paused","suspended","dormant"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"retire"},"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","paused","suspended","dormant"]},"resulting_status":{"const":"retired"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"archive"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"archive"},"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"resulting_status":{"const":"archived"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"revoke"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"revoke"},"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"resulting_status":{"const":"revoked"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"decommission"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"irreversibility":{"const":"terminal"},"authority_effect":{"type":"object","properties":{"op":{"const":"decommission"},"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"resulting_status":{"const":"decommissioned"},"irreversibility":{"const":"terminal"}}}}}}],"$defs":{"authorityEffect":{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","irreversibility","system_id","genesis_ref","source_governing_authority_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","deployment_profile_ref","deployment_profile_root","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_proposal_root","predecessor_decision_root","predecessor_transition_root","predecessor_receipt_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","active_profile_set_ref","active_profile_set_root","chain_ref","live_chain_created","node_membership_created","runtime_effect_admitted","network_effect_admitted","constitution_changed","profile_set_changed","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-authority-effect.v1"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"home_domain_binding_ref":{"type":"string","pattern":"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"},"home_domain_binding_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"module_registry_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"upgrade_policy_ref":{"type":"string","pattern":"^policy://[A-Za-z0-9._:/-]+$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[A-Za-z0-9._:/-]+$"},"deployment_profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_status":{"enum":["active","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_ref":{"type":"string","pattern":"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_transition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resulting_status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"resulting_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"live_chain_created":{"const":false},"node_membership_created":{"const":false},"runtime_effect_admitted":{"const":false},"network_effect_admitted":{"const":false},"constitution_changed":{"const":false},"profile_set_changed":{"const":false},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}}}"##,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1","title":"AutonomousSystemProtectedTransitionProposal","description":"Immutable server-derived proposal for one generic protected operational lifecycle transition of a live Autonomous System at sequence three or later. It embeds the exact closed server-derived authority effect, is evidence only, grants no authority, never stands for bootstrap initialize/activate, and never stands for amendment, migration/succession, dissolution, or enrollment, which retain their named owners.","x-ioi-schema-version":"ioi.autonomous-system-protected-transition-proposal.v1","type":"object","additionalProperties":false,"required":["schema_version","proposal_ref","proposal_root","system_id","genesis_ref","op","sequence","predecessor_status","predecessor_state_root","predecessor_chain_head_root","irreversibility","required_scope","operation_commitment","authority_effect","authority_effect_hash","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-proposal.v1"},"proposal_ref":{"type":"string","pattern":"^proposal://[A-Za-z0-9._:/-]+$"},"proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"irreversibility":{"enum":["reversible","one_way","terminal"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"authority_effect":{"$ref":"#/$defs/authorityEffect"},"authority_effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"const":"proposed"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"op":{"const":"pause"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","successor_governed","degraded"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"pause"},"required_scope":{"const":"scope:autonomous_system.lifecycle.pause"},"predecessor_status":{"enum":["active","successor_governed","degraded"]},"resulting_status":{"const":"paused"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"resume"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"resume"},"required_scope":{"const":"scope:autonomous_system.lifecycle.resume"},"predecessor_status":{"enum":["paused"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"suspend"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"suspend"},"required_scope":{"const":"scope:autonomous_system.lifecycle.suspend"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused"]},"resulting_status":{"const":"suspended"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"reinstate"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"reinstate"},"required_scope":{"const":"scope:autonomous_system.lifecycle.reinstate"},"predecessor_status":{"enum":["suspended"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"enter_dormancy"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","successor_governed","paused"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"enter_dormancy"},"required_scope":{"const":"scope:autonomous_system.lifecycle.enter_dormancy"},"predecessor_status":{"enum":["active","successor_governed","paused"]},"resulting_status":{"const":"dormant"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"wake"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"wake"},"required_scope":{"const":"scope:autonomous_system.lifecycle.wake"},"predecessor_status":{"enum":["dormant"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"begin_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"begin_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.begin_recovery"},"predecessor_status":{"enum":["degraded","suspended","quarantined"]},"resulting_status":{"const":"recovering"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"complete_recovery"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"complete_recovery"},"required_scope":{"const":"scope:autonomous_system.lifecycle.complete_recovery"},"predecessor_status":{"enum":["recovering"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","recovering"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.quarantine"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","recovering"]},"resulting_status":{"const":"quarantined"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"release_quarantine"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"irreversibility":{"const":"reversible"},"authority_effect":{"type":"object","properties":{"op":{"const":"release_quarantine"},"required_scope":{"const":"scope:autonomous_system.lifecycle.release_quarantine"},"predecessor_status":{"enum":["quarantined"]},"resulting_status":{"const":"active"},"irreversibility":{"const":"reversible"}}}}}},{"if":{"properties":{"op":{"const":"retire"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","successor_governed","paused","suspended","dormant"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"retire"},"required_scope":{"const":"scope:autonomous_system.lifecycle.retire"},"predecessor_status":{"enum":["active","successor_governed","paused","suspended","dormant"]},"resulting_status":{"const":"retired"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"archive"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"archive"},"required_scope":{"const":"scope:autonomous_system.lifecycle.archive"},"predecessor_status":{"enum":["retired"]},"resulting_status":{"const":"archived"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"revoke"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"irreversibility":{"const":"one_way"},"authority_effect":{"type":"object","properties":{"op":{"const":"revoke"},"required_scope":{"const":"scope:autonomous_system.lifecycle.revoke"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived"]},"resulting_status":{"const":"revoked"},"irreversibility":{"const":"one_way"}}}}}},{"if":{"properties":{"op":{"const":"decommission"}},"required":["op"]},"then":{"properties":{"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"irreversibility":{"const":"terminal"},"authority_effect":{"type":"object","properties":{"op":{"const":"decommission"},"required_scope":{"const":"scope:autonomous_system.lifecycle.decommission"},"predecessor_status":{"enum":["retired","archived","revoked"]},"resulting_status":{"const":"decommissioned"},"irreversibility":{"const":"terminal"}}}}}}],"$defs":{"authorityEffect":{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","irreversibility","system_id","genesis_ref","source_governing_authority_ref","home_domain_ref","home_domain_commitment","home_domain_binding_ref","home_domain_binding_root","policy_root","module_registry_root","upgrade_policy_ref","deployment_profile_ref","deployment_profile_root","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_proposal_root","predecessor_decision_root","predecessor_transition_root","predecessor_receipt_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","active_profile_set_ref","active_profile_set_root","chain_ref","live_chain_created","node_membership_created","runtime_effect_admitted","network_effect_admitted","constitution_changed","profile_set_changed","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-protected-transition-authority-effect.v1"},"op":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission"]},"required_scope":{"enum":["scope:autonomous_system.lifecycle.pause","scope:autonomous_system.lifecycle.resume","scope:autonomous_system.lifecycle.suspend","scope:autonomous_system.lifecycle.reinstate","scope:autonomous_system.lifecycle.enter_dormancy","scope:autonomous_system.lifecycle.wake","scope:autonomous_system.lifecycle.begin_recovery","scope:autonomous_system.lifecycle.complete_recovery","scope:autonomous_system.lifecycle.quarantine","scope:autonomous_system.lifecycle.release_quarantine","scope:autonomous_system.lifecycle.retire","scope:autonomous_system.lifecycle.archive","scope:autonomous_system.lifecycle.revoke","scope:autonomous_system.lifecycle.decommission"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"irreversibility":{"enum":["reversible","one_way","terminal"]},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"genesis_ref":{"type":"string","pattern":"^genesis://[A-Za-z0-9._:/-]+$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_ref":{"type":"string","minLength":1,"maxLength":512},"home_domain_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"home_domain_binding_ref":{"type":"string","pattern":"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"},"home_domain_binding_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policy_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"module_registry_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"upgrade_policy_ref":{"type":"string","pattern":"^policy://[A-Za-z0-9._:/-]+$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[A-Za-z0-9._:/-]+$"},"deployment_profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_status":{"enum":["active","successor_governed","degraded","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked"]},"predecessor_state_ref":{"type":"string","pattern":"^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$"},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_proposal_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_transition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"predecessor_chain_head_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resulting_status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"resulting_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"live_chain_created":{"const":false},"node_membership_created":{"const":false},"runtime_effect_admitted":{"const":false},"network_effect_admitted":{"const":false},"constitution_changed":{"const":false},"profile_set_changed":{"const":false},"operation_commitment":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}}}"##,
     ),
     (
         "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
@@ -36407,7 +37835,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
-        r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-lifecycle-state/v1","title":"AutonomousSystemLifecycleState","description":"Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds only predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic. Succession, dissolution, and enrollment statuses are reserved for their named owner families.","x-ioi-schema-version":"ioi.autonomous-system-lifecycle-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-lifecycle-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"transition_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_receipt_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+        r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-lifecycle-state/v1","title":"AutonomousSystemLifecycleState","description":"Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds predecessor, sequence, status, the unchanged profile-set coordinates, and the live governing authority; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic.","x-ioi-schema-version":"ioi.autonomous-system-lifecycle-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","governing_authority_ref","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-lifecycle-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","successor_governed","paused","suspended","dormant","recovering","quarantined","retired","archived","revoked","decommissioned"]},"predecessor_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"transition_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},{"type":"null"}]},"transition_receipt_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"governing_authority_ref":{"type":"string","pattern":"^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
     ),
     (
         "schema://ioi/foundations/autonomous-system-operation-log/v2",
@@ -36423,11 +37851,11 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1",
-        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","title":"AutonomousSystemChainWriterReservation","description":"Expected-absent predecessor ownership reserved before wallet consumption so only one independent writer can materialize the next chain revision.","x-ioi-schema-version":"ioi.autonomous-system-chain-writer-reservation.v1","type":"object","additionalProperties":false,"required":["schema_version","reservation_ref","system_id","sequence","predecessor_chain_root","writer_plan_hash","operation_ref","operation_root","operation"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-writer-reservation.v1"},"reservation_ref":{"type":"string","pattern":"^chain-writer-reservation://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"writer_plan_hash":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","title":"AutonomousSystemChainWriterReservation","description":"Expected-absent predecessor ownership reserved before wallet consumption so only one independent writer can materialize the next chain revision.","x-ioi-schema-version":"ioi.autonomous-system-chain-writer-reservation.v1","type":"object","additionalProperties":false,"required":["schema_version","reservation_ref","system_id","sequence","predecessor_chain_root","writer_plan_hash","operation_ref","operation_root","operation"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-writer-reservation.v1"},"reservation_ref":{"type":"string","pattern":"^chain-writer-reservation://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"writer_plan_hash":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","complete_dissolution","enroll_local","exit_local_enrollment"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
     ),
     (
         "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1",
-        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1","title":"AutonomousSystemChainSuccessorClaim","x-ioi-schema-version":"ioi.autonomous-system-chain-successor-claim.v1","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","system_id","sequence","predecessor_chain_root","successor_chain_root","operation_ref","operation_root","operation","committed_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-successor-claim.v1"},"claim_ref":{"type":"string","pattern":"^chain-successor-claim://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"successor_chain_root":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"type":"string","enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution"]},"committed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1","title":"AutonomousSystemChainSuccessorClaim","x-ioi-schema-version":"ioi.autonomous-system-chain-successor-claim.v1","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","system_id","sequence","predecessor_chain_root","successor_chain_root","operation_ref","operation_root","operation","committed_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-successor-claim.v1"},"claim_ref":{"type":"string","pattern":"^chain-successor-claim://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"successor_chain_root":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"type":"string","enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","complete_dissolution","enroll_local","exit_local_enrollment"]},"committed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
     ),
     (
         "schema://ioi/foundations/autonomous-system-amendment-transition/v1",
@@ -36440,6 +37868,18 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     (
         "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
         r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-active-profile-set/v2","title":"AutonomousSystemActiveProfileSet","description":"Successor admission projection over exact candidate profile roots, generalized beyond activation: any admitted lifecycle transition may carry it and it always supersedes an exact predecessor set. The closed shape keeps required profile cardinality structural; candidate bodies remain immutable and are not relabeled active. Successor of v1, which remains the valid shape for the activation-admitted set.","x-ioi-schema-version":"ioi.autonomous-system-active-profile-set.v2","type":"object","additionalProperties":false,"required":["schema_version","active_profile_set_ref","active_profile_set_root","system_id","genesis_ref","profile_bundle_root","admitted_by_transition_ref","admitted_by_receipt_ref","supersedes_profile_set_ref","supersedes_profile_set_root","constitution","deployment","ordering_admission_finality","oracle_evidence_profiles","lifecycle_continuity","network_enrollment","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-active-profile-set.v2"},"active_profile_set_ref":{"$ref":"#/$defs/activeProfileSetRef"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"system_id":{"$ref":"#/$defs/systemRef"},"genesis_ref":{"$ref":"#/$defs/genesisRef"},"profile_bundle_root":{"$ref":"#/$defs/hash"},"admitted_by_transition_ref":{"$ref":"#/$defs/transitionRef"},"admitted_by_receipt_ref":{"$ref":"#/$defs/receiptRef"},"supersedes_profile_set_ref":{"$ref":"#/$defs/activeProfileSetRef"},"supersedes_profile_set_root":{"$ref":"#/$defs/hash"},"constitution":{"$ref":"#/$defs/constitutionAdmission"},"deployment":{"$ref":"#/$defs/deploymentAdmission"},"ordering_admission_finality":{"$ref":"#/$defs/orderingAdmission"},"oracle_evidence_profiles":{"type":"array","items":{"$ref":"#/$defs/oracleAdmission"},"maxItems":32,"uniqueItems":true},"lifecycle_continuity":{"$ref":"#/$defs/lifecycleAdmission"},"network_enrollment":{"anyOf":[{"$ref":"#/$defs/networkAdmission"},{"type":"null"}]},"status":{"const":"active"},"created_at":{"$ref":"#/$defs/canonicalDateTime"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesisRef":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"activeProfileSetRef":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"transitionRef":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"constitutionRef":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"deploymentRevisionRef":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"orderingProfileRef":{"type":"string","pattern":"^ordering-profile://[^\\s]{1,248}$"},"oracleProfileRef":{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,248}$"},"lifecycleProfileRef":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"networkEnrollmentRef":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"constitutionAdmission":{"type":"object","additionalProperties":false,"required":["candidate_profile_ref","candidate_profile_root","admitted_posture"],"properties":{"candidate_profile_ref":{"$ref":"#/$defs/constitutionRef"},"candidate_profile_root":{"$ref":"#/$defs/hash"},"admitted_posture":{"const":"active"}}},"deploymentAdmission":{"type":"object","additionalProperties":false,"required":["candidate_profile_ref","candidate_profile_root","admitted_posture"],"properties":{"candidate_profile_ref":{"$ref":"#/$defs/deploymentRevisionRef"},"candidate_profile_root":{"$ref":"#/$defs/hash"},"admitted_posture":{"const":"active"}}},"orderingAdmission":{"type":"object","additionalProperties":false,"required":["candidate_profile_ref","candidate_profile_root","admitted_posture"],"properties":{"candidate_profile_ref":{"$ref":"#/$defs/orderingProfileRef"},"candidate_profile_root":{"$ref":"#/$defs/hash"},"admitted_posture":{"const":"active"}}},"oracleAdmission":{"type":"object","additionalProperties":false,"required":["candidate_profile_ref","candidate_profile_root","admitted_posture"],"properties":{"candidate_profile_ref":{"$ref":"#/$defs/oracleProfileRef"},"candidate_profile_root":{"$ref":"#/$defs/hash"},"admitted_posture":{"const":"active"}}},"lifecycleAdmission":{"type":"object","additionalProperties":false,"required":["candidate_profile_ref","candidate_profile_root","admitted_posture"],"properties":{"candidate_profile_ref":{"$ref":"#/$defs/lifecycleProfileRef"},"candidate_profile_root":{"$ref":"#/$defs/hash"},"admitted_posture":{"const":"active"}}},"networkAdmission":{"type":"object","additionalProperties":false,"required":["candidate_profile_ref","candidate_profile_root","admitted_posture"],"properties":{"candidate_profile_ref":{"$ref":"#/$defs/networkEnrollmentRef"},"candidate_profile_root":{"$ref":"#/$defs/hash"},"admitted_posture":{"const":"local_only"}}},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1","title":"AutonomousSystemMigrationDestinationAcknowledgement","description":"A separately authorized, content-addressed acknowledgement that an exact live System state is durably available at a distinct migration destination before the migrate transition may execute.","x-ioi-schema-version":"ioi.autonomous-system-migration-destination-acknowledgement.v1","type":"object","additionalProperties":false,"required":["schema_version","acknowledgement_ref","acknowledgement_root","system_id","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","source_deployment_profile_ref","destination_ref","acknowledged_state_root","required_scope","operation_commitment","authority_effect_material","authority_grant_refs","authority_evidence_ref","authority_evidence_root","wallet_consumption_ref","wallet_consumption_root","receipt_ref","receipt_root","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-migration-destination-acknowledgement.v1"},"acknowledgement_ref":{"type":"string","pattern":"^migration-destination-acknowledgement://[^\\s]{1,248}$"},"acknowledgement_root":{"$ref":"#/$defs/hash"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"predecessor_state_ref":{"type":"string","pattern":"^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"source_deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"destination_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"acknowledged_state_root":{"$ref":"#/$defs/hash"},"required_scope":{"const":"scope:autonomous_system.continuity.migration_destination_acknowledge"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","source_deployment_profile_ref","destination_ref","acknowledged_state_root","identity_preserved","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-migration-destination-acknowledgement-effect.v1"},"op":{"const":"acknowledge_migration_destination"},"required_scope":{"const":"scope:autonomous_system.continuity.migration_destination_acknowledge"},"sequence":{"type":"integer","minimum":2,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_state_ref":{"type":"string","pattern":"^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"source_deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"destination_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,248}$"},"acknowledged_state_root":{"$ref":"#/$defs/hash"},"identity_preserved":{"const":true},"operation_commitment":{"type":"null"}}},"authority_grant_refs":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"}},"authority_evidence_ref":{"type":"string","pattern":"^system-lifecycle-authority-evidence://[^\\s]{1,248}$"},"authority_evidence_root":{"$ref":"#/$defs/hash"},"wallet_consumption_ref":{"type":"string","pattern":"^wallet[.]network://approval-effect-consumption/[^\\s]{1,248}$"},"wallet_consumption_root":{"$ref":"#/$defs/hash"},"receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"receipt_root":{"$ref":"#/$defs/hash"},"status":{"const":"committed"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-continuity-state/v1","title":"AutonomousSystemContinuityState","description":"Committed state for named succession, migration, dissolution, and local-enrollment transitions.","x-ioi-schema-version":"ioi.autonomous-system-continuity-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","governing_authority_ref","pending_successor_candidate_ref","network_enrollment_ref","network_enrollment_root","migration_destination_ref","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"$ref":"#/$defs/hash"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","succession_pending","successor_governed","dissolution_pending","dissolved"]},"predecessor_state_root":{"$ref":"#/$defs/hash"},"transition_ref":{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},"transition_root":{"$ref":"#/$defs/hash"},"transition_receipt_ref":{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},"transition_receipt_root":{"$ref":"#/$defs/hash"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"governing_authority_ref":{"type":"string","pattern":"^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$"},"pending_successor_candidate_ref":{"oneOf":[{"type":"string","pattern":"^(?:principal|wallet|organization|org)://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_ref":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_root":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"migration_destination_ref":{"oneOf":[{"type":"string","pattern":"^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$"},{"type":"null"}]},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"status":{"const":"succession_pending"}}},"then":{"properties":{"pending_successor_candidate_ref":{"type":"string"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"null"}}},"then":{"properties":{"network_enrollment_root":{"type":"null"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"string"}}},"then":{"properties":{"network_enrollment_root":{"$ref":"#/$defs/hash"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1","title":"AutonomousSystemNetworkEnrollmentTransition","description":"Committed compare-and-swap transition for local-only enrollment admission or exit.","x-ioi-schema-version":"ioi.autonomous-system-network-enrollment-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_transition_id","system_id","op","sequence","proposal_ref","proposal_root","decision_ref","decision_root","predecessor_state_root","resulting_state_root","predecessor_enrollment_ref","predecessor_enrollment_root","resulting_enrollment_ref","resulting_enrollment_root","operation_commitment","authority_effect_material","authority_grant_refs","receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-network-enrollment-transition.v1"},"lifecycle_transition_id":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"op":{"enum":["enroll_local","exit_local_enrollment"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"decision_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/hash"},"predecessor_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"predecessor_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_enrollment_root":{"$ref":"#/$defs/nullableHash"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","transition_kind","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","resulting_governing_authority_ref","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","constitution_ref","lifecycle_profile_ref","active_profile_set_ref","active_profile_set_root","chain_ref","current_network_enrollment_ref","current_network_enrollment_root","resulting_network_enrollment_ref","resulting_network_enrollment_root","trigger_evidence_refs","successor_candidate_ref","successor_authority_ref","successor_authority_binding","migration_destination_ack_ref","migration_destination_ack_root","migration_destination_ref","verified_migration_state_root","residual_disposition","live_effect_refs","identity_preserved","authority_widened","network_assurance_admitted","runtime_effect_admitted","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-authority-effect.v1"},"op":{"enum":["enroll_local","exit_local_enrollment"]},"transition_kind":{"type":"null"},"required_scope":{"enum":["scope:autonomous_system.network_enrollment.local.enroll","scope:autonomous_system.network_enrollment.local.exit"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"resulting_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_status":{"enum":["active","successor_governed"]},"predecessor_state_ref":{"type":"string","pattern":"^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"resulting_status":{"enum":["active","successor_governed"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"resulting_state_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"current_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"current_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"trigger_evidence_refs":{"type":"array","maxItems":0},"successor_candidate_ref":{"type":"null"},"successor_authority_ref":{"type":"null"},"successor_authority_binding":{"type":"null"},"migration_destination_ack_ref":{"type":"null"},"migration_destination_ack_root":{"type":"null"},"migration_destination_ref":{"type":"null"},"verified_migration_state_root":{"type":"null"},"residual_disposition":{"type":"null"},"live_effect_refs":{"type":"array","maxItems":0},"identity_preserved":{"const":true},"authority_widened":{"const":false},"network_assurance_admitted":{"const":false},"runtime_effect_admitted":{"const":false},"operation_commitment":{"type":"null"}}},"authority_grant_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}},"status":{"const":"committed"}},"allOf":[{"if":{"properties":{"op":{"const":"enroll_local"}}},"then":{"properties":{"resulting_enrollment_ref":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"resulting_enrollment_root":{"$ref":"#/$defs/hash"}}}},{"if":{"properties":{"op":{"const":"exit_local_enrollment"}}},"then":{"properties":{"predecessor_enrollment_ref":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"predecessor_enrollment_root":{"$ref":"#/$defs/hash"},"resulting_enrollment_ref":{"type":"null"},"resulting_enrollment_root":{"type":"null"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableEnrollment":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"nullableHash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}}"##,
     ),
 ];
 
@@ -36602,7 +38042,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
-        r#"[{"rule_id":"autonomous_system_lifecycle_state.root.recomputes","description":"The semantic lifecycle-state root binds predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation is deliberately excluded so the commitment graph is acyclic.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-lifecycle-state-jcs-sha256.v1"},"lifecycle_state_ref":{"path":"$.lifecycle_state_ref"},"system_id":{"path":"$.system_id"},"sequence":{"path":"$.sequence"},"status":{"path":"$.status"},"predecessor_state_root":{"path":"$.predecessor_state_root"},"active_profile_set_ref":{"path":"$.active_profile_set_ref"},"active_profile_set_root":{"path":"$.active_profile_set_root"}},"expected_path":"$.lifecycle_state_root","expected_encoding":"sha256_string"}}]"#,
+        r#"[{"rule_id":"autonomous_system_lifecycle_state.root.recomputes","description":"The semantic lifecycle-state root binds predecessor, sequence, status, the unchanged profile-set coordinates, and the live governing authority; transition, receipt, chain, and created_at navigation is deliberately excluded so the commitment graph is acyclic.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-lifecycle-state-jcs-sha256.v1"},"lifecycle_state_ref":{"path":"$.lifecycle_state_ref"},"system_id":{"path":"$.system_id"},"sequence":{"path":"$.sequence"},"status":{"path":"$.status"},"predecessor_state_root":{"path":"$.predecessor_state_root"},"active_profile_set_ref":{"path":"$.active_profile_set_ref"},"active_profile_set_root":{"path":"$.active_profile_set_root"},"governing_authority_ref":{"path":"$.governing_authority_ref"}},"expected_path":"$.lifecycle_state_root","expected_encoding":"sha256_string"}}]"#,
     ),
     (
         "schema://ioi/foundations/autonomous-system-operation-log/v2",
@@ -36636,6 +38076,18 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
         "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
         r#"[{"rule_id":"autonomous_system_active_profile_set_v2.root.recomputes","description":"The semantic active-set root binds exact candidate admissions and the exact superseded predecessor set while excluding downstream transition, receipt, and wall-clock navigation fields.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-active-profile-set-jcs-sha256.v2"},"active_profile_set_ref":{"path":"$.active_profile_set_ref"},"system_id":{"path":"$.system_id"},"genesis_ref":{"path":"$.genesis_ref"},"profile_bundle_root":{"path":"$.profile_bundle_root"},"supersedes_profile_set_ref":{"path":"$.supersedes_profile_set_ref"},"supersedes_profile_set_root":{"path":"$.supersedes_profile_set_root"},"constitution":{"path":"$.constitution"},"deployment":{"path":"$.deployment"},"ordering_admission_finality":{"path":"$.ordering_admission_finality"},"oracle_evidence_profiles":{"path":"$.oracle_evidence_profiles"},"lifecycle_continuity":{"path":"$.lifecycle_continuity"},"network_enrollment":{"path":"$.network_enrollment"},"status":{"path":"$.status"}},"expected_path":"$.active_profile_set_root","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_active_profile_set_v2.supersedes_ref.nonempty","description":"A v2 set exists only as a successor: the superseded predecessor set reference is always present and nonempty.","expression":{"operator":"non_empty","path":"$.supersedes_profile_set_ref"}},{"rule_id":"autonomous_system_active_profile_set_v2.supersedes_root.nonempty","description":"The superseded predecessor set is pinned by exact content root, never by reference alone.","expression":{"operator":"non_empty","path":"$.supersedes_profile_set_root"}}]"#,
     ),
+    (
+        "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+        r#"[{"rule_id":"autonomous_system_migration_destination_acknowledgement.operation_commitment.recomputes","description":"The acknowledgement operation commitment recomputes from its complete closed authority effect.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-migration-destination-acknowledgement-operation-jcs-sha256.v1"},"effect":{"path":"$.authority_effect_material"}},"expected_path":"$.operation_commitment","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_migration_destination_acknowledgement.root.recomputes","description":"The acknowledgement root binds the exact source state, live head, target, acknowledged state, scope, and operation commitment.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-migration-destination-acknowledgement-jcs-sha256.v1"},"acknowledgement_ref":{"path":"$.acknowledgement_ref"},"system_id":{"path":"$.system_id"},"predecessor_state_ref":{"path":"$.predecessor_state_ref"},"predecessor_state_root":{"path":"$.predecessor_state_root"},"predecessor_chain_head_root":{"path":"$.predecessor_chain_head_root"},"source_deployment_profile_ref":{"path":"$.source_deployment_profile_ref"},"destination_ref":{"path":"$.destination_ref"},"acknowledged_state_root":{"path":"$.acknowledged_state_root"},"required_scope":{"path":"$.required_scope"},"operation_commitment":{"path":"$.operation_commitment"}},"expected_path":"$.acknowledgement_root","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_migration_destination_acknowledgement.system.matches_effect","description":"The acknowledgement and governed effect bind the same System.","expression":{"operator":"fields_equal","paths":["$.system_id","$.authority_effect_material.system_id"]}},{"rule_id":"autonomous_system_migration_destination_acknowledgement.predecessor_ref.matches_effect","description":"The acknowledged predecessor ref cannot be substituted outside the authority effect.","expression":{"operator":"fields_equal","paths":["$.predecessor_state_ref","$.authority_effect_material.predecessor_state_ref"]}},{"rule_id":"autonomous_system_migration_destination_acknowledgement.predecessor_root.matches_effect","description":"The acknowledged predecessor root cannot be substituted outside the authority effect.","expression":{"operator":"fields_equal","paths":["$.predecessor_state_root","$.authority_effect_material.predecessor_state_root"]}},{"rule_id":"autonomous_system_migration_destination_acknowledgement.chain_head.matches_effect","description":"The exact live chain head cannot be substituted outside the authority effect.","expression":{"operator":"fields_equal","paths":["$.predecessor_chain_head_root","$.authority_effect_material.predecessor_chain_head_root"]}},{"rule_id":"autonomous_system_migration_destination_acknowledgement.source_profile.matches_effect","description":"The source deployment profile cannot be substituted outside the authority effect.","expression":{"operator":"fields_equal","paths":["$.source_deployment_profile_ref","$.authority_effect_material.source_deployment_profile_ref"]}},{"rule_id":"autonomous_system_migration_destination_acknowledgement.state.matches_effect","description":"The acknowledged state root cannot be substituted outside the authority effect.","expression":{"operator":"fields_equal","paths":["$.acknowledged_state_root","$.authority_effect_material.acknowledged_state_root"]}},{"rule_id":"autonomous_system_migration_destination_acknowledgement.destination.matches_effect","description":"The destination cannot be substituted outside the authority effect.","expression":{"operator":"fields_equal","paths":["$.destination_ref","$.authority_effect_material.destination_ref"]}},{"rule_id":"autonomous_system_migration_destination_acknowledgement.destination.differs_from_source","description":"A migration destination acknowledgement cannot certify a no-op destination equal to the current deployment profile.","expression":{"operator":"fields_not_equal","paths":["$.source_deployment_profile_ref","$.destination_ref"]}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+        r#"[{"rule_id":"autonomous_system_continuity_state.root.recomputes","description":"The named continuity-state root binds identity, predecessor, sequence, status, and the unchanged active profile set.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-lifecycle-state-jcs-sha256.v1"},"lifecycle_state_ref":{"path":"$.lifecycle_state_ref"},"system_id":{"path":"$.system_id"},"sequence":{"path":"$.sequence"},"status":{"path":"$.status"},"predecessor_state_root":{"path":"$.predecessor_state_root"},"active_profile_set_ref":{"path":"$.active_profile_set_ref"},"active_profile_set_root":{"path":"$.active_profile_set_root"},"governing_authority_ref":{"path":"$.governing_authority_ref"},"pending_successor_candidate_ref":{"path":"$.pending_successor_candidate_ref"},"network_enrollment_ref":{"path":"$.network_enrollment_ref"},"network_enrollment_root":{"path":"$.network_enrollment_root"},"migration_destination_ref":{"path":"$.migration_destination_ref"}},"expected_path":"$.lifecycle_state_root","expected_encoding":"sha256_string"}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
+        r#"[{"rule_id":"autonomous_system_network_enrollment_transition.operation_commitment.recomputes","description":"The operation commitment recomputes from the complete closed authority effect.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-continuity-operation-commitment-jcs-sha256.v1"},"effect":{"path":"$.authority_effect_material"}},"expected_path":"$.operation_commitment","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_network_enrollment_transition.op.matches_effect","description":"The portable transition and governed effect name the same operation.","expression":{"operator":"fields_equal","paths":["$.op","$.authority_effect_material.op"]}},{"rule_id":"autonomous_system_network_enrollment_transition.system.matches_effect","description":"The portable transition and governed effect bind the same System.","expression":{"operator":"fields_equal","paths":["$.system_id","$.authority_effect_material.system_id"]}},{"rule_id":"autonomous_system_network_enrollment_transition.sequence.matches_effect","description":"The portable transition and governed effect bind the same sequence.","expression":{"operator":"fields_equal","paths":["$.sequence","$.authority_effect_material.sequence"]}},{"rule_id":"autonomous_system_network_enrollment_transition.predecessor_state.matches_effect","description":"The predecessor state root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.predecessor_state_root","$.authority_effect_material.predecessor_state_root"]}},{"rule_id":"autonomous_system_network_enrollment_transition.resulting_state.matches_effect","description":"The resulting state root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.resulting_state_root","$.authority_effect_material.resulting_state_root"]}},{"rule_id":"autonomous_system_network_enrollment_transition.predecessor_enrollment.matches_effect","description":"The predecessor enrollment identity is not substitutable.","expression":{"operator":"fields_equal","paths":["$.predecessor_enrollment_ref","$.authority_effect_material.current_network_enrollment_ref"]}},{"rule_id":"autonomous_system_network_enrollment_transition.predecessor_enrollment_root.matches_effect","description":"The predecessor enrollment bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.predecessor_enrollment_root","$.authority_effect_material.current_network_enrollment_root"]}},{"rule_id":"autonomous_system_network_enrollment_transition.resulting_enrollment.matches_effect","description":"The resulting enrollment identity is not substitutable.","expression":{"operator":"fields_equal","paths":["$.resulting_enrollment_ref","$.authority_effect_material.resulting_network_enrollment_ref"]}},{"rule_id":"autonomous_system_network_enrollment_transition.resulting_enrollment_root.matches_effect","description":"The resulting enrollment bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.resulting_enrollment_root","$.authority_effect_material.resulting_network_enrollment_root"]}}]"#,
+    ),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -36646,6 +38098,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$"#,
         r#"^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$"#,
+    ),
+    (
+        r#"^(?:agentgres|deployment-profile|artifact)://[^\s]{1,248}$"#,
+        r#"^(?:agentgres|deployment-profile|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:agent|worker)://[^\s]{1,248}$"#,
@@ -36696,6 +38152,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:policy|schema|authority-requirement)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^(?:principal|wallet|organization|org)://[^\s]{1,248}$"#,
+        r#"^(?:principal|wallet|organization|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^(?:receipt|evidence)://[^\s]{1,248}$"#,
         r#"^(?:receipt|evidence)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -36742,6 +38202,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:verifier-path|verification|receipt)://[^\s]+$"#,
         r#"^(?:verifier-path|verification|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:worker|service|org|domain|agentgres)://[^\s]{1,248}$"#,
+        r#"^(?:worker|service|org|domain|agentgres)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:worker|service|org|domain|wallet|agentgres)://[^\s]{1,248}$"#,
+        r#"^(?:worker|service|org|domain|wallet|agentgres)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:workflow|workflow-template)://[^\s]{1,248}$"#,
@@ -37065,6 +38533,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^mcp-gateway://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^migration-destination-acknowledgement://[^\s]{1,248}$"#,
+        r#"^migration-destination-acknowledgement://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^network-enrollment://[^\s]{1,248}$"#,
         r#"^network-enrollment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -37234,6 +38706,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^snapshot://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^system-(?:activation|lifecycle)-state://[^\s]{1,248}$"#,
+        r#"^system-(?:activation|lifecycle)-state://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^system-activation-state://[^\s]{1,248}$"#,
         r#"^system-activation-state://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -37258,12 +38734,20 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^system-lifecycle-authority-evidence://[A-Za-z0-9._:/-]+$"#,
     ),
     (
+        r#"^system-lifecycle-authority-evidence://[^\s]{1,248}$"#,
+        r#"^system-lifecycle-authority-evidence://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^system-lifecycle-authority-evidence://aslae_[0-9a-f]{64}$"#,
         r#"^system-lifecycle-authority-evidence://aslae_[0-9a-f]{64}$"#,
     ),
     (
         r#"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"#,
         r#"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
+        r#"^system-lifecycle-state://[^\s]{1,248}$"#,
+        r#"^system-lifecycle-state://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^system-materialization://[^\s]{1,248}$"#,
@@ -37320,6 +38804,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$"#,
         r#"^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$"#,
+    ),
+    (
+        r#"^wallet[.]network://approval-effect-consumption/[^\s]{1,248}$"#,
+        r#"^wallet[.]network://approval-effect-consumption/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$"#,
@@ -38566,6 +40054,12 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-receipt-v1/negative-missing-approval-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-receipt-v1/negative-missing-approval-root.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/positive-active.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/positive-active.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -38809,6 +40303,21 @@ mod tests {
         },
         "schema://ioi/foundations/autonomous-system-active-profile-set/v2" => {
             serde_json::from_value::<AutonomousSystemActiveProfileSetV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1" => {
+            serde_json::from_value::<AutonomousSystemMigrationDestinationAcknowledgementV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-continuity-state/v1" => {
+            serde_json::from_value::<AutonomousSystemContinuityStateV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1" => {
+            serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -39058,6 +40567,21 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemMigrationDestinationAcknowledgementV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-continuity-state/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemContinuityStateV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -39194,8 +40718,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            165,
-            "the registered golden corpus must remain the explicit 165-fixture bar",
+            171,
+            "the registered golden corpus must remain the explicit 171-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -39414,7 +40938,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 185,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 194,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

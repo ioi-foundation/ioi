@@ -65,6 +65,10 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-chain-writer-reservations",
     "autonomous-system-lifecycle-states",
     "autonomous-system-protected-transition-receipts",
+    "autonomous-system-continuity-transition-receipts",
+    "autonomous-system-migration-destination-acknowledgements",
+    "autonomous-system-migration-destination-acknowledgement-receipts",
+    "autonomous-system-network-enrollments",
     "autonomous-system-amendment-receipts",
     "autonomous-system-constitution-amendments",
     "autonomous-system-constitution-amendment-approval-decisions",
@@ -398,6 +402,10 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "autonomous-system-initialize-transition-receipts"
         | "autonomous-system-activation-receipts"
         | "autonomous-system-protected-transition-receipts"
+        | "autonomous-system-continuity-transition-receipts"
+        | "autonomous-system-migration-destination-acknowledgements"
+        | "autonomous-system-migration-destination-acknowledgement-receipts"
+        | "autonomous-system-network-enrollments"
         | "autonomous-system-amendment-receipts"
         | "autonomous-system-constitution-amendments"
         | "autonomous-system-constitutions" => {
@@ -465,6 +473,9 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
                 Some("ioi.autonomous-system-amendment-execution-proposal.v1") => {
                     "ioi.autonomous-system-amendment-execution-proposal-jcs-sha256.v1"
                 }
+                Some("ioi.autonomous-system-continuity-proposal.v1") => {
+                    "ioi.autonomous-system-continuity-proposal-jcs-sha256.v1"
+                }
                 _ => "ioi.autonomous-system-activation-proposal-jcs-sha256.v1",
             };
             material.remove("schema_version");
@@ -486,6 +497,9 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
                 Some("ioi.autonomous-system-amendment-execution-decision.v1") => {
                     "ioi.autonomous-system-amendment-execution-decision-jcs-sha256.v1"
                 }
+                Some("ioi.autonomous-system-continuity-decision.v1") => {
+                    "ioi.autonomous-system-continuity-decision-jcs-sha256.v1"
+                }
                 _ => "ioi.autonomous-system-activation-authority-decision-jcs-sha256.v1",
             };
             material.remove("schema_version");
@@ -493,11 +507,10 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
             material.insert("domain".to_owned(), json!(domain));
             ("decision_root", Value::Object(material))
         }
-        "autonomous-system-lifecycle-states" => (
-            "lifecycle_state_root",
-            fields_material(
-                record,
-                "ioi.autonomous-system-lifecycle-state-jcs-sha256.v1",
+        "autonomous-system-lifecycle-states" => {
+            let fields: &[&str] = if record.get("schema_version").and_then(Value::as_str)
+                == Some("ioi.autonomous-system-continuity-state.v1")
+            {
                 &[
                     "lifecycle_state_ref",
                     "system_id",
@@ -506,9 +519,33 @@ fn validate_embedded_content_root(record_dir: &str, record: &Value) -> std::io::
                     "predecessor_state_root",
                     "active_profile_set_ref",
                     "active_profile_set_root",
-                ],
-            )?,
-        ),
+                    "governing_authority_ref",
+                    "pending_successor_candidate_ref",
+                    "network_enrollment_ref",
+                    "network_enrollment_root",
+                    "migration_destination_ref",
+                ]
+            } else {
+                &[
+                    "lifecycle_state_ref",
+                    "system_id",
+                    "sequence",
+                    "status",
+                    "predecessor_state_root",
+                    "active_profile_set_ref",
+                    "active_profile_set_root",
+                    "governing_authority_ref",
+                ]
+            };
+            (
+                "lifecycle_state_root",
+                fields_material(
+                    record,
+                    "ioi.autonomous-system-lifecycle-state-jcs-sha256.v1",
+                    fields,
+                )?,
+            )
+        }
         "autonomous-system-activation-states" => (
             "activation_state_root",
             fields_material(
@@ -672,6 +709,10 @@ fn validate_required_identity(
         "autonomous-system-activation-states" => "asls_",
         "autonomous-system-lifecycle-states" => "asls_",
         "autonomous-system-protected-transition-receipts" => "asptr_",
+        "autonomous-system-continuity-transition-receipts" => "asctr_",
+        "autonomous-system-migration-destination-acknowledgements" => "asmda_",
+        "autonomous-system-migration-destination-acknowledgement-receipts" => "asmdar_",
+        "autonomous-system-network-enrollments" => "asne_",
         "autonomous-system-amendment-receipts" => "asamr_",
         "autonomous-system-constitution-amendments" => "asca_",
         "autonomous-system-constitution-amendment-approval-decisions" => "ascaad_",
@@ -719,6 +760,42 @@ fn validate_required_identity(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres wallet consumption key does not match the receipt 'consumption_id'",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-migration-destination-acknowledgements" {
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record.get("acknowledgement_root").and_then(Value::as_str)
+            != Some(format!("sha256:{encoded}").as_str())
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres migration acknowledgement key does not match acknowledgement_root",
+            ));
+        }
+        let material = fields_material(
+            record,
+            "ioi.autonomous-system-migration-destination-acknowledgement-jcs-sha256.v1",
+            &[
+                "acknowledgement_ref",
+                "system_id",
+                "predecessor_state_ref",
+                "predecessor_state_root",
+                "predecessor_chain_head_root",
+                "source_deployment_profile_ref",
+                "destination_ref",
+                "acknowledged_state_root",
+                "required_scope",
+                "operation_commitment",
+            ],
+        )?;
+        if jcs_root(&material)? != format!("sha256:{encoded}") {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres migration acknowledgement root does not recompute",
             ));
         }
         return Ok(());
@@ -847,22 +924,44 @@ fn validate_required_identity(
             | "autonomous-system-initialize-transition-receipts"
             | "autonomous-system-activation-receipts"
             | "autonomous-system-protected-transition-receipts"
+            | "autonomous-system-continuity-transition-receipts"
+            | "autonomous-system-migration-destination-acknowledgement-receipts"
+            | "autonomous-system-network-enrollments"
             | "autonomous-system-amendment-receipts"
     ) {
         let encoded = record_id
             .strip_prefix(required_prefix)
             .expect("required prefix was validated");
         let (domain, identity_field) = match record_dir {
-            "autonomous-system-lifecycle-transitions" => (
-                if record.get("schema_version").and_then(Value::as_str)
-                    == Some("ioi.autonomous-system-amendment-transition.v1")
-                {
-                    "ioi.autonomous-system-amendment-transition-jcs-sha256.v1"
-                } else {
-                    "ioi.autonomous-system-lifecycle-transition-jcs-sha256.v1"
-                },
-                "lifecycle_transition_id",
-            ),
+            "autonomous-system-lifecycle-transitions" => {
+                let domain = match record.get("schema_version").and_then(Value::as_str) {
+                    Some("ioi.autonomous-system-amendment-transition.v1") => {
+                        "ioi.autonomous-system-amendment-transition-jcs-sha256.v1"
+                    }
+                    Some("ioi.autonomous-system-network-enrollment-transition.v1") => {
+                        "ioi.autonomous-system-continuity-transition-jcs-sha256.v1"
+                    }
+                    Some("ioi.lifecycle-transition.v1")
+                        if record
+                            .get("transition_kind")
+                            .and_then(Value::as_str)
+                            .is_some_and(|kind| {
+                                matches!(
+                                    kind,
+                                    "initiate_succession"
+                                        | "complete_succession"
+                                        | "migrate"
+                                        | "initiate_dissolution"
+                                        | "complete_dissolution"
+                                )
+                            }) =>
+                    {
+                        "ioi.autonomous-system-continuity-transition-jcs-sha256.v1"
+                    }
+                    _ => "ioi.autonomous-system-lifecycle-transition-jcs-sha256.v1",
+                };
+                (domain, "lifecycle_transition_id")
+            }
             "autonomous-system-initialize-transition-receipts" => (
                 "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1",
                 "receipt_ref",
@@ -874,6 +973,18 @@ fn validate_required_identity(
             "autonomous-system-protected-transition-receipts" => (
                 "ioi.lifecycle-transition-receipt-artifact-jcs-sha256.v1",
                 "receipt_ref",
+            ),
+            "autonomous-system-continuity-transition-receipts" => (
+                "ioi.autonomous-system-continuity-receipt-jcs-sha256.v1",
+                "receipt_id",
+            ),
+            "autonomous-system-migration-destination-acknowledgement-receipts" => (
+                "ioi.autonomous-system-continuity-receipt-jcs-sha256.v1",
+                "receipt_id",
+            ),
+            "autonomous-system-network-enrollments" => (
+                "ioi.autonomous-system-network-enrollment-artifact-jcs-sha256.v1",
+                "network_enrollment_id",
             ),
             "autonomous-system-amendment-receipts" => (
                 match record.get("schema_version").and_then(Value::as_str) {
@@ -1540,6 +1651,15 @@ pub(crate) fn read_required_exact(
     })
 }
 
+/// Enumerate one required-admission family from the same writer-thread
+/// projection used by exact reads. Read models use this to prove that their
+/// local owner census has neither omitted nor invented a durable Agentgres
+/// object.
+pub(crate) fn read_required_all(data_dir: &str, record_dir: &str) -> std::io::Result<Vec<Value>> {
+    validate_required_domain(record_dir)?;
+    with_current_handle(data_dir, |handle| handle.project_latest(record_dir))
+}
+
 /// Verify that a required-admission key contains this exact record and return
 /// its strict mux-log proof. Missing keys and foreign same-key occupants are
 /// errors; callers never need to reconstruct the private Agentgres operation.
@@ -1704,6 +1824,44 @@ mod tests {
             admission_root: "sha256:admission-root".to_string(),
             terminal_root: "sha256:terminal-root".to_string(),
         }
+    }
+
+    #[test]
+    fn required_generic_lifecycle_state_root_binds_the_live_governing_authority() {
+        let mut record = json!({
+            "schema_version": "ioi.autonomous-system-lifecycle-state.v1",
+            "lifecycle_state_ref": "system-lifecycle-state://fixture/sequence/8",
+            "system_id": "system://fixture",
+            "sequence": 8,
+            "status": "paused",
+            "predecessor_state_root": format!("sha256:{}", "11".repeat(32)),
+            "active_profile_set_ref": "active-profile-set://fixture/sequence/2",
+            "active_profile_set_root": format!("sha256:{}", "22".repeat(32)),
+            "governing_authority_ref": "org://acme/successor-authority",
+        });
+        let material = fields_material(
+            &record,
+            "ioi.autonomous-system-lifecycle-state-jcs-sha256.v1",
+            &[
+                "lifecycle_state_ref",
+                "system_id",
+                "sequence",
+                "status",
+                "predecessor_state_root",
+                "active_profile_set_ref",
+                "active_profile_set_root",
+                "governing_authority_ref",
+            ],
+        )
+        .unwrap();
+        record["lifecycle_state_root"] = json!(jcs_root(&material).unwrap());
+        validate_embedded_content_root("autonomous-system-lifecycle-states", &record).unwrap();
+
+        record["governing_authority_ref"] = json!("org://acme/former-authority");
+        assert!(
+            validate_embedded_content_root("autonomous-system-lifecycle-states", &record).is_err(),
+            "changing the governing authority must invalidate the state root",
+        );
     }
 
     #[test]

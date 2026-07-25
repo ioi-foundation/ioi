@@ -3023,6 +3023,110 @@ continuity, and the head projection, while general entry-to-entry continuity
 at sequence three or later is enforced by the daemon and proven by the
 journey verifier rather than by index-fixed portable rules.
 
+### AutonomousSystemMigrationDestinationAcknowledgementEnvelope
+
+```yaml
+AutonomousSystemMigrationDestinationAcknowledgementEnvelope:
+  schema_version: ioi.autonomous-system-migration-destination-acknowledgement.v1
+  acknowledgement_ref: migration-destination-acknowledgement://...
+  acknowledgement_root: hash
+  system_id: system://...
+  predecessor_state_ref: system-activation-state://... | system-lifecycle-state://...
+  predecessor_state_root: hash
+  predecessor_chain_head_root: hash
+  source_deployment_profile_ref: deployment-profile://...
+  destination_ref: deployment-profile://...
+  acknowledged_state_root: hash
+  required_scope: scope:autonomous_system.continuity.migration_destination_acknowledge
+  operation_commitment: hash
+  authority_effect_material: exact_closed_governed_effect
+  authority_grant_refs: [grant://...]
+  authority_evidence_ref: system-lifecycle-authority-evidence://...
+  authority_evidence_root: hash
+  wallet_consumption_ref: wallet.network://approval-effect-consumption/...
+  wallet_consumption_root: hash
+  receipt_ref: receipt://...
+  receipt_root: hash
+  status: committed
+  created_at: timestamp
+```
+
+Migration consumes only the ref and root of this separately authorized,
+durably retained acknowledgement. The acknowledgement binds the exact live
+state and chain head, the current deployment profile, a distinct destination,
+the governing authority, and the wallet consumption that certified the target
+held the same state root. Local and Agentgres copies must agree byte-for-byte
+before the chain transition can compile; a caller-supplied destination or bare
+state-root assertion is not migration evidence.
+
+### AutonomousSystemContinuityStateEnvelope
+
+```yaml
+AutonomousSystemContinuityStateEnvelope:
+  schema_version: ioi.autonomous-system-continuity-state.v1
+  lifecycle_state_ref: system-lifecycle-state://...
+  lifecycle_state_root: hash
+  system_id: system://...
+  sequence: integer >= 3
+  status: active | succession_pending | successor_governed | dissolution_pending | dissolved
+  predecessor_state_root: hash
+  transition_ref: lifecycle-transition://...
+  transition_root: hash
+  transition_receipt_ref: receipt://...
+  transition_receipt_root: hash
+  active_profile_set_ref: active-profile-set://...
+  active_profile_set_root: hash
+  governing_authority_ref: worker://... | service://... | org://... | domain://... | agentgres://domain/...
+  pending_successor_candidate_ref: principal_or_organization_ref | null
+  network_enrollment_ref: network-enrollment://... | null
+  network_enrollment_root: hash | null
+  migration_destination_ref: agentgres://... | deployment-profile://... | artifact://... | null
+  chain_ref: autonomous-system-chain://...
+  created_at: timestamp
+```
+
+This state owner is disjoint from the generic operational lifecycle-state
+family. Its semantic root uses the same acyclic state-root profile while its
+closed status family admits only the named M1.5d continuity outcomes. The root
+also binds the current governing principal, the exact candidate selected by a
+pending succession, and the content root of any current enrollment. Succession
+completion must match the pending candidate and installs a distinct reissued
+principal into the live chain; enrollment exit must load and compare the exact
+committed enrollment bytes.
+
+### AutonomousSystemNetworkEnrollmentTransitionEnvelope
+
+```yaml
+AutonomousSystemNetworkEnrollmentTransitionEnvelope:
+  schema_version: ioi.autonomous-system-network-enrollment-transition.v1
+  lifecycle_transition_id: lifecycle-transition://...
+  system_id: system://...
+  op: enroll_local | exit_local_enrollment
+  sequence: integer >= 3
+  proposal_ref: proposal://...
+  proposal_root: hash
+  decision_ref: decision://...
+  decision_root: hash
+  predecessor_state_root: hash
+  resulting_state_root: hash
+  predecessor_enrollment_ref: network-enrollment://... | null
+  predecessor_enrollment_root: hash | null
+  resulting_enrollment_ref: network-enrollment://... | null
+  resulting_enrollment_root: hash | null
+  operation_commitment: hash
+  authority_effect_material: closed_effect_with_null_operation_commitment
+  authority_grant_refs: [grant://...]
+  receipt_refs: [receipt://...]
+  status: committed
+```
+
+Enrollment admission and exit are compare-and-swap transitions. Admission
+requires a resulting enrollment; exit requires the exact predecessor and a
+null result. Portable invariants recompute the operation commitment and mirror
+the System, sequence, state roots, and enrollment identity/content roots from
+the governed effect material. This record does not grant connection, services,
+assurance, L1 membership, writing, finality, or settlement.
+
 ### LifecycleTransitionEnvelope
 
 ```yaml

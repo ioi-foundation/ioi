@@ -2257,7 +2257,7 @@ export type AutonomousSystemProtectedTransitionProposalV1 = {
   genesis_ref: string;
   op: "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission";
   sequence: number;
-  predecessor_status: "active" | "degraded" | "paused" | "suspended" | "dormant" | "recovering" | "quarantined" | "retired" | "archived" | "revoked";
+  predecessor_status: "active" | "successor_governed" | "degraded" | "paused" | "suspended" | "dormant" | "recovering" | "quarantined" | "retired" | "archived" | "revoked";
   predecessor_state_root: string;
   predecessor_chain_head_root: string;
   irreversibility: "reversible" | "one_way" | "terminal";
@@ -2281,7 +2281,7 @@ export type AutonomousSystemProtectedTransitionProposalV1 = {
       upgrade_policy_ref: string;
       deployment_profile_ref: string;
       deployment_profile_root: string;
-      predecessor_status: "active" | "degraded" | "paused" | "suspended" | "dormant" | "recovering" | "quarantined" | "retired" | "archived" | "revoked";
+      predecessor_status: "active" | "successor_governed" | "degraded" | "paused" | "suspended" | "dormant" | "recovering" | "quarantined" | "retired" | "archived" | "revoked";
       predecessor_state_ref: string;
       predecessor_state_root: string;
       predecessor_proposal_root: string;
@@ -2338,7 +2338,7 @@ export type AutonomousSystemLifecycleStateV1 = {
   lifecycle_state_root: string;
   system_id: string;
   sequence: number;
-  status: "active" | "paused" | "suspended" | "dormant" | "recovering" | "quarantined" | "retired" | "archived" | "revoked" | "decommissioned";
+  status: "active" | "successor_governed" | "paused" | "suspended" | "dormant" | "recovering" | "quarantined" | "retired" | "archived" | "revoked" | "decommissioned";
   predecessor_state_root: string;
   transition_ref: string | null;
   transition_root: string | null;
@@ -2346,6 +2346,7 @@ export type AutonomousSystemLifecycleStateV1 = {
   transition_receipt_root: string | null;
   active_profile_set_ref: string;
   active_profile_set_root: string;
+  governing_authority_ref: string;
   chain_ref: string;
   created_at: string | null;
 };
@@ -2571,7 +2572,7 @@ export type AutonomousSystemChainWriterReservationV1 = {
   writer_plan_hash: string;
   operation_ref: string;
   operation_root: string;
-  operation: "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission" | "amend_constitution";
+  operation: "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission" | "amend_constitution" | "initiate_succession" | "complete_succession" | "migrate" | "initiate_dissolution" | "complete_dissolution" | "enroll_local" | "exit_local_enrollment";
 };
 
 export type AutonomousSystemChainSuccessorClaimV1 = {
@@ -2583,7 +2584,7 @@ export type AutonomousSystemChainSuccessorClaimV1 = {
   successor_chain_root: string;
   operation_ref: string;
   operation_root: string;
-  operation: "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission" | "amend_constitution";
+  operation: "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission" | "amend_constitution" | "initiate_succession" | "complete_succession" | "migrate" | "initiate_dissolution" | "complete_dissolution" | "enroll_local" | "exit_local_enrollment";
   committed_at: string;
 };
 
@@ -2757,6 +2758,134 @@ export type AutonomousSystemActiveProfileSetV2 = {
     } | null;
   status: "active";
   created_at: string;
+};
+
+export type AutonomousSystemMigrationDestinationAcknowledgementV1 = {
+  schema_version: "ioi.autonomous-system-migration-destination-acknowledgement.v1";
+  acknowledgement_ref: string;
+  acknowledgement_root: string;
+  system_id: string;
+  predecessor_state_ref: string;
+  predecessor_state_root: string;
+  predecessor_chain_head_root: string;
+  source_deployment_profile_ref: string;
+  destination_ref: string;
+  acknowledged_state_root: string;
+  required_scope: "scope:autonomous_system.continuity.migration_destination_acknowledge";
+  operation_commitment: string;
+  authority_effect_material: {
+      schema_version: "ioi.autonomous-system-migration-destination-acknowledgement-effect.v1";
+      op: "acknowledge_migration_destination";
+      required_scope: "scope:autonomous_system.continuity.migration_destination_acknowledge";
+      sequence: number;
+      system_id: string;
+      genesis_ref: string;
+      source_governing_authority_ref: string;
+      predecessor_state_ref: string;
+      predecessor_state_root: string;
+      predecessor_chain_head_root: string;
+      source_deployment_profile_ref: string;
+      destination_ref: string;
+      acknowledged_state_root: string;
+      identity_preserved: true;
+      operation_commitment: null;
+    };
+  authority_grant_refs: Array<string>;
+  authority_evidence_ref: string;
+  authority_evidence_root: string;
+  wallet_consumption_ref: string;
+  wallet_consumption_root: string;
+  receipt_ref: string;
+  receipt_root: string;
+  status: "committed";
+  created_at: string;
+};
+
+export type AutonomousSystemContinuityStateV1 = {
+  schema_version: "ioi.autonomous-system-continuity-state.v1";
+  lifecycle_state_ref: string;
+  lifecycle_state_root: string;
+  system_id: string;
+  sequence: number;
+  status: "active" | "succession_pending" | "successor_governed" | "dissolution_pending" | "dissolved";
+  predecessor_state_root: string;
+  transition_ref: string;
+  transition_root: string;
+  transition_receipt_ref: string;
+  transition_receipt_root: string;
+  active_profile_set_ref: string;
+  active_profile_set_root: string;
+  governing_authority_ref: string;
+  pending_successor_candidate_ref: string | null;
+  network_enrollment_ref: string | null;
+  network_enrollment_root: string | null;
+  migration_destination_ref: string | null;
+  chain_ref: string;
+  created_at: string;
+};
+
+export type AutonomousSystemNetworkEnrollmentTransitionV1 = {
+  schema_version: "ioi.autonomous-system-network-enrollment-transition.v1";
+  lifecycle_transition_id: string;
+  system_id: string;
+  op: "enroll_local" | "exit_local_enrollment";
+  sequence: number;
+  proposal_ref: string;
+  proposal_root: string;
+  decision_ref: string;
+  decision_root: string;
+  predecessor_state_root: string;
+  resulting_state_root: string;
+  predecessor_enrollment_ref: string | null;
+  predecessor_enrollment_root: string | null;
+  resulting_enrollment_ref: string | null;
+  resulting_enrollment_root: string | null;
+  operation_commitment: string;
+  authority_effect_material: {
+      schema_version: "ioi.autonomous-system-continuity-authority-effect.v1";
+      op: "enroll_local" | "exit_local_enrollment";
+      transition_kind: null;
+      required_scope: "scope:autonomous_system.network_enrollment.local.enroll" | "scope:autonomous_system.network_enrollment.local.exit";
+      sequence: number;
+      system_id: string;
+      genesis_ref: string;
+      source_governing_authority_ref: string;
+      resulting_governing_authority_ref: string;
+      predecessor_status: "active" | "successor_governed";
+      predecessor_state_ref: string;
+      predecessor_state_root: string;
+      predecessor_chain_head_root: string;
+      resulting_status: "active" | "successor_governed";
+      resulting_state_ref: string;
+      resulting_state_root: string;
+      constitution_ref: string;
+      lifecycle_profile_ref: string;
+      active_profile_set_ref: string;
+      active_profile_set_root: string;
+      chain_ref: string;
+      current_network_enrollment_ref: string | null;
+      current_network_enrollment_root: string | null;
+      resulting_network_enrollment_ref: string | null;
+      resulting_network_enrollment_root: string | null;
+      trigger_evidence_refs: Array<unknown>;
+      successor_candidate_ref: null;
+      successor_authority_ref: null;
+      successor_authority_binding: null;
+      migration_destination_ack_ref: null;
+      migration_destination_ack_root: null;
+      migration_destination_ref: null;
+      verified_migration_state_root: null;
+      residual_disposition: null;
+      live_effect_refs: Array<unknown>;
+      identity_preserved: true;
+      authority_widened: false;
+      network_assurance_admitted: false;
+      runtime_effect_admitted: false;
+      operation_commitment: null;
+    };
+  authority_grant_refs: Array<string>;
+  receipt_refs: Array<string>;
+  status: "committed";
 };
 
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
@@ -4084,6 +4213,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_migration_destination_acknowledgement.root.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -7829,6 +8006,48 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -8700,6 +8919,7 @@ export const ARCHITECTURE_CONTRACT_ASSERTION_KEYWORDS = [
 export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:worker|service|org|domain)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
   "^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
+  "^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$",
   "^(?:agent|worker)://[^\\s]{1,248}$",
   "^(?:artifact|cid)://[^\\s]{1,248}$",
   "^(?:commitment|settlement|tx)://[^\\s]+$",
@@ -8712,6 +8932,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:network|chain|domain)://[^\\s]{1,248}$",
   "^(?:policy|profile)://[^\\s]{1,248}$",
   "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$",
+  "^(?:principal|wallet|organization|org)://[^\\s]{1,248}$",
   "^(?:receipt|evidence)://[^\\s]{1,248}$",
   "^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$",
   "^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$",
@@ -8724,6 +8945,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
+  "^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$",
+  "^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$",
   "^(?:workflow|workflow-template)://[^\\s]{1,248}$",
   "^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$",
   "^[ -~]{1,2048}$",
@@ -8811,6 +9034,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^lifecycle-transition://[^\\s]{1,248}$",
   "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^migration-destination-acknowledgement://[^\\s]{1,248}$",
   "^network-enrollment://[^\\s]{1,248}$",
   "^node-membership://[^\\s]{1,248}$",
   "^oracle-evidence-profile://[^\\s]{1,248}$",
@@ -8857,14 +9081,17 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^snapshot://[^\\s]+$",
+  "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$",
   "^system-activation-state://[^\\s]{1,248}$",
   "^system-home-domain-binding://[A-Za-z0-9._:/-]+$",
   "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$",
   "^system-lifecycle-authority-consumption://[A-Za-z0-9._:/-]+$",
   "^system-lifecycle-authority-consumption://aslac_[0-9a-f]{64}$",
   "^system-lifecycle-authority-evidence://[A-Za-z0-9._:/-]+$",
+  "^system-lifecycle-authority-evidence://[^\\s]{1,248}$",
   "^system-lifecycle-authority-evidence://aslae_[0-9a-f]{64}$",
   "^system-lifecycle-state://[A-Za-z0-9._:/-]+$",
+  "^system-lifecycle-state://[^\\s]{1,248}$",
   "^system-materialization://[^\\s]{1,248}$",
   "^system-materialization://sequence-zero/sha256:[0-9a-f]{64}$",
   "^system-sequence-zero-authority-consumption://aszmc_[0-9a-f]{64}$",
@@ -8879,6 +9106,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^transition://[^\\s]{1,248}$",
   "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$",
   "^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$",
+  "^wallet[.]network://approval-effect-consumption/[^\\s]{1,248}$",
   "^wallet[.]network://principal-authority-binding/[0-9a-f]{64}$",
   "^worker://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -8923,17 +9151,20 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/lifecycle-transition-receipt/v1": "sha256:320de6f5dff11c7adda1bc653fa534d56b87dd66db4c534ec008cce8d9102f5d",
   "schema://ioi/foundations/autonomous-system-activation-receipt/v1": "sha256:4971827e846741e1ca98500ce790d8d48e0c22e268580337fc81f24dfef6d08c",
   "schema://ioi/foundations/ioi-network-enrollment/v1": "sha256:a5e2fbb51d71d7d51d8a48cc915899045d874977c30c1daaabe182578807c77f",
-  "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1": "sha256:e98ab969ff40ac8bc19079c9f4f6df6f0a75d8d2b3d4a91b4fd721536d60dd61",
+  "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1": "sha256:2137a6b27fe3ef6a0a72047fc4484c874dcb825939f651204538f9883706e0af",
   "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1": "sha256:c3786dfca242c3dbe75c422b66cbe2c9205a111f5d1f185f5f2688de680d8f48",
-  "schema://ioi/foundations/autonomous-system-lifecycle-state/v1": "sha256:0053e6d7285ae284a49befd7775a22b7ab7fac131cf47cf87bd92a196ddd6412",
+  "schema://ioi/foundations/autonomous-system-lifecycle-state/v1": "sha256:8ba7a13ea9b9c6a1a5e7f2804ef0ea2de2cf65be11600bd784157bce260361c4",
   "schema://ioi/foundations/autonomous-system-operation-log/v2": "sha256:6f79fef38132de438bdff306c51f0fa88799729c00df3a52d5ea7a2ba516b0a5",
   "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1": "sha256:923b7fe73385964709853fa4c095766e470cf16d6a3d39e46fad5f3afb350288",
   "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1": "sha256:f5a4a88d18077080267ddf52e192562d50ae384752abdb328e970edb646c41b6",
-  "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1": "sha256:824dc90710f2649d0ea10e00113748b757df6f03bcf5cebacb944412f3c14ca0",
-  "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1": "sha256:91f4c82506ed0645a35495e65145d68f08993099de7c4dce97c1cd2bc2c6d73a",
+  "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1": "sha256:a0ae601ec1c69c0e6b2717d1b776ec31cf98485bc74b95b3d57b88fdf306a0e8",
+  "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1": "sha256:e0d60d363cab0d338cdc87058ba927a299cdd1bd240141ca326149b61678674c",
   "schema://ioi/foundations/autonomous-system-amendment-transition/v1": "sha256:0707b57a8aa328c0938ef026ca265def6227eb4ab417371b4597c0437df21675",
   "schema://ioi/foundations/autonomous-system-amendment-receipt/v1": "sha256:73be7670baa1f25385bd3a04578bd186419422883c7dc48cc54a2a62de744502",
-  "schema://ioi/foundations/autonomous-system-active-profile-set/v2": "sha256:051100663f24d5fad21c9a5336813d11b3a7afd935cf36ef9b8d012f349bf6e4"
+  "schema://ioi/foundations/autonomous-system-active-profile-set/v2": "sha256:051100663f24d5fad21c9a5336813d11b3a7afd935cf36ef9b8d012f349bf6e4",
+  "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1": "sha256:5ad0f84a10bb89f930e5d04fd2f76a56fb902faa1a464670faad1058ddc7d261",
+  "schema://ioi/foundations/autonomous-system-continuity-state/v1": "sha256:ddae020709d8d73124c561a94812c2d8d3c3e12053d8ddee5c1fad0b4fe82d67",
+  "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1": "sha256:6a8401ac0ea076022e78b2103109842fac414269ab56a0fe39159f048491db4d"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -25707,6 +25938,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "predecessor_status": {
         "enum": [
           "active",
+          "successor_governed",
           "degraded",
           "paused",
           "suspended",
@@ -25791,6 +26023,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "predecessor_status": {
               "enum": [
                 "active",
+                "successor_governed",
                 "degraded"
               ]
             },
@@ -25809,6 +26042,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
                 "predecessor_status": {
                   "enum": [
                     "active",
+                    "successor_governed",
                     "degraded"
                   ]
                 },
@@ -25891,6 +26125,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "predecessor_status": {
               "enum": [
                 "active",
+                "successor_governed",
                 "degraded",
                 "paused"
               ]
@@ -25910,6 +26145,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
                 "predecessor_status": {
                   "enum": [
                     "active",
+                    "successor_governed",
                     "degraded",
                     "paused"
                   ]
@@ -25993,6 +26229,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "predecessor_status": {
               "enum": [
                 "active",
+                "successor_governed",
                 "paused"
               ]
             },
@@ -26011,6 +26248,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
                 "predecessor_status": {
                   "enum": [
                     "active",
+                    "successor_governed",
                     "paused"
                   ]
                 },
@@ -26195,6 +26433,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "predecessor_status": {
               "enum": [
                 "active",
+                "successor_governed",
                 "degraded",
                 "paused",
                 "recovering"
@@ -26215,6 +26454,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
                 "predecessor_status": {
                   "enum": [
                     "active",
+                    "successor_governed",
                     "degraded",
                     "paused",
                     "recovering"
@@ -26299,6 +26539,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "predecessor_status": {
               "enum": [
                 "active",
+                "successor_governed",
                 "paused",
                 "suspended",
                 "dormant"
@@ -26319,6 +26560,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
                 "predecessor_status": {
                   "enum": [
                     "active",
+                    "successor_governed",
                     "paused",
                     "suspended",
                     "dormant"
@@ -26403,6 +26645,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "predecessor_status": {
               "enum": [
                 "active",
+                "successor_governed",
                 "degraded",
                 "paused",
                 "suspended",
@@ -26428,6 +26671,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
                 "predecessor_status": {
                   "enum": [
                     "active",
+                    "successor_governed",
                     "degraded",
                     "paused",
                     "suspended",
@@ -26652,6 +26896,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "predecessor_status": {
             "enum": [
               "active",
+              "successor_governed",
               "degraded",
               "paused",
               "suspended",
@@ -27214,7 +27459,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
     "title": "AutonomousSystemLifecycleState",
-    "description": "Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds only predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic. Succession, dissolution, and enrollment statuses are reserved for their named owner families.",
+    "description": "Continues the activation-state chain beyond sequence two for generic protected operational transitions. The semantic lifecycle_state_root binds predecessor, sequence, status, the unchanged profile-set coordinates, and the live governing authority; transition, receipt, chain, and created_at navigation stays outside the root so the commitment graph is acyclic.",
     "x-ioi-schema-version": "ioi.autonomous-system-lifecycle-state.v1",
     "type": "object",
     "additionalProperties": false,
@@ -27232,6 +27477,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "transition_receipt_root",
       "active_profile_set_ref",
       "active_profile_set_root",
+      "governing_authority_ref",
       "chain_ref",
       "created_at"
     ],
@@ -27259,6 +27505,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "status": {
         "enum": [
           "active",
+          "successor_governed",
           "paused",
           "suspended",
           "dormant",
@@ -27325,6 +27572,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "active_profile_set_root": {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "governing_authority_ref": {
+        "type": "string",
+        "pattern": "^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$"
       },
       "chain_ref": {
         "type": "string",
@@ -28779,7 +29030,14 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "archive",
           "revoke",
           "decommission",
-          "amend_constitution"
+          "amend_constitution",
+          "initiate_succession",
+          "complete_succession",
+          "migrate",
+          "initiate_dissolution",
+          "complete_dissolution",
+          "enroll_local",
+          "exit_local_enrollment"
         ]
       }
     },
@@ -28856,7 +29114,14 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "archive",
           "revoke",
           "decommission",
-          "amend_constitution"
+          "amend_constitution",
+          "initiate_succession",
+          "complete_succession",
+          "migrate",
+          "initiate_dissolution",
+          "complete_dissolution",
+          "enroll_local",
+          "exit_local_enrollment"
         ]
       },
       "committed_at": {
@@ -30885,6 +31150,784 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "string",
         "format": "date-time",
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
+    "title": "AutonomousSystemMigrationDestinationAcknowledgement",
+    "description": "A separately authorized, content-addressed acknowledgement that an exact live System state is durably available at a distinct migration destination before the migrate transition may execute.",
+    "x-ioi-schema-version": "ioi.autonomous-system-migration-destination-acknowledgement.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "acknowledgement_ref",
+      "acknowledgement_root",
+      "system_id",
+      "predecessor_state_ref",
+      "predecessor_state_root",
+      "predecessor_chain_head_root",
+      "source_deployment_profile_ref",
+      "destination_ref",
+      "acknowledged_state_root",
+      "required_scope",
+      "operation_commitment",
+      "authority_effect_material",
+      "authority_grant_refs",
+      "authority_evidence_ref",
+      "authority_evidence_root",
+      "wallet_consumption_ref",
+      "wallet_consumption_root",
+      "receipt_ref",
+      "receipt_root",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-migration-destination-acknowledgement.v1"
+      },
+      "acknowledgement_ref": {
+        "type": "string",
+        "pattern": "^migration-destination-acknowledgement://[^\\s]{1,248}$"
+      },
+      "acknowledgement_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "predecessor_state_ref": {
+        "type": "string",
+        "pattern": "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"
+      },
+      "predecessor_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_chain_head_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "source_deployment_profile_ref": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s]{1,248}$"
+      },
+      "destination_ref": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s]{1,248}$"
+      },
+      "acknowledged_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "required_scope": {
+        "const": "scope:autonomous_system.continuity.migration_destination_acknowledge"
+      },
+      "operation_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_effect_material": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "op",
+          "required_scope",
+          "sequence",
+          "system_id",
+          "genesis_ref",
+          "source_governing_authority_ref",
+          "predecessor_state_ref",
+          "predecessor_state_root",
+          "predecessor_chain_head_root",
+          "source_deployment_profile_ref",
+          "destination_ref",
+          "acknowledged_state_root",
+          "identity_preserved",
+          "operation_commitment"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.autonomous-system-migration-destination-acknowledgement-effect.v1"
+          },
+          "op": {
+            "const": "acknowledge_migration_destination"
+          },
+          "required_scope": {
+            "const": "scope:autonomous_system.continuity.migration_destination_acknowledge"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 9007199254740991
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,248}$"
+          },
+          "genesis_ref": {
+            "type": "string",
+            "pattern": "^genesis://[^\\s]{1,248}$"
+          },
+          "source_governing_authority_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "predecessor_state_ref": {
+            "type": "string",
+            "pattern": "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"
+          },
+          "predecessor_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "predecessor_chain_head_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "source_deployment_profile_ref": {
+            "type": "string",
+            "pattern": "^deployment-profile://[^\\s]{1,248}$"
+          },
+          "destination_ref": {
+            "type": "string",
+            "pattern": "^deployment-profile://[^\\s]{1,248}$"
+          },
+          "acknowledged_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "identity_preserved": {
+            "const": true
+          },
+          "operation_commitment": {
+            "type": "null"
+          }
+        }
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 1,
+        "items": {
+          "type": "string",
+          "pattern": "^grant://[^\\s]{1,248}$"
+        }
+      },
+      "authority_evidence_ref": {
+        "type": "string",
+        "pattern": "^system-lifecycle-authority-evidence://[^\\s]{1,248}$"
+      },
+      "authority_evidence_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "wallet_consumption_ref": {
+        "type": "string",
+        "pattern": "^wallet[.]network://approval-effect-consumption/[^\\s]{1,248}$"
+      },
+      "wallet_consumption_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "receipt_ref": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "receipt_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "status": {
+        "const": "committed"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-continuity-state/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+    "title": "AutonomousSystemContinuityState",
+    "description": "Committed state for named succession, migration, dissolution, and local-enrollment transitions.",
+    "x-ioi-schema-version": "ioi.autonomous-system-continuity-state.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "lifecycle_state_ref",
+      "lifecycle_state_root",
+      "system_id",
+      "sequence",
+      "status",
+      "predecessor_state_root",
+      "transition_ref",
+      "transition_root",
+      "transition_receipt_ref",
+      "transition_receipt_root",
+      "active_profile_set_ref",
+      "active_profile_set_root",
+      "governing_authority_ref",
+      "pending_successor_candidate_ref",
+      "network_enrollment_ref",
+      "network_enrollment_root",
+      "migration_destination_ref",
+      "chain_ref",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-continuity-state.v1"
+      },
+      "lifecycle_state_ref": {
+        "type": "string",
+        "pattern": "^system-lifecycle-state://[A-Za-z0-9._:/-]+$"
+      },
+      "lifecycle_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[A-Za-z0-9._:/-]+$"
+      },
+      "sequence": {
+        "type": "integer",
+        "minimum": 3,
+        "maximum": 9007199254740991
+      },
+      "status": {
+        "enum": [
+          "active",
+          "succession_pending",
+          "successor_governed",
+          "dissolution_pending",
+          "dissolved"
+        ]
+      },
+      "predecessor_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "transition_ref": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[A-Za-z0-9._:/-]+$"
+      },
+      "transition_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "transition_receipt_ref": {
+        "type": "string",
+        "pattern": "^receipt://[A-Za-z0-9._:/-]+$"
+      },
+      "transition_receipt_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "active_profile_set_ref": {
+        "type": "string",
+        "pattern": "^active-profile-set://[A-Za-z0-9._:/-]+$"
+      },
+      "active_profile_set_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "governing_authority_ref": {
+        "type": "string",
+        "pattern": "^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$"
+      },
+      "pending_successor_candidate_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:principal|wallet|organization|org)://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "network_enrollment_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^network-enrollment://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "network_enrollment_root": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "migration_destination_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "chain_ref": {
+        "type": "string",
+        "pattern": "^autonomous-system-chain://[A-Za-z0-9._:/-]+$"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "succession_pending"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "pending_successor_candidate_ref": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "network_enrollment_ref": {
+              "type": "null"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "network_enrollment_root": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "network_enrollment_ref": {
+              "type": "string"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "network_enrollment_root": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
+    "title": "AutonomousSystemNetworkEnrollmentTransition",
+    "description": "Committed compare-and-swap transition for local-only enrollment admission or exit.",
+    "x-ioi-schema-version": "ioi.autonomous-system-network-enrollment-transition.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "lifecycle_transition_id",
+      "system_id",
+      "op",
+      "sequence",
+      "proposal_ref",
+      "proposal_root",
+      "decision_ref",
+      "decision_root",
+      "predecessor_state_root",
+      "resulting_state_root",
+      "predecessor_enrollment_ref",
+      "predecessor_enrollment_root",
+      "resulting_enrollment_ref",
+      "resulting_enrollment_root",
+      "operation_commitment",
+      "authority_effect_material",
+      "authority_grant_refs",
+      "receipt_refs",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-network-enrollment-transition.v1"
+      },
+      "lifecycle_transition_id": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "op": {
+        "enum": [
+          "enroll_local",
+          "exit_local_enrollment"
+        ]
+      },
+      "sequence": {
+        "type": "integer",
+        "minimum": 3,
+        "maximum": 9007199254740991
+      },
+      "proposal_ref": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "proposal_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "decision_ref": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "decision_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "resulting_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_enrollment_ref": {
+        "$ref": "#/$defs/nullableEnrollment"
+      },
+      "predecessor_enrollment_root": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "resulting_enrollment_ref": {
+        "$ref": "#/$defs/nullableEnrollment"
+      },
+      "resulting_enrollment_root": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "operation_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_effect_material": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "op",
+          "transition_kind",
+          "required_scope",
+          "sequence",
+          "system_id",
+          "genesis_ref",
+          "source_governing_authority_ref",
+          "resulting_governing_authority_ref",
+          "predecessor_status",
+          "predecessor_state_ref",
+          "predecessor_state_root",
+          "predecessor_chain_head_root",
+          "resulting_status",
+          "resulting_state_ref",
+          "resulting_state_root",
+          "constitution_ref",
+          "lifecycle_profile_ref",
+          "active_profile_set_ref",
+          "active_profile_set_root",
+          "chain_ref",
+          "current_network_enrollment_ref",
+          "current_network_enrollment_root",
+          "resulting_network_enrollment_ref",
+          "resulting_network_enrollment_root",
+          "trigger_evidence_refs",
+          "successor_candidate_ref",
+          "successor_authority_ref",
+          "successor_authority_binding",
+          "migration_destination_ack_ref",
+          "migration_destination_ack_root",
+          "migration_destination_ref",
+          "verified_migration_state_root",
+          "residual_disposition",
+          "live_effect_refs",
+          "identity_preserved",
+          "authority_widened",
+          "network_assurance_admitted",
+          "runtime_effect_admitted",
+          "operation_commitment"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.autonomous-system-continuity-authority-effect.v1"
+          },
+          "op": {
+            "enum": [
+              "enroll_local",
+              "exit_local_enrollment"
+            ]
+          },
+          "transition_kind": {
+            "type": "null"
+          },
+          "required_scope": {
+            "enum": [
+              "scope:autonomous_system.network_enrollment.local.enroll",
+              "scope:autonomous_system.network_enrollment.local.exit"
+            ]
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 9007199254740991
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,248}$"
+          },
+          "genesis_ref": {
+            "type": "string",
+            "pattern": "^genesis://[^\\s]{1,248}$"
+          },
+          "source_governing_authority_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "resulting_governing_authority_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "predecessor_status": {
+            "enum": [
+              "active",
+              "successor_governed"
+            ]
+          },
+          "predecessor_state_ref": {
+            "type": "string",
+            "pattern": "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"
+          },
+          "predecessor_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "predecessor_chain_head_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "resulting_status": {
+            "enum": [
+              "active",
+              "successor_governed"
+            ]
+          },
+          "resulting_state_ref": {
+            "type": "string",
+            "pattern": "^system-lifecycle-state://[^\\s]{1,248}$"
+          },
+          "resulting_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "constitution_ref": {
+            "type": "string",
+            "pattern": "^constitution://[^\\s]{1,248}$"
+          },
+          "lifecycle_profile_ref": {
+            "type": "string",
+            "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+          },
+          "active_profile_set_ref": {
+            "type": "string",
+            "pattern": "^active-profile-set://[^\\s]{1,248}$"
+          },
+          "active_profile_set_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "chain_ref": {
+            "type": "string",
+            "pattern": "^autonomous-system-chain://[^\\s]{1,248}$"
+          },
+          "current_network_enrollment_ref": {
+            "$ref": "#/$defs/nullableEnrollment"
+          },
+          "current_network_enrollment_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "resulting_network_enrollment_ref": {
+            "$ref": "#/$defs/nullableEnrollment"
+          },
+          "resulting_network_enrollment_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "trigger_evidence_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "successor_candidate_ref": {
+            "type": "null"
+          },
+          "successor_authority_ref": {
+            "type": "null"
+          },
+          "successor_authority_binding": {
+            "type": "null"
+          },
+          "migration_destination_ack_ref": {
+            "type": "null"
+          },
+          "migration_destination_ack_root": {
+            "type": "null"
+          },
+          "migration_destination_ref": {
+            "type": "null"
+          },
+          "verified_migration_state_root": {
+            "type": "null"
+          },
+          "residual_disposition": {
+            "type": "null"
+          },
+          "live_effect_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "identity_preserved": {
+            "const": true
+          },
+          "authority_widened": {
+            "const": false
+          },
+          "network_assurance_admitted": {
+            "const": false
+          },
+          "runtime_effect_admitted": {
+            "const": false
+          },
+          "operation_commitment": {
+            "type": "null"
+          }
+        }
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^grant://[^\\s]{1,248}$"
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,248}$"
+        }
+      },
+      "status": {
+        "const": "committed"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "op": {
+              "const": "enroll_local"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "resulting_enrollment_ref": {
+              "type": "string",
+              "pattern": "^network-enrollment://[^\\s]{1,248}$"
+            },
+            "resulting_enrollment_root": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "op": {
+              "const": "exit_local_enrollment"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "predecessor_enrollment_ref": {
+              "type": "string",
+              "pattern": "^network-enrollment://[^\\s]{1,248}$"
+            },
+            "predecessor_enrollment_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "resulting_enrollment_ref": {
+              "type": "null"
+            },
+            "resulting_enrollment_root": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableEnrollment": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^network-enrollment://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableHash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
       }
     }
   }
@@ -34421,7 +35464,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/foundations/autonomous-system-lifecycle-state/v1": [
     {
       "rule_id": "autonomous_system_lifecycle_state.root.recomputes",
-      "description": "The semantic lifecycle-state root binds predecessor, sequence, status, and the unchanged profile-set coordinates; transition, receipt, chain, and created_at navigation is deliberately excluded so the commitment graph is acyclic.",
+      "description": "The semantic lifecycle-state root binds predecessor, sequence, status, the unchanged profile-set coordinates, and the live governing authority; transition, receipt, chain, and created_at navigation is deliberately excluded so the commitment graph is acyclic.",
       "expression": {
         "operator": "jcs_sha256_equals",
         "algorithm": "jcs_sha256",
@@ -34449,6 +35492,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
           },
           "active_profile_set_root": {
             "path": "$.active_profile_set_root"
+          },
+          "governing_authority_ref": {
+            "path": "$.governing_authority_ref"
           }
         },
         "expected_path": "$.lifecycle_state_root",
@@ -35440,6 +36486,331 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       "expression": {
         "operator": "non_empty",
         "path": "$.supersedes_profile_set_root"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1": [
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.operation_commitment.recomputes",
+      "description": "The acknowledgement operation commitment recomputes from its complete closed authority effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-migration-destination-acknowledgement-operation-jcs-sha256.v1"
+          },
+          "effect": {
+            "path": "$.authority_effect_material"
+          }
+        },
+        "expected_path": "$.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.root.recomputes",
+      "description": "The acknowledgement root binds the exact source state, live head, target, acknowledged state, scope, and operation commitment.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-migration-destination-acknowledgement-jcs-sha256.v1"
+          },
+          "acknowledgement_ref": {
+            "path": "$.acknowledgement_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "predecessor_state_ref": {
+            "path": "$.predecessor_state_ref"
+          },
+          "predecessor_state_root": {
+            "path": "$.predecessor_state_root"
+          },
+          "predecessor_chain_head_root": {
+            "path": "$.predecessor_chain_head_root"
+          },
+          "source_deployment_profile_ref": {
+            "path": "$.source_deployment_profile_ref"
+          },
+          "destination_ref": {
+            "path": "$.destination_ref"
+          },
+          "acknowledged_state_root": {
+            "path": "$.acknowledged_state_root"
+          },
+          "required_scope": {
+            "path": "$.required_scope"
+          },
+          "operation_commitment": {
+            "path": "$.operation_commitment"
+          }
+        },
+        "expected_path": "$.acknowledgement_root",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.system.matches_effect",
+      "description": "The acknowledgement and governed effect bind the same System.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.system_id",
+          "$.authority_effect_material.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.predecessor_ref.matches_effect",
+      "description": "The acknowledged predecessor ref cannot be substituted outside the authority effect.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_state_ref",
+          "$.authority_effect_material.predecessor_state_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.predecessor_root.matches_effect",
+      "description": "The acknowledged predecessor root cannot be substituted outside the authority effect.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_state_root",
+          "$.authority_effect_material.predecessor_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.chain_head.matches_effect",
+      "description": "The exact live chain head cannot be substituted outside the authority effect.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_chain_head_root",
+          "$.authority_effect_material.predecessor_chain_head_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.source_profile.matches_effect",
+      "description": "The source deployment profile cannot be substituted outside the authority effect.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.source_deployment_profile_ref",
+          "$.authority_effect_material.source_deployment_profile_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.state.matches_effect",
+      "description": "The acknowledged state root cannot be substituted outside the authority effect.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.acknowledged_state_root",
+          "$.authority_effect_material.acknowledged_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.destination.matches_effect",
+      "description": "The destination cannot be substituted outside the authority effect.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.destination_ref",
+          "$.authority_effect_material.destination_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_migration_destination_acknowledgement.destination.differs_from_source",
+      "description": "A migration destination acknowledgement cannot certify a no-op destination equal to the current deployment profile.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.source_deployment_profile_ref",
+          "$.destination_ref"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-continuity-state/v1": [
+    {
+      "rule_id": "autonomous_system_continuity_state.root.recomputes",
+      "description": "The named continuity-state root binds identity, predecessor, sequence, status, and the unchanged active profile set.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-lifecycle-state-jcs-sha256.v1"
+          },
+          "lifecycle_state_ref": {
+            "path": "$.lifecycle_state_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "sequence": {
+            "path": "$.sequence"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "predecessor_state_root": {
+            "path": "$.predecessor_state_root"
+          },
+          "active_profile_set_ref": {
+            "path": "$.active_profile_set_ref"
+          },
+          "active_profile_set_root": {
+            "path": "$.active_profile_set_root"
+          },
+          "governing_authority_ref": {
+            "path": "$.governing_authority_ref"
+          },
+          "pending_successor_candidate_ref": {
+            "path": "$.pending_successor_candidate_ref"
+          },
+          "network_enrollment_ref": {
+            "path": "$.network_enrollment_ref"
+          },
+          "network_enrollment_root": {
+            "path": "$.network_enrollment_root"
+          },
+          "migration_destination_ref": {
+            "path": "$.migration_destination_ref"
+          }
+        },
+        "expected_path": "$.lifecycle_state_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1": [
+    {
+      "rule_id": "autonomous_system_network_enrollment_transition.operation_commitment.recomputes",
+      "description": "The operation commitment recomputes from the complete closed authority effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-continuity-operation-commitment-jcs-sha256.v1"
+          },
+          "effect": {
+            "path": "$.authority_effect_material"
+          }
+        },
+        "expected_path": "$.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_network_enrollment_transition.op.matches_effect",
+      "description": "The portable transition and governed effect name the same operation.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.op",
+          "$.authority_effect_material.op"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_network_enrollment_transition.system.matches_effect",
+      "description": "The portable transition and governed effect bind the same System.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.system_id",
+          "$.authority_effect_material.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_network_enrollment_transition.sequence.matches_effect",
+      "description": "The portable transition and governed effect bind the same sequence.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.sequence",
+          "$.authority_effect_material.sequence"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_network_enrollment_transition.predecessor_state.matches_effect",
+      "description": "The predecessor state root is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_state_root",
+          "$.authority_effect_material.predecessor_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_network_enrollment_transition.resulting_state.matches_effect",
+      "description": "The resulting state root is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resulting_state_root",
+          "$.authority_effect_material.resulting_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_network_enrollment_transition.predecessor_enrollment.matches_effect",
+      "description": "The predecessor enrollment identity is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_enrollment_ref",
+          "$.authority_effect_material.current_network_enrollment_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_network_enrollment_transition.predecessor_enrollment_root.matches_effect",
+      "description": "The predecessor enrollment bytes are content-bound.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_enrollment_root",
+          "$.authority_effect_material.current_network_enrollment_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_network_enrollment_transition.resulting_enrollment.matches_effect",
+      "description": "The resulting enrollment identity is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resulting_enrollment_ref",
+          "$.authority_effect_material.resulting_network_enrollment_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_network_enrollment_transition.resulting_enrollment_root.matches_effect",
+      "description": "The resulting enrollment bytes are content-bound.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resulting_enrollment_root",
+          "$.authority_effect_material.resulting_network_enrollment_root"
+        ]
       }
     }
   ]
@@ -36567,4 +37938,22 @@ export function validateAutonomousSystemActiveProfileSetV2(
   value: unknown,
 ): value is AutonomousSystemActiveProfileSetV2 {
   return validateArchitectureContract("schema://ioi/foundations/autonomous-system-active-profile-set/v2", value).ok;
+}
+
+export function validateAutonomousSystemMigrationDestinationAcknowledgementV1(
+  value: unknown,
+): value is AutonomousSystemMigrationDestinationAcknowledgementV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1", value).ok;
+}
+
+export function validateAutonomousSystemContinuityStateV1(
+  value: unknown,
+): value is AutonomousSystemContinuityStateV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-continuity-state/v1", value).ok;
+}
+
+export function validateAutonomousSystemNetworkEnrollmentTransitionV1(
+  value: unknown,
+): value is AutonomousSystemNetworkEnrollmentTransitionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1", value).ok;
 }

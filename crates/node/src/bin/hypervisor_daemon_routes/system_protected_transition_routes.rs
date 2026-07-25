@@ -137,6 +137,43 @@ pub(crate) struct ProtectedTransitionSource {
     pub operation_log: Value,
 }
 
+pub(crate) fn current_governing_authority(
+    previous_step: &UnverifiedCommittedSystemLifecycleStep,
+    chain_head: &Value,
+) -> Result<String, VErr> {
+    let state_authority = previous_step
+        .state
+        .get("governing_authority_ref")
+        .and_then(Value::as_str);
+    let owners = chain_head
+        .get("governance_owner_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            verr(
+                "system_lifecycle_artifact_invalid",
+                "chain head lacks governance_owner_refs",
+            )
+        })?;
+    let chain_authority = if owners.len() == 1 {
+        owners[0].as_str()
+    } else {
+        None
+    }
+    .ok_or_else(|| {
+        verr(
+            "system_lifecycle_artifact_invalid",
+            "chain head must identify exactly one governing authority",
+        )
+    })?;
+    if state_authority.is_some_and(|authority| authority != chain_authority) {
+        return Err(verr(
+            "system_lifecycle_artifact_mismatch",
+            "predecessor state and chain head disagree on governing authority",
+        ));
+    }
+    Ok(chain_authority.to_owned())
+}
+
 fn required(value: &Value, pointer: &str) -> Result<String, VErr> {
     required_string(value, pointer).map(str::to_owned)
 }
@@ -446,13 +483,20 @@ pub(crate) fn load_previous_step(
             &format!("asptr_{}", &receipt_root[7..]),
         )? {
             Some(value) => value,
-            None => record_by_root(
+            None => match load_required_exact(
                 data_dir,
                 super::system_amendment_routes::AMENDMENT_RECEIPT_DIR,
-                "asamr_",
-                &receipt_root,
-                "amendment receipt",
-            )?,
+                &format!("asamr_{}", &receipt_root[7..]),
+            )? {
+                Some(value) => value,
+                None => record_by_root(
+                    data_dir,
+                    super::system_continuity_routes::CONTINUITY_RECEIPT_DIR,
+                    "asctr_",
+                    &receipt_root,
+                    "continuity receipt",
+                )?,
+            },
         }
     };
     Ok(UnverifiedCommittedSystemLifecycleStep {
@@ -558,9 +602,12 @@ pub(crate) fn compile_from_source(
     source: &ProtectedTransitionSource,
 ) -> Result<CompiledProtectedTransitionPlan, VErr> {
     let chain_head_root = required(&source.chain_head, "/chain_root")?;
+    let governing = current_governing_authority(&source.previous_step, &source.chain_head)?;
+    let mut live_activation_effect = source.activation_effect.clone();
+    live_activation_effect["source_governing_authority_ref"] = json!(governing);
     compile_protected_transition_plan(
         op,
-        &source.activation_effect,
+        &live_activation_effect,
         &source.previous_step,
         &chain_head_root,
     )
@@ -745,6 +792,24 @@ pub(crate) fn build_protected_artifacts(
     state["transition_receipt_ref"] = json!(receipt_ref);
     state["created_at"] = json!(timestamp);
 
+    // Activation/protected receipts expose `receipt_ref`; named continuity
+    // receipts are canonical receipt envelopes and expose the same durable
+    // coordinate as `receipt_id`. Normalize that cross-family predecessor
+    // navigation before placing it in lifecycle-transition evidence.
+    let predecessor_receipt_ref = plan
+        .previous_step
+        .receipt
+        .get("receipt_ref")
+        .or_else(|| plan.previous_step.receipt.get("receipt_id"))
+        .and_then(Value::as_str)
+        .filter(|value| value.starts_with("receipt://"))
+        .ok_or_else(|| {
+            verr(
+                "system_lifecycle_artifact_invalid",
+                "predecessor receipt lacks a canonical receipt ref/id",
+            )
+        })?;
+
     let transition = json!({
         "schema_version": "ioi.lifecycle-transition.v1",
         "lifecycle_transition_id": transition_ref,
@@ -757,7 +822,7 @@ pub(crate) fn build_protected_artifacts(
         "admitted_manifest_root": Value::Null,
         "previous_state": plan.predecessor_status.as_str(),
         "proposed_state": plan.op.resulting_status().as_str(),
-        "trigger_evidence_refs": [plan.previous_step.receipt["receipt_ref"].clone()],
+        "trigger_evidence_refs": [predecessor_receipt_ref],
         "oracle_evidence_profile_refs": source.chain_head["oracle_evidence_profile_refs"],
         "proposal_ref": proposal_ref,
         "decision_ref": decision_ref,
@@ -1072,7 +1137,6 @@ pub(crate) fn continue_chain(
 #[cfg(test)]
 mod builder_tests {
     use super::*;
-    use ioi_types::app::system_lifecycle_transitions::compile_protected_transition_plan;
     use serde_json::json;
 
     fn fixture(path: &str) -> Value {
@@ -1237,6 +1301,39 @@ mod builder_tests {
     }
 
     #[test]
+    fn protected_compiler_uses_the_live_successor_authority() {
+        let mut source = real_prior_source();
+        source.chain_head["governance_owner_refs"] = json!(["org://acme/successor-authority"]);
+        source.chain_head["status"] = json!("successor_governed");
+        source.previous_step.state["governing_authority_ref"] =
+            json!("org://acme/successor-authority");
+        source.previous_step.state["status"] = json!("successor_governed");
+        source.previous_step.receipt =
+            json!({"receipt_id":"receipt://acme/system-alpha/continuity/sequence/7"});
+        let plan = compile_from_source(ProtectedTransitionOp::Pause, &source)
+            .expect("successor-governed protected plan");
+        assert_eq!(
+            plan.authority_effect["source_governing_authority_ref"],
+            "org://acme/successor-authority"
+        );
+        let artifacts = build_protected_artifacts(
+            &plan,
+            &source,
+            &authority_tuple(),
+            "2026-07-22T12:00:00.000Z",
+        )
+        .expect("successor-governed protected artifacts");
+        assert_eq!(
+            artifacts.chain["governance_owner_refs"],
+            json!(["org://acme/successor-authority"])
+        );
+        assert_eq!(
+            artifacts.step.state["governing_authority_ref"],
+            "org://acme/successor-authority"
+        );
+    }
+
+    #[test]
     fn continuation_refuses_a_detached_predecessor() {
         let source = real_prior_source();
         let plan = compile_from_source(ProtectedTransitionOp::Pause, &source).expect("plan");
@@ -1347,7 +1444,9 @@ fn check_expected_roots(body: &Value, source: &ProtectedTransitionSource) -> Res
     Ok(())
 }
 
-fn decision_tuple(evidence: &NodeAdmissionEvidence) -> Result<DecisionAuthorityTuple, VErr> {
+pub(crate) fn decision_tuple(
+    evidence: &NodeAdmissionEvidence,
+) -> Result<DecisionAuthorityTuple, VErr> {
     Ok(DecisionAuthorityTuple {
         input_hash: evidence.authorized.evidence.request_hash.clone(),
         policy_hash: evidence.authorized.evidence.policy_hash.clone(),
@@ -1519,6 +1618,7 @@ pub(crate) async fn handle_transition(
         super::system_activation_routes::ensure_no_pending_intent(&state.data_dir, &key)?;
         ensure_no_pending_protected_intent(&state.data_dir, &key)?;
         super::system_amendment_routes::ensure_no_pending_amendment_intent(&state.data_dir, &key)?;
+        super::system_continuity_routes::ensure_no_pending_migration_ack(&state.data_dir, &key)?;
         let source =
             load_protected_source(&state.data_dir, &system_id_for_key(&state.data_dir, &key)?)?;
         check_expected_roots(&body, &source)?;
@@ -1536,7 +1636,7 @@ pub(crate) async fn handle_transition(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
-    let governing = match required(&source.activation_effect, "/source_governing_authority_ref") {
+    let governing = match required(&plan.authority_effect, "/source_governing_authority_ref") {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
@@ -1920,6 +2020,8 @@ async fn replay_one_protected(
 ) -> Result<(), VErr> {
     verify_intent_seal(intent)?;
     verify_protected_intent_coordinates(tail_value, intent)?;
+    let source_tail = required(intent, "/source_record_tail")?;
+    super::system_continuity_routes::ensure_no_pending_migration_ack(data_dir, &source_tail)?;
     let plan: CompiledProtectedTransitionPlan =
         serde_json::from_value(intent["compiled_plan"].clone())
             .map_err(|error| verr("system_lifecycle_intent_invalid", error.to_string()))?;
@@ -1933,7 +2035,7 @@ async fn replay_one_protected(
         ));
     }
     let mut evidence = evidence_from_intent(&intent["governed_authority"])?;
-    let governing = required(&source.activation_effect, "/source_governing_authority_ref")?;
+    let governing = required(&plan.authority_effect, "/source_governing_authority_ref")?;
     let rebuilt = prepare_node_evidence_for(
         &plan.authority_effect,
         op.as_str(),
@@ -2130,8 +2232,7 @@ pub(crate) async fn complete_protected_transition_intents(data_dir: &str, max: u
         }
     };
     let start = PROTECTED_REPLAY_CURSOR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    for (offset, (tail_value, result)) in entries.iter().enumerate().take(max) {
-        let _ = offset;
+    for offset in 0..entries.len().min(max) {
         let index = (start + offset) % entries.len().max(1);
         let (tail_value, result) = &entries[index];
         let intent = match result {
@@ -2146,6 +2247,5 @@ pub(crate) async fn complete_protected_transition_intents(data_dir: &str, max: u
         if let Err((_, message)) = replay_one_protected(data_dir, tail_value, intent).await {
             eprintln!("ProtectedTransition intent '{tail_value}' retained/incomplete ({message})");
         }
-        let _ = tail_value;
     }
 }

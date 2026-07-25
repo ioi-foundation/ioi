@@ -140,8 +140,12 @@ mod supervisor_routes;
 mod system_activation_routes;
 #[path = "hypervisor_daemon_routes/system_amendment_routes.rs"]
 mod system_amendment_routes;
+#[path = "hypervisor_daemon_routes/system_continuity_routes.rs"]
+mod system_continuity_routes;
 #[path = "hypervisor_daemon_routes/system_genesis_routes.rs"]
 mod system_genesis_routes;
+#[path = "hypervisor_daemon_routes/system_projection_routes.rs"]
+mod system_projection_routes;
 #[path = "hypervisor_daemon_routes/system_protected_transition_routes.rs"]
 mod system_protected_transition_routes;
 #[path = "hypervisor_daemon_routes/system_sequence_zero_routes.rs"]
@@ -469,6 +473,9 @@ async fn async_main() -> anyhow::Result<()> {
             system_sequence_zero_routes::INTENT_DIR,
             system_activation_routes::INITIALIZE_INTENT_DIR,
             system_activation_routes::ACTIVATE_INTENT_DIR,
+            system_continuity_routes::CONTINUITY_INTENT_DIR,
+            system_continuity_routes::MIGRATION_ACK_INTENT_DIR,
+            system_continuity_routes::MIGRATION_ACK_RESERVATION_DIR,
         ],
     )?;
     seed_default_state(&data_dir);
@@ -2066,6 +2073,10 @@ async fn async_main() -> anyhow::Result<()> {
             get(system_genesis_routes::handle_get).post(system_genesis_routes::handle_admit),
         )
         .route(
+            "/v1/hypervisor/autonomous-systems/projection",
+            get(system_projection_routes::handle_get),
+        )
+        .route(
             "/v1/hypervisor/autonomous-systems/:id",
             get(system_genesis_routes::handle_get_by_key),
         )
@@ -2094,6 +2105,21 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/autonomous-systems/:id/transitions/:op",
             get(system_protected_transition_routes::handle_get_transition)
                 .post(system_protected_transition_routes::handle_transition)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/continuity/migration-destination-acknowledgements",
+            post(system_continuity_routes::handle_migration_destination_acknowledgement)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/continuity/:op",
+            get(system_continuity_routes::handle_get_transition)
+                .post(system_continuity_routes::handle_transition)
                 .layer(DefaultBodyLimit::max(
                     system_activation_routes::MAX_REQUEST_BYTES,
                 )),
@@ -3322,12 +3348,24 @@ async fn async_main() -> anyhow::Result<()> {
                         governed_max_intents,
                     )
                     .await;
+                    system_continuity_routes::complete_migration_destination_acknowledgement_intents(
+                        &system_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
                     system_protected_transition_routes::complete_protected_transition_intents(
                         &system_data_dir,
                         governed_max_intents,
                     )
                     .await;
                     system_amendment_routes::complete_amendment_intents(
+                        &system_data_dir,
+                        governed_max_intents,
+                    )
+                    .await;
+                    // Named continuity compiles against the amendment-selected
+                    // constitution/profile set, so replay it after amendments.
+                    system_continuity_routes::complete_continuity_transition_intents(
                         &system_data_dir,
                         governed_max_intents,
                     )

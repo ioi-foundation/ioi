@@ -1,0 +1,30 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-continuity-state/root/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+  "rules": [{
+    "rule_id": "autonomous_system_continuity_state.root.recomputes",
+    "description": "The named continuity-state root binds identity, predecessor, sequence, status, and the unchanged active profile set.",
+    "expression": {
+      "operator": "jcs_sha256_equals",
+      "algorithm": "jcs_sha256",
+      "material_fields": {
+        "domain": {"value": "ioi.autonomous-system-lifecycle-state-jcs-sha256.v1"},
+        "lifecycle_state_ref": {"path": "$.lifecycle_state_ref"},
+        "system_id": {"path": "$.system_id"},
+        "sequence": {"path": "$.sequence"},
+        "status": {"path": "$.status"},
+        "predecessor_state_root": {"path": "$.predecessor_state_root"},
+        "active_profile_set_ref": {"path": "$.active_profile_set_ref"},
+        "active_profile_set_root": {"path": "$.active_profile_set_root"},
+        "governing_authority_ref": {"path": "$.governing_authority_ref"},
+        "pending_successor_candidate_ref": {"path": "$.pending_successor_candidate_ref"},
+        "network_enrollment_ref": {"path": "$.network_enrollment_ref"},
+        "network_enrollment_root": {"path": "$.network_enrollment_root"},
+        "migration_destination_ref": {"path": "$.migration_destination_ref"}
+      },
+      "expected_path": "$.lifecycle_state_root",
+      "expected_encoding": "sha256_string"
+    }
+  }]
+}

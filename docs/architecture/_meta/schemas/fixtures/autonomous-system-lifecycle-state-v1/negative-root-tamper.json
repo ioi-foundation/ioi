@@ -12,6 +12,7 @@
   "transition_receipt_root": null,
   "active_profile_set_ref": "active-profile-set://fixture/alpha",
   "active_profile_set_root": "sha256:1616161616161616161616161616161616161616161616161616161616161616",
+  "governing_authority_ref": "wallet://fixture/governing",
   "chain_ref": "autonomous-system-chain://fixture/alpha",
   "created_at": null
 }

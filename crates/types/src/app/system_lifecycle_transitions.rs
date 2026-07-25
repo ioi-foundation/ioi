@@ -39,6 +39,8 @@ const PROTECTED_AUTHORITY_EFFECT_SCHEMA: &str =
 pub enum ProtectedLifecycleStatus {
     /// Fully operational.
     Active,
+    /// Fully operational after a named succession authority handoff.
+    SuccessorGoverned,
     /// Observed impaired posture; never an op target.
     Degraded,
     /// Deliberately paused; trivially resumable.
@@ -66,6 +68,7 @@ impl ProtectedLifecycleStatus {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Active => "active",
+            Self::SuccessorGoverned => "successor_governed",
             Self::Degraded => "degraded",
             Self::Paused => "paused",
             Self::Suspended => "suspended",
@@ -83,6 +86,7 @@ impl ProtectedLifecycleStatus {
     pub fn parse(value: &str) -> Option<Self> {
         Some(match value {
             "active" => Self::Active,
+            "successor_governed" => Self::SuccessorGoverned,
             "degraded" => Self::Degraded,
             "paused" => Self::Paused,
             "suspended" => Self::Suspended,
@@ -233,20 +237,33 @@ impl ProtectedTransitionOp {
     pub fn legal_predecessors(self) -> &'static [ProtectedLifecycleStatus] {
         use ProtectedLifecycleStatus as S;
         match self {
-            Self::Pause => &[S::Active, S::Degraded],
+            Self::Pause => &[S::Active, S::SuccessorGoverned, S::Degraded],
             Self::Resume => &[S::Paused],
-            Self::Suspend => &[S::Active, S::Degraded, S::Paused],
+            Self::Suspend => &[S::Active, S::SuccessorGoverned, S::Degraded, S::Paused],
             Self::Reinstate => &[S::Suspended],
-            Self::EnterDormancy => &[S::Active, S::Paused],
+            Self::EnterDormancy => &[S::Active, S::SuccessorGoverned, S::Paused],
             Self::Wake => &[S::Dormant],
             Self::BeginRecovery => &[S::Degraded, S::Suspended, S::Quarantined],
             Self::CompleteRecovery => &[S::Recovering],
-            Self::Quarantine => &[S::Active, S::Degraded, S::Paused, S::Recovering],
+            Self::Quarantine => &[
+                S::Active,
+                S::SuccessorGoverned,
+                S::Degraded,
+                S::Paused,
+                S::Recovering,
+            ],
             Self::ReleaseQuarantine => &[S::Quarantined],
-            Self::Retire => &[S::Active, S::Paused, S::Suspended, S::Dormant],
+            Self::Retire => &[
+                S::Active,
+                S::SuccessorGoverned,
+                S::Paused,
+                S::Suspended,
+                S::Dormant,
+            ],
             Self::Archive => &[S::Retired],
             Self::Revoke => &[
                 S::Active,
+                S::SuccessorGoverned,
                 S::Degraded,
                 S::Paused,
                 S::Suspended,
@@ -373,11 +390,23 @@ mod tests {
         // One row per canon table line; any drift here must be a deliberate
         // canon change first.
         let canon: &[(&str, &[&str], &str)] = &[
-            ("pause", &["active", "degraded"], "paused"),
+            (
+                "pause",
+                &["active", "successor_governed", "degraded"],
+                "paused",
+            ),
             ("resume", &["paused"], "active"),
-            ("suspend", &["active", "degraded", "paused"], "suspended"),
+            (
+                "suspend",
+                &["active", "successor_governed", "degraded", "paused"],
+                "suspended",
+            ),
             ("reinstate", &["suspended"], "active"),
-            ("enter_dormancy", &["active", "paused"], "dormant"),
+            (
+                "enter_dormancy",
+                &["active", "successor_governed", "paused"],
+                "dormant",
+            ),
             ("wake", &["dormant"], "active"),
             (
                 "begin_recovery",
@@ -387,13 +416,25 @@ mod tests {
             ("complete_recovery", &["recovering"], "active"),
             (
                 "quarantine",
-                &["active", "degraded", "paused", "recovering"],
+                &[
+                    "active",
+                    "successor_governed",
+                    "degraded",
+                    "paused",
+                    "recovering",
+                ],
                 "quarantined",
             ),
             ("release_quarantine", &["quarantined"], "active"),
             (
                 "retire",
-                &["active", "paused", "suspended", "dormant"],
+                &[
+                    "active",
+                    "successor_governed",
+                    "paused",
+                    "suspended",
+                    "dormant",
+                ],
                 "retired",
             ),
             ("archive", &["retired"], "archived"),
@@ -401,6 +442,7 @@ mod tests {
                 "revoke",
                 &[
                     "active",
+                    "successor_governed",
                     "degraded",
                     "paused",
                     "suspended",
@@ -565,6 +607,8 @@ pub fn compile_protected_transition_plan(
     let active_profile_set_root =
         required_string(&previous_step.state, "/active_profile_set_root")?.to_owned();
     let chain_ref = required_effect_string(activation_effect, "chain_ref")?;
+    let governing_authority_ref =
+        required_effect_string(activation_effect, "source_governing_authority_ref")?;
     let resulting_status = op.resulting_status();
 
     let lifecycle_state_ref = format!(
@@ -583,6 +627,7 @@ pub fn compile_protected_transition_plan(
         "predecessor_state_root": previous_step.state_root,
         "active_profile_set_ref": active_profile_set_ref,
         "active_profile_set_root": active_profile_set_root,
+        "governing_authority_ref": governing_authority_ref,
     });
     let resulting_state_root = jcs_hash(&state_material)?;
     let semantic_state = json!({
@@ -599,6 +644,7 @@ pub fn compile_protected_transition_plan(
         "transition_receipt_root": Value::Null,
         "active_profile_set_ref": active_profile_set_ref,
         "active_profile_set_root": active_profile_set_root,
+        "governing_authority_ref": governing_authority_ref,
         "chain_ref": chain_ref,
         "created_at": Value::Null,
     });
