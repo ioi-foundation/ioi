@@ -200,3 +200,19 @@ clean tree, and this pass moved to an isolated git worktree, rebasing nothing
 and rewriting no history. This pass's branch is therefore based on
 `9670a1d4a`; every change in this ledger is contained in the single pass
 commit on top of it.
+
+## Addendum (same day) — owner rulings after review
+
+Interactive owner review of this pass produced
+[ADR 0022](../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md),
+which (1) re-homes the goal/room object family — including this pass's
+`GoalRunActivation` and unified admission contract — to the ioi.ai
+orchestration application layer (Hypervisor keeps session vocabulary;
+protocol grammar stays AIIP + package contracts), and (2) orders an
+estate-wide strip of compatibility machinery while no downstream users
+exist. The `PursuitRun`/`PursuitRoom` rename explored during review was
+withdrawn as part of ruling (1). ADRs 0019/0020 carry dated refinements;
+their contracts stand with placement following ADR 0022. The convergence
+pass executing these rulings (re-homing sweep, compatibility purge, route
+re-home) is recorded in its own evidence under
+`docs/evidence/clean-slate-convergence/`.

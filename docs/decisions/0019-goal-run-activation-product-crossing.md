@@ -8,6 +8,15 @@
   placement from this record alone; the correlation-is-not-admission rule
   itself is settled doctrine already implied by term-boundaries and INV-17.
 
+Current-canon refinement (2026-07-25): the placement question this ADR ruled
+as reading 2 was re-ruled by the owner in
+[ADR 0022](./0022-goal-orchestration-application-layer-and-clean-slate.md):
+`GoalRunActivation` is a domain object of the ioi.ai orchestration
+application, not a Hypervisor-substrate object. Everything else in this ADR
+stands — the crossing's shape, the correlation-is-not-admission rule, the
+daemon as sole admitter, the automation-lane and gateway-lane sub-rulings,
+and the conformance cases. Only the owning layer moved.
+
 ## Context
 
 The canon's registered gap register carried, verbatim: "The

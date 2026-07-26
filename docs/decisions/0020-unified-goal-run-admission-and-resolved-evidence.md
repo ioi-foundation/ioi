@@ -9,6 +9,15 @@
   `GoalRunEnvelope`, which the object owner may rename before any schema
   registration.
 
+Current-canon refinement (2026-07-25): per
+[ADR 0022](./0022-goal-orchestration-application-layer-and-clean-slate.md),
+the GoalRun family is application-layer, so the unified admission contract
+this ADR created is the orchestration application's admission contract,
+stated against the substrate-generic rules that remain substrate-owned:
+INV-37, the `ReceiptObligation` element, and the retained-evidence
+discipline. Nothing in the contract's content changes; its stated owner
+follows the application.
+
 ## Context
 
 `term-boundaries.md` names `daemon-runtime/doctrine.md` as the owner of

@@ -30,3 +30,4 @@ explain the accepted decision when that history remains useful.
 - [ADR 0019: Adopt GoalRunActivation As The Product-Crossing Admission Contract](./0019-goal-run-activation-product-crossing.md)
 - [ADR 0020: Unify GoalRun Admission And Require Resolved Admission Evidence](./0020-unified-goal-run-admission-and-resolved-evidence.md)
 - [ADR 0021: Select Sovereign-Local Completeness As The First Flagship Proof](./0021-first-proof-selection-and-attach-lane-sequencing.md)
+- [ADR 0022: Make Goal Orchestration An Application Layer And Strip Compatibility Machinery](./0022-goal-orchestration-application-layer-and-clean-slate.md) (amends ADRs 0019 and 0020)
