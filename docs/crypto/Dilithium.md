@@ -1,5 +1,15 @@
 # IOI Kernel Crypto Module
 
+Status: low-level cryptographic module reference.
+Canonical owner: this file for the Dilithium (ML-DSA) module reference prose; the dcrypt-backed implementation in the kernel crates is the source of truth
+Document class: `canonical-reference`
+Doctrine status: reference
+Implementation status: built (Dilithium signature validation live in wallet-network and system transaction validation)
+Implementation refs:
+  - crates/services/src/wallet_network/validation.rs
+  - crates/tx/src/system/validation.rs
+Last implementation audit: 2026-07-26
+
 Quantum-resistant cryptographic primitives for the IOI Kernel, built on top of the [dcrypt](https://github.com/dcrypt-rs/dcrypt) library.
 
 ## Features

@@ -7,6 +7,12 @@ ADRs record durable product/protocol/runtime decisions and their consequences.
 Canonical architecture prose still lives under `docs/architecture/`; ADRs
 explain the accepted decision when that history remains useful.
 
+ADRs neither define nor close proof gates. `PG-*` identifiers are
+program-control machinery owned by the private program estate under the
+single-sequencer rule; public canon and ADRs bind capability claims through
+the conformance claim coverage index (`docs/conformance/README.md`), never
+through gate identifiers.
+
 ## Accepted ADRs
 
 - [ADR 0001: Remove SCS And Adopt `ioi-memory` For Product Memory](./0001-scs-deprecation-and-memory-runtime-successor.md)

@@ -1,5 +1,15 @@
 # Falcon: Fast-Fourier Lattice-based Compact Signatures over NTRU
 
+Status: low-level cryptographic algorithm reference.
+Canonical owner: this file for the Falcon signature reference prose; the dcrypt-backed implementation in the kernel crates is the source of truth
+Document class: `canonical-reference`
+Doctrine status: reference
+Implementation status: built (Falcon signature support live in identity and system transaction validation)
+Implementation refs:
+  - crates/types/src/app/identity.rs
+  - crates/tx/src/system/validation.rs
+Last implementation audit: 2026-07-26
+
 ## Overview
 
 Falcon (Fast-Fourier Lattice-based Compact Signatures over NTRU) is a post-quantum digital signature algorithm based on lattice cryptography. It was submitted to NIST's Post-Quantum Cryptography standardization process and is considered a strong candidate for standardization.

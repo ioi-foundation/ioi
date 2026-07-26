@@ -1,5 +1,12 @@
 # <ADVISORY_ID> — <TITLE>
 
+Status: authoring template for security advisories (this front matter describes the template file itself; do not copy it into new advisories).
+Canonical owner: this file for the advisory template shape; published advisories are `decision-history` records
+Document class: `canonical-reference`
+Doctrine status: reference
+Implementation status: mixed (authoring template; no runtime behavior)
+Last implementation audit: 2026-07-26
+
 **Date Published:** <YYYY-MM-DD>  
 **Severity:** <Critical | High | Medium | Low> (CVSS <score>)  
 **CVSS Vector:** <vector string>  

@@ -1,5 +1,12 @@
 # MCP Connector Authoring Template
 
+Status: authoring template for MCP servers and connectors (this front matter describes the template file itself).
+Canonical owner: this file for the authoring checklist shape; connector doctrine is owned by [`docs/architecture/components/connectors-tools/doctrine.md`](../architecture/components/connectors-tools/doctrine.md)
+Document class: `canonical-reference`
+Doctrine status: reference
+Implementation status: mixed (authoring template; no runtime behavior)
+Last implementation audit: 2026-07-26
+
 Use this template when adding an MCP server or connector. MCP support must use the same runtime substrate contracts as CLI, GUI, workflow compositor, harness, and benchmarks.
 
 ## Server Identity

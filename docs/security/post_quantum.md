@@ -1,5 +1,14 @@
 # 🧬 IOI Kernel — Post-Quantum Security Architecture
 
+Status: post-quantum cryptographic strategy reference.
+Canonical owner: this file for the PQ strategy narrative; where it conflicts with current owners under `docs/architecture/`, those owners win. Last substantive update 2025-11-10 predates the current canon refactor
+Document class: `canonical-reference`
+Doctrine status: reference
+Implementation status: partial (hybrid PQ signature primitives live in the kernel crates; the governance-driven migration mechanisms described here are aspirational where no code anchor exists)
+Implementation refs:
+  - crates/services/src/wallet_network/validation.rs
+Last implementation audit: 2026-07-26
+
 The IOI Kernel is designed to be secure in a post-quantum computing era. This document outlines the framework’s cryptographic strategy, its hybrid key exchange for transport security, and the on-chain governance mechanisms for migrating cryptographic primitives.
 
 _Last updated: 2025-11-10_
