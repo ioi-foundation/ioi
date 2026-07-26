@@ -337,7 +337,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/execution-horizons.md",
-      "source_sha256": "8e4176738b60c420c00cffdf6c9f5446f149deb5063b95a53f64d176a74a057a"
+      "source_sha256": "8ebe908654859bac21906ab433571ee4d218094e983eacc47e7ff4c5671fd31f"
     },
     {
       "role": "landed owner canon",
@@ -367,7 +367,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/objects/bounded-improvement.md",
-      "source_sha256": "8c76067ad4399f3e4d19d8655b6a74ecff344cc81a6861bd2d8be30a0d2d69da"
+      "source_sha256": "0dff454af6e42083e4e267995200ce6fcc523af6086891869a6e2e7dbf7c059c"
     },
     {
       "role": "landed owner canon",
@@ -477,7 +477,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/platform-operability.md",
-      "source_sha256": "138308e9848e8ce564693208ed84073f087adf9adafe4815ceb9605124910d91"
+      "source_sha256": "b731038841daa1354eda6cb1cfa22630afb72a67647a337ba7398158f1f81e62"
     },
     {
       "role": "landed owner canon",
@@ -1652,9 +1652,9 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "6153d546aad4f6d8759b4fe0983df85462c18fef068e7ff5c2de87d113895d88",
-    "review_epoch_id": "canon-m1-m2-gap-resolutions-basis-rebind-review-2026-07-27",
-    "review_lock_sha256": "f29878d86daa17198e1f7bec1c8bb453fde15cb756e1ede8723c8e189beed6ac",
+    "program_source_material_sha256": "57f2e7e4b2f73f84c5d0554877092d4a7951fa1a4a76c8a7a37e3cc96e125f75",
+    "review_epoch_id": "improvement-generalization-and-assurance-basis-rebind-review-2026-07-27",
+    "review_lock_sha256": "ffc8fdfbac76dc1455d7b4682f0a31218701039a43c5e855bee5d3aa22f82a57",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
     "reviewed_as_of": "2026-07-27",
     "reviewed_entry_set_sha256": "6f7d469a978f32582add9c807d184fead00ff2568f7a28952e3a44ed0a4b07c9",
@@ -1662,9 +1662,9 @@
     "reviewer_label": "claude-fable-5-clean-slate-convergence",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "af4518481002dedfc0d6547a38959176bdcde6262e4ab66482f0a7c70f45f730",
-    "snapshot_head_sequence": 16,
-    "snapshot_predecessor_entry_sha256": "a74a8d4a73b828962b91d7ceb0bc3839703953076c01c34e4fc4117eee19c950",
+    "snapshot_head_entry_sha256": "e53e8b4a209d3018b10a57db271c24f5fee7efcca0e3aac3e2ae602444e08ec3",
+    "snapshot_head_sequence": 17,
+    "snapshot_predecessor_entry_sha256": "af4518481002dedfc0d6547a38959176bdcde6262e4ab66482f0a7c70f45f730",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },
