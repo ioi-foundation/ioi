@@ -6,7 +6,7 @@ conformance details live in
 [`../../conformance/hypervisor-core/`](../../conformance/hypervisor-core/).
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-26.
 Doctrine status: canonical
 Implementation status: partial (authority/receipt gates are enforced across existing owner planes; registered multi-axis information-flow and declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; the shared pre-effect evaluator and production propagation/enforcement across HTTP connectors, MCP, hosted models, browsers, memory, OutcomeRoom, ContextCell, general computer use, and inbound connectors/webhooks remain planned; local-agent pairing and TEE/cTEE/L1 items follow their owners and remain planned where not exposed by live routes)
 Last implementation audit: 2026-07-18
@@ -170,6 +170,28 @@ security-domain application.
 9. Training, evaluation, benchmark, routing, and delivery jobs run through
    Hypervisor Daemon-compatible runtime paths; product surfaces may initiate or
    inspect them but must not create private execution semantics.
+
+## Final-Invoker Invariants
+
+1. Every consequential invocation path — embodied or not — has exactly one
+   final invoker: the daemon-controlled component that, after the policy
+   enforcement point admits the exact action, performs or transmits the
+   effect. Nothing downstream of the final invoker re-decides, widens, or
+   substitutes the admitted action.
+2. The final invoker is an enumerable, census-bearing property of every
+   consequential externally reachable route. The route census names the final
+   invoker per consequential path; a consequential route whose final invoker
+   cannot be named is a census defect and the route cannot be classified as
+   covered.
+3. Every invocation modality that can reach the same effect — native tool
+   path, MCP projection, gateway or attach lane, product surface — must
+   converge on the same policy enforcement point and the same final invoker.
+   Admission evidence at that boundary is resolved by the admitting component,
+   never asserted by the transport (`INV-37`).
+4. For embodied effects,
+   [`physical-action-safety.md`](./physical-action-safety.md) owns the
+   final-invoker preflight and ordering discipline; this section owns the
+   generic property those specializations refine.
 
 ## State Invariants
 

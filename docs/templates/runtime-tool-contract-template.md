@@ -1,5 +1,12 @@
 # Runtime Tool Contract Template
 
+Status: authoring template for runtime tool contracts (this front matter describes the template file itself).
+Canonical owner: this file for the authoring checklist shape; `RuntimeToolContract` is owned by [`docs/architecture/components/connectors-tools/contracts.md`](../architecture/components/connectors-tools/contracts.md)
+Document class: `canonical-reference`
+Doctrine status: reference
+Implementation status: mixed (authoring template; no runtime behavior)
+Last implementation audit: 2026-07-26
+
 Use this template when adding or changing a runtime tool. The implementation must project into `RuntimeToolContract`, emit receipts, and pass policy before any effectful action.
 
 ## Identity

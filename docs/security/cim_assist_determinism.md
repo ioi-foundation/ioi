@@ -1,5 +1,15 @@
 # CIM Assist Determinism Contract
 
+Status: consensus-bound determinism contract for the local-only PII assist stage.
+Canonical owner: this file for the Stage A -> A' assist contract; enforcement lives with the PII router and its hard-gate tests
+Document class: `conformance-contract`
+Doctrine status: canonical
+Implementation status: built (CimAssistV0Provider always-on in the default PII routing path)
+Implementation refs:
+  - crates/services/src/agentic/pii_router.rs
+  - crates/services/tests/pii_hard_gates.rs
+Last implementation audit: 2026-07-26
+
 ## Scope
 This document defines the consensus-bound Stage A -> A' assist contract for the local-only PII pipeline.
 

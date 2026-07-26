@@ -1,5 +1,12 @@
 # mHNSW Retrieval Verification Notes
 
+Status: historical notes on the retired mHNSW certifying retrieval path.
+Canonical owner: none; retained as history only — the certifying product-memory path was removed in the `ioi-memory` migration
+Document class: `decision-history`
+Doctrine status: archived
+Implementation status: partial (lower-level mHNSW structures remain under `crates/state`; the certifying retrieval contract described here is retired)
+Last implementation audit: 2026-07-26
+
 Historical note: this document describes the retired certifying retrieval path
 that used to sit behind the removed `SCS` crate. The lower-level `mHNSW`
 structures still live in `crates/state`, but the product-memory crate and its

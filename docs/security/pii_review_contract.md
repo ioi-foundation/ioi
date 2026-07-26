@@ -1,5 +1,15 @@
 # PII Review Contract (Consensus-Critical)
 
+Status: consensus-critical deterministic review contract for PII-gated resume flows.
+Canonical owner: this file for the PII review contract; enforcement lives with the resume approval path and validator prechecks
+Document class: `conformance-contract`
+Doctrine status: canonical
+Implementation status: built (deterministic review enforced across desktop-agent state, resume approvals, and validator prechecks)
+Implementation refs:
+  - crates/services/src/agentic/runtime/service/actions/resume/approvals.rs
+  - crates/services/src/agentic/pii_router.rs
+Last implementation audit: 2026-07-26
+
 ## Scope
 This document defines the deterministic review contract for PII-gated resume flows across:
 

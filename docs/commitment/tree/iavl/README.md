@@ -1,5 +1,14 @@
 # Production-Grade IAVL State Backend
 
+Status: low-level commitment-tree reference.
+Canonical owner: this file for the IAVL reference prose; the implementation in `crates/state` is the source of truth
+Document class: `canonical-reference`
+Doctrine status: reference
+Implementation status: built (IAVL backend under `crates/state`)
+Implementation refs:
+  - crates/state
+Last implementation audit: 2026-07-26
+
 This module provides a production-grade, secure, and interoperable IAVL (Immutable AVL) tree implementation. It follows principles inspired by the Inter-Chain Standard for Merkle Proofs (ICS-23) to ensure that proofs are compact, deterministic, and verifiable by third parties with minimal trust.
 
 The on-chain root hash serves as an irrefutable commitment to the state, and off-chain proofs can be verified against this commitment in logarithmic time.
