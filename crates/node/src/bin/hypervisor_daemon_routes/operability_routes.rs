@@ -269,7 +269,33 @@ pub(crate) async fn handle_incident_reconstruct(
 
 // ============================ O. HYPERVISOR MCP GATEWAY ===========================================
 
-async fn call(base: &str, method: &str, path: &str, body: Option<Value>) -> Result<Value, String> {
+/// Headers that decide the auth POSTURE and the resolved PRINCIPAL on an inbound
+/// request. They must survive the loopback hop or the second request is evaluated
+/// under a weaker posture than the caller's.
+///
+/// `auth_gate` enforces when `auth_enforced()` is true, and in the default `auto`
+/// mode that is `daemon_exposed() || request_exposed(headers)`. A loopback call
+/// carrying no headers has a 127.0.0.1 Host and no `x-forwarded-*`, so
+/// `request_exposed` is false: an externally forwarded, authenticated MCP request
+/// would have executed its EFFECT unauthenticated, under `local_development`
+/// posture, with no principal bound to the receipt. Native callers hitting the
+/// same route directly are enforced. That divergence is exactly what the
+/// native/MCP parity rule forbids.
+const FORWARDED_AUTH_HEADERS: &[&str] = &[
+    "authorization",
+    "cookie",
+    "x-forwarded-host",
+    "x-forwarded-for",
+    "x-ioi-forwarded",
+];
+
+async fn call(
+    base: &str,
+    method: &str,
+    path: &str,
+    body: Option<Value>,
+    inbound: &axum::http::HeaderMap,
+) -> Result<Value, String> {
     let client = reqwest::Client::new();
     let url = format!("{base}{path}");
     let mut req = if method == "POST" {
@@ -277,6 +303,11 @@ async fn call(base: &str, method: &str, path: &str, body: Option<Value>) -> Resu
     } else {
         client.get(&url)
     };
+    for name in FORWARDED_AUTH_HEADERS {
+        if let Some(value) = inbound.get(*name).and_then(|v| v.to_str().ok()) {
+            req = req.header(*name, value);
+        }
+    }
     if let Some(b) = body {
         req = req.json(&b);
     }
@@ -303,9 +334,11 @@ pub(crate) async fn handle_mcp_gateway_tools(State(_st): State<Arc<DaemonState>>
 pub(crate) async fn handle_mcp_gateway_invoke(
     State(st): State<Arc<DaemonState>>,
     AxumPath(tool): AxumPath<String>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let base = st.base_url.clone();
+    let inbound = headers;
     let gw = |v: Value| {
         Ok(Json(
             json!({ "ok": true, "tool": tool.clone(), "result": v }),
@@ -314,9 +347,15 @@ pub(crate) async fn handle_mcp_gateway_invoke(
     match tool.as_str() {
         "hv_create_env" => {
             let spec = json!({ "spec": { "environment_class_id": body.get("class").and_then(|v| v.as_str()).unwrap_or("local-workspace-v0"), "project_id": body.get("project_id").and_then(|v| v.as_str()).unwrap_or("mcp-gateway") } });
-            let created = call(&base, "POST", "/v1/hypervisor/environments", Some(spec))
-                .await
-                .map_err(|e| AppError(axum::http::StatusCode::BAD_GATEWAY, e))?;
+            let created = call(
+                &base,
+                "POST",
+                "/v1/hypervisor/environments",
+                Some(spec),
+                &inbound,
+            )
+            .await
+            .map_err(|e| AppError(axum::http::StatusCode::BAD_GATEWAY, e))?;
             let eid = created["environment"]["id"]
                 .as_str()
                 .unwrap_or_default()
@@ -326,6 +365,7 @@ pub(crate) async fn handle_mcp_gateway_invoke(
                 "POST",
                 &format!("/v1/hypervisor/environments/{eid}/start"),
                 None,
+                &inbound,
             )
             .await;
             gw(json!({ "environment_id": eid }))
@@ -345,6 +385,7 @@ pub(crate) async fn handle_mcp_gateway_invoke(
                 "POST",
                 "/v1/hypervisor/exec",
                 Some(json!({ "environment_id": eid, "command": cmd })),
+                &inbound,
             )
             .await
             .map_err(|e| AppError(axum::http::StatusCode::BAD_GATEWAY, e))?;
@@ -360,6 +401,7 @@ pub(crate) async fn handle_mcp_gateway_invoke(
                 "GET",
                 &format!("/v1/hypervisor/environments/{eid}"),
                 None,
+                &inbound,
             )
             .await
             .map_err(|e| AppError(axum::http::StatusCode::BAD_GATEWAY, e))?;
@@ -378,6 +420,7 @@ pub(crate) async fn handle_mcp_gateway_invoke(
                 "POST",
                 &format!("/v1/hypervisor/environments/{eid}/delete"),
                 None,
+                &inbound,
             )
             .await
             .map_err(|e| AppError(axum::http::StatusCode::BAD_GATEWAY, e))?;

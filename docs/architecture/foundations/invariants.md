@@ -6,7 +6,7 @@ Implementation status: mixed (each invariant lists where it is enforced today)
 Canonical owner: this file for the canonical one-sentence wording of cross-cutting invariants; subject owners apply them.
 Supersedes: repeated restatements of these invariants across foundations, components, and domains docs when wordings drift.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-22.
 
 ## Purpose
 
@@ -319,7 +319,23 @@ fanout, but it may not flatten those phase families, mutate a child through a
 parent reference, or claim cancellation complete without owner-issued drain,
 fence, timeout, compensation, reconciliation, and completion receipts. A
 snapshot remains bound to immutable archived records and retained receipt
-lineage.
+lineage. A child relation that delegates execution, authority, or consumable
+capacity is a work-owning admission edge, distinct from non-authorizing
+dependency, evidence, membership, and result links. The active work-owning
+graph remains finite and acyclic; create, attach, reattach, resume or rearm,
+replacement, reassignment, and bound changes validate exact current heads and
+every applicable ancestor limit before activation. Effective child authority,
+deadline, context visibility, and conserved-resource ceilings only narrow;
+policy-required verification, integration, cancellation, reconciliation, and
+receipt capacity is protected first, and concurrently active children receive
+atomic disjoint reservations rather than copies of one remaining allowance.
+Process exit, a cancellation request, or bare local detach neither releases
+that capacity nor permits parent success until relevant child effects are
+terminal or fenced, or explicitly ambiguous with receipts and funded
+reconciliation. An admitted reassignment may instead use one non-widening
+exact-head transaction to revalidate both ancestor chains and transfer—never
+free or duplicate—the admission edge, effect responsibility, reservation,
+receipts, and unresolved obligations.
 Owner application:
 [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md),
 [`../components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md),

@@ -64,7 +64,7 @@ truth.
 
 ## Receipt Registry And Schema Ownership
 
-[`../../foundations/common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#receiptenvelope)
+[`../../foundations/common-objects-and-envelopes.md`](../../foundations/objects/evidence-and-delivery.md#receiptenvelope)
 owns the portable `ReceiptEnvelope` base and shared identity/ref contract. This
 file owns the exhaustive receipt-type registry, cross-component specialized
 schemas, lifecycle, and assurance semantics (INV-9,
@@ -1526,7 +1526,7 @@ charges when those services were actually supplied.
 
 Runtime and model receipts are evidence inputs to billing; they are not
 themselves mutable balances or debit authority. The common-object
-[`Managed Work Billing Object Family`](../../foundations/common-objects-and-envelopes.md#managed-work-billing-object-family)
+[`Managed Work Billing Object Family`](../../foundations/objects/economics-and-settlement.md#managed-work-billing-object-family)
 owns the exact accounting records:
 
 ```text

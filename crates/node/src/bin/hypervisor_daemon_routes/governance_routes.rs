@@ -25,12 +25,28 @@ use std::path::Path;
 
 use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
 
-async fn gj(base: &str, path: &str) -> Value {
-    match reqwest::Client::new()
-        .get(format!("{base}{path}"))
-        .send()
-        .await
-    {
+/// Posture- and principal-bearing headers. `handle_auth_policy_get` computes
+/// `deployment_auth_posture` FROM the inbound headers, so a header-less loopback
+/// made the Governance overview report `local_development` (and
+/// `explicit_override_allowed: true`) on an exposed instance. That is a
+/// truth-reporting defect: the lens that exists to show the authority posture was
+/// showing the loopback's posture instead of the deployment's.
+const FORWARDED_AUTH_HEADERS: &[&str] = &[
+    "authorization",
+    "cookie",
+    "x-forwarded-host",
+    "x-forwarded-for",
+    "x-ioi-forwarded",
+];
+
+async fn gj(base: &str, path: &str, inbound: &axum::http::HeaderMap) -> Value {
+    let mut req = reqwest::Client::new().get(format!("{base}{path}"));
+    for name in FORWARDED_AUTH_HEADERS {
+        if let Some(value) = inbound.get(*name).and_then(|v| v.to_str().ok()) {
+            req = req.header(*name, value);
+        }
+    }
+    match req.send().await {
         Ok(r) => match r.text().await {
             Ok(t) => serde_json::from_str(&t).unwrap_or(Value::Null),
             Err(_) => Value::Null,
@@ -131,19 +147,25 @@ fn count_with_refs(records: &[Value], keys: &[&str]) -> usize {
 }
 
 /// GET /v1/hypervisor/governance/overview — the aggregated governance control lens (read-only).
-pub(crate) async fn handle_governance_overview(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_governance_overview(
+    State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
+) -> Json<Value> {
     let base = st.base_url.clone();
     // Computed governance endpoints (loopback — same truth the rest of the platform serves).
-    let posture = gj(&base, "/v1/hypervisor/authority/posture").await;
-    let providers = gj(&base, "/v1/hypervisor/authority/providers").await;
-    let grants_env = gj(&base, "/v1/hypervisor/authority/grants").await;
-    let receipts_env = gj(&base, "/v1/hypervisor/authority/receipts").await;
-    let leases_env = gj(&base, "/v1/hypervisor/capability-leases").await;
-    let authpol = gj(&base, "/v1/hypervisor/auth/policy").await;
-    let whoami = gj(&base, "/v1/hypervisor/auth/whoami").await;
-    let connectors = arr(&gj(&base, "/v1/hypervisor/connectors").await, "connectors");
+    let posture = gj(&base, "/v1/hypervisor/authority/posture", &inbound).await;
+    let providers = gj(&base, "/v1/hypervisor/authority/providers", &inbound).await;
+    let grants_env = gj(&base, "/v1/hypervisor/authority/grants", &inbound).await;
+    let receipts_env = gj(&base, "/v1/hypervisor/authority/receipts", &inbound).await;
+    let leases_env = gj(&base, "/v1/hypervisor/capability-leases", &inbound).await;
+    let authpol = gj(&base, "/v1/hypervisor/auth/policy", &inbound).await;
+    let whoami = gj(&base, "/v1/hypervisor/auth/whoami", &inbound).await;
+    let connectors = arr(
+        &gj(&base, "/v1/hypervisor/connectors", &inbound).await,
+        "connectors",
+    );
     let scm = arr(
-        &gj(&base, "/v1/hypervisor/scm-connectors").await,
+        &gj(&base, "/v1/hypervisor/scm-connectors", &inbound).await,
         "connectors",
     );
 

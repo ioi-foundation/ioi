@@ -237,7 +237,7 @@ not remove the runtime-assurance stratum's final local veto.
 admission-ready result of compiling an authored embodied execution graph. Its
 canonical wire shape, including nested `EmbodiedComponentContract` and
 `PhysicalStreamContract`, is defined in
-[`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#embodiedruntimegraphmanifestenvelope).
+[`embodied-systems.md`](../../foundations/objects/embodied-systems.md#embodiedruntimegraphmanifestenvelope).
 The authored canvas, blueprint, or source graph remains editable source, not
 live runtime truth.
 
@@ -760,9 +760,9 @@ package may run only in simulation or shadow mode, or not at all.
 ### Embodiment and Model-Neutral Action Contracts
 
 The canonical wire shapes are defined in the
-[`EmbodimentAdapter`](../../foundations/common-objects-and-envelopes.md#embodimentadapter)
+[`EmbodimentAdapter`](../../foundations/objects/embodied-systems.md#embodimentadapter)
 and
-[`EmbodiedActionPolicyContract`](../../foundations/common-objects-and-envelopes.md#embodiedactionpolicycontract)
+[`EmbodiedActionPolicyContract`](../../foundations/objects/embodied-systems.md#embodiedactionpolicycontract)
 sections of the common-object owner.
 The adapter maps one device, controller family, ROS graph, flight stack, or
 external runtime into IOI identities, frames, streams, actions, lifecycle,
@@ -793,7 +793,7 @@ envelope, action-policy revision, observation/world watermark, frames,
 resources, leases, provenance, interruption boundaries, and expected
 observations. The canonical wire object is defined with the other embodied
 envelopes in
-[`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#embodiedactionchunk).
+[`embodied-systems.md`](../../foundations/objects/embodied-systems.md#embodiedactionchunk).
 It is always a proposal, never an actuator command, safety approval, authority
 grant, or exactly-once effect.
 
@@ -820,7 +820,7 @@ by one runtime graph. It may project OpenUSD, meshes, maps, splats, neural
 scenes, occupancy, collision proxies, or simulator assets, but none of those
 formats becomes live world truth or actuator authority.
 Its canonical layered wire shape is defined in
-[`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#worldrepresentationmanifest).
+[`embodied-systems.md`](../../foundations/objects/embodied-systems.md#worldrepresentationmanifest).
 The manifest is a versioned declaration and provenance root. `WorldModel` is
 the domain's current policy-bound projection; `EnvironmentState` is time-indexed
 live state. A simulator or authoring tool may consume or produce compatible
@@ -1199,7 +1199,7 @@ Allocation answers **who owns which work**. It does not answer **where and when
 that unit may occupy or affect shared physical space**. The latter requires an
 expiring, epoch-fenced `SpacetimeReservationLease`. Its canonical wire shape is
 defined in
-[`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#spacetimereservationlease)
+[`embodied-systems.md`](../../foundations/objects/embodied-systems.md#spacetimereservationlease)
 and binds the work/allocation, unit and exact group closure, geometry and frame,
 valid interval, uncertainty/clearance margin, capacity/exclusivity, priority,
 preemption, observed world watermark, partition posture, supervisor, admission,
@@ -1778,7 +1778,7 @@ A simulation result can support the gate, but it is not live physical evidence.
 Its stable identity is the owning `assurance_evidence://...` bundle; it does not
 create a second case registry, evidence store, certification object, or Physical
 Action Safety owner. The canonical wire shape is defined in
-[`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#embodieddeploymentassurancecase).
+[`embodied-systems.md`](../../foundations/objects/embodied-systems.md#embodieddeploymentassurancecase).
 
 The exact graph, binaries, toolchain, hardware, controller/firmware,
 operational design domain, hazards, timing/fault assumptions, monitor and

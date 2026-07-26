@@ -1,7 +1,7 @@
 //! WorkResult + OutcomeDelta plane — the FIRST contract-first cut of the collaborative-pursuit
 //! leg (canon-to-code-delta build step 1). Admits the GENERIC bounded result seam of
 //! `WorkResultEnvelope` (canonical owner: docs/architecture/foundations/
-//! common-objects-and-envelopes.md) — a result may come from research, ontology mutation,
+//! objects/work-results-and-lifecycle.md) — a result may come from research, ontology mutation,
 //! incident resolution, service delivery, physical missions, review, or evaluation, not only
 //! software; `ImplementationResultPayload` (the `implementation_result` GoalRun payload) remains
 //! the SOFTWARE profile reached through `result_profile: software_implementation` +
@@ -55,7 +55,8 @@ const RESULT_RECEIPT_DIR: &str = "work-result-registry-receipts";
 pub(crate) const DELTA_DIR: &str = "outcome-delta-registry";
 const DELTA_RECEIPT_DIR: &str = "outcome-delta-registry-receipts";
 
-/// The canonical envelope vocabularies (common-objects-and-envelopes.md, verbatim).
+/// The canonical envelope vocabularies
+/// (docs/architecture/foundations/objects/work-results-and-lifecycle.md, verbatim).
 const RESULT_PROFILES: &[&str] = &[
     "software_implementation",
     "research",

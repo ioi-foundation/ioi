@@ -458,7 +458,7 @@ remain the only promotion proposal/decision path.
 The constitution, deployment, membership, failover, ordering/finality,
 oracle/evidence, lifecycle, and enrollment object bodies follow the canonical
 field schemas in
-[`../../foundations/common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#governed-autonomous-system-chain-envelopes).
+[`../../foundations/common-objects-and-envelopes.md`](../../foundations/objects/bounded-system-genesis.md#governed-autonomous-system-chain-envelopes).
 Agentgres records desired profiles and observed membership separately. A node
 cannot become ready, change roles, or acquire a writer epoch merely because a
 deployment profile requests it.

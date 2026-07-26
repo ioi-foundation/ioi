@@ -353,7 +353,7 @@ manifest-driven flow:
 ```
 
 The pairing lifecycle is represented by
-[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope).
+[`LocalAgentPairingSessionEnvelope`](../../foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope).
 The envelope binds the initiating user/organization and surface, exact
 `target_kind` and `target_scope_ref`, claimed local agent and execution posture,
 challenge expiry, client key/origin binding, closed bootstrap actions,
@@ -739,7 +739,7 @@ projections over admitted objects.
 ### Cross-Domain Discovery, Admission, and Portable Exit
 
 `Network / Open` and discoverable cross-org Goal Spaces project the shared
-[`OutcomeRoomDiscoveryEnvelope`](../../foundations/common-objects-and-envelopes.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope).
+[`OutcomeRoomDiscoveryEnvelope`](../../foundations/objects/collaborative-pursuit.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope).
 The projection exposes only the public objective/category, semantic/action
 profiles, capability and eligibility requirements, visibility/privacy posture,
 budget/quote bounds, exact collaboration terms ref/root, verifier/acceptance

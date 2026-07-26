@@ -7,10 +7,10 @@ files named in [source-of-truth-map.md](./source-of-truth-map.md).
 Supersedes: the inline "Current canonical defaults" digest formerly embedded in
 [source-of-truth-map.md](./source-of-truth-map.md).
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-22.
 Doctrine status: canonical
 Implementation status: mixed (cross-owner digest)
-Last implementation audit: 2026-07-19
+Last implementation audit: 2026-07-22
 
 ## Purpose
 
@@ -544,7 +544,14 @@ synchronized.
   table. `WorkLifecycleRecord` supplies exact-head append/replay and typed child
   refs; `CancellationFanoutPlan` supplies drain/fence/timeout/compensation/
   reconciliation obligations; archive-bound snapshots remain rebuildable
-  checkpoints. Domain owners still issue the effects and completion receipts
+  checkpoints. Work-owning admission edges remain finite and acyclic, recheck
+  every applicable ancestor at exact heads, narrow child bounds, protect
+  policy-required recovery/integration capacity, and give concurrent children
+  atomic disjoint reservations; non-authorizing dependency/evidence/membership
+  links remain separate. Process disappearance cannot release those bounds or
+  produce parent success; admitted reassignment atomically transfers rather
+  than frees or duplicates the edge, responsibility, reservation, receipts,
+  and obligations. Domain owners still issue effects and completion receipts
   (`INV-35`);
 - generic `HypervisorMission` is retired as a canonical catch-all. Mission may
   remain optional product copy or a creation/filter profile backed by exactly
@@ -1028,6 +1035,15 @@ applicable;
 - IOI Authority Gateway is the daemon sidecar/compatibility profile for
   existing IDE, CLI, browser, hosted-agent, and MCP/tool ecosystems; it is
   not a separate runtime;
+- `NodeEnforcementProfile` and Authority Gateway profiles declare required
+  action/surface scopes and posture, while the registered
+  `EnforcementCoverageDeclaration` reports actual deployment evidence for one
+  exact profile revision, platform, and scope. Its six capability facts are
+  independently assessed; `uncovered: true` is a mutually exclusive exact-scope
+  state; every positive claim binds a matching mechanism role and verification
+  evidence; and audit/passive/receipt-ingestion paths cannot be upgraded into
+  mediation or prevention claims. A custom OS kernel module is optional and
+  profile-specific, never a portable prerequisite or universal-control proof;
 - Agentgres is operation-backed domain truth with a Postgres bridge;
 - Agent Wiki / `ioi-memory` is the adjacent context-memory plane for what
   agents can know, retrieve, and remember; Agentgres admits and proves

@@ -1310,6 +1310,35 @@ test("a tampered retained legacy claim breaks the hash chain and the baseline pi
     /unsigned self-declared authorship/u,
   );
 
+  // The field-value variant above is not the whole attack. An unsigned-era entry
+  // that DROPS authorship_binding and attaches a structurally complete detached
+  // signature — generated with an attacker's own key, since no key is pinned or
+  // verified — was previously classified as a retained legacy claim and accepted.
+  // Legacy status is pinned to the retired signed era, so this must fail closed
+  // even when the forged block and the head commitment are internally coherent.
+  const forgedSigner = structuredClone(reviewAnchor);
+  const forgedHead = forgedSigner.epochs.at(-1);
+  delete forgedHead.authorship_binding;
+  forgedHead.reviewer_key_id = "ed25519:sha256:attacker-generated";
+  forgedHead.reviewer_evidence = {
+    algorithm: "Ed25519",
+    evidence_format: "ioi.m0.detached_review_signature.v1",
+    evidence_ref: `review-evidence://m0/program-control/${forgedHead.epoch_id}`,
+    issued_at: "2026-07-25T00:00:00.000Z",
+    public_key_spki_der_base64: "MCowBQYDK2VwAyEAkOJI2u49NzPITKwxBpvOx6HoW1RDw52A9ctpAfMY4KY=",
+    signature_base64: Buffer.alloc(64, 7).toString("base64"),
+    signed_payload_sha256: "a".repeat(64),
+  };
+  forgedSigner.head = {
+    entry_sha256: reviewAnchorEntrySha256(forgedHead),
+    epoch_id: forgedHead.epoch_id,
+    sequence: forgedHead.sequence,
+  };
+  assert.throws(
+    () => validateReviewAnchor(reviewLock, forgedSigner, programSource),
+    /outside the retired signed era and must not carry reviewer_evidence/u,
+  );
+
   const regressed = structuredClone(reviewAnchor);
   const legacyGhost = structuredClone(regressed.epochs[5]);
   legacyGhost.sequence = 8;
@@ -2296,4 +2325,136 @@ test("--check accepts current artifacts and remains read-only", () => {
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(result.stdout, /M0 supplied-snapshot check passed/u);
   assert.deepEqual(hashEvidenceTree(), before);
+});
+
+
+// Native/MCP parity: the MCP gateway delegates to the SAME daemon routes the app
+// uses, which is the strongest form of parity — but only if the loopback carries
+// the caller's posture. auth_gate enforces when auth_enforced() is true, and in
+// the default `auto` mode that is daemon_exposed() || request_exposed(headers).
+// A header-less loopback has a 127.0.0.1 Host and no x-forwarded-*, so
+// request_exposed is false: an externally forwarded, authenticated MCP call would
+// execute its EFFECT unauthenticated, under local_development posture, with no
+// principal bound to the receipt, while a native caller on the same route is
+// enforced. Guard the propagation so that divergence cannot return.
+test("daemon loopbacks forward caller posture and credentials", () => {
+  // Four modules re-enter the daemon's own routes over HTTP. Each hop that drops
+  // the caller's headers is evaluated under a weaker auth posture than the caller:
+  // request_exposed() keys on x-forwarded-* and a non-loopback Host, and the
+  // loopback targets 127.0.0.1, so auth_enforced() returns false on hop 2.
+  const files = [
+    "crates/node/src/bin/hypervisor_daemon_routes/operability_routes.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/orchestration_routes.rs",
+    "crates/node/src/bin/hypervisor_daemon_routes/governance_routes.rs",
+  ];
+  for (const file of files) {
+    const source = fs.readFileSync(path.join(repoRoot, file), "utf8");
+
+    // The forwarding must HAPPEN, not merely be named: deleting the loop while
+    // leaving the const and the &inbound arguments in place must not pass.
+    const loop = source.match(/for name in FORWARDED_AUTH_HEADERS \{[\s\S]{0,300}?\n    \}/u);
+    assert.ok(loop, `${file}: must iterate FORWARDED_AUTH_HEADERS`);
+    assert.match(
+      loop[0],
+      /inbound\.get\(\*name\)[\s\S]*?req\s*=\s*req\.header\(/u,
+      `${file}: the loop must read the inbound header and attach it to the request`,
+    );
+    for (const header of [
+      "authorization",
+      "cookie",
+      "x-forwarded-host",
+      "x-forwarded-for",
+      "x-ioi-forwarded",
+    ]) {
+      assert.match(source, new RegExp(`"${header}"`, "u"), `${file}: must forward ${header}`);
+    }
+
+    // EVERY loopback must pass the headers, including single-line calls -- the
+    // shape the original defect was written in. Compare against the total count
+    // so a new call site cannot slip past the matcher.
+    const fn = file.endsWith("governance_routes.rs") ? "gj" : "call";
+    const arg = file.endsWith("governance_routes.rs") ? "&base," : "&base,";
+    const total = [...source.matchAll(new RegExp(`\\b${fn}\\(\\s*\\n?\\s*${arg.replace("&", "&")}`, "gu"))].length;
+    const forwarding = [...source.matchAll(new RegExp(`\\b${fn}\\(\\s*\\n?\\s*&base,[\\s\\S]{0,600}?&inbound\\s*,?\\s*\\)`, "gu"))].length;
+    assert.equal(
+      forwarding,
+      total,
+      `${file}: ${total - forwarding} loopback site(s) do not forward inbound headers`,
+    );
+  }
+});
+
+
+// Product/substrate boundary guards. These encode what the Phase C/D audit found
+// TRUE in the runtime, so a later change cannot quietly reverse it.
+//
+// term-boundaries.md categorises `Assistant` as a faculty: contextual, Session-backed
+// help with no durable identity, state, lifecycle, authority, budget, receipt, or
+// projection. A durable Assistant aggregate would create exactly the object the canon
+// says does not exist.
+test("no durable Assistant aggregate exists in the runtime", () => {
+  const offenders = [];
+  const cratesRoot = path.join(repoRoot, "crates");
+  const scan = (abs, rel) => {
+    for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+      const childAbs = path.join(abs, entry.name);
+      const childRel = `${rel}/${entry.name}`;
+      if (entry.isDirectory()) {
+        if (entry.name === "target" || entry.name === "generated") continue;
+        scan(childAbs, childRel);
+        continue;
+      }
+      if (!entry.name.endsWith(".rs")) continue;
+      const body = fs.readFileSync(childAbs, "utf8");
+      for (const [index, line] of body.split(/\r?\n/).entries()) {
+        // any visibility, including pub(crate) / pub(super) / pub(in path)
+        if (/^\s*(?:pub(?:\s*\([^)]*\))?\s+)?(?:struct|enum)\s+Assistant(?:Record|Aggregate|State)?\b/u.test(line)
+          || /\bassistant_id\s*:/u.test(line)) {
+          offenders.push(`${childRel}:${index + 1} ${line.trim()}`);
+        }
+      }
+    }
+  };
+  scan(cratesRoot, "crates");
+  assert.deepEqual(
+    offenders,
+    [],
+    `Assistant is a faculty, not a durable object (docs/architecture/foundations/term-boundaries.md):\n${offenders.join("\n")}`,
+  );
+});
+
+
+// This branch's discovery cannot see a handler behind a ROUTE-LOCAL `.layer(...)`.
+// The upstream support for that shape lives in a commit that is not an ancestor
+// here, so the two reference assertions covering it were deliberately not ported.
+// The gap is currently theoretical: the daemon's only `.layer(...)` is
+// router-level and wraps every route. If someone introduces a route-local layer,
+// its handler would be silently under-discovered and would never enter the review
+// census — so fail here, loudly, rather than lose the identity.
+test("no route-local .layer(...) hides a handler from discovery", () => {
+  const routeSources = [
+    "crates/node/src/bin/hypervisor-daemon.rs",
+    ...fs
+      .readdirSync(path.join(repoRoot, "crates/node/src/bin/hypervisor_daemon_routes"))
+      .filter((name) => name.endsWith(".rs"))
+      .map((name) => `crates/node/src/bin/hypervisor_daemon_routes/${name}`),
+  ];
+  const offenders = [];
+  for (const relative of routeSources) {
+    const absolute = path.join(repoRoot, relative);
+    if (!fs.existsSync(absolute)) continue;
+    const source = fs.readFileSync(absolute, "utf8");
+    for (const [index, line] of source.split(/\r?\n/).entries()) {
+      // A route-local layer appears INSIDE the .route(...) argument list, i.e. a
+      // method-router call that is immediately followed by .layer( on one line.
+      if (/\b(?:get|post|put|patch|delete|head|options)\s*\([^)]*\)\s*\.layer\s*\(/u.test(line)) {
+        offenders.push(`${relative}:${index + 1}`);
+      }
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `route-local .layer(...) is unsupported by this branch's discovery; these handlers would be missed:\n${offenders.join("\n")}`,
+  );
 });

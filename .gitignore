@@ -56,6 +56,10 @@ docs/evidence/
 docs/evidence/*
 !docs/evidence/m0-program-control/
 !docs/evidence/m0-program-control/**
+!docs/evidence/p0-collaboration-readiness/
+!docs/evidence/p0-collaboration-readiness/**
+!docs/evidence/canon-implementation-reconciliation/
+!docs/evidence/canon-implementation-reconciliation/**
 
 # Keep public docs consumer-facing; internal plans/specs belong under internal-docs/.
 docs/plans/

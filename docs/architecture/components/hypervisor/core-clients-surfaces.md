@@ -650,7 +650,7 @@ evidence/assurance posture, spend, quarantine, release, retire, and revoke
 controls rather than representing the agent as an opaque live token stream.
 
 The shared schema is owned by
-[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope);
+[`LocalAgentPairingSessionEnvelope`](../../foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope);
 deployment-local lifecycle handling is owned by
 [`identity-access-and-metering.md`](./identity-access-and-metering.md#local-agent-pairing-sessions).
 Gateway-profile binding is owned by

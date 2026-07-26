@@ -217,7 +217,7 @@ the same gateway, not a new authority or collaboration protocol. ioi.ai may
 embed the modal in a Goal Space, but Hypervisor owns the local adapter, daemon
 pairing, candidate key/origin binding, and gateway issuance boundary. The
 canonical pairing object is
-[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope);
+[`LocalAgentPairingSessionEnvelope`](../../foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope);
 deployment-local lifecycle handling is owned by
 [`identity-access-and-metering.md`](../hypervisor/identity-access-and-metering.md#local-agent-pairing-sessions).
 aiagent.xyz owns only a later explicit private reusable Worker record or public

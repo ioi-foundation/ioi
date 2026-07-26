@@ -1,16 +1,25 @@
 # Runtime Vocabulary
 
 Status: canonical vocabulary reference.
-Canonical owner: this file for runtime, audit, substrate, projection, and naming vocabulary.
+Canonical owner: this file for the full register of runtime, audit, substrate, projection, and naming vocabulary — one entry per named thing. It does not own term boundaries.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-25.
 Doctrine status: reference
 Implementation status: mixed (naming reference across all maturity levels)
-Last implementation audit: 2026-07-05
+Last implementation audit: 2026-07-25
 
 The agent harness uses behavior-first names in runtime code and reserves
 compliance acronyms for hidden audit material.
+
+What a protected term *means*, what it *must not* mean, and which ontological
+category it belongs to are owned by
+[`term-boundaries.md`](../foundations/term-boundaries.md). This file registers
+names; it does not restate a boundary. When an entry here and a boundary there
+disagree, the boundary wins.
+
+Entries are grouped into subject subsections so a reader can load and link one
+group instead of the whole register.
 
 ## Language Layers
 
@@ -71,6 +80,8 @@ product pitch or routine onboarding flow.
 
 ## Runtime Terms
 
+### Daemon, HypervisorOS, And Node Substrate
+
 - `HypervisorDaemon`: the hypervisor/control plane for autonomous execution. It
   exposes the public runtime API, hosts daemon-local execution services,
   schedules and supervises workflows/workers/tools/models/connectors/computer-use
@@ -106,6 +117,8 @@ product pitch or routine onboarding flow.
   compatibility, or attestation posture. It proves what was supposed to run; it
   does not prove protected plaintext was safe unless paired with cTEE, TEE, or
   another approved confidential profile.
+### Ecosystem Assurance, Conformance, And Liability
+
 - `EcosystemAssuranceProfile`: a source-neutral trust profile that declares the
   evidence, policy, conformance, revocation, and anchor requirements for a
   worker, runtime, wallet authority client, MCP gateway, service outcome,
@@ -147,6 +160,8 @@ product pitch or routine onboarding flow.
   invoices, cost centers, SLA evidence, audit evidence, service delivery,
   marketplace usage, and tax refs. It is generated from owner-domain truth and
   redacted by policy; it is not the source of runtime truth.
+### Providers, Environments, And Infrastructure Primitives
+
 - `HypervisorProvidersAndEnvironments`: the default Hypervisor capability set
   for cross-session provider integrations, environment lifecycle, managed
   runtime resources, evidenced project discovery, services, tasks, ports,
@@ -180,10 +195,27 @@ product pitch or routine onboarding flow.
 - `EnvironmentWarmupProfile`: Hypervisor policy object for prebuilds,
   dependency caches, model caches, index warmup, image pulls, and provider warm
   pools. It is a performance projection, not canonical workspace truth.
-- `NodeEnforcementProfile`: HypervisorOS profile declaring daemon gates,
-  sandboxing, executable policy, egress policy, datawall/leakage detection,
-  log/export redaction, cTEE checks, and optional hardware attestation hooks.
-  It is evidence/control posture, not a substitute for cTEE privacy.
+- `NodeEnforcementProfile`: versioned HypervisorOS profile declaring daemon
+  gates, sandboxing, executable policy, egress policy, datawall/leakage
+  detection, log/export redaction, cTEE checks, optional platform-qualified
+  privileged hooks, optional hardware-attestation hooks, required enforcement
+  scopes, and their coverage/freshness policies. Actual deployment claims live
+  in content-bound `EnforcementCoverageDeclaration` evidence snapshots. The
+  profile is control posture, not proof of deployed coverage, not a substitute
+  for cTEE privacy, and it does not require or imply a custom OS kernel module.
+- `EnforcementCoverageDeclaration`: registered, versioned evidence contract for
+  one exact profile or adapter revision, platform, surface, action class, and
+  scope. It independently reports `discovered`, `observable`, `attributable`,
+  `mediated`, `preventable`, and `receipted`; binds mechanism roles, privilege,
+  bypass assumptions, decision source, final invoker, availability/failure
+  behavior, receipt scope, verification evidence, freshness, gaps, and
+  limitations; and uses mutually exclusive `uncovered: true` only when none of
+  those six claims is positive for that exact scope. Partial gaps use false or
+  `unknown` capability claims plus `known_gaps`. A consuming deployment evidence
+  or operability index binds the exact declaration artifact ref and content
+  hash; changed status, freshness, evidence, or claims produce a new snapshot.
+  It owns no policy, authority, admission, execution, receipt truth, or durable
+  runtime state, and schema validity alone is not runtime verification.
 - `ClassicalInfraPrimitive`: any traditional infrastructure object Hypervisor may
   manage or project, including a VM, container, microVM, WASM workload, image,
   volume, network, firewall/egress policy, snapshot, backup, restore point,
@@ -267,6 +299,8 @@ product pitch or routine onboarding flow.
 - `SpendEstimate`: estimated provider cost, Hypervisor cost, routing-fee
   eligibility, cost owner, billing path, and uncertainty. It is not spend
   authority.
+### Step Resolution, Goal Pursuit, And Work Lifecycle
+
 - `HarnessProfile`: a daemon-executed or daemon-mediated step-resolution
   profile. It declares how an assigned scoped step is resolved and normalized
   under daemon gates. The selected profile is bound to a `HarnessInvocation`;
@@ -441,6 +475,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   capability, policy, routing prior, service, or domain state. It binds
   preconditions/invariants, expected effect, verifier/acceptance refs, and
   admission state; it is a proposal until the owning domain admits it.
+### Collaborative Pursuit
+
 - `OutcomeRoom`: durable shared collaborative-pursuit profile above one or more
   GoalRuns. It binds objective, constraints, acceptance and stop policy, room
   mode, cooperation-surplus policy, collaboration terms roots,
@@ -547,6 +583,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   state, blockers, and unresolved uncertainty have been ingested. It may begin
   as completion receipts and terminal events, and promote to an Agentgres object
   when delivery, dispute, replay, or settlement needs require it.
+### Private Workspace, cTEE, And Execution Privacy
+
 - `PrivateWorkspaceCtee`: IOI's daemon-owned binding of the generic cTEE
   systems pattern for persistent rented GPU Hypervisor Nodes and other
   untrusted remote compute where protected files, folders, PII, credentials,
@@ -647,6 +685,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   retention, or enterprise privacy controls may be valuable, but they are not
   base cTEE no-plaintext-custody unless the provider receives no sensitive
   plaintext or exposes a separately verifiable private-compute interface.
+### Institutional Learning Boundary
+
 - `EnterpriseLearningBoundary`: the product-facing Governance projection of an
   admitted `InstitutionalLearningBoundaryProfile`. It explains which
   institutional learning material may be retained, used, derived, exported, or
@@ -681,6 +721,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   It proves
   continuity against named thresholds, not universal model equivalence, and is
   not a new authority or truth object.
+### Cryptographic Operator Plane And Private Workspace Nodes
+
 - `CryptographicOperatorPlane`: the internal cTEE routing plane for protected
   subcomputations that must not become node plaintext. It routes private
   scoring, selection, retrieval, and policy checks through FHE, MPC, garbled
@@ -715,6 +757,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `AutonomyLease`: a wallet.network authority lease that allows a persistent
   node to act while the user is away within bounded policy, without receiving
   durable raw secrets or unrestricted authority.
+### wallet.network Authority
+
 - `WalletAuthorityCore`: the reusable wallet.network authority pipeline behind
   Wallet, embedded dapp approvals, agents, Hypervisor, CLI prompts, and advanced
   consoles. It evaluates intent, simulation, risk, eligibility, policy,
@@ -814,6 +858,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   It binds route, calldata commitments, slippage, simulation hash, policy hash,
   grant/lease, revocation epoch, economics, risk labels, and exact `TxIntent`
   records before any exchange can be approved or signed.
+### Decentralized Route Intelligence
+
 - `IOI / ioi.ai`: the primary public umbrella and account/control-plane front
   door for the IOI product family. This is a brand/distribution boundary, not a
   runtime ownership boundary: Hypervisor still executes, wallet.network still
@@ -869,6 +915,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   such as revoking approval, reducing allowance, moving assets to a fresh or
   policy-stronger account, isolating agent execution funds, freezing grants, or
   requiring step-up for exposed routes.
+### Approval, Authority Review, And Access Receipts
+
 - `ApprovalInboxItem`: a pending wallet authority decision. It must show
   initiator, action, authority risk class, risk labels, eligibility labels,
   coverage states, affected assets/secrets/data/workloads, destination, policy
@@ -950,6 +998,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   or high-risk approval; IOI L1 stores public/economic/cross-domain
   commitments only for explicitly enrolled systems under their selected
   settlement profiles.
+### Artifact Refs And Storage Backends
+
 - `AgentgresArtifactRefPlane`: the Agentgres-governed reference, lifecycle,
   policy/authority linkage, receipt, replay/import, archive/restore, and
   state-root validity layer for payload bytes. It owns `ArtifactRef`,
@@ -983,6 +1033,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   meaning/validity and authority providers control authority/decryption, with
   wallet.network mandatory when portable delegated authority, secret custody,
   or decryption leases are required.
+### Canon Meta Documents
+
 - `CanonImplementationMatrix`: the meta index that maps architecture concepts
   to canonical owner docs, current durable forms, object/event/receipt/projection
   status, code anchors, and conformance hooks. It is a build map, not a
@@ -990,6 +1042,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `CanonReadabilityAudit`: the meta workplan for keeping architecture docs
   enterable, terminology-clean, and implementation-oriented without weakening
   precision.
+### Governed Autonomous-System Chains
+
 - `GovernedAutonomousSystemChain`: a system-local execution chain with state,
   policy, service modules, proposals, receipts, state roots, and governed
   upgrades. It is "L1-like" in the local state-machine sense, but it is not
@@ -998,6 +1052,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   inside a governed autonomous-system chain. It may reason, plan, diagnose,
   route work, and propose upgrades, but consequential transitions must pass the
   deterministic authority boundary.
+### Hypervisor Core, Clients, And Product Surfaces
+
 - `HypervisorCore`: the shared Hypervisor runtime/control substrate used by
   first-class clients and application surfaces. Its execution owner is the
   Hypervisor Daemon. It coordinates sessions, adapter targets, daemon APIs,
@@ -1262,6 +1318,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `HypervisorWorkRunReviewState`: review status for a WorkRun, including
   waiting-for-review, changes-requested, approved, rejected, superseded, and
   delivery refs such as pull requests, artifacts, or deployments.
+### Goal Space And ioi.ai Product Objects
+
 - `GoalSpace`: ioi.ai's durable product container for one pursued outcome. It
   binds goal/conductor state, policy, memory, budget, receipts, replay,
   collaboration, contributor scope, and user-facing ownership. A simple request
@@ -1320,6 +1378,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   search over branches, snapshots, and sessions. Tests, static analysis, visual
   verification, runtime traces, benchmarks, and policy checks score attempts
   before promotion when the goal calls for that shape.
+### Adapters And Harness Sessions
+
 - `HypervisorAdapterTarget`: an editor, terminal, browser, VM, container, local
   OS surface, hosted worker, HypervisorOS node, or external tool that a
   Hypervisor Session can project into or mediate. VS Code, Cursor, Windsurf,
@@ -1391,6 +1451,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   for external harnesses. It extends `HypervisorEnvironmentOpsProfile` for
   harness-specific proposal-source behavior and keeps external harnesses out of
   runtime truth.
+### Environment Lifecycle And Access
+
 - `HypervisorEnvironmentClass`: selectable managed environment shape behind a
   Hypervisor Session, such as local workspace, remote VM, container, microVM,
   browser sandbox, hosted worker, HypervisorOS node, provider workspace,
@@ -1473,6 +1535,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `SupportBundlePolicy`: policy object declaring what logs, traces, screenshots,
   redacted diffs, environment metadata, and diagnostic files may leave a
   session.
+### Bounded DAS, Ordering, Finality, And Recovery
+
 - `HypervisorNode`: a physical or administrative deployment unit and local
   operational-finality domain that may host scoped roles for one or more logical
   autonomous systems. It composes Hypervisor Core clients and
@@ -1600,6 +1664,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   robot, worker, service, third-party, or AS-L1 domain that performs
   scoped autonomous work under declared capabilities, policy, authority
   requirements, receipt schemas, runtime boundaries, and settlement behavior.
+### Embodied Runtime And Physical Action
+
 - `EmbodiedRuntimeGraphManifest`: an immutable, content-addressed definition of
   one native embodied execution graph: components, typed ports, physical stream
   contracts, spatial frames, rates and deadlines, mixed-criticality strata,
@@ -1759,6 +1825,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `PhysicalActionIncident`: the admitted incident object for safety-envelope
   violations, emergency stops, sensor disagreement, actuator failure,
   supervision failure, policy violation, disputed outcome, or remediation.
+### AIIP, Service Modules, And Network Participation
+
 - `AIIPEnvelope`: the signed, sequenced packet envelope for AIIP messages. It
   binds sender/receiver systems, channel, profile, policy hash, authority ref,
   payload hash, receipt obligations, settlement terms, and signature.
@@ -1795,7 +1863,10 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   It routes proposed actions through daemon policy, authority scopes,
   approvals, receipts, and replay. It is not a separate runtime, not merely a
   VS Code plugin identity, and it must be honest about the mediation limits of
-  opaque third-party runtimes.
+  opaque third-party runtimes. Its deployment evidence set carries the same
+  per-action, per-surface `EnforcementCoverageDeclaration` contract used by
+  `NodeEnforcementProfile`; that declaration creates no new authority, policy,
+  admission, execution, or truth owner.
 - `IOIKernelL0` or `L0Substrate`: the reusable IOI kernel substrate for
   instantiating application domains, sovereign execution domains,
   non-intelligent chains/state machines, and intelligent blockchains. It is not
@@ -1860,6 +1931,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   native L0 membership, RuntimeAssignment, scoped leases, state/evidence, and
   domain admission. It is distinct from continuity replication and from
   cross-system AIIP federation.
+### Workers, Agents, And Managed Instances
+
 - `Worker`: the canonical protocol actor for bounded executable labor. A
   worker has a manifest, accountable operator or owner, policy envelope,
   capability surface, receipt obligations, runtime requirements, contribution
@@ -1947,6 +2020,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   can show chat, sessions, approvals, receipts, usage, memory summaries,
   runtime status, and archive/restore controls, but it does not execute work,
   hold wallet authority, or own Agentgres truth.
+### Memory And Persistent Intelligence
+
 - `AgentWiki`: the user-facing and agent-facing semantic memory surface for
   preferences, procedures, doctrine, route notes, failure lessons, source-backed
   claims, and project knowledge. It may hold draft or local memory, but durable
@@ -1979,6 +2054,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   behavior-affecting context. It should survive model and harness swaps when
   workspace identity, compatibility, provenance, policy, and authority remain
   valid. It is not owned by the selected model or harness.
+### Metering, Plurality, And Assurance
+
 - `RuntimeSubscription`: an entitlement or billing object that keeps a managed
   worker instance available by per-invocation use, warm runtime allocation, or
   zero-to-idle restore policy. It does not make aiagent.xyz or ioi.ai the
@@ -2021,6 +2098,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   explicit participation, privacy, authority, attribution, dispute, and
   economic terms. It may use multiple models, workers, and nodes, but those
   lower-level pluralities are not substitutes for party independence.
+### Models, Worker Routing, And Training
+
 - `ModelDeploymentProfile`: the deployment-specific choice for how a model is
   supplied to a node or runtime: bundled weights, local file, local server,
   BYOK external API, hosted pool, TEE session, DePIN session, or customer VPC.
@@ -2061,6 +2140,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `TrainingCostLedger`: the training-run ledger for provider calls, tokens,
   runtime, spend, accepted/rejected row counts, cost per accepted row, dataset
   yield, and quality lift.
+### Semantic Plane
+
 - `DomainOntology`: the semantic model for a domain's entities,
   relationships, events, actions, states, roles, and invariants.
 - `OntologyVersion`: immutable version plus compatibility, migration,
@@ -2114,6 +2195,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `OntologyToWorkerPlan`: a plan that turns ontology, recipes, workflow
   schemas, tools, policies, evals, and benchmarks into a WorkerManifest or
   Worker Training spec.
+### Builder Surfaces And Bounded Improvement
+
 - `SharedBuilderSubstrate`: the shared graph model, typed node contracts,
   schemas, recipe model, daemon execution path, and Agentgres receipt model
   used by Hypervisor application surfaces. It is a UI/workflow substrate, not
@@ -2207,6 +2290,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   or other evidence for a declared later learning or improvement use.
   `TrainingEvidenceEligibility` is its training-oriented compatibility profile;
   neither creates source rights or authority.
+### Product Labels And Client Surfaces
+
 - `Recipe`: product-facing and package-facing label for an owner-qualified
   reusable composition, never a generic canonical envelope. Semantic data
   transformation uses `DataRecipe`; environment construction uses
@@ -2273,6 +2358,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `TrustAuditSubstrate`: the shared policy, authority, approval, receipt, replay,
   verification, and settlement evidence layer that makes autonomous execution
   inspectable and accountable.
+### Agentgres State And Receipt Names
+
 - `SealedStateArchive`: an encrypted content-addressed state artifact for
   inactive, idle, terminal, portable, migrated, or restorable runtime/domain
   state. It is a first-class Agentgres format, but not canonical live state by
@@ -2314,6 +2401,8 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `RoutingDecisionReceipt`: a receipt binding a MoW routing decision to the
   candidate set, routing policy, selected worker, selection reason,
   contribution policy, and receipt obligations.
+### ioi.ai Control-Plane Field Vocabulary
+
 - `ioiAiControlPlane`: the lightweight account, device, publishing, restore
   routing, sync metadata, billing/entitlement, console/org
   provider-environment view, and remote-runtime coordination domain for

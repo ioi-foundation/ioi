@@ -284,6 +284,7 @@ covenant change requires a separate legal review and accepted licensing ADR.
 - `docs/architecture/foundations/governed-autonomous-systems.md`
 - `docs/architecture/foundations/domain-kernels.md`
 - `docs/architecture/foundations/common-objects-and-envelopes.md`
+- `docs/architecture/foundations/objects/bounded-system-genesis.md`
 - `docs/architecture/foundations/aiip.md`
 - `docs/architecture/foundations/ioi-l1-mainnet.md`
 - `docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md`

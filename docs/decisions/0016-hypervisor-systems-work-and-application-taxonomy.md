@@ -290,6 +290,8 @@ Agentgres boundaries.
 
 - `docs/architecture/components/hypervisor/core-clients-surfaces.md`
 - `docs/architecture/foundations/common-objects-and-envelopes.md`
+- `docs/architecture/foundations/objects/work-execution.md`
+- `docs/architecture/foundations/objects/work-results-and-lifecycle.md`
 - `docs/architecture/foundations/canonical-enums.md`
 - `docs/architecture/_meta/source-of-truth-map.md`
 - `docs/architecture/_meta/current-canon-defaults.md`

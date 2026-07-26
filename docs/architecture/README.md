@@ -26,6 +26,8 @@ Start with [`START_HERE.md`](./START_HERE.md). Then use:
   a built/partial/planned claim;
 - [`execution-horizons.md`](./_meta/execution-horizons.md) to distinguish the
   convergence target from later gated horizons;
+- [`term-boundaries.md`](./foundations/term-boundaries.md) when a name is
+  ambiguous — it owns what each protected term means and must not mean;
 - [`vocabulary.md`](./_meta/vocabulary.md) and
   [`canonical-enums.md`](./foundations/canonical-enums.md) for shared names and
   values;
@@ -415,7 +417,8 @@ actuator commands, safety heartbeats, or emergency-stop authorities.
 | --- | --- |
 | stack and category | [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md), [`verifiable-bounded-agency.md`](./foundations/verifiable-bounded-agency.md) |
 | invariants and security | [`invariants.md`](./foundations/invariants.md), [`security-privacy-policy-invariants.md`](./foundations/security-privacy-policy-invariants.md) |
-| shared objects and values | [`common-objects-and-envelopes.md`](./foundations/common-objects-and-envelopes.md), [`canonical-enums.md`](./foundations/canonical-enums.md) |
+| protected term boundaries | [`term-boundaries.md`](./foundations/term-boundaries.md) |
+| shared objects and values | [`common-objects-and-envelopes.md`](./foundations/common-objects-and-envelopes.md) (family index over [`foundations/objects/`](./foundations/objects/)), [`canonical-enums.md`](./foundations/canonical-enums.md) |
 | domains and autonomous systems | [`domain-kernels.md`](./foundations/domain-kernels.md), [`governed-autonomous-systems.md`](./foundations/governed-autonomous-systems.md) |
 | bounded recursive improvement | [`bounded-recursive-improvement.md`](./foundations/bounded-recursive-improvement.md) |
 | semantic world plane | [`domain-ontologies-and-data-recipes.md`](./foundations/domain-ontologies-and-data-recipes.md) |

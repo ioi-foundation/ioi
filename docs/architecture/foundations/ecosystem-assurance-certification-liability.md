@@ -343,7 +343,7 @@ canonical `EmbodiedDeploymentAssuranceCase` shape; the owning
 `assurance_evidence://...` bundle remains its stable identity so no second
 embodied-assurance registry is created. Its single field-level schema is owned
 by
-[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md#embodieddeploymentassurancecase).
+[`embodied-systems.md`](./objects/embodied-systems.md#embodieddeploymentassurancecase).
 
 ```yaml
 AssuranceEvidenceBundle:

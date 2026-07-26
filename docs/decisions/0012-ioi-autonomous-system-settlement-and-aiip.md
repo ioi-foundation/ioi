@@ -107,6 +107,8 @@ protocol boundary.
 - `docs/architecture/foundations/ioi-l1-mainnet.md`
 - `docs/architecture/foundations/web4-and-ioi-stack.md`
 - `docs/architecture/foundations/common-objects-and-envelopes.md`
+- `docs/architecture/foundations/objects/interop-and-collaboration-terms.md`
+- `docs/architecture/foundations/objects/economics-and-settlement.md`
 - `docs/architecture/domains/aiagent/worker-marketplace.md`
 - `docs/architecture/domains/sas/service-marketplace.md`
 - `docs/architecture/domains/marketplace-neutrality.md`

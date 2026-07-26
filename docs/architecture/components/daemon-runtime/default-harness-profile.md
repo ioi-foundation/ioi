@@ -8,7 +8,7 @@ invocation, and result contracts owned by the common-object canon; it does not
 redefine their state or ownership.
 Supersedes: standalone harness-profile wording that implies a peer runtime beside the Hypervisor Daemon.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-07-22.
 Doctrine status: canonical
 Implementation status: partial (the harness-profile registry and default profile are built; registered information-flow/declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; production information-flow derivation/effect compilation and enforcement across HTTP connectors, MCP, hosted models, browsers, memory, ContextCell, OutcomeRoom, inbound connectors/webhooks, wider computer-use families, and adapter contracts remain planned)
 Last implementation audit: 2026-07-18
@@ -377,6 +377,17 @@ Agentgres operation refs, and receipts when they affect accepted work.
 Subagents are delegated work items or child work runs, not hidden private
 threads. Parent and child work must share explicit authority, budget,
 conversation, cancellation, receipt, and output contracts.
+
+Dynamic child creation is an admitted graph mutation, not free recursion. The
+daemon validates every applicable ancestor bound before create, attach,
+reattach, resume or rearm, replacement, reassignment, or a widening bound
+change; the active work-owning graph stays finite and acyclic. Child authority,
+deadline, context visibility, and conserved-resource ceilings only narrow.
+Required verification, integration, cancellation, reconciliation, and receipt
+capacity is protected before concurrently active children receive atomic,
+disjoint reservations. A direct GoalRun adds no child-work ceremony, and a Git
+branch, worktree, process, prompt, or model-created task cannot substitute for
+this admission.
 
 Inside an OutcomeRoom, a background agent additionally binds a
 `RoomParticipantLease` and usually a `WorkClaimLease`. The room owns join,
@@ -806,7 +817,7 @@ universal invariants.
 
 ### Default Harness ContextCell Profile
 
-[`ContextCellEnvelope`](../../foundations/common-objects-and-envelopes.md#contextcellenvelope)
+[`ContextCellEnvelope`](../../foundations/objects/goal-run-execution.md#contextcellenvelope)
 owns the shared cell identity, role, room/participant binding, harness/model
 route, leases, authority scopes, wake condition, and lifecycle. The Default
 Harness Profile extends that envelope with the following loop-local execution

@@ -145,7 +145,7 @@ Connect local agent
      context, tool, resource, budget, and authority admission before gateway use
 ```
 
-[`common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope)
+[`bounded-system-genesis.md`](../../foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope)
 owns the exact `LocalAgentPairingSessionEnvelope` schema, target, transport,
 closed bootstrap-action, failure-code, contribution-lane, assurance, and status
 enums. This file owns the deployment-local creation, challenge storage,

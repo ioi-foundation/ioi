@@ -1,7 +1,8 @@
 //! Room participation plane — build step 3, first pair (#74): `RoomParticipationRequest` +
 //! `RoomParticipantLease` over the hosted OutcomeRoom aggregate (canonical owner:
 //! docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md; envelopes:
-//! common-objects-and-envelopes.md §RoomParticipationRequestEnvelope /
+//! docs/architecture/foundations/objects/collaborative-pursuit.md
+//! §RoomParticipationRequestEnvelope /
 //! §RoomParticipantLeaseEnvelope). Participation is a LEASE, not ambient membership: a typed
 //! admission request carries identity, affiliation, eligibility evidence, and requested scopes;
 //! the hosted admission owner admits a bounded lease or rejects without granting context or

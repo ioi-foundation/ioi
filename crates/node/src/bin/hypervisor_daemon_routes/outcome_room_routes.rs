@@ -1,6 +1,8 @@
 //! OutcomeRoom plane — build step 2 of the contract-first sequence: the HOSTED room aggregate
 //! above bounded GoalRuns (canonical owner: docs/architecture/domains/ioi-ai/
-//! collaborative-outcome-pattern.md; envelope: common-objects-and-envelopes.md
+//! collaborative-outcome-pattern.md jointly with docs/architecture/foundations/
+//! governed-autonomous-systems.md; envelope:
+//! docs/architecture/foundations/objects/collaborative-pursuit.md
 //! §OutcomeRoomEnvelope). A room is the shared collaborative-pursuit profile — it declares its
 //! objective, policies, mode, and admission topology, and EVERY shared-state transition is
 //! admitted and receipted. It is not a runtime and not a global database.
