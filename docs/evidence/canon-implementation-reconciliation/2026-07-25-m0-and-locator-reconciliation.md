@@ -519,3 +519,35 @@ pre-edit bytes are unrecoverable because `internal-docs/implementation/` is
 gitignored. **Remediation is a re-attestation through the authorized transition
 tool — a status-authority action, not something to fabricate here.**
 
+### `check-pre-next-leg` does not reach exit zero, and the cause is inherited
+
+The completion bar asked for `check-pre-next-leg` at literal exit zero. It exits
+**1**, and the cause is pre-existing on `origin/master`, not introduced here.
+
+The failing step is `test:workflow-compositor-dogfood`:
+
+```
+not ok 2 - Rust workflow-edit approved proposal mutates the file and replays idempotently
+  expected: 'approve'    actual: undefined
+```
+
+Verified against a clean `origin/master` worktree: the same subtest fails there
+with the same signature — **2 pass / 1 fail on both trees**. None of the eleven
+Rust files this pass touched mentions `workflow_edit` or `workflow.edit`:
+
+```
+crates/node/src/bin/hypervisor_daemon_routes/{decentralized_cloud,goalrun,governance,
+  ioi_agent,operability,orchestration,outcome_room,placement_failover,
+  room_participation,work_result}_routes.rs
+crates/services/src/agentic/runtime/kernel/runtime_goal_run_admission.rs
+```
+
+Every other step of the gate passes, including the ones this pass changed:
+runtime-action generator, pre-next-leg gate regressions, `m0-program-control`,
+architecture contract bar, system-genesis compiler, architecture docs, work
+items, conformance docs, readiness, compositor conformance, runtime layout.
+
+**Disposition:** inherited defect in the workflow-edit approval contract, owned
+by the workflow-compositor lane, not by this reconciliation. It is reported
+rather than worked around, and no gate was weakened to obtain a green result.
+
