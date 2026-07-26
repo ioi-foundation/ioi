@@ -102,13 +102,14 @@ Product and collaboration
   extension applications and tools; conditional planned Embodied Systems owner application
   aiagent.xyz / sas.xyz / wallet.network
 
-Shared pursuit
+Orchestration application (the openly packaged ioi.ai goal/room domain — ADR 0022)
   OutcomeRoom / CollaborativeWorkGraph
   participants / resource and capability offers / frontier / claims
   attempts / findings / verifier challenges / contribution lineage / replay
+  GoalRunProfile -> GoalRunActivation -> admitted GoalRun
+  GoalGroundingLoop / RoleTopology
 
-Bounded execution
-  GoalRunProfile -> admitted GoalRun / GoalGroundingLoop / RoleTopology
+Bounded execution (substrate work mechanics)
   optional WorkflowTemplate / SkillManifest and exact ActiveSkillSetSnapshot
   ContextCells / leases / typed handoffs / HarnessInvocations
   WorkResult / OutcomeDelta
@@ -333,6 +334,20 @@ truth store, evaluator, or promoter. Search cannot redefine the active epoch,
 Judgment cannot mutate or activate the candidate, and Authority cannot fabricate
 evidence. Selection creates proposal eligibility only; the target owner's normal
 governance, activation, monitoring, and recovery path remains decisive.
+
+### Goal orchestration is an application layer
+
+[ADR 0022](../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md)
+records the durable allocation: GoalRun, GoalRunProfile, GoalRunActivation,
+OutcomeRoom, and the room object family are domain objects of the **ioi.ai
+orchestration application** — an openly packaged domain application in the
+reference stack, deployable on any Hypervisor locally and offline with no
+`ioi.ai` account. The daemon admits, executes, and receipts them like any
+application domain; Hypervisor's own surfaces and API namespace speak session
+vocabulary, and goal runs and rooms are not Hypervisor surfaces. The
+cross-party grammar an external participant speaks is AIIP plus the room
+package's admitted contracts. The same ADR orders the estate-wide removal of
+live compatibility machinery while no downstream users exist.
 
 ### OutcomeRoom is above GoalRun
 

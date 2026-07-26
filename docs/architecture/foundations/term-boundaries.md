@@ -166,48 +166,68 @@ Directional rules, all of which are testable:
 
 ### Which layer owns which
 
-Two different questions get confused here, so keep them apart:
+Three layers, per
+[ADR 0022](../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md),
+and three different questions:
 
-- **Who owns the object's identity, admission, and lifecycle?** The substrate.
-- **Who owns the doctrine for how the pattern should behave?** Named per subject
-  in [`source-of-truth-map.md`](../_meta/source-of-truth-map.md), and for
-  `OutcomeRoom` that is jointly an ioi.ai domain doc and a foundations doc.
+- **Who executes, authorizes, and records?** The substrate: the daemon admits,
+  schedules, executes or mediates, receipts, and fails closed; authority
+  providers authorize; Agentgres records admitted truth. This never moves.
+- **Whose domain objects are these?** The goal/room family belongs to the
+  **ioi.ai orchestration application** — an openly packaged domain
+  application in the reference stack, deployable on any Hypervisor locally
+  and offline with no ioi.ai account. Its truth is admitted through daemon +
+  Agentgres in its bounded domain like any application domain.
+- **What does an external party speak?** AIIP packet families plus the room
+  package's admitted contracts — protocol level, never one product's private
+  schema.
 
 | Layer | Owns | Objects |
 | --- | --- | --- |
-| Hypervisor substrate | object identity, admission, lifecycle, execution, authority, receipts, truth | Session, WorkRun, GoalRunProfile, GoalRun, OutcomeRoom, AutomationSpec/Run |
-| ioi.ai product | pre-admission drafts, read projections, room and workstream UX, synthesis, subscription and budget controls, connector-auth escalation requests | `IoiAiGoalDraft`, `IoiAiGoalProjection`, `IoiAiOutcomePlanProjection`, `IoiAiAttemptSummary`, `IoiAiCrossSessionOutcomeGraph`, `IoiAiConnectorAuthEscalation` |
+| Hypervisor substrate | execution, admission machinery, authority enforcement, receipts, Agentgres truth, and its own session-vocabulary object families | Session, WorkRun, HarnessInvocation, AutomationSpec/Run, WorkResult / OutcomeDelta (the generic result seam) |
+| ioi.ai orchestration application | the goal/room domain: object doctrine, admission contracts stated against substrate rules, and the surfaces it contributes through product-surface registration | GoalRunProfile, GoalRun, GoalRunActivation, OutcomeRoom, room participation/leases, offers, frontier items, work claims, Attempts, Findings, VerifierChallenges |
+| ioi.ai managed product | accounts, subscription, Goal Space UX, pre-admission drafts, read projections, synthesis, connector-auth escalation requests | `IoiAiGoalDraft`, `IoiAiGoalProjection`, `IoiAiOutcomePlanProjection`, `IoiAiAttemptSummary`, `IoiAiCrossSessionOutcomeGraph`, `IoiAiConnectorAuthEscalation` |
 
-Doctrine ownership does not follow the layer split and must be read from the
-map: `OutcomeRoom` and `CollaborationTerms` doctrine is owned by
+Doctrine ownership per subject is read from the
+[`source-of-truth-map.md`](../_meta/source-of-truth-map.md): `OutcomeRoom` and
+`CollaborationTerms` doctrine is owned by
 [`collaborative-outcome-pattern.md`](../domains/ioi-ai/collaborative-outcome-pattern.md)
 **and** [`governed-autonomous-systems.md`](./governed-autonomous-systems.md);
-GoalRun admission and execution doctrine is owned by
-[`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md).
+the GoalRun admission contract is the orchestration application's, stated in
+[`objects/goal-run-execution.md`](./objects/goal-run-execution.md) against the
+substrate-generic admission rules (INV-37, `ReceiptObligation`) that
+[`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md) owns.
 
-The canon's own formulation, which this section only restates:
-`ioi.ai` "dogfoods Hypervisor rather than receiving privileged substrate
-semantics. Pre-admission goal copy is `intent://` draft state; GoalRun solely
-owns admitted `goal://` identity and lifecycle." The consequences that matter:
+The canon's own formulation, now literal: `ioi.ai` dogfoods Hypervisor rather
+than receiving privileged substrate semantics — its orchestration layer is an
+application built on the substrate, holding domain truth but never execution.
+Pre-admission goal copy is `intent://` draft state; GoalRun solely owns
+admitted `goal://` identity and lifecycle, and `goal://` is the application's
+canonical ref scheme, minted only by daemon admission. The consequences that
+matter:
 
 - ioi.ai facilitation is optional and never becomes ambient authority over
   Hypervisor state. An `IoiAiGoalDraft` is pre-admission intent; it acquires no
   lifecycle, authority, budget, or evidence until the daemon admits a GoalRun.
 - An ioi.ai projection is a projection. It must not become a competing
   operational source of truth, and it must not be the only place a fact exists.
-- The **target** contract is that a compatible local deployment creates,
-  admits, runs, and replays this work through its own contracts without an
-  `ioi.ai` account, with unavailable connected capabilities typed unavailable
-  rather than becoming hidden prerequisites.
+- The orchestration application ships in the open reference stack — this is a
+  load-bearing invariant of ADR 0022, because the **target** standalone
+  contract requires a compatible local deployment to create, admit, run, and
+  replay this work without an `ioi.ai` account.
   [`control-plane.md`](../domains/ioi-ai/control-plane.md) records that the
   current product **has not yet passed** that end-to-end standalone contract, and
   that is the honest present-tense position. Consult
   [`implementation-matrix.md`](../_meta/implementation-matrix.md) before making
   any built/partial/planned claim about it.
+- Goal runs and rooms are not Hypervisor surfaces. Work / Goals and
+  Work / Rooms are surfaces the orchestration application contributes through
+  the product-surface registration family; the substrate's own surfaces speak
+  session vocabulary.
 
 Naming a product surface after an object does not transfer ownership of the
 object. "Goal Space" is the ioi.ai subscription and surface; `GoalRun` is the
-substrate object it reads.
+orchestration application's domain object it reads.
 
 ## Assistant Shapes: Ruling and Dispositions
 

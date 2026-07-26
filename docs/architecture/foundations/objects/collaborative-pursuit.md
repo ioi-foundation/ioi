@@ -11,8 +11,14 @@ Last implementation audit: 2026-07-25
 
 ## Purpose
 
-This module owns the shared **object shapes** listed above. It is part of the
-shared-object family indexed by
+This module owns the shared **object shapes** listed above. Per
+[ADR 0022](../../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md)
+these are domain objects of the **ioi.ai orchestration application** — the
+openly packaged room application whose instances are the flagship reference
+DAS — not Hypervisor-substrate objects; the daemon admits, executes, and
+receipts them like any application domain, and the cross-party grammar an
+external participant speaks is AIIP plus this package's admitted contracts.
+The module is part of the shared-object family indexed by
 [`common-objects-and-envelopes.md`](../common-objects-and-envelopes.md), which owns
 the envelope base types, ID conventions, and capability/authority tiers every
 module here reuses. Doctrine and lifecycle semantics for these objects are owned

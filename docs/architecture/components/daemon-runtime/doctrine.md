@@ -1,7 +1,7 @@
 # Hypervisor Daemon and IOI CLI Runtime Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for Hypervisor Daemon, CLI ownership boundaries, IOI CLI operator-surface positioning, the GoalRun admission contract, and the Authority Gateway attach-lane contract (`ActionRequestEnvelope`, `AuthorityGatewayProfile`, and attach-to-run-on graduation); low-level daemon endpoints live in [`api.md`](./api.md).
+Canonical owner: this file for Hypervisor Daemon, CLI ownership boundaries, IOI CLI operator-surface positioning, the admission-evidence discipline (INV-37 application), and the Authority Gateway attach-lane contract (`ActionRequestEnvelope`, `AuthorityGatewayProfile`, and attach-to-run-on graduation); the GoalRun admission contract is application-owned per ADR 0022 and lives with its object family; low-level daemon endpoints live in [`api.md`](./api.md).
 Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator; readings under which GoalRun admission doctrine had a named owner but no stated contract.
 Superseded by: none.
 Last alignment pass: 2026-07-25.
@@ -654,56 +654,28 @@ payload must be idempotency-aware so it does not create duplicate autonomous
 runs. Clients should surface the run ref and environment/session link, then
 poll or subscribe only when the user asks for live status.
 
-## GoalRun Admission Contract
+## Admission Evidence Discipline
 
-This file is the named owner of GoalRun admission doctrine, and until this
-section existed it stated none — the object family
-([`goal-run-execution.md`](../../foundations/objects/goal-run-execution.md))
-required the profile-resolution closure while the running admission core
-required scope, session, state root, and receipts, and neither contract
-contained the other. This section joins them. It is the target contract; the
-current runtime enforces a narrower subset
-([`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)).
+The daemon applies INV-37 to every admission it performs, for every object
+family — substrate-owned or application-owned: an admission precondition is
+discharged only by evidence the admission core resolves or independently
+verifies. A route handler that writes the policy string, scope list, receipt
+flag, or a prefix-shaped state-root ref into the request it then submits to
+the admission core has satisfied nothing; the resulting decision is void for
+conformance purposes. The admission core is the policy-enforcement point;
+routes transport. Receipt obligations everywhere use the typed
+`ReceiptObligation` element
+([`evidence-and-delivery.md`](../../foundations/objects/evidence-and-delivery.md))
+— a boolean is a claim, not a contract.
 
-Admitting a GoalRun requires all of the following, together, before the run
-may become `active`:
-
-1. **Profile resolution.** Exactly one immutable `GoalRunProfile` revision and
-   content hash; the admitted override set (ref and hash together, or both
-   null); the resolved-component snapshot and hash; and the
-   `GoalRunProfileResolutionReceipt` committing the admission-time dependency
-   closure. A top-level profile hash without the resolved-component commitment
-   is insufficient for replay.
-2. **Activation.** A creation claiming any originating context — Session,
-   WorkRun, work item, room claim, automation step, gateway adapter context,
-   or ioi.ai draft — binds an admitted `GoalRunActivationEnvelope`; the direct
-   `api | hypervisor_new_session` lane may create without one. A correlation
-   id, projection row, `origin_surface` tag, or untyped `activation_evidence`
-   payload is never the crossing.
-3. **Source-context verification.** When the run targets a workspace, the
-   daemon itself verifies that the target Session exists, is admitted, and has
-   a provisioned workspace, and that the Project ref resolves. This
-   verification is part of the admission contract, not a route convenience.
-4. **Authority.** The requesting principal's authority decision covering the
-   goal-orchestration scope, resolved by the daemon against current grant,
-   revocation, and expiry state. Room-participating runs additionally satisfy
-   the room-lease rule owned by the object family.
-5. **State commitment.** An `admitted_state_root_ref` naming the Agentgres
-   root under which the run's truth is admitted; the durable record retains
-   it, and replay verifies against it (INV-8, INV-12).
-6. **Receipt obligations.** A typed `ReceiptObligation` set naming each
-   boundary event the run must receipt and the registered receipt type that
-   discharges it — not a boolean.
-7. **Bounds.** The declared invocation/parallelism budget and any
-   profile-declared ceilings, admitted as stated, never widened by defaults.
-
-Applying INV-37: every one of these preconditions is discharged by evidence
-the admission core resolves or independently verifies. A route handler that
-writes the policy string, scope list, `receipt_required` flag, or a
-prefix-shaped state-root ref into the request it then submits to the admission
-core has satisfied nothing; the resulting decision is void for conformance
-purposes. The admission core is the policy-enforcement point; routes
-transport.
+Application domains state their own admission contracts against these rules.
+The goal-orchestration application's GoalRun admission contract — profile
+resolution closure, activation crossing, source-context verification,
+resolved authority, retained state commitment, typed receipt obligations, and
+declared bounds — is owned with its object family in
+[`goal-run-execution.md`](../../foundations/objects/goal-run-execution.md)
+per [ADR 0022](../../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md);
+the daemon executes and enforces it but does not own its domain doctrine.
 
 ## Event Model
 

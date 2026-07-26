@@ -11,7 +11,12 @@ Last implementation audit: 2026-07-25
 
 ## Purpose
 
-This module owns the shared **object shapes** listed above. It is part of the
+This module owns the shared **object shapes** listed above. Per
+[ADR 0022](../../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md)
+the GoalRun family here consists of domain objects of the **ioi.ai
+orchestration application**, admitted and executed by the daemon like any
+application domain; the step-resolution, information-flow, and harness
+machinery shapes remain substrate-shared. The module is part of the
 shared-object family indexed by
 [`common-objects-and-envelopes.md`](../common-objects-and-envelopes.md), which owns
 the envelope base types, ID conventions, and capability/authority tiers every
@@ -170,6 +175,40 @@ observed in its own runtime:
   [`evidence-and-delivery.md`](./evidence-and-delivery.md). A bare
   `receipt_required: true` boolean is a claim, not a contract; it cannot say
   which receipt binds which boundary, so it satisfies nothing on its own.
+
+### The admission contract
+
+This is the goal-orchestration application's admission contract (ADR 0020;
+placement per
+[ADR 0022](../../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md)).
+The daemon executes and enforces it under the substrate's admission-evidence
+discipline (INV-37); the application owns its content. It is the target
+contract; the current runtime enforces a narrower subset
+([`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)).
+
+Admitting a GoalRun requires all of the following, together, before the run
+may become `active`:
+
+1. **Profile resolution.** Exactly one immutable `GoalRunProfile` revision and
+   content hash; the admitted override set (ref and hash together, or both
+   null); the resolved-component snapshot and hash; and the
+   `GoalRunProfileResolutionReceipt` committing the admission-time dependency
+   closure.
+2. **Activation.** The activation binding above, when any originating context
+   is claimed.
+3. **Source-context verification.** The source-context binding above,
+   daemon-verified.
+4. **Authority.** The requesting principal's authority decision covering the
+   goal-orchestration scope, resolved by the daemon against current grant,
+   revocation, and expiry state; room-participating runs additionally satisfy
+   the room-lease rule above.
+5. **State commitment.** The retained `admitted_state_root_ref` above.
+6. **Receipt obligations.** The typed `ReceiptObligation` set above.
+7. **Bounds.** The declared invocation/parallelism budget and any
+   profile-declared ceilings, admitted as stated, never widened by defaults.
+
+Every precondition is discharged by evidence the admission core resolves or
+independently verifies — never by route-supplied constants (INV-37).
 
 ## GoalGroundingLoopEnvelope
 

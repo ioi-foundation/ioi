@@ -5,12 +5,13 @@ route, or crossing receipt exists; the current runtime enforces a narrower
 admission subset whose preconditions are partly satisfied by route-supplied
 constants, which this contract exists to forbid.
 Canonical inputs:
+[`../../architecture/foundations/objects/goal-run-execution.md`](../../architecture/foundations/objects/goal-run-execution.md)
+(the orchestration application's admission contract and `GoalRunEnvelope`
+admission bindings; placement per ADR 0022),
 [`../../architecture/components/daemon-runtime/doctrine.md`](../../architecture/components/daemon-runtime/doctrine.md)
-(GoalRun Admission Contract),
+(admission-evidence discipline),
 [`../../architecture/foundations/objects/goal-pursuit.md`](../../architecture/foundations/objects/goal-pursuit.md)
 (`GoalRunActivationEnvelope`),
-[`../../architecture/foundations/objects/goal-run-execution.md`](../../architecture/foundations/objects/goal-run-execution.md)
-(`GoalRunEnvelope` admission bindings),
 [`../../architecture/foundations/objects/evidence-and-delivery.md`](../../architecture/foundations/objects/evidence-and-delivery.md)
 (`ReceiptObligation`),
 [`../../architecture/foundations/invariants.md`](../../architecture/foundations/invariants.md)

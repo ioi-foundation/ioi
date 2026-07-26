@@ -335,15 +335,17 @@ product pitch or routine onboarding flow.
   admitted GoalRunProfile revision and resolution snapshot, normalized intent,
   constraints, role topology, context cells, context leases, optional
   room/participant/claim refs, runtime assignments, handoffs, orchestration
-  plans, generic results, verifier path, receipts, and continuation state. It
-  owns one bounded
+  plans, generic results, verifier path, receipts, and continuation state. A
+  domain object of the ioi.ai orchestration application (ADR 0022), admitted
+  and executed by the daemon like any application domain. It owns one bounded
   pursue/verify/course-correct loop and may stand alone or participate in an
   OutcomeRoom. It is not a chat transcript or an adapter-/HarnessInvocation-
   local memory file.
 - `GoalRunActivation`: the typed, receipted, idempotent crossing that creates
   or joins `goal://` identity from exactly one existing source context — an
   ioi.ai draft, Hypervisor Session, WorkRun, work item, room claim, automation
-  workflow step, or gateway adapter context. Products draft and project it;
+  workflow step, or gateway adapter context. A domain object of the ioi.ai
+  orchestration application (ADR 0022). Products draft and project it;
   only daemon admission activates it. A correlation id, UI link, subscription,
   facilitator selection, `origin_surface` tag, or untyped `activation_evidence`
   payload is never the crossing. Owned by
@@ -486,13 +488,15 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 ### Collaborative Pursuit
 
 - `OutcomeRoom`: durable shared collaborative-pursuit profile above one or more
-  GoalRuns. It binds objective, constraints, acceptance and stop policy, room
-  mode, cooperation-surplus policy, collaboration terms roots,
+  GoalRuns; a domain object of the openly packaged ioi.ai orchestration
+  application (ADR 0022). It binds objective, constraints, acceptance and stop
+  policy, room mode, cooperation-surplus policy, collaboration terms roots,
   participation/visibility/privacy/contribution policy, hosted or
   federated admission topology, ontology profiles, budget/resources,
   participants, frontier, attempts, findings, verifier challenges, discussion
   projections, contribution lineage, and replay. It is not a runtime,
-  marketplace, authority system, or global Agentgres database.
+  marketplace, authority system, a Hypervisor surface, or a global Agentgres
+  database.
 - `ConditionalCooperationSurplus`: the participant-level reason for external
   work: expected utility under the accepted collaboration terms minus expected
   utility of the best permitted outside option and minus incremental search,

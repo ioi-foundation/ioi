@@ -61,6 +61,13 @@ Validation anchors:
 - A GoalRun owns one bounded pursue/verify/course-correct loop. An
   `OutcomeRoom` / `CollaborativeWorkGraph` coordinates many GoalRuns; it is not
   a second runtime or an implicitly global Agentgres graph.
+- Per ADR 0022, the goal/room family (GoalRunProfile, GoalRun,
+  GoalRunActivation, OutcomeRoom, and the room object family) consists of
+  domain objects of the openly packaged ioi.ai orchestration application; the
+  daemon admits, executes, and receipts them like any application domain, and
+  Hypervisor's own surfaces and API namespace speak session vocabulary. Goal
+  runs and rooms are not Hypervisor surfaces; Work / Goals and Work / Rooms
+  are application-contributed surfaces.
 - Work is the policy-filtered product workspace over typed GoalRuns,
   AutomationRuns, OutcomeRooms, Sessions, WorkRuns, queues, reviews, incidents,
   and history. It owns none of those records. A Session is one bounded

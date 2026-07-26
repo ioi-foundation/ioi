@@ -346,11 +346,13 @@ commercially metered:
   `GoalRunActivation` graduation crossing — so the commercial wedge named in
   ADR 0008 is paid for in contracts and sequenced here rather than asserted
   beside the horizon plan;
-- implement `GoalRunActivationEnvelope` and the unified GoalRun admission
-  contract in
-  [`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md),
-  including typed receipt obligations, the retained admitted state root, and
-  INV-37 resolved-evidence admission.
+- implement `GoalRunActivationEnvelope` and the goal-orchestration
+  application's unified GoalRun admission contract
+  ([`objects/goal-run-execution.md`](../foundations/objects/goal-run-execution.md),
+  placement per ADR 0022), including typed receipt obligations, the retained
+  admitted state root, and INV-37 resolved-evidence admission under
+  [`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)'s
+  admission-evidence discipline.
 
 The BYO/managed provider plane, applicable authority gates, storage/archive
 custody, Hypervisor clients and surfaces, and Agentgres receipt spine are
