@@ -203,7 +203,7 @@ product pitch or routine onboarding flow.
   in content-bound `EnforcementCoverageDeclaration` evidence snapshots. The
   profile is control posture, not proof of deployed coverage, not a substitute
   for cTEE privacy, and it does not require or imply a custom OS kernel module.
-- `EnforcementCoverageDeclaration`: registered, versioned evidence contract for
+- `EnforcementCoverageDeclaration`: owned by [`hypervisoros.md`](../components/daemon-runtime/hypervisoros.md); versioned evidence contract for
   one exact profile or adapter revision, platform, surface, action class, and
   scope. It independently reports `discovered`, `observable`, `attributable`,
   `mediated`, `preventable`, and `receipted`; binds mechanism roles, privilege,

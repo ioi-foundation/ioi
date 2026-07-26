@@ -1,12 +1,12 @@
 # Bounded-System Package, Genesis, and Chain Objects
 
 Status: canonical low-level reference.
-Canonical owner: this file for the shared object shapes of bounded-autonomous-system package release, live-system genesis, constitution and amendment, deployment profile, membership, ordering/admission/finality, recovery, oracle evidence, lifecycle continuity and transition, network enrollment, and pre-AIIP local-agent pairing.
+Canonical owner: this file for the shared object shapes of bounded-autonomous-system package release, live-system genesis, constitution and amendment, deployment profile, membership, ordering/admission/finality, recovery, oracle evidence, lifecycle continuity and transition, dissolution residual disposition and its receipt, network enrollment, and pre-AIIP local-agent pairing.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-07-26.
 Doctrine status: canonical
-Implementation status: mixed (the registered contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for the bounded-System manifest/genesis/sequence-zero-materialization/constitution/amendment/ordering/oracle/lifecycle/enrollment family; the pure genesis proposal compiler and exact wallet-authorized, statefully consumed, crash-convergent System admission with immutable local and Agentgres evidence are on master; activation, amendment/lifecycle execution, network-enrollment effects, and product surfaces are not started; local-agent pairing remains planned)
+Implementation status: mixed (the registered contract substrate supplies schemas, invariants, adversarial fixtures, and generated Rust/TypeScript projections for the bounded-System manifest/genesis/sequence-zero-materialization/constitution/amendment/ordering/oracle/lifecycle/enrollment family; the pure genesis proposal compiler and exact wallet-authorized, statefully consumed, crash-convergent System admission with immutable local and Agentgres evidence are on master; activation, amendment/lifecycle execution, the dissolution-disposition family, network-enrollment effects, and product surfaces are not started; local-agent pairing remains planned)
 Last implementation audit: 2026-07-25
 
 ## Purpose
@@ -2118,7 +2118,7 @@ AutonomousSystemContinuityStateEnvelope:
   lifecycle_state_root: hash
   system_id: system://...
   sequence: integer >= 3
-  status: active | succession_pending | successor_governed | dissolution_pending | dissolved
+  status: active | succession_pending | successor_governed | dissolution_pending | dissolving | dissolved
   predecessor_state_root: hash
   transition_ref: lifecycle-transition://...
   transition_root: hash
@@ -2142,7 +2142,118 @@ also binds the current governing principal, the exact candidate selected by a
 pending succession, and the content root of any current enrollment. Succession
 completion must match the pending candidate and installs a distinct reissued
 principal into the live chain; enrollment exit must load and compare the exact
-committed enrollment bytes.
+committed enrollment bytes. Dissolution completion must match the admitted
+residual-disposition record below: `dissolution_pending` marks the admitted
+`initiate_dissolution` transition, `dissolving` marks a live disposition
+record with non-terminal outcome domains, and `dissolved` is admissible only
+through `complete_dissolution` over a fully terminal disposition record.
+
+### AutonomousSystemDissolutionDispositionEnvelope
+
+Dissolution is the one lifecycle outcome whose residue outlives its System,
+so its residue gets a named owner. This envelope is that owner: it binds
+every residual-disposition duty declared by the active
+`LifecycleContinuityProfileEnvelope.dissolution` block to a typed, evidenced,
+receipted outcome on one exact dissolution transition — the way the
+amendment-execution proposal/decision family binds an amendment declaration
+to one exact live execution point. A dissolution that cannot show this record
+cannot complete.
+
+```yaml
+AutonomousSystemDissolutionDispositionEnvelope:
+  schema_version: ioi.autonomous-system-dissolution-disposition.v1
+  dissolution_disposition_id: dissolution-disposition://...
+  system_id: system://...
+  lifecycle_profile_ref: lifecycle-profile://...
+  lifecycle_profile_root: hash
+  initiate_transition_ref: lifecycle-transition://...
+  initiate_transition_root: hash
+  outcome_domains:
+    active_work:
+      policy_ref: policy://...
+      state: pending | completed | waived_under_policy | escalated | failed_closed
+      evidence_refs: []
+      receipt_refs: []
+    assets:
+      policy_ref: policy://...
+      state: pending | completed | waived_under_policy | escalated | failed_closed
+      evidence_refs: []
+      receipt_refs: []
+    outstanding_obligations:
+      policy_ref: policy://...
+      state: pending | completed | waived_under_policy | escalated | failed_closed
+      evidence_refs: []
+      receipt_refs: []
+    authority_revocation:
+      policy_ref: policy://...
+      state: pending | completed | waived_under_policy | escalated | failed_closed
+      evidence_refs: []
+      receipt_refs: []
+    worker_and_node_shutdown:
+      policy_ref: policy://...
+      state: pending | completed | waived_under_policy | escalated | failed_closed
+      evidence_refs: []
+      receipt_refs: []
+    data_export_retention_and_erasure:
+      policy_ref: policy://...
+      state: pending | completed | waived_under_policy | escalated | failed_closed
+      evidence_refs: []
+      receipt_refs: []
+    network_exit:
+      policy_ref: policy://...
+      state: pending | completed | waived_under_policy | escalated | failed_closed
+      evidence_refs: []
+      receipt_refs: []
+    tombstone:
+      policy_ref: policy://...
+      state: pending | completed | waived_under_policy | escalated | failed_closed
+      evidence_refs: []
+      receipt_refs: []
+  escalation_decision_refs: []
+  complete_transition_ref: lifecycle-transition://... | null
+  status: open | terminal_complete | terminal_with_escalations | superseded
+  created_at: timestamp
+```
+
+Rules, each testable:
+
+- **One record per dissolution.** The record binds the exact
+  `initiate_dissolution` transition by ref and root; a second live record for
+  the same System fails admission. Its eight outcome domains are the residual
+  duties of `LifecycleContinuityProfile.dissolution` (the `trigger_policy_refs`
+  and `approval_policy_ref` entries are admission inputs to the transition,
+  not residuals, and have no outcome domain).
+- **Every domain outcome is policy-bound and evidenced.** `waived_under_policy`
+  requires the waiving policy ref; `escalated` requires a decision ref in
+  `escalation_decision_refs`; `failed_closed` retains the failure evidence and
+  blocks completion. A domain with no policy in the active profile records
+  `waived_under_policy` against the profile's own null declaration, never a
+  silent skip.
+- **`complete_dissolution` is admissible only over a terminal record**: every
+  domain `completed` or `waived_under_policy`, or `escalated` with its
+  decision ref — never `pending`, never `failed_closed`. The completing
+  transition's `disposition_receipt_refs` carry this record's domain receipt
+  refs; that previously untyped hook is now bound to this family.
+- **Dissolution is `one_way`.** The tombstone outcome retains the terminal
+  identity commitment; a dissolved `system_id` is never resurrected — `adopt`
+  and `fork` are distinct transitions over new identity, and the retained
+  record, receipts, and tombstone survive as content-addressed evidence under
+  the retention policy they name.
+
+### AutonomousSystemDissolutionReceiptEnvelope
+
+`AutonomousSystemDissolutionReceiptEnvelope` is the named dissolution receipt
+owner. It has the closed lifecycle receipt shape with
+`schema_version: ioi.autonomous-system-dissolution-receipt.v1`,
+`op: complete_dissolution`, exact lifecycle scope, and
+`assurance_posture: dissolution_committed`. Its bound facts include the
+active continuity-profile root, the dissolution-disposition record root, the
+eight per-domain outcome commitments, the initiate and complete transition
+roots, predecessor and resulting state roots, the tombstone commitment, and
+the predecessor chain root. The artifact root domain is
+`ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1`. The
+`initiate_dissolution` transition uses the ordinary lifecycle transition
+receipt; only completion mints this receipt, exactly once.
 
 ### AutonomousSystemNetworkEnrollmentTransitionEnvelope
 

@@ -13,7 +13,7 @@ strata, and IOI Network enrollment.
 Settlement-rail selection is also owned here; settlement trigger rules and
 rail-specific fields remain with their envelope/profile owners.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-07-26.
 
 ## Purpose
 
@@ -182,6 +182,48 @@ Rules: replication-as-durability moves device flush off the ack critical
 path (background hygiene on both sides); a failed replica link degrades
 acks LOUDLY to the base label — the replicated classes are never faked;
 `quorum_replicated` may not be claimed by same-host peers.
+
+## Enforcement Coverage Facts (`coverage_fact`)
+
+```text
+discovered | observable | attributable | mediated | preventable | receipted
+```
+
+`coverage_fact` names the six independently assessed capability facts an
+`EnforcementCoverageDeclaration` may claim for one exact profile/adapter
+revision, platform, action surface, class, and scope (owner:
+[`hypervisoros.md`](../components/daemon-runtime/hypervisoros.md)). Each fact
+is assessed on its own evidence; no fact implies another, and audit, passive,
+or receipt-ingestion mechanisms are never upgraded into `mediated` or
+`preventable` claims. `uncovered` is a mutually exclusive exact-scope state on
+the declaration, not a seventh fact, and divergent spellings or additional
+members must not be introduced by any producer.
+
+Implementation grounding: planned contract field of the target
+`schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1`
+registration; no substrate is on current master.
+
+## Storage Durability Classes (`storage_durability_class`)
+
+```text
+single_copy | replicated_local | replicated_independent | georedundant |
+sealed_archive
+```
+
+`storage_durability_class` classifies the DECLARED byte-custody mechanism a
+[`StorageProfile`](../components/storage-backends/doctrine.md) requires for
+payloads at rest: one copy; replicas sharing a failure domain; replicas on
+declared failure-independent substrates; geographically redundant custody; or
+sealed archival custody (e.g. Filecoin deals). It is deliberately distinct
+from the Agentgres ack `durability` enum above — that enum proves what one
+admission ack achieved; this enum declares what a custody profile requires —
+and neither token may be substituted for the other. Provider-claimed
+durability remains evidence, never proof of bytes (INV-8), and restore truth
+admits only through the INV-12 validation path.
+
+Implementation grounding: planned contract field on `StorageProfile`
+(`ioi.storage-profile.v1`); no storage-profile substrate is on current
+master.
 
 ## Managed Execution Modes (`managed_execution_mode`)
 

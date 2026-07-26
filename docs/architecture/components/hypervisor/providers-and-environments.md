@@ -8,7 +8,7 @@ integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-26.
 Doctrine status: canonical
 Implementation status: partial (env lifecycle, providers, readiness, warm pools, and placement built; DePIN/storage posture families vary)
 Implementation refs:
@@ -524,7 +524,7 @@ start / stop / mark_active
 service start / stop
 task start / stop
 port share / revoke
-route binding propose / attach / renew / cut over / detach
+route binding propose / attach / renew / cut over / detach / observe drift / reconcile
 SCM auth satisfaction flow
 snapshot / backup / finalization
 archive / unarchive / restore prepare / restore apply / restore cancel / delete
@@ -684,6 +684,43 @@ one route may be replaced only by an explicit successor. TLS-required routes
 fail closed rather than silently downgrade. Neither a reachable URL nor a
 provider-issued certificate proves admitted exposure, authority, privacy,
 readiness, or application correctness.
+
+**Route-binding drift** is the admitted divergence observation between an
+active `HypervisorEnvironmentRouteBinding` (with its
+`HypervisorTargetState`) and current `HypervisorObservedState` evidence. It
+is a first-class observed fact, distinct from environment ports and from the
+binding itself:
+
+```text
+drift classes
+  dns_divergence            observed resolution no longer matches the bound target
+  certificate_divergence    observed certificate chain/issuer/expiry departs the binding
+  tls_downgrade_observed    traffic observed below the bound TLS floor
+  endpoint_unreachable      bound endpoint fails observation while the binding is active
+  ownership_proof_lapse     the route's ownership proof can no longer be revalidated
+  provider_record_divergence provider-side route/DNS/cert records depart the binding
+  unexpected_exposure       a route-shaped surface is observed that no active binding admits
+```
+
+Rules, each testable:
+
+- Drift observations are evidence with declared freshness, admitted into
+  `HypervisorObservedState`; they never mutate the binding, its hash, its
+  active head, or the target state (INV-8: provider state is evidence,
+  admission is truth).
+- **Reconciliation is exclusively an admitted `HypervisorChangePlan`** —
+  renew, cut over, detach, or replace-by-successor — under fresh authority
+  and active-head checks. Automatic remediation without an admitted plan,
+  and silent re-observation that clears a drift fact without either a
+  reconciling plan or an admitted supersession of the observation, are
+  non-conformant.
+- `unexpected_exposure` additionally opens an incident and, where a provider
+  resource is implicated, a durable `HypervisorResourceCleanupObligation`;
+  it can never be reconciled by admitting a binding after the fact without
+  the ordinary route-admission path.
+- Port observation and route-binding drift stay distinct: a port's
+  reachability facts never stand in for a route's drift posture, and route
+  drift never mutates port state.
 
 The status object streams to clients as session events, not a one-shot poll:
 
