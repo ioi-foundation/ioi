@@ -283,7 +283,10 @@ mod tests {
             ContextualNotificationStatus::inline(&Config::default()),
             r#""new" | "seen" | "acknowledged" | "snoozed" | "resolved" | "dismissed" | "expired" | "archived""#
         );
-        assert_eq!(ObservationTier::inline(&Config::default()), r#""workflow_state" | "connector_metadata" | "redacted_connector_content" | "coarse_host_context" | "deep_ambient_behavior""#);
+        assert_eq!(
+            ObservationTier::inline(&Config::default()),
+            r#""workflow_state" | "connector_metadata" | "redacted_connector_content" | "coarse_host_context" | "deep_ambient_behavior""#
+        );
         assert_eq!(
             ArtifactRef::inline(&Config::default()),
             "{ artifact_id: string, artifact_type: ArtifactType, }"
@@ -300,7 +303,10 @@ mod tests {
         );
         let record = ContextualNotificationRecord::inline(&Config::default());
         assert!(record.contains("itemId: string"), "{record}");
-        assert!(record.contains("artifactRefs: Array<ArtifactRef>"), "{record}");
+        assert!(
+            record.contains("artifactRefs: Array<ArtifactRef>"),
+            "{record}"
+        );
         assert!(
             record.contains("target: NotificationTarget | null"),
             "{record}"

@@ -794,7 +794,8 @@ mod tests {
         let mut no_scope = goal_request();
         no_scope["authority_scope_refs"] = json!([]);
         assert!(
-            core.admit_goal_run(&no_scope, "2026-01-01T00:00:00Z").is_err(),
+            core.admit_goal_run(&no_scope, "2026-01-01T00:00:00Z")
+                .is_err(),
             "an empty authority scope set must not admit a GoalRun"
         );
 

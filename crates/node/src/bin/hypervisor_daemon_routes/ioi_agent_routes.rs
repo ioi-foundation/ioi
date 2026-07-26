@@ -1322,7 +1322,10 @@ pub(crate) async fn handle_ioi_agent_launch(
         if kind == "goal_run" {
             let grid = text(&launch, "goal_run_id").to_string();
             let (status, started) = self_call(
-                &format!("{}/v1/goal-orchestration/goal-runs/{grid}/start", st.base_url),
+                &format!(
+                    "{}/v1/goal-orchestration/goal-runs/{grid}/start",
+                    st.base_url
+                ),
                 "POST",
                 Some(&json!({ "wallet_approval_grant": grant })),
             )
@@ -1394,7 +1397,10 @@ pub(crate) async fn handle_ioi_agent_launch(
                 );
             }
             let (_, reconciled) = self_call(
-                &format!("{}/v1/goal-orchestration/goal-runs/{grid}/reconcile", st.base_url),
+                &format!(
+                    "{}/v1/goal-orchestration/goal-runs/{grid}/reconcile",
+                    st.base_url
+                ),
                 "POST",
                 Some(&json!({})),
             )
