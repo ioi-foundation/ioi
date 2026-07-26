@@ -4,7 +4,7 @@ import type { ChatMessage } from "./base";
 import type { AgentEvent } from "./events";
 import type { ArtifactType } from "./generated";
 import type {
-  AssistantNotificationRecord,
+  ContextualNotificationRecord,
   InterventionRecord,
 } from "./notifications";
 import type { SessionSummary } from "./session-continuity";
@@ -78,7 +78,7 @@ export interface CanonicalTraceBundle {
   artifacts: Artifact[];
   artifactPayloads: TraceBundleArtifactPayloadEntry[];
   interventions: InterventionRecord[];
-  assistantNotifications: AssistantNotificationRecord[];
+  assistantNotifications: ContextualNotificationRecord[];
   assistantWorkbenchActivities: AssistantWorkbenchActivityRecord[];
 }
 

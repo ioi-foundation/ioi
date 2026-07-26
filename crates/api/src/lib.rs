@@ -58,6 +58,8 @@ pub mod component;
 /// Defines the core `ConsensusEngine` trait for pluggable consensus algorithms.
 pub mod consensus;
 /// Defines unified traits for cryptographic primitives.
+pub mod contextual_notifications;
+
 pub mod crypto;
 /// Re-exports all core error types from the central `ioi-types` crate.
 pub mod error;

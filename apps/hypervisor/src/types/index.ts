@@ -70,6 +70,8 @@ export type {
   AssistantNotificationClass,
   AssistantNotificationStatus,
   ContextConstraint,
+  ContextualNotificationClass,
+  ContextualNotificationStatus,
   EventStatus,
   EventType,
   InterventionStatus,
@@ -254,6 +256,7 @@ export type {
   NotificationPolicyRefs,
   NotificationTarget,
   InterventionRecord,
+  ContextualNotificationRecord,
   AssistantNotificationRecord,
 } from "./notifications";
 

@@ -1,5 +1,5 @@
 import type {
-  AssistantNotificationRecord as GeneratedAssistantNotificationRecord,
+  ContextualNotificationRecord as GeneratedContextualNotificationRecord,
   InterventionRecord as GeneratedInterventionRecord,
   NotificationAction as GeneratedNotificationAction,
   NotificationDeliveryState as GeneratedNotificationDeliveryState,
@@ -67,9 +67,19 @@ export type InterventionRecord = Omit<GeneratedInterventionRecord, "target"> & {
   target?: NotificationTarget | null;
 };
 
-export type AssistantNotificationRecord = Omit<
-  GeneratedAssistantNotificationRecord,
+export type ContextualNotificationRecord = Omit<
+  GeneratedContextualNotificationRecord,
   "target"
 > & {
   target?: NotificationTarget | null;
 };
+
+/**
+ * @deprecated Compatibility alias for `ContextualNotificationRecord`.
+ *
+ * `Assistant` is a Session-backed faculty, not a durable object; what this names
+ * is a durable Notification, and the eight-state lifecycle belongs to the
+ * notification. See `docs/architecture/foundations/term-boundaries.md`. This is
+ * an alias, not a second concept.
+ */
+export type AssistantNotificationRecord = ContextualNotificationRecord;

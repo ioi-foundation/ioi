@@ -47,6 +47,8 @@ apps/hypervisor/src/generated/*
 !apps/hypervisor/src/generated/control/**
 !apps/hypervisor/src/generated/google/
 !apps/hypervisor/src/generated/google/**
+!apps/hypervisor/src/generated/hypervisor-contracts/
+!apps/hypervisor/src/generated/hypervisor-contracts/**
 !apps/hypervisor/src/generated/public/
 !apps/hypervisor/src/generated/public/**
 apps/developers-ioi-ai/release/
