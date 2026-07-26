@@ -95,11 +95,34 @@ M2 starts from.
   projection, pinned by 13+ verifier suites; retirement belongs to the
   Provenance surface leg. Canon calls the surface Provenance everywhere.
 
-## Verification (literal; final numbers at pass end)
+## Verification (literal)
 
-See the final section of this file after the gate sweep:
+| Check | Result |
+| --- | --- |
+| `npm run check:pre-next-leg` (full 12-gate runner) | **exit 0** — includes m0-program-control 60/60, architecture-docs pass, architecture-contract bar (18 rust-lifecycle tests ok), system-genesis compiler, conformance-docs 7/7, work-items 7 records, readiness 9/9, workflow-compositor, runtime layout |
+| `npm run check:m0-program-control` | exit 0, 60/60 (epoch-14 refresh: `--attest-review` 0, `--write` 0, `--check` 0) |
+| `npm run check:architecture-docs` | pass, exit 0 |
+| `npm run check:conformance-docs` | 7 tests / 0 fail, exit 0 |
+| `npm run check:architecture-contracts` | 171 fixtures, exit 0 |
+| `npm run check:generated-contract-owners` | OK — 88 contracts, 17 Rust-owned, 71 quarantined (named gap, unchanged) |
+| `npm run check:work-items` | pass, exit 0 |
+| `npm run test:workflow-compositor-dogfood` | 9 tests / 0 fail |
+| `cargo check` (ioi-node, ioi-types, ioi-services) | exit 0 |
+| `cargo test -p ioi-node --bin hypervisor-daemon` | 341 passed / 0 failed |
+| `cargo test -p ioi-api` | 344 passed / 0 failed (+282 in second suite) |
+| `npx tsc --noEmit` (app + hypervisor-workbench package) | exit 0 both |
+| `verify-hypervisor-outcome-room-plane` (live, isolated daemon + real wallet) | 140/140, exit 0 |
+| `verify-hypervisor-work-frontier-claim-plane` | 56/56 (incl. 200/200 replay check), exit 0 |
+| `verify-hypervisor-attempt-finding-plane` | 19/19, exit 0 |
+| `verify-hypervisor-verifier-challenge-plane` | 25/25, exit 0 |
+| `verify-hypervisor-resource-capability-offer-plane` | 20/20, exit 0 |
+| `verify-hypervisor-resource-capability-offer-eligibility-regressions` | 3/3, exit 0 |
+| `verify-hypervisor-work-result-plane` | 63/63, exit 0 |
+| `verify-hypervisor-room-participation-plane` | **exit 1 — INHERITED failure, not introduced by this pass.** The crash-replay probe ("governed admission did not converge through real wallet.network", verifier line 286) fails because the fault-injected admit intent is persisted without `authority_resolved_at_ms` and the post-readiness completer's re-resolution (`governed_authority.rs` `reauthorize_sealed_receipt_with_context`) refuses it, retrying every boot ("QUARANTINED for bounded post-readiness authority re-resolution" → "retained (the governed intent lacks authority_resolved_at_ms)"). **Bisect proof:** reproduced bit-identically at the pre-pass base `fc80d2e73` in a clean worktree with a base-built daemon (`BASE_EXIT=1`, same message, same line). The seven sibling plane suites, including their own crash/replay and receipt-fault probes, pass on the converged branch. Fix belongs to the participation-plane owner as its own cut: either seal the resolution tuple before intent persistence under the dirsync-unconfirmed fault, or make post-readiness re-resolution perform a full fresh authority resolution for intents that legitimately lack the sealed tuple — a governed-authority semantics decision, deliberately not hot-patched inside this convergence pass. |
 
-<!-- VERIFICATION_RESULTS -->
+The inherited participation failure is the only red result in the estate at
+merge time, it predates this pass, and it is recorded here with its exact
+signature so the owning cut can start from evidence rather than rediscovery.
 
 ## Relationship to the maximal-ceiling pass record
 
