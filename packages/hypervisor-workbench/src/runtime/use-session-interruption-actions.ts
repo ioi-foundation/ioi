@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { getSessionId } from "./session-status";
-import { submitAssistantSessionRuntimePassword } from "./session-runtime";
+import { submitSessionRuntimePassword } from "./session-runtime";
 
 interface SessionClarificationOptionLike {
   id: string;
@@ -138,7 +138,7 @@ export function useSessionInterruptionActions<
       setRuntimePasswordSessionId?.(sessionId);
 
       try {
-        await submitAssistantSessionRuntimePassword(sessionId, password);
+        await submitSessionRuntimePassword(sessionId, password);
       } catch (error) {
         setRuntimePasswordPending?.(false);
         setRuntimePasswordSessionId?.(null);

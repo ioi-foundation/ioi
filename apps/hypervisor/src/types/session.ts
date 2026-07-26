@@ -13,10 +13,6 @@ import type {
   ChatRendererSession,
 } from "./chat-artifacts";
 import type { AgentEvent } from "./events";
-import {
-  normalizeMaterializationWorkGraphFields,
-  normalizeWorkGraphTree,
-} from "./work-graph-compat";
 
 export type AgentStatus =
   | "requisition"
@@ -177,20 +173,12 @@ export function normalizeAgentTaskModel(task: AgentTaskModelInput): AgentTask {
           Array.isArray(task.processed_steps) ? task.processed_steps : [],
         );
 
-  const chatSession = task.chat_session
-    ? {
-        ...task.chat_session,
-        materialization: normalizeMaterializationWorkGraphFields(
-          task.chat_session.materialization,
-        ),
-      }
-    : task.chat_session;
-
   return {
     ...task,
-    work_graph_tree: normalizeWorkGraphTree(task),
+    work_graph_tree: Array.isArray(task.work_graph_tree)
+      ? task.work_graph_tree
+      : [],
     processed_steps: processedSteps,
-    chat_session: chatSession,
     session_checklist: Array.isArray(task.session_checklist)
       ? task.session_checklist
       : [],

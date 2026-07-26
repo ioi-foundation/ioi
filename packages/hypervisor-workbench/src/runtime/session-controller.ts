@@ -5,20 +5,20 @@ import type {
   AssistantSessionProjection,
 } from "./assistant-session-runtime-types";
 import {
-  dismissAssistantSession,
-  getActiveAssistantSession,
-  getAssistantSessionProjection,
+  continueSessionTask,
+  dismissSessionTask,
+  getCurrentSessionTask,
+  getSessionProjection,
   hideChatSessionShell,
-  listAssistantSessions,
-  listenAssistantSessionEvent,
-  listenAssistantSessionProjection,
-  loadAssistantSession,
-  loadAssistantSessionArtifacts,
-  loadAssistantSessionEvents,
+  listSessionHistory,
+  listenSessionEvent,
+  listenSessionProjection,
+  loadSessionTask,
+  loadSessionThreadArtifacts,
+  loadSessionThreadEvents,
   showChatSessionShell,
   showChatShell,
-  startAssistantSession,
-  submitAssistantSessionInput,
+  startSessionTask,
 } from "./session-runtime";
 import {
   buildSessionAttachTargets,
@@ -934,28 +934,28 @@ export function createRuntimeSessionControllerStore<
     TSessionSummary
   >(
     {
-      startTask: (intent: string) => startAssistantSession<TTask>(intent),
+      startTask: (intent: string) => startSessionTask<TTask>(intent),
       continueTask: (sessionId: string, userInput: string) =>
-        submitAssistantSessionInput(sessionId, userInput),
-      dismissTask: () => dismissAssistantSession(),
-      getCurrentTask: () => getActiveAssistantSession<TTask>(),
-      listSessionHistory: () => listAssistantSessions<TSessionSummary>(),
+        continueSessionTask(sessionId, userInput),
+      dismissTask: () => dismissSessionTask(),
+      getCurrentTask: () => getCurrentSessionTask<TTask>(),
+      listSessionHistory: () => listSessionHistory<TSessionSummary>(),
       getSessionProjection: () =>
-        getAssistantSessionProjection<TTask, TSessionSummary>(),
-      loadSession: (sessionId: string) => loadAssistantSession<TTask>(sessionId),
+        getSessionProjection<TTask, TSessionSummary>(),
+      loadSession: (sessionId: string) => loadSessionTask<TTask>(sessionId),
       loadThreadEvents: (threadId: string, limit?: number, cursor?: number) =>
-        loadAssistantSessionEvents<TEvent>(threadId, limit, cursor),
+        loadSessionThreadEvents<TEvent>(threadId, limit, cursor),
       loadThreadArtifacts: (threadId: string) =>
-        loadAssistantSessionArtifacts<TArtifact>(threadId),
+        loadSessionThreadArtifacts<TArtifact>(threadId),
       listenEvent: <TPayload,>(
         eventName: AssistantSessionEventName,
         handler: (payload: TPayload) => void,
-      ) => listenAssistantSessionEvent<TPayload>(eventName, handler),
+      ) => listenSessionEvent<TPayload>(eventName, handler),
       listenSessionProjection: (
         handler: (
           projection: AssistantSessionProjection<TTask, TSessionSummary>,
         ) => void,
-      ) => listenAssistantSessionProjection<TTask, TSessionSummary>(handler),
+      ) => listenSessionProjection<TTask, TSessionSummary>(handler),
       showChatSession: () => showChatSessionShell(),
       hideChatSession: () => hideChatSessionShell(),
       showChat: () => showChatShell(),

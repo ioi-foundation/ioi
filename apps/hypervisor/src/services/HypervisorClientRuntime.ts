@@ -540,10 +540,10 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
     }
 
     async stopExecution(): Promise<void> {
-        await this.stopAssistantSession();
+        await this.stopSessionTask();
     }
 
-    async startAssistantSession<T>(intent: string): Promise<T> {
+    async startSessionTask<T>(intent: string): Promise<T> {
         if (!isHypervisorClientRuntime()) {
           throw unavailableOutsideHostBridge("start_task");
         }
@@ -566,66 +566,42 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         }
     }
 
-    async startSessionTask<T>(intent: string): Promise<T> {
-        return this.startAssistantSession<T>(intent);
-    }
-
-    async submitAssistantSessionInput(sessionId: string, userInput: string): Promise<void> {
+    async continueSessionTask(sessionId: string, userInput: string): Promise<void> {
         if (!isHypervisorClientRuntime()) {
           throw unavailableOutsideHostBridge("continue_task");
         }
         await invoke("continue_task", { sessionId, userInput });
     }
 
-    async continueSessionTask(sessionId: string, userInput: string): Promise<void> {
-        return this.submitAssistantSessionInput(sessionId, userInput);
-    }
-
-    async dismissAssistantSession(): Promise<void> {
+    async dismissSessionTask(): Promise<void> {
         if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("dismiss_task");
     }
 
-    async dismissSessionTask(): Promise<void> {
-        return this.dismissAssistantSession();
-    }
-
-    async stopAssistantSession(): Promise<void> {
+    async stopSessionTask(): Promise<void> {
         if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("cancel_task");
     }
 
-    async stopSessionTask(): Promise<void> {
-        return this.stopAssistantSession();
-    }
-
-    async getActiveAssistantSession<T>(): Promise<T | null> {
+    async getCurrentSessionTask<T>(): Promise<T | null> {
         if (!isHypervisorClientRuntime()) {
           return null;
         }
         return invoke<T | null>("get_current_task");
     }
 
-    async getCurrentSessionTask<T>(): Promise<T | null> {
-        return this.getActiveAssistantSession<T>();
-    }
-
-    async listAssistantSessions<T>(): Promise<T[]> {
+    async listSessionHistory<T>(): Promise<T[]> {
         if (!isHypervisorClientRuntime()) {
           return [];
         }
         return invoke<T[]>("get_session_history");
     }
 
-    async listSessionHistory<T>(): Promise<T[]> {
-        return this.listAssistantSessions<T>();
-    }
-
-    async getAssistantSessionProjection<TTask, TSessionSummary>(): Promise<
+    async getSessionProjection<TTask, TSessionSummary>(): Promise<
       AssistantSessionProjection<TTask, TSessionSummary>
     > {
         if (!isHypervisorClientRuntime()) {
@@ -639,24 +615,14 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         );
     }
 
-    async getSessionProjection<TTask, TSessionSummary>(): Promise<
-      AssistantSessionProjection<TTask, TSessionSummary>
-    > {
-        return this.getAssistantSessionProjection<TTask, TSessionSummary>();
-    }
-
-    async loadAssistantSession<T>(sessionId: string): Promise<T> {
+    async loadSessionTask<T>(sessionId: string): Promise<T> {
         if (!isHypervisorClientRuntime()) {
           throw unavailableOutsideHostBridge("load_session");
         }
         return invoke<T>("load_session", { sessionId });
     }
 
-    async loadSessionTask<T>(sessionId: string): Promise<T> {
-        return this.loadAssistantSession<T>(sessionId);
-    }
-
-    async loadAssistantSessionEvents<T>(
+    async loadSessionThreadEvents<T>(
         threadId: string,
         options?: AssistantSessionThreadLoadOptions
     ): Promise<T[]> {
@@ -669,13 +635,6 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
             limit: options?.limit ?? null,
             cursor: options?.cursor ?? null,
         });
-    }
-
-    async loadSessionThreadEvents<T>(
-        threadId: string,
-        options?: AssistantSessionThreadLoadOptions
-    ): Promise<T[]> {
-        return this.loadAssistantSessionEvents<T>(threadId, options);
     }
 
     async loadWorkflowRuntimeThreadEvents<T>(
@@ -692,7 +651,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         return invoke("execute_workflow_runtime_control_request", { request });
     }
 
-    async loadAssistantSessionArtifacts<T>(threadId: string): Promise<T[]> {
+    async loadSessionThreadArtifacts<T>(threadId: string): Promise<T[]> {
         if (!isHypervisorClientRuntime()) {
           return [];
         }
@@ -700,10 +659,6 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
             threadId,
             thread_id: threadId,
         });
-    }
-
-    async loadSessionThreadArtifacts<T>(threadId: string): Promise<T[]> {
-        return this.loadAssistantSessionArtifacts<T>(threadId);
     }
 
     async showPillShell(): Promise<void> {
@@ -912,7 +867,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         );
     }
 
-    async submitAssistantSessionRuntimePassword(
+    async submitSessionRuntimePassword(
         sessionId: string,
         password: string
     ): Promise<void> {
@@ -922,27 +877,14 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         await invoke("submit_runtime_password", { sessionId, password });
     }
 
-    async submitSessionRuntimePassword(
-        sessionId: string,
-        password: string
-    ): Promise<void> {
-        return this.submitAssistantSessionRuntimePassword(sessionId, password);
-    }
-
-    async respondToAssistantSessionGate(
-      input: AssistantSessionGateResponse,
-    ): Promise<void> {
+    async respondToSessionGate(input: AssistantSessionGateResponse): Promise<void> {
         if (!isHypervisorClientRuntime()) {
           throw unavailableOutsideHostBridge("gate_respond");
         }
         await invoke("gate_respond", { ...input });
     }
 
-    async respondToSessionGate(input: AssistantSessionGateResponse): Promise<void> {
-        return this.respondToAssistantSessionGate(input);
-    }
-
-    async listenAssistantSessionProjection<TTask, TSessionSummary>(
+    async listenSessionProjection<TTask, TSessionSummary>(
       handler: (
         projection: AssistantSessionProjection<TTask, TSessionSummary>,
       ) => void,
@@ -956,17 +898,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         );
     }
 
-    async listenSessionProjection<TTask, TSessionSummary>(
-      handler: (
-        projection: AssistantSessionProjection<TTask, TSessionSummary>,
-      ) => void,
-    ): Promise<() => void> {
-        return this.listenAssistantSessionProjection<TTask, TSessionSummary>(
-          handler,
-        );
-    }
-
-    async listenAssistantSessionEvent<T>(
+    async listenSessionEvent<T>(
         eventName: AssistantSessionEventName,
         handler: (payload: T) => void
     ): Promise<() => void> {
@@ -974,13 +906,6 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
           return () => {};
         }
         return listen<T>(eventName, (event) => handler(event.payload));
-    }
-
-    async listenSessionEvent<T>(
-        eventName: AssistantSessionEventName,
-        handler: (payload: T) => void
-    ): Promise<() => void> {
-        return this.listenAssistantSessionEvent(eventName, handler);
     }
 
     async checkNodeCache(nodeId: string, config: any, input: string): Promise<any> {

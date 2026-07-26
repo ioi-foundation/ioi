@@ -117,38 +117,20 @@ export interface AssistantSessionGateResponse {
 }
 
 export interface AssistantSessionRuntime {
-  startAssistantSession?<T>(intent: string): Promise<T>;
   startSessionTask<T>(intent: string): Promise<T>;
-  submitAssistantSessionInput?(
-    sessionId: string,
-    userInput: string,
-  ): Promise<void>;
   continueSessionTask(sessionId: string, userInput: string): Promise<void>;
-  dismissAssistantSession?(): Promise<void>;
   dismissSessionTask(): Promise<void>;
-  stopAssistantSession?(): Promise<void>;
   stopSessionTask(): Promise<void>;
-  getActiveAssistantSession?<T>(): Promise<T | null>;
   getCurrentSessionTask<T>(): Promise<T | null>;
-  listAssistantSessions?<T>(): Promise<T[]>;
   listSessionHistory<T>(): Promise<T[]>;
-  getAssistantSessionProjection?<TSession, TSessionSummary>(): Promise<
-    AssistantSessionProjection<TSession, TSessionSummary>
-  >;
   getSessionProjection<TSession, TSessionSummary>(): Promise<
     AssistantSessionProjection<TSession, TSessionSummary>
   >;
-  loadAssistantSession?<T>(sessionId: string): Promise<T>;
   loadSessionTask<T>(sessionId: string): Promise<T>;
-  loadAssistantSessionEvents?<T>(
-    threadId: string,
-    options?: AssistantSessionThreadLoadOptions,
-  ): Promise<T[]>;
   loadSessionThreadEvents<T>(
     threadId: string,
     options?: AssistantSessionThreadLoadOptions,
   ): Promise<T[]>;
-  loadAssistantSessionArtifacts?<T>(threadId: string): Promise<T[]>;
   loadSessionThreadArtifacts<T>(threadId: string): Promise<T[]>;
   showPillShell(): Promise<void>;
   hidePillShell(): Promise<void>;
@@ -182,39 +164,16 @@ export interface AssistantSessionRuntime {
   listenAssistantWorkbenchActivity(
     handler: (activity: AssistantWorkbenchActivity) => void,
   ): Promise<() => void>;
-  submitAssistantSessionRuntimePassword?(
-    sessionId: string,
-    password: string,
-  ): Promise<void>;
   submitSessionRuntimePassword(
     sessionId: string,
     password: string,
   ): Promise<void>;
-  respondToAssistantSessionGate?(
-    input: AssistantSessionGateResponse,
-  ): Promise<void>;
   respondToSessionGate(input: AssistantSessionGateResponse): Promise<void>;
-  listenAssistantSessionProjection?<TSession, TSessionSummary>(
-    handler: (projection: AssistantSessionProjection<TSession, TSessionSummary>) => void,
-  ): Promise<() => void>;
   listenSessionProjection<TSession, TSessionSummary>(
     handler: (projection: AssistantSessionProjection<TSession, TSessionSummary>) => void,
-  ): Promise<() => void>;
-  listenAssistantSessionEvent?<T>(
-    eventName: AssistantSessionEventName,
-    handler: (payload: T) => void,
   ): Promise<() => void>;
   listenSessionEvent<T>(
     eventName: AssistantSessionEventName,
     handler: (payload: T) => void,
   ): Promise<() => void>;
 }
-
-export type AgentSessionEventName = AssistantSessionEventName;
-export type AgentSessionProjection<
-  TTask = unknown,
-  TSessionSummary = unknown,
-> = AssistantSessionProjection<TTask, TSessionSummary>;
-export type AgentSessionThreadLoadOptions = AssistantSessionThreadLoadOptions;
-export type AgentSessionGateResponse = AssistantSessionGateResponse;
-export type AgentSessionRuntime = AssistantSessionRuntime;

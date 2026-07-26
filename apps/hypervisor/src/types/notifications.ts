@@ -73,13 +73,3 @@ export type ContextualNotificationRecord = Omit<
 > & {
   target?: NotificationTarget | null;
 };
-
-/**
- * @deprecated Compatibility alias for `ContextualNotificationRecord`.
- *
- * `Assistant` is a Session-backed faculty, not a durable object; what this names
- * is a durable Notification, and the eight-state lifecycle belongs to the
- * notification. See `docs/architecture/foundations/term-boundaries.md`. This is
- * an alias, not a second concept.
- */
-export type AssistantNotificationRecord = ContextualNotificationRecord;

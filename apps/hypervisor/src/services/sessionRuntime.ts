@@ -1,8 +1,8 @@
 import type { AgentWorkbenchRuntime, AssistantSessionRuntime } from "@ioi/hypervisor-workbench";
 import {
-  getAssistantSessionRuntime as getSharedSessionRuntime,
-  setActiveAssistantSessionRuntime,
-  setDefaultAssistantSessionRuntime,
+  getSessionRuntime as getSharedSessionRuntime,
+  setSessionRuntime as setSharedSessionRuntime,
+  setDefaultSessionRuntime,
 } from "@ioi/hypervisor-workbench";
 import type { LocalEngineSnapshot } from "../types";
 import { HypervisorClientRuntime, type WorkspaceWorkflowSummary } from "./HypervisorClientRuntime";
@@ -32,7 +32,7 @@ export type SessionWorkbenchRuntime = AgentWorkbenchRuntime &
   };
 
 const defaultSessionRuntime = new HypervisorClientRuntime();
-setDefaultAssistantSessionRuntime(defaultSessionRuntime);
+setDefaultSessionRuntime(defaultSessionRuntime);
 
 function isSessionOperatorRuntime(
   runtime: AssistantSessionRuntime,
@@ -86,4 +86,4 @@ export function getSessionOperatorRuntime(): SessionOperatorRuntime {
   return defaultSessionRuntime;
 }
 
-export { setActiveAssistantSessionRuntime as setSessionRuntime };
+export { setSharedSessionRuntime as setSessionRuntime };

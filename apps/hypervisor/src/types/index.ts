@@ -67,8 +67,6 @@ export type {
   ActiveContextItem,
   ArtifactRef,
   ArtifactType,
-  AssistantNotificationClass,
-  AssistantNotificationStatus,
   ContextConstraint,
   ContextualNotificationClass,
   ContextualNotificationStatus,
@@ -257,7 +255,6 @@ export type {
   NotificationTarget,
   InterventionRecord,
   ContextualNotificationRecord,
-  AssistantNotificationRecord,
 } from "./notifications";
 
 export type {

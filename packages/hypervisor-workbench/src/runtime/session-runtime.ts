@@ -9,160 +9,122 @@ import type {
   ChatViewTarget,
 } from "./assistant-session-runtime-types";
 
-let defaultAssistantSessionRuntime: AssistantSessionRuntime | null = null;
-let activeAssistantSessionRuntime: AssistantSessionRuntime | null = null;
+let defaultSessionRuntimeInstance: AssistantSessionRuntime | null = null;
+let activeSessionRuntimeInstance: AssistantSessionRuntime | null = null;
 
-export function setDefaultAssistantSessionRuntime(
+export function setDefaultSessionRuntime(
   runtime: AssistantSessionRuntime,
 ): void {
-  const previousDefault = defaultAssistantSessionRuntime;
-  defaultAssistantSessionRuntime = runtime;
+  const previousDefault = defaultSessionRuntimeInstance;
+  defaultSessionRuntimeInstance = runtime;
   if (
-    activeAssistantSessionRuntime === null ||
-    activeAssistantSessionRuntime === previousDefault
+    activeSessionRuntimeInstance === null ||
+    activeSessionRuntimeInstance === previousDefault
   ) {
-    activeAssistantSessionRuntime = runtime;
+    activeSessionRuntimeInstance = runtime;
   }
 }
 
-export function setActiveAssistantSessionRuntime(
+export function setSessionRuntime(
   runtime: AssistantSessionRuntime | null,
 ): void {
-  activeAssistantSessionRuntime = runtime ?? defaultAssistantSessionRuntime;
+  activeSessionRuntimeInstance = runtime ?? defaultSessionRuntimeInstance;
 }
 
-export function getAssistantSessionRuntime(): AssistantSessionRuntime {
-  if (!activeAssistantSessionRuntime) {
-    throw new Error("No assistant session runtime configured");
+export function getSessionRuntime(): AssistantSessionRuntime {
+  if (!activeSessionRuntimeInstance) {
+    throw new Error("No session runtime configured");
   }
-  return activeAssistantSessionRuntime;
+  return activeSessionRuntimeInstance;
 }
 
-export function startAssistantSession<T>(intent: string): Promise<T> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.startAssistantSession === "function") {
-    return runtime.startAssistantSession<T>(intent);
-  }
-  return runtime.startSessionTask<T>(intent);
+export function startSessionTask<T>(intent: string): Promise<T> {
+  return getSessionRuntime().startSessionTask<T>(intent);
 }
 
-export function submitAssistantSessionInput(
+export function continueSessionTask(
   sessionId: string,
   userInput: string,
 ): Promise<void> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.submitAssistantSessionInput === "function") {
-    return runtime.submitAssistantSessionInput(sessionId, userInput);
-  }
-  return runtime.continueSessionTask(sessionId, userInput);
+  return getSessionRuntime().continueSessionTask(sessionId, userInput);
 }
 
-export function dismissAssistantSession(): Promise<void> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.dismissAssistantSession === "function") {
-    return runtime.dismissAssistantSession();
-  }
-  return runtime.dismissSessionTask();
+export function dismissSessionTask(): Promise<void> {
+  return getSessionRuntime().dismissSessionTask();
 }
 
-export function stopAssistantSession(): Promise<void> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.stopAssistantSession === "function") {
-    return runtime.stopAssistantSession();
-  }
-  return runtime.stopSessionTask();
+export function stopSessionTask(): Promise<void> {
+  return getSessionRuntime().stopSessionTask();
 }
 
-export function getActiveAssistantSession<T>(): Promise<T | null> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.getActiveAssistantSession === "function") {
-    return runtime.getActiveAssistantSession<T>();
-  }
-  return runtime.getCurrentSessionTask<T>();
+export function getCurrentSessionTask<T>(): Promise<T | null> {
+  return getSessionRuntime().getCurrentSessionTask<T>();
 }
 
-export function listAssistantSessions<T>(): Promise<T[]> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.listAssistantSessions === "function") {
-    return runtime.listAssistantSessions<T>();
-  }
-  return runtime.listSessionHistory<T>();
+export function listSessionHistory<T>(): Promise<T[]> {
+  return getSessionRuntime().listSessionHistory<T>();
 }
 
-export function getAssistantSessionProjection<TSession, TSessionSummary>(): Promise<
+export function getSessionProjection<TSession, TSessionSummary>(): Promise<
   AssistantSessionProjection<TSession, TSessionSummary>
 > {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.getAssistantSessionProjection === "function") {
-    return runtime.getAssistantSessionProjection<TSession, TSessionSummary>();
-  }
-  return runtime.getSessionProjection<TSession, TSessionSummary>();
+  return getSessionRuntime().getSessionProjection<TSession, TSessionSummary>();
 }
 
-export function loadAssistantSession<T>(sessionId: string): Promise<T> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.loadAssistantSession === "function") {
-    return runtime.loadAssistantSession<T>(sessionId);
-  }
-  return runtime.loadSessionTask<T>(sessionId);
+export function loadSessionTask<T>(sessionId: string): Promise<T> {
+  return getSessionRuntime().loadSessionTask<T>(sessionId);
 }
 
-export function loadAssistantSessionEvents<T>(
+export function loadSessionThreadEvents<T>(
   threadId: string,
   limit?: number,
   cursor?: number,
 ): Promise<T[]> {
-  const runtime = getAssistantSessionRuntime();
-  const options = { limit, cursor };
-  if (typeof runtime.loadAssistantSessionEvents === "function") {
-    return runtime.loadAssistantSessionEvents<T>(threadId, options);
-  }
-  return runtime.loadSessionThreadEvents<T>(threadId, options);
+  return getSessionRuntime().loadSessionThreadEvents<T>(threadId, {
+    limit,
+    cursor,
+  });
 }
 
-export function loadAssistantSessionArtifacts<T>(
+export function loadSessionThreadArtifacts<T>(
   threadId: string,
 ): Promise<T[]> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.loadAssistantSessionArtifacts === "function") {
-    return runtime.loadAssistantSessionArtifacts<T>(threadId);
-  }
-  return runtime.loadSessionThreadArtifacts<T>(threadId);
+  return getSessionRuntime().loadSessionThreadArtifacts<T>(threadId);
 }
 
 export function showPillShell(): Promise<void> {
-  return getAssistantSessionRuntime().showPillShell();
+  return getSessionRuntime().showPillShell();
 }
 
 export function hidePillShell(): Promise<void> {
-  return getAssistantSessionRuntime().hidePillShell();
+  return getSessionRuntime().hidePillShell();
 }
 
 export function showChatSessionShell(): Promise<void> {
-  return getAssistantSessionRuntime().showChatSessionShell();
+  return getSessionRuntime().showChatSessionShell();
 }
 
 export function hideChatSessionShell(): Promise<void> {
-  return getAssistantSessionRuntime().hideChatSessionShell();
+  return getSessionRuntime().hideChatSessionShell();
 }
 
 export function showChatShell(): Promise<void> {
-  return getAssistantSessionRuntime().showChatShell();
+  return getSessionRuntime().showChatShell();
 }
 
 export function openChatShellView(view: ChatViewTarget): Promise<void> {
-  return getAssistantSessionRuntime().openChatView(view);
+  return getSessionRuntime().openChatView(view);
 }
 
 export function openChatSessionTarget(sessionId: string): Promise<void> {
-  return getAssistantSessionRuntime().openChatSessionTarget(sessionId);
+  return getSessionRuntime().openChatSessionTarget(sessionId);
 }
 
 export function openChatCapabilityTarget(
   connectorId?: string | null,
   detailSection?: ChatCapabilityDetailSection | null,
 ): Promise<void> {
-  return getAssistantSessionRuntime().openChatCapabilityTarget(
+  return getSessionRuntime().openChatCapabilityTarget(
     connectorId,
     detailSection,
   );
@@ -171,47 +133,45 @@ export function openChatCapabilityTarget(
 export function openChatPolicyTarget(
   connectorId?: string | null,
 ): Promise<void> {
-  return getAssistantSessionRuntime().openChatPolicyTarget(connectorId);
+  return getSessionRuntime().openChatPolicyTarget(connectorId);
 }
 
 export function openChatAssistantWorkbench(
   session: AssistantWorkbenchSession,
 ): Promise<void> {
-  return getAssistantSessionRuntime().openChatAssistantWorkbench(session);
+  return getSessionRuntime().openChatAssistantWorkbench(session);
 }
 
 export function activateAssistantWorkbenchSession(
   session: AssistantWorkbenchSession,
 ): Promise<void> {
-  return getAssistantSessionRuntime().activateAssistantWorkbenchSession(
-    session,
-  );
+  return getSessionRuntime().activateAssistantWorkbenchSession(session);
 }
 
 export function getActiveAssistantWorkbenchSession(): Promise<AssistantWorkbenchSession | null> {
-  return getAssistantSessionRuntime().getActiveAssistantWorkbenchSession();
+  return getSessionRuntime().getActiveAssistantWorkbenchSession();
 }
 
 export function openChatHypervisorIntent(intent: string): Promise<void> {
-  return getAssistantSessionRuntime().openChatHypervisorIntent(intent);
+  return getSessionRuntime().openChatHypervisorIntent(intent);
 }
 
 export function listenAssistantWorkbenchSession(
   handler: (session: AssistantWorkbenchSession) => void,
 ): Promise<() => void> {
-  return getAssistantSessionRuntime().listenAssistantWorkbenchSession(handler);
+  return getSessionRuntime().listenAssistantWorkbenchSession(handler);
 }
 
 export function reportAssistantWorkbenchActivity(
   activity: AssistantWorkbenchActivity,
 ): Promise<void> {
-  return getAssistantSessionRuntime().reportAssistantWorkbenchActivity(activity);
+  return getSessionRuntime().reportAssistantWorkbenchActivity(activity);
 }
 
 export function getRecentAssistantWorkbenchActivities(
   limit?: number,
 ): Promise<AssistantWorkbenchActivity[]> {
-  const runtime = getAssistantSessionRuntime();
+  const runtime = getSessionRuntime();
   if (typeof runtime.getRecentAssistantWorkbenchActivities === "function") {
     return runtime.getRecentAssistantWorkbenchActivities(limit);
   }
@@ -221,70 +181,35 @@ export function getRecentAssistantWorkbenchActivities(
 export function listenAssistantWorkbenchActivity(
   handler: (activity: AssistantWorkbenchActivity) => void,
 ): Promise<() => void> {
-  return getAssistantSessionRuntime().listenAssistantWorkbenchActivity(handler);
+  return getSessionRuntime().listenAssistantWorkbenchActivity(handler);
 }
 
-export function submitAssistantSessionRuntimePassword(
+export function submitSessionRuntimePassword(
   sessionId: string,
   password: string,
 ): Promise<void> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.submitAssistantSessionRuntimePassword === "function") {
-    return runtime.submitAssistantSessionRuntimePassword(sessionId, password);
-  }
-  return runtime.submitSessionRuntimePassword(sessionId, password);
+  return getSessionRuntime().submitSessionRuntimePassword(sessionId, password);
 }
 
-export function respondToAssistantSessionGate(
+export function respondToSessionGate(
   input: AssistantSessionGateResponse,
 ): Promise<void> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.respondToAssistantSessionGate === "function") {
-    return runtime.respondToAssistantSessionGate(input);
-  }
-  return runtime.respondToSessionGate(input);
+  return getSessionRuntime().respondToSessionGate(input);
 }
 
-export function listenAssistantSessionProjection<TSession, TSessionSummary>(
+export function listenSessionProjection<TSession, TSessionSummary>(
   handler: (
     projection: AssistantSessionProjection<TSession, TSessionSummary>,
   ) => void,
 ): Promise<() => void> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.listenAssistantSessionProjection === "function") {
-    return runtime.listenAssistantSessionProjection<TSession, TSessionSummary>(
-      handler,
-    );
-  }
-  return runtime.listenSessionProjection<TSession, TSessionSummary>(handler);
+  return getSessionRuntime().listenSessionProjection<TSession, TSessionSummary>(
+    handler,
+  );
 }
 
-export function listenAssistantSessionEvent<T>(
+export function listenSessionEvent<T>(
   eventName: AssistantSessionEventName,
   handler: (payload: T) => void,
 ): Promise<() => void> {
-  const runtime = getAssistantSessionRuntime();
-  if (typeof runtime.listenAssistantSessionEvent === "function") {
-    return runtime.listenAssistantSessionEvent<T>(eventName, handler);
-  }
-  return runtime.listenSessionEvent<T>(eventName, handler);
+  return getSessionRuntime().listenSessionEvent<T>(eventName, handler);
 }
-
-export const setDefaultSessionRuntime = setDefaultAssistantSessionRuntime;
-export const setSessionRuntime = setActiveAssistantSessionRuntime;
-export const getSessionRuntime = getAssistantSessionRuntime;
-export const startSessionTask = startAssistantSession;
-export const continueSessionTask = submitAssistantSessionInput;
-export const dismissSessionTask = dismissAssistantSession;
-export const stopSessionTask = stopAssistantSession;
-export const getCurrentSessionTask = getActiveAssistantSession;
-export const listSessionHistory = listAssistantSessions;
-export const getSessionProjection = getAssistantSessionProjection;
-export const loadSessionTask = loadAssistantSession;
-export const loadSessionThreadEvents = loadAssistantSessionEvents;
-export const loadSessionThreadArtifacts = loadAssistantSessionArtifacts;
-export const submitSessionRuntimePassword =
-  submitAssistantSessionRuntimePassword;
-export const respondToSessionGate = respondToAssistantSessionGate;
-export const listenSessionProjection = listenAssistantSessionProjection;
-export const listenSessionEvent = listenAssistantSessionEvent;
