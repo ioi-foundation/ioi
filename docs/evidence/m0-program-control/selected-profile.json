@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-27",
-  "build_fingerprint": "8193d9c46236d63b0cbaacd9f288d1ff543471236318f1cfe5556ef7ae30754f",
+  "build_fingerprint": "aa0da6cd317ded79234c5eb671d46f2aa34455b9a010e772d10d8a544b8086ab",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -217,7 +217,7 @@
       {
         "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
         "route_identities": [
-          "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs"
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs"
         ],
         "state": "unavailable",
         "step": 3,
@@ -240,9 +240,9 @@
       {
         "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
         "route_identities": [
-          "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms",
-          "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run",
-          "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/start"
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms",
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/attach-goal-run",
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/start"
         ],
         "state": "unavailable",
         "step": 6,
@@ -251,10 +251,10 @@
       {
         "blocker_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
         "route_identities": [
-          "http:hypervisor-daemon:GET /v1/hypervisor/outcome-rooms/:id",
-          "http:hypervisor-daemon:POST /v1/hypervisor/work-frontier-items",
-          "http:hypervisor-daemon:POST /v1/hypervisor/work-claim-leases",
-          "http:hypervisor-daemon:POST /v1/hypervisor/attempts",
+          "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id",
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/work-frontier-items",
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/work-claim-leases",
+          "http:hypervisor-daemon:POST /v1/goal-orchestration/attempts",
           "http:hypervisor-daemon:POST /v1/hypervisor/work-results"
         ],
         "state": "unavailable",
@@ -362,6 +362,27 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "90949d0317c47b97a5c5d09d00bb0c79ce61350eae15a70712badd1458334cd4",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "spawn_mux_writer_cfg"
+      },
+      "identity": "http:hypervisor-daemon:GET /v1/goal-orchestration/goal-runs/:id",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": null,
+      "identity": "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
         "source_anchor_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::write"
@@ -381,27 +402,6 @@
         "symbol": "spawn_mux_writer_cfg"
       },
       "identity": "http:hypervisor-daemon:GET /v1/hypervisor/authority/receipts",
-      "implementation_state": "unavailable",
-      "selected_profile_applicability": "required_journey"
-    },
-    {
-      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "final_invoker": {
-        "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
-        "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6056f6cac12bf43d8981664054974281e77516530ee8b3f2025a9e0ca1caeab",
-        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
-        "symbol": "spawn_mux_writer_cfg"
-      },
-      "identity": "http:hypervisor-daemon:GET /v1/hypervisor/goal-runs/:id",
-      "implementation_state": "unavailable",
-      "selected_profile_applicability": "required_journey"
-    },
-    {
-      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "final_invoker": null,
-      "identity": "http:hypervisor-daemon:GET /v1/hypervisor/outcome-rooms/:id",
       "implementation_state": "unavailable",
       "selected_profile_applicability": "required_journey"
     },
@@ -436,7 +436,105 @@
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs",
         "symbol": "directory.sync_all"
       },
-      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/attempts",
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/attempts",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "90949d0317c47b97a5c5d09d00bb0c79ce61350eae15a70712badd1458334cd4",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "std::fs::write"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "90949d0317c47b97a5c5d09d00bb0c79ce61350eae15a70712badd1458334cd4",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "std::fs::rename"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/lifecycle-recovery",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "90949d0317c47b97a5c5d09d00bb0c79ce61350eae15a70712badd1458334cd4",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
+        "symbol": "invocations.append"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/start",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "177ef00d9bc08bdb90ba8f0bd2cdcfe2b39c260ac7f8b18dd39783e14cd635bf",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
+        "symbol": "occupant.sync_all"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "177ef00d9bc08bdb90ba8f0bd2cdcfe2b39c260ac7f8b18dd39783e14cd635bf",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
+        "symbol": "occupant.sync_all"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/attach-goal-run",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "d680b6b9f32d57166cd740ffed248063c016080666ab22b59f6125d67c4726a9",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
+        "symbol": "directory.sync_all"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/work-claim-leases",
+      "implementation_state": "unavailable",
+      "selected_profile_applicability": "required_journey"
+    },
+    {
+      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
+      "final_invoker": {
+        "claim_state": "candidate_or_handler_boundary_not_final",
+        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
+        "resolution": "static_candidate_not_order_proven",
+        "source_anchor_sha256": "d680b6b9f32d57166cd740ffed248063c016080666ab22b59f6125d67c4726a9",
+        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
+        "symbol": "directory.sync_all"
+      },
+      "identity": "http:hypervisor-daemon:POST /v1/goal-orchestration/work-frontier-items",
       "implementation_state": "unavailable",
       "selected_profile_applicability": "required_journey"
     },
@@ -460,7 +558,7 @@
         "claim_state": "verified_effect_leaf",
         "note": "Every admit and refusal branch calls emit_receipt, whose final leaf persists an authority-receipt record.",
         "resolution": "verified_effect_leaf",
-        "source_anchor_sha256": "234679ff0e256683ae473f357ad1dce029449d92d52f0bac6e89f5d7ca6023f2",
+        "source_anchor_sha256": "0179b75b89387ebff662645a74d8fd9beb1584bff040c378b68b89793651e060",
         "source_file": "crates/node/src/bin/hypervisor-daemon.rs",
         "symbol": "persist_record[authority-receipts]"
       },
@@ -483,76 +581,6 @@
       "selected_profile_applicability": "adjacent_not_sufficient"
     },
     {
-      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "final_invoker": {
-        "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
-        "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6056f6cac12bf43d8981664054974281e77516530ee8b3f2025a9e0ca1caeab",
-        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
-        "symbol": "std::fs::write"
-      },
-      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs",
-      "implementation_state": "unavailable",
-      "selected_profile_applicability": "required_journey"
-    },
-    {
-      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "final_invoker": {
-        "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
-        "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6056f6cac12bf43d8981664054974281e77516530ee8b3f2025a9e0ca1caeab",
-        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
-        "symbol": "std::fs::rename"
-      },
-      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/lifecycle-recovery",
-      "implementation_state": "unavailable",
-      "selected_profile_applicability": "required_journey"
-    },
-    {
-      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "final_invoker": {
-        "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
-        "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "c6056f6cac12bf43d8981664054974281e77516530ee8b3f2025a9e0ca1caeab",
-        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
-        "symbol": "invocations.append"
-      },
-      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/start",
-      "implementation_state": "unavailable",
-      "selected_profile_applicability": "required_journey"
-    },
-    {
-      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "final_invoker": {
-        "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
-        "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "7e5df9000a1f643ee56e540441ee3b2cf9d06d4415a80f9d21ecb7af70e3be9b",
-        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
-        "symbol": "occupant.sync_all"
-      },
-      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms",
-      "implementation_state": "unavailable",
-      "selected_profile_applicability": "required_journey"
-    },
-    {
-      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "final_invoker": {
-        "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
-        "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "7e5df9000a1f643ee56e540441ee3b2cf9d06d4415a80f9d21ecb7af70e3be9b",
-        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs",
-        "symbol": "occupant.sync_all"
-      },
-      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run",
-      "implementation_state": "unavailable",
-      "selected_profile_applicability": "required_journey"
-    },
-    {
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-BACKUP-RESTORE",
       "final_invoker": {
         "claim_state": "candidate_or_handler_boundary_not_final",
@@ -565,34 +593,6 @@
       "identity": "http:hypervisor-daemon:POST /v1/hypervisor/snapshots/:id/restore",
       "implementation_state": "partial",
       "selected_profile_applicability": "adjacent_not_sufficient"
-    },
-    {
-      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "final_invoker": {
-        "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
-        "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "77d8e82c5ec3eb40ec51ac0c7506a2e8c7587339cb1d551a5348794ec7cd069c",
-        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
-        "symbol": "directory.sync_all"
-      },
-      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/work-claim-leases",
-      "implementation_state": "unavailable",
-      "selected_profile_applicability": "required_journey"
-    },
-    {
-      "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",
-      "final_invoker": {
-        "claim_state": "candidate_or_handler_boundary_not_final",
-        "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
-        "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "77d8e82c5ec3eb40ec51ac0c7506a2e8c7587339cb1d551a5348794ec7cd069c",
-        "source_file": "crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs",
-        "symbol": "directory.sync_all"
-      },
-      "identity": "http:hypervisor-daemon:POST /v1/hypervisor/work-frontier-items",
-      "implementation_state": "unavailable",
-      "selected_profile_applicability": "required_journey"
     },
     {
       "blocker_or_nonclaim_ref": "BLK-M0-SELECTED-JOURNEY-BINDING",

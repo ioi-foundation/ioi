@@ -284,12 +284,28 @@
       "total_reviewed_entry_count": 1553,
       "total_reviewed_entry_set_sha256": "8dbb10efc12baec5032ad8a0caee923e5ff64c6fdcf59a832c5d728889662284",
       "total_reviewed_identity_set_sha256": "e7a7d0a9a0cc8d4eaf7145ff4ac6bc8e6084f15246310dbea3b0f1650bd8e46a"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "adr-0022-goal-orchestration-rehoming-clean-slate-review-2026-07-27",
+      "latest_epoch_identity_set_sha256": "2a7a164a920886681470e55feac05a2548da9352c7a646ad9d8b013661b33072",
+      "latest_epoch_reviewed_entry_count": 1298,
+      "latest_epoch_reviewed_entry_set_sha256": "a9a9ddb2dcf5db76801fb26b8d080aad8a47d4b344b31e647a9b58c765264301",
+      "predecessor_entry_sha256": "d67924a364499c3b9d93d1002c1e3149c47e65af3add299278bf21c7100f76db",
+      "program_source_material_sha256": "df955c900127b079b52c9c14077196d04921bfb4fd7f029e95c1742614d09f21",
+      "review_lock_sha256": "df8ee6d7e4477132b416b514148b972ba8a7cb048aaf610d216877a9a12242f1",
+      "reviewed_as_of": "2026-07-27",
+      "reviewer_id": "claude-fable-5-clean-slate-convergence",
+      "sequence": 14,
+      "total_reviewed_entry_count": 1553,
+      "total_reviewed_entry_set_sha256": "47fc658e2d43b93f09ba7da8c5f2e6fcc0d955722810983a5e49e7d5f91104a5",
+      "total_reviewed_identity_set_sha256": "8a2110321d0d7af3f4e80c6a3bf4a2725c4e497b46523b214e08d9cf7e673cf4"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "d67924a364499c3b9d93d1002c1e3149c47e65af3add299278bf21c7100f76db",
-    "epoch_id": "final-implementation-pass-workflow-edit-target-resolution-review-2026-07-27",
-    "sequence": 13
+    "entry_sha256": "552b9003bba89dd9aa14b957bf439095caf49f592b13209b9051570e8878a1a9",
+    "epoch_id": "adr-0022-goal-orchestration-rehoming-clean-slate-review-2026-07-27",
+    "sequence": 14
   }
 }
