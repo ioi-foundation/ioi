@@ -4,7 +4,7 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of the bounded-improvement governance profile, agenda, campaign, evaluation epoch, exposure, evidence, and cutoff families.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-07-26.
 Doctrine status: canonical
 Implementation status: planned (the bounded-improvement Agenda/Campaign/Epoch/exposure/claim spine is not started)
 Last implementation audit: 2026-07-25
@@ -78,7 +78,7 @@ admissions.
 
 A Campaign owns the optional multi-epoch candidate, evaluation,
 synchronization, and promotion lineage for one mutable target or exceptional
-same-owner atomic bundle. GoalRuns coordinate its work; the Campaign is not a
+same-owner atomic bundle. Typed work subjects coordinate its work — Sessions and WorkRuns generically, GoalRuns and OutcomeRooms optionally where the goal-orchestration application is present (ADR 0023); the Campaign is not a
 second goal, pursuit profile, execution identity, evaluator, or authority.
 
 ```yaml
@@ -98,10 +98,14 @@ ImprovementCampaignEnvelope:
   campaign_admission_decision_ref: decision://...
   campaign_admission_receipt_ref: receipt://...
   admission_authority_and_constitution_snapshot_refs: []
-  coordinating_goal_run_ref: goal://...
-  child_goal_run_refs: []
-  goal_run_profile_revision_ref: goal-run-profile://.../revision/...
-  goal_run_profile_resolution_receipt_ref: receipt://...
+  coordinating_work_subject_ref: goal://... | session://... | work_run://... | null
+  child_work_subject_refs: []
+  coordinating_pursuit:
+    goal_run_profile_revision_ref: goal-run-profile://.../revision/... | null
+    goal_run_profile_resolution_receipt_ref: receipt://... | null
+  improvement_assurance_profile:
+    local_lightweight | independent_review | protected_build |
+    adversarial_control | threshold_recovery | failure_domain_independent
   resolved_component_snapshot_ref: artifact://...
   outcome_room_ref: outcome-room://... | null
   agenda_revision_ref: improvement-agenda://.../revision/...
@@ -183,7 +187,7 @@ EvaluationEpochEnvelope:
   campaign_contract_revision_ref: improvement-campaign://.../revision/...
   campaign_contract_root: hash
   predecessor_epoch_ref: evaluation-epoch://... | null
-  pursuit_goal_run_profile_revision_ref: goal-run-profile://.../revision/...
+  pursuit_goal_run_profile_revision_ref: goal-run-profile://.../revision/... | null
   pursuit_profile_resolution_and_component_snapshot_refs: []
   target_improvement_order: nonnegative_integer
   pursuit_method_order: positive_integer

@@ -93,6 +93,8 @@ paths are commitments to write that contract, not evidence it exists.
 | Portable authority (`AuthorityGrantEnvelope` v3 chain) | `hypervisor-core/portable-authority-v3.md` | `named_target` |
 | Model-route rights enforcement (standalone) | covered inside [`institutional-learning-boundary.md`](./hypervisor-core/institutional-learning-boundary.md) route cases; standalone target `hypervisor-core/model-route-rights.md` | `named_target` |
 | Bounded improvement campaign (Horizon 1B) | `hypervisor-core/bounded-improvement-campaign.md` | `named_target` |
+| Improvement assurance profiles (executable ladder incl. protected build / threshold recovery) | `hypervisor-core/improvement-assurance-profiles.md` | `named_target` |
+| Improvement control-protocol subversion resistance (intentional subversion, evaluator gaming, monitor collusion) — gates claims above `bounded_optimization` | `hypervisor-core/improvement-control-evaluation.md` | `named_target` |
 | Receipt checkpoints / offline proof export | `hypervisor-core/receipt-checkpoints-offline-proofs.md` | `named_target` |
 | Portable memory (MemorySpace vault export/import) | `hypervisor-core/portable-memory-vault.md` | `named_target` |
 | Marketplace neutrality / routing receipts | `hypervisor-core/marketplace-neutrality.md` | `named_target` |

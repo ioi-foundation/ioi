@@ -3190,6 +3190,7 @@ const SIZE_WAIVERS = new Map([
   ["_meta/canon-to-code-delta.md", "one row per object; the delta is only meaningful whole"],
   ["_meta/current-canon-defaults.md", "cross-owner digest; splitting recreates the scattering it exists to fix"],
   ["_meta/vocabulary.md", "one register of every name; grouped into linkable subsections rather than split"],
+  ["components/daemon-runtime/platform-operability.md", "REVIEW: crossed 800 lines when the Continuous Operational Assurance target contract landed (2026-07-26); split candidate if the temporal-verification contract moves to its own module"],
   ["components/hypervisor/core-clients-surfaces.md", "REVIEW: 43 sections spanning core, clients, surfaces, applications, adapters, and environment ops; the strongest remaining split candidate"],
   ["components/daemon-runtime/events-receipts-delivery-bundles.md", "REVIEW: exhaustive receipt registry; splitting by receipt family is viable but would fragment one registry"],
   ["components/daemon-runtime/api.md", "single public API reference; readers scan it as one endpoint surface"],
