@@ -183,6 +183,25 @@ path (background hygiene on both sides); a failed replica link degrades
 acks LOUDLY to the base label — the replicated classes are never faked;
 `quorum_replicated` may not be claimed by same-host peers.
 
+## Improvement Assurance Profiles (`improvement_assurance_profile`)
+
+```text
+local_lightweight | independent_review | protected_build |
+adversarial_control | threshold_recovery | failure_domain_independent
+```
+
+`improvement_assurance_profile` is the cumulative executable ladder declared
+at improvement admission; each tier's checkable requirements are owned by
+[`bounded-recursive-improvement.md`](./bounded-recursive-improvement.md).
+SLSA- and TUF-shaped artifacts satisfy tiers as admission-bound evidence,
+never as authority; a declared profile the deployment cannot evidence fails
+closed, and this enum must not be conflated with the receipt `assurance-stage`
+ladder or the `EcosystemAssuranceProfile` certification family.
+
+Implementation grounding: planned contract field on `ImprovementCampaign`
+(`ioi.improvement-campaign.v1`) and direct-proposal admission; no substrate
+is on current master.
+
 ## Enforcement Coverage Facts (`coverage_fact`)
 
 ```text

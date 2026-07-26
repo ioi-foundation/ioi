@@ -412,7 +412,10 @@ replaces the direct one-shot `UpgradeProposal` path:
 
 - admit one immutable owner-scoped `ImprovementGovernanceProfile`, one
   immutable-by-revision `ImprovementAgenda`, one finite `ImprovementCampaign`,
-  one exact target base, and one coordinating `GoalRunProfile` resolution;
+  one exact target base, and one coordinating-work declaration — the
+  flagship proof uses a coordinating `GoalRunProfile` resolution; the
+  Campaign spine itself never requires the goal-orchestration application
+  (ADR 0023);
 - identify Search, Judgment, and Authority separately even when a low-risk
   profile places them under one accountable organization;
 - freeze one `EvaluationEpoch` with visible-development and sealed-survival

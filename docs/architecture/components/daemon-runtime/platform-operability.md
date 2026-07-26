@@ -4,7 +4,7 @@ Status: canonical architecture authority.
 Canonical owner: this file for cross-plane operability, degraded-mode, recovery, and platform SRE doctrine.
 Supersedes: implicit or component-local assumptions that a healthy daemon implies a healthy platform.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-26.
 Doctrine status: canonical
 Implementation status: planned (the canonical fault matrix is machine-readable target fixture data; the deterministic evaluator, plane observers, scheduler, recovery controllers, and estate-wide probes are not implemented on current master)
 Last implementation audit: 2026-07-20
@@ -632,6 +632,54 @@ An operability incident preserves:
 Automatic retry is allowed only for an owner-declared replay-safe operation
 with a stable idempotency binding. Unknown or consequential effects first enter
 reconciliation. Physical recovery remains subject to Physical Action Safety.
+
+## Continuous Operational Assurance
+
+Research and implementation pipelines terminate; an institution does not. The
+target contract here is a standing, owner-specific **operational-assurance
+Automation family** — ordinary `AutomationSpec` standing behavior, not a new
+runtime, controller layer, council, or peer plane — that keeps reconciling
+what this file's decision invariants assume:
+
+```text
+reconcile     desired versus observed state per owner plane (target state,
+              route bindings, memberships, active heads, enrollments)
+revalidate    evidence whose basis can rot: source anchors, receipt bases,
+              attestation freshness, temporal floors, coverage declarations,
+              certificate and ownership proofs
+detect        invalidated evidence, drift, divergence, and silent-expiry as
+              typed findings with declared freshness — never as mutations
+fence         incidents at the affected plane per the decision invariants;
+              open the owning incident and cleanup obligations
+recover       exclusively through the owning admitted paths
+              (HypervisorChangePlan, owner reconciliation, recovery receipts)
+feed back     findings into Improvement intake as ordinary evidence under
+              ordinary eligibility gates
+```
+
+Rules, each testable:
+
+- The family observes and proposes; every consequential correction crosses
+  the owning admitted path. An assurance Automation that mutates state
+  directly, or that clears a finding without either a reconciling admitted
+  action or an admitted supersession of the observation, is non-conformant.
+- Findings are typed, evidenced, freshness-bounded observations (INV-25
+  posture); silence is a monitoring gap, never evidence of health.
+- Invalidated-evidence detection is first-class: a verification whose basis
+  changed (a stale source anchor, a superseded receipt chain, an expired
+  attestation, a lapsed coverage declaration) is a finding even when the
+  verified artifact itself is untouched.
+- The family's own coverage is declared honestly — which planes, which
+  invariants, at what cadence — and an uncovered plane is a named gap, not an
+  implied pass.
+- Findings feed the improvement plane
+  ([`bounded-recursive-improvement.md`](../../foundations/bounded-recursive-improvement.md))
+  as evidence; they never self-promote, auto-remediate protected targets, or
+  widen any authority.
+
+This is the mature controller-reconciliation pattern applied under IOI's
+admission discipline, and it is a target contract: no standing
+operational-assurance Automation family exists on current master.
 
 ## Capacity, Backpressure, and Load Shedding
 

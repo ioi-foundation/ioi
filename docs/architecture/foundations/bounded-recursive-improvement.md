@@ -13,7 +13,7 @@ Supersedes: prose that treats autonomous optimization, self-editing, one
 benchmark improvement, or one successful self-targeted mutation as sufficient
 evidence of recursive self-improvement.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-07-26.
 Doctrine status: canonical.
 Implementation status: planned campaign protocol over partial existing GoalRun,
 Improvement Proposal Plane, Foundry, evaluation, governance, release, receipt,
@@ -72,7 +72,9 @@ ordinary bounded change
 adaptive or multi-epoch improvement
   ImprovementAgenda revision
     -> admitted ImprovementCampaign
-    -> GoalRuns / candidate attempts / frozen EvaluationEpochs
+    -> typed work subjects (Sessions / WorkRuns; optionally GoalRuns and
+       OutcomeRooms where the goal-orchestration application is present)
+    -> candidate attempts / frozen EvaluationEpochs
     -> archive, cutoff, reproduction, and claim evidence
     -> UpgradeProposal
     -> target-owner decision, activation, monitoring, and recovery
@@ -136,18 +138,61 @@ governance owner and, when System-scoped, that System's constitution:
 | Authority | admit scope and budgets, approve or reject proposals, activate releases, stop work, and invoke rollback, recall, containment, or compensation | fabricate scientific evidence, rewrite frozen receipts, or treat authority as proof that a candidate is better |
 
 These are logical trust functions, not three new runtime planes or necessarily
-three products. A low-risk local profile may place functions under one
-accountable principal while declaring a lower assurance class. Higher-risk,
-multi-party, public-claim, constitutional, financial, security, or embodied
-profiles require independent actors, policies, credentials, or failure domains
-in proportion to the claimed assurance. Multiplicity of agents, model routes,
-or nodes alone does not establish independence.
+three products. A low-risk local deployment may place functions under one
+accountable principal by declaring the `local_lightweight` improvement
+assurance profile. Higher-risk, multi-party, public-claim, constitutional,
+financial, security, or embodied work declares a stronger profile from the
+executable ladder below, and independence obligations follow the declared
+profile rather than prose. Multiplicity of agents, model routes, or nodes
+alone does not establish independence.
 
 Canonical separation rule:
 
 > The candidate, evaluator, resource meter, promotion authority, and recovery
 > path must remain separately identifiable, versioned, challengeable, and
 > unable to silently widen one another.
+
+## Improvement Assurance Profiles
+
+"Assurance class" was previously prose; it is now the executable
+`improvement_assurance_profile` declared at Campaign (or direct-proposal)
+admission, with its member set owned by
+[`canonical-enums.md`](./canonical-enums.md). The ladder is cumulative — each
+tier includes every requirement below it — and each tier's requirements are
+checkable, not descriptive:
+
+```text
+local_lightweight          Search/Judgment/Authority separately identifiable
+                           under one accountable principal; full receipts
+independent_review         judgment and promotion under distinct accountable
+                           principals; exact-final-revision review of every
+                           promoted change (SLSA-source-shaped evidence)
+protected_build            candidate and release artifacts carry build
+                           provenance from a declared builder (SLSA-build-
+                           shaped evidence); unattested artifacts refuse
+adversarial_control        the control protocol itself passes the named
+                           control-evaluation conformance target: intentional
+                           subversion, selective attacks, evaluator gaming,
+                           prompt injection, and monitor collusion
+threshold_recovery         promotion/rollback/recall roots are held under an
+                           offline or threshold recovery root (TUF-shaped);
+                           no single online key can promote or unrecall
+failure_domain_independent evaluator, promotion authority, and recovery root
+                           in declared separate failure domains
+```
+
+External standards enter exactly as everywhere else in this canon: SLSA- and
+TUF-shaped artifacts are **evidence bound at admission**, never authority —
+provider or tooling attestation is evidence (INV-8), the daemon and the
+target owner's governed path remain the deciders, and no external standard's
+completion state becomes IOI verification. A declared profile the deployment
+cannot evidence fails closed at admission; downgrading a declared profile is
+a governed decision, never an inference.
+
+Claim-ladder gate: improvement claims above `bounded_optimization` require a
+passing adversarial-control evaluation at `adversarial_control` or above —
+benign quality evaluation alone is insufficient evidence for
+self-targeted-or-higher claims.
 
 ## Campaign Admission And Lifecycle
 
@@ -158,8 +203,13 @@ Campaign admission freezes or content-addresses at least:
   target base roots; a System-scoped Campaign additionally freezes its System
   and constitution, while a user/project/organization Campaign makes no claim
   of bounded-DAS integration until admitted into a System;
-- one `ImprovementAgenda` revision and one coordinating `GoalRunProfile`
-  revision plus the admitted component-resolution snapshot;
+- one `ImprovementAgenda` revision and one coordinating-work declaration:
+  either a coordinating pursuit — an exact `GoalRunProfile` revision plus its
+  admitted component-resolution snapshot, available where the
+  goal-orchestration application is present — or the Campaign's declared
+  Session/WorkRun coordination profile. The Campaign spine never requires the
+  orchestration application (ADR 0023 resolving ADR 0022's first named
+  untangling); the flagship Horizon 1B proof remains pursuit-coordinated;
 - evaluator, task-distribution, benchmark, model-route, tool, environment,
   dependency, rights, custody, and policy roots applicable to the first epoch;
 - total resource, wall-clock, statistical-risk, evaluation-exposure, nesting,
@@ -340,6 +390,11 @@ promotion authority.
 ## Promotion And Effect Recovery
 
 A Campaign emits evidence and candidates; it never owns canonical activation.
+Continuous operational assurance
+([`platform-operability.md`](../components/daemon-runtime/platform-operability.md))
+is a standing findings source for this plane: reconciliation, invalidated
+evidence, and incident findings enter Agenda and Campaign intake as ordinary
+evidence under the same eligibility gates — they never self-promote.
 The selected candidate enters a typed `UpgradeProposal` and the target owner's
 ordinary path applies:
 
@@ -402,7 +457,7 @@ Bounded improvement composes the existing application topology:
 | Foundry | experiments, candidates, scorecards, archives, reproduction, and promotion-bundle construction |
 | Governance | admission, protected-target decisions, budgets, release, stop, rollback, recall, and escalation |
 | Provenance | ancestry, attempts, evidence eligibility, cutoffs, decisions, receipts, disputes, and claims |
-| Work | coordinating and child GoalRuns, Sessions, WorkRuns, reviews, queues, and incidents |
+| Work | coordinating and child typed work subjects (Sessions, WorkRuns; optionally GoalRuns), reviews, queues, and incidents |
 | Systems | mutable/protected posture, current incumbent, active Campaigns, and desired/observed release state |
 | Packages | candidate/release artifacts, dependencies, installations, recall, and affected Systems |
 
@@ -467,7 +522,7 @@ conformance slice proves:
 
 - immutable Campaign, Agenda, target-base, component-resolution, and epoch
   commitments;
-- Search/Judgment/Authority separation at the declared assurance class;
+- Search/Judgment/Authority separation at the declared `improvement_assurance_profile`;
 - fail-closed budgets, evaluation exposure, stale-base handling, learning
   eligibility, and protected-target admission;
 - candidate/evaluator isolation, challenge and invalidation handling,

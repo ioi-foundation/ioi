@@ -126,10 +126,10 @@ not by drift.
 
 ## Named Untanglings (each a working_ruling with an owner)
 
-- **ImprovementCampaign coupling** — foundations doctrine currently
-  coordinates GoalRuns. Either generalize the campaign spine to typed work
-  subjects or bind it to the application's objects explicitly. Owner:
-  `foundations/bounded-recursive-improvement.md`.
+- **ImprovementCampaign coupling** — RESOLVED by
+  [ADR 0023](./0023-improvement-generalization-and-executable-assurance.md)
+  (2026-07-26): the campaign spine generalizes to typed work subjects, with
+  pursuit coordination as the optional application-present profile.
 - **Automations activation** — `HypervisorGoalRunActivationContract`
   becomes a cross-application integration contract. Owner:
   `components/hypervisor/core-clients-surfaces.md` with the application

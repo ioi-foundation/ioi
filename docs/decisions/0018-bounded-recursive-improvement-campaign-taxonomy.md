@@ -5,6 +5,15 @@
 - Owners: bounded autonomous Systems / Hypervisor Improvement / Goal Kernel / Foundry / Evaluations / Governance / daemon runtime / Agentgres
 - Refines: ADR 0010, ADR 0015, ADR 0016, and ADR 0017
 
+Current-canon refinement (2026-07-26): per
+[ADR 0023](./0023-improvement-generalization-and-executable-assurance.md),
+Campaign coordination is generalized to typed work subjects (Sessions and
+WorkRuns generically; GoalRuns/OutcomeRooms optionally where the
+goal-orchestration application is present), and the prose "assurance class"
+is replaced by the executable `improvement_assurance_profile` ladder with an
+adversarial-control gate on claims above `bounded_optimization`. The
+taxonomy, separation rules, and claim ladder of this ADR stand unchanged.
+
 ## Context
 
 IOI already defined immutable GoalRunProfiles canonically and already had durable GoalRuns, an Improvement
