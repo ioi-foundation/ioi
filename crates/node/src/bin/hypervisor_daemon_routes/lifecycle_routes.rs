@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write as _;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 use axum::body::Body;
@@ -2236,13 +2236,35 @@ pub(crate) async fn handle_coding_tool_invoke(
 /// `RuntimeWorkflowEditControlCore::plan` and admit it onto the thread's runtime event log
 /// (idempotent via `admit_and_persist_event`). Returns the admitted event
 /// (`workflow.edit_proposed` / `workflow.edit.apply`, component_kind `workflow_edit`).
+/// Plan + admit a workflow-edit event.
+///
+/// `workspace_root` is DERIVED BY THE SERVER from the stored thread/agent and passed
+/// in; it is never read from the caller body. A caller-supplied `workspace_root`
+/// would let the requester nominate the admitted root and therefore choose which
+/// files the edit may touch, which is the target-resolution guard inverted. A
+/// caller root that disagrees with the derived root is refused rather than ignored,
+/// so a client cannot silently believe it selected a different workspace.
 fn plan_and_admit_workflow_edit_event(
     st: &DaemonState,
     thread_id: &str,
     operation_kind: &str,
     proposal_id: Option<&str>,
     body: &Value,
+    workspace_root: &str,
 ) -> Result<Value, AppError> {
+    if let Some(claimed) = coalesce_str(body, &["workspace_root", "workspaceRoot"]) {
+        if !claimed.is_empty() && claimed != workspace_root {
+            return Err(AppError(
+                StatusCode::FORBIDDEN,
+                "workflow_edit_workspace_root_not_caller_supplied: the workspace root is derived from the thread and cannot be chosen by the request".to_string(),
+            ));
+        }
+    }
+    if let Some(path) = coalesce_str(body, &["workflow_path", "workflowPath"]) {
+        if !path.is_empty() {
+            resolve_workflow_edit_target(workspace_root, path)?;
+        }
+    }
     let event_stream_id = format!("{thread_id}:events");
     let request_json = json!({
         "schema_version": ioi_services::agentic::runtime::kernel::runtime_workflow_edit_control::RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION,
@@ -2254,7 +2276,7 @@ fn plan_and_admit_workflow_edit_event(
         "workflow_graph_id": coalesce_str(body, &["workflow_graph_id", "workflowGraphId"]),
         "workflow_node_id": coalesce_str(body, &["workflow_node_id", "workflowNodeId"]),
         "workflow_path": coalesce_str(body, &["workflow_path", "workflowPath"]),
-        "workspace_root": coalesce_str(body, &["workspace_root", "workspaceRoot"]),
+        "workspace_root": workspace_root,
         "source": coalesce_str(body, &["source"]),
         "request": body,
     });
@@ -2285,6 +2307,58 @@ fn read_workflow_edit_proposal(
 
 /// Mutate the workflow file with the proposal's `workflow_patch` (resolving a relative
 /// `workflow_path` against the thread workspace). No-op when the proposal carries no path/patch.
+/// Resolve a workflow-edit target against the SERVER-DERIVED admitted workspace root.
+///
+/// The target must land inside that root. `..` segments are folded lexically (the
+/// file need not exist yet, so `canonicalize` is unavailable on the leaf), and an
+/// absolute target is accepted only when it is already inside the root. Anything
+/// that escapes -- absolute path elsewhere, `../` traversal, an unresolved root --
+/// is refused rather than clamped, so a rejected target is never silently rewritten
+/// into a different file.
+fn resolve_workflow_edit_target(workspace_root: &str, path: &str) -> Result<PathBuf, AppError> {
+    if workspace_root.is_empty() {
+        return Err(AppError(
+            StatusCode::CONFLICT,
+            "workflow_edit_workspace_root_unresolved: the thread has no admitted workspace root"
+                .to_string(),
+        ));
+    }
+    let root = Path::new(workspace_root);
+    let joined = if Path::new(path).is_absolute() {
+        Path::new(path).to_path_buf()
+    } else {
+        root.join(path)
+    };
+    let normalize = |input: &Path| -> Option<PathBuf> {
+        let mut out = PathBuf::new();
+        for component in input.components() {
+            match component {
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    if !out.pop() {
+                        return None;
+                    }
+                }
+                other => out.push(other.as_os_str()),
+            }
+        }
+        Some(out)
+    };
+    let (Some(resolved), Some(root)) = (normalize(&joined), normalize(root)) else {
+        return Err(AppError(
+            StatusCode::FORBIDDEN,
+            format!("workflow_edit_target_outside_admitted_root: {path}"),
+        ));
+    };
+    if !resolved.starts_with(&root) {
+        return Err(AppError(
+            StatusCode::FORBIDDEN,
+            format!("workflow_edit_target_outside_admitted_root: {path}"),
+        ));
+    }
+    Ok(resolved)
+}
+
 fn mutate_workflow_edit_file(record: &Value) -> Result<(), AppError> {
     let path = record
         .get("workflow_path")
@@ -2298,11 +2372,7 @@ fn mutate_workflow_edit_file(record: &Value) -> Result<(), AppError> {
         .get("workspace_root")
         .and_then(Value::as_str)
         .unwrap_or_default();
-    let resolved = if Path::new(path).is_absolute() {
-        Path::new(path).to_path_buf()
-    } else {
-        Path::new(workspace_root).join(path)
-    };
+    let resolved = resolve_workflow_edit_target(workspace_root, path)?;
     let content = format!(
         "{}\n",
         serde_json::to_string_pretty(&patch).unwrap_or_default()
@@ -2387,6 +2457,17 @@ pub(crate) async fn handle_workflow_edit_propose(
         "workflow_graph_id": coalesce_str(&body, &["workflow_graph_id", "workflowGraphId"]),
         "workflow_node_id": coalesce_str(&body, &["workflow_node_id", "workflowNodeId"]),
     });
+    // Plan BEFORE persisting: a refused plan (caller-supplied root, unresolved root,
+    // target outside the admitted root) must not leave an orphaned pending proposal
+    // behind that a later approval could pick up.
+    let event = plan_and_admit_workflow_edit_event(
+        &st,
+        &thread_id,
+        "workflow.edit_proposed",
+        Some(&proposal_id),
+        &body,
+        &workspace_root,
+    )?;
     persist_record(
         &st.data_dir,
         "workflow_edit_proposals",
@@ -2394,13 +2475,6 @@ pub(crate) async fn handle_workflow_edit_propose(
         &proposal_record,
     )
     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    let event = plan_and_admit_workflow_edit_event(
-        &st,
-        &thread_id,
-        "workflow.edit_proposed",
-        Some(&proposal_id),
-        &body,
-    )?;
     Ok(Json(json!({
         "status": "waiting_for_approval",
         "approval_required": true,
@@ -2421,12 +2495,13 @@ pub(crate) async fn handle_workflow_edit_apply(
     AxumPath((thread_id, proposal_id)): AxumPath<(String, String)>,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
-    if read_agent_for_thread(&st, &thread_id).is_none() {
-        return Err(AppError(
+    let agent = read_agent_for_thread(&st, &thread_id).ok_or_else(|| {
+        AppError(
             StatusCode::NOT_FOUND,
             format!("thread not found: {thread_id}"),
-        ));
-    }
+        )
+    })?;
+    let derived_workspace_root = memory_agent_cwd(&agent).unwrap_or_default();
     let Some(mut record) = read_workflow_edit_proposal(&st, &thread_id, &proposal_id) else {
         return Ok(Json(json!({
             "status": "blocked",
@@ -2441,8 +2516,22 @@ pub(crate) async fn handle_workflow_edit_apply(
         .and_then(Value::as_str)
         .unwrap_or("pending");
     let approval_id = record.get("approval_id").cloned().unwrap_or(Value::Null);
+    // The root the mutation will use is the one recorded at propose time, which was
+    // server-derived then. Apply re-derives it and refuses on divergence rather than
+    // writing through a root the thread no longer admits.
+    let recorded_workspace_root = record
+        .get("workspace_root")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     match decision {
         "approve" => {
+            if recorded_workspace_root != derived_workspace_root {
+                return Err(AppError(
+                    StatusCode::CONFLICT,
+                    "workflow_edit_workspace_root_diverged: the proposal was admitted under a workspace root the thread no longer resolves to".to_string(),
+                ));
+            }
             let already_applied = record
                 .get("applied_event_id")
                 .and_then(Value::as_str)
@@ -2453,6 +2542,7 @@ pub(crate) async fn handle_workflow_edit_apply(
                 "workflow.edit.apply",
                 Some(&proposal_id),
                 &body,
+                &recorded_workspace_root,
             )?;
             let event_id = event
                 .get("event_id")
