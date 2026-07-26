@@ -441,8 +441,8 @@ POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/complete
 POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/cancel
 POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/revoke
 
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
 
 POST /v1/worker-registrations
 ```

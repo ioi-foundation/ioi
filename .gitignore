@@ -64,6 +64,8 @@ docs/evidence/*
 !docs/evidence/canon-implementation-reconciliation/**
 !docs/evidence/canon-maximal-ceiling-pass/
 !docs/evidence/canon-maximal-ceiling-pass/**
+!docs/evidence/clean-slate-convergence/
+!docs/evidence/clean-slate-convergence/**
 
 # Keep public docs consumer-facing; internal plans/specs belong under internal-docs/.
 docs/plans/

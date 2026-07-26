@@ -3063,15 +3063,21 @@ local-agent pairing, room, dynamic-participation, generic-result, and remaining
 fine-grained routes below are target contract; their presence here is not a
 live-route claim.
 
+The `/v1/goal-orchestration/*` namespace is the ioi.ai orchestration
+application's route namespace (ADR 0022): the daemon hosts, admits, and
+receipts these routes exactly as it does any application domain's, and their
+presence in this API reference documents the daemon's mounting of the
+application, not Hypervisor-substrate ownership of the objects.
+
 Live audited GoalRun routes:
 
 ```http
-POST /v1/hypervisor/goal-runs
-GET  /v1/hypervisor/goal-runs
-GET  /v1/hypervisor/goal-runs/{goal_ref}
-POST /v1/hypervisor/goal-runs/{goal_ref}/start
-POST /v1/hypervisor/goal-runs/{goal_ref}/reconcile
-GET  /v1/hypervisor/goal-runs/{goal_ref}/events
+POST /v1/goal-orchestration/goal-runs
+GET  /v1/goal-orchestration/goal-runs
+GET  /v1/goal-orchestration/goal-runs/{goal_ref}
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/start
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/reconcile
+GET  /v1/goal-orchestration/goal-runs/{goal_ref}/events
 ```
 
 Target pursuit-profile discovery and nonbinding validation routes:
@@ -3091,7 +3097,7 @@ the resolved-component and active-skill snapshots, emits the
 `GoalRunProfileResolutionReceipt`, and creates the GoalRun so no preview can be
 replayed across registry, policy, revocation, or availability drift.
 
-The target `POST /v1/hypervisor/goal-runs` request supplies the exact immutable
+The target `POST /v1/goal-orchestration/goal-runs` request supplies the exact immutable
 profile and requested inputs; its admitted response binds the atomic resolution
 explicitly:
 
@@ -3187,57 +3193,57 @@ scoped Hypervisor MCP/tool gateway and lease contracts as any other participant.
 Target OutcomeRoom / CollaborativeWorkGraph routes:
 
 ```http
-POST  /v1/hypervisor/outcome-rooms
-GET   /v1/hypervisor/outcome-rooms
-GET   /v1/hypervisor/outcome-rooms/{room_ref}
-POST  /v1/hypervisor/outcome-rooms/{room_ref}/upgrade-proposals
-POST  /v1/hypervisor/outcome-rooms/{room_ref}/lifecycle/transitions
+POST  /v1/goal-orchestration/outcome-rooms
+GET   /v1/goal-orchestration/outcome-rooms
+GET   /v1/goal-orchestration/outcome-rooms/{room_ref}
+POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/upgrade-proposals
+POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/lifecycle/transitions
 
-POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery
-POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery/pause
-POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery/withdraw
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery/pause
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery/withdraw
 GET  /v1/hypervisor/outcome-room-discoveries
 GET  /v1/hypervisor/outcome-room-discoveries/{discovery_ref}
 POST /v1/hypervisor/outcome-room-discoveries/{discovery_ref}/participation-requests
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
 
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/join
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/participants
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/heartbeat
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/sleep
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/retire
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/quarantine
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/acknowledge
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/revoke
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/join
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participants
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/heartbeat
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/sleep
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/retire
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/quarantine
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/acknowledge
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/revoke
 
-POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget
-POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/quote
-POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/reserve
-POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/adjust
-POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/reconcile
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/quote
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/reserve
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/adjust
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/reconcile
 
-POST /v1/hypervisor/outcome-rooms/{room_ref}/offers
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/offers
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/offers/{offer_ref}
-POST /v1/hypervisor/outcome-rooms/{room_ref}/offers/{offer_ref}/allocate
-POST /v1/hypervisor/outcome-rooms/{room_ref}/offers/{offer_ref}/withdraw
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/frontier
-POST /v1/hypervisor/outcome-rooms/{room_ref}/frontier
-POST /v1/hypervisor/outcome-rooms/{room_ref}/claims
-POST /v1/hypervisor/outcome-rooms/{room_ref}/claims/{claim_ref}/renew
-POST /v1/hypervisor/outcome-rooms/{room_ref}/claims/{claim_ref}/release
-POST /v1/hypervisor/outcome-rooms/{room_ref}/claims/{claim_ref}/reassign
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/offers
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}/allocate
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}/withdraw
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/frontier
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/frontier
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/renew
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/release
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/reassign
 
-POST /v1/hypervisor/outcome-rooms/{room_ref}/attempts
-POST /v1/hypervisor/outcome-rooms/{room_ref}/findings
-POST /v1/hypervisor/outcome-rooms/{room_ref}/verifier-challenges
-POST /v1/hypervisor/outcome-rooms/{room_ref}/admission-proposals
-POST /v1/hypervisor/outcome-rooms/{room_ref}/admission-proposals/{proposal_ref}/decide
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/replay
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/attempts
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/findings
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/verifier-challenges
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals/{proposal_ref}/decide
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/replay
 ```
 
 `POST /outcome-rooms` is a package-to-genesis convenience over the autonomous-
@@ -3298,18 +3304,18 @@ unreceipted first-party allocation shortcut.
 Target fine-grained GoalRun / broker routes:
 
 ```http
-PATCH /v1/hypervisor/goal-runs/{goal_ref}
-POST /v1/hypervisor/goal-runs/{goal_ref}/grounding-loop
-POST /v1/hypervisor/goal-runs/{goal_ref}/context-cells
-POST /v1/hypervisor/goal-runs/{goal_ref}/context-leases
-POST /v1/hypervisor/goal-runs/{goal_ref}/handoffs
-POST /v1/hypervisor/goal-runs/{goal_ref}/harness-invocations
-GET  /v1/hypervisor/goal-runs/{goal_ref}/harness-invocations
+PATCH /v1/goal-orchestration/goal-runs/{goal_ref}
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/grounding-loop
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/context-cells
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/context-leases
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/handoffs
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/harness-invocations
+GET  /v1/goal-orchestration/goal-runs/{goal_ref}/harness-invocations
 GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}
 GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}/events
-POST /v1/hypervisor/goal-runs/{goal_ref}/verify
-POST /v1/hypervisor/goal-runs/{goal_ref}/continue
-POST /v1/hypervisor/goal-runs/{goal_ref}/close
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/verify
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/continue
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/close
 ```
 
 An OutcomeRoom claim creates or binds a GoalRun with optional room,
