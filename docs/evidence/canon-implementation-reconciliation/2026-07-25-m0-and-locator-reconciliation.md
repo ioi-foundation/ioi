@@ -458,3 +458,64 @@ the persisted record drops — so "replayable" is not achieved at admission.
   `task_exit_code_is_proof: false`.
 - **Route-local `.layer(...)` discovery** remains unsupported on this branch, now guarded by a fail-closed test (§3).
 - **Nothing was pushed.**
+
+## 13. Post-ruling integration pass (2026-07-26)
+
+The eight-commit branch was **not** pushed. Its ancestry (`a894b2505`) is not an
+ancestor of `origin/master`, and master had moved 47 commits ahead.
+
+**Backup:** tag `backup/canon-reconciliation-preintegration` and branch
+`backup-canon-reconciliation-preintegration` at `4e542ee39`.
+
+**Integration was a re-derivation, not a replay.** Two facts made a replay wrong:
+
+- Master had added **880 lines** to `common-objects-and-envelopes.md` since the
+  merge base. The split was re-run against master's current content, so those
+  lines are preserved; they land in `objects/bounded-system-genesis.md`, which
+  grows 2,044 → 2,880.
+- Master already carries the unsigned v3 anchor (`0c5e5c558` is an ancestor) and
+  was at **epoch 11 / 1,553 entries**. The branch's own epoch 7 would have forked
+  master's hash chain, so the M0 evidence was **not** replayed. Master's chain is
+  authoritative; epoch **12** is appended to it, retaining all 11 predecessors
+  verbatim.
+
+Master still needed, and now has: the shared-object family, `term-boundaries.md`,
+the documentation checks, the signature-impersonation fix (master still inferred
+retained-legacy status from field presence), and loopback posture forwarding.
+
+### Rulings implemented
+
+**No implicit GoalRun creation.** The goal-text heuristic is recommendation-only
+at its source; an ordinary launch creates a Session and surfaces
+`goal_run_recommended` / `goal_run_created` / `goal_run_activation`; creation
+requires typed explicit activation evidence and still crosses ordinary admission;
+`Compare` fails closed rather than substituting a GoalRun for bounded Session
+WorkRuns; new records carry `creation_provenance`; records marked
+`legacy_implicit_creation` are refused at start until adopted or cancelled, with
+no fabricated admission evidence.
+
+**Assistant.** The ruling and per-shape dispositions are encoded in
+`term-boundaries.md`. The code rename is **not executed**, for a recorded reason:
+the `AssistantNotification*` contracts carry a ts-rs "do not edit manually"
+banner and `.cargo/config.toml` points `TS_RS_EXPORT_DIR` at that directory, but
+**no Rust type in this repository derives them**. They are orphaned generated
+artifacts with no owning source to rename through, and hand-editing generated
+TypeScript is forbidden. The missing owner is the defect to resolve first.
+
+**Canon-impact accepted after inspection.** 60 changed subjects classified:
+30 clarified obligation, 17 path/owner relocation, 12 changed implementation
+evidence, **1 new obligation** (`invariants.md`). Write/check equivalence held
+(second `--write` idempotent), then `--accept`. `canon-impact --check` is now
+exit 0. Historical snapshots unchanged.
+
+### Residual, disclosed
+
+`check-program` reports 3 errors, all one cause: repointing `canon_owners` on
+`m1-5b-generic-protected-transitions` and `m1-5c-amendment-execution` changed
+their bytes, and those digests are attested in
+`_archive/migrations/status-reconciliation.v1.json`. Updating the attestation to
+match a later edit would be rewriting evidence, which the ruling forbids, and the
+pre-edit bytes are unrecoverable because `internal-docs/implementation/` is
+gitignored. **Remediation is a re-attestation through the authorized transition
+tool — a status-authority action, not something to fabricate here.**
+
