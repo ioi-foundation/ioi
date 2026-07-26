@@ -268,12 +268,28 @@
       "total_reviewed_entry_count": 1553,
       "total_reviewed_entry_set_sha256": "54dbebfd932dbcfac4be6837b8176940ad8ee385e63bdb1f1e73a3714a3730fa",
       "total_reviewed_identity_set_sha256": "e7a7d0a9a0cc8d4eaf7145ff4ac6bc8e6084f15246310dbea3b0f1650bd8e46a"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "final-implementation-pass-workflow-edit-target-resolution-review-2026-07-27",
+      "latest_epoch_identity_set_sha256": "eea7ba78739ab873ca7d63ac740e2858c6ae2e4ae27121dc17cf52ecc6464115",
+      "latest_epoch_reviewed_entry_count": 1078,
+      "latest_epoch_reviewed_entry_set_sha256": "aadc543d6a39c7fc123658e605f48e83e2ff883b5733c641625dc9af2097b607",
+      "predecessor_entry_sha256": "a2b0bbd1159a3f8dadd5c3cebc01eb5ac8d4c267ecd1009c8529f720c9c1f4fe",
+      "program_source_material_sha256": "3dbdf514f3c7e1fc23bf5e59272cc161db46b127283202ba41fceda23b504b8f",
+      "review_lock_sha256": "47580a2d0305444cf048a6eed3099b58b83fc1acce072aa54690eb88a4c74509",
+      "reviewed_as_of": "2026-07-27",
+      "reviewer_id": "reviewer://ioi/m0-program-control-final-implementation-pass-review",
+      "sequence": 13,
+      "total_reviewed_entry_count": 1553,
+      "total_reviewed_entry_set_sha256": "8dbb10efc12baec5032ad8a0caee923e5ff64c6fdcf59a832c5d728889662284",
+      "total_reviewed_identity_set_sha256": "e7a7d0a9a0cc8d4eaf7145ff4ac6bc8e6084f15246310dbea3b0f1650bd8e46a"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "a2b0bbd1159a3f8dadd5c3cebc01eb5ac8d4c267ecd1009c8529f720c9c1f4fe",
-    "epoch_id": "canon-modularization-and-loopback-posture-review-2026-07-26",
-    "sequence": 12
+    "entry_sha256": "d67924a364499c3b9d93d1002c1e3149c47e65af3add299278bf21c7100f76db",
+    "epoch_id": "final-implementation-pass-workflow-edit-target-resolution-review-2026-07-27",
+    "sequence": 13
   }
 }

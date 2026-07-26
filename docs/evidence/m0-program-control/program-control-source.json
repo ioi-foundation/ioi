@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-26",
+  "as_of_date": "2026-07-27",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -357,7 +357,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/term-boundaries.md",
-      "source_sha256": "6a461fd79097471c5769348b1e899f347b0a38446b528d5e86f83bb1475b3fb3"
+      "source_sha256": "eeb11119e6d2f8138bc6fdb5fcabc261dd75b15796d3148b78f493549a2b567b"
     },
     {
       "role": "landed owner canon",
@@ -554,7 +554,7 @@
           {
             "note": "enumerated conditional session-preview registry",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b"
+            "source_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff"
           },
           {
             "note": "enumerated Hypervisor daemon registry",
@@ -729,7 +729,7 @@
           {
             "note": "enumerated conditional session-preview registry",
             "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
-            "source_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b"
+            "source_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff"
           },
           {
             "note": "enumerated Hypervisor daemon registry",
@@ -1652,19 +1652,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "4f268a07692f21200216a1b9ba21523634b878cb94e61a59a82b4c1bb94444b6",
-    "review_epoch_id": "canon-modularization-and-loopback-posture-review-2026-07-26",
-    "review_lock_sha256": "7c81b8c41f15279294dcb42367213018430eda79b7d5b39bb510f1b6c9fba77e",
+    "program_source_material_sha256": "3dbdf514f3c7e1fc23bf5e59272cc161db46b127283202ba41fceda23b504b8f",
+    "review_epoch_id": "final-implementation-pass-workflow-edit-target-resolution-review-2026-07-27",
+    "review_lock_sha256": "47580a2d0305444cf048a6eed3099b58b83fc1acce072aa54690eb88a4c74509",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
-    "reviewed_as_of": "2026-07-26",
-    "reviewed_entry_set_sha256": "f7a7e599554cedd044c912c111922f1876f07d0607c360332f3bd9e4b06562a8",
-    "reviewed_identity_set_sha256": "fce8aab13d56701d41b4fe565c4e773f9e9c8a848969b9374d922f6f445427bd",
-    "reviewer_label": "reviewer://ioi/m0-program-control-integrated-review",
+    "reviewed_as_of": "2026-07-27",
+    "reviewed_entry_set_sha256": "aadc543d6a39c7fc123658e605f48e83e2ff883b5733c641625dc9af2097b607",
+    "reviewed_identity_set_sha256": "eea7ba78739ab873ca7d63ac740e2858c6ae2e4ae27121dc17cf52ecc6464115",
+    "reviewer_label": "reviewer://ioi/m0-program-control-final-implementation-pass-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "a2b0bbd1159a3f8dadd5c3cebc01eb5ac8d4c267ecd1009c8529f720c9c1f4fe",
-    "snapshot_head_sequence": 12,
-    "snapshot_predecessor_entry_sha256": "ad88761c74adfa7b6cc3bc66d808cddf65e9dd426e1aa1530c88364d07b75ee4",
+    "snapshot_head_entry_sha256": "d67924a364499c3b9d93d1002c1e3149c47e65af3add299278bf21c7100f76db",
+    "snapshot_head_sequence": 13,
+    "snapshot_predecessor_entry_sha256": "a2b0bbd1159a3f8dadd5c3cebc01eb5ac8d4c267ecd1009c8529f720c9c1f4fe",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

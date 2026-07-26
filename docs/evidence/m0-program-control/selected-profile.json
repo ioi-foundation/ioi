@@ -1,6 +1,6 @@
 {
-  "as_of_date": "2026-07-26",
-  "build_fingerprint": "e99ab0f67bae9fb74894482ac4a59b18fdcd3111306645f2bb6ab01652eb0654",
+  "as_of_date": "2026-07-27",
+  "build_fingerprint": "8193d9c46236d63b0cbaacd9f288d1ff543471236318f1cfe5556ef7ae30754f",
   "claim_scope": "M0 program control only; no architecture or production capability closure",
   "evidence_format": "ioi.m0.selected_profile.v1",
   "profile": {
@@ -362,7 +362,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
+        "source_anchor_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -418,7 +418,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
+        "source_anchor_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "spawn_mux_writer_cfg"
       },
@@ -446,7 +446,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
+        "source_anchor_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -614,7 +614,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
+        "source_anchor_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::OpenOptions::open[write]"
       },
@@ -649,7 +649,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
+        "source_anchor_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::OpenOptions::open[write]"
       },
@@ -663,7 +663,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "bfa9d9e33205f35386ba1e65042d154ecd2dfb436f2f2d2fc388380e15302d4b",
+        "source_anchor_sha256": "2d226ffc3d7298d4cea4b7bd910fe0a18774f183f8dc4fedc25f90347591e2ff",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
         "symbol": "std::fs::OpenOptions::open[write]"
       },

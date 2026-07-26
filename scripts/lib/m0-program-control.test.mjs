@@ -1177,11 +1177,33 @@ test("supplied entries form an internally coherent unsigned hash chain with the 
     reviewAnchor,
     programSource,
   ));
-  assert.equal(reviewAnchor.head.sequence, 12);
-  assert.equal(reviewAnchor.epochs.length, 12);
+  // The chain grows by one entry per review epoch, so a literal length pin rots
+  // and has to be bumped by whoever appends -- which makes it a ceremony rather
+  // than a guard. These assert the properties the pin stood in for: the chain
+  // never shrinks below the twelve epochs that existed when this test was
+  // written, its sequence is dense and ordered, and the head IS the last entry.
+  // Truncating, reordering, or appending without advancing the head all fail.
+  assert.ok(
+    reviewAnchor.epochs.length >= 12,
+    `the chain must not lose epochs; found ${reviewAnchor.epochs.length}`,
+  );
+  assert.deepEqual(
+    reviewAnchor.epochs.map((entry) => entry.sequence),
+    reviewAnchor.epochs.map((_, index) => index + 1),
+    "epoch sequence must be dense and ordered",
+  );
+  assert.equal(reviewAnchor.head.sequence, reviewAnchor.epochs.length);
+  assert.equal(
+    reviewAnchor.head.epoch_id,
+    reviewAnchor.epochs.at(-1).epoch_id,
+  );
   assert.ok(
     reviewAnchor.epochs.slice(0, 6).every((entry) => "reviewer_evidence" in entry),
     "legacy entries must retain their historical claims verbatim",
+  );
+  assert.ok(
+    reviewAnchor.epochs.slice(6).every((entry) => !("reviewer_evidence" in entry)),
+    "the unsigned era must not impersonate the retired signed ceremony",
   );
   assert.equal(
     reviewAnchor.epochs.at(-1).authorship_binding,
