@@ -4,7 +4,7 @@ Status: target conformance contract with a registered portable schema,
 invariants, fixtures, and generated projections. No current dispute admission,
 allocation, adjudication, or settlement kernel is claimed.
 Canonical inputs:
-[`common-objects-and-envelopes.md`](../../architecture/foundations/common-objects-and-envelopes.md),
+[`objects/interop-and-collaboration-terms.md`](../../architecture/foundations/objects/interop-and-collaboration-terms.md),
 [`economic-flywheel-and-pricing-boundaries.md`](../../architecture/foundations/economic-flywheel-and-pricing-boundaries.md),
 [`marketplace-neutrality.md`](../../architecture/domains/marketplace-neutrality.md),
 [`ecosystem-assurance-certification-liability.md`](../../architecture/foundations/ecosystem-assurance-certification-liability.md),

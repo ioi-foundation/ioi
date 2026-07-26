@@ -90,3 +90,4 @@ The canon sentence is:
 - `docs/architecture/components/agentgres/doctrine.md`
 - `docs/architecture/foundations/ioi-l1-mainnet.md`
 - `docs/architecture/foundations/common-objects-and-envelopes.md`
+- `docs/architecture/foundations/objects/bounded-system-genesis.md`

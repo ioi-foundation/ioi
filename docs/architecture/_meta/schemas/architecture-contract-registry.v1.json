@@ -6,7 +6,7 @@
     {
       "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
       "canonical_name": "ReceiptEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#receiptenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/evidence-and-delivery.md#receiptenvelope",
       "schema_version": "ioi.foundations.receipt-envelope.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -122,7 +122,7 @@
     {
       "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
       "canonical_name": "AuthorityGrantEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#authoritygrantenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
       "schema_version": "ioi.foundations.authority-grant-envelope.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -192,7 +192,7 @@
     {
       "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
       "canonical_name": "AuthorityGrantEnvelope",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#authoritygrantenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
       "schema_version": "ioi.foundations.authority-grant-envelope.v2",
       "maturity": "partial",
       "stability": "provisional",
@@ -256,7 +256,7 @@
     {
       "contract_id": "schema://ioi/foundations/authority-key-set/v1",
       "canonical_name": "AuthorityKeySet",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#authoritygrantenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
       "schema_version": "ioi.foundations.authority-key-set.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -310,7 +310,7 @@
     {
       "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
       "canonical_name": "AuthorityRevocationSnapshot",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#authoritygrantenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/authority-and-access.md#authoritygrantenvelope",
       "schema_version": "ioi.foundations.authority-revocation-snapshot.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -476,7 +476,7 @@
     {
       "contract_id": "schema://ioi/foundations/information-flow-label/v1",
       "canonical_name": "InformationFlowLabel",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#informationflowlabel-and-declassificationapproval",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#informationflowlabel-and-declassificationapproval",
       "schema_version": "ioi.foundations.information-flow-label.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -573,7 +573,7 @@
     {
       "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
       "canonical_name": "ManagedWorkBillingLedgerBundle",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#managed-work-billing-object-family",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/economics-and-settlement.md#managed-work-billing-object-family",
       "schema_version": "ioi.foundations.managed-work-billing-ledger-bundle.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -621,7 +621,7 @@
     {
       "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
       "canonical_name": "DisputeRailBundle",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#dispute-rail-object-family",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/interop-and-collaboration-terms.md#dispute-rail-object-family",
       "schema_version": "ioi.foundations.dispute-rail-bundle.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -670,7 +670,7 @@
     {
       "contract_id": "schema://ioi/foundations/declassification-approval/v1",
       "canonical_name": "DeclassificationApproval",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#informationflowlabel-and-declassificationapproval",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/goal-run-execution.md#informationflowlabel-and-declassificationapproval",
       "schema_version": "ioi.foundations.declassification-approval.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -718,7 +718,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
       "canonical_name": "AutonomousSystemManifest",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemmanifestenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemmanifestenvelope",
       "schema_version": "ioi.autonomous-system-manifest.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -766,7 +766,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
       "canonical_name": "AutonomousSystemInitialProfileBundle",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussysteminitialprofilebundle",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussysteminitialprofilebundle",
       "schema_version": "ioi.autonomous-system-initial-profile-bundle.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -823,7 +823,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
       "canonical_name": "AutonomousSystemGenesis",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemgenesisenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemgenesisenvelope",
       "schema_version": "ioi.autonomous-system-genesis.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -871,7 +871,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
       "canonical_name": "AutonomousSystemSequenceZeroMaterialization",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemsequencezeromaterializationenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemsequencezeromaterializationenvelope",
       "schema_version": "ioi.autonomous-system-sequence-zero-materialization.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -948,7 +948,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
       "canonical_name": "AutonomousSystemSequenceZeroMaterializationReceipt",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemsequencezeromaterializationenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemsequencezeromaterializationenvelope",
       "schema_version": "ioi.autonomous-system-sequence-zero-materialization-receipt.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1027,7 +1027,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
       "canonical_name": "AutonomousSystemSequenceZeroMaterializationReceipt",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemsequencezeromaterializationenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemsequencezeromaterializationenvelope",
       "schema_version": "ioi.autonomous-system-sequence-zero-materialization-receipt.v2",
       "maturity": "partial",
       "stability": "provisional",
@@ -1106,7 +1106,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
       "canonical_name": "AutonomousSystemConstitution",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemconstitutionenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemconstitutionenvelope",
       "schema_version": "ioi.autonomous-system-constitution.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1154,7 +1154,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
       "canonical_name": "AutonomousSystemConstitutionAmendment",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemconstitutionamendmentenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemconstitutionamendmentenvelope",
       "schema_version": "ioi.autonomous-system-constitution-amendment.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1202,7 +1202,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment-approval-decision/v1",
       "canonical_name": "AutonomousSystemConstitutionAmendmentApprovalDecision",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemconstitutionamendmentapprovaldecisionenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemconstitutionamendmentapprovaldecisionenvelope",
       "schema_version": "ioi.autonomous-system-constitution-amendment-approval-decision.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1251,7 +1251,7 @@
     {
       "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
       "canonical_name": "OrderingAdmissionFinalityProfile",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#orderingadmissionfinalityprofileenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#orderingadmissionfinalityprofileenvelope",
       "schema_version": "ioi.ordering-admission-finality-profile.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1300,7 +1300,7 @@
     {
       "contract_id": "schema://ioi/foundations/oracle-evidence-profile/v1",
       "canonical_name": "OracleEvidenceProfile",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#oracleevidenceprofileenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#oracleevidenceprofileenvelope",
       "schema_version": "ioi.oracle-evidence-profile.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1349,7 +1349,7 @@
     {
       "contract_id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
       "canonical_name": "LifecycleContinuityProfile",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#lifecyclecontinuityprofileenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#lifecyclecontinuityprofileenvelope",
       "schema_version": "ioi.lifecycle-continuity-profile.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1398,7 +1398,7 @@
     {
       "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
       "canonical_name": "LifecycleTransition",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#lifecycletransitionenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#lifecycletransitionenvelope",
       "schema_version": "ioi.lifecycle-transition.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1453,7 +1453,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
       "canonical_name": "AutonomousSystemActivationProposal",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemactivationproposalenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemactivationproposalenvelope",
       "schema_version": "ioi.autonomous-system-activation-proposal.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1510,7 +1510,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1",
       "canonical_name": "AutonomousSystemActivationAuthorityDecision",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemactivationauthoritydecisionenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemactivationauthoritydecisionenvelope",
       "schema_version": "ioi.autonomous-system-activation-authority-decision.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1559,7 +1559,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
       "canonical_name": "AutonomousSystemDeploymentProfileRevision",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemdeploymentprofilerevisionenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemdeploymentprofilerevisionenvelope",
       "schema_version": "ioi.autonomous-system-deployment-profile-revision.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1613,7 +1613,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-activation-state/v1",
       "canonical_name": "AutonomousSystemActivationState",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemactivationstateenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemactivationstateenvelope",
       "schema_version": "ioi.autonomous-system-activation-state.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1661,7 +1661,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
       "canonical_name": "AutonomousSystemActiveProfileSet",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemactiveprofilesetenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemactiveprofilesetenvelope",
       "schema_version": "ioi.autonomous-system-active-profile-set.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1714,7 +1714,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-home-domain-binding/v1",
       "canonical_name": "AutonomousSystemHomeDomainBinding",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemhomedomainbindingenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemhomedomainbindingenvelope",
       "schema_version": "ioi.autonomous-system-home-domain-binding.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1763,7 +1763,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v1",
       "canonical_name": "AutonomousSystemOperationLog",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemoperationlogenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemoperationlogenvelope",
       "schema_version": "ioi.autonomous-system-operation-log.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1811,7 +1811,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
       "canonical_name": "AutonomousSystemChain",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemchainenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemchainenvelope",
       "schema_version": "ioi.autonomous-system-chain.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -1976,7 +1976,7 @@
     {
       "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
       "canonical_name": "IOINetworkEnrollment",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#ioinetworkenrollmentenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#ioinetworkenrollmentenvelope",
       "schema_version": "ioi.network-enrollment.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2024,7 +2024,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
       "canonical_name": "AutonomousSystemProtectedTransitionProposal",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemprotectedtransitionproposalenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemprotectedtransitionproposalenvelope",
       "schema_version": "ioi.autonomous-system-protected-transition-proposal.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2081,7 +2081,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
       "canonical_name": "AutonomousSystemProtectedTransitionDecision",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemprotectedtransitiondecisionenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemprotectedtransitiondecisionenvelope",
       "schema_version": "ioi.autonomous-system-protected-transition-decision.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2134,7 +2134,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
       "canonical_name": "AutonomousSystemLifecycleState",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemlifecyclestateenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemlifecyclestateenvelope",
       "schema_version": "ioi.autonomous-system-lifecycle-state.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2187,7 +2187,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v2",
       "canonical_name": "AutonomousSystemOperationLog",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemoperationlogenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemoperationlogenvelope",
       "schema_version": "ioi.autonomous-system-operation-log.v2",
       "maturity": "partial",
       "stability": "provisional",
@@ -2245,7 +2245,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
       "canonical_name": "AutonomousSystemAmendmentExecutionProposal",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemamendmentexecutionproposalenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemamendmentexecutionproposalenvelope",
       "schema_version": "ioi.autonomous-system-amendment-execution-proposal.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2302,7 +2302,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1",
       "canonical_name": "AutonomousSystemAmendmentExecutionDecision",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemamendmentexecutiondecisionenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemamendmentexecutiondecisionenvelope",
       "schema_version": "ioi.autonomous-system-amendment-execution-decision.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2351,7 +2351,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1",
       "canonical_name": "AutonomousSystemChainWriterReservation",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemchainwriterreservationenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemchainwriterreservationenvelope",
       "schema_version": "ioi.autonomous-system-chain-writer-reservation.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2405,7 +2405,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1",
       "canonical_name": "AutonomousSystemChainSuccessorClaim",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemchainsuccessorclaimenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemchainsuccessorclaimenvelope",
       "schema_version": "ioi.autonomous-system-chain-successor-claim.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2454,7 +2454,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-amendment-transition/v1",
       "canonical_name": "AutonomousSystemAmendmentTransition",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemamendmenttransitionenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemamendmenttransitionenvelope",
       "schema_version": "ioi.autonomous-system-amendment-transition.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2507,7 +2507,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-amendment-receipt/v1",
       "canonical_name": "AutonomousSystemAmendmentReceipt",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemamendmentreceiptenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemamendmentreceiptenvelope",
       "schema_version": "ioi.autonomous-system-amendment-receipt.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2555,7 +2555,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
       "canonical_name": "AutonomousSystemActiveProfileSet",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemactiveprofilesetenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemactiveprofilesetenvelope",
       "schema_version": "ioi.autonomous-system-active-profile-set.v2",
       "maturity": "partial",
       "stability": "provisional",
@@ -2603,7 +2603,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
       "canonical_name": "AutonomousSystemMigrationDestinationAcknowledgement",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemmigrationdestinationacknowledgementenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemmigrationdestinationacknowledgementenvelope",
       "schema_version": "ioi.autonomous-system-migration-destination-acknowledgement.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2623,7 +2623,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
       "canonical_name": "AutonomousSystemContinuityState",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemcontinuitystateenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemcontinuitystateenvelope",
       "schema_version": "ioi.autonomous-system-continuity-state.v1",
       "maturity": "partial",
       "stability": "provisional",
@@ -2643,7 +2643,7 @@
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
       "canonical_name": "AutonomousSystemNetworkEnrollmentTransition",
-      "canonical_owner_ref": "canon://docs/architecture/foundations/common-objects-and-envelopes.md#autonomoussystemnetworkenrollmenttransitionenvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemnetworkenrollmenttransitionenvelope",
       "schema_version": "ioi.autonomous-system-network-enrollment-transition.v1",
       "maturity": "partial",
       "stability": "provisional",

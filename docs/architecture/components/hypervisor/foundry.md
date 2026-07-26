@@ -2039,9 +2039,9 @@ FoundryConductorAdvisorCandidate:
 ```
 
 The single canonical field-level wire shapes are
-[`EmbodiedCapabilityPackageEnvelope`](../../foundations/common-objects-and-envelopes.md#embodiedcapabilitypackageenvelope)
+[`EmbodiedCapabilityPackageEnvelope`](../../foundations/objects/embodied-systems.md#embodiedcapabilitypackageenvelope)
 and
-[`FoundryEmbodiedRuntimeCandidateEnvelope`](../../foundations/common-objects-and-envelopes.md#foundryembodiedruntimecandidateenvelope).
+[`FoundryEmbodiedRuntimeCandidateEnvelope`](../../foundations/objects/embodied-systems.md#foundryembodiedruntimecandidateenvelope).
 Foundry owns how eligible data, experiments, evaluation evidence, scorecards,
 and promotion proposals build those objects; it does not redefine their runtime
 bindings or lifecycle here.

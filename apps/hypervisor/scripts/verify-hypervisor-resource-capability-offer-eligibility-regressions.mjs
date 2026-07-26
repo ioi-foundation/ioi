@@ -48,7 +48,7 @@ async function governed(call, resolver, principal, path, body) {
 }
 
 async function admitParticipant(call, resolver, roomRef) {
-  const submitted = await call("POST", "/v1/hypervisor/room-participation-requests", {
+  const submitted = await call("POST", "/v1/goal-orchestration/room-participation-requests", {
     outcome_room_ref: roomRef, requested_by_ref: "worker://independent-alloy-lab",
     coordination_topology: "hosted_admission", admission_owner_ref: "domain://acme-host",
     operator_and_home_domain_refs: ["org://lab", "domain://lab.example"],
@@ -59,7 +59,7 @@ async function admitParticipant(call, resolver, roomRef) {
   });
   const request = submitted.body.participation_request;
   const tail = request.participation_request_id.replace("participation-request://", "");
-  const admitted = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/room-participation-requests/${tail}/admit`, {
+  const admitted = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/room-participation-requests/${tail}/admit`, {
     admitted_role: "resource_provider", operator_ref: "org://lab",
     home_domain_ref: "agentgres://domain/lab", expected_revision: 1,
   });
@@ -91,7 +91,7 @@ async function run() {
   try {
     plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
     const call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
-    const room = (await call("POST", "/v1/hypervisor/outcome-rooms", ROOM)).body.outcome_room;
+    const room = (await call("POST", "/v1/goal-orchestration/outcome-rooms", ROOM)).body.outcome_room;
     const roomRef = room.outcome_room_id;
     const roomTail = roomRef.replace("outcome-room://", "");
     const lease = await admitParticipant(call, resolver, roomRef);
@@ -103,8 +103,8 @@ async function run() {
       throw new Error(JSON.stringify(pool));
     }
 
-    const resourcePath = "/v1/hypervisor/resource-offers";
-    const capabilityPath = "/v1/hypervisor/capability-offers";
+    const resourcePath = "/v1/goal-orchestration/resource-offers";
+    const capabilityPath = "/v1/goal-orchestration/capability-offers";
     const cleanResource = await governed(call, resolver, lease.participant_ref, resourcePath, resourceBody(roomRef, lease.participant_lease_id));
     const policyResource = await governed(call, resolver, lease.participant_ref, resourcePath, resourceBody(roomRef, lease.participant_lease_id, {
       policy_constraint_refs: ["policy://no-pii"],
@@ -117,8 +117,8 @@ async function run() {
       if (result.response.status !== 201) throw new Error(JSON.stringify(result.response));
     }
 
-    const roomLive = (await call("GET", `/v1/hypervisor/outcome-rooms/${roomTail}`)).body.outcome_room;
-    const frontierResult = await governed(call, resolver, "domain://acme-host", "/v1/hypervisor/work-frontier-items", {
+    const roomLive = (await call("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail}`)).body.outcome_room;
+    const frontierResult = await governed(call, resolver, "domain://acme-host", "/v1/goal-orchestration/work-frontier-items", {
       outcome_room_ref: roomRef, item_kind: "task", objective: "Exercise exact offer eligibility.",
       dependency_refs: [], related_attempt_and_finding_refs: [], required_capability_refs: ["capability://advertised/ai/cap-ab"],
       required_context_resource_authority_and_evidence_refs: ["resource://pool/eligibility-pool", "evidence://ev-ab"],
@@ -138,7 +138,7 @@ async function run() {
       coordination_topology: "hosted_admission", expected_revision: frontier.revision,
     };
     const receiptsBefore = names(dataDir, "resource-capability-offer-receipts").length;
-    const scoped = await call("POST", "/v1/hypervisor/work-eligibility-matches", {
+    const scoped = await call("POST", "/v1/goal-orchestration/work-eligibility-matches", {
       ...baseMatch, capability_offer_refs: [scopedCapability.response.body.offer.capability_offer_id],
     });
     ok(
@@ -148,7 +148,7 @@ async function run() {
         && names(dataDir, "work-claim-leases").length === 0,
       `${scoped.status}/${scoped.body.error?.code}`,
     );
-    const policy = await call("POST", "/v1/hypervisor/work-eligibility-matches", {
+    const policy = await call("POST", "/v1/goal-orchestration/work-eligibility-matches", {
       ...baseMatch, resource_offer_refs: [policyResource.response.body.offer.resource_offer_id],
     });
     ok(
@@ -164,7 +164,7 @@ async function run() {
       expires_at: new Date(expiryAtMs).toISOString(),
     }));
     if (expiringResource.response.status !== 201) throw new Error(JSON.stringify(expiringResource.response));
-    const matched = await governed(call, resolver, "domain://acme-host", "/v1/hypervisor/work-eligibility-matches", {
+    const matched = await governed(call, resolver, "domain://acme-host", "/v1/goal-orchestration/work-eligibility-matches", {
       ...baseMatch, resource_offer_refs: [expiringResource.response.body.offer.resource_offer_id],
     });
     const matchReceipt = matched.response.body.eligibility_match_receipt;
@@ -174,7 +174,7 @@ async function run() {
     await delay(Math.max(0, expiryAtMs - Date.now() + 250));
     const claimsBefore = names(dataDir, "work-claim-leases").length;
     const claimReceiptsBefore = names(dataDir, "work-frontier-claim-receipts").length;
-    const expired = await governed(call, resolver, lease.participant_ref, "/v1/hypervisor/work-claim-leases", {
+    const expired = await governed(call, resolver, lease.participant_ref, "/v1/goal-orchestration/work-claim-leases", {
       outcome_room_ref: roomRef, frontier_item_ref: frontier.frontier_item_id, claimant_ref: lease.participant_lease_id,
       eligibility_match_receipt_ref: matchReceipt.receipt_ref, bounded_scope_ref: "task://expired-offer-work",
       context_lease_refs: [], authority_resource_compute_data_budget_and_tool_lease_refs: [],

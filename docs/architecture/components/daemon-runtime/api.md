@@ -1042,136 +1042,11 @@ The target response is an `ioi.runtime.hypervisor_core_taxonomy.v2` object:
   ],
   "normalized_record_contracts": [
     "HypervisorApplicationSurfaceRegistration",
-    "HypervisorRouteAliasRegistration",
     "HypervisorSurfaceReleaseRecord",
     "HypervisorSurfaceInstallationBinding",
     "HypervisorSystemInterfaceBinding",
     "HypervisorSurfaceServingBinding",
     "HypervisorProductSurfaceProjection"
-  ],
-  "route_alias_registrations": [
-    {
-      "route_alias_ref": "route-alias://hypervisor/sessions",
-      "owner_ref": "hypervisor-workspace://work",
-      "alias_route_pattern": "/sessions",
-      "resolution": {
-        "kind": "static_route",
-        "target_route_template": "/work/sessions"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    },
-    {
-      "route_alias_ref": "route-alias://hypervisor/missions",
-      "owner_ref": "hypervisor-workspace://work",
-      "alias_route_pattern": "/missions/{legacy_subject_id?}",
-      "resolution": {
-        "kind": "typed_resolver",
-        "resolver_kind": "legacy_work_subject",
-        "resolver_contract_ref": "api://hypervisor/legacy-work-subject-resolution"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    },
-    {
-      "route_alias_ref": "route-alias://hypervisor/workbench",
-      "owner_ref": "surface://hypervisor/developer-workspace",
-      "alias_route_pattern": "/workbench",
-      "resolution": {
-        "kind": "static_route",
-        "target_route_template": "/developer-workspace"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    },
-    {
-      "route_alias_ref": "route-alias://hypervisor/marketplace",
-      "owner_ref": "surface://hypervisor/packages",
-      "alias_route_pattern": "/marketplace",
-      "resolution": {
-        "kind": "static_route",
-        "target_route_template": "/packages/marketplace"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    },
-    {
-      "route_alias_ref": "route-alias://hypervisor/legacy-agent-studio",
-      "owner_ref": "surface://hypervisor/studio",
-      "alias_route_pattern": "/__ioi/agent-studio",
-      "resolution": {
-        "kind": "static_route",
-        "target_route_template": "/studio"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    },
-    {
-      "route_alias_ref": "route-alias://hypervisor/fleet",
-      "owner_ref": "surface://hypervisor/embodied-systems",
-      "alias_route_pattern": "/fleet",
-      "resolution": {
-        "kind": "typed_resolver",
-        "resolver_kind": "contextual_surface",
-        "resolver_contract_ref": "api://hypervisor/fleet-context-resolution"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    }
   ],
   "adapter_target_families": [
     { "id": "code_editor" },
@@ -1277,10 +1152,7 @@ hand-maintained card catalog.
         "workspace_ref": "hypervisor-workspace://work",
         "display_name": "Work",
         "canonical_route": "/work",
-        "route_alias_refs": [
-          "route-alias://hypervisor/sessions",
-          "route-alias://hypervisor/missions"
-        ],
+        "route_alias_refs": [],
         "launchable": true,
         "disabled_reason_codes": [],
         "launch_binding": {
@@ -1340,9 +1212,7 @@ hand-maintained card catalog.
         "group_kinds": ["first_party_applications"],
         "canonical_route": "/studio",
         "resolved_launch_route": "/studio",
-        "route_alias_refs": [
-          "route-alias://hypervisor/legacy-agent-studio"
-        ],
+        "route_alias_refs": [],
         "launchable": true,
         "disabled_reason_codes": [],
         "launch_binding": {
@@ -1390,7 +1260,7 @@ hand-maintained card catalog.
         "group_kinds": ["recommended"],
         "canonical_route": "/embodied-systems",
         "resolved_launch_route": null,
-        "route_alias_refs": ["route-alias://hypervisor/fleet"],
+        "route_alias_refs": [],
         "launchable": false,
         "disabled_reason_codes": ["planned"],
         "launch_binding": null,
@@ -2401,7 +2271,7 @@ restore material. Archive payloads are policy-bound restore material. Restore
 validity is operation-backed through Agentgres, artifact refs, state-root refs,
 policy refs, authority refs, and receipts.
 
-`POST /v1/sessions/{session_id}/restore` is a compatibility alias for preparing
+`POST /v1/sessions/{session_id}/restore` is a convenience entry point for preparing
 an `environment_restore` `HypervisorChangePlan`; it never combines preparation
 and apply. Preparation is read-only and target-nonmutating. Apply revalidates
 the exact prepared plan, authority, content commitments, target head, and writer
@@ -2500,16 +2370,13 @@ Adapter APIs resolve concrete connection profiles for editor, terminal,
 browser, VM/container, HypervisorOS, and hosted-worker targets. A raw editor
 name is not an execution or mediation contract.
 
-### Work Projection And Legacy Mission Aliases
+### Work Projection
 
 ```http
 GET  /v1/work
 GET  /v1/work/{subject_kind}/{subject_id}
 GET  /v1/projects/{project_id}/work
 GET  /v1/hypervisor/autonomous-systems/{system_id}/work
-
-GET  /v1/missions
-GET  /v1/missions/{legacy_mission_id}
 ```
 
 `/v1/work` is a policy-filtered read projection. Every row returns a canonical
@@ -2531,13 +2398,10 @@ approval-flow, and service behavior remains an `AutomationSpec`; one activation
 is an `AutomationRun`; durable bounded pursuit is a `GoalRun`; shared pursuit is
 an `OutcomeRoom`.
 
-The two `/v1/missions` reads are migration aliases only. A legacy identifier
-must resolve through an admitted alias/migration receipt to exactly one GoalRun
-or OutcomeRoom and return that typed subject and its canonical URL. New Mission
-writes, universal Mission updates, and Mission execution subresources are
-non-conformant. Clients start, disable, review, or reconcile work through the
-typed owner APIs. An ambiguous legacy record enters typed review and may not be
-silently guessed.
+There are no `/v1/missions` routes and no Mission aliases: the retired Mission
+namespace is deleted, not aliased (ADR 0022 Decision 2). Mission writes,
+updates, and execution subresources are non-conformant. Clients start,
+disable, review, or reconcile work through the typed owner APIs.
 
 ## Event Stream
 
@@ -3199,15 +3063,21 @@ local-agent pairing, room, dynamic-participation, generic-result, and remaining
 fine-grained routes below are target contract; their presence here is not a
 live-route claim.
 
+The `/v1/goal-orchestration/*` namespace is the ioi.ai orchestration
+application's route namespace (ADR 0022): the daemon hosts, admits, and
+receipts these routes exactly as it does any application domain's, and their
+presence in this API reference documents the daemon's mounting of the
+application, not Hypervisor-substrate ownership of the objects.
+
 Live audited GoalRun routes:
 
 ```http
-POST /v1/hypervisor/goal-runs
-GET  /v1/hypervisor/goal-runs
-GET  /v1/hypervisor/goal-runs/{goal_ref}
-POST /v1/hypervisor/goal-runs/{goal_ref}/start
-POST /v1/hypervisor/goal-runs/{goal_ref}/reconcile
-GET  /v1/hypervisor/goal-runs/{goal_ref}/events
+POST /v1/goal-orchestration/goal-runs
+GET  /v1/goal-orchestration/goal-runs
+GET  /v1/goal-orchestration/goal-runs/{goal_ref}
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/start
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/reconcile
+GET  /v1/goal-orchestration/goal-runs/{goal_ref}/events
 ```
 
 Target pursuit-profile discovery and nonbinding validation routes:
@@ -3227,7 +3097,7 @@ the resolved-component and active-skill snapshots, emits the
 `GoalRunProfileResolutionReceipt`, and creates the GoalRun so no preview can be
 replayed across registry, policy, revocation, or availability drift.
 
-The target `POST /v1/hypervisor/goal-runs` request supplies the exact immutable
+The target `POST /v1/goal-orchestration/goal-runs` request supplies the exact immutable
 profile and requested inputs; its admitted response binds the atomic resolution
 explicitly:
 
@@ -3323,57 +3193,57 @@ scoped Hypervisor MCP/tool gateway and lease contracts as any other participant.
 Target OutcomeRoom / CollaborativeWorkGraph routes:
 
 ```http
-POST  /v1/hypervisor/outcome-rooms
-GET   /v1/hypervisor/outcome-rooms
-GET   /v1/hypervisor/outcome-rooms/{room_ref}
-POST  /v1/hypervisor/outcome-rooms/{room_ref}/upgrade-proposals
-POST  /v1/hypervisor/outcome-rooms/{room_ref}/lifecycle/transitions
+POST  /v1/goal-orchestration/outcome-rooms
+GET   /v1/goal-orchestration/outcome-rooms
+GET   /v1/goal-orchestration/outcome-rooms/{room_ref}
+POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/upgrade-proposals
+POST  /v1/goal-orchestration/outcome-rooms/{room_ref}/lifecycle/transitions
 
-POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery
-POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery/pause
-POST /v1/hypervisor/outcome-rooms/{room_ref}/discovery/withdraw
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery/pause
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/discovery/withdraw
 GET  /v1/hypervisor/outcome-room-discoveries
 GET  /v1/hypervisor/outcome-room-discoveries/{discovery_ref}
 POST /v1/hypervisor/outcome-room-discoveries/{discovery_ref}/participation-requests
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
 
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/join
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/participants
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/heartbeat
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/sleep
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/retire
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/quarantine
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/acknowledge
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/revoke
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/join
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participants
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/heartbeat
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/sleep
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/retire
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/quarantine
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/acknowledge
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participants/{participant_ref}/state-exports/{state_ref}/revoke
 
-POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget
-POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/quote
-POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/reserve
-POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/adjust
-POST /v1/hypervisor/outcome-rooms/{room_ref}/network-goal-budget/reconcile
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/quote
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/reserve
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/adjust
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/network-goal-budget/reconcile
 
-POST /v1/hypervisor/outcome-rooms/{room_ref}/offers
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/offers
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/offers/{offer_ref}
-POST /v1/hypervisor/outcome-rooms/{room_ref}/offers/{offer_ref}/allocate
-POST /v1/hypervisor/outcome-rooms/{room_ref}/offers/{offer_ref}/withdraw
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/frontier
-POST /v1/hypervisor/outcome-rooms/{room_ref}/frontier
-POST /v1/hypervisor/outcome-rooms/{room_ref}/claims
-POST /v1/hypervisor/outcome-rooms/{room_ref}/claims/{claim_ref}/renew
-POST /v1/hypervisor/outcome-rooms/{room_ref}/claims/{claim_ref}/release
-POST /v1/hypervisor/outcome-rooms/{room_ref}/claims/{claim_ref}/reassign
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/offers
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}/allocate
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/offers/{offer_ref}/withdraw
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/frontier
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/frontier
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/renew
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/release
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/claims/{claim_ref}/reassign
 
-POST /v1/hypervisor/outcome-rooms/{room_ref}/attempts
-POST /v1/hypervisor/outcome-rooms/{room_ref}/findings
-POST /v1/hypervisor/outcome-rooms/{room_ref}/verifier-challenges
-POST /v1/hypervisor/outcome-rooms/{room_ref}/admission-proposals
-POST /v1/hypervisor/outcome-rooms/{room_ref}/admission-proposals/{proposal_ref}/decide
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/replay
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/attempts
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/findings
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/verifier-challenges
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/admission-proposals/{proposal_ref}/decide
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/replay
 ```
 
 `POST /outcome-rooms` is a package-to-genesis convenience over the autonomous-
@@ -3434,18 +3304,18 @@ unreceipted first-party allocation shortcut.
 Target fine-grained GoalRun / broker routes:
 
 ```http
-PATCH /v1/hypervisor/goal-runs/{goal_ref}
-POST /v1/hypervisor/goal-runs/{goal_ref}/grounding-loop
-POST /v1/hypervisor/goal-runs/{goal_ref}/context-cells
-POST /v1/hypervisor/goal-runs/{goal_ref}/context-leases
-POST /v1/hypervisor/goal-runs/{goal_ref}/handoffs
-POST /v1/hypervisor/goal-runs/{goal_ref}/harness-invocations
-GET  /v1/hypervisor/goal-runs/{goal_ref}/harness-invocations
+PATCH /v1/goal-orchestration/goal-runs/{goal_ref}
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/grounding-loop
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/context-cells
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/context-leases
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/handoffs
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/harness-invocations
+GET  /v1/goal-orchestration/goal-runs/{goal_ref}/harness-invocations
 GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}
 GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}/events
-POST /v1/hypervisor/goal-runs/{goal_ref}/verify
-POST /v1/hypervisor/goal-runs/{goal_ref}/continue
-POST /v1/hypervisor/goal-runs/{goal_ref}/close
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/verify
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/continue
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/close
 ```
 
 An OutcomeRoom claim creates or binds a GoalRun with optional room,

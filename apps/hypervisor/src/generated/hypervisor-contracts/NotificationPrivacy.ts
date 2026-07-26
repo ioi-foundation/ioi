@@ -2,4 +2,7 @@
 import type { NotificationPreviewMode } from "./NotificationPreviewMode";
 import type { ObservationTier } from "./ObservationTier";
 
+/**
+ * Privacy posture of the notification's rendered content.
+ */
 export type NotificationPrivacy = { previewMode: NotificationPreviewMode, containsSensitiveData: boolean, observationTier: ObservationTier, };

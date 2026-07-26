@@ -151,7 +151,7 @@ parallel schemas:
 | `SemanticMappingDecision` | Applied `OntologyMappingEnvelope` / `OntologyMapping` with `mapping_record_profile: semantic_mapping_decision`, target refs, challenge refs, and a decision receipt. |
 
 The shared envelope fields are owned by
-[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md#domainontologyenvelope).
+[`semantic-plane.md`](./objects/semantic-plane.md#domainontologyenvelope).
 Agentgres registers each semantic profile, but it does not persist a second
 profile-specific schema beside the mapped base envelope.
 

@@ -147,6 +147,7 @@ budgets, evaluators, reproductions, limitations, and later validity records.
 
 - `docs/architecture/foundations/bounded-recursive-improvement.md`
 - `docs/architecture/foundations/common-objects-and-envelopes.md`
+- `docs/architecture/foundations/objects/bounded-improvement.md`
 - `docs/architecture/foundations/governed-autonomous-systems.md`
 - `docs/architecture/foundations/verifiable-bounded-agency.md`
 - `docs/architecture/foundations/institutional-learning-boundary.md`

@@ -93,7 +93,7 @@ async function run() {
   ok("the created suite renders with its real ref, subject scope, consent + evidence requirements, health", suite && t.includes(suite.ref) && t.includes("parity-suite") && t.includes("failed_run") && t.includes("synthetic_only") && t.includes("proof_ref") && />declared</.test(t));
   // Real assessment subjects from the Missions plane appear in scope.
   const ops = await jd("GET", "/v1/hypervisor/operations");
-  const gr = (await jd("GET", "/v1/hypervisor/goal-runs")).j.goal_runs || [];
+  const gr = (await jd("GET", "/v1/goal-orchestration/goal-runs")).j.goal_runs || [];
   const blocked = gr.filter((r) => Array.isArray(r.blockers) && r.blockers.length);
   const sampleSubject = blocked[0];
   // The proof must render as an actual ANCHOR in the Evidence cell — not plain text (guards the

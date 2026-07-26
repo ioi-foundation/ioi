@@ -146,18 +146,18 @@
       ],
       "existing_daemon": {
         "routes": [
-          "GET /v1/hypervisor/outcome-rooms",
-          "GET /v1/hypervisor/room-participation-requests",
-          "GET /v1/hypervisor/room-participant-leases",
-          "GET /v1/hypervisor/work-frontier-items",
-          "GET /v1/hypervisor/work-claim-leases",
-          "GET /v1/hypervisor/resource-offers",
-          "GET /v1/hypervisor/capability-offers",
-          "GET /v1/hypervisor/work-eligibility-matches",
-          "GET /v1/hypervisor/attempts",
-          "GET /v1/hypervisor/findings",
+          "GET /v1/goal-orchestration/outcome-rooms",
+          "GET /v1/goal-orchestration/room-participation-requests",
+          "GET /v1/goal-orchestration/room-participant-leases",
+          "GET /v1/goal-orchestration/work-frontier-items",
+          "GET /v1/goal-orchestration/work-claim-leases",
+          "GET /v1/goal-orchestration/resource-offers",
+          "GET /v1/goal-orchestration/capability-offers",
+          "GET /v1/goal-orchestration/work-eligibility-matches",
+          "GET /v1/goal-orchestration/attempts",
+          "GET /v1/goal-orchestration/findings",
           "GET /v1/hypervisor/work-results",
-          "GET /v1/hypervisor/verifier-challenges"
+          "GET /v1/goal-orchestration/verifier-challenges"
         ],
         "actions": [],
         "receipts": [
@@ -3363,7 +3363,7 @@
           "reference": "Open status lane w/ count",
           "outcome": "daemon_read",
           "reason": "live daemon-derived open count; URL-state lane",
-          "binding": "href:?lane=open (count from /v1/hypervisor/goal-runs blockers on non-terminal runs = 54)",
+          "binding": "href:?lane=open (count from /v1/goal-orchestration/goal-runs blockers on non-terminal runs = 54)",
           "implemented": true
         },
         {
@@ -3541,7 +3541,7 @@
           "reference": "result count",
           "outcome": "daemon_read",
           "reason": "honest live daemon-derived count (e.g. '50 of 54 open issues')",
-          "binding": "derived from /v1/hypervisor/goal-runs + /operations",
+          "binding": "derived from /v1/goal-orchestration/goal-runs + /operations",
           "implemented": true
         },
         {
@@ -3571,7 +3571,7 @@
           "reference": "select row → open issue detail",
           "outcome": "daemon_read",
           "reason": "row click navigates to the real GoalRun timeline — the true detail/inspector path (reference detail XHR is dead)",
-          "binding": "href:/__ioi/run-timeline/goal-run/:id → GET /v1/hypervisor/goal-runs/:id (+/events); verified 200",
+          "binding": "href:/__ioi/run-timeline/goal-run/:id → GET /v1/goal-orchestration/goal-runs/:id (+/events); verified 200",
           "implemented": true
         },
         {
@@ -3699,21 +3699,21 @@
       "existing_daemon": {
         "routes": [
           "GET /v1/hypervisor/operations (read — runs.failures; CURRENTLY consumed by the surface; live failures=0)",
-          "GET /v1/hypervisor/goal-runs (read — blockers; CURRENTLY consumed; 190 runs, many status=blocked exit_nonzero)",
-          "GET /v1/hypervisor/goal-runs/:id + /:id/events (read — proof-link detail via run-timeline; verified 200)",
+          "GET /v1/goal-orchestration/goal-runs (read — blockers; CURRENTLY consumed; 190 runs, many status=blocked exit_nonzero)",
+          "GET /v1/goal-orchestration/goal-runs/:id + /:id/events (read — proof-link detail via run-timeline; verified 200)",
           "GET /v1/hypervisor/incidents (read — 5 provider-failure incidents vm_lost/recovered; EXISTS but NOT consumed here — belongs to Operations)",
           "GET /v1/hypervisor/operability/incidents/:id (read — reconstruct incident from receipts+attempts+logs+audit; EXISTS, unused)",
           "GET /v1/hypervisor/recovery-attempts (read — EXISTS, unused)"
         ],
         "actions": [
-          "POST /v1/hypervisor/goal-runs/:id/reconcile (admitted reconcile / deterministic re-verify — receipted) — PRIMARY fit for exit_nonzero blocker remediation",
-          "POST /v1/hypervisor/goal-runs/:id/start (wallet-gated relaunch — receipted) — relaunch a re-runnable blocked run",
+          "POST /v1/goal-orchestration/goal-runs/:id/reconcile (admitted reconcile / deterministic re-verify — receipted) — PRIMARY fit for exit_nonzero blocker remediation",
+          "POST /v1/goal-orchestration/goal-runs/:id/start (wallet-gated relaunch — receipted) — relaunch a re-runnable blocked run",
           "POST /v1/hypervisor/governance/approval-requests + PATCH /:id (decide) — fits ONLY approval-waiting blockers, not the current exit_nonzero set",
           "POST /v1/hypervisor/artifact-availability-incidents (admit availability incident) — Operations-domain, out of scope for this surface",
           "POST /v1/hypervisor/failover/run + /failover/plans/:id/arm|disarm + /failover/evaluate (provider failover remediation) — Operations-domain, out of scope"
         ],
         "receipts": [
-          "goal-run reconcile/start admission receipts, surfaced via GET /v1/hypervisor/goal-runs/:id/events and the work-ledger proof stream",
+          "goal-run reconcile/start admission receipts, surfaced via GET /v1/goal-orchestration/goal-runs/:id/events and the work-ledger proof stream",
           "/__ioi/run-timeline/goal-run/:id is the existing receipt/proof surface each incident row already deep-links to"
         ]
       },
@@ -3729,14 +3729,14 @@
       "security_credential_implications": "The incidents surface itself is read-only and exposes no credential or wallet secret; the embed render is single-rail with the og-grail element structurally stripped (verified 0 elements). The only EXISTING mutations that could back an operational cut carry real authority: POST /goal-runs/:id/start is WALLET-GATED and launches real compute (spend, semi-irreversible resource consumption); POST /goal-runs/:id/reconcile ADMITS reconciliation into the session workspace (mutates run/admission state). Any action must route through the #62 handleAction governance path so the wallet gate + durable receipt are enforced by the daemon, never synthesized in the UI. No credential input or irreversible destructive delete is in scope. The higher-risk provider families — GET/POST around /v1/hypervisor/incidents (provider-failure), POST /artifact-availability-incidents, and failover/run (real provider failover, spend/irreversible) — must stay OUT of this Missions surface (they belong to Operations); pulling them in would raise authority_security_risk from 3 to 4-5.",
       "recommended_next_pr": {
         "title": "Incidents inbox → governed remediation: reconcile/relaunch a blocked GoalRun in place (browse → act)",
-        "scope": "Promote /__ioi/missions/incidents from browse to a single governed-action surface WITHOUT any new daemon contract. For each Blocker row (derived from a goal-run), wire ONE governed action through the existing #62 action runtime (handleAction) to an EXISTING receipted mutation — POST /v1/hypervisor/goal-runs/:id/reconcile as primary remediation for exit_nonzero blockers, with POST /v1/hypervisor/goal-runs/:id/start (wallet-gated relaunch) where the run is re-runnable. Surface the durable receipt inline and advance the row capability model browse→act only when goal-run truth permits reconcile/start; otherwise keep the disabled reason naming the exact precondition. Run-failure rows (ops.runs.failures) stay daemon_read until a re-run contract is named. All other reference lanes (create/assign/priority/labels/SLA/comments/saved-filters/search/sort) remain disabled_missing_authority with named gaps. Keep the provider-failure /v1/hypervisor/incidents family and failover/artifact-availability mutations OUT (Operations boundary). Preserve the embed single-rail invariant.",
+        "scope": "Promote /__ioi/missions/incidents from browse to a single governed-action surface WITHOUT any new daemon contract. For each Blocker row (derived from a goal-run), wire ONE governed action through the existing #62 action runtime (handleAction) to an EXISTING receipted mutation — POST /v1/goal-orchestration/goal-runs/:id/reconcile as primary remediation for exit_nonzero blockers, with POST /v1/goal-orchestration/goal-runs/:id/start (wallet-gated relaunch) where the run is re-runnable. Surface the durable receipt inline and advance the row capability model browse→act only when goal-run truth permits reconcile/start; otherwise keep the disabled reason naming the exact precondition. Run-failure rows (ops.runs.failures) stay daemon_read until a re-run contract is named. All other reference lanes (create/assign/priority/labels/SLA/comments/saved-filters/search/sort) remain disabled_missing_authority with named gaps. Keep the provider-failure /v1/hypervisor/incidents family and failover/artifact-availability mutations OUT (Operations boundary). Preserve the embed single-rail invariant.",
         "done_bar": [
-          "Each Blocker row exposes exactly one governed action bound to POST /v1/hypervisor/goal-runs/:id/reconcile (or /start where re-runnable) via handleAction — no fabricated actions, no silent no-op",
+          "Each Blocker row exposes exactly one governed action bound to POST /v1/goal-orchestration/goal-runs/:id/reconcile (or /start where re-runnable) via handleAction — no fabricated actions, no silent no-op",
           "The action returns and renders a durable receipt (goal-run reconcile/start receipt ref) inline; a daemon rejection surfaces its reason verbatim",
           "operational_state advances browse→act ONLY for rows whose goal-run truth permits the mutation; ineligible rows keep a disabled reason naming the exact daemon precondition",
           "All non-remediation reference lanes remain disabled_missing_authority with their existing named gaps (create/assign/priority/labels/SLA/comments/saved-filters/search/sort)",
           "embed=1 still renders zero og-grail elements (native_single_rail invariant held); standalone keeps the dual rail",
-          "Verifier asserts action binding = existing daemon mutation route + receipt family, and that reconcile/start target the real goal-run refs shown in rows (cross-checked against /v1/hypervisor/goal-runs truth)",
+          "Verifier asserts action binding = existing daemon mutation route + receipt family, and that reconcile/start target the real goal-run refs shown in rows (cross-checked against /v1/goal-orchestration/goal-runs truth)",
           "No new daemon contract introduced; incident authoring / assignees / SLA / run-failure re-run explicitly deferred as named missing contracts",
           "Provider-failure /v1/hypervisor/incidents family and failover/artifact-availability mutations remain absent from this surface (Operations boundary preserved)"
         ]

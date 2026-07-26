@@ -154,3 +154,85 @@ test("Rust workflow-edit apply fails closed for an unknown thread (404)", async 
   );
   assert.equal(r.status, 404);
 });
+// --- Target resolution is server-derived, not caller-nominated ---------------
+//
+// The workspace root comes from the stored thread/agent. A caller cannot nominate
+// it, and a workflow target that escapes it is refused rather than clamped. Each
+// probe also asserts that the refusal left NO pending proposal behind: an orphaned
+// proposal would be approvable later and would re-open the path the guard closed.
+
+async function proposeRaw(threadId, proposalId, body) {
+  return post(`${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals`, {
+    source: "react_flow",
+    proposal_id: proposalId,
+    workflow_patch: { ...initialWorkflow, metadata: { ...initialWorkflow.metadata, name: "Escaped" } },
+    ...body,
+  });
+}
+
+async function assertNoProposalPersisted(threadId, proposalId) {
+  const applied = await post(
+    `${daemon.endpoint}/v1/threads/${threadId}/workflow-edit-proposals/${proposalId}/apply`,
+    {},
+  );
+  assert.equal(applied.body.reason, "proposal_not_found", "refused plan must not leave an orphan proposal");
+  assert.equal(applied.body.mutation_executed, false);
+}
+
+test("Rust workflow-edit refuses a caller-supplied workspace root", async () => {
+  const threadId = await createThread();
+  const foreign = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-rust-wfe-foreign-"));
+  const foreignTarget = path.join(foreign, "stolen.workflow.json");
+  try {
+    const r = await proposeRaw(threadId, "proposal-caller-root", {
+      workspace_root: foreign,
+      workflow_path: foreignTarget,
+    });
+    assert.equal(r.status, 403);
+    assert.equal(fs.existsSync(foreignTarget), false, "no file written outside the admitted root");
+    await assertNoProposalPersisted(threadId, "proposal-caller-root");
+
+    // The camelCase spelling is the same authority claim and is refused identically.
+    const camel = await proposeRaw(threadId, "proposal-caller-root-camel", {
+      workspaceRoot: foreign,
+      workflow_path: foreignTarget,
+    });
+    assert.equal(camel.status, 403);
+    await assertNoProposalPersisted(threadId, "proposal-caller-root-camel");
+  } finally {
+    fs.rmSync(foreign, { recursive: true, force: true });
+  }
+});
+
+test("Rust workflow-edit refuses a target outside the admitted workspace root", async () => {
+  const threadId = await createThread();
+  const foreign = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-rust-wfe-outside-"));
+  const foreignTarget = path.join(foreign, "outside.workflow.json");
+  try {
+    // Absolute path elsewhere on disk.
+    const absolute = await proposeRaw(threadId, "proposal-absolute-escape", {
+      workflow_path: foreignTarget,
+    });
+    assert.equal(absolute.status, 403);
+    assert.equal(fs.existsSync(foreignTarget), false);
+    await assertNoProposalPersisted(threadId, "proposal-absolute-escape");
+
+    // Relative `..` traversal out of the root.
+    const traversal = await proposeRaw(threadId, "proposal-traversal-escape", {
+      workflow_path: `../${path.basename(foreign)}/outside.workflow.json`,
+    });
+    assert.equal(traversal.status, 403);
+    assert.equal(fs.existsSync(foreignTarget), false);
+    await assertNoProposalPersisted(threadId, "proposal-traversal-escape");
+
+    // A relative target INSIDE the root is admitted -- the guard bounds the write,
+    // it does not disable relative targets.
+    const inside = await proposeRaw(threadId, "proposal-inside-relative", {
+      workflow_path: "nested/inside.workflow.json",
+    });
+    assert.equal(inside.status, 200);
+    assert.equal(inside.body.status, "waiting_for_approval");
+  } finally {
+    fs.rmSync(foreign, { recursive: true, force: true });
+  }
+});

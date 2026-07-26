@@ -1,5 +1,5 @@
 import type {
-  AssistantNotificationRecord as GeneratedAssistantNotificationRecord,
+  ContextualNotificationRecord as GeneratedContextualNotificationRecord,
   InterventionRecord as GeneratedInterventionRecord,
   NotificationAction as GeneratedNotificationAction,
   NotificationDeliveryState as GeneratedNotificationDeliveryState,
@@ -67,8 +67,8 @@ export type InterventionRecord = Omit<GeneratedInterventionRecord, "target"> & {
   target?: NotificationTarget | null;
 };
 
-export type AssistantNotificationRecord = Omit<
-  GeneratedAssistantNotificationRecord,
+export type ContextualNotificationRecord = Omit<
+  GeneratedContextualNotificationRecord,
   "target"
 > & {
   target?: NotificationTarget | null;

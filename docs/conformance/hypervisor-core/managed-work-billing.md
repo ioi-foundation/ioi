@@ -5,7 +5,7 @@ invariants, fixtures, and generated projections. No current accounting kernel,
 durable billing ledger, public billing, or supplier reconciliation is claimed.
 Canonical inputs:
 [`economic-flywheel-and-pricing-boundaries.md`](../../architecture/foundations/economic-flywheel-and-pricing-boundaries.md),
-[`common-objects-and-envelopes.md`](../../architecture/foundations/common-objects-and-envelopes.md),
+[`objects/economics-and-settlement.md`](../../architecture/foundations/objects/economics-and-settlement.md),
 [`identity-access-and-metering.md`](../../architecture/components/hypervisor/identity-access-and-metering.md),
 and
 [`events-receipts-delivery-bundles.md`](../../architecture/components/daemon-runtime/events-receipts-delivery-bundles.md).

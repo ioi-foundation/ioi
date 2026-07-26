@@ -57,5 +57,6 @@ truth until it is mapped, transformed, authorized, receipted, and projected.
 
 - `docs/architecture/foundations/domain-ontologies-and-data-recipes.md`
 - `docs/architecture/foundations/common-objects-and-envelopes.md`
+- `docs/architecture/foundations/objects/semantic-plane.md`
 - `docs/architecture/components/agentgres/api-object-model.md`
 - `docs/architecture/components/connectors-tools/contracts.md`

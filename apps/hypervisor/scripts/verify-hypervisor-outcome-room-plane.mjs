@@ -68,7 +68,7 @@ const VALID_ROOM = {
 };
 
 async function run() {
-  const realBefore = await fetch(`${REAL_DAEMON}/v1/hypervisor/outcome-rooms`).then((r) => r.json()).catch(() => null);
+  const realBefore = await fetch(`${REAL_DAEMON}/v1/goal-orchestration/outcome-rooms`).then((r) => r.json()).catch(() => null);
   const realCounts = FAMILIES.map((f) => receiptFileCount(REAL_DATA_DIR, f));
 
   const plane = await startIsolatedPlane({ serve: false });
@@ -83,9 +83,9 @@ async function run() {
 
   try {
     // 1. Empty plane + overview honesty.
-    const list0 = await jd("GET", "/v1/hypervisor/outcome-rooms");
+    const list0 = await jd("GET", "/v1/goal-orchestration/outcome-rooms");
     ok("isolated plane serves an EMPTY room registry", list0.status === 200 && Array.isArray(list0.j.outcome_rooms) && list0.j.outcome_rooms.length === 0);
-    const ov = await jd("GET", "/v1/hypervisor/outcome-rooms/overview");
+    const ov = await jd("GET", "/v1/goal-orchestration/outcome-rooms/overview");
     ok("overview projects the canonical vocabularies (modes ×4, statuses ×12, topologies ×2, step-2 lifecycle)", (ov.j.room_modes || []).length === 4 && (ov.j.room_statuses || []).length === 12 && (ov.j.coordination_topologies || []).length === 2 && (ov.j.lifecycle_transitions || []).length === 4);
     ok("overview is honest: hosted-only, step-3 planes named, reciprocal GoalRun stamp named, receipt≠proof", JSON.stringify(ov.j.governance_gaps || []).match(/federated_admission needs the AIIP leg/i) !== null && JSON.stringify(ov.j.governance_gaps || []).match(/receipt is not proof/i) !== null);
 
@@ -107,38 +107,38 @@ async function run() {
       [{ ...VALID_ROOM, notes: { api_key: "SENTINEL_ROOM_SECRET" } }, "outcome_room_plaintext_secret_rejected"],
     ];
     for (const [body, code] of REFUSALS) {
-      const r = await jd("POST", "/v1/hypervisor/outcome-rooms", body);
+      const r = await jd("POST", "/v1/goal-orchestration/outcome-rooms", body);
       ok(`creation refusal typed: ${code}`, r.status === 400 && r.j.error?.code === code, r.j.error?.code);
     }
     ok("every creation refusal persisted NOTHING", receiptFileCount(dataDir, "outcome-room-registry") === 0 && receiptFileCount(dataDir, "outcome-room-registry-receipts") === 0);
 
     // 3. Creation → open hosted room, revision 1, admission receipt on the portable base.
-    const created = await jd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
+    const created = await jd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM);
     const room = created.j.outcome_room;
     const rcpt = created.j.outcome_room_receipt;
     ok("a hosted room admits as `open`, revision 1, with plane-owned empties", created.status === 201 && room?.status === "open" && room?.revision === 1 && JSON.stringify(room?.member_goal_run_refs) === "[]" && JSON.stringify(room?.participant_lease_refs) === "[]");
     ok("OutcomeRoomAdmissionReceipt: receipt:// identity + bound facts incl. the HOST AUTHORITY (mode/topology/owner/objective/host/status)", String(rcpt?.receipt_id).startsWith("receipt://orr_") && rcpt?.receipt_type === "OutcomeRoomAdmissionReceipt" && rcpt?.bound_facts?.room_mode === "permissioned_team" && rcpt?.bound_facts?.coordination_topology === "hosted_admission" && rcpt?.bound_facts?.host_domain_ref === "domain://acme-host" && (rcpt?.attested_boundary_fact_refs || []).includes("domain://acme-host") && rcpt?.bound_facts?.status_at_admission === "open");
     ok("the receipt carries the complete portable base (spot: claim_scope_ref/adjudication_ref/settlement_ref explicit null; capability/scope/artifact/evidence lists [])", rcpt?.claim_scope_ref === null && rcpt?.adjudication_ref === null && rcpt?.settlement_ref === null && JSON.stringify(rcpt?.primitive_capabilities) === "[]" && JSON.stringify(rcpt?.authority_scopes) === "[]");
-    const persisted0 = (await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room;
+    const persisted0 = (await jd("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room;
     ok("admission output_hash recomputes EXACTLY from the persisted room minus hash_scope_excludes", recomputeHash(persisted0, rcpt.hash_scope_excludes || []) === rcpt.output_hash);
     ok("the receipt trail starts with the admission receipt", JSON.stringify(persisted0.admission_and_replay_refs) === JSON.stringify([rcpt.receipt_ref]));
 
     // 4. TRANSITIONS — receipted, optimistically concurrent, byte-true refusals.
-    const stale = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "pause", expected_revision: 9 });
+    const stale = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "pause", expected_revision: 9 });
     ok("stale expected_revision → 409 typed conflict", stale.status === 409 && stale.j.error?.code === "outcome_room_revision_conflict");
-    const noRev = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "pause" });
+    const noRev = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "pause" });
     ok("missing expected_revision → 400 typed (required on every mutation)", noRev.status === 400 && noRev.j.error?.code === "outcome_room_expected_revision_invalid");
-    const unavailable = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "accept", expected_revision: 1 });
+    const unavailable = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "accept", expected_revision: 1 });
     ok("richer lifecycle (accept) → named-gap transition refusal", unavailable.status === 400 && unavailable.j.error?.code === "outcome_room_transition_unavailable");
-    const illegal = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "archive", expected_revision: 1 });
+    const illegal = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "archive", expected_revision: 1 });
     ok("illegal from-state (archive from open) → transition_invalid", illegal.status === 400 && illegal.j.error?.code === "outcome_room_transition_invalid");
-    ok("every refused transition changed NOTHING (byte-for-byte)", canon((await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room) === canon(persisted0));
-    const paused = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "pause", expected_revision: 1 });
+    ok("every refused transition changed NOTHING (byte-for-byte)", canon((await jd("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room) === canon(persisted0));
+    const paused = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "pause", expected_revision: 1 });
     ok("pause admits: paused, revision 2, transition receipt bound {from open → to paused}", paused.status === 200 && paused.j.outcome_room?.status === "paused" && paused.j.outcome_room?.revision === 2 && paused.j.outcome_room_receipt?.receipt_type === "OutcomeRoomTransitionReceipt" && paused.j.outcome_room_receipt?.bound_facts?.from === "open" && paused.j.outcome_room_receipt?.bound_facts?.to === "paused");
-    const resumed = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "resume", expected_revision: 2 });
+    const resumed = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "resume", expected_revision: 2 });
     ok("resume admits: open, revision 3; the receipt trail grew by exactly one ref per transition", resumed.status === 200 && resumed.j.outcome_room?.revision === 3 && (resumed.j.outcome_room?.admission_and_replay_refs || []).length === 3);
     const trHash = resumed.j.outcome_room_receipt;
-    const persisted3 = (await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room;
+    const persisted3 = (await jd("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room;
     ok("transition output_hash recomputes from the persisted room minus the declared TRANSITION excludes (status/revision/membership INCLUDED)", recomputeHash(persisted3, trHash.hash_scope_excludes || []) === trHash.output_hash && (trHash.hash_scope_excludes || []).length === 3);
     ok("DISTINCT states emit DISTINCT hashes: admission ≠ pause ≠ resume (#72 finding 4)", new Set([rcpt.output_hash, paused.j.outcome_room_receipt.output_hash, trHash.output_hash]).size === 3, [rcpt.output_hash, paused.j.outcome_room_receipt.output_hash, trHash.output_hash].map((h) => h.slice(7, 15)).join(" / "));
 
@@ -148,26 +148,26 @@ async function run() {
     // The reconciliation admission requires verifier evidence — one passing verification fixture.
     mkdirSync(join(dataDir, "goal-run-verifications"), { recursive: true });
     writeFileSync(join(dataDir, "goal-run-verifications", "ver_fixture.json"), JSON.stringify({ goal_ref: "goal://gr_fixture", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_fixture", harness_invocation_ref: "harness_invocation://inv_fixture", created_at: "2026-01-01T00:00:00Z" }));
-    const rawId = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "gr_fixture", expected_revision: 3 });
+    const rawId = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "gr_fixture", expected_revision: 3 });
     ok("a RAW route id refuses — membership speaks the canonical goal:// identity (#72 finding 2)", rawId.status === 400 && rawId.j.error?.code === "outcome_room_goal_run_ref_invalid");
-    const ghostRun = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_ghost", expected_revision: 3 });
+    const ghostRun = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_ghost", expected_revision: 3 });
     ok("attaching a GHOST goal-run refuses (the aggregate binds only real bounded runs)", ghostRun.status === 400 && ghostRun.j.error?.code === "outcome_room_goal_run_unbound");
-    const attached = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture", expected_revision: 3 });
+    const attached = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture", expected_revision: 3 });
     ok("attach admits: canonical membership + receipted bound facts incl. the reciprocal-stamp attestation", attached.status === 200 && JSON.stringify(attached.j.outcome_room?.member_goal_run_refs) === JSON.stringify(["goal://gr_fixture"]) && attached.j.outcome_room_receipt?.bound_facts?.goal_run_ref === "goal://gr_fixture" && attached.j.outcome_room_receipt?.bound_facts?.reciprocal_outcome_room_ref_stamped === true && attached.j.goal_run_stamped?.outcome_room_ref === room.outcome_room_id);
-    const stamped = (await jd("GET", "/v1/hypervisor/goal-runs/gr_fixture")).j;
+    const stamped = (await jd("GET", "/v1/goal-orchestration/goal-runs/gr_fixture")).j;
     ok("the reciprocal GoalRun.outcome_room_ref stamp is DURABLE on the goal-run record", JSON.stringify(stamped).includes(room.outcome_room_id));
     // THE REVIEW'S EXACT INTERLEAVING, LIVE (#72 round 2): a lifecycle write (reconcile) AFTER
     // the attach must not erase the reciprocal stamp — every GoalRun writer merges its own
     // fields onto the latest record through the shared CAS seam.
-    const reconciled = await jd("POST", "/v1/hypervisor/goal-runs/gr_fixture/reconcile", {});
-    const afterReconcile = (await jd("GET", "/v1/hypervisor/goal-runs/gr_fixture")).j;
+    const reconciled = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_fixture/reconcile", {});
+    const afterReconcile = (await jd("GET", "/v1/goal-orchestration/goal-runs/gr_fixture")).j;
     const afterStr = JSON.stringify(afterReconcile);
     ok("RECONCILE-vs-ATTACH: the reconcile landed AND the reciprocal room stamp SURVIVED (no split-brain membership)", reconciled.status === 200 && afterStr.includes(room.outcome_room_id) && afterStr.includes("reconciliation_result://"), `reconcile=${reconciled.status}/${reconciled.j.error?.code || 'ok'} stamped=${afterStr.includes(room.outcome_room_id)}`);
-    const dup = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture", expected_revision: 4 });
+    const dup = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture", expected_revision: 4 });
     ok("re-attach refuses: the run already belongs to a room (singular identity)", dup.status === 400 && dup.j.error?.code === "outcome_room_goal_run_already_member");
     // SINGULAR ROOM IDENTITY across rooms: a second room cannot claim the same run.
-    const roomB = (await jd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
-    const crossAttach = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomB.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture", expected_revision: 1 });
+    const roomB = (await jd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM)).j.outcome_room;
+    const crossAttach = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(roomB.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture", expected_revision: 1 });
     ok("a SECOND room cannot attach the same GoalRun — contradictory multi-room state is never created (#72 finding 2)", crossAttach.status === 400 && crossAttach.j.error?.code === "outcome_room_goal_run_already_member");
 
     // 6. ROOM-SCOPED ADMISSION across planes.
@@ -180,15 +180,15 @@ async function run() {
     const crossRoomDelta = await jd("POST", "/v1/hypervisor/outcome-deltas", { goal_ref: "goal://alpha", delta_kind: "update", target_ref: "frontier://lane2", proposed_by_ref: roomedResult.j.work_result.work_result_id });
     ok("a room-less delta against a roomed result → outcome_delta_cross_room (exact equality)", crossRoomDelta.status === 400 && crossRoomDelta.j.error?.code === "outcome_delta_cross_room");
     // Close the room → new admissions refuse (not open).
-    const closed = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "close", expected_revision: 4 });
+    const closed = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "close", expected_revision: 4 });
     ok("close admits (open→closed, revision 5)", closed.status === 200 && closed.j.outcome_room?.status === "closed" && closed.j.outcome_room?.revision === 5);
     const intoClosed = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://alpha", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: room.outcome_room_id });
     ok("results refuse a CLOSED room (work_result_room_not_open)", intoClosed.status === 400 && intoClosed.j.error?.code === "work_result_room_not_open");
-    const attachClosed = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture2", expected_revision: 5 });
+    const attachClosed = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture2", expected_revision: 5 });
     ok("membership refuses a non-open room", attachClosed.status === 400 && attachClosed.j.error?.code === "outcome_room_not_open");
     // Supersession preserves room identity exactly like deltas (#72 finding 2): a roomless
     // result cannot supersede the roomed one; a same-room supersession admits.
-    const roomC = (await jd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+    const roomC = (await jd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM)).j.outcome_room;
     const inC = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://alpha", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: roomC.outcome_room_id });
     const roomlessSuper = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://alpha", result_profile: "research", outcome_class: "superseded", status: "completed", supersedes_work_result_ref: inC.j.work_result.work_result_id });
     ok("a ROOMLESS result cannot supersede a roomed result (work_result_supersedes_cross_room)", roomlessSuper.status === 400 && roomlessSuper.j.error?.code === "work_result_supersedes_cross_room");
@@ -196,31 +196,31 @@ async function run() {
     ok("a SAME-ROOM supersession admits", sameRoomSuper.status === 201 && sameRoomSuper.j.work_result?.supersedes_work_result_ref === inC.j.work_result.work_result_id);
 
     // 7. FAILURE INJECTION — receipts unwritable → typed 5xx, room byte-identical, no tmp.
-    const preFail = canon((await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room);
+    const preFail = canon((await jd("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room);
     chmodSync(join(dataDir, "outcome-room-registry-receipts"), 0o555);
-    const injected = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "archive", expected_revision: 5 });
+    const injected = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}/transition`, { transition: "archive", expected_revision: 5 });
     chmodSync(join(dataDir, "outcome-room-registry-receipts"), 0o755);
-    ok("injected receipt failure → 500 typed; the room is BYTE-FOR-BYTE unchanged; no .tmp-* leak", injected.status === 500 && injected.j.error?.code === "outcome_room_receipt_persist_failed" && canon((await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room) === preFail && tmpLeaks().length === 0);
+    ok("injected receipt failure → 500 typed; the room is BYTE-FOR-BYTE unchanged; no .tmp-* leak", injected.status === 500 && injected.j.error?.code === "outcome_room_receipt_persist_failed" && canon((await jd("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail(room.outcome_room_id)}`)).j.outcome_room) === preFail && tmpLeaks().length === 0);
 
     // 8. CONCURRENCY — a same-revision parallel storm admits EXACTLY ONE transition.
-    const room2 = (await jd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
-    const storm = await Promise.all(Array.from({ length: 24 }, () => jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(room2.outcome_room_id)}/transition`, { transition: "pause", expected_revision: 1 })));
+    const room2 = (await jd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM)).j.outcome_room;
+    const storm = await Promise.all(Array.from({ length: 24 }, () => jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(room2.outcome_room_id)}/transition`, { transition: "pause", expected_revision: 1 })));
     const wins = storm.filter((r) => r.status === 200);
     const conflicts = storm.filter((r) => r.status === 409 && ["outcome_room_revision_conflict", "outcome_room_transition_invalid"].includes(r.j.error?.code)) // a loser may also see paused-state invalidity
       .concat(storm.filter((r) => r.status === 400 && r.j.error?.code === "outcome_room_transition_invalid"));
     ok("CONCURRENCY: exactly ONE same-revision transition wins; every loser refuses typed", wins.length === 1 && wins.length + conflicts.length === 24, `${wins.length} wins / ${conflicts.length} typed refusals`);
-    const finalRoom2 = (await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(room2.outcome_room_id)}`)).j.outcome_room;
+    const finalRoom2 = (await jd("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail(room2.outcome_room_id)}`)).j.outcome_room;
     ok("CONCURRENCY: the room is consistent (paused, revision 2, trail = admission + exactly one transition)", finalRoom2.status === "paused" && finalRoom2.revision === 2 && (finalRoom2.admission_and_replay_refs || []).length === 2);
     // 8b. CLOSE-vs-ADMISSION STRESS (#72 finding 3): the room-scope lock serializes room
     // resolution through result finalization — no result may be admitted AFTER the close.
-    const roomD = (await jd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+    const roomD = (await jd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM)).j.outcome_room;
     const race = await Promise.all([
       ...Array.from({ length: 20 }, (_, i) => jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://race", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: roomD.outcome_room_id, summary_ref: `artifact://race-${i}` })),
-      jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomD.outcome_room_id)}/transition`, { transition: "close", expected_revision: 1 }),
+      jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(roomD.outcome_room_id)}/transition`, { transition: "close", expected_revision: 1 }),
     ]);
     const closeResp = race[race.length - 1];
     const admissions = race.slice(0, 20);
-    const closedRoomD = (await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(roomD.outcome_room_id)}`)).j.outcome_room;
+    const closedRoomD = (await jd("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail(roomD.outcome_room_id)}`)).j.outcome_room;
     ok("RACE: the close landed and every admission either succeeded or refused typed room_not_open", closeResp.status === 200 && closedRoomD.status === "closed" && admissions.every((r) => r.status === 201 || (r.status === 400 && r.j.error?.code === "work_result_room_not_open")), `${admissions.filter((r) => r.status === 201).length} admitted / ${admissions.filter((r) => r.status === 400).length} refused`);
     ok("RACE: NO result was admitted after the close (every admitted created_at <= the room's closed updated_at)", admissions.filter((r) => r.status === 201).every((r) => r.j.work_result.created_at <= closedRoomD.updated_at));
     const postClose = await jd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://race", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: roomD.outcome_room_id });
@@ -233,12 +233,12 @@ async function run() {
     writeFileSync(join(dataDir, "goal-run-verifications", "ver_failclosed.json"), JSON.stringify({ goal_ref: "goal://gr_failclosed", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_failclosed", harness_invocation_ref: "harness_invocation://inv_failclosed", created_at: "2026-01-01T00:00:00Z" }));
     const reconBefore = receiptFileCount(dataDir, "goal-run-reconciliations");
     chmodSync(join(dataDir, "goal-runs"), 0o555);
-    const failClosed = await jd("POST", "/v1/hypervisor/goal-runs/gr_failclosed/reconcile", {});
+    const failClosed = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_failclosed/reconcile", {});
     chmodSync(join(dataDir, "goal-runs"), 0o755);
-    const frozenStr = JSON.stringify((await jd("GET", "/v1/hypervisor/goal-runs/gr_failclosed")).j);
+    const frozenStr = JSON.stringify((await jd("GET", "/v1/goal-orchestration/goal-runs/gr_failclosed")).j);
     ok("FAIL-CLOSED: an injected goal-run write failure → typed 5xx goal_run_persist_failed, NEVER a 200 (#72 r3 finding 1)", failClosed.status === 500 && failClosed.j.error?.code === "goal_run_persist_failed", `${failClosed.status}/${failClosed.j.error?.code || "ok"}`);
     ok("FAIL-CLOSED: zero partial truth — the run stays active with no reconciliation_ref, no reservation residue, and NO reconciliation record persisted", frozenStr.includes('"active"') && !frozenStr.includes("reconciliation_result://") && !frozenStr.includes("lifecycle_op") && receiptFileCount(dataDir, "goal-run-reconciliations") === reconBefore);
-    const retried = await jd("POST", "/v1/hypervisor/goal-runs/gr_failclosed/reconcile", {});
+    const retried = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_failclosed/reconcile", {});
     ok("RECOVERABLE: after the fault clears, the SAME reconcile retries to a clean 200 — nothing partial blocked it", retried.status === 200 && JSON.stringify(retried.j).includes("reconciliation_result://"), `${retried.status}/${retried.j.error?.code || "ok"}`);
 
     // 8d. ONE-SHOT RESERVATION (#72 round 3 finding 2): of two SIMULTANEOUS reconciles exactly
@@ -246,29 +246,29 @@ async function run() {
     // same CAS that would have raced.
     writeFileSync(join(dataDir, "goal-runs", "gr_dup.json"), JSON.stringify({ goal_run_id: "gr_dup", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", status: "active", goal_ref: "goal://gr_dup", created_at: "2026-01-01T00:00:00Z" }));
     writeFileSync(join(dataDir, "goal-run-verifications", "ver_dup.json"), JSON.stringify({ goal_ref: "goal://gr_dup", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_dup", harness_invocation_ref: "harness_invocation://inv_dup", created_at: "2026-01-01T00:00:00Z" }));
-    const twins = await Promise.all([jd("POST", "/v1/hypervisor/goal-runs/gr_dup/reconcile", {}), jd("POST", "/v1/hypervisor/goal-runs/gr_dup/reconcile", {})]);
+    const twins = await Promise.all([jd("POST", "/v1/goal-orchestration/goal-runs/gr_dup/reconcile", {}), jd("POST", "/v1/goal-orchestration/goal-runs/gr_dup/reconcile", {})]);
     const dupWins = twins.filter((r) => r.status === 200);
     const dupLosses = twins.filter((r) => r.status === 409 && r.j.error?.code === "goal_run_not_reconcilable");
     ok("DUPLICATE RECONCILE: exactly ONE 200; the loser refuses 409 goal_run_not_reconcilable (#72 r3 finding 2)", dupWins.length === 1 && dupLosses.length === 1, twins.map((r) => `${r.status}/${r.j.error?.code || "ok"}`).join(" + "));
-    const dupAfter = JSON.stringify((await jd("GET", "/v1/hypervisor/goal-runs/gr_dup")).j);
+    const dupAfter = JSON.stringify((await jd("GET", "/v1/goal-orchestration/goal-runs/gr_dup")).j);
     ok("DUPLICATE RECONCILE: one durable reconciliation, reservation consumed by the winner's commit", dupAfter.includes("reconciliation_result://") && !dupAfter.includes("lifecycle_op"));
 
     // 8e. ATTACH INTENT PENDING CONVERGENCE (#72 round 9 finding 3): a receipt failure AFTER
     // the durable intent + durable stamp refuses typed with the intent retained — no unstamp,
     // no deletion, no split-brain — and new membership is refused until the intent converges.
-    const roomE = (await jd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+    const roomE = (await jd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM)).j.outcome_room;
     writeFileSync(join(dataDir, "goal-runs", "gr_nullshape.json"), JSON.stringify({ goal_run_id: "gr_nullshape", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", status: "active", goal_ref: "goal://gr_nullshape", outcome_room_ref: null, created_at: "2026-01-01T00:00:00Z" }));
     chmodSync(join(dataDir, "outcome-room-registry-receipts"), 0o555);
-    const pendInjected = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomE.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_nullshape", expected_revision: 1 });
+    const pendInjected = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(roomE.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_nullshape", expected_revision: 1 });
     chmodSync(join(dataDir, "outcome-room-registry-receipts"), 0o755);
-    const roomEPending = (await jd("GET", `/v1/hypervisor/outcome-rooms/${roomTail(roomE.outcome_room_id)}`)).j.outcome_room || {};
+    const roomEPending = (await jd("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail(roomE.outcome_room_id)}`)).j.outcome_room || {};
     const stampAfter = JSON.parse(readFileSync(join(dataDir, "goal-runs", "gr_nullshape.json"), "utf8"));
     ok("ATTACH PENDING: receipt failure after the durable intent + stamp → typed pending-convergence; the intent is retained, the stamp STAYS, membership awaits the completer (#72 r9 finding 3)", pendInjected.status === 500 && pendInjected.j.error?.code === "outcome_room_attach_pending_convergence" && !!roomEPending.attach_intent && (roomEPending.member_goal_run_refs || []).length === 0 && stampAfter.outcome_room_ref === roomE.outcome_room_id, `${pendInjected.status}/${pendInjected.j.error?.code || "ok"} intent=${!!roomEPending.attach_intent}`);
-    const inFlight = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomE.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture2", expected_revision: 1 });
+    const inFlight = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(roomE.outcome_room_id)}/attach-goal-run`, { goal_run_ref: "goal://gr_fixture2", expected_revision: 1 });
     ok("ATTACH PENDING: new membership refuses while the intent is in flight (409 typed)", inFlight.status === 409 && inFlight.j.error?.code === "outcome_room_attach_in_flight", `${inFlight.status}/${inFlight.j.error?.code || "ok"}`);
     // #72 round 10 finding 2 — the reviewer's exact regression: a lifecycle transition during a
     // pending attach must refuse, or the completer's replay would silently erase it.
-    const pauseDuring = await jd("POST", `/v1/hypervisor/outcome-rooms/${roomTail(roomE.outcome_room_id)}/transition`, { transition: "pause", expected_revision: 1 });
+    const pauseDuring = await jd("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail(roomE.outcome_room_id)}/transition`, { transition: "pause", expected_revision: 1 });
     ok("ATTACH PENDING: EVERY room mutator refuses while the intent is in flight — pause → 409, so replay can never erase an admitted transition (#72 r10 finding 2)", pauseDuring.status === 409 && pauseDuring.j.error?.code === "outcome_room_attach_in_flight", `${pauseDuring.status}/${pauseDuring.j.error?.code || "ok"}`);
 
     // 8f. RECONCILE OUTPUT INTEGRITY (#72 round 4 finding 1) — REAL candidate output against a
@@ -292,16 +292,16 @@ async function run() {
     mkdirSync(join(dataDir, "goal-run-reconcile-staging"), { recursive: true });
     chmodSync(join(dataDir, "goal-run-reconcile-staging"), 0o555);
     const [rB, cB] = [receiptsCount(), reconCount()];
-    const stagingFail = await jd("POST", "/v1/hypervisor/goal-runs/gr_out/reconcile", {});
+    const stagingFail = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_out/reconcile", {});
     chmodSync(join(dataDir, "goal-run-reconcile-staging"), 0o755);
     ok("OUTPUT LANE staging failure: typed 5xx; NO receipt, NO operation record, target UNTOUCHED", stagingFail.status === 500 && stagingFail.j.error?.code === "goal_run_output_staging_failed" && receiptsCount() === rB && reconCount() === cB && !targetHasOutput(), `${stagingFail.status}/${stagingFail.j.error?.code || "ok"}`);
 
     // Lane 2 — receipt failure AFTER staging: the reviewer's exact probe — the target must NOT
     // carry unreceipted output.
     chmodSync(join(dataDir, "receipts"), 0o555);
-    const rcptFail = await jd("POST", "/v1/hypervisor/goal-runs/gr_out/reconcile", {});
+    const rcptFail = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_out/reconcile", {});
     chmodSync(join(dataDir, "receipts"), 0o755);
-    const rcptFailRun = (await jd("GET", "/v1/hypervisor/goal-runs/gr_out")).j.goal_run || {};
+    const rcptFailRun = (await jd("GET", "/v1/goal-orchestration/goal-runs/gr_out")).j.goal_run || {};
     const rcptFailRef = (rcptFailRun.reconciliation_attempt_refs || []).at(-1);
     const rcptFailRec = rcptFailRef ? JSON.parse(readFileSync(join(dataDir, "goal-run-reconciliations", `${String(rcptFailRef).replace("reconciliation_result://", "").replace(/[^A-Za-z0-9_-]/g, "_")}.json`), "utf8")) : null;
     ok("OUTPUT LANE receipt failure: typed 5xx; NO unreceipted output; the DECLARED attempt is retained with a resolving record and a backlink (#72 r8 finding 2 — nothing deleted, nothing orphaned)", rcptFail.status === 500 && rcptFail.j.error?.code === "goal_run_reconcile_receipt_persist_failed" && !targetHasOutput() && reconCount() === cB + 1 && !!rcptFailRef && rcptFailRec?.status === "aborted_before_output_admission" && receiptsCount() === rB, `${rcptFail.status}/${rcptFail.j.error?.code || "ok"} rec=${rcptFailRec?.status}`);
@@ -309,26 +309,26 @@ async function run() {
     // Lane 3 — operation-record failure: still pre-effect; the checked receipt rollback keeps
     // "nothing changed" literally true.
     chmodSync(join(dataDir, "goal-run-reconciliations"), 0o555);
-    const recFail = await jd("POST", "/v1/hypervisor/goal-runs/gr_out/reconcile", {});
+    const recFail = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_out/reconcile", {});
     chmodSync(join(dataDir, "goal-run-reconciliations"), 0o755);
     ok("OUTPUT LANE record failure: typed 5xx; receipt rolled back (count unchanged), target untouched", recFail.status === 500 && recFail.j.error?.code === "goal_run_reconciliation_persist_failed" && receiptsCount() === rB && !targetHasOutput(), `${recFail.status}/${recFail.j.error?.code || "ok"}`);
 
     // Lane 4 — COMMIT failure (post-effect window): evidence is PRESERVED, never deleted.
     chmodSync(targetDir, 0o555);
-    const commitFail = await jd("POST", "/v1/hypervisor/goal-runs/gr_out/reconcile", {});
+    const commitFail = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_out/reconcile", {});
     chmodSync(targetDir, 0o755);
     const attemptRecord = (ref) => JSON.parse(readFileSync(join(dataDir, "goal-run-reconciliations", `${String(ref).replace("reconciliation_result://", "").replace(/[^A-Za-z0-9_-]/g, "_")}.json`), "utf8"));
-    const failedAttemptRef = ((await jd("GET", "/v1/hypervisor/goal-runs/gr_out")).j.goal_run?.reconciliation_attempt_refs || []).at(-1);
+    const failedAttemptRef = ((await jd("GET", "/v1/goal-orchestration/goal-runs/gr_out")).j.goal_run?.reconciliation_attempt_refs || []).at(-1);
     const preservedRec = attemptRecord(failedAttemptRef);
     ok("OUTPUT LANE commit failure: typed 5xx; the PRE-OUTPUT receipt survives (+1) and the ATTEMPT-SCOPED operation record is preserved with its journal (failed_partial_commit), NOT deleted", commitFail.status === 500 && commitFail.j.error?.code === "goal_run_output_commit_failed" && receiptsCount() === rB + 1 && !!failedAttemptRef && preservedRec.status === "failed_partial_commit" && preservedRec.commit_journal?.some((e) => e.applied === false) && preservedRec.recovery?.code === "goal_run_output_commit_failed", `${commitFail.status}/${commitFail.j.error?.code || "ok"} recStatus=${preservedRec.status}`);
     ok("OUTPUT LANE commit failure: the STAGED attempt is preserved as immutable evidence (staging survives every post-receipt failure)", readdirSync(join(dataDir, "goal-run-reconcile-staging")).some((n) => n.startsWith("gr_out_")), readdirSync(join(dataDir, "goal-run-reconcile-staging")).join(","));
-    const runAfterCommitFail = (await jd("GET", "/v1/hypervisor/goal-runs/gr_out")).j.goal_run || {};
+    const runAfterCommitFail = (await jd("GET", "/v1/goal-orchestration/goal-runs/gr_out")).j.goal_run || {};
     ok("OUTPUT LANE commit failure: the reservation was released for the idempotent retry (active, no lifecycle_op)", runAfterCommitFail.status === "active" && !runAfterCommitFail.lifecycle_op);
 
     // Lane 5 — clean retry mints a NEW APPEND-ONLY attempt (#72 round 5 finding 2): the failed
     // attempt's record and receipt survive untouched; the run retains BOTH attempt refs.
-    const refsBeforeRetry = ((await jd("GET", "/v1/hypervisor/goal-runs/gr_out")).j.goal_run?.reconciliation_attempt_refs || []).length;
-    const outOk = await jd("POST", "/v1/hypervisor/goal-runs/gr_out/reconcile", {});
+    const refsBeforeRetry = ((await jd("GET", "/v1/goal-orchestration/goal-runs/gr_out")).j.goal_run?.reconciliation_attempt_refs || []).length;
+    const outOk = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_out/reconcile", {});
     const attemptsAfter = outOk.j.goal_run?.reconciliation_attempt_refs || [];
     const finalRec = attemptRecord(attemptsAfter.at(-1));
     const failedRecStill = attemptRecord(failedAttemptRef);
@@ -340,30 +340,30 @@ async function run() {
     // record failure: never a 200 with dangling refs; recovery is token-addressed + receipted.
     writeFileSync(join(dataDir, "goal-runs", "gr_start.json"), JSON.stringify({ goal_run_id: "gr_start", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "prove checked side-records", goal_ref: "goal://gr_start", status: "draft", target_workspace_root: targetDir, context_cells: [{ role: "implementer", role_key: "a", harness_ref: "harness-profile:hp_ghost", harness: "ghost", context_cell_id: "cell://gr_start_a" }], created_at: "2026-01-01T00:00:00Z" }));
     const startWithGrant = async () => {
-      const ch = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/start", {});
+      const ch = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_start/start", {});
       if (ch.status !== 403 || !ch.j?.approval) return { ch, started: ch };
       const grant = mintApprovalGrant({ policyHash: ch.j.approval.policy_hash, requestHash: ch.j.approval.request_hash });
-      return { ch, started: await jd("POST", "/v1/hypervisor/goal-runs/gr_start/start", { wallet_approval_grant: grant }) };
+      return { ch, started: await jd("POST", "/v1/goal-orchestration/goal-runs/gr_start/start", { wallet_approval_grant: grant }) };
     };
     chmodSync(join(dataDir, "goal-run-verifications"), 0o555);
     const { ch, started } = await startWithGrant();
     chmodSync(join(dataDir, "goal-run-verifications"), 0o755);
     ok("START LANE: real 403 challenge + signed-grant crossing, then injected verification-record failure → typed 5xx, NEVER a 200 over nonexistent records", ch.status === 403 && started.status === 500 && started.j.error?.code === "goal_run_side_record_persist_failed", `challenge=${ch.status} start=${started.status}/${started.j.error?.code || "ok"}`);
-    const reserved = (await jd("GET", "/v1/hypervisor/goal-runs/gr_start")).j.goal_run || {};
+    const reserved = (await jd("GET", "/v1/goal-orchestration/goal-runs/gr_start")).j.goal_run || {};
     ok("START LANE: durable truth = `starting` reservation marked recovery_required with executed-invocation evidence; ZERO refs bound, ZERO record files", reserved.status === "starting" && reserved.lifecycle_op?.phase === "recovery_required" && !("invocation_refs" in reserved) && !("verification_refs" in reserved) && (reserved.lifecycle_op?.executed_invocations || []).length === 1 && !readdirSync(join(dataDir, "goal-run-verifications")).some((n) => n.includes("gr_start")) && !readdirSync(join(dataDir, "goal-run-invocations")).some((n) => n.includes("gr_start")));
-    const dupStart = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/start", {});
+    const dupStart = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_start/start", {});
     ok("START LANE: a duplicate start refuses while the reservation is held — no second wallet crossing", dupStart.status === 409 && dupStart.j.error?.code === "goal_run_already_started");
-    const noToken = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/lifecycle-recovery", { resolution: "release" });
-    const wrongToken = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/lifecycle-recovery", { op_token: "lop_bogus", resolution: "release" });
+    const noToken = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_start/lifecycle-recovery", { resolution: "release" });
+    const wrongToken = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_start/lifecycle-recovery", { op_token: "lop_bogus", resolution: "release" });
     ok("RECOVERY: token-addressed — missing token 400, foreign token 409 (never a blind expiry)", noToken.status === 400 && noToken.j.error?.code === "goal_run_recovery_token_required" && wrongToken.status === 409 && wrongToken.j.error?.code === "goal_run_operation_conflict");
     // AUTHORITY, not just address (#72 round 5 finding 4): the readable token alone must NOT
     // release a reservation after a real wallet crossing.
-    const tokenOnly = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/lifecycle-recovery", { op_token: reserved.lifecycle_op?.token, resolution: "release" });
+    const tokenOnly = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_start/lifecycle-recovery", { op_token: reserved.lifecycle_op?.token, resolution: "release" });
     ok("RECOVERY: the token ALONE is refused — 403 challenge binding {run, token, resolution, failure_hash} (the token is an address, not authority)", tokenOnly.status === 403 && tokenOnly.j?.reason === "recovery_authority_required" && !!tokenOnly.j?.approval?.policy_hash && !!tokenOnly.j?.approval?.request_hash && String(tokenOnly.j?.failure_hash || "").startsWith("sha256:"), `${tokenOnly.status}/${tokenOnly.j?.reason || "ok"}`);
-    const stillReserved = (await jd("GET", "/v1/hypervisor/goal-runs/gr_start")).j.goal_run || {};
+    const stillReserved = (await jd("GET", "/v1/goal-orchestration/goal-runs/gr_start")).j.goal_run || {};
     ok("RECOVERY: the refused release changed NOTHING (reservation intact)", stillReserved.status === "starting" && stillReserved.lifecycle_op?.token === reserved.lifecycle_op?.token);
     const recGrant = mintApprovalGrant({ policyHash: tokenOnly.j.approval.policy_hash, requestHash: tokenOnly.j.approval.request_hash });
-    const recovered = await jd("POST", "/v1/hypervisor/goal-runs/gr_start/lifecycle-recovery", { op_token: reserved.lifecycle_op?.token, resolution: "release", wallet_approval_grant: recGrant });
+    const recovered = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_start/lifecycle-recovery", { op_token: reserved.lifecycle_op?.token, resolution: "release", wallet_approval_grant: recGrant });
     ok("RECOVERY: a GRANTED release succeeds — receipted with the acting authority, grant ref, and every bound hash (policy/request/failure)", recovered.status === 200 && recovered.j.recovery_receipt?.receipt_type === "GoalRunLifecycleRecoveryReceipt" && recovered.j.recovery_receipt?.restored_status === "draft" && recovered.j.recovery_receipt?.reservation?.failure?.family === "goal-run-verifications" && String(recovered.j.recovery_receipt?.authority_grant_ref || "").startsWith("wallet.network://grant/") && recovered.j.recovery_receipt?.failure_hash === tokenOnly.j.failure_hash && recovered.j.recovery_receipt?.request_hash === tokenOnly.j.approval.request_hash && !!recovered.j.recovery_receipt?.acting_authority_id && recovered.j.goal_run?.status === "draft" && !recovered.j.goal_run?.lifecycle_op, `${recovered.status}/${recovered.j.error?.code || "ok"}`);
     const retry = await startWithGrant();
     const retriedRun = retry.started.j?.goal_run || {};
@@ -394,8 +394,8 @@ async function run() {
     ];
     for (const [grid, files, target, code, escapePath, label] of CONTAINMENT) {
       plantEscape(grid, files, target);
-      const r = await jd("POST", `/v1/hypervisor/goal-runs/${grid}/reconcile`, {});
-      const released = (await jd("GET", `/v1/hypervisor/goal-runs/${grid}`)).j.goal_run || {};
+      const r = await jd("POST", `/v1/goal-orchestration/goal-runs/${grid}/reconcile`, {});
+      const released = (await jd("GET", `/v1/goal-orchestration/goal-runs/${grid}`)).j.goal_run || {};
       ok(`CONTAINMENT (${label}): typed ${code}; ZERO external mutation; run released for correction`, r.status === 500 && r.j.error?.code === code && (!escapePath || !existsSync(escapePath)) && readdirSync(target).filter((n) => n !== "sub").length === 0 && readdirSync(outsideDir).length === 0 && released.status === "active" && !released.lifecycle_op, `${r.status}/${r.j.error?.code || "ok"}`);
     }
 
@@ -413,10 +413,10 @@ async function run() {
       writeFileSync(join(dataDir, "goal-run-verifications", `ver_${grid}.json`), JSON.stringify({ goal_ref: `goal://${grid}`, verdict: "pass", verification_ref: `agentgres://goal-run-verification/ver_${grid}`, harness_invocation_ref: `harness_invocation://hi_${grid}_a`, created_at: "2026-01-01T00:00:00Z" }));
     };
     plantBI("gr_fifo", ["pipe"]);
-    const fifoR = await jd("POST", "/v1/hypervisor/goal-runs/gr_fifo/reconcile", {});
+    const fifoR = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_fifo/reconcile", {});
     ok("BOUNDED INTAKE: a candidate FIFO refuses typed (not_regular) without blocking the daemon; target untouched", fifoR.status === 500 && fifoR.j.error?.code === "goal_run_output_file_not_regular" && readdirSync(biTarget).length === 0, `${fifoR.status}/${fifoR.j.error?.code || "ok"}`);
     plantBI("gr_many", Array.from({ length: 300 }, (_, i) => `f${i}.txt`));
-    const manyR = await jd("POST", "/v1/hypervisor/goal-runs/gr_many/reconcile", {});
+    const manyR = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_many/reconcile", {});
     ok("BOUNDED INTAKE: >256 declared files refuse before any read (too_many_files)", manyR.status === 500 && manyR.j.error?.code === "goal_run_output_too_many_files", `${manyR.status}/${manyR.j.error?.code || "ok"}`);
 
     // 8j. DURABLE STAGING MANIFEST (#72 round 7 finding 2) — the pre-output receipt binds each
@@ -432,7 +432,7 @@ async function run() {
     writeFileSync(join(dataDir, "goal-runs", "gr_ds.json"), JSON.stringify({ goal_run_id: "gr_ds", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "manifest", status: "active", goal_ref: "goal://gr_ds", target_workspace_root: dsTarget, created_at: "2026-01-01T00:00:00Z" }));
     writeFileSync(join(dataDir, "goal-run-invocations", "gr_ds_a.json"), JSON.stringify({ goal_ref: "goal://gr_ds", goal_run_id: "gr_ds", harness_invocation_id: "harness_invocation://hi_gr_ds_a", role_key: "a", status: "completed", candidate_workspace_root: dsCand, implementation_result: { implementation_result_id: "implementation_result://ir_gr_ds_a", status: "completed", changed_files: ["a.txt", "sub/b.txt"] } }));
     writeFileSync(join(dataDir, "goal-run-verifications", "ver_ds.json"), JSON.stringify({ goal_ref: "goal://gr_ds", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_ds", harness_invocation_ref: "harness_invocation://hi_gr_ds_a", created_at: "2026-01-01T00:00:00Z" }));
-    const dsR = await jd("POST", "/v1/hypervisor/goal-runs/gr_ds/reconcile", {});
+    const dsR = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_ds/reconcile", {});
     const dsAttempt = dsR.j.goal_run?.reconciliation_attempt_refs?.at(-1) || dsR.j.goal_run?.reconciliation_ref;
     const dsRecId = String(dsAttempt).replace("reconciliation_result://", "");
     const dsRec = JSON.parse(readFileSync(join(dataDir, "goal-run-reconciliations", `${dsRecId}.json`), "utf8"));
@@ -451,19 +451,19 @@ async function run() {
     const svSha = "sha256:" + createHash("sha256").update("STAGED_TRUTH").digest("hex");
     writeFileSync(join(dataDir, "goal-run-reconciliations", "rc_gr_sv_lop_sv1.json"), JSON.stringify({ reconciliation_result_id: "reconciliation_result://rc_gr_sv_lop_sv1", goal_run_id: "gr_sv", goal_ref: "goal://gr_sv", status: "failed_partial_commit", attempt_token: "lop_sv1", staging_root: svStage, staged_output_manifest: [{ file: "x.txt", sha256: svSha, bytes: 12 }], commit_journal: [], final_receipt_refs: [] }));
     writeFileSync(join(dataDir, "goal-runs", "gr_sv.json"), JSON.stringify({ goal_run_id: "gr_sv", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "staged binding", status: "reconciling", goal_ref: "goal://gr_sv", lifecycle_op: { op: "reconcile", token: "lop_sv1", reserved_at: "2026-01-01T00:00:00Z", from_status: "active", attempt_ref: "reconciliation_result://rc_gr_sv_lop_sv1" }, created_at: "2026-01-01T00:00:00Z" }));
-    const svCh1 = await jd("POST", "/v1/hypervisor/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release" });
+    const svCh1 = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release" });
     ok("STAGED BINDING: the challenge validates the staged bytes live (validated=true) and binds them into failure_hash", svCh1.status === 403 && svCh1.j.staging_validation?.validated === true && svCh1.j.staging_validation?.checked === 1, `${svCh1.status} validated=${svCh1.j.staging_validation?.validated}`);
     writeFileSync(join(svStage, "x.txt"), "TAMPERED!!!!");
     const svG1 = mintApprovalGrant({ policyHash: svCh1.j.approval.policy_hash, requestHash: svCh1.j.approval.request_hash });
-    const svStale = await jd("POST", "/v1/hypervisor/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release", wallet_approval_grant: svG1 });
+    const svStale = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release", wallet_approval_grant: svG1 });
     ok("STAGED BINDING: a staged file mutated AFTER the challenge defeats the stale grant — refused at the gate with a fresh challenge (the recomputed hash no longer matches), nothing released; the lock recheck guards the residual gate→lock window", svStale.status === 403 && svStale.j?.reason === "recovery_authority_required" && svStale.j.staging_validation?.validated === false && JSON.parse(readFileSync(join(dataDir, "goal-runs", "gr_sv.json"), "utf8")).status === "reconciling", `${svStale.status}/${svStale.j?.reason || "ok"}`);
-    const svCh2 = await jd("POST", "/v1/hypervisor/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release" });
+    const svCh2 = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release" });
     ok("STAGED BINDING: the re-challenge carries the damaged-state facts (mismatched file named, different failure_hash)", svCh2.status === 403 && svCh2.j.staging_validation?.validated === false && svCh2.j.staging_validation?.mismatches?.[0]?.file === "x.txt" && svCh2.j.failure_hash !== svCh1.j.failure_hash, `mismatches=${(svCh2.j.staging_validation?.mismatches || []).length}`);
     const svG2 = mintApprovalGrant({ policyHash: svCh2.j.approval.policy_hash, requestHash: svCh2.j.approval.request_hash });
-    const svRel = await jd("POST", "/v1/hypervisor/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release", wallet_approval_grant: svG2 });
+    const svRel = await jd("POST", "/v1/goal-orchestration/goal-runs/gr_sv/lifecycle-recovery", { op_token: "lop_sv1", resolution: "release", wallet_approval_grant: svG2 });
     ok("STAGED BINDING: a grant over the DAMAGED facts releases; the receipt binds the staging validation verdict and mismatch facts", svRel.status === 200 && svRel.j.recovery_receipt?.staging_validation?.validated === false && svRel.j.recovery_receipt?.staging_validation?.mismatches?.[0]?.file === "x.txt" && svRel.j.recovery_receipt?.failure_hash === svCh2.j.failure_hash, `${svRel.status}`);
 
-    ok("no sentinel and no .tmp-* residue anywhere", !JSON.stringify((await jd("GET", "/v1/hypervisor/outcome-rooms")).j).includes("SENTINEL_ROOM_SECRET") && tmpLeaks().length === 0);
+    ok("no sentinel and no .tmp-* residue anywhere", !JSON.stringify((await jd("GET", "/v1/goal-orchestration/outcome-rooms")).j).includes("SENTINEL_ROOM_SECRET") && tmpLeaks().length === 0);
   } finally {
     await plane.stop();
   }
@@ -491,7 +491,7 @@ async function run() {
       writeFileSync(join(crash.dataDir, "goal-run-verifications", "ver_crash.json"), JSON.stringify({ goal_ref: "goal://gr_crash", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_crash", harness_invocation_ref: "harness_invocation://hi_gr_crash_a", created_at: "2026-01-01T00:00:00Z" }));
       const recDir = join(crash.dataDir, "goal-run-reconciliations");
       const readAttempt = () => { try { const f = readdirSync(recDir).find((n) => n.startsWith("rc_gr_crash_")); return f ? JSON.parse(readFileSync(join(recDir, f), "utf8")) : null; } catch { return null; } };
-      const inflight = fetch(`${crash.daemonUrl}/v1/hypervisor/goal-runs/gr_crash/reconcile`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
+      const inflight = fetch(`${crash.daemonUrl}/v1/goal-orchestration/goal-runs/gr_crash/reconcile`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
       let sawCommit = false;
       for (let i = 0; i < 4000; i++) {
         const rec = readAttempt();
@@ -518,15 +518,15 @@ async function run() {
       // RESTART on the SAME durable state → governed recovery → complete retry.
       const revived = await startIsolatedPlane({ serve: false, dataDir: crash.dataDir });
       const rjd = async (method, p2, body) => { const r = await fetch(`${revived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      const stuck = (await rjd("GET", "/v1/hypervisor/goal-runs/gr_crash")).j.goal_run || {};
+      const stuck = (await rjd("GET", "/v1/goal-orchestration/goal-runs/gr_crash")).j.goal_run || {};
       ok("CRASH RESTART: the reservation survived durably (reconciling + token) — no blind expiry, no silent unlock", stuck.status === "reconciling" && !!stuck.lifecycle_op?.token, stuck.status);
       const crashedRef = stuck.lifecycle_op?.attempt_ref;
-      const chall = await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/lifecycle-recovery", { op_token: stuck.lifecycle_op?.token, resolution: "release" });
+      const chall = await rjd("POST", "/v1/goal-orchestration/goal-runs/gr_crash/lifecycle-recovery", { op_token: stuck.lifecycle_op?.token, resolution: "release" });
       ok("CRASH RESTART: the recovery challenge VALIDATES the surviving staged bytes against the sealed manifest (all 32 intact)", chall.status === 403 && chall.j.staging_validation?.validated === true && chall.j.staging_validation?.checked === FILES.length, `validated=${chall.j.staging_validation?.validated} checked=${chall.j.staging_validation?.checked}`);
       const g = chall.status === 403 ? mintApprovalGrant({ policyHash: chall.j.approval.policy_hash, requestHash: chall.j.approval.request_hash }) : null;
-      const rel = g ? await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/lifecycle-recovery", { op_token: stuck.lifecycle_op?.token, resolution: "release", wallet_approval_grant: g }) : chall;
+      const rel = g ? await rjd("POST", "/v1/goal-orchestration/goal-runs/gr_crash/lifecycle-recovery", { op_token: stuck.lifecycle_op?.token, resolution: "release", wallet_approval_grant: g }) : chall;
       ok("CRASH RECOVERY: the reservation NAMES its attempt; the challenge hash covers reservation + attempt record; the receipt binds the crashed attempt ref AND that hash (#72 r6 finding 2)", String(crashedRef || "").startsWith("reconciliation_result://rc_gr_crash_") && rel.status === 200 && rel.j.recovery_receipt?.attempt_ref === crashedRef && rel.j.recovery_receipt?.failure_hash === chall.j.failure_hash && (rel.j.goal_run?.reconciliation_attempt_refs || []).includes(crashedRef), `${rel.status} attempt=${String(crashedRef).slice(-20)}`);
-      const retry = await rjd("POST", "/v1/hypervisor/goal-runs/gr_crash/reconcile", {});
+      const retry = await rjd("POST", "/v1/goal-orchestration/goal-runs/gr_crash/reconcile", {});
       const allComplete = FILES.every((f) => existsSync(join(cTarget, f)) && readFileSync(join(cTarget, f), "utf8") === CONTENT[f]);
       const attemptRecords = readdirSync(recDir).filter((n) => n.startsWith("rc_gr_crash_"));
       const retryAttempts = retry.j.goal_run?.reconciliation_attempt_refs || [];
@@ -552,21 +552,21 @@ async function run() {
       const kjd = async (method, p2, body) => { const r = await fetch(`${kp.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
       mkdirSync(join(kp.dataDir, "goal-runs"), { recursive: true });
       writeFileSync(join(kp.dataDir, "goal-runs", "gr_kp.json"), JSON.stringify({ goal_run_id: "gr_kp", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "kill point", status: "reconciling", goal_ref: "goal://gr_kp", lifecycle_op: { op: "reconcile", token: "lop_kp1", reserved_at: "2026-01-01T00:00:00Z", from_status: "active", attempt_ref: "reconciliation_result://rc_gr_kp_lop_kp1" }, created_at: "2026-01-01T00:00:00Z" }));
-      const kch = await kjd("POST", "/v1/hypervisor/goal-runs/gr_kp/lifecycle-recovery", { op_token: "lop_kp1", resolution: "release" });
+      const kch = await kjd("POST", "/v1/goal-orchestration/goal-runs/gr_kp/lifecycle-recovery", { op_token: "lop_kp1", resolution: "release" });
       const kg = mintApprovalGrant({ policyHash: kch.j.approval.policy_hash, requestHash: kch.j.approval.request_hash });
-      const killed = await fetch(`${kp.daemonUrl}/v1/hypervisor/goal-runs/gr_kp/lifecycle-recovery`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ op_token: "lop_kp1", resolution: "release", wallet_approval_grant: kg }) }).then((r) => r.status).catch(() => "died");
+      const killed = await fetch(`${kp.daemonUrl}/v1/goal-orchestration/goal-runs/gr_kp/lifecycle-recovery`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ op_token: "lop_kp1", resolution: "release", wallet_approval_grant: kg }) }).then((r) => r.status).catch(() => "died");
       const durable = JSON.parse(readFileSync(join(kp.dataDir, "goal-runs", "gr_kp.json"), "utf8"));
       const receiptsAtKill = (() => { try { return readdirSync(join(kp.dataDir, "receipts")).filter((n) => n.includes("lifecycle-recovery")); } catch { return []; } })();
       ok("KILL POINT: the daemon died after the durable intent and before the receipt — reservation intact, receipt sealed INSIDE the intent, no receipt file yet", killed === "died" && durable.status === "reconciling" && !!durable.lifecycle_op && !!durable.recovery_intent?.receipt && receiptsAtKill.length === 0, `resp=${killed} intent=${!!durable.recovery_intent} receipts=${receiptsAtKill.length}`);
       const kpRevived = await startIsolatedPlane({ serve: false, dataDir: kp.dataDir });
       const rkjd = async (method, p2, body) => { const r = await fetch(`${kpRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      const after = (await rkjd("GET", "/v1/hypervisor/goal-runs/gr_kp")).j.goal_run || {};
+      const after = (await rkjd("GET", "/v1/goal-orchestration/goal-runs/gr_kp")).j.goal_run || {};
       const receiptFiles = readdirSync(join(kp.dataDir, "receipts")).filter((n) => n.includes("lifecycle-recovery"));
       ok("KILL POINT: the boot completer finished FORWARD deterministically — released to from_status, crashed attempt ref RETAINED, sealed receipt persisted, reservation + intent consumed", after.status === "active" && !after.lifecycle_op && !after.recovery_intent && (after.reconciliation_attempt_refs || []).includes("reconciliation_result://rc_gr_kp_lop_kp1") && receiptFiles.length === 1, `${after.status} receipts=${receiptFiles.length}`);
       // #72 round 7 finding 3: this reservation named an attempt that NEVER had a record (the
       // crash preceded any output admission). The retained ref must RESOLVE — recovery created
       // an aborted_before_output_admission record for it.
-      const abortedAttempt = (await rkjd("GET", "/v1/hypervisor/goal-runs/gr_kp")).j.goal_run?.reconciliation_attempt_refs?.[0];
+      const abortedAttempt = (await rkjd("GET", "/v1/goal-orchestration/goal-runs/gr_kp")).j.goal_run?.reconciliation_attempt_refs?.[0];
       const abortedFile = existsSync(join(kp.dataDir, "goal-run-reconciliations", "rc_gr_kp_lop_kp1.json")) ? JSON.parse(readFileSync(join(kp.dataDir, "goal-run-reconciliations", "rc_gr_kp_lop_kp1.json"), "utf8")) : null;
       const recRcpt = JSON.parse(readFileSync(join(kp.dataDir, "receipts", receiptFiles[0]), "utf8"));
       ok("KILL POINT: the dangling attempt ref RESOLVES — recovery created an aborted_before_output_admission record; the receipt records attempt_resolution", abortedAttempt === "reconciliation_result://rc_gr_kp_lop_kp1" && abortedFile?.status === "aborted_before_output_admission" && recRcpt.attempt_resolution === "aborted_before_output_admission", `resolved=${!!abortedFile} resolution=${recRcpt.attempt_resolution}`);
@@ -592,44 +592,44 @@ async function run() {
       // not cross into any effect — zero receipts, zero records, zero target writes.
       writeFileSync(join(vf.dataDir, "goal-runs", "gr_res.json"), JSON.stringify({ goal_run_id: "gr_res", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "reservation fault", status: "active", goal_ref: "goal://gr_res", created_at: "2026-01-01T00:00:00Z" }));
       writeFileSync(join(vf.dataDir, "goal-run-verifications", "ver_res.json"), JSON.stringify({ goal_ref: "goal://gr_res", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_res", harness_invocation_ref: "harness_invocation://inv_res", created_at: "2026-01-01T00:00:00Z" }));
-      const resFault = await vjd("POST", "/v1/hypervisor/goal-runs/gr_res/reconcile", {});
+      const resFault = await vjd("POST", "/v1/goal-orchestration/goal-runs/gr_res/reconcile", {});
       ok("RESERVATION BOUNDARY: an unconfirmed reconcile reservation refuses typed with ZERO effects (no receipt, no record, no target write) (#72 r9 finding 1)", resFault.status === 500 && resFault.j.error?.code === "goal_run_reservation_durability_unconfirmed" && receiptFileCount(vf.dataDir, "receipts") === 0 && receiptFileCount(vf.dataDir, "goal-run-reconciliations") === 0, `${resFault.status}/${resFault.j.error?.code || "ok"}`);
       // (b) START BOUNDARY: the wallet crossing is never even challenged over an unconfirmed
       // reservation — no 403, no invocation, no verification record.
       writeFileSync(join(vf.dataDir, "goal-runs", "gr_st.json"), JSON.stringify({ goal_run_id: "gr_st", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "start fault", status: "draft", goal_ref: "goal://gr_st", context_cells: [{ role: "implementer", role_key: "a", harness_ref: "harness-profile:hp_ghost", harness: "ghost", context_cell_id: "cell://gr_st_a" }], created_at: "2026-01-01T00:00:00Z" }));
-      const stFault = await vjd("POST", "/v1/hypervisor/goal-runs/gr_st/start", {});
+      const stFault = await vjd("POST", "/v1/goal-orchestration/goal-runs/gr_st/start", {});
       ok("RESERVATION BOUNDARY: start refuses BEFORE the wallet challenge over an unconfirmed reservation — zero wallet/harness effects", stFault.status === 500 && stFault.j.error?.code === "goal_run_reservation_durability_unconfirmed" && receiptFileCount(vf.dataDir, "goal-run-invocations") === 0 && receiptFileCount(vf.dataDir, "goal-run-verifications") === 1, `${stFault.status}/${stFault.j.error?.code || "ok"}`);
       // (c) ATTACH STAMP BOUNDARY (#72 r9 finding 3): an unconfirmed stamp refuses typed with
       // the durable attach intent retained.
-      const vRoom = (await vjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+      const vRoom = (await vjd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM)).j.outcome_room;
       writeFileSync(join(vf.dataDir, "goal-runs", "gr_att.json"), JSON.stringify({ goal_run_id: "gr_att", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "attach fault", status: "active", goal_ref: "goal://gr_att", created_at: "2026-01-01T00:00:00Z" }));
-      const vAttach = await vjd("POST", `/v1/hypervisor/outcome-rooms/${vRoom.outcome_room_id.replace("outcome-room://", "")}/attach-goal-run`, { goal_run_ref: "goal://gr_att", expected_revision: 1 });
-      const vRoomDisk = (await vjd("GET", `/v1/hypervisor/outcome-rooms/${vRoom.outcome_room_id.replace("outcome-room://", "")}`)).j.outcome_room || {};
+      const vAttach = await vjd("POST", `/v1/goal-orchestration/outcome-rooms/${vRoom.outcome_room_id.replace("outcome-room://", "")}/attach-goal-run`, { goal_run_ref: "goal://gr_att", expected_revision: 1 });
+      const vRoomDisk = (await vjd("GET", `/v1/goal-orchestration/outcome-rooms/${vRoom.outcome_room_id.replace("outcome-room://", "")}`)).j.outcome_room || {};
       ok("ATTACH STAMP BOUNDARY: an unconfirmed reciprocal stamp refuses typed pending convergence; the DURABLE intent is retained", vAttach.status === 500 && vAttach.j.error?.code === "outcome_room_attach_pending_convergence" && !!vRoomDisk.attach_intent, `${vAttach.status}/${vAttach.j.error?.code || "ok"} intent=${!!vRoomDisk.attach_intent}`);
       // (d) RECOVERY INTENT BOUNDARY (#72 r9 finding 2): an unconfirmed intent refuses typed
       // with nothing else written.
       writeFileSync(join(vf.dataDir, "goal-runs", "gr_int.json"), JSON.stringify({ goal_run_id: "gr_int", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "intent fault", status: "reconciling", goal_ref: "goal://gr_int", lifecycle_op: { op: "reconcile", token: "lop_int1", reserved_at: "2026-01-01T00:00:00Z", from_status: "active" }, created_at: "2026-01-01T00:00:00Z" }));
-      const iCh = await vjd("POST", "/v1/hypervisor/goal-runs/gr_int/lifecycle-recovery", { op_token: "lop_int1", resolution: "release" });
+      const iCh = await vjd("POST", "/v1/goal-orchestration/goal-runs/gr_int/lifecycle-recovery", { op_token: "lop_int1", resolution: "release" });
       const iG = mintApprovalGrant({ policyHash: iCh.j.approval.policy_hash, requestHash: iCh.j.approval.request_hash });
-      const iRel = await vjd("POST", "/v1/hypervisor/goal-runs/gr_int/lifecycle-recovery", { op_token: "lop_int1", resolution: "release", wallet_approval_grant: iG });
+      const iRel = await vjd("POST", "/v1/goal-orchestration/goal-runs/gr_int/lifecycle-recovery", { op_token: "lop_int1", resolution: "release", wallet_approval_grant: iG });
       ok("RECOVERY INTENT BOUNDARY: an unconfirmed intent refuses typed with NO receipt written; the visible intent awaits the completer", iRel.status === 500 && iRel.j.error?.code === "goal_run_recovery_intent_durability_unconfirmed" && receiptFileCount(vf.dataDir, "receipts") === 0, `${iRel.status}/${iRel.j.error?.code || "ok"}`);
       // RESTART on the same durable state, fault cleared: every boundary converges.
       process.kill(vf.daemonPid, "SIGKILL");
       const vRevived = await startIsolatedPlane({ serve: false, dataDir: vf.dataDir });
       const rvjd = async (method, p2, body) => { const r = await fetch(`${vRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
       // gr_int: the boot completer finished the sealed recovery (release + receipt).
-      const intAfter = (await rvjd("GET", "/v1/hypervisor/goal-runs/gr_int")).j.goal_run || {};
+      const intAfter = (await rvjd("GET", "/v1/goal-orchestration/goal-runs/gr_int")).j.goal_run || {};
       ok("RESTART CONVERGENCE: the boot completer finished the interrupted recovery — released to from_status, receipt persisted, intent consumed", intAfter.status === "active" && !intAfter.lifecycle_op && !intAfter.recovery_intent && readdirSync(join(vf.dataDir, "receipts")).some((n) => n.includes("lifecycle-recovery")), intAfter.status);
       // gr_att: the attach completer converged to EXACT reciprocal equality.
-      const attRoom = (await rvjd("GET", `/v1/hypervisor/outcome-rooms/${vRoom.outcome_room_id.replace("outcome-room://", "")}`)).j.outcome_room || {};
+      const attRoom = (await rvjd("GET", `/v1/goal-orchestration/outcome-rooms/${vRoom.outcome_room_id.replace("outcome-room://", "")}`)).j.outcome_room || {};
       const attRun = JSON.parse(readFileSync(join(vf.dataDir, "goal-runs", "gr_att.json"), "utf8"));
       ok("RESTART CONVERGENCE: the attach completer converged — room member ⇔ run stamp ⇔ receipt, intent consumed (EXACT reciprocal equality)", (attRoom.member_goal_run_refs || []).includes("goal://gr_att") && !attRoom.attach_intent && attRun.outcome_room_ref === vRoom.outcome_room_id && readdirSync(join(vf.dataDir, "outcome-room-registry-receipts")).length >= 1, `member=${(attRoom.member_goal_run_refs || []).length} stamp=${attRun.outcome_room_ref === vRoom.outcome_room_id}`);
       // gr_res: reservation survived; governed release then EXACTLY ONE clean retry.
-      const resStuck = (await rvjd("GET", "/v1/hypervisor/goal-runs/gr_res")).j.goal_run || {};
-      const rCh = await rvjd("POST", "/v1/hypervisor/goal-runs/gr_res/lifecycle-recovery", { op_token: resStuck.lifecycle_op?.token, resolution: "release" });
+      const resStuck = (await rvjd("GET", "/v1/goal-orchestration/goal-runs/gr_res")).j.goal_run || {};
+      const rCh = await rvjd("POST", "/v1/goal-orchestration/goal-runs/gr_res/lifecycle-recovery", { op_token: resStuck.lifecycle_op?.token, resolution: "release" });
       const rG = mintApprovalGrant({ policyHash: rCh.j.approval.policy_hash, requestHash: rCh.j.approval.request_hash });
-      const rRel = await rvjd("POST", "/v1/hypervisor/goal-runs/gr_res/lifecycle-recovery", { op_token: resStuck.lifecycle_op?.token, resolution: "release", wallet_approval_grant: rG });
-      const resRetry = await rvjd("POST", "/v1/hypervisor/goal-runs/gr_res/reconcile", {});
+      const rRel = await rvjd("POST", "/v1/goal-orchestration/goal-runs/gr_res/lifecycle-recovery", { op_token: resStuck.lifecycle_op?.token, resolution: "release", wallet_approval_grant: rG });
+      const resRetry = await rvjd("POST", "/v1/goal-orchestration/goal-runs/gr_res/reconcile", {});
       const resRefs = resRetry.j.goal_run?.reconciliation_attempt_refs || [];
       ok("RESTART CONVERGENCE: the reserved run recovers (governed release retains the aborted attempt) then EXACTLY ONE clean retry lands (#72 r9 finding 1)", resStuck.status === "reconciling" && rRel.status === 200 && resRetry.status === 200 && resRefs.length === 2 && resRetry.j.goal_run?.reconciliation_ref === resRefs.at(-1), `${rRel.status}/${resRetry.status} refs=${resRefs.length}`);
       await vRevived.stop();
@@ -654,7 +654,7 @@ async function run() {
       writeFileSync(join(rf.dataDir, "goal-runs", "gr_rf.json"), JSON.stringify({ goal_run_id: "gr_rf", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "receipt fault", status: "active", goal_ref: "goal://gr_rf", target_workspace_root: fTarget, created_at: "2026-01-01T00:00:00Z" }));
       writeFileSync(join(rf.dataDir, "goal-run-invocations", "gr_rf_a.json"), JSON.stringify({ goal_ref: "goal://gr_rf", goal_run_id: "gr_rf", harness_invocation_id: "harness_invocation://hi_gr_rf_a", role_key: "a", status: "completed", candidate_workspace_root: fCand, implementation_result: { implementation_result_id: "implementation_result://ir_gr_rf_a", status: "completed", changed_files: ["out.txt"] } }));
       writeFileSync(join(rf.dataDir, "goal-run-verifications", "ver_rf.json"), JSON.stringify({ goal_ref: "goal://gr_rf", verdict: "pass", verification_ref: "agentgres://goal-run-verification/ver_rf", harness_invocation_ref: "harness_invocation://hi_gr_rf_a", created_at: "2026-01-01T00:00:00Z" }));
-      const fRec = await fjd("POST", "/v1/hypervisor/goal-runs/gr_rf/reconcile", {});
+      const fRec = await fjd("POST", "/v1/goal-orchestration/goal-runs/gr_rf/reconcile", {});
       const fRun = JSON.parse(readFileSync(join(rf.dataDir, "goal-runs", "gr_rf.json"), "utf8"));
       const fRef = (fRun.reconciliation_attempt_refs || [])[0];
       const fRecFile = fRef ? JSON.parse(readFileSync(join(rf.dataDir, "goal-run-reconciliations", `${String(fRef).replace("reconciliation_result://", "")}.json`), "utf8")) : null;
@@ -664,15 +664,15 @@ async function run() {
       // before the release consumes the intent — an unconfirmed one refuses typed with the
       // durable intent retained, and a restart re-persists it (byte-exact) and completes.
       writeFileSync(join(rf.dataDir, "goal-runs", "gr_rb.json"), JSON.stringify({ goal_run_id: "gr_rb", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "receipt boundary", status: "reconciling", goal_ref: "goal://gr_rb", lifecycle_op: { op: "reconcile", token: "lop_rb1", reserved_at: "2026-01-01T00:00:00Z", from_status: "active" }, created_at: "2026-01-01T00:00:00Z" }));
-      const bCh = await fjd("POST", "/v1/hypervisor/goal-runs/gr_rb/lifecycle-recovery", { op_token: "lop_rb1", resolution: "release" });
+      const bCh = await fjd("POST", "/v1/goal-orchestration/goal-runs/gr_rb/lifecycle-recovery", { op_token: "lop_rb1", resolution: "release" });
       const bG = mintApprovalGrant({ policyHash: bCh.j.approval.policy_hash, requestHash: bCh.j.approval.request_hash });
-      const bRel = await fjd("POST", "/v1/hypervisor/goal-runs/gr_rb/lifecycle-recovery", { op_token: "lop_rb1", resolution: "release", wallet_approval_grant: bG });
+      const bRel = await fjd("POST", "/v1/goal-orchestration/goal-runs/gr_rb/lifecycle-recovery", { op_token: "lop_rb1", resolution: "release", wallet_approval_grant: bG });
       const bRun = JSON.parse(readFileSync(join(rf.dataDir, "goal-runs", "gr_rb.json"), "utf8"));
       ok("RECOVERY RECEIPT BOUNDARY: an unconfirmed recovery receipt refuses typed; the DURABLE intent is retained un-consumed (reservation intact)", bRel.status === 500 && bRel.j.error?.code === "goal_run_recovery_receipt_durability_unconfirmed" && !!bRun.recovery_intent && !!bRun.lifecycle_op, `${bRel.status}/${bRel.j.error?.code || "ok"} intent=${!!bRun.recovery_intent}`);
       process.kill(rf.daemonPid, "SIGKILL");
       const rfRevived = await startIsolatedPlane({ serve: false, dataDir: rf.dataDir });
       const rfjd = async (method, p2, body) => { const r = await fetch(`${rfRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      const bAfter = (await rfjd("GET", "/v1/hypervisor/goal-runs/gr_rb")).j.goal_run || {};
+      const bAfter = (await rfjd("GET", "/v1/goal-orchestration/goal-runs/gr_rb")).j.goal_run || {};
       ok("RECOVERY RECEIPT BOUNDARY: restart re-persists the sealed receipt (byte-exact) and completes the release — intent consumed only after durable evidence", bAfter.status === "active" && !bAfter.lifecycle_op && !bAfter.recovery_intent && readdirSync(join(rf.dataDir, "receipts")).some((n) => n.includes("lifecycle-recovery")), bAfter.status);
       await rfRevived.stop();
     } finally {
@@ -691,15 +691,15 @@ async function run() {
   if (rc) {
     try {
       const cjd = async (method, p2, body) => { const r = await fetch(`${rc.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      const cCreate = await cjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
-      const cListBefore = (await cjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const cCreate = await cjd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM);
+      const cListBefore = (await cjd("GET", "/v1/goal-orchestration/outcome-rooms")).j.outcome_rooms || [];
       const cIntents = readdirSync(join(rc.dataDir, "outcome-room-admission-intents"));
       const cReceipts = readdirSync(join(rc.dataDir, "outcome-room-registry-receipts"));
       ok("ROOM-RECEIPT DURABILITY: an unconfirmed admission receipt is NOT promoted to success — creation refuses pending, the room is NOT in the registry, the intent is retained, the receipt is visible for replay (#72 r19 finding 2)", cCreate.status >= 400 && cCreate.j.error?.code === "outcome_room_admission_pending_convergence" && cListBefore.length === 0 && cIntents.length === 1 && cReceipts.length === 1, `${cCreate.status}/${cCreate.j.error?.code || "ok"} rooms=${cListBefore.length} intents=${cIntents.length}`);
       process.kill(rc.daemonPid, "SIGKILL");
       const rcRevived = await startIsolatedPlane({ serve: false, dataDir: rc.dataDir });
       const rcjd = async (method, p2, body) => { const r = await fetch(`${rcRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      const cListAfter = (await rcjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const cListAfter = (await rcjd("GET", "/v1/goal-orchestration/outcome-rooms")).j.outcome_rooms || [];
       const cIntentsAfter = readdirSync(join(rc.dataDir, "outcome-room-admission-intents"));
       const cResidue = readdirSync(join(rc.dataDir, "outcome-room-registry-receipts")).some((n) => n.startsWith(".") || n.includes(".nc-") || n.includes(".tmp"));
       ok("ROOM-RECEIPT DURABILITY: restart re-fsyncs the byte-identical receipt and ONLY THEN admits — the intent is consumed after durable evidence, ZERO temp residue (#72 r19 finding 2, r20 finding 3)", cListAfter.length === 1 && cListAfter[0].status === "open" && cIntentsAfter.length === 0 && !cResidue, `rooms=${cListAfter.length} status=${cListAfter[0]?.status} intents=${cIntentsAfter.length} residue=${cResidue}`);
@@ -718,8 +718,8 @@ async function run() {
   if (rsw) {
     try {
       const swjd = async (method, p2, body) => { const r = await fetch(`${rsw.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      const swCreate = await swjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
-      const swRooms = (await swjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const swCreate = await swjd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM);
+      const swRooms = (await swjd("GET", "/v1/goal-orchestration/outcome-rooms")).j.outcome_rooms || [];
       ok("POST-BARRIER SWAP: a receipt target replaced during the fsync window is REFUSED typed (device/inode + bytes re-verified) — the room is NOT admitted (#72 r21 finding 1)", swCreate.status >= 400 && swCreate.j.error?.code === "outcome_room_receipt_swapped" && swRooms.length === 0, `${swCreate.status}/${swCreate.j.error?.code || "ok"} rooms=${swRooms.length}`);
       await rsw.stop();
     } finally {
@@ -736,14 +736,14 @@ async function run() {
   if (rpf) {
     try {
       const pfjd = async (method, p2, body) => { const r = await fetch(`${rpf.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      const pfCreate = await pfjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
-      const pfRooms = (await pfjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const pfCreate = await pfjd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM);
+      const pfRooms = (await pfjd("GET", "/v1/goal-orchestration/outcome-rooms")).j.outcome_rooms || [];
       const pfIntents = readdirSync(join(rpf.dataDir, "outcome-room-admission-intents"));
       ok("PARENT-DURABILITY: a failed data_dir fsync refuses pending — room absent, intent retained (#72 r21 finding 2)", pfCreate.status >= 400 && pfCreate.j.error?.code === "outcome_room_admission_pending_convergence" && pfRooms.length === 0 && pfIntents.length === 1, `${pfCreate.status}/${pfCreate.j.error?.code || "ok"} rooms=${pfRooms.length} intents=${pfIntents.length}`);
       process.kill(rpf.daemonPid, "SIGKILL");
       const rpfRevived = await startIsolatedPlane({ serve: false, dataDir: rpf.dataDir });
       const rpfjd = async (method, p2, body) => { const r = await fetch(`${rpfRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      const pfAfter = (await rpfjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const pfAfter = (await rpfjd("GET", "/v1/goal-orchestration/outcome-rooms")).j.outcome_rooms || [];
       const pfIntentsAfter = readdirSync(join(rpf.dataDir, "outcome-room-admission-intents"));
       ok("PARENT-DURABILITY: the parent fsync RE-RUNS on restart (not skipped on an existing family) and admits — intent consumed after durable evidence (#72 r21 finding 2)", pfAfter.length === 1 && pfAfter[0].status === "open" && pfIntentsAfter.length === 0, `rooms=${pfAfter.length} status=${pfAfter[0]?.status} intents=${pfIntentsAfter.length}`);
       await rpfRevived.stop();
@@ -760,14 +760,14 @@ async function run() {
   if (rud) {
     try {
       const udjd = async (method, p2, body) => { const r = await fetch(`${rud.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      await udjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
-      const udBefore = (await udjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      await udjd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM);
+      const udBefore = (await udjd("GET", "/v1/goal-orchestration/outcome-rooms")).j.outcome_rooms || [];
       // Replace the registry directory with a symlink to a decoy (empty) directory.
       mkdirSync(join(rud.dataDir, "decoy-registry"), { recursive: true });
       rmSync(join(rud.dataDir, "outcome-room-registry"), { recursive: true, force: true });
       symlinkSync(join(rud.dataDir, "decoy-registry"), join(rud.dataDir, "outcome-room-registry"));
-      const udList = await udjd("GET", "/v1/hypervisor/outcome-rooms");
-      const udOverview = await udjd("GET", "/v1/hypervisor/outcome-rooms/overview");
+      const udList = await udjd("GET", "/v1/goal-orchestration/outcome-rooms");
+      const udOverview = await udjd("GET", "/v1/goal-orchestration/outcome-rooms/overview");
       ok("REGISTRY-UNREADABLE: a registry directory swapped for a symlink is a TYPED 5xx (outcome_room_registry_unreadable), NEVER a false-empty 200 — list AND overview both refuse (#72 r21 finding 3)", udBefore.length === 1 && udList.status === 500 && udList.j.error?.code === "outcome_room_registry_unreadable" && udOverview.status === 500 && udOverview.j.error?.code === "outcome_room_registry_unreadable", `before=${udBefore.length} list=${udList.status}/${udList.j.error?.code || "ok"} overview=${udOverview.status}`);
       await rud.stop();
     } finally {
@@ -788,14 +788,14 @@ async function run() {
       // (a) CREATE under registry-write uncertainty: the TERMINAL write tolerates visible
       // (crash-revert replays the internal intent), the room lists with a CANONICAL status, and
       // the consumed intent is dropped — no noncanonical status ever escapes (#72 r11 f2).
-      const cFault = await pjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM);
-      const listed = (await pjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const cFault = await pjd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM);
+      const listed = (await pjd("GET", "/v1/goal-orchestration/outcome-rooms")).j.outcome_rooms || [];
       ok("ROOM FAULT create: the terminal registry write tolerates visible-unconfirmed (201) BUT the intent is RETAINED as the replay anchor — room-or-intent always survives with the durable receipt; every listed status is CANONICAL (#72 r12 finding 1)", cFault.status === 201 && listed.length === 1 && listed.every((r) => r.status === "open") && receiptFileCount(rp.dataDir, "outcome-room-admission-intents") === 1, `${cFault.status} listed=${listed.map((r) => r.status).join(",")} intents=${receiptFileCount(rp.dataDir, "outcome-room-admission-intents")}`);
       // (b) TRANSITION under durability uncertainty: 5xx; the visible status NEVER advances and
       // no receipt exists — the reviewer's `paused with zero receipt` is structurally gone.
       writeFileSync(join(rp.dataDir, "outcome-room-registry", "or_d0.json"), JSON.stringify({ outcome_room_id: "outcome-room://or_d0", schema_version: "ioi.hypervisor.outcome-room.v1", status: "open", revision: 1, member_goal_run_refs: [], admission_and_replay_refs: [], status_history: [], updated_at: "2026-01-01T00:00:00Z" }));
       const receiptsBaseline = (() => { try { return readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).length; } catch { return 0; } })();
-      const tFault = await pjd("POST", "/v1/hypervisor/outcome-rooms/or_d0/transition", { transition: "pause", expected_revision: 1 });
+      const tFault = await pjd("POST", "/v1/goal-orchestration/outcome-rooms/or_d0/transition", { transition: "pause", expected_revision: 1 });
       const tfDisk = JSON.parse(readFileSync(join(rp.dataDir, "outcome-room-registry", "or_d0.json"), "utf8"));
       const tfReceipts = (() => { try { return readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).length; } catch { return 0; } })();
       ok("ROOM FAULT transition: 5xx typed; disk still shows the PRIOR status with the intent sealed and ZERO transition receipt (#72 r10 finding 1)", tFault.status === 500 && tFault.j.error?.code === "outcome_room_mutation_pending_convergence" && tfDisk.status === "open" && !!tfDisk.transition_intent && tfReceipts === receiptsBaseline, `${tFault.status}/${tFault.j.error?.code || "ok"} disk=${tfDisk.status} receipts=${tfReceipts - receiptsBaseline} new`);
@@ -911,7 +911,7 @@ async function run() {
       // is held back (forced visible-unconfirmed), leaving its admission intent to converge at
       // restart — but its canonical receipt slot is pre-occupied by FOREIGN evidence. The
       // append-only completer must refuse: the sentinel survives, the room is not admitted.
-      const occRoom = (await pjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+      const occRoom = (await pjd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM)).j.outcome_room;
       const occTail = occRoom.outcome_room_id.replace("outcome-room://", "");
       const occReceiptTail = occRoom.admission_receipt_ref.replace("receipt://", "");
       // The API create returned 201 with the intent retained (registry write visible-unconfirmed);
@@ -929,7 +929,7 @@ async function run() {
       // (p) UNREADABLE RECEIPT SLOT (#72 r19 finding 3): an API-created room (registry write held
       // unconfirmed, intent retained) whose sealed receipt slot is chmod 000 — the completer must
       // REFUSE (only ENOENT means empty), never overwrite, never admit.
-      const urRoom = (await pjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+      const urRoom = (await pjd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM)).j.outcome_room;
       const urTail = urRoom.outcome_room_id.replace("outcome-room://", "");
       const urReceiptTail = urRoom.admission_receipt_ref.replace("receipt://", "");
       try { rmSync(join(rp.dataDir, "outcome-room-registry", `${urTail}.json`)); } catch {}
@@ -943,7 +943,7 @@ async function run() {
       process.kill(rp.daemonPid, "SIGKILL");
       const rpRevived = await startIsolatedPlane({ serve: false, dataDir: rp.dataDir });
       const rpjd = async (method, p2, body) => { const r = await fetch(`${rpRevived.daemonUrl}${p2}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      const afterRooms = (await rpjd("GET", "/v1/hypervisor/outcome-rooms")).j.outcome_rooms || [];
+      const afterRooms = (await rpjd("GET", "/v1/goal-orchestration/outcome-rooms")).j.outcome_rooms || [];
       const admitted = afterRooms.find((r) => r.status === "open" && r.outcome_room_id !== "outcome-room://or_d1");
       const tfAfter = afterRooms.find((r) => r.outcome_room_id === "outcome-room://or_d0");
       const tfReceiptsAfter = readdirSync(join(rp.dataDir, "outcome-room-registry-receipts")).length;
@@ -1000,13 +1000,13 @@ async function run() {
       const occAdmitted = afterRooms.some((r) => r.outcome_room_id === occRoom.outcome_room_id);
       ok("ROOM FAULT restart: a pre-occupied receipt slot BLOCKS admission — the foreign sentinel survives byte-for-byte, the room is NOT admitted, the intent stays (#72 r18 finding 1)", occSentinel.sentinel === "KEEP_ME" && !occAdmitted && existsSync(join(rp.dataDir, "outcome-room-admission-intents", `${occTail}.json`)), `sentinel=${occSentinel.sentinel} admitted=${occAdmitted}`);
       // RELOCATED ROOM FILE (#72 r18 finding 2): content-id != stem is invisible everywhere.
-      const relGetStem = await rpjd("GET", "/v1/hypervisor/outcome-rooms/or_rel1");
-      const relGetId = await rpjd("GET", "/v1/hypervisor/outcome-rooms/or_rel0");
+      const relGetStem = await rpjd("GET", "/v1/goal-orchestration/outcome-rooms/or_rel1");
+      const relGetId = await rpjd("GET", "/v1/goal-orchestration/outcome-rooms/or_rel0");
       const relListed = afterRooms.some((r) => r.outcome_room_id === "outcome-room://or_rel0");
       ok("ROOM FAULT restart: a relocated room file (content id != filename stem) is INVISIBLE to get (both ids 404) and list (#72 r18 finding 2)", relGetStem.status === 404 && relGetId.status === 404 && !relListed, `getStem=${relGetStem.status} getId=${relGetId.status} listed=${relListed}`);
       // PATH TRAVERSAL (#72 r19 finding 1): the `../…` stem is refused before any filesystem
       // access, on both the GET read path and cross-plane WorkResult binding.
-      const escGet = await fetch(`${rpRevived.daemonUrl}/v1/hypervisor/outcome-rooms/${encodeURIComponent("../goal-runs/gr_esc")}`).then((r) => r.status).catch(() => 0);
+      const escGet = await fetch(`${rpRevived.daemonUrl}/v1/goal-orchestration/outcome-rooms/${encodeURIComponent("../goal-runs/gr_esc")}`).then((r) => r.status).catch(() => 0);
       const escBind = await rpjd("POST", "/v1/hypervisor/work-results", { goal_ref: "goal://esc", result_profile: "research", outcome_class: "positive", status: "completed", outcome_room_ref: "outcome-room://../goal-runs/gr_esc" });
       ok("ROOM FAULT restart: a `../goal-runs/gr_esc` traversal id is refused on GET (404) and never binds a WorkResult to a cross-plane record (#72 r19 finding 1)", (escGet === 404 || escGet === 400) && escBind.status >= 400 && escBind.j.error?.code !== undefined && escBind.j.work_result === undefined, `get=${escGet} bind=${escBind.status}/${escBind.j.error?.code || "ok"}`);
       // UNREADABLE RECEIPT SLOT (#72 r19 finding 3): only ENOENT means empty.
@@ -1017,7 +1017,7 @@ async function run() {
       chmodSync(join(rp.dataDir, "outcome-room-registry-receipts", `${urReceiptTail}.json`), 0o644);
       // SCANNER SYMLINK SWAP (#72 r20 finding 2): the symlinked forged room is invisible.
       const symListed = afterRooms.some((r) => r.outcome_room_id === "outcome-room://or_sym0" || r.forged === "EXTERNAL");
-      const symGet = await rpjd("GET", "/v1/hypervisor/outcome-rooms/or_sym0");
+      const symGet = await rpjd("GET", "/v1/goal-orchestration/outcome-rooms/or_sym0");
       ok("ROOM FAULT restart: a symlink named like a canonical room (→ forged external content) is NEVER read-through by the list/replay scanner — unlisted, 404 (#72 r20 finding 2)", !symListed && symGet.status === 404, `listed=${symListed} get=${symGet.status}`);
       // DESCRIPTOR-BOUND RECEIPT + ZERO RESIDUE (#72 r20 findings 1+3): the committed receipt for
       // the admitted room is exactly its sealed bytes, and NO temp residue exists anywhere.
@@ -1042,10 +1042,10 @@ async function run() {
   if (soak) {
     try {
       const sjd = async (method, p, body) => { const r = await fetch(`${soak.daemonUrl}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, j: await r.json().catch(() => ({})) }; };
-      const sRoom = (await sjd("POST", "/v1/hypervisor/outcome-rooms", VALID_ROOM)).j.outcome_room;
+      const sRoom = (await sjd("POST", "/v1/goal-orchestration/outcome-rooms", VALID_ROOM)).j.outcome_room;
       mkdirSync(join(soak.dataDir, "goal-runs"), { recursive: true });
       writeFileSync(join(soak.dataDir, "goal-runs", "gr_soak.json"), JSON.stringify({ goal_run_id: "gr_soak", schema_version: "ioi.hypervisor.goal-run.v1", normalized_goal: "fixture", status: "active", goal_ref: "goal://gr_soak", created_at: "2026-01-01T00:00:00Z" }));
-      const sAttach = await sjd("POST", `/v1/hypervisor/outcome-rooms/${sRoom.outcome_room_id.replace("outcome-room://", "")}/attach-goal-run`, { goal_run_ref: "goal://gr_soak", expected_revision: 1 });
+      const sAttach = await sjd("POST", `/v1/goal-orchestration/outcome-rooms/${sRoom.outcome_room_id.replace("outcome-room://", "")}/attach-goal-run`, { goal_run_ref: "goal://gr_soak", expected_revision: 1 });
       const sStatus = (await sjd("GET", "/v1/hypervisor/substrate/status")).j;
       ok("SOAK PARITY: room create + attach + seam stamp through the ATOMIC writers all fed the dual-write hook (admitted ≥ 3, zero refusals) (#72 r3 finding 4)", sAttach.status === 200 && sStatus.soak?.enabled === true && (sStatus.admitted || 0) >= 3 && (sStatus.errors || 0) === 0, `admitted=${sStatus.admitted} errors=${sStatus.errors} attach=${sAttach.status}`);
     } finally {
@@ -1056,7 +1056,7 @@ async function run() {
   }
 
   // 9. ISOLATION PROOF.
-  const realAfter = await fetch(`${REAL_DAEMON}/v1/hypervisor/outcome-rooms`).then((r) => r.json()).catch(() => null);
+  const realAfter = await fetch(`${REAL_DAEMON}/v1/goal-orchestration/outcome-rooms`).then((r) => r.json()).catch(() => null);
   const realCountsAfter = FAMILIES.map((f) => receiptFileCount(REAL_DATA_DIR, f));
   ok("REAL daemon room plane unchanged", (realBefore === null && realAfter === null) || (realBefore?.outcome_rooms || []).length === (realAfter?.outcome_rooms || []).length);
   ok("REAL daemon record/receipt file counts unchanged across the four families", realCounts.join("/") === realCountsAfter.join("/"), `${realCounts.join("/")} before/after`);

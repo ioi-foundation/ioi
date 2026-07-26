@@ -54,3 +54,4 @@ is not the daemon/runtime substrate.
 - `docs/architecture/components/daemon-runtime/api.md`
 - `docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md`
 - `docs/architecture/foundations/common-objects-and-envelopes.md`
+- `docs/architecture/foundations/objects/authority-and-access.md`

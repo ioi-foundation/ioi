@@ -10,11 +10,26 @@ const architectureRoot = path.join(root, "docs/architecture");
 const internalDocsRoot = path.join(root, "internal-docs");
 const failures = [];
 
-function allMarkdownFiles(dir) {
+// A nested git checkout (worktree, submodule, vendored clone) under internal-docs
+// is a different repository's working tree, not this corpus. Walking into one made
+// this repo's own canon appear as internal-docs content and failed the check on a
+// developer's local worktree.
+//
+// This is opt-in per walk and is NEVER enabled for docs/architecture: a .git
+// marker there would silently remove a whole subtree of the canon from every
+// check below, which is a worse failure than the one it fixes.
+function isNestedGitCheckout(dir) {
+  return fs.existsSync(path.join(dir, ".git"));
+}
+
+function allMarkdownFiles(dir, { skipNestedCheckouts = false } = {}) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   return entries.flatMap((entry) => {
     const absolute = path.join(dir, entry.name);
-    if (entry.isDirectory()) return allMarkdownFiles(absolute);
+    if (entry.isDirectory()) {
+      if (skipNestedCheckouts && isNestedGitCheckout(absolute)) return [];
+      return allMarkdownFiles(absolute, { skipNestedCheckouts });
+    }
     return entry.name.endsWith(".md") ? [absolute] : [];
   });
 }
@@ -23,7 +38,9 @@ function allFiles(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   return entries.flatMap((entry) => {
     const absolute = path.join(dir, entry.name);
-    if (entry.isDirectory()) return allFiles(absolute);
+    if (entry.isDirectory()) {
+      return allFiles(absolute);
+    }
     return [absolute];
   });
 }
@@ -66,7 +83,7 @@ function trackedFilesUnder(...paths) {
 
 const markdownFiles = allMarkdownFiles(architectureRoot);
 const internalMarkdownFiles = fs.existsSync(internalDocsRoot)
-  ? allMarkdownFiles(internalDocsRoot)
+  ? allMarkdownFiles(internalDocsRoot, { skipNestedCheckouts: true })
   : [];
 
 for (const failure of checkArchitectureIntegrity({
@@ -156,6 +173,12 @@ const staleLinePatterns = [
   { name: "legacy scoped capability phrase", pattern: /\bscoped capabilities\b/i },
 ];
 
+// The cap:*/capability-grant family is the canon's most consequential naming
+// defect: capability is feasibility, authority is permission. Its tokens should
+// essentially never appear, so this allowance is deliberately NARROW and must
+// stay exactly as strict as it was before the shared-object split. Do not add
+// negation words ("must not", "never", "not mean") here — ordinary prose
+// contains them constantly and they would silently retire the whole gate.
 function lineIsAllowedLegacyNote(file, line) {
   const rel = relative(file);
   if (rel.includes("_meta/changelog/")) {
@@ -164,14 +187,31 @@ function lineIsAllowedLegacyNote(file, line) {
   return /older|legacy|historical|supersedes|pre-split|watchlist/i.test(line);
 }
 
+// term-boundaries.md owns the deprecated/forbidden alias register, and a register
+// has to name the tokens it forbids. That exemption is scoped to the register
+// section itself, not to the whole file: prose elsewhere in term-boundaries.md is
+// held to the same standard as every other canon document.
+const ALIAS_REGISTER_FILE = "docs/architecture/foundations/term-boundaries.md";
+const ALIAS_REGISTER_HEADING = "## Deprecated and Forbidden Aliases";
+function aliasRegisterLineRange(rel, lines) {
+  if (rel !== ALIAS_REGISTER_FILE) return null;
+  const start = lines.findIndex((line) => line.trim() === ALIAS_REGISTER_HEADING);
+  if (start < 0) return null;
+  const end = lines.findIndex((line, index) => index > start && /^##\s+/.test(line));
+  return { start, end: end < 0 ? lines.length : end };
+}
+
 for (const file of markdownFiles) {
   if (isImportedConsensusCorpus(file)) continue;
+  const rel = relative(file);
   const content = fs.readFileSync(file, "utf8");
   const lines = content.split(/\r?\n/);
+  const register = aliasRegisterLineRange(rel, lines);
   for (const [index, line] of lines.entries()) {
+    if (register && index >= register.start && index < register.end) continue;
     for (const { name, pattern } of staleLinePatterns) {
       if (pattern.test(line) && !lineIsAllowedLegacyNote(file, line)) {
-        fail(`${relative(file)}:${index + 1} contains ${name}: ${line.trim()}`);
+        fail(`${rel}:${index + 1} contains ${name}: ${line.trim()}`);
       }
     }
   }
@@ -246,7 +286,6 @@ for (const required of [
   "adapter targets, not",
   "Generic `HypervisorMission` is not a canonical truth object",
   "Systems and Work are policy-filtered core workspaces",
-  "HypervisorRouteAliasRegistration",
   "package disposition, enablement state, capability depth, and operational state",
   "IOI Authority Gateway is the daemon sidecar/compatibility profile",
   "the daemon authorizes anything",
@@ -293,7 +332,6 @@ for (const required of [
   "`HypervisorWork`",
   "`HypervisorDeveloperWorkspace`",
   "`HypervisorApplicationSurfaceRegistration`",
-  "`HypervisorRouteAliasRegistration`",
   "`HypervisorProductSurfaceProjection`",
   "`HypervisorSurfaceReleaseRecord`",
   "`HypervisorSurfaceInstallationBinding`",
@@ -379,10 +417,53 @@ const daemonApi = fs.readFileSync(
   path.join(architectureRoot, "components/daemon-runtime/api.md"),
   "utf8",
 );
-const commonObjects = fs.readFileSync(
-  path.join(architectureRoot, "foundations/common-objects-and-envelopes.md"),
-  "utf8",
-);
+const sharedObjectFamily = [
+  {
+    rel: "foundations/common-objects-and-envelopes.md",
+    content: fs.readFileSync(
+      path.join(architectureRoot, "foundations/common-objects-and-envelopes.md"),
+      "utf8",
+    ),
+  },
+  ...fs
+    .readdirSync(path.join(architectureRoot, "foundations/objects"))
+    .filter((name) => name.endsWith(".md"))
+    .sort()
+    .map((name) => ({
+      rel: `foundations/objects/${name}`,
+      content: fs.readFileSync(
+        path.join(architectureRoot, "foundations/objects", name),
+        "utf8",
+      ),
+    })),
+];
+// The shared-object canon is a family of modules, not one file. Assertions that
+// only need "the canon says X somewhere" read the concatenation; assertions that
+// need one bounded section resolve it through familyContractSection.
+const commonObjects = sharedObjectFamily.map((entry) => entry.content).join("\n");
+
+function familyContractSection(startMarker, endMarker) {
+  const level = (startMarker.match(/^#+/) ?? ["##"])[0];
+  for (const entry of sharedObjectFamily) {
+    const start = entry.content.indexOf(`\n${startMarker}\n`);
+    if (start < 0) continue;
+    const from = start + 1;
+    let end = entry.content.indexOf(`\n${endMarker}\n`, from + startMarker.length);
+    if (end < 0) {
+      // The section moved into a module where a different section follows it.
+      // Bound it at the next heading of the same level, or the end of the module.
+      const next = entry.content
+        .slice(from + startMarker.length)
+        .search(new RegExp(`\\n${level} `));
+      end = next < 0 ? entry.content.length : from + startMarker.length + next;
+    }
+    return entry.content.slice(from, end);
+  }
+  fail(
+    `the shared-object family is missing bounded contract section ${startMarker} -> ${endMarker}.`,
+  );
+  return "";
+}
 const taxonomyAdr = fs.readFileSync(
   path.join(root, "docs/decisions/0016-hypervisor-systems-work-and-application-taxonomy.md"),
   "utf8",
@@ -1475,18 +1556,15 @@ for (const required of [
   "system_ref: system://... | null",
   "work_queue |",
   "work_queue://...",
-  "legacy_ref: mission://...",
   "OutcomeContract",
   "ServiceOrder",
   "HypervisorProductSurfaceProjection:",
-  "HypervisorRouteAliasRegistration:",
   "HypervisorSurfaceReleaseRecord:",
   "HypervisorSurfaceInstallationBinding:",
   "HypervisorSystemInterfaceBinding:",
   "HypervisorSurfaceServingBinding:",
   "surface_id: surface://...",
   "surface_key: string",
-  "route_alias_ref: route-alias://...",
   "tool_surface_contract:",
   "required_when: surface_class == tool_surface",
   "permanent_shell | applications_catalog",
@@ -1498,7 +1576,7 @@ for (const required of [
   "resolved_launch_route: string | null",
   "effective_object_contract_refs:",
   "first_party_applications | tools_for_context",
-  "### Canonical Target Routes And Compatibility Aliases",
+  "### Canonical Target Routes",
 ]) {
   if (!coreSurfaces.includes(required)) {
     fail(`core-clients-surfaces.md missing taxonomy contract: ${required}.`);
@@ -1530,6 +1608,10 @@ for (const forbidden of [
   "hypervisor_work_item:...",
   "hypervisor_work_run:...",
   "legacy_ref: mission:...",
+  "legacy_ref: mission://...",
+  "HypervisorLegacyWorkSubjectAlias:",
+  "HypervisorRouteAliasRegistration:",
+  "route_alias_ref: route-alias://...",
   "Hypervisor Automation specification or run identity",
   "hypervisor_surface:...",
   "generated_or_installed_application",
@@ -1557,7 +1639,7 @@ for (const required of [
   "install://...           worker, service, package, application-surface, or System-interface install/license binding",
 ]) {
   if (!commonObjects.includes(required)) {
-    fail(`common-objects-and-envelopes.md missing taxonomy identity: ${required}.`);
+    fail(`the shared-object family is missing taxonomy identity: ${required}.`);
   }
 }
 
@@ -1580,15 +1662,13 @@ for (const required of [
   "GoalRunProfilePatch",
 ]) {
   if (!commonObjects.includes(required)) {
-    fail(`common-objects-and-envelopes.md missing pursuit/skill taxonomy contract: ${required}.`);
+    fail(`the shared-object family is missing pursuit/skill taxonomy contract: ${required}.`);
   }
 }
 
-const artifactBlock = contractSection(
-  commonObjects,
+const artifactBlock = familyContractSection(
   "## ArtifactEnvelope",
   "## DeliveryEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "artifact_role:",
@@ -1608,11 +1688,9 @@ for (const required of [
   }
 }
 
-const dataRecipeBlock = contractSection(
-  commonObjects,
+const dataRecipeBlock = familyContractSection(
   "## DataRecipeEnvelope",
   "## ConnectorMappingEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "data_recipe_id: data-recipe://...",
@@ -1636,11 +1714,9 @@ for (const forbidden of ["output_dataset_refs:", "output_distilled_dataset_refs:
   }
 }
 
-const connectorMappingBlock = contractSection(
-  commonObjects,
+const connectorMappingBlock = familyContractSection(
   "## ConnectorMappingEnvelope",
   "## LearningSourceRightsClaimEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "connector_mapping_id: mapping://...",
@@ -1658,11 +1734,9 @@ for (const required of [
   }
 }
 
-const transformationRunBlock = contractSection(
-  commonObjects,
+const transformationRunBlock = familyContractSection(
   "## TransformationRunEnvelope",
   "## DistilledOntologyDatasetEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "data_recipe_revision_ref:",
@@ -1678,11 +1752,9 @@ for (const required of [
   }
 }
 
-const workflowTemplateBlock = contractSection(
-  commonObjects,
-  "### WorkflowTemplateEnvelope",
-  "### SkillManifestEnvelope",
-  "foundations/common-objects-and-envelopes.md",
+const workflowTemplateBlock = familyContractSection(
+  "## WorkflowTemplateEnvelope",
+  "## SkillManifestEnvelope",
 );
 for (const required of [
   "revision_ref:",
@@ -1713,11 +1785,9 @@ for (const forbidden of [
     fail(`WorkflowTemplateEnvelope carries standing activation or live state: ${forbidden}.`);
   }
 }
-const skillManifestBlock = contractSection(
-  commonObjects,
-  "### SkillManifestEnvelope",
-  "### SkillEntryEnvelope",
-  "foundations/common-objects-and-envelopes.md",
+const skillManifestBlock = familyContractSection(
+  "## SkillManifestEnvelope",
+  "## SkillEntryEnvelope",
 );
 for (const required of [
   "skill_id:",
@@ -1746,11 +1816,9 @@ for (const forbidden of [
   }
 }
 
-const skillEntryBlock = contractSection(
-  commonObjects,
-  "### SkillEntryEnvelope",
-  "### ActiveSkillSetSnapshotEnvelope",
-  "foundations/common-objects-and-envelopes.md",
+const skillEntryBlock = familyContractSection(
+  "## SkillEntryEnvelope",
+  "## ActiveSkillSetSnapshotEnvelope",
 );
 for (const required of [
   "skill_entry_id:",
@@ -1782,11 +1850,9 @@ for (const forbidden of [
   }
 }
 
-const activeSkillSetBlock = contractSection(
-  commonObjects,
-  "### ActiveSkillSetSnapshotEnvelope",
+const activeSkillSetBlock = familyContractSection(
+  "## ActiveSkillSetSnapshotEnvelope",
   "### AutonomousSystemManifestEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "work_subject_ref:",
@@ -1820,11 +1886,9 @@ if (/work_subject_ref:[\s\S]*?harness_invocation:\/\/[\s\S]*?selected_skills:/.t
   fail("ActiveSkillSetSnapshotEnvelope makes HarnessInvocation a second work subject.");
 }
 
-const autonomousSystemManifestBlock = contractSection(
-  commonObjects,
+const autonomousSystemManifestBlock = familyContractSection(
   "### AutonomousSystemManifestEnvelope",
   "### AutonomousSystemGenesisEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "component_set_snapshot_ref:",
@@ -1871,11 +1935,9 @@ for (const forbidden of [
   }
 }
 
-const goalRunProfileBlock = contractSection(
-  commonObjects,
+const goalRunProfileBlock = familyContractSection(
   "## GoalRunProfileEnvelope",
   "## OrchestrationConstraintEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "goal_run_profile_id:",
@@ -1915,11 +1977,9 @@ for (const forbidden of [
   }
 }
 
-const goalRunBlock = contractSection(
-  commonObjects,
+const goalRunBlock = familyContractSection(
   "## GoalRunEnvelope",
   "## GoalGroundingLoopEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "goal_run_profile_revision_ref:",
@@ -1944,11 +2004,9 @@ for (const required of [
   }
 }
 
-const roleTopologyBlock = contractSection(
-  commonObjects,
+const roleTopologyBlock = familyContractSection(
   "## RoleTopologyEnvelope",
   "## ContextCellEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "revision_ref:",
@@ -1971,11 +2029,9 @@ for (const forbidden of ["applies_to: goal://... | automation://", "conductor_re
   }
 }
 
-const contextCellBlock = contractSection(
-  commonObjects,
+const contextCellBlock = familyContractSection(
   "## ContextCellEnvelope",
   "## ContextLeaseEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "work_subject_ref:",
@@ -1991,11 +2047,9 @@ for (const required of [
   }
 }
 
-const contextLeaseBlock = contractSection(
-  commonObjects,
+const contextLeaseBlock = familyContractSection(
   "## ContextLeaseEnvelope",
   "## ContextHandoffEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of ["work_subject_ref:", "issued_to_ref: context_cell://... | harness_invocation://..."]) {
   if (!contextLeaseBlock.includes(required)) {
@@ -2011,11 +2065,9 @@ if (/work_subject_ref:[\s\S]*?harness_invocation:\/\/[\s\S]*?context_cell_ref:/.
   fail("ContextLeaseEnvelope makes HarnessInvocation a second work subject instead of a lease recipient.");
 }
 
-const harnessInvocationBlock = contractSection(
-  commonObjects,
+const harnessInvocationBlock = familyContractSection(
   "## HarnessInvocationEnvelope",
   "## HarnessAdapterEventEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "work_subject_ref:",
@@ -2033,11 +2085,9 @@ for (const required of [
   }
 }
 
-const workResultBlock = contractSection(
-  commonObjects,
+const workResultBlock = familyContractSection(
   "## WorkResultEnvelope and OutcomeDeltaEnvelope",
   "## GoalRunEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "WorkResultEnvelope:",
@@ -2064,11 +2114,9 @@ if (/WorkResultEnvelope:[\s\S]*?work_subject_ref:[\s\S]*?harness_invocation:\/\/
   fail("WorkResultEnvelope makes HarnessInvocation a second work subject.");
 }
 
-const localAgentPairingBlock = contractSection(
-  commonObjects,
+const localAgentPairingBlock = familyContractSection(
   "## LocalAgentPairingSessionEnvelope",
   "## AIIP and Bounded Execution Domain Envelopes",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "resolver_kind: harness_profile | agent_harness_adapter | none",
@@ -2086,11 +2134,9 @@ if (localAgentPairingBlock.includes("harness_adapter_ref:")) {
   fail("LocalAgentPairingSessionEnvelope restores an undiscriminated profile/adapter ref.");
 }
 
-const benchmarkBlock = contractSection(
-  commonObjects,
+const benchmarkBlock = familyContractSection(
   "## BenchmarkEnvelope",
   "## RoutingDecisionEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "resolver_kind: harness_profile | agent_harness_adapter | none",
@@ -2167,11 +2213,9 @@ for (const required of [
   }
 }
 
-const autonomousSystemChainBlock = contractSection(
-  commonObjects,
+const autonomousSystemChainBlock = familyContractSection(
   "AutonomousSystemChainEnvelope:",
   "## LocalAgentPairingSessionEnvelope",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "active_component_registry_ref:",
@@ -2210,7 +2254,7 @@ for (const [rel, content] of [
 const solePursuitOwnerRows = [
   [
     "`GoalRunProfile`",
-    "[`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)",
+    "[`objects/goal-pursuit.md`](../foundations/objects/goal-pursuit.md)",
   ],
   [
     "`WorkflowTemplate`",
@@ -2222,7 +2266,7 @@ const solePursuitOwnerRows = [
   ],
   [
     "`SkillManifest`, `SkillEntry`, `ActiveSkillSetSnapshot`",
-    "[`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md)",
+    "[`objects/reusable-work-definitions.md`](../foundations/objects/reusable-work-definitions.md)",
   ],
   [
     "`RuntimeToolContract`",
@@ -2241,11 +2285,9 @@ for (const [rel, content] of [
   }
 }
 
-const aiipChannelEnvelopeBlock = contractSection(
-  commonObjects,
+const aiipChannelEnvelopeBlock = familyContractSection(
   "AIIPChannelEnvelope:",
   "AIIPEnvelope:",
-  "foundations/common-objects-and-envelopes.md",
 );
 for (const required of [
   "system_id_to: system://... # required to differ from system_id_from",
@@ -2403,7 +2445,7 @@ const workProjectionRow = canonToCodeDelta
   .split(/\r?\n/)
   .find((line) =>
     line.startsWith(
-      "| `HypervisorWorkSubjectProjection`, `HypervisorLegacyWorkSubjectAlias` |",
+      "| `HypervisorWorkSubjectProjection` |",
     ),
   );
 if (!workProjectionRow) {
@@ -2857,9 +2899,6 @@ for (const required of [
   '"surface_class": "owner_application"',
   '"surface_availability": "planned"',
   '"launchable": false',
-  '"route_alias_registrations"',
-  '"alias_route_pattern": "/missions/{legacy_subject_id?}"',
-  '"alias_route_pattern": "/workbench"',
   '"workspace_ref": "hypervisor-workspace://work"',
   '"surface_ref": "surface://hypervisor/studio"',
   '"selected_release_ref"',
@@ -2867,7 +2906,6 @@ for (const required of [
   '"selected_system_enablement_state"',
   '"effective_enablement_state"',
   '"resolved_launch_route"',
-  '"open_application_identity_and_back_stack": true',
   '"request_context_hash"',
   "match that principal and an admitted tenant-membership binding",
   '"canonical_route": "/studio"',
@@ -2986,6 +3024,321 @@ for (const [rel, content] of [
     if (!content.includes(phrase)) {
       fail(`${rel} missing aiagent broad-labor concept: ${phrase}.`);
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Structural regression protection
+//
+// These checks exist because the canon was refactored from a small number of
+// very large multi-subject files into per-subject modules. Every one of them
+// guards a failure mode that was actually possible before the refactor.
+// ---------------------------------------------------------------------------
+
+function headingSlugs(content) {
+  const slugs = new Set();
+  const counts = new Map();
+  let inFence = false;
+  for (const line of content.split(/\r?\n/)) {
+    if (/^```/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const heading = line.match(/^#{1,6}\s+(.*?)\s*$/);
+    if (!heading) continue;
+    const base = heading[1]
+      .replace(/`/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9 \-_]/g, "")
+      .trim()
+      .replace(/\s+/g, "-");
+    const seen = counts.get(base) ?? 0;
+    counts.set(base, seen + 1);
+    slugs.add(seen === 0 ? base : `${base}-${seen}`);
+  }
+  return slugs;
+}
+
+// 1. Anchors. Existing link checking only proved the target file existed, so a
+//    section could be moved or renamed and every deep link would still "pass".
+const slugCache = new Map();
+function slugsFor(file) {
+  if (!slugCache.has(file)) {
+    slugCache.set(file, headingSlugs(fs.readFileSync(file, "utf8")));
+  }
+  return slugCache.get(file);
+}
+for (const file of markdownFiles) {
+  if (isImportedConsensusCorpus(file)) continue;
+  const content = fs.readFileSync(file, "utf8");
+  for (const match of content.matchAll(/\[[^\]]+\]\(([^)\n]+)\)/g)) {
+    const rawTarget = match[1].trim();
+    if (/^(?:https?:|mailto:)/.test(rawTarget)) continue;
+    const [targetPath, fragment] = rawTarget.split("#");
+    if (!fragment) continue;
+    const resolved = targetPath
+      ? path.resolve(path.dirname(file), targetPath)
+      : file;
+    if (!resolved.endsWith(".md") || !fs.existsSync(resolved)) continue;
+    if (!slugsFor(resolved).has(fragment)) {
+      fail(
+        `${relative(file)} has a broken anchor: ${rawTarget} (no heading in ${relative(resolved)} slugs to #${fragment}).`,
+      );
+    }
+  }
+}
+
+// 2. Module registration. A canonical module that no navigation surface links to
+//    is unreachable: readers cannot find it and ownership cannot be resolved.
+const NAVIGATION_SURFACES = [
+  "README.md",
+  "START_HERE.md",
+  "_meta/start-here.md",
+  "_meta/source-of-truth-map.md",
+  "_meta/doc-classes.md",
+  "foundations/common-objects-and-envelopes.md",
+];
+const registeredModules = new Set();
+for (const rel of NAVIGATION_SURFACES) {
+  const surface = path.join(architectureRoot, rel);
+  if (!fs.existsSync(surface)) {
+    fail(`navigation surface ${rel} is missing.`);
+    continue;
+  }
+  const content = fs.readFileSync(surface, "utf8");
+  for (const match of content.matchAll(/\]\(([^)\s#]+\.md)/g)) {
+    registeredModules.add(path.resolve(path.dirname(surface), match[1]));
+  }
+}
+for (const file of markdownFiles) {
+  const rel = relative(file);
+  if (rel.includes("/_archive/")) continue;
+  if (NAVIGATION_SURFACES.some((nav) => rel === `docs/architecture/${nav}`)) {
+    continue;
+  }
+  if (!registeredModules.has(file)) {
+    fail(
+      `${rel} is an unregistered canonical module: link it from README.md, _meta/source-of-truth-map.md, _meta/start-here.md, or the shared-object family index.`,
+    );
+  }
+}
+
+// 2b. Owner-of-record accuracy. The duplicate check above catches an object
+//     declared twice; it cannot catch one declared in module A while module B,
+//     the family index, and the matrices all claim it. That mis-assignment
+//     shipped once and passed every check. An owner cell that names a module
+//     must resolve: the module has to actually declare one of the objects the
+//     row is about.
+{
+  const declaredBy = new Map();
+  for (const { rel, content } of sharedObjectFamily) {
+    if (!rel.startsWith("foundations/objects/")) continue;
+    const slug = rel.split("/").pop();
+    for (const m of content.matchAll(/^([A-Z][A-Za-z0-9]*):\s*$/gm)) {
+      declaredBy.set(m[1], slug);
+    }
+    for (const m of content.matchAll(/^#{2,3}\s+(.+?)\s*$/gm)) {
+      for (const name of m[1].match(/\b[A-Z][A-Za-z0-9]*\b/g) ?? []) {
+        if (!declaredBy.has(name)) declaredBy.set(name, slug);
+      }
+    }
+  }
+  for (const rel of [
+    "_meta/implementation-matrix.md",
+    "_meta/canon-to-code-delta.md",
+  ]) {
+    const file = path.join(architectureRoot, rel);
+    const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+    for (const [index, line] of lines.entries()) {
+      if (!line.startsWith("| `")) continue;
+      const cells = line.split("|");
+      const subjects = [...cells[1].matchAll(/`([A-Za-z0-9]+)`/g)].map((m) => m[1]);
+      if (subjects.length === 0) continue;
+      for (const target of cells[2].matchAll(/foundations\/objects\/([a-z0-9-]+\.md)/g)) {
+        const named = target[1];
+        const known = subjects.filter(
+          (s) => declaredBy.has(s) || declaredBy.has(`${s}Envelope`),
+        );
+        // A row about a runtime-control family may cite a module as supporting
+        // context without declaring it. Only assert where the row is actually
+        // about a shared-object-family object.
+        if (known.length === 0) continue;
+        const resolves = known.some(
+          (s) => declaredBy.get(s) === named || declaredBy.get(`${s}Envelope`) === named,
+        );
+        if (!resolves) {
+          fail(
+            `docs/architecture/${rel}:${index + 1} names ${named} as owner of record, but that module declares none of ${subjects.map((s) => `\`${s}\``).join(", ")}.`,
+          );
+        }
+      }
+    }
+  }
+}
+
+// 3. File size. A diagnostic, not a rule: crossing the threshold requires a
+//    recorded reason, so size debt stays visible instead of accumulating
+//    silently. New oversized files fail until someone justifies them.
+const MAX_LINES = 800;
+const MAX_BYTES = 50 * 1024;
+const SIZE_WAIVERS = new Map([
+  ["_meta/hypervisor-kernel-substrate-migration-matrix.md", "archived terminal record; historical links must not move"],
+  ["_meta/hypervisor-kernel-substrate-unification-master-guide.md", "archived terminal record; historical links must not move"],
+  ["_meta/implementation-matrix.md", "one row per concept; splitting breaks the single status surface implementers query"],
+  ["_meta/source-of-truth-map.md", "one row per subject; the whole point is that ownership resolves in one place"],
+  ["_meta/canon-to-code-delta.md", "one row per object; the delta is only meaningful whole"],
+  ["_meta/current-canon-defaults.md", "cross-owner digest; splitting recreates the scattering it exists to fix"],
+  ["_meta/vocabulary.md", "one register of every name; grouped into linkable subsections rather than split"],
+  ["components/hypervisor/core-clients-surfaces.md", "REVIEW: 43 sections spanning core, clients, surfaces, applications, adapters, and environment ops; the strongest remaining split candidate"],
+  ["components/daemon-runtime/events-receipts-delivery-bundles.md", "REVIEW: exhaustive receipt registry; splitting by receipt family is viable but would fragment one registry"],
+  ["components/daemon-runtime/api.md", "single public API reference; readers scan it as one endpoint surface"],
+  ["components/hypervisor/providers-and-environments.md", "REVIEW: provider plane and environment lifecycle are separable subjects"],
+  ["components/daemon-runtime/embodied-runtime.md", "one two-speed embodied contract; splitting separates strata that only make sense together"],
+  ["components/hypervisor/foundry.md", "one model/worker/eval/training owner"],
+  ["components/agentgres/api-object-model.md", "one object-model reference"],
+  ["components/daemon-runtime/private-workspace-ctee.md", "one custody contract"],
+  ["components/wallet-network/api-authority-scopes.md", "one authority scope reference"],
+  ["components/daemon-runtime/default-harness-profile.md", "one step-resolution contract"],
+  ["components/wallet-network/product-exchange-risk.md", "one wallet product/risk module"],
+  ["components/wallet-network/doctrine.md", "one authority doctrine"],
+  ["components/agentgres/doctrine.md", "one truth-substrate doctrine"],
+  ["components/daemon-runtime/doctrine.md", "one daemon doctrine"],
+  ["components/daemon-runtime/hypervisoros.md", "one bare-metal node profile"],
+  ["domains/ioi-ai/collaborative-outcome-pattern.md", "one collaborative-outcome pattern owner"],
+  ["domains/aiagent/worker-marketplace.md", "one worker-marketplace owner"],
+  ["domains/aiagent/worker-endpoints.md", "one endpoint reference"],
+  ["foundations/governed-autonomous-systems.md", "one bounded-DAS doctrine"],
+  ["foundations/economic-flywheel-and-pricing-boundaries.md", "one economics doctrine"],
+  ["foundations/ecosystem-assurance-certification-liability.md", "one assurance doctrine"],
+  ["foundations/aiip.md", "one interop protocol owner"],
+  ["foundations/physical-action-safety.md", "one physical-safety contract"],
+  ["foundations/objects/bounded-system-genesis.md", "one genesis-to-enrollment contract; splitting fragments a single admission chain"],
+  ["foundations/objects/interop-and-collaboration-terms.md", "one cross-domain terms and dispute contract"],
+  ["foundations/objects/embodied-systems.md", "one embodied object family"],
+  ["foundations/objects/model-foundry-and-training.md", "one model/foundry/training object family"],
+  ["foundations/objects/collaborative-pursuit.md", "one collaborative-pursuit object family"],
+  ["foundations/objects/goal-run-execution.md", "one GoalRun execution and context object family"],
+]);
+for (const file of markdownFiles) {
+  const rel = relative(file);
+  if (rel.includes("/_archive/")) continue;
+  const relInArchitecture = rel.replace("docs/architecture/", "");
+  const content = fs.readFileSync(file, "utf8");
+  const lines = content.split(/\r?\n/).length;
+  const bytes = Buffer.byteLength(content);
+  const oversized = lines > MAX_LINES || bytes > MAX_BYTES;
+  if (oversized && !SIZE_WAIVERS.has(relInArchitecture)) {
+    fail(
+      `${rel} is ${lines} lines / ${Math.round(bytes / 1024)} KB, over the ${MAX_LINES}-line / ${MAX_BYTES / 1024} KB review threshold, and has no recorded waiver in check-architecture-docs.mjs.`,
+    );
+  }
+  if (!oversized && SIZE_WAIVERS.has(relInArchitecture)) {
+    fail(
+      `${rel} carries a stale size waiver: it is now ${lines} lines / ${Math.round(bytes / 1024)} KB and no longer needs one.`,
+    );
+  }
+}
+
+// 4. Terminology. term-boundaries.md is the owner of the forbidden-alias register;
+//    every row in that register must actually be enforced, or the register lies.
+const termBoundaries = fs.readFileSync(
+  path.join(architectureRoot, "foundations/term-boundaries.md"),
+  "utf8",
+);
+for (const required of [
+  "## Protected Core Terms",
+  "## Deprecated and Forbidden Aliases",
+  "## Retained Wire Identifiers",
+  "## Session, GoalRun, and OutcomeRoom Are Three Different Things",
+  "## Ontological Categories",
+]) {
+  if (!termBoundaries.includes(required)) {
+    fail(`foundations/term-boundaries.md missing required section: ${required}.`);
+  }
+}
+for (const term of [
+  "| System |",
+  "| Session |",
+  "| Project |",
+  "| Automation |",
+  "| Assistant |",
+  "| Facilitation |",
+  "| Worker |",
+  "| Agent |",
+  "| WorkRun |",
+  "| Run |",
+  "| Work request |",
+  "| Task |",
+  "| GoalRun |",
+  "| OutcomeRoom |",
+  "| Campaign |",
+  "| Receipt |",
+  "| Lease |",
+  "| Binding |",
+  "| Projection |",
+  "| Profile |",
+  "| Envelope |",
+  "| Decision |",
+  "| Substrate |",
+  "| Product |",
+  "| Protocol |",
+  "| Domain |",
+  "| Runtime |",
+]) {
+  if (!termBoundaries.includes(term)) {
+    fail(`foundations/term-boundaries.md is missing a boundary row for ${term.replace(/\|/g, "").trim()}.`);
+  }
+}
+const retiredTerminology = [
+  { name: "retired Request for Agent naming", pattern: /\bRequest for Agent\b/ },
+  { name: "retired generic HypervisorMission object", pattern: /\bHypervisorMission\b/ },
+];
+for (const file of markdownFiles) {
+  if (isImportedConsensusCorpus(file)) continue;
+  const rel = relative(file);
+  if (rel.includes("/_archive/")) continue;
+  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+  for (const [index, line] of lines.entries()) {
+    for (const { name, pattern } of retiredTerminology) {
+      if (!pattern.test(line)) continue;
+      // A retired object name legitimately appears in the sentence that retires
+      // it, and wrapped prose puts that sentence on the neighbouring line. The
+      // allowance therefore reads a small window — but it must match an explicit
+      // retirement/negation *about the term*, not merely the presence of the word
+      // "not" somewhere nearby, which almost every paragraph in this corpus has.
+      const context = lines.slice(Math.max(0, index - 2), index + 3).join(" ");
+      const negatedTerm = new RegExp(
+        String.raw`(?:\bnot\b|\bnever\b|\bno\b|\bneither\b|rather than|instead of)[^.]{0,80}?${pattern.source}` +
+          "|" +
+          String.raw`${pattern.source}[^.]{0,80}?\b(?:retire[sd]?|is not|are not|was not|must not|never|no longer|deprecated|retired|forbidden)`,
+        "i",
+      );
+      const retirementContext =
+        /\b(?:older|legacy|historical|supersedes|watchlist|deprecated|forbidden|retire[sd]?|retirement|alias|migration|compatibility)\b/i.test(
+          context,
+        ) || negatedTerm.test(context);
+      if (!retirementContext) {
+        fail(`${rel}:${index + 1} uses ${name} outside a retirement, alias, or migration context.`);
+      }
+    }
+  }
+}
+
+// 5. Substrate/product boundary. GoalRun and OutcomeRoom are Hypervisor substrate
+//    primitives that ioi.ai productizes; the canon must keep saying so.
+// Pin only what the pre-existing canon already says, quoted from its owners.
+// Do not pin novel phrasing here: CI-pinning a doctrine assertion makes it
+// removal-proof before its owner has had a chance to disagree with it.
+for (const required of [
+  "dogfoods Hypervisor rather than receiving privileged substrate semantics",
+  "GoalRun solely owns admitted `goal://` identity and lifecycle",
+  "never becomes ambient authority over Hypervisor state",
+  "competing operational source of truth",
+  "has not yet passed",
+]) {
+  if (!normalizeWhitespace(termBoundaries).includes(required)) {
+    fail(`foundations/term-boundaries.md must state the substrate/product boundary: ${required}.`);
   }
 }
 

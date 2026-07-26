@@ -3015,7 +3015,7 @@ pub(crate) async fn handle_improvement_apply(
                 }
                 let base = load_policy_record(&st, &target).unwrap_or(Value::Null);
                 let cloned = client
-                    .post(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{target}/clone", st.base_url))
+                    .post(format!("{}/v1/goal-orchestration/ioi-agent/launch-policies/{target}/clone", st.base_url))
                     .json(&json!({ "display_name": format!("{} ({} rollout)", text(&base, "display_name"), rollout_mode) }))
                     .send().await.ok();
                 let clone_body = match cloned {
@@ -3036,7 +3036,7 @@ pub(crate) async fn handle_improvement_apply(
                 }
                 let patched = client
                     .patch(format!(
-                        "{}/v1/hypervisor/ioi-agent/launch-policies/{variant_id}",
+                        "{}/v1/goal-orchestration/ioi-agent/launch-policies/{variant_id}",
                         st.base_url
                     ))
                     .json(&suggested)
@@ -3078,7 +3078,7 @@ pub(crate) async fn handle_improvement_apply(
             if !target.is_empty() {
                 let existing = client
                     .get(format!(
-                        "{}/v1/hypervisor/ioi-agent/launch-policies/{target}",
+                        "{}/v1/goal-orchestration/ioi-agent/launch-policies/{target}",
                         st.base_url
                     ))
                     .send()
@@ -3092,7 +3092,7 @@ pub(crate) async fn handle_improvement_apply(
                     policy.pointer("/policy/protected").and_then(Value::as_bool) == Some(true);
                 if protected {
                     let cloned = client
-                        .post(format!("{}/v1/hypervisor/ioi-agent/launch-policies/{target}/clone", st.base_url))
+                        .post(format!("{}/v1/goal-orchestration/ioi-agent/launch-policies/{target}/clone", st.base_url))
                         .json(&json!({ "display_name": format!("{} (learned)", policy.pointer("/policy/display_name").and_then(Value::as_str).unwrap_or("policy")) }))
                         .send().await.ok();
                     let clone_body = match cloned {
@@ -3118,7 +3118,7 @@ pub(crate) async fn handle_improvement_apply(
                 // No target: create a fresh policy from the suggestion.
                 let created = client
                     .post(format!(
-                        "{}/v1/hypervisor/ioi-agent/launch-policies",
+                        "{}/v1/goal-orchestration/ioi-agent/launch-policies",
                         st.base_url
                     ))
                     .json(&suggested)
@@ -3146,7 +3146,7 @@ pub(crate) async fn handle_improvement_apply(
             }
             let patched = client
                 .patch(format!(
-                    "{}/v1/hypervisor/ioi-agent/launch-policies/{patch_target}",
+                    "{}/v1/goal-orchestration/ioi-agent/launch-policies/{patch_target}",
                     st.base_url
                 ))
                 .json(&suggested)

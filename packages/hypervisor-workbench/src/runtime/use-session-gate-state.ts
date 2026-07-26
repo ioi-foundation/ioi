@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getSessionId } from "./session-status";
-import { respondToAssistantSessionGate } from "./session-runtime";
+import { respondToSessionGate } from "./session-runtime";
 
 export interface SessionGateChatEvent {
   role: string;
@@ -151,7 +151,7 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
   const handleApprove = useCallback(async () => {
     setGateActionError(null);
     try {
-      await respondToAssistantSessionGate({
+      await respondToSessionGate({
         approved: true,
         requestHash: activeRequestHash,
       });
@@ -170,7 +170,7 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
   const handleDeny = useCallback(async () => {
     setGateActionError(null);
     try {
-      await respondToAssistantSessionGate({
+      await respondToSessionGate({
         approved: false,
         action: "deny",
         requestHash: activeRequestHash,
@@ -190,7 +190,7 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
   const handleGrantScopedException = useCallback(async () => {
     setGateActionError(null);
     try {
-      await respondToAssistantSessionGate({
+      await respondToSessionGate({
         approved: true,
         action: "grant_scoped_exception",
         requestHash: activeRequestHash,

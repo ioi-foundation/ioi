@@ -74,6 +74,7 @@
     "check:m0-program-control": "node --test scripts/lib/m0-program-control.test.mjs && node scripts/m0-program-control.mjs --check",
     "check:architecture-docs": "node scripts/check-architecture-docs.mjs",
     "check:pre-next-leg": "node scripts/check-pre-next-leg.mjs",
+    "check:generated-contract-owners": "node scripts/check-generated-contract-owners.mjs",
     "check:work-items": "node scripts/check-work-items.mjs"
   },
   "devDependencies": {

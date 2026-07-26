@@ -1,6 +1,6 @@
 {
   "architecture_or_production_capability_closure": false,
-  "as_of_date": "2026-07-25",
+  "as_of_date": "2026-07-27",
   "assurance_posture": {
     "accepted_head_currentness": "not_established",
     "authorship_binding": "self_declared_label_unsigned",
@@ -9,7 +9,7 @@
     "repository_baseline_present": true,
     "snapshot_head_binding": "verified"
   },
-  "build_fingerprint": "e544985e96304fa04d76e1a4ccfa5a09851c3a8dce6a6eb9789f15edbf984001",
+  "build_fingerprint": "9a62e40900f600588666c4a0fc2e5ebcc097b21d053ab684c5a47804c70d8b2f",
   "census_counts": {
     "consequential": 978,
     "partial_consequential": 960,

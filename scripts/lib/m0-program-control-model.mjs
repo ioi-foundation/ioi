@@ -62,6 +62,11 @@ const REPOSITORY_ANCHOR_CONTEXT = Object.freeze({
   repository_baseline: REPOSITORY_BASELINE_ANCHOR,
 });
 
+// The signing ceremony was retired after sequence 6. Entries at or below this
+// sequence are retained legacy claims, never re-verified as signatures; every
+// later entry is unsigned self-declared authorship.
+const RETIRED_SIGNED_ERA_LAST_SEQUENCE = 6;
+
 const REVIEW_COMPARISON_BASELINE = Object.freeze({
   baseline_id: "m0-review-lock-branch-point-2026-07-18",
   source_commit: "562d1b08999be2e9bbb967ef60bb250f440452e5",
@@ -250,6 +255,24 @@ const CANON_BASIS_FILES = [
   "docs/architecture/_meta/implementation-matrix.md",
   "docs/architecture/_meta/source-of-truth-map.md",
   "docs/architecture/foundations/common-objects-and-envelopes.md",
+  "docs/architecture/foundations/term-boundaries.md",
+  "docs/architecture/foundations/objects/authority-and-access.md",
+  "docs/architecture/foundations/objects/bounded-improvement.md",
+  "docs/architecture/foundations/objects/bounded-system-genesis.md",
+  "docs/architecture/foundations/objects/collaborative-pursuit.md",
+  "docs/architecture/foundations/objects/economics-and-settlement.md",
+  "docs/architecture/foundations/objects/embodied-systems.md",
+  "docs/architecture/foundations/objects/evidence-and-delivery.md",
+  "docs/architecture/foundations/objects/goal-pursuit.md",
+  "docs/architecture/foundations/objects/goal-run-execution.md",
+  "docs/architecture/foundations/objects/institutional-learning.md",
+  "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+  "docs/architecture/foundations/objects/memory-and-promotion.md",
+  "docs/architecture/foundations/objects/model-foundry-and-training.md",
+  "docs/architecture/foundations/objects/reusable-work-definitions.md",
+  "docs/architecture/foundations/objects/semantic-plane.md",
+  "docs/architecture/foundations/objects/work-execution.md",
+  "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
   "docs/architecture/foundations/governed-autonomous-systems.md",
   "docs/architecture/foundations/invariants.md",
   "docs/architecture/foundations/institutional-learning-boundary.md",
@@ -2549,16 +2572,16 @@ const SELECTED_ROUTE_APPLICABILITY = new Map([
   ["http:hypervisor-daemon:POST /v1/hypervisor/auth/login", "required_journey"],
   ["http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami", "required_journey"],
   ["http:hypervisor-daemon:GET /v1/hypervisor/authority/receipts", "required_journey"],
-  ["http:hypervisor-daemon:POST /v1/hypervisor/goal-runs", "required_journey"],
-  ["http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/start", "required_journey"],
-  ["http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/lifecycle-recovery", "required_journey"],
-  ["http:hypervisor-daemon:GET /v1/hypervisor/goal-runs/:id", "required_journey"],
-  ["http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms", "required_journey"],
-  ["http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run", "required_journey"],
-  ["http:hypervisor-daemon:GET /v1/hypervisor/outcome-rooms/:id", "required_journey"],
-  ["http:hypervisor-daemon:POST /v1/hypervisor/work-frontier-items", "required_journey"],
-  ["http:hypervisor-daemon:POST /v1/hypervisor/work-claim-leases", "required_journey"],
-  ["http:hypervisor-daemon:POST /v1/hypervisor/attempts", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/start", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/lifecycle-recovery", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/goal-runs/:id", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/attach-goal-run", "required_journey"],
+  ["http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/work-frontier-items", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/work-claim-leases", "required_journey"],
+  ["http:hypervisor-daemon:POST /v1/goal-orchestration/attempts", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/hypervisor/work-results", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/detect", "required_journey"],
   ["http:hypervisor-daemon:POST /v1/threads/:id/workspace-change-reviews/control", "required_journey"],
@@ -3152,7 +3175,7 @@ const SELECTED_JOURNEY = [
     step: 3,
     visible_action: "Describe the goal, repository, constraints, authority, and acceptance.",
     route_identities: [
-      "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs",
     ],
     state: "unavailable",
     blocker_ref: "BLK-M0-SELECTED-JOURNEY-BINDING",
@@ -3175,9 +3198,9 @@ const SELECTED_JOURNEY = [
     step: 6,
     visible_action: "Start or admit the GoalRun in its OutcomeRoom-backed work context.",
     route_identities: [
-      "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms",
-      "http:hypervisor-daemon:POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run",
-      "http:hypervisor-daemon:POST /v1/hypervisor/goal-runs/:id/start",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/outcome-rooms/:id/attach-goal-run",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/goal-runs/:id/start",
     ],
     state: "unavailable",
     blocker_ref: "BLK-M0-SELECTED-JOURNEY-BINDING",
@@ -3186,10 +3209,10 @@ const SELECTED_JOURNEY = [
     step: 7,
     visible_action: "Observe planning, claimed work, attempts, verification, and blockers.",
     route_identities: [
-      "http:hypervisor-daemon:GET /v1/hypervisor/outcome-rooms/:id",
-      "http:hypervisor-daemon:POST /v1/hypervisor/work-frontier-items",
-      "http:hypervisor-daemon:POST /v1/hypervisor/work-claim-leases",
-      "http:hypervisor-daemon:POST /v1/hypervisor/attempts",
+      "http:hypervisor-daemon:GET /v1/goal-orchestration/outcome-rooms/:id",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/work-frontier-items",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/work-claim-leases",
+      "http:hypervisor-daemon:POST /v1/goal-orchestration/attempts",
       "http:hypervisor-daemon:POST /v1/hypervisor/work-results",
     ],
     state: "unavailable",
@@ -4125,15 +4148,35 @@ export function validateSuppliedReviewSnapshot(
     .sort((left, right) => left.sequence - right.sequence);
   for (const [index, entry] of sortedEntries.entries()) {
     const label = `review anchor sequence ${entry?.sequence ?? "<missing>"}`;
-    const isLegacy = entry !== null
+    // "Legacy-shaped" and "is a retained legacy claim" are different questions,
+    // and conflating them was exploitable. Legacy evidence is validated
+    // structurally only -- no key is pinned and no signature is verified -- so a
+    // NEW entry that dropped `authorship_binding` and attached a structurally
+    // complete block signed with an attacker's own key was classified legacy and
+    // accepted. The artifact would then present an Ed25519 "detached review
+    // signature" that nothing checks, defeating this chain's own guard that an
+    // entry must never imply a verified signer.
+    //
+    // Retained legacy status is therefore PINNED to the retired signed era.
+    // Legacy SHAPE still arms the cannot-follow-unsigned rule, so a legacy-shaped
+    // ghost appended after the unsigned era is still rejected on that ground.
+    const isLegacyShaped = entry !== null
       && typeof entry === "object"
       && "reviewer_evidence" in entry;
+    const withinRetiredSignedEra = Number.isInteger(entry?.sequence)
+      && entry.sequence <= RETIRED_SIGNED_ERA_LAST_SEQUENCE;
+    const isLegacy = isLegacyShaped && withinRetiredSignedEra;
     addError(
       errors,
-      !(isLegacy && unsignedEraStarted),
+      !isLegacyShaped || withinRetiredSignedEra,
+      `${label} is outside the retired signed era and must not carry reviewer_evidence`,
+    );
+    addError(
+      errors,
+      !(isLegacyShaped && unsignedEraStarted),
       `${label} retained legacy claim cannot follow an unsigned entry`,
     );
-    if (!isLegacy) {
+    if (!isLegacyShaped) {
       unsignedEraStarted = true;
     }
     addError(

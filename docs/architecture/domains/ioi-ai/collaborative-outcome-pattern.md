@@ -353,7 +353,7 @@ manifest-driven flow:
 ```
 
 The pairing lifecycle is represented by
-[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope).
+[`LocalAgentPairingSessionEnvelope`](../../foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope).
 The envelope binds the initiating user/organization and surface, exact
 `target_kind` and `target_scope_ref`, claimed local agent and execution posture,
 challenge expiry, client key/origin binding, closed bootstrap actions,
@@ -441,8 +441,8 @@ POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/complete
 POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/cancel
 POST /v1/hypervisor/local-agent-pairings/{pairing_ref}/revoke
 
-GET  /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests
-POST /v1/hypervisor/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
+GET  /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests
+POST /v1/goal-orchestration/outcome-rooms/{room_ref}/participation-requests/{request_ref}/decide
 
 POST /v1/worker-registrations
 ```
@@ -739,7 +739,7 @@ projections over admitted objects.
 ### Cross-Domain Discovery, Admission, and Portable Exit
 
 `Network / Open` and discoverable cross-org Goal Spaces project the shared
-[`OutcomeRoomDiscoveryEnvelope`](../../foundations/common-objects-and-envelopes.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope).
+[`OutcomeRoomDiscoveryEnvelope`](../../foundations/objects/collaborative-pursuit.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope).
 The projection exposes only the public objective/category, semantic/action
 profiles, capability and eligibility requirements, visibility/privacy posture,
 budget/quote bounds, exact collaboration terms ref/root, verifier/acceptance
@@ -1048,7 +1048,12 @@ IoiAiConnectorAuthEscalation:
 `IoiAiGoalDraft` is pre-admission product state identified only by
 `intent://`; it cannot mint `goal://` identity or claim run lifecycle. On
 admission, the daemon creates a canonical GoalRun and ioi.ai renders
-`IoiAiGoalProjection` from that owner. Likewise,
+`IoiAiGoalProjection` from that owner. When the draft promotes work that
+already lives in a Hypervisor context, the crossing is the admitted
+`GoalRunActivationEnvelope`
+([`goal-pursuit.md`](../../foundations/objects/goal-pursuit.md)) with
+`source_kind: ioi_goal_draft`; ioi.ai drafts and projects that activation and
+never admits it. Likewise,
 `IoiAiOutcomePlanProjection` binds one exact immutable OrchestrationPlan
 revision/hash and its decision receipt. Its execution/evidence lists are
 derived navigation projections, not independently selected routes, workers,

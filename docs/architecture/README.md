@@ -26,6 +26,8 @@ Start with [`START_HERE.md`](./START_HERE.md). Then use:
   a built/partial/planned claim;
 - [`execution-horizons.md`](./_meta/execution-horizons.md) to distinguish the
   convergence target from later gated horizons;
+- [`term-boundaries.md`](./foundations/term-boundaries.md) when a name is
+  ambiguous — it owns what each protected term means and must not mean;
 - [`vocabulary.md`](./_meta/vocabulary.md) and
   [`canonical-enums.md`](./foundations/canonical-enums.md) for shared names and
   values;
@@ -100,13 +102,14 @@ Product and collaboration
   extension applications and tools; conditional planned Embodied Systems owner application
   aiagent.xyz / sas.xyz / wallet.network
 
-Shared pursuit
+Orchestration application (the openly packaged ioi.ai goal/room domain — ADR 0022)
   OutcomeRoom / CollaborativeWorkGraph
   participants / resource and capability offers / frontier / claims
   attempts / findings / verifier challenges / contribution lineage / replay
+  GoalRunProfile -> GoalRunActivation -> admitted GoalRun
+  GoalGroundingLoop / RoleTopology
 
-Bounded execution
-  GoalRunProfile -> admitted GoalRun / GoalGroundingLoop / RoleTopology
+Bounded execution (substrate work mechanics)
   optional WorkflowTemplate / SkillManifest and exact ActiveSkillSetSnapshot
   ContextCells / leases / typed handoffs / HarnessInvocations
   WorkResult / OutcomeDelta
@@ -332,6 +335,20 @@ Judgment cannot mutate or activate the candidate, and Authority cannot fabricate
 evidence. Selection creates proposal eligibility only; the target owner's normal
 governance, activation, monitoring, and recovery path remains decisive.
 
+### Goal orchestration is an application layer
+
+[ADR 0022](../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md)
+records the durable allocation: GoalRun, GoalRunProfile, GoalRunActivation,
+OutcomeRoom, and the room object family are domain objects of the **ioi.ai
+orchestration application** — an openly packaged domain application in the
+reference stack, deployable on any Hypervisor locally and offline with no
+`ioi.ai` account. The daemon admits, executes, and receipts them like any
+application domain; Hypervisor's own surfaces and API namespace speak session
+vocabulary, and goal runs and rooms are not Hypervisor surfaces. The
+cross-party grammar an external participant speaks is AIIP plus the room
+package's admitted contracts. The same ADR orders the estate-wide removal of
+live compatibility machinery while no downstream users exist.
+
 ### OutcomeRoom is above GoalRun
 
 `OutcomeRoom` is the durable shared-pursuit bounded-DAS instance created from a
@@ -415,7 +432,8 @@ actuator commands, safety heartbeats, or emergency-stop authorities.
 | --- | --- |
 | stack and category | [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md), [`verifiable-bounded-agency.md`](./foundations/verifiable-bounded-agency.md) |
 | invariants and security | [`invariants.md`](./foundations/invariants.md), [`security-privacy-policy-invariants.md`](./foundations/security-privacy-policy-invariants.md) |
-| shared objects and values | [`common-objects-and-envelopes.md`](./foundations/common-objects-and-envelopes.md), [`canonical-enums.md`](./foundations/canonical-enums.md) |
+| protected term boundaries | [`term-boundaries.md`](./foundations/term-boundaries.md) |
+| shared objects and values | [`common-objects-and-envelopes.md`](./foundations/common-objects-and-envelopes.md) (family index over [`foundations/objects/`](./foundations/objects/)), [`canonical-enums.md`](./foundations/canonical-enums.md) |
 | domains and autonomous systems | [`domain-kernels.md`](./foundations/domain-kernels.md), [`governed-autonomous-systems.md`](./foundations/governed-autonomous-systems.md) |
 | bounded recursive improvement | [`bounded-recursive-improvement.md`](./foundations/bounded-recursive-improvement.md) |
 | semantic world plane | [`domain-ontologies-and-data-recipes.md`](./foundations/domain-ontologies-and-data-recipes.md) |

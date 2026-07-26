@@ -20,7 +20,7 @@ Automations, Applications, Sessions, owner-application, environment, and
 operational surfaces are broad and verifier-gated; the canonical Systems and
 Work workspaces, taxonomy-v2 registrations/compiler, Packages-first product
 home, Developer Workspace rename, generated/installed application registry,
-typed legacy-Mission migration, and corresponding routes are target contracts
+and corresponding routes are target contracts
 and are not shipped as one complete path. `LocalAgentPairingSessionEnvelope`,
 Connect local agent UX, and room-admitted local-agent gateway issuance also
 remain planned. The bounded ImprovementCampaign, EvaluationEpoch, protected-
@@ -650,7 +650,7 @@ evidence/assurance posture, spend, quarantine, release, retire, and revoke
 controls rather than representing the agent as an opaque live token stream.
 
 The shared schema is owned by
-[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope);
+[`LocalAgentPairingSessionEnvelope`](../../foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope);
 deployment-local lifecycle handling is owned by
 [`identity-access-and-metering.md`](./identity-access-and-metering.md#local-agent-pairing-sessions).
 Gateway-profile binding is owned by
@@ -769,8 +769,7 @@ Owner applications
   Packages          (local package, release, install, dependency, impact, recall lifecycle;
                      Marketplace is an optional discovery/exchange mode)
   Developer Workspace
-                    (code, files, terminal, ports inside environments;
-                     Workbench is a compatibility alias)
+                    (code, files, terminal, ports inside environments)
   Developer Console (connectors, MCP, APIs, OAuth clients, SDK on-ramps, conformance —
                      Developer & Integrations family; UI touchpoint of the developer kit)
 
@@ -792,42 +791,44 @@ Conditional specialist owner application
                      registration; nonlaunchable until built)
 ```
 
-### Canonical Target Routes And Compatibility Aliases
+### Canonical Target Routes
 
 Routes are part of the registration contract, not names inferred by a client.
-The v2 target route ledger is:
+There are no compatibility aliases: per ADR 0022 Decision 2, when the v2 shell
+cuts over, the current `/__ioi/*` and other legacy paths are deleted, not
+aliased — a retired path fails with a typed refusal rather than resolving. The
+v2 target route ledger is:
 
-| Surface/action | Canonical target route | Compatibility aliases or rule |
+| Surface/action | Canonical target route | Rule |
 | --- | --- | --- |
-| Home | `/home` | `/ai`, `/__ioi/home` |
-| New Session | `/work/new-session` | `/ai#new-session`; remains a one-click action |
-| Systems | `/systems` | no fabricated System rows during migration |
+| Home | `/home` | — |
+| New Session | `/work/new-session` | remains a one-click action |
+| Systems | `/systems` | no fabricated System rows before honest read models |
 | Projects | `/projects` | existing Project context is preserved |
 | Applications | `/applications` | one catalog/compiler projection |
-| Work | `/work` | `/sessions` → `/work/sessions`; `/missions` → typed GoalRun/OutcomeRoom view |
-| Studio | `/studio` | `/__ioi/agent-studio` |
+| Work | `/work` | typed views only; Sessions is `/work/sessions` |
+| Studio | `/studio` | — |
 | Automations | `/automations` | shell placement and application identity resolve to the same registration |
-| Ontology | `/ontology` | current ontology/ODK subroutes remain contextual aliases |
-| Data | `/data` | `/__ioi/odk#data-planes` |
-| Governance | `/governance` | `/__ioi/governance` |
-| Provenance | `/provenance` | `/__ioi/work-ledger` |
-| Evaluations | `/evaluations` | `/__ioi/evaluations`, `/__ioi/feedback` |
-| Improvement | `/improvement` | `/__ioi/agent-studio#improvement-proposals`, `/__ioi/improvement/changes` |
-| Foundry | `/foundry` | `/__ioi/foundry` |
-| Packages | `/packages` | `/marketplace`, `/__ioi/marketplace` → `/packages/marketplace` |
-| Developer Workspace | `/developer-workspace` | `/workbench`, `/__ioi/workbench` |
-| Developer Console | `/developer-console` | `/__ioi/connections` |
-| Environments | `/environments` | `/__ioi/environments` |
-| Operations | `/operations` | `/__ioi/operations` |
-| Embodied Systems | `/embodied-systems` reserved | planned and nonlaunchable; `/fleet` must resolve contextually rather than aliasing to one owner |
+| Ontology | `/ontology` | — |
+| Data | `/data` | — |
+| Governance | `/governance` | — |
+| Provenance | `/provenance` | — |
+| Evaluations | `/evaluations` | — |
+| Improvement | `/improvement` | — |
+| Foundry | `/foundry` | — |
+| Packages | `/packages` | Marketplace is the optional mode at `/packages/marketplace` |
+| Developer Workspace | `/developer-workspace` | — |
+| Developer Console | `/developer-console` | — |
+| Environments | `/environments` | — |
+| Operations | `/operations` | — |
+| Embodied Systems | `/embodied-systems` reserved | planned and nonlaunchable |
 
 An extension application's general route is compiled as
 `/applications/{surface_key}`. A System-bound interface resolves under
-`/systems/{system_id}/interfaces/{system_binding_id}`. Aliases must preserve
-query, hash, embed/return state, and every typed Organization, Project, System,
-GoalRun, OutcomeRoom, AutomationRun, Session, WorkQueue, WorkItem, and WorkRun
-context. Additional current aliases remain admitted registration data; they do
-not create another product identity.
+`/systems/{system_id}/interfaces/{system_binding_id}`. Canonical routes
+preserve query, hash, embed/return state, and every typed Organization,
+Project, System, GoalRun, OutcomeRoom, AutomationRun, Session, WorkQueue,
+WorkItem, and WorkRun context.
 
 The durable owner-application jobs are derived from the lifecycle of a bounded
 autonomous institution: constitute, compose, ground, govern, run, prove,
@@ -1287,7 +1288,7 @@ Hypervisor Developer Workspace
   code, systems, workflow, workspace, editor, terminal, browser, and
   debugging surface, including development environment recipes and lifecycle
   observations where they help users start, inspect, restore, or tear down
-  work; Workbench remains a compatibility alias
+  work
 
 Hypervisor Developer Console
   extension surface: connector, connected-app, MCP, tool, and provider-
@@ -1482,8 +1483,8 @@ Project is not the live identity of a bounded autonomous System.
 A Project may bind repositories, files, branches, packages, assets,
 environments, adapter preferences, linked Systems, automations, GoalRuns,
 sessions, policies,
-secrets scopes, artifacts, receipts, and Agentgres domain links. Workbench is
-the compatibility label for the IDE-grade **Developer Workspace** inside or
+secrets scopes, artifacts, receipts, and Agentgres domain links. The owner
+name is the IDE-grade **Developer Workspace** inside or
 attached to a Project; the Project is the durable context object.
 
 Project-owned product state is still admitted through the canonical owners:
@@ -1592,17 +1593,12 @@ peer application:
 /work/reviews                 -> Work / Reviews
 /work/incidents               -> Work / Incidents
 /work/history                 -> Work / History
-/sessions                     -> compatibility alias for Work / Sessions
-/missions                     -> compatibility alias resolved through typed legacy aliases
-/missions/{legacy_subject_id} -> Work / Goals or Work / Rooms after typed resolution
 ```
 
-New writes never mint a generic Mission id. A legacy Mission route must resolve
-through `HypervisorLegacyWorkSubjectAlias` to one typed canonical subject before
-rendering; unresolved or ambiguous aliases fail closed. Redirects preserve
-organization, Project, System, query, hash, embedded-shell, backing-subject, and
-Open Application context, then render the canonical breadcrumb and back-stack
-identity rather than perpetuating Mission as a peer owner.
+New writes never mint a generic Mission id, and there are no `/sessions` or
+`/missions` alias routes: retired paths are deleted, not aliased
+(ADR 0022 Decision 2). Canonical routes render the canonical breadcrumb and
+back-stack identity; Mission is not a peer owner.
 Typed details resolve beneath the matching view by canonical subject identity;
 for example, `/work/queues/{work_queue_id}`,
 `/work/reviews/{facet_projection_id}`, and
@@ -1748,7 +1744,6 @@ per-release, per-installation, per-System, or per-runtime cardinality:
 | Record | Cardinality and owned state |
 | --- | --- |
 | `HypervisorApplicationSurfaceRegistration` | one stable `surface://...` definition; class, publisher/origin, creation method, product availability, owner/job, routes, contexts, contracts, and obligations |
-| `HypervisorRouteAliasRegistration` | one unique `route-alias://...` mapping owned by one workspace or application registration; static target or typed fail-closed resolver plus context-preservation rules |
 | `HypervisorSurfaceReleaseRecord` | one immutable package release for that surface; distribution, admission, package disposition, capability depth, versioned descriptor, and exact executable contracts |
 | `HypervisorSurfaceInstallationBinding` | one organization/project installation of one release; installation, deployment enablement, audience, allowed objects/actions, and authority preview |
 | `HypervisorSystemInterfaceBinding` | one installation bound to one admitted System; System-specific enablement and narrower audience, allowed objects/actions, and authority preview |
@@ -1763,7 +1758,7 @@ The normalized family collectively declares:
   capability depth, and operational state;
 - distinct package, immutable release, installation-binding, and optional
   System-binding refs where the surface is packaged or installed;
-- canonical route, compatibility aliases, canonical owner doc, primary owning
+- canonical route, canonical owner doc, primary owning
   object family, and optional consuming/contextual application ids;
 - primary user job, supported roles, and supported placements: Applications
   catalog, Open Application, Home, Project, System, Work, GoalRun, OutcomeRoom,
@@ -2160,7 +2155,7 @@ It does not own:
 ## Hypervisor Developer Workspace
 
 **Hypervisor Developer Workspace** is the code/systems/workspace surface.
-`Workbench` and `HypervisorWorkbench` remain compatibility labels for existing
+`Workbench` and `HypervisorWorkbench` are retired labels only found in existing
 routes, packages, APIs, and saved links during migration; they are not a second
 product identity.
 
@@ -2445,7 +2440,7 @@ Marketplace is an optional Packages mode and distribution channel for
 discovery, publishing, exchange, attribution, commercial terms, and
 organization-to-organization acquisition. A private or air-gapped deployment
 must retain complete package, release, install, disable, recall, and revocation
-semantics without Marketplace. The compatibility route `Marketplace` resolves
+semantics without Marketplace. A `Marketplace` entry point resolves
 to `Packages / Marketplace`; it never becomes a second package owner.
 
 Recall and revocation are not cosmetic catalog states. The product-surface
@@ -3223,35 +3218,11 @@ HypervisorCoreWorkspaceRegistration:
   workspace_key: string # URL-safe; equals workspace_kind in taxonomy v2
   display_name: string
   canonical_route: string
-  route_alias_refs: [route-alias://...]
   supported_context_kinds:
     - organization | project | system | goal_run | outcome_room |
       automation_run | session | work_queue | work_item | work_run
   registration_is_projection_only: true
   writes_through_canonical_owners: true
-
-HypervisorRouteAliasRegistration:
-  route_alias_ref: route-alias://...
-  owner_ref:
-    hypervisor-workspace://... | surface://...
-  alias_route_pattern: string
-  resolution:
-    one_of:
-      - kind: static_route
-        target_route_template: string
-      - kind: typed_resolver
-        resolver_kind:
-          legacy_work_subject | contextual_surface | package_marketplace
-        resolver_contract_ref: api://...
-  preserve_context:
-    query: true
-    hash: true
-    embed_and_return_state: true
-    open_application_identity_and_back_stack: true
-    typed_context_kinds:
-      - organization | project | system | goal_run | outcome_room |
-        automation_run | session | work_queue | work_item | work_run
-  failure_mode: fail_closed
 
 HypervisorApplicationSurfaceRegistration:
   surface_id: surface://...
@@ -4071,18 +4042,6 @@ it serves, not a direct Work subject. Fleet allocation and other domain leases
 remain facets or linked domain objects unless they acquire an independently
 owned work lifecycle and canonical detail route.
 
-HypervisorLegacyWorkSubjectAlias:
-  alias_id: hypervisor_legacy_work_subject_alias:...
-  legacy_kind: mission
-  legacy_ref: mission://...
-  resolution_status: resolved | needs_review | rejected
-  subject_kind: goal_run | outcome_room | null
-  subject_ref: goal://... | outcome-room://... | null
-  decision_ref: decision://... | null
-  evidence_refs: [artifact://... | agentgres://operation/...]
-  migration_receipt_ref: receipt://... | null
-  read_only_compatibility_record: true
-
 HypervisorOutcomeRoomProjection:
   projection_id: hypervisor_outcome_room_projection:...
   outcome_room_ref: outcome-room://...
@@ -4346,8 +4305,8 @@ not mutate host state directly.
 - `SessionAccessToken` is derived token material under a
   `HypervisorSessionAccessLease`; it is not the durable authority object.
 - New writes must not create `HypervisorMission`, `mission://`, or generic
-  `mission_ref` truth. `/missions` compatibility routes must resolve through a
-  typed legacy alias to a GoalRun or OutcomeRoom and then render the canonical
+  `mission_ref` truth. There are no `/missions` routes; retired Mission paths
+  are deleted, not aliased, and typed subjects render the canonical
   Work route; ambiguous or missing aliases fail closed.
 - Typed physical mission, route, and actuation-plan objects may remain inside
   the Embodied Runtime domain. They are domain contracts for physical work,
@@ -4516,7 +4475,7 @@ Evaluations = independent epoch, exposure, validity, and re-verification owner
 Improvement = optional campaign and direct-change coordination cockpit
 Foundry = candidate/evaluator asset builder and admitted experiment executor
 Governance + target owner = activation and effect-recovery authority
-Workbench = compatibility alias for Developer Workspace
+Workbench = retired label; the owner name is Developer Workspace
 Systems = stable contextual inventory of live constitution-bound Systems
 Projects = persistent build and work-context containers
 Work = policy-filtered typed projection, never a universal truth object

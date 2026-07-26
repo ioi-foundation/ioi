@@ -134,6 +134,9 @@ artifact lineage, not another harness family.
 ## Canonical References
 
 - `docs/architecture/foundations/common-objects-and-envelopes.md`
+- `docs/architecture/foundations/objects/goal-pursuit.md`
+- `docs/architecture/foundations/objects/goal-run-execution.md`
+- `docs/architecture/foundations/objects/reusable-work-definitions.md`
 - `docs/architecture/foundations/governed-autonomous-systems.md`
 - `docs/architecture/components/daemon-runtime/default-harness-profile.md`
 - `docs/architecture/components/daemon-runtime/api.md`

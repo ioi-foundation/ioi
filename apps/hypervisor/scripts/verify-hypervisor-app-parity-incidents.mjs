@@ -32,7 +32,7 @@ const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: aw
 const jd = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((r) => r.ok).catch(() => false);
+  const up = await fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((r) => r.ok).catch(() => false);
   if (!up) { console.error("BLOCKED: daemon goal-run plane not reachable at " + DAEMON); process.exit(2); }
 
   // 1. MATRIX — daemon_wired incidents over a data_clean reference, certified, deep-link declared.
@@ -57,7 +57,7 @@ async function run() {
   ok("BOTH sides VALID: the reference (post status-lane click) is not errored + the port is not errored", hp && hp.reference_valid === true && hp.reference_errored === false && hp.ioi_valid === true && hp.ioi_errored === false);
 
   // 3. DAEMON TRUTH — counts, identity, proof links, lane logic, honest empties, no fabrication.
-  const [grRes, opsRes] = await Promise.all([jd("/v1/hypervisor/goal-runs"), jd("/v1/hypervisor/operations")]);
+  const [grRes, opsRes] = await Promise.all([jd("/v1/goal-orchestration/goal-runs"), jd("/v1/hypervisor/operations")]);
   const TERMINAL = new Set(["complete", "completed", "done", "succeeded", "failed", "cancelled", "canceled"]);
   const blocked = (grRes.goal_runs || []).filter((r) => Array.isArray(r.blockers) && r.blockers.length);
   const failures = ((opsRes.runs || {}).failures) || [];

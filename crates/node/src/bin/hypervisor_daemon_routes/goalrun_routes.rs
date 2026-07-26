@@ -971,6 +971,15 @@ pub(crate) async fn handle_goal_runs_create(
         "active_loop_phase": "receive_intent",
         "continuation_state": "open",
         "status": "draft",
+        // Durable goal identity records HOW it was authorized: `explicit_activation`
+        // means typed activation evidence crossed admission; otherwise this is a
+        // direct substrate creation. There is no legacy lane (ADR 0022 Decision 2).
+        "creation_provenance": if body.get("activation_evidence").is_some() {
+            "explicit_activation"
+        } else {
+            "direct_substrate_activation"
+        },
+        "activation_evidence": body.get("activation_evidence").cloned().unwrap_or(Value::Null),
         "created_at": now,
         "updated_at": now,
         "runtimeTruthSource": "daemon-runtime",
@@ -2610,7 +2619,7 @@ fn recovery_request_hash(
     }))
 }
 
-/// POST /v1/hypervisor/goal-runs/:id/lifecycle-recovery (#72 rounds 4 + 5): the recovery
+/// POST /v1/goal-orchestration/goal-runs/:id/lifecycle-recovery (#72 rounds 4 + 5): the recovery
 /// contract for a durable lifecycle reservation — a crash after `draft -> starting` /
 /// `active -> reconciling`, or a deliberately retained failed-start reservation, is resolved by
 /// an EXPLICIT governed transition, never by a blind expiry. The token is the ADDRESS (proof

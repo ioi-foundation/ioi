@@ -299,7 +299,7 @@ Publish on aiagent.xyz
 ```
 
 The first state may be created by an ioi.ai room-scoped
-[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope)
+[`LocalAgentPairingSessionEnvelope`](../../foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope)
 with `target_kind: room_guest`. Saving it
 privately requires a new pairing session with `target_kind: private_worker` or
 `organization_worker`, or a separately policy-admitted private registration

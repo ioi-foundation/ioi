@@ -39,7 +39,7 @@ async function run() {
   }
 
   // B. Run Replay index.
-  const [replay, tr, gr] = await Promise.all([sGet("/__ioi/run-replay"), jget("/v1/hypervisor/agent-run-transcripts"), jget("/v1/hypervisor/goal-runs")]);
+  const [replay, tr, gr] = await Promise.all([sGet("/__ioi/run-replay"), jget("/v1/hypervisor/agent-run-transcripts"), jget("/v1/goal-orchestration/goal-runs")]);
   ok("Run Replay index renders 200", replay.status === 200 && replay.text.includes("<h1>Run Replay</h1>"));
   const trRuns = (tr || {}).runs || [];
   const goals = (gr || {}).goal_runs || [];

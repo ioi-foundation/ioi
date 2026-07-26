@@ -150,9 +150,9 @@ async function run() {
     && reasonOf(preview.j?.preview?.redacted_entry_refs, secret.entry_ref) === "sensitivity_secret_always_redacted");
 
   // ── Both harnesses consume the SAME restored space via separate projections ──
-  const phaseA = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { goal: `Create the file vault-run-${tag}.txt containing the word: restored`, strategy: "compare" });
+  const phaseA = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal: `Create the file vault-run-${tag}.txt containing the word: restored`, strategy: "compare" });
   const grant = mintApprovalGrant({ policyHash: phaseA.j.approval.policy_hash, requestHash: phaseA.j.approval.request_hash });
-  const phaseB = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { launch_id: phaseA.j.launch_id, wallet_approval_grant: grant });
+  const phaseB = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: phaseA.j.launch_id, wallet_approval_grant: grant });
   const grid = String(phaseB.j?.advanced?.goal_run_ref || "").replace("goal://", "");
   const projections = await jd("GET", `/v1/hypervisor/memory-projections?goal_run_ref=goal://${grid}`);
   const byHarness = Object.fromEntries((projections.j?.projections || []).map((p) => [p.harness_profile_ref, p]));

@@ -6,7 +6,7 @@ Implementation status: mixed (each invariant lists where it is enforced today)
 Canonical owner: this file for the canonical one-sentence wording of cross-cutting invariants; subject owners apply them.
 Supersedes: repeated restatements of these invariants across foundations, components, and domains docs when wordings drift.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-25.
 
 ## Purpose
 
@@ -319,7 +319,23 @@ fanout, but it may not flatten those phase families, mutate a child through a
 parent reference, or claim cancellation complete without owner-issued drain,
 fence, timeout, compensation, reconciliation, and completion receipts. A
 snapshot remains bound to immutable archived records and retained receipt
-lineage.
+lineage. A child relation that delegates execution, authority, or consumable
+capacity is a work-owning admission edge, distinct from non-authorizing
+dependency, evidence, membership, and result links. The active work-owning
+graph remains finite and acyclic; create, attach, reattach, resume or rearm,
+replacement, reassignment, and bound changes validate exact current heads and
+every applicable ancestor limit before activation. Effective child authority,
+deadline, context visibility, and conserved-resource ceilings only narrow;
+policy-required verification, integration, cancellation, reconciliation, and
+receipt capacity is protected first, and concurrently active children receive
+atomic disjoint reservations rather than copies of one remaining allowance.
+Process exit, a cancellation request, or bare local detach neither releases
+that capacity nor permits parent success until relevant child effects are
+terminal or fenced, or explicitly ambiguous with receipts and funded
+reconciliation. An admitted reassignment may instead use one non-widening
+exact-head transaction to revalidate both ancestor chains and transfer—never
+free or duplicate—the admission edge, effect responsibility, reservation,
+receipts, and unresolved obligations.
 Owner application:
 [`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md),
 [`../components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md),
@@ -335,6 +351,19 @@ supplies evidence without issuing authority or admitting the final effect.
 Owner application:
 [`security-privacy-policy-invariants.md`](./security-privacy-policy-invariants.md),
 [`../components/daemon-runtime/platform-operability.md`](../components/daemon-runtime/platform-operability.md).
+
+**INV-37 — Admission evidence is resolved, never asserted.** An admission
+precondition is discharged only by evidence the admitting component resolves
+or independently verifies — a presented grant, a current head, an admitted
+root, a durable record, a recomputed hash — never by a value the transport
+layer, route handler, client, projection, or the requesting party writes into
+the request for the admission core to find. A route that supplies the
+constants its own admission core checks has not admitted anything, and the
+resulting decision is void for conformance purposes. The admission core, not
+the route, is the policy-enforcement point; routes transport, render, and
+collect — they do not satisfy preconditions.
+Owner application: [`../components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md),
+[`../components/daemon-runtime/api.md`](../components/daemon-runtime/api.md).
 
 ## Citation Rule
 

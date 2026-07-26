@@ -197,21 +197,46 @@ function duplicateValues(entries, label, rel) {
   return failures;
 }
 
+const SHARED_OBJECT_FAMILY =
+  /^docs\/architecture\/foundations\/(?:common-objects-and-envelopes\.md|objects\/[a-z0-9-]+\.md)$/u;
+
+export function isSharedObjectFamilyFile(rel) {
+  return SHARED_OBJECT_FAMILY.test(rel);
+}
+
+export function sharedObjectDeclarations(content) {
+  const declarations = [];
+  const blocks = fencedBlocks(content).filter(({ language }) =>
+    language === "yaml" || language === "yml" || language === "json"
+  );
+  for (const block of blocks) {
+    block.lines.forEach((line, index) => {
+      const match = line.match(
+        /^([A-Z][A-Za-z0-9]*(?:Envelope|Receipt|Event|Manifest|Profile|Contract|Object|Record)):\s*$/,
+      );
+      if (match) declarations.push({ value: match[1], line: block.startLine + index });
+    });
+  }
+  return declarations;
+}
+
+/**
+ * The shared-object canon is a family of modules. Before the split this only had
+ * to detect duplicates inside one file; now a duplicate could hide across two
+ * modules, so the family-wide pass in checkSharedObjectFamilyOwnership is the
+ * one that matters. This per-file pass is retained for locality of error
+ * messages.
+ */
 export function checkOwningRegistryDuplicates(rel, content) {
   const failures = [];
   const blocks = fencedBlocks(content).filter(({ language }) =>
     language === "yaml" || language === "yml" || language === "json"
   );
 
-  if (rel === "docs/architecture/foundations/common-objects-and-envelopes.md") {
-    const declarations = [];
-    for (const block of blocks) {
-      block.lines.forEach((line, index) => {
-        const match = line.match(/^([A-Z][A-Za-z0-9]*(?:Envelope|Receipt|Event|Manifest|Profile|Contract|Object|Record)):\s*$/);
-        if (match) declarations.push({ value: match[1], line: block.startLine + index });
-      });
-    }
-    failures.push(...duplicateValues(declarations, "canonical object declaration", rel));
+  if (isSharedObjectFamilyFile(rel)) {
+    failures.push(
+      ...duplicateValues(sharedObjectDeclarations(content), "canonical object declaration", rel),
+    );
   }
 
   if (rel === "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md") {
@@ -523,7 +548,7 @@ export const IMPLEMENTATION_MATRIX_CROSS_BOUNDARY_OWNERS = new Map([
     [
       "model-router/doctrine.md",
       "daemon-runtime/private-workspace-ctee.md",
-      "foundations/common-objects-and-envelopes.md",
+      "foundations/objects/model-foundry-and-training.md",
     ],
   ],
   [
@@ -600,7 +625,7 @@ export const IMPLEMENTATION_MATRIX_CROSS_BOUNDARY_OWNERS = new Map([
   [
     "`RuntimeSkillHookRegistryControl`",
     [
-      "foundations/common-objects-and-envelopes.md",
+      "foundations/objects/reusable-work-definitions.md",
       "daemon-runtime/doctrine.md",
       "connectors-tools/contracts.md",
     ],
@@ -846,6 +871,58 @@ function allSchemaFiles(dir) {
   });
 }
 
+/**
+ * Exactly one module in the shared-object family may declare any given object
+ * shape. Splitting the former single file into per-subject modules made a
+ * cross-file duplicate possible for the first time; this closes that hole and is
+ * strictly stronger than the pre-split single-file check.
+ */
+export function checkSharedObjectFamilyOwnership({ root, contentsByFile }) {
+  const failures = [];
+  const owner = new Map();
+  const entries = [...contentsByFile.entries()]
+    .map(([file, content]) => ({ rel: normalizeRel(root, file), content }))
+    .filter(({ rel }) => isSharedObjectFamilyFile(rel))
+    .sort((a, b) => a.rel.localeCompare(b.rel));
+
+  if (entries.length < 2) {
+    failures.push(
+      "the shared-object family must contain the index plus at least one module under foundations/objects/.",
+    );
+  }
+
+  for (const { rel, content } of entries) {
+    for (const declaration of sharedObjectDeclarations(content)) {
+      const previous = owner.get(declaration.value);
+      if (previous && previous.rel !== rel) {
+        failures.push(
+          `${rel}:${declaration.line} re-declares canonical object ${declaration.value}, already owned by ${previous.rel}:${previous.line}.`,
+        );
+      } else if (!previous) {
+        owner.set(declaration.value, { rel, line: declaration.line });
+      }
+    }
+  }
+
+  const index = entries.find(
+    ({ rel }) => rel === "docs/architecture/foundations/common-objects-and-envelopes.md",
+  );
+  if (!index) {
+    failures.push("docs/architecture/foundations/common-objects-and-envelopes.md is missing.");
+    return failures;
+  }
+  for (const { rel } of entries) {
+    if (rel === index.rel) continue;
+    const basename = rel.split("/").pop();
+    if (!index.content.includes(`./objects/${basename}`)) {
+      failures.push(
+        `${rel} is not registered in the shared-object family index (common-objects-and-envelopes.md).`,
+      );
+    }
+  }
+  return failures;
+}
+
 export function checkArchitectureIntegrity({ root, architectureRoot, markdownFiles }) {
   const failures = [];
   const contentsByFile = new Map(
@@ -858,6 +935,8 @@ export function checkArchitectureIntegrity({ root, architectureRoot, markdownFil
     failures.push(...checkOwningRegistryDuplicates(rel, content));
     failures.push(...checkRecencyPrecedence(rel, content));
   }
+
+  failures.push(...checkSharedObjectFamilyOwnership({ root, contentsByFile }));
 
   const schemaRoot = path.join(architectureRoot, "_meta/schemas");
   const schemaFiles = allSchemaFiles(schemaRoot);

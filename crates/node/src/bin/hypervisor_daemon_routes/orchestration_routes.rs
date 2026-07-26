@@ -51,7 +51,28 @@ fn load(data_dir: &str, kind: &str, id: &str) -> Option<Value> {
 }
 
 /// Self-call the daemon's own loopback API — composes the REAL routes (no duplicated lifecycle).
-async fn call(base: &str, method: &str, path: &str, body: Option<Value>) -> Result<Value, String> {
+/// Posture- and principal-bearing headers; same set as the MCP gateway.
+///
+/// Forwarding is OPPORTUNISTIC: the automation webhook path is intentionally
+/// session-less (auth_gate exempts `*/webhook`; it authenticates by its own
+/// per-automation trigger token), so on that path there is nothing to forward and
+/// nothing changes. Directly mounted, auth-gated handlers DO have a caller, and
+/// their loopback effects must be evaluated under that caller's posture.
+const FORWARDED_AUTH_HEADERS: &[&str] = &[
+    "authorization",
+    "cookie",
+    "x-forwarded-host",
+    "x-forwarded-for",
+    "x-ioi-forwarded",
+];
+
+async fn call(
+    base: &str,
+    method: &str,
+    path: &str,
+    body: Option<Value>,
+    inbound: &axum::http::HeaderMap,
+) -> Result<Value, String> {
     let client = reqwest::Client::new();
     let url = format!("{base}{path}");
     let mut req = match method {
@@ -59,6 +80,11 @@ async fn call(base: &str, method: &str, path: &str, body: Option<Value>) -> Resu
         "GET" => client.get(&url),
         other => return Err(format!("bad method {other}")),
     };
+    for name in FORWARDED_AUTH_HEADERS {
+        if let Some(value) = inbound.get(*name).and_then(|v| v.to_str().ok()) {
+            req = req.header(*name, value);
+        }
+    }
     if let Some(b) = body {
         req = req.json(&b);
     }
@@ -1057,12 +1083,17 @@ pub(crate) async fn handle_automation_webhook(
     let data_dir = st.data_dir.clone();
     let id2 = id.clone();
     let receipt = receipt_id.clone();
+    // Opportunistic: on the webhook path there is no session to forward, so this
+    // is a no-op there. It matters when the same executor runs for an
+    // authenticated caller.
+    let inbound = headers.clone();
     tokio::spawn(async move {
         if let Ok(r) = call(
             &base,
             "POST",
             &format!("/v1/hypervisor/automations/{id2}/runs"),
             Some(json!({ "trigger": "webhook" })),
+            &inbound,
         )
         .await
         {
@@ -1091,6 +1122,7 @@ pub(crate) async fn handle_automation_webhook(
 pub(crate) async fn handle_automation_start(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    inbound: axum::http::HeaderMap,
 ) -> Result<Json<Value>, AppError> {
     let Some(automation) = load(&st.data_dir, "automations", &id) else {
         return Ok(Json(
@@ -1112,14 +1144,20 @@ pub(crate) async fn handle_automation_start(
 
     // 1) fresh environment (real env create + start over loopback).
     let spec = json!({ "spec": { "environment_class_id": automation["environment_class_id"], "recipe_ref": automation["recipe_ref"], "project_id": automation["project_id"] } });
-    let created = call(&base, "POST", "/v1/hypervisor/environments", Some(spec))
-        .await
-        .map_err(|e| {
-            AppError(
-                axum::http::StatusCode::BAD_GATEWAY,
-                format!("env create: {e}"),
-            )
-        })?;
+    let created = call(
+        &base,
+        "POST",
+        "/v1/hypervisor/environments",
+        Some(spec),
+        &inbound,
+    )
+    .await
+    .map_err(|e| {
+        AppError(
+            axum::http::StatusCode::BAD_GATEWAY,
+            format!("env create: {e}"),
+        )
+    })?;
     let env_id = created["environment"]["id"]
         .as_str()
         .unwrap_or_default()
@@ -1137,6 +1175,7 @@ pub(crate) async fn handle_automation_start(
         "POST",
         &format!("/v1/hypervisor/environments/{env_id}/start"),
         None,
+        &inbound,
     )
     .await;
     exec["environment_id"] = json!(env_id);
@@ -1165,6 +1204,7 @@ pub(crate) async fn handle_automation_start(
                     "POST",
                     "/v1/hypervisor/agentops/conversations",
                     Some(json!({ "environment_id": env_id, "title": automation["name"] })),
+                    &inbound,
                 )
                 .await;
                 let cid = conv
@@ -1182,6 +1222,7 @@ pub(crate) async fn handle_automation_start(
                     "POST",
                     &format!("/v1/hypervisor/agentops/conversations/{cid}/send"),
                     Some(json!({ "text": prompt })),
+                    &inbound,
                 )
                 .await;
                 match sent {
@@ -1214,6 +1255,7 @@ pub(crate) async fn handle_automation_start(
                     "POST",
                     "/v1/hypervisor/exec",
                     Some(json!({ "environment_id": env_id, "command": cmd })),
+                    &inbound,
                 )
                 .await
                 {
@@ -1304,6 +1346,7 @@ pub(crate) async fn handle_automation_start(
         "POST",
         &format!("/v1/hypervisor/agent-run-transcripts/{exec_id}"),
         Some(transcript),
+        &inbound,
     )
     .await;
     Ok(Json(json!({ "ok": !failed, "execution": exec })))
@@ -1331,6 +1374,7 @@ pub(crate) async fn handle_automation_cancel(
 /// record the decision + REJECTED candidates with honest reasons (no silent drop).
 pub(crate) async fn handle_placement_resolve(
     State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let base = st.base_url.clone();
@@ -1355,7 +1399,7 @@ pub(crate) async fn handle_placement_resolve(
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
-    let providers = call(&base, "GET", "/v1/hypervisor/providers", None)
+    let providers = call(&base, "GET", "/v1/hypervisor/providers", None, &inbound)
         .await
         .map_err(|e| {
             AppError(
@@ -1746,24 +1790,37 @@ pub(crate) fn attach_choose_advisory(venues: &mut [Value], advisory: &Value) {
     }
 }
 
-pub(crate) async fn live_environment_classes(base: &str) -> Vec<Value> {
-    call(base, "GET", "/v1/hypervisor/environment-classes", None)
-        .await
-        .ok()
-        .and_then(|v| {
-            v.get("environmentClasses")
-                .and_then(Value::as_array)
-                .cloned()
-        })
-        .unwrap_or_default()
+pub(crate) async fn live_environment_classes(
+    base: &str,
+    inbound: &axum::http::HeaderMap,
+) -> Vec<Value> {
+    call(
+        base,
+        "GET",
+        "/v1/hypervisor/environment-classes",
+        None,
+        inbound,
+    )
+    .await
+    .ok()
+    .and_then(|v| {
+        v.get("environmentClasses")
+            .and_then(Value::as_array)
+            .cloned()
+    })
+    .unwrap_or_default()
 }
 
 /// GET /v1/hypervisor/placement/venues — the four venue cards, live-composed.
-pub(crate) async fn handle_placement_venues(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let classes = live_environment_classes(&st.base_url).await;
+pub(crate) async fn handle_placement_venues(
+    State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
+) -> Json<Value> {
+    let classes = live_environment_classes(&st.base_url, &inbound).await;
     let mut venues = compose_venues(&st.data_dir, &classes);
     let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
-    let advisory = super::decentralized_cloud_routes::advisory_for(&st, &intent, false).await;
+    let advisory =
+        super::decentralized_cloud_routes::advisory_for(&st, &intent, false, &inbound).await;
     attach_choose_advisory(&mut venues, &advisory);
     Json(json!({
         "schema_version": "ioi.hypervisor.placement-venues.v1",
@@ -1800,6 +1857,7 @@ pub(crate) async fn handle_venue_policy_get(State(st): State<Arc<DaemonState>>) 
 /// hypervisor_choose is accepted as an ADVISORY placeholder (effective venue stays run_local).
 pub(crate) async fn handle_venue_policy_put(
     State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let venue = body.get("venue").and_then(Value::as_str).unwrap_or("");
@@ -1853,7 +1911,8 @@ pub(crate) async fn handle_venue_policy_put(
     let mut advisory_block = Value::Null;
     if advisory {
         let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
-        advisory_block = super::decentralized_cloud_routes::advisory_for(&st, &intent, true).await;
+        advisory_block =
+            super::decentralized_cloud_routes::advisory_for(&st, &intent, true, &inbound).await;
     }
     let prior = load_venue_policy(&st.data_dir);
     let mut history = prior
@@ -1942,6 +2001,7 @@ pub(crate) fn venue_receipts_expected(venue: &str, data_dir: &str) -> Value {
 /// will mint — NAMED BEFORE LAUNCH. Uses the stored policy unless overridden by query params.
 pub(crate) async fn handle_placement_preview(
     State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
     Query(q): Query<HashMap<String, String>>,
 ) -> Json<Value> {
     let policy = load_venue_policy(&st.data_dir);
@@ -1961,7 +2021,7 @@ pub(crate) async fn handle_placement_preview(
                 .map(str::to_string)
         })
         .unwrap_or_default();
-    let classes = live_environment_classes(&st.base_url).await;
+    let classes = live_environment_classes(&st.base_url, &inbound).await;
     let venues = compose_venues(&st.data_dir, &classes);
     let venue_card = venues
         .iter()
@@ -1978,7 +2038,7 @@ pub(crate) async fn handle_placement_preview(
         });
     let advisory = if venue == "hypervisor_choose" {
         let intent = super::decentralized_cloud_routes::ensure_default_intent(&st.data_dir);
-        super::decentralized_cloud_routes::advisory_for(&st, &intent, false).await
+        super::decentralized_cloud_routes::advisory_for(&st, &intent, false, &inbound).await
     } else {
         Value::Null
     };
@@ -2013,6 +2073,7 @@ fn warm_pool_for(data_dir: &str, project: &str, class: &str) -> Option<Value> {
 /// POST /v1/hypervisor/warm-pools — declare a warm pool and PRE-START `size` envs (real).
 pub(crate) async fn handle_warm_pool_create(
     State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<Json<Value>, AppError> {
     let base = st.base_url.clone();
@@ -2035,13 +2096,22 @@ pub(crate) async fn handle_warm_pool_create(
     let mut ready: Vec<String> = Vec::new();
     for _ in 0..size {
         let spec = json!({ "spec": { "environment_class_id": class, "project_id": project } });
-        if let Ok(c) = call(&base, "POST", "/v1/hypervisor/environments", Some(spec)).await {
+        if let Ok(c) = call(
+            &base,
+            "POST",
+            "/v1/hypervisor/environments",
+            Some(spec),
+            &inbound,
+        )
+        .await
+        {
             if let Some(eid) = c["environment"]["id"].as_str() {
                 let _ = call(
                     &base,
                     "POST",
                     &format!("/v1/hypervisor/environments/{eid}/start"),
                     None,
+                    &inbound,
                 )
                 .await;
                 ready.push(eid.to_string());

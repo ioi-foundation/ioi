@@ -267,7 +267,7 @@ const operationsPlanePayloadValid = (path, payload) => {
       return operationsArrays(payload, ["runs"]);
     case "/v1/hypervisor/failover/plans":
       return operationsArrays(payload, ["plans"]);
-    case "/v1/hypervisor/goal-runs":
+    case "/v1/goal-orchestration/goal-runs":
       return operationsArrays(payload, ["goal_runs"]);
     case "/v1/hypervisor/work-ledger":
       return operationsArrays(payload, ["entries"]);
@@ -6938,7 +6938,7 @@ async function handleEstateRequest(req, res, body) {
     // and IOI Agent coordination runs. Each row opens its owned timeline; nothing is synthesized.
     if ((pathname === "/__ioi/run-timeline" || pathname === "/__ioi/run-replay") && req.method === "GET" && !(new URLSearchParams((req.url || "").split("?")[1] || "").get("runId"))) {
       const J = (p) => fetch(`${DAEMON}${p}`).then((x) => x.json()).catch(() => ({}));
-      const [trRes, grRes] = await Promise.all([J("/v1/hypervisor/agent-run-transcripts"), J("/v1/hypervisor/goal-runs")]);
+      const [trRes, grRes] = await Promise.all([J("/v1/hypervisor/agent-run-transcripts"), J("/v1/goal-orchestration/goal-runs")]);
       const rows = [];
       listRuns().forEach((r) => rows.push({ kind: "session", title: r.title || r.prompt || "agent session", id: r.id, status: r.status || "", at: r.createdAt || "", root: "", href: `/__ioi/run-timeline/${encodeURIComponent(r.id)}` }));
       (trRes.runs || []).forEach((t) => rows.push({ kind: t.kind === "harness-profile-op" || t.kind === "model-route-op" ? "admin-op" : "execution", title: `${t.op || t.kind || "run"}${t.profile_ref ? " · " + t.profile_ref : ""}`, id: t.run_id || "", status: t.status || "", at: t.started_at || t.recorded_at || "", root: t.state_root || "", href: `/__ioi/run-timeline/${encodeURIComponent(t.run_id || "")}` }));
@@ -6975,8 +6975,8 @@ async function handleEstateRequest(req, res, body) {
         // Candidate Artifacts, Reconciliation, Proof), rendered from the daemon records.
         const grid = decodeURIComponent(rest.slice("goal-run/".length).split("/")[0]);
         const [gRes, eRes] = await Promise.all([
-          fetch(`${DAEMON}/v1/hypervisor/goal-runs/${encodeURIComponent(grid)}`).then((x) => x.json()).catch(() => ({})),
-          fetch(`${DAEMON}/v1/hypervisor/goal-runs/${encodeURIComponent(grid)}/events`).then((x) => x.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/goal-orchestration/goal-runs/${encodeURIComponent(grid)}`).then((x) => x.json()).catch(() => ({})),
+          fetch(`${DAEMON}/v1/goal-orchestration/goal-runs/${encodeURIComponent(grid)}/events`).then((x) => x.json()).catch(() => ({})),
         ]);
         res.writeHead(gRes.ok ? 200 : 404, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(gRes.ok
@@ -7245,7 +7245,7 @@ async function handleEstateRequest(req, res, body) {
               __typename: "BuildReport",
             });
             const [grj, ssj, atj] = await Promise.all([
-              fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((r) => r.json()),
+              fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((r) => r.json()),
               fetch(`${DAEMON}/v1/hypervisor/sessions`).then((r) => r.json()),
               fetch(`${DAEMON}/v1/hypervisor/automations`).then((r) => r.json()),
             ]);
@@ -8164,7 +8164,7 @@ async function handleEstateRequest(req, res, body) {
         fetch(`${DAEMON}/v1/hypervisor/eval-suites`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/eval-suites/overview`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/foundry/specs`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/feedback/overview`).then((x) => x.json()).catch(() => ({})),
       ]);
@@ -8302,7 +8302,7 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
       const [opsRes, grRes] = await Promise.all([
         fetch(`${DAEMON}/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
       ]);
       const qp = new URL(req.url, "http://x").searchParams;
       const lane = ["open", "closed", "all"].includes(qp.get("lane")) ? qp.get("lane") : "open";
@@ -8322,7 +8322,7 @@ async function handleEstateRequest(req, res, body) {
         readOperationsPlane("/v1/hypervisor/akash-deployments"),
         readOperationsPlane("/v1/hypervisor/failover/runs"),
         readOperationsPlane("/v1/hypervisor/failover/plans"),
-        readOperationsPlane("/v1/hypervisor/goal-runs"),
+        readOperationsPlane("/v1/goal-orchestration/goal-runs"),
         readOperationsPlane("/v1/hypervisor/work-ledger"),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
@@ -8354,7 +8354,7 @@ async function handleEstateRequest(req, res, body) {
         fetch(`${DAEMON}/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/editor-targets`).then((x) => x.json()).catch(() => ({})),
         fetch(`${DAEMON}/v1/hypervisor/sessions`).then((x) => x.json()).catch(() => ({})),
-        fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((x) => x.json()).catch(() => ({})),
+        fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderWorkbench(sRes, etRes, sessRes, grRes.goal_runs || []));
@@ -8370,7 +8370,7 @@ async function handleEstateRequest(req, res, body) {
     // wallet signer (the same local wallet-holder pattern as the /ai agent-run lane): phase A
     // provisions + returns the authority challenge, serve mints the grant, phase B executes.
     if (pathname === "/__ioi/api/ioi-agent/preview" && req.method === "POST") {
-      const r = await fetch(`${DAEMON}/v1/hypervisor/ioi-agent/launch-preview`, { method: "POST", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).catch(() => null);
+      const r = await fetch(`${DAEMON}/v1/goal-orchestration/ioi-agent/launch-preview`, { method: "POST", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).catch(() => null);
       const j = r ? await r.json().catch(() => ({})) : { ok: false, error: { code: "daemon_unavailable" } };
       res.writeHead(r ? r.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(j));
@@ -8381,7 +8381,7 @@ async function handleEstateRequest(req, res, body) {
       // but a synchronous launch legitimately runs to the daemon's execution budgets (compare:
       // up to two 660s-reaped invocations + retry). The relay must outwait the daemon, not undici.
       const daemonLaunch = (payload) => new Promise((resolve) => {
-        const target = new URL(`${DAEMON}/v1/hypervisor/ioi-agent/launch`);
+        const target = new URL(`${DAEMON}/v1/goal-orchestration/ioi-agent/launch`);
         const reqUp = http.request(
           { hostname: target.hostname, port: target.port, path: target.pathname, method: "POST",
             headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } },
@@ -8444,7 +8444,7 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/hypervisor/model-routes"),
         J("/v1/hypervisor/editor-targets"),
-        J("/v1/hypervisor/ioi-agent/launch-policies?status=active"),
+        J("/v1/goal-orchestration/ioi-agent/launch-policies?status=active"),
         J("/v1/hypervisor/placement/venues"),
         J("/v1/hypervisor/placement/venue-policy"),
       ]);
@@ -8528,7 +8528,7 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/agentops/conversations"),
         J("/v1/hypervisor/agent-run-transcripts"),
         J("/v1/hypervisor/model-routes"),
-        J("/v1/hypervisor/ioi-agent/launch-policies"),
+        J("/v1/goal-orchestration/ioi-agent/launch-policies"),
         J("/v1/hypervisor/memory-entries"),
         J("/v1/hypervisor/skill-entries"),
         J("/v1/hypervisor/automation-affinities"),
@@ -8692,7 +8692,7 @@ async function handleEstateRequest(req, res, body) {
       const rolloutAct = pathname.match(/^\/__ioi\/agent-studio\/launch-policies\/([^/]+)\/rollout\/(promote|rollback)$/);
       if (rolloutAct && req.method === "POST") {
         const [, pid, act] = rolloutAct;
-        const r = await fetch(`${DAEMON}/v1/hypervisor/ioi-agent/launch-policies/${encodeURIComponent(pid)}/rollout/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
+        const r = await fetch(`${DAEMON}/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}/rollout/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -8895,10 +8895,10 @@ async function handleEstateRequest(req, res, body) {
       if (lpAction && req.method === "POST") {
         const [, pid, act] = lpAction;
         const target = act === "clone"
-          ? { method: "POST", url: `/v1/hypervisor/ioi-agent/launch-policies/${encodeURIComponent(pid)}/clone`, body: "{}" }
+          ? { method: "POST", url: `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}/clone`, body: "{}" }
           : act === "delete"
-            ? { method: "DELETE", url: `/v1/hypervisor/ioi-agent/launch-policies/${encodeURIComponent(pid)}`, body: undefined }
-            : { method: "PATCH", url: `/v1/hypervisor/ioi-agent/launch-policies/${encodeURIComponent(pid)}`, body: JSON.stringify({ status: act === "enable" ? "active" : "disabled" }) };
+            ? { method: "DELETE", url: `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}`, body: undefined }
+            : { method: "PATCH", url: `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}`, body: JSON.stringify({ status: act === "enable" ? "active" : "disabled" }) };
         const r = await fetch(`${DAEMON}${target.url}`, { method: target.method, headers: { "content-type": "application/json" }, body: target.body }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
@@ -8937,7 +8937,7 @@ async function handleEstateRequest(req, res, body) {
           },
         };
         const editId = form.get("policy_id");
-        const url = editId ? `/v1/hypervisor/ioi-agent/launch-policies/${encodeURIComponent(editId)}` : "/v1/hypervisor/ioi-agent/launch-policies";
+        const url = editId ? `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(editId)}` : "/v1/goal-orchestration/ioi-agent/launch-policies";
         const r = await fetch(`${DAEMON}${url}`, { method: editId ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {

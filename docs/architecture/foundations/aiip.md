@@ -193,7 +193,7 @@ decisions with separate receipts.
 ioi.ai and aiagent.xyz may accept an already-running, user-owned local agent or
 harness without claiming to verify its hidden cognition or taking over its
 runtime. The first-mile boundary is the shared
-[`LocalAgentPairingSessionEnvelope`](./common-objects-and-envelopes.md#localagentpairingsessionenvelope).
+[`LocalAgentPairingSessionEnvelope`](./objects/bounded-system-genesis.md#localagentpairingsessionenvelope).
 It is a short-lived authentication and bootstrap contract, not an AIIP channel,
 an authority grant, a participant lease, a Worker installation, or proof of
 model, harness, tool, environment, or operator claims.
@@ -547,7 +547,7 @@ No response grants membership, authority, work, reputation, or payout.
 AIIP owns packet semantics, processing rules, profiles, conformance, and
 evolution. The single canonical field-level `AIIPChannelEnvelope` and
 `AIIPEnvelope` schemas are owned by
-[`common-objects-and-envelopes.md`](./common-objects-and-envelopes.md#aiip-and-bounded-execution-domain-envelopes).
+[`interop-and-collaboration-terms.md`](./objects/interop-and-collaboration-terms.md#aiip-and-bounded-execution-domain-envelopes).
 That shared schema is the normative superset. It retains packet and payload
 identity while binding:
 
@@ -693,7 +693,7 @@ an authorized policy-bound view. A board, digest, inbox, leaderboard, and replay
 are projections over this state, not protocol authority.
 
 Cross-domain/open discovery and admission use the shared
-[`OutcomeRoomDiscoveryEnvelope`](./common-objects-and-envelopes.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope)
+[`OutcomeRoomDiscoveryEnvelope`](./objects/collaborative-pursuit.md#outcomeroomdiscoveryenvelope-and-roomparticipationrequestenvelope)
 and `RoomParticipationRequestEnvelope`. An external independently operated
 Worker can discover a signed public/permissioned objective and category,
 semantic/capability requirements, eligibility, visibility/privacy,
@@ -706,7 +706,7 @@ federation policy accepts the same typed request and evidence.
 Retire, expiry, quarantine, and revoke transitions release or reassign live
 claims and terminate future access. They preserve policy-allowed contribution,
 receipt, acceptance, settlement, and dispute refs and may carry a signed
-[`ParticipantStateBundleEnvelope`](./common-objects-and-envelopes.md#participantstatebundleenvelope).
+[`ParticipantStateBundleEnvelope`](./objects/collaborative-pursuit.md#participantstatebundleenvelope).
 The participant's home domain can retain that portable state without continued
 access to or trust in a hosted room database. Hosted and federated rooms use the
 same discovery, request, lease, exit, and export contracts; they differ only in
@@ -785,7 +785,7 @@ Meaningful routing decisions should emit routing receipts, especially when they
 affect payment, reputation, trust, settlement, or dispute posture.
 
 The canonical decision object is
-[`RoutingDecisionEnvelope`](./common-objects-and-envelopes.md#routingdecisionenvelope).
+[`RoutingDecisionEnvelope`](./objects/goal-run-execution.md#routingdecisionenvelope).
 It owns the candidate and affiliation commitments, selected Worker composition,
 mounted model/provider/runtime dependencies, attempted and actual route refs,
 fallback and verifier escalation, contributor policy, and first-party seed-

@@ -1,10 +1,10 @@
 # Hypervisor Daemon and IOI CLI Runtime Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for Hypervisor Daemon, CLI ownership boundaries, and IOI CLI operator-surface positioning; low-level daemon endpoints live in [`api.md`](./api.md).
-Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator.
+Canonical owner: this file for Hypervisor Daemon, CLI ownership boundaries, IOI CLI operator-surface positioning, the admission-evidence discipline (INV-37 application), and the Authority Gateway attach-lane contract (`ActionRequestEnvelope`, `AuthorityGatewayProfile`, and attach-to-run-on graduation); the GoalRun admission contract is application-owned per ADR 0022 and lives with its object family; low-level daemon endpoints live in [`api.md`](./api.md).
+Supersedes: older CLI/daemon wording that implies the CLI owns runtime semantics or is primarily a chain/domain generator; readings under which GoalRun admission doctrine had a named owner but no stated contract.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-25.
 Doctrine status: canonical
 Implementation status: partial (the daemon is the single runtime surface; hosted/DePIN endpoint families planned)
 Implementation refs:
@@ -380,6 +380,48 @@ better workers, install marketplace workers, delegate authority through
 wallet.network, and graduate to Hypervisor App, Hypervisor Web, or Developer Workspace
 when they need the native control room.
 
+#### What the architecture owes the attach lane
+
+The attach lane is the commercial wedge, and a wedge that meets people where
+their agents already run must be paid for in contracts, not slogans. Four
+debts, each a named target (none is claimed built; see
+[`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md)):
+
+- **Admission.** `ActionRequestEnvelope` is the canonical target object for a
+  gateway-mediated proposed action. It binds the adapter identity and
+  revision, the proposed action and risk class, required primitive
+  capabilities and authority scopes, the policy decision and hash, and — so
+  attached work joins the work spine rather than living beside it — optional
+  typed subject refs (`session://`, `goal://`, `work_run://`,
+  `work_item://`). The API sketch in [`api.md`](./api.md) carrying only legacy
+  `run_id`/`thread_id` identities is wire compatibility, not the contract.
+- **Receipts.** Each `receipt_obligations` entry on an action request uses the
+  shared `ReceiptObligation` element
+  ([`evidence-and-delivery.md`](../../foundations/objects/evidence-and-delivery.md)),
+  and the gateway decision/execution/artifact receipt types must be registered
+  in [`events-receipts-delivery-bundles.md`](./events-receipts-delivery-bundles.md)
+  before any adapter claims receipted mediation. Today no gateway receipt
+  type is registered; that is a recorded gap, not a wording problem.
+- **Evidence.** `AuthorityGatewayProfile` is the canonical target object that
+  declares one adapter deployment's action surfaces, scopes, and posture — the
+  subject its `EnforcementCoverageDeclaration` evidence describes. Canon has
+  referenced this profile for some time without defining it anywhere; it is
+  owned here. No profile may advertise coverage its current, verified
+  declaration does not support.
+- **Migration.** Graduation from the attach lane into the run-on lane is
+  contracted, not vibes: the external agent is admitted as an
+  `AgentHarnessAdapter` revision
+  ([`default-harness-profile.md`](./default-harness-profile.md)); its work
+  enters the work spine through `GoalRunActivationEnvelope` with
+  `source_kind: gateway_adapter_context`
+  ([`goal-pursuit.md`](../../foundations/objects/goal-pursuit.md)); attach-lane
+  receipts remain valid, linkable evidence and are never re-minted; and no
+  attach-lane approval or credential carries into the run-on lane implicitly —
+  the run-on lane requests its own scopes (INV-1). An adopter who leaves keeps
+  their adapter investment: adapter contracts are part of the open protocol
+  surface named in
+  [`economic-flywheel-and-pricing-boundaries.md`](../../foundations/economic-flywheel-and-pricing-boundaries.md).
+
 ## Runtime Role
 
 The daemon executes work. It does not own root authority or global marketplace state.
@@ -611,6 +653,29 @@ If a client times out after the daemon accepted a WorkRun, retrying the same
 payload must be idempotency-aware so it does not create duplicate autonomous
 runs. Clients should surface the run ref and environment/session link, then
 poll or subscribe only when the user asks for live status.
+
+## Admission Evidence Discipline
+
+The daemon applies INV-37 to every admission it performs, for every object
+family — substrate-owned or application-owned: an admission precondition is
+discharged only by evidence the admission core resolves or independently
+verifies. A route handler that writes the policy string, scope list, receipt
+flag, or a prefix-shaped state-root ref into the request it then submits to
+the admission core has satisfied nothing; the resulting decision is void for
+conformance purposes. The admission core is the policy-enforcement point;
+routes transport. Receipt obligations everywhere use the typed
+`ReceiptObligation` element
+([`evidence-and-delivery.md`](../../foundations/objects/evidence-and-delivery.md))
+— a boolean is a claim, not a contract.
+
+Application domains state their own admission contracts against these rules.
+The goal-orchestration application's GoalRun admission contract — profile
+resolution closure, activation crossing, source-context verification,
+resolved authority, retained state commitment, typed receipt obligations, and
+declared bounds — is owned with its object family in
+[`goal-run-execution.md`](../../foundations/objects/goal-run-execution.md)
+per [ADR 0022](../../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md);
+the daemon executes and enforces it but does not own its domain doctrine.
 
 ## Event Model
 

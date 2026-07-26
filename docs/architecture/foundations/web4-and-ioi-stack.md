@@ -189,6 +189,51 @@ machine authority protocol
   = IOI's canonical Web4 operating fabric
 ```
 
+### The Adoption Calculus
+
+Category ownership is an architectural property, not a positioning one. IOI
+owns this category only if a capable outsider's rational move is **adopt**
+rather than fork or ignore. That calculus rests on five properties. Each is
+audited here against its owning contract, because a property with no contract
+is a hope; where the contract is missing, the gap is recorded rather than
+papered over.
+
+| Property | Owning contract today | Honest state |
+| --- | --- | --- |
+| Open protocol surface | the enumerated open surface and offline-verifiability requirements in [`economic-flywheel-and-pricing-boundaries.md`](./economic-flywheel-and-pricing-boundaries.md) | doctrine, not yet a versioned protocol-surface manifest; see gaps below |
+| Reference implementation | none — "reference" is used per-subject (Hypervisor, OutcomeRoom, Default Harness Profile) with no contract for what makes a release *the* reference or how a third party proves parity | recorded gap |
+| Conformance certification | `ConformanceProfile` / `CertificationClaim` / `EcosystemAssuranceProfile` in [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md) | contracted, planned; no runnable public suite, no issuer-accreditation or issuer-separation rule |
+| Credible neutrality | [`marketplace-neutrality.md`](../domains/marketplace-neutrality.md) for routing/marketplace; nothing for IOI as spec owner and network operator | half-owned; protocol-governance neutrality is a recorded gap |
+| Portable exit | enrollment exit transitions ([`objects/bounded-system-genesis.md`](./objects/bounded-system-genesis.md)), `ParticipantStateBundle`, portable memory vault, SLC attach/detach cases, and attach-lane adapter portability ([`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)) | best-covered; every lane is contracted, none is evaluator-proven |
+
+Why the rational move is adopt, stated so a hostile reader can attack it:
+compatibility is free and untaxed (`ioi_compatible` owes no fee, token, or
+enrollment); honesty is verifiable offline (receipts, authority envelopes,
+routing decisions, and state roots check against open schemas without a hosted
+IOI); exit is typed, so adoption is not a one-way door; and forking the
+contracts buys nothing that compatibility does not already give, while losing
+certification lineage and interop reach. That argument currently has two open
+flanks, and pretending otherwise would be exactly the theater this doctrine
+forbids:
+
+1. **The license question is unresolved.** Kernel/runtime components carry
+   `LICENSE-BBSL` while this doctrine requires the load-bearing open surface
+   to be "implementable and independently operable" under permissive or
+   standards-compatible terms. Both ADR 0015 and the flywheel doc require a
+   separate accepted licensing ADR to resolve this, and none exists. Until it
+   does, the single most load-bearing adopt-vs-fork input — may a third party
+   legally implement and operate L0 — is open. Owner: a dedicated licensing
+   ADR with legal review; tracked as a recorded gap, not silently assumed.
+2. **The conformance suite is not yet runnable by an outsider.** Adopters
+   cannot self-certify today; the certification surface is contract-only.
+   Owner: [`../../conformance/README.md`](../../conformance/README.md) claim
+   coverage index and the first-proof ruling in
+   [`execution-horizons.md`](../_meta/execution-horizons.md).
+
+Neither flank is closed by wording. They are closed by the licensing ADR and
+by the sovereign-local-completeness proof landing — which is one reason that
+proof is sequenced first.
+
 ## Web Evolution
 
 ```text

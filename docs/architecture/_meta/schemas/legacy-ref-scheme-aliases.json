@@ -38,7 +38,6 @@
     "episode_dataset": "episode-dataset",
     "eval_report": "eval-report",
     "execution_branch": "execution-branch",
-    "facility_system": "facility-system",
     "fleet_policy": "fleet-policy",
     "foundry_job": "foundry-job",
     "foundry_spec": "foundry-spec",

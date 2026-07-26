@@ -506,6 +506,11 @@ impl RuntimeGoalRunAdmissionCore {
         if !policy_excluded.is_empty() {
             constraints_applied.push("policy_excluded_harnesses".to_string());
         }
+        // RECOMMENDATION ONLY. This heuristic may propose a GoalRun; it can never
+        // authorize one. Durable goal identity requires typed explicit activation
+        // (substrate New Goal / GoalRun activation, or an accepted ioi.ai
+        // Session-to-Goal handoff). See docs/architecture/foundations/term-boundaries.md
+        // and the launch route, which creates a Session only without that evidence.
         let compare_shaped = goal.len() >= 120
             || [
                 "compare",
@@ -773,6 +778,56 @@ mod tests {
             "provider_trust": "local",
             "model_route_state": "available",
         })
+    }
+
+    /// Behavioral guard for the product/substrate boundary: GoalRun admission must
+    /// REJECT when the authority scope is absent or unrelated. A source-text
+    /// assertion that the `require_scope(...)` line exists cannot tell the
+    /// difference between the rule holding and the line merely being present --
+    /// an earlier text-matching version of this guard passed with require_scope
+    /// neutered to always-allow -- so this calls the real admission path.
+    #[test]
+    fn goal_run_admission_rejects_a_missing_authority_scope() {
+        let core = RuntimeGoalRunAdmissionCore;
+
+        // An empty scope set is caught earlier, by the required-refs check.
+        let mut no_scope = goal_request();
+        no_scope["authority_scope_refs"] = json!([]);
+        assert!(
+            core.admit_goal_run(&no_scope, "2026-01-01T00:00:00Z")
+                .is_err(),
+            "an empty authority scope set must not admit a GoalRun"
+        );
+
+        // A present-but-unrelated scope is what actually exercises require_scope,
+        // and is the shape a neutered require_scope would let through.
+        let mut wrong_scope = goal_request();
+        wrong_scope["authority_scope_refs"] = json!(["scope:something.else"]);
+        let err = core
+            .admit_goal_run(&wrong_scope, "2026-01-01T00:00:00Z")
+            .unwrap_err();
+        assert!(
+            err.code.contains("scope") || err.code.contains("authority"),
+            "an unrelated scope must be rejected by the scope check, got {}",
+            err.code
+        );
+
+        // Receipts and a state root are part of the same admission contract.
+        let mut no_receipts = goal_request();
+        no_receipts["receipt_required"] = json!(false);
+        assert!(
+            core.admit_goal_run(&no_receipts, "2026-01-01T00:00:00Z")
+                .is_err(),
+            "GoalRun admission must require receipts"
+        );
+
+        let mut no_state_root = goal_request();
+        no_state_root["state_root_ref"] = json!("");
+        assert!(
+            core.admit_goal_run(&no_state_root, "2026-01-01T00:00:00Z")
+                .is_err(),
+            "GoalRun admission must bind a state root"
+        );
     }
 
     #[test]

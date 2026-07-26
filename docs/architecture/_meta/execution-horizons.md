@@ -4,7 +4,7 @@ Status: canonical architecture note.
 Canonical owner: this file for the horizon framing that separates the launch wedge from long-horizon breadth without narrowing canon.
 Supersedes: readings of the canon that mistake speculative breadth for current shipped surface, or that treat horizon labels as scope deletion.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-07-25.
 Doctrine status: canonical
 Implementation status: mixed (this note classifies; subject owners carry per-file status)
 Last implementation audit: 2026-07-05
@@ -33,15 +33,17 @@ navigation changes:
   extension applications while keeping publisher, creation method,
   distribution, availability, admission, installation, package disposition,
   enablement, capability depth, and operational state independent;
-- stop new generic `HypervisorMission` writes, create typed GoalRun,
-  OutcomeRoom, AutomationRun, Session, WorkItem, and WorkRun associations, and
-  emit reviewable alias/migration receipts for legacy records;
+- stop new generic `HypervisorMission` writes and create typed GoalRun,
+  OutcomeRoom, AutomationRun, Session, WorkItem, and WorkRun associations;
+  legacy generic records are deleted, not aliased or migration-receipted
+  (ADR 0022 Decision 2);
 - do not put Systems in the permanent rail until genesis, constitution,
   deployment, observed membership, and lifecycle read models can render honest
   inventory and detail;
 - do not replace the broad Sessions/Missions estate with Work until every row
-  has a policy-filtered typed subject and compatibility routes preserve query,
-  hash, embed, return-path, Project, System, and backing-subject context.
+  has a policy-filtered typed subject; at cutover the retired routes are
+  deleted, not aliased, and canonical routes preserve query, hash, embed,
+  return-path, Project, System, and backing-subject context.
 
 Packages/generated-interface/Embodied Systems UX remains pulled by its owning
 contracts and horizon. The taxonomy gate cannot become a competing feature
@@ -225,6 +227,60 @@ uninstall-without-wipe, export/import portability, and the amount of
 architecture vocabulary exposed to a first-time operator. Thresholds and baseline cohorts are
 release-program decisions; omitting the measurements is not.
 
+## The first proof — a ruling
+
+The flagship proofs — sovereign-local completeness, one logical DAS across two
+failure domains, two sovereign DASs over AIIP, and the north-star external
+Worker proof — were declared targets without an answer to the question that
+decides sequencing: **which single proof, landed first, most changes what
+everything else can claim?**
+
+The ruling: **sovereign-local completeness is the first proof** — the
+`embedded_single_operator_offline` fixture plus undeniable-product profile 1,
+on the selected bounded software-change OutcomeRoom institution.
+
+Why this one and not another:
+
+- **Dependency structure decides most of it.** Two failure domains need one
+  operable sovereign node first; two sovereign DASs over AIIP need two; the
+  north-star proof needs that federation working. Every other flagship proof
+  begins from the evidence this one produces. No other ordering is even
+  available.
+- **It discharges the canon's most-repeated caveat.** "The current estate has
+  not yet passed the end-to-end standalone contract" is the single most
+  restated honesty clause in this canon. Landing this proof flips the largest
+  set of target claims — genesis, constitution, admission, GoalRun,
+  OutcomeRoom, receipts, replay, backup/restore, uninstall-without-wipe — from
+  target to evidenced at once.
+- **It is the adoption argument.** Local-first, credible exit, and
+  adopt-rather-than-fork all rest on an independently operable core
+  (see the adoption calculus in
+  [`web4-and-ioi-stack.md`](../foundations/web4-and-ioi-stack.md)). Until this
+  proof exists, those are positioning claims; after it, they are demonstrable
+  properties.
+- **It is the cheapest flagship.** Single node, no consensus, no federation,
+  no payments, no cTEE — the conformance matrix
+  ([`sovereign-local-completeness.md`](../../conformance/hypervisor-core/sovereign-local-completeness.md))
+  already exists as fixture data; what is missing is the runner and the
+  passing estate.
+
+What it costs: the contract-first build steps 1–9 below, the
+sovereign-local-completeness runner and isolated-egress harness, and the
+discipline to refuse partial credit — `incomplete` is not a weaker pass.
+
+What it unlocks, in order: the second proof is Horizon 2A continuity across
+two failure domains (same machinery, one more node); the third is Horizon 2B
+useful distributed work; Horizon 3's two-sovereign-DAS AIIP proof remains the
+minimum credible Internet-of-Intelligence demonstration and inherits two
+already-proven sovereign endpoints instead of proving three new things at
+once.
+
+This ruling orders proofs; it deletes nothing. The Authority Gateway attach
+lane is deliberately **not** gated behind the first proof: its contracts are
+Horizon 0 work (below) because the attach lane meets adopters where their
+agents already run and does not depend on the flagship institution landing
+first.
+
 ## Horizon 0 — bounded-DAS contract convergence and commercial truth
 
 Make the architecture executable without pretending the product is already
@@ -284,7 +340,21 @@ commercially metered:
   Embodied Systems application implemented;
 - implement versioned A2A, MCP, directory/schema, and settlement-adapter
   bindings without making any external standard an authority or assurance
-  shortcut.
+  shortcut;
+- implement the Authority Gateway attach-lane contracts —
+  `ActionRequestEnvelope`, registered gateway decision/execution/artifact
+  receipt types, `AuthorityGatewayProfile` with current verified
+  `EnforcementCoverageDeclaration` evidence, and the
+  `GoalRunActivation` graduation crossing — so the commercial wedge named in
+  ADR 0008 is paid for in contracts and sequenced here rather than asserted
+  beside the horizon plan;
+- implement `GoalRunActivationEnvelope` and the goal-orchestration
+  application's unified GoalRun admission contract
+  ([`objects/goal-run-execution.md`](../foundations/objects/goal-run-execution.md),
+  placement per ADR 0022), including typed receipt obligations, the retained
+  admitted state root, and INV-37 resolved-evidence admission under
+  [`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)'s
+  admission-evidence discipline.
 
 The BYO/managed provider plane, applicable authority gates, storage/archive
 custody, Hypervisor clients and surfaces, and Agentgres receipt spine are

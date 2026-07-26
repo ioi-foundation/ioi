@@ -72,9 +72,9 @@ async function run() {
   const affinity = (await jd("POST", "/v1/hypervisor/automation-affinities", { title: `g-aff-${tag}`, goal_pattern: `graphtoken-${tag}`, preferred_policy_ref: "ioi-agent-policy://pol_fast_local" })).j?.record;
 
   // ── Compare run over two harnesses ──
-  const phaseA = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { goal: `Create the file graph-run-${tag}.txt containing the word: explained`, strategy: "compare" });
+  const phaseA = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal: `Create the file graph-run-${tag}.txt containing the word: explained`, strategy: "compare" });
   const grant = mintApprovalGrant({ policyHash: phaseA.j.approval.policy_hash, requestHash: phaseA.j.approval.request_hash });
-  const phaseB = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { launch_id: phaseA.j.launch_id, wallet_approval_grant: grant });
+  const phaseB = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: phaseA.j.launch_id, wallet_approval_grant: grant });
   const grid = String(phaseB.j?.advanced?.goal_run_ref || "").replace("goal://", "");
   const projections = await jd("GET", `/v1/hypervisor/memory-projections?goal_run_ref=goal://${grid}`);
   const byHarness = Object.fromEntries((projections.j?.projections || []).map((p) => [p.harness_profile_ref, p]));

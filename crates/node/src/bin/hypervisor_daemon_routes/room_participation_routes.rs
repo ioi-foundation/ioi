@@ -1,7 +1,8 @@
 //! Room participation plane — build step 3, first pair (#74): `RoomParticipationRequest` +
 //! `RoomParticipantLease` over the hosted OutcomeRoom aggregate (canonical owner:
 //! docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md; envelopes:
-//! common-objects-and-envelopes.md §RoomParticipationRequestEnvelope /
+//! docs/architecture/foundations/objects/collaborative-pursuit.md
+//! §RoomParticipationRequestEnvelope /
 //! §RoomParticipantLeaseEnvelope). Participation is a LEASE, not ambient membership: a typed
 //! admission request carries identity, affiliation, eligibility evidence, and requested scopes;
 //! the hosted admission owner admits a bounded lease or rejects without granting context or
@@ -3278,7 +3279,7 @@ fn classify(e: VErr) -> (StatusCode, Json<Value>) {
     http_err(status, e)
 }
 
-/// POST /v1/hypervisor/room-participation-requests — a typed admission request; admits as
+/// POST /v1/goal-orchestration/room-participation-requests — a typed admission request; admits as
 /// `submitted` with a receipt, bound into the room through the room-owned seam.
 pub(crate) async fn handle_participation_request_create(
     State(st): State<Arc<DaemonState>>,
@@ -3387,7 +3388,7 @@ pub(crate) async fn handle_participation_request_create(
     )
 }
 
-/// GET /v1/hypervisor/room-participation-requests[?room=outcome-room://…]
+/// GET /v1/goal-orchestration/room-participation-requests[?room=outcome-room://…]
 pub(crate) async fn handle_participation_requests_list(
     State(st): State<Arc<DaemonState>>,
     Query(q): Query<std::collections::HashMap<String, String>>,
@@ -3424,7 +3425,7 @@ pub(crate) async fn handle_participation_requests_list(
     }
 }
 
-/// GET /v1/hypervisor/room-participation-requests/:id
+/// GET /v1/goal-orchestration/room-participation-requests/:id
 pub(crate) async fn handle_participation_request_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -3445,7 +3446,7 @@ pub(crate) async fn handle_participation_request_get(
     }
 }
 
-/// POST /v1/hypervisor/room-participation-requests/:id/transition
+/// POST /v1/goal-orchestration/room-participation-requests/:id/transition
 pub(crate) async fn handle_participation_request_transition(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -3790,7 +3791,7 @@ fn ensure_lease_released(data_dir: &str, lease: &Value) -> Result<(), VErr> {
     }
 }
 
-/// POST /v1/hypervisor/room-participation-requests/:id/admit — the hosted owner's admitted
+/// POST /v1/goal-orchestration/room-participation-requests/:id/admit — the hosted owner's admitted
 /// decision: terminal request + bounded ACTIVE lease + room backlink in ONE finalization.
 pub(crate) async fn handle_participation_request_admit(
     State(st): State<Arc<DaemonState>>,
@@ -4018,7 +4019,7 @@ pub(crate) async fn handle_participation_request_admit(
     )
 }
 
-/// GET /v1/hypervisor/room-participant-leases[?room=…]
+/// GET /v1/goal-orchestration/room-participant-leases[?room=…]
 pub(crate) async fn handle_participant_leases_list(
     State(st): State<Arc<DaemonState>>,
     Query(q): Query<std::collections::HashMap<String, String>>,
@@ -4055,7 +4056,7 @@ pub(crate) async fn handle_participant_leases_list(
     }
 }
 
-/// GET /v1/hypervisor/room-participant-leases/:id
+/// GET /v1/goal-orchestration/room-participant-leases/:id
 pub(crate) async fn handle_participant_lease_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -4076,7 +4077,7 @@ pub(crate) async fn handle_participant_lease_get(
     }
 }
 
-/// POST /v1/hypervisor/room-participant-leases/:id/transition
+/// POST /v1/goal-orchestration/room-participant-leases/:id/transition
 pub(crate) async fn handle_participant_lease_transition(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,

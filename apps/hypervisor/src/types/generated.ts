@@ -2,9 +2,9 @@ import type {
   ActiveContextItem as GeneratedActiveContextItem,
   ArtifactRef as GeneratedArtifactRef,
   ArtifactType as GeneratedArtifactType,
-  AssistantNotificationClass as GeneratedAssistantNotificationClass,
-  AssistantNotificationStatus as GeneratedAssistantNotificationStatus,
   ContextConstraint as GeneratedContextConstraint,
+  ContextualNotificationClass as GeneratedContextualNotificationClass,
+  ContextualNotificationStatus as GeneratedContextualNotificationStatus,
   EventStatus as GeneratedEventStatus,
   EventType as GeneratedEventType,
   InterventionStatus as GeneratedInterventionStatus,
@@ -20,9 +20,9 @@ import type {
 export type ActiveContextItem = GeneratedActiveContextItem;
 export type ArtifactRef = GeneratedArtifactRef;
 export type ArtifactType = GeneratedArtifactType;
-export type AssistantNotificationClass = GeneratedAssistantNotificationClass;
-export type AssistantNotificationStatus = GeneratedAssistantNotificationStatus;
 export type ContextConstraint = GeneratedContextConstraint;
+export type ContextualNotificationClass = GeneratedContextualNotificationClass;
+export type ContextualNotificationStatus = GeneratedContextualNotificationStatus;
 export type EventStatus = GeneratedEventStatus;
 export type EventType = GeneratedEventType | "BROWSER_EXTRACT";
 export type InterventionStatus = GeneratedInterventionStatus;

@@ -732,8 +732,8 @@ pub(crate) fn candidates_for(data_dir: &str, intent_ref: &str) -> Vec<Value> {
         .collect()
 }
 
-async fn live_classes(base: &str) -> Vec<Value> {
-    super::orchestration_routes::live_environment_classes(base).await
+async fn live_classes(base: &str, inbound: &axum::http::HeaderMap) -> Vec<Value> {
+    super::orchestration_routes::live_environment_classes(base, inbound).await
 }
 
 /// Derive + persist a fresh batch for an intent; supersede the prior batch (kept as evidence).
@@ -741,8 +741,9 @@ async fn refresh_candidates(
     st: &Arc<DaemonState>,
     intent: &Value,
     ttl_secs: u64,
+    inbound: &axum::http::HeaderMap,
 ) -> (Vec<Value>, Vec<Value>) {
-    let classes = live_classes(&st.base_url).await;
+    let classes = live_classes(&st.base_url, inbound).await;
     let batch = format!("batch_{:x}", nanos());
     let intent_ref = text(intent, "intent_ref");
     // Supersede prior batch records (they remain on disk as evidence, no longer eligible).
@@ -791,6 +792,7 @@ async fn refresh_candidates(
 /// and derive its first candidate batch from local facts.
 pub(crate) async fn handle_intent_create(
     State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     if let Some(classes) = body.get("resource_classes").and_then(Value::as_array) {
@@ -822,7 +824,7 @@ pub(crate) async fn handle_intent_create(
         .and_then(Value::as_u64)
         .unwrap_or(DEFAULT_TTL_SECS)
         .clamp(5, 3600);
-    let (candidates, rejected) = refresh_candidates(&st, &record, ttl).await;
+    let (candidates, rejected) = refresh_candidates(&st, &record, ttl, &inbound).await;
     (
         StatusCode::CREATED,
         Json(json!({ "ok": true, "intent": record,
@@ -882,6 +884,7 @@ pub(crate) async fn handle_candidates_list(
 /// Expired candidates require requote (canon) — refresh IS the requote from local facts.
 pub(crate) async fn handle_candidates_refresh(
     State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let intent_ref = text(&body, "intent_ref");
@@ -896,7 +899,7 @@ pub(crate) async fn handle_candidates_refresh(
         .and_then(Value::as_u64)
         .unwrap_or(DEFAULT_TTL_SECS)
         .clamp(5, 3600);
-    let (candidates, rejected) = refresh_candidates(&st, &intent, ttl).await;
+    let (candidates, rejected) = refresh_candidates(&st, &intent, ttl, &inbound).await;
     (
         StatusCode::OK,
         Json(json!({ "ok": true, "intent_ref": intent["intent_ref"],
@@ -907,7 +910,10 @@ pub(crate) async fn handle_candidates_refresh(
 /// GET /v1/hypervisor/cloud-candidates/candidate-sources — the source registry with HONEST
 /// coverage: local-fact sources are live; external sources are candidate_source_unavailable
 /// WITH EVIDENCE (no adapter), never fake prices.
-pub(crate) async fn handle_candidate_sources(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+pub(crate) async fn handle_candidate_sources(
+    State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
+) -> Json<Value> {
     let accounts = read_record_dir(&st.data_dir, "provider-accounts");
     let ssh_verified = accounts
         .iter()
@@ -950,7 +956,12 @@ pub(crate) async fn handle_candidate_sources(State(st): State<Arc<DaemonState>>)
 /// Deterministic, explained advisory over the ACTIVE eligible candidates — recommends among
 /// run_local / verified BYO SSH / provider-capable venues. NOT smart routing: rank by
 /// (full_lifecycle > conformance local) then stable by ref; every choice carries reason codes.
-pub(crate) async fn advisory_for(st: &Arc<DaemonState>, intent: &Value, persist: bool) -> Value {
+pub(crate) async fn advisory_for(
+    st: &Arc<DaemonState>,
+    intent: &Value,
+    persist: bool,
+    inbound: &axum::http::HeaderMap,
+) -> Value {
     let intent_ref = text(intent, "intent_ref").to_string();
     let mut candidates = candidates_for(&st.data_dir, &intent_ref);
     let active_exists = candidates.iter().any(|c| c["status"] == "active");
@@ -970,7 +981,7 @@ pub(crate) async fn advisory_for(st: &Arc<DaemonState>, intent: &Value, persist:
                 || text(a, "created_at") > latest_observed.as_str()
         });
     if !active_exists || facts_changed {
-        let (fresh, _) = refresh_candidates(st, intent, DEFAULT_TTL_SECS).await;
+        let (fresh, _) = refresh_candidates(st, intent, DEFAULT_TTL_SECS, &inbound).await;
         candidates = fresh.into_iter().map(with_read_status).collect();
     }
     let eligible: Vec<&Value> = candidates
@@ -1080,6 +1091,7 @@ pub(crate) async fn advisory_for(st: &Arc<DaemonState>, intent: &Value, persist:
 /// without it the standing default intent drives the venue-policy/UI lane.
 pub(crate) async fn handle_placement_advisory(
     State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
     Query(q): Query<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     let intent = match q.get("intent_ref") {
@@ -1096,6 +1108,6 @@ pub(crate) async fn handle_placement_advisory(
         },
         None => ensure_default_intent(&st.data_dir),
     };
-    let advisory = advisory_for(&st, &intent, true).await;
+    let advisory = advisory_for(&st, &intent, true, &inbound).await;
     (StatusCode::OK, Json(advisory))
 }

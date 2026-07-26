@@ -294,6 +294,7 @@ fn mint_decision(
 /// decision over live candidates (no mutation, no fee).
 pub(crate) async fn handle_placement_decide(
     State(st): State<Arc<DaemonState>>,
+    inbound: axum::http::HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let data_dir = st.data_dir.clone();
@@ -303,7 +304,7 @@ pub(crate) async fn handle_placement_decide(
         .and_then(|r| dcr::load_intent(&data_dir, r))
         .unwrap_or_else(|| dcr::ensure_default_intent(&data_dir));
     // Refresh-through-advisory keeps decision inputs fresh + persisted.
-    let advisory = dcr::advisory_for(&st, &intent, false).await;
+    let advisory = dcr::advisory_for(&st, &intent, false, &inbound).await;
     let ranked = rank_candidates(&data_dir, &text(&intent, "intent_ref"), None, false);
     if ranked.eligible.is_empty() {
         return (

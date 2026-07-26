@@ -268,7 +268,7 @@ when they cannot preserve the mapping.
 
 ### Local-agent pairing profile binding
 
-[`LocalAgentPairingSessionEnvelope`](../../foundations/common-objects-and-envelopes.md#localagentpairingsessionenvelope)
+[`LocalAgentPairingSessionEnvelope`](../../foundations/objects/bounded-system-genesis.md#localagentpairingsessionenvelope)
 owns the exact one-time local-agent challenge/device-code, candidate key,
 origin binding, bootstrap, target, contribution-lane, assurance, and pairing
 lifecycle fields. Deployment-local handling belongs to
