@@ -7,13 +7,13 @@
 //!
 //! Two routes, no parallel truth (everything composes the existing planes by self-call):
 //!
-//!   POST /v1/hypervisor/ioi-agent/launch-preview
+//!   POST /v1/goal-orchestration/ioi-agent/launch-preview
 //!     Pure planning over LIVE registry facts: strategy → planned_execution_kind
 //!     (direct | goal_run), eligible/excluded harnesses with reason codes, route/privacy/
 //!     budget posture, expected receipt classes, and the admission the launch would compose.
 //!     No resource is created.
 //!
-//!   POST /v1/hypervisor/ioi-agent/launch
+//!   POST /v1/goal-orchestration/ioi-agent/launch
 //!     Two-phase, mirroring every other wallet crossing:
 //!       Phase A (no wallet_approval_grant): plan + provision — create the target session (for
 //!         direct: WITH the admitted harness binding; for goal_run: plus the GoalRun record) —
@@ -1322,7 +1322,7 @@ pub(crate) async fn handle_ioi_agent_launch(
         if kind == "goal_run" {
             let grid = text(&launch, "goal_run_id").to_string();
             let (status, started) = self_call(
-                &format!("{}/v1/hypervisor/goal-runs/{grid}/start", st.base_url),
+                &format!("{}/v1/goal-orchestration/goal-runs/{grid}/start", st.base_url),
                 "POST",
                 Some(&json!({ "wallet_approval_grant": grant })),
             )
@@ -1394,7 +1394,7 @@ pub(crate) async fn handle_ioi_agent_launch(
                 );
             }
             let (_, reconciled) = self_call(
-                &format!("{}/v1/hypervisor/goal-runs/{grid}/reconcile", st.base_url),
+                &format!("{}/v1/goal-orchestration/goal-runs/{grid}/reconcile", st.base_url),
                 "POST",
                 Some(&json!({})),
             )
@@ -1585,7 +1585,7 @@ pub(crate) async fn handle_ioi_agent_launch(
         // Explicit activation still crosses ordinary GoalRun admission; this route
         // never mints identity on its own.
         let (gr_status, gr) = self_call(
-            &format!("{}/v1/hypervisor/goal-runs", st.base_url),
+            &format!("{}/v1/goal-orchestration/goal-runs", st.base_url),
             "POST",
             Some(&json!({
                 "goal": goal,
@@ -1687,7 +1687,7 @@ pub(crate) async fn handle_ioi_agent_launch(
     // Relay the underlying lane's authority challenge (grant-less probe; nothing executes).
     let challenge_url = if kind == "goal_run" {
         format!(
-            "{}/v1/hypervisor/goal-runs/{goal_run_id}/start",
+            "{}/v1/goal-orchestration/goal-runs/{goal_run_id}/start",
             st.base_url
         )
     } else {

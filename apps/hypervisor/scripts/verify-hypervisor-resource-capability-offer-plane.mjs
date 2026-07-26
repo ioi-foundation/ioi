@@ -58,7 +58,7 @@ async function governed(call, resolver, principal, path, body) {
 }
 
 async function admitParticipant(call, resolver, roomRef) {
-  const submitted = await call("POST", "/v1/hypervisor/room-participation-requests", {
+  const submitted = await call("POST", "/v1/goal-orchestration/room-participation-requests", {
     outcome_room_ref: roomRef, requested_by_ref: "worker://independent-alloy-lab",
     coordination_topology: "hosted_admission", admission_owner_ref: "domain://acme-host",
     operator_and_home_domain_refs: ["org://lab", "domain://lab.example"],
@@ -69,7 +69,7 @@ async function admitParticipant(call, resolver, roomRef) {
     accepted_verifier_settlement_dispute_and_contribution_policy_refs: ["policy://contribution-v1"],
   });
   const request = submitted.body.participation_request;
-  const path = `/v1/hypervisor/room-participation-requests/${request.participation_request_id.replace("participation-request://", "")}/admit`;
+  const path = `/v1/goal-orchestration/room-participation-requests/${request.participation_request_id.replace("participation-request://", "")}/admit`;
   const admitted = await governed(call, resolver, "domain://acme-host", path, {
     admitted_role: "resource_provider", operator_ref: "org://lab",
     home_domain_ref: "agentgres://domain/lab", expected_revision: 1,
@@ -102,7 +102,7 @@ async function run() {
   try {
     plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
     let call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
-    const room = (await call("POST", "/v1/hypervisor/outcome-rooms", ROOM)).body.outcome_room;
+    const room = (await call("POST", "/v1/goal-orchestration/outcome-rooms", ROOM)).body.outcome_room;
     const roomRef = room.outcome_room_id;
     const roomTail = roomRef.replace("outcome-room://", "");
     const lease = await admitParticipant(call, resolver, roomRef);
@@ -114,14 +114,14 @@ async function run() {
     });
     ok("INVENTORY: resource profile resolves to provider-owned pool", pool.body.pool?.provider === lease.participant_ref);
 
-    const resourcePath = "/v1/hypervisor/resource-offers";
+    const resourcePath = "/v1/goal-orchestration/resource-offers";
     const resourceInput = resourceOfferBody(roomRef, lease.participant_lease_id);
     const resource = await governed(call, resolver, lease.participant_ref, resourcePath, resourceInput);
     ok("RESOURCE: participant publishes canonical inventory-backed offer", resource.response.status === 201 && /^resource-offer:\/\/rof_[0-9a-f]{64}$/.test(resource.response.body.offer?.resource_offer_id), `${resource.response.status}/${resource.response.body.error?.code || "ok"}`);
     const resourceOffer = resource.response.body.offer;
     ok("RESOURCE: receipt proves no allocation or execution grant", resource.response.body.offer_receipt?.bound_facts?.allocation_created === false && resource.response.body.offer_receipt?.bound_facts?.execution_authority_granted === false && names(dataDir, "allocation-decisions").length === 0);
 
-    const capabilityPath = "/v1/hypervisor/capability-offers";
+    const capabilityPath = "/v1/goal-orchestration/capability-offers";
     const capabilityInput = capabilityOfferBody(roomRef, lease.participant_lease_id);
     const capabilityChallenge = await call("POST", capabilityPath, capabilityInput);
     const capabilityGrant = resolver.mint(lease.participant_ref, capabilityChallenge.body.error.approval.policy_hash, capabilityChallenge.body.error.approval.request_hash);
@@ -131,8 +131,8 @@ async function run() {
     const capabilityOffer = capability.body.offer;
     ok("CAPABILITY: participant publishes exact advertised capability", capability.status === 201 && /^capability-offer:\/\/cof_[0-9a-f]{64}$/.test(capabilityOffer?.capability_offer_id), `${capability.status}/${capability.body.error?.code || "ok"}`);
 
-    const roomLive = (await call("GET", `/v1/hypervisor/outcome-rooms/${roomTail}`)).body.outcome_room;
-    const frontierResult = await governed(call, resolver, "domain://acme-host", "/v1/hypervisor/work-frontier-items", {
+    const roomLive = (await call("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail}`)).body.outcome_room;
+    const frontierResult = await governed(call, resolver, "domain://acme-host", "/v1/goal-orchestration/work-frontier-items", {
       outcome_room_ref: roomRef, item_kind: "task", objective: "Use the offered capability and pool.",
       dependency_refs: [], related_attempt_and_finding_refs: [], required_capability_refs: ["capability://advertised/ai/cap-ab"],
       required_context_resource_authority_and_evidence_refs: ["resource://pool/offer-pool", "evidence://ev-ab"],
@@ -151,12 +151,12 @@ async function run() {
       authority_resource_compute_data_budget_and_tool_lease_refs: [], coordination_topology: "hosted_admission",
       expected_revision: frontier.revision,
     };
-    const match = await governed(call, resolver, "domain://acme-host", "/v1/hypervisor/work-eligibility-matches", matchInput);
+    const match = await governed(call, resolver, "domain://acme-host", "/v1/goal-orchestration/work-eligibility-matches", matchInput);
     const matchReceipt = match.response.body.eligibility_match_receipt;
     ok("MATCH: host admits exact complete requirement coverage", match.response.status === 201 && matchReceipt?.bound_facts?.requirement_coverage?.length === 3, `${match.response.status}/${match.response.body.error?.code || "ok"}`);
     ok("MATCH: receipt explicitly creates no allocation, execution authority, or claim", matchReceipt?.bound_facts?.allocation_created === false && matchReceipt?.bound_facts?.execution_authority_granted === false && matchReceipt?.bound_facts?.claim_created === false && names(dataDir, "work-claim-leases").length === 0);
     const receiptsBeforeRepeat = names(dataDir, "resource-capability-offer-receipts").length;
-    const repeatedMatch = await governed(call, resolver, "domain://acme-host", "/v1/hypervisor/work-eligibility-matches", matchInput);
+    const repeatedMatch = await governed(call, resolver, "domain://acme-host", "/v1/goal-orchestration/work-eligibility-matches", matchInput);
     ok(
       "MATCH: an identical authorized retry is idempotent and appends no competing receipt",
       repeatedMatch.response.status === 200
@@ -173,20 +173,20 @@ async function run() {
       duplicate_work_policy: "exclusive", heartbeat_ref: null, ttl_seconds: 600,
       coordination_topology: "hosted_admission", expected_revision: lease.revision,
     };
-    const claim = await governed(call, resolver, lease.participant_ref, "/v1/hypervisor/work-claim-leases", claimInput);
+    const claim = await governed(call, resolver, lease.participant_ref, "/v1/goal-orchestration/work-claim-leases", claimInput);
     ok("CLAIM: requirement-bearing frontier admits from reauthenticated exact match", claim.response.status === 201 && claim.response.body.work_claim?.eligibility_match_receipt_ref === matchReceipt.receipt_ref, `${claim.response.status}/${claim.response.body.error?.code || "ok"}`);
     const workClaim = claim.response.body.work_claim;
 
     const claimTail = workClaim.work_claim_id.replace("work-claim://", "");
-    const release = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/work-claim-leases/${claimTail}/transition`, {
+    const release = await governed(call, resolver, lease.participant_ref, `/v1/goal-orchestration/work-claim-leases/${claimTail}/transition`, {
       transition: "release", reason: "eligibility journey complete", expected_revision: workClaim.revision,
     });
     ok("CLAIM: release preserves lineage and clears current claim", release.response.status === 200 && release.response.body.work_claim?.status === "released", `${release.response.status}/${release.response.body.error?.code || "ok"}`);
 
     const capabilityTail = capabilityOffer.capability_offer_id.replace("capability-offer://", "");
     const frontierAfterRelease = release.response.body.frontier_item;
-    const leaseAfterRelease = (await call("GET", `/v1/hypervisor/room-participant-leases/${lease.participant_lease_id.replace("participant-lease://", "")}`)).body.participant_lease;
-    const rematch = await governed(call, resolver, "domain://acme-host", "/v1/hypervisor/work-eligibility-matches", {
+    const leaseAfterRelease = (await call("GET", `/v1/goal-orchestration/room-participant-leases/${lease.participant_lease_id.replace("participant-lease://", "")}`)).body.participant_lease;
+    const rematch = await governed(call, resolver, "domain://acme-host", "/v1/goal-orchestration/work-eligibility-matches", {
       ...matchInput, expected_revision: frontierAfterRelease.revision,
     });
     const staleCandidateInput = {
@@ -194,12 +194,12 @@ async function run() {
       eligibility_match_receipt_ref: rematch.response.body.eligibility_match_receipt?.receipt_ref,
       expected_revision: leaseAfterRelease.revision,
     };
-    const withdrawnCapability = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/capability-offers/${capabilityTail}/transition`, { transition: "withdraw", expected_revision: capabilityOffer.revision });
-    const staleClaim = await call("POST", "/v1/hypervisor/work-claim-leases", staleCandidateInput);
+    const withdrawnCapability = await governed(call, resolver, lease.participant_ref, `/v1/goal-orchestration/capability-offers/${capabilityTail}/transition`, { transition: "withdraw", expected_revision: capabilityOffer.revision });
+    const staleClaim = await call("POST", "/v1/goal-orchestration/work-claim-leases", staleCandidateInput);
     ok("MATCH: withdrawn offer makes old receipt stale with zero new claim", withdrawnCapability.response.status === 200 && staleClaim.status === 409 && staleClaim.body.error?.code === "work_claim_eligibility_stale" && names(dataDir, "work-claim-leases").length === 1, `${staleClaim.status}/${staleClaim.body.error?.code}`);
 
     const resourceTail = resourceOffer.resource_offer_id.replace("resource-offer://", "");
-    const withdrawnResource = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/resource-offers/${resourceTail}/transition`, { transition: "withdraw", expected_revision: resourceOffer.revision });
+    const withdrawnResource = await governed(call, resolver, lease.participant_ref, `/v1/goal-orchestration/resource-offers/${resourceTail}/transition`, { transition: "withdraw", expected_revision: resourceOffer.revision });
     ok("OFFERS: participant withdrawal is receipted without allocation", withdrawnResource.response.status === 200 && withdrawnResource.response.body.offer?.status === "withdrawn" && names(dataDir, "allocation-decisions").length === 0);
 
     const unreadableInput = capabilityOfferBody(roomRef, lease.participant_lease_id, { eligible_frontier_classes: ["review_need"] });
@@ -256,7 +256,7 @@ async function run() {
     const convergedRestart = restartTail
       ? await pollJson(
           call,
-          `/v1/hypervisor/capability-offers/${restartTail}`,
+          `/v1/goal-orchestration/capability-offers/${restartTail}`,
           (result) => result.status === 200,
         )
       : null;
@@ -279,7 +279,7 @@ async function run() {
           call,
           resolver,
           lease.participant_ref,
-          `/v1/hypervisor/capability-offers/${restartTail}/transition`,
+          `/v1/goal-orchestration/capability-offers/${restartTail}/transition`,
           { transition: "withdraw", expected_revision: replayedOffer?.revision },
         )
       : null;
@@ -290,14 +290,14 @@ async function run() {
     );
 
     const frontierTail = frontier.frontier_item_id.replace("frontier://", "");
-    const closedFrontier = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/work-frontier-items/${frontierTail}/transition`, { transition: "close", expected_revision: release.response.body.frontier_item.revision });
-    const leaseLive = (await call("GET", `/v1/hypervisor/room-participant-leases/${lease.participant_lease_id.replace("participant-lease://", "")}`)).body.participant_lease;
-    const retired = await governed(call, resolver, lease.participant_ref, `/v1/hypervisor/room-participant-leases/${lease.participant_lease_id.replace("participant-lease://", "")}/transition`, { transition: "retire", expected_revision: leaseLive.revision });
-    const beforeClose = (await call("GET", `/v1/hypervisor/outcome-rooms/${roomTail}`)).body.outcome_room;
-    const closedRoom = await call("POST", `/v1/hypervisor/outcome-rooms/${roomTail}/transition`, { transition: "close", expected_revision: beforeClose.revision });
+    const closedFrontier = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/work-frontier-items/${frontierTail}/transition`, { transition: "close", expected_revision: release.response.body.frontier_item.revision });
+    const leaseLive = (await call("GET", `/v1/goal-orchestration/room-participant-leases/${lease.participant_lease_id.replace("participant-lease://", "")}`)).body.participant_lease;
+    const retired = await governed(call, resolver, lease.participant_ref, `/v1/goal-orchestration/room-participant-leases/${lease.participant_lease_id.replace("participant-lease://", "")}/transition`, { transition: "retire", expected_revision: leaseLive.revision });
+    const beforeClose = (await call("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail}`)).body.outcome_room;
+    const closedRoom = await call("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail}/transition`, { transition: "close", expected_revision: beforeClose.revision });
     ok("ROOM: close succeeds after offers withdraw, work closes, and participant retires", closedFrontier.response.status === 200 && retired.response.status === 200 && closedRoom.status === 200, `${closedFrontier.response.status}/${retired.response.status}/${closedRoom.status}`);
 
-    const overview = await call("GET", "/v1/hypervisor/work-eligibility-matches/overview");
+    const overview = await call("GET", "/v1/goal-orchestration/work-eligibility-matches/overview");
     ok("OVERVIEW: authority is configured without claiming reachability", overview.body.authority?.status === "configured" && overview.body.authority?.reachability === "not_probed" && overview.body.allocation_created === false);
   } finally {
     if (plane) await plane.stop();

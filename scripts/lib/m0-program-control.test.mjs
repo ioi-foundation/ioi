@@ -1043,8 +1043,8 @@ test("proven stateful GETs are consequential after transitive review", () => {
     "http:hypervisor-daemon:GET /v1/hypervisor/auth/bootstrap-status",
     "http:hypervisor-daemon:GET /v1/hypervisor/auth/whoami",
     "http:hypervisor-daemon:GET /v1/hypervisor/principals",
-    "http:hypervisor-daemon:GET /v1/hypervisor/ioi-agent/launch-policies",
-    "http:hypervisor-daemon:GET /v1/hypervisor/ioi-agent/launch-policies/:id",
+    "http:hypervisor-daemon:GET /v1/goal-orchestration/ioi-agent/launch-policies",
+    "http:hypervisor-daemon:GET /v1/goal-orchestration/ioi-agent/launch-policies/:id",
     "http:hypervisor-daemon:GET /v1/hypervisor/cloud-candidates/placement-advisory",
     "http:hypervisor-daemon:GET /v1/hypervisor/placement/preview",
     "http:hypervisor-daemon:GET /v1/hypervisor/placement/venues",
@@ -1125,7 +1125,7 @@ test("reviewer reproduction cannot backdate a new identity by recomputing old ep
 
 test("an anchor-changed identity cannot be backdated with recomputed epochs", () => {
   const changedIdentity =
-    "http:hypervisor-daemon:GET /v1/hypervisor/attempts/overview";
+    "http:hypervisor-daemon:GET /v1/goal-orchestration/attempts/overview";
   const changedIndex = reviewLock.entries.findIndex(
     (entry) => entry.identity === changedIdentity,
   );

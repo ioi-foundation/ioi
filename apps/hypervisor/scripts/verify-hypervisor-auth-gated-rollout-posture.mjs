@@ -46,7 +46,7 @@ function jd(method, url, body, headers) {
   });
 }
 const BASE = "ioi-agent-policy://pol_fast_local";
-const preview = async (extra, headers) => jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", {
+const preview = async (extra, headers) => jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", {
   goal: "posture probe for rollout trust", strategy: "direct", policy_ref: BASE, ...extra,
 }, headers);
 
@@ -98,8 +98,8 @@ async function run() {
 
   // ── exposed + auto: sensitive endpoints fail closed unauthenticated ──
   const sensitive = [
-    ["POST", "/v1/hypervisor/ioi-agent/launch-preview", { goal: "probe" }],
-    ["POST", "/v1/hypervisor/ioi-agent/launch", { goal: "probe" }],
+    ["POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: "probe" }],
+    ["POST", "/v1/goal-orchestration/ioi-agent/launch", { goal: "probe" }],
     ["POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`, {}],
     ["POST", "/v1/hypervisor/governance/cohorts", { display_name: "x" }],
     ["POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: "x://y" }],
@@ -141,7 +141,7 @@ async function run() {
       && (untrustedOverride.policy_rollout_skipped || []).some((x) => x.reason_code === "rollout_explicit_override_disallowed"));
 
     // A posture-blocked rollout at LAUNCH time is a receipted security decision.
-    const blockedLaunch = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { goal: `vfyauth${tag} blocked override launch`, strategy: "direct", policy_ref: BASE, rollout_context_ref: `principal://${memberId}` }, EXPOSED);
+    const blockedLaunch = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal: `vfyauth${tag} blocked override launch`, strategy: "direct", policy_ref: BASE, rollout_context_ref: `principal://${memberId}` }, EXPOSED);
     const ledger = (await jd("GET", "/v1/hypervisor/work-ledger")).j?.entries || [];
     const enforcement = ledger.find((e) => e.kind === "rollout_enforcement" && e.launch_ref === `ioi-agent-launch://${blockedLaunch.j?.launch_id}`);
     ok("Work Ledger records the blocked rollout decision with posture + reason",
@@ -190,8 +190,8 @@ async function run() {
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
   // ── Cleanup (evidence receipts remain by design) ──
-  await jd("POST", `/v1/hypervisor/ioi-agent/launch-policies/${variantId}/rollout/rollback`);
-  await jd("DELETE", `/v1/hypervisor/ioi-agent/launch-policies/${variantId}`);
+  await jd("POST", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}/rollout/rollback`);
+  await jd("DELETE", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}`);
   await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${appr.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rel.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/cohorts/${cohort.id}`);

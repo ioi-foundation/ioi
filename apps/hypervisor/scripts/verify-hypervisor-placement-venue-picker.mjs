@@ -126,7 +126,7 @@ async function run() {
     && cloudPreview.quote === null && cloudPreview.fee?.fee_basis === "adapter_orchestration_fee");
 
   // ── 5. New Session + Environments consume the chosen policy ──
-  const lp = (await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", { goal: `placement preview probe ${tag}` })).j;
+  const lp = (await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: `placement preview probe ${tag}` })).j;
   ok("ioi-agent launch preview carries the placement block (venue, fee copy, receipts named)",
     lp.placement?.venue === "use_my_infrastructure"
     && lp.placement?.provider_account_ref === ssh.account_ref

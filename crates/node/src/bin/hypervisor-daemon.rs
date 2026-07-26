@@ -1559,11 +1559,11 @@ async fn async_main() -> anyhow::Result<()> {
         // IOI Agent launch plane — the user-facing product mode; strategy planner decides
         // direct vs internal GoalRun. Two-phase launch relays the wallet challenge.
         .route(
-            "/v1/hypervisor/ioi-agent/launch-preview",
+            "/v1/goal-orchestration/ioi-agent/launch-preview",
             post(ioi_agent_routes::handle_ioi_agent_launch_preview),
         )
         .route(
-            "/v1/hypervisor/ioi-agent/launch",
+            "/v1/goal-orchestration/ioi-agent/launch",
             post(ioi_agent_routes::handle_ioi_agent_launch),
         )
         // IOI Agent intelligence plane — portable memory/skills/affinities + scoped projections.
@@ -1691,62 +1691,62 @@ async fn async_main() -> anyhow::Result<()> {
             get(ioi_intelligence_routes::handle_projections_get),
         )
         .route(
-            "/v1/hypervisor/ioi-agent/launch-policies",
+            "/v1/goal-orchestration/ioi-agent/launch-policies",
             get(ioi_agent_routes::handle_policies_list)
                 .post(ioi_agent_routes::handle_policies_create),
         )
         .route(
-            "/v1/hypervisor/ioi-agent/launch-policies/:id",
+            "/v1/goal-orchestration/ioi-agent/launch-policies/:id",
             get(ioi_agent_routes::handle_policies_get)
                 .patch(ioi_agent_routes::handle_policies_patch)
                 .delete(ioi_agent_routes::handle_policies_delete),
         )
         .route(
-            "/v1/hypervisor/ioi-agent/launch-policies/:id/clone",
+            "/v1/goal-orchestration/ioi-agent/launch-policies/:id/clone",
             post(ioi_agent_routes::handle_policies_clone),
         )
         .route(
-            "/v1/hypervisor/ioi-agent/launch-policies/:id/rollout/promote",
+            "/v1/goal-orchestration/ioi-agent/launch-policies/:id/rollout/promote",
             post(ioi_agent_routes::handle_policy_rollout_promote),
         )
         .route(
-            "/v1/hypervisor/ioi-agent/launch-policies/:id/rollout/rollback",
+            "/v1/goal-orchestration/ioi-agent/launch-policies/:id/rollout/rollback",
             post(ioi_agent_routes::handle_policy_rollout_rollback),
         )
         .route(
-            "/v1/hypervisor/ioi-agent/launches",
+            "/v1/goal-orchestration/ioi-agent/launches",
             get(ioi_agent_routes::handle_ioi_agent_launches_list),
         )
         .route(
-            "/v1/hypervisor/ioi-agent/launches/:id",
+            "/v1/goal-orchestration/ioi-agent/launches/:id",
             get(ioi_agent_routes::handle_ioi_agent_launch_get),
         )
         // GoalRun plane — daemon-owned multi-harness orchestration (create → wallet-gated
         // start → deterministic verify → admitted reconcile). Static sub-paths registered
         // implicitly distinct from :id (axum matches deeper literals first).
         .route(
-            "/v1/hypervisor/goal-runs",
+            "/v1/goal-orchestration/goal-runs",
             get(goalrun_routes::handle_goal_runs_list)
                 .post(goalrun_routes::handle_goal_runs_create),
         )
         .route(
-            "/v1/hypervisor/goal-runs/:id",
+            "/v1/goal-orchestration/goal-runs/:id",
             get(goalrun_routes::handle_goal_run_get),
         )
         .route(
-            "/v1/hypervisor/goal-runs/:id/start",
+            "/v1/goal-orchestration/goal-runs/:id/start",
             post(goalrun_routes::handle_goal_run_start),
         )
         .route(
-            "/v1/hypervisor/goal-runs/:id/reconcile",
+            "/v1/goal-orchestration/goal-runs/:id/reconcile",
             post(goalrun_routes::handle_goal_run_reconcile),
         )
         .route(
-            "/v1/hypervisor/goal-runs/:id/lifecycle-recovery",
+            "/v1/goal-orchestration/goal-runs/:id/lifecycle-recovery",
             post(goalrun_routes::handle_goal_run_lifecycle_recovery),
         )
         .route(
-            "/v1/hypervisor/goal-runs/:id/events",
+            "/v1/goal-orchestration/goal-runs/:id/events",
             get(goalrun_routes::handle_goal_run_events),
         )
         .route(
@@ -2155,185 +2155,185 @@ async fn async_main() -> anyhow::Result<()> {
             get(work_result_routes::handle_outcome_delta_get),
         )
         .route(
-            "/v1/hypervisor/outcome-rooms",
+            "/v1/goal-orchestration/outcome-rooms",
             get(outcome_room_routes::handle_outcome_rooms_list)
                 .post(outcome_room_routes::handle_outcome_room_create),
         )
         .route(
-            "/v1/hypervisor/outcome-rooms/overview",
+            "/v1/goal-orchestration/outcome-rooms/overview",
             get(outcome_room_routes::handle_outcome_rooms_overview),
         )
         .route(
-            "/v1/hypervisor/outcome-rooms/:id",
+            "/v1/goal-orchestration/outcome-rooms/:id",
             get(outcome_room_routes::handle_outcome_room_get),
         )
         .route(
-            "/v1/hypervisor/outcome-rooms/:id/transition",
+            "/v1/goal-orchestration/outcome-rooms/:id/transition",
             axum::routing::post(outcome_room_routes::handle_outcome_room_transition),
         )
         .route(
-            "/v1/hypervisor/outcome-rooms/:id/attach-goal-run",
+            "/v1/goal-orchestration/outcome-rooms/:id/attach-goal-run",
             axum::routing::post(outcome_room_routes::handle_outcome_room_attach_goal_run),
         )
         .route(
-            "/v1/hypervisor/room-participation-requests",
+            "/v1/goal-orchestration/room-participation-requests",
             axum::routing::post(room_participation_routes::handle_participation_request_create)
                 .get(room_participation_routes::handle_participation_requests_list),
         )
         .route(
-            "/v1/hypervisor/room-participation-requests/:id",
+            "/v1/goal-orchestration/room-participation-requests/:id",
             axum::routing::get(room_participation_routes::handle_participation_request_get),
         )
         .route(
-            "/v1/hypervisor/room-participation-requests/:id/transition",
+            "/v1/goal-orchestration/room-participation-requests/:id/transition",
             axum::routing::post(room_participation_routes::handle_participation_request_transition),
         )
         .route(
-            "/v1/hypervisor/room-participation-requests/:id/admit",
+            "/v1/goal-orchestration/room-participation-requests/:id/admit",
             axum::routing::post(room_participation_routes::handle_participation_request_admit),
         )
         .route(
-            "/v1/hypervisor/room-participant-leases",
+            "/v1/goal-orchestration/room-participant-leases",
             axum::routing::get(room_participation_routes::handle_participant_leases_list),
         )
         .route(
-            "/v1/hypervisor/room-participant-leases/:id",
+            "/v1/goal-orchestration/room-participant-leases/:id",
             axum::routing::get(room_participation_routes::handle_participant_lease_get),
         )
         .route(
-            "/v1/hypervisor/room-participant-leases/:id/transition",
+            "/v1/goal-orchestration/room-participant-leases/:id/transition",
             axum::routing::post(room_participation_routes::handle_participant_lease_transition),
         )
         .route(
-            "/v1/hypervisor/work-frontier-items",
+            "/v1/goal-orchestration/work-frontier-items",
             axum::routing::get(work_frontier_claim_routes::handle_frontier_list)
                 .post(work_frontier_claim_routes::handle_frontier_create),
         )
         .route(
-            "/v1/hypervisor/work-frontier-items/overview",
+            "/v1/goal-orchestration/work-frontier-items/overview",
             axum::routing::get(work_frontier_claim_routes::handle_frontier_overview),
         )
         .route(
-            "/v1/hypervisor/work-frontier-items/:id",
+            "/v1/goal-orchestration/work-frontier-items/:id",
             axum::routing::get(work_frontier_claim_routes::handle_frontier_get),
         )
         .route(
-            "/v1/hypervisor/work-frontier-items/:id/transition",
+            "/v1/goal-orchestration/work-frontier-items/:id/transition",
             axum::routing::post(work_frontier_claim_routes::handle_frontier_transition),
         )
         .route(
-            "/v1/hypervisor/work-claim-leases",
+            "/v1/goal-orchestration/work-claim-leases",
             axum::routing::get(work_frontier_claim_routes::handle_claim_list)
                 .post(work_frontier_claim_routes::handle_claim_acquire),
         )
         .route(
-            "/v1/hypervisor/work-claim-leases/overview",
+            "/v1/goal-orchestration/work-claim-leases/overview",
             axum::routing::get(work_frontier_claim_routes::handle_claim_overview),
         )
         .route(
-            "/v1/hypervisor/work-claim-leases/:id",
+            "/v1/goal-orchestration/work-claim-leases/:id",
             axum::routing::get(work_frontier_claim_routes::handle_claim_get),
         )
         .route(
-            "/v1/hypervisor/work-claim-leases/:id/transition",
+            "/v1/goal-orchestration/work-claim-leases/:id/transition",
             axum::routing::post(work_frontier_claim_routes::handle_claim_transition),
         )
         .route(
-            "/v1/hypervisor/resource-offers",
+            "/v1/goal-orchestration/resource-offers",
             axum::routing::get(resource_capability_offer_routes::handle_resource_list)
                 .post(resource_capability_offer_routes::handle_resource_create),
         )
         .route(
-            "/v1/hypervisor/resource-offers/overview",
+            "/v1/goal-orchestration/resource-offers/overview",
             axum::routing::get(resource_capability_offer_routes::handle_resource_overview),
         )
         .route(
-            "/v1/hypervisor/resource-offers/:id",
+            "/v1/goal-orchestration/resource-offers/:id",
             axum::routing::get(resource_capability_offer_routes::handle_resource_get),
         )
         .route(
-            "/v1/hypervisor/resource-offers/:id/transition",
+            "/v1/goal-orchestration/resource-offers/:id/transition",
             axum::routing::post(resource_capability_offer_routes::handle_resource_transition),
         )
         .route(
-            "/v1/hypervisor/capability-offers",
+            "/v1/goal-orchestration/capability-offers",
             axum::routing::get(resource_capability_offer_routes::handle_capability_list)
                 .post(resource_capability_offer_routes::handle_capability_create),
         )
         .route(
-            "/v1/hypervisor/capability-offers/overview",
+            "/v1/goal-orchestration/capability-offers/overview",
             axum::routing::get(resource_capability_offer_routes::handle_capability_overview),
         )
         .route(
-            "/v1/hypervisor/capability-offers/:id",
+            "/v1/goal-orchestration/capability-offers/:id",
             axum::routing::get(resource_capability_offer_routes::handle_capability_get),
         )
         .route(
-            "/v1/hypervisor/capability-offers/:id/transition",
+            "/v1/goal-orchestration/capability-offers/:id/transition",
             axum::routing::post(resource_capability_offer_routes::handle_capability_transition),
         )
         .route(
-            "/v1/hypervisor/work-eligibility-matches",
+            "/v1/goal-orchestration/work-eligibility-matches",
             axum::routing::get(resource_capability_offer_routes::handle_match_list)
                 .post(resource_capability_offer_routes::handle_match_create),
         )
         .route(
-            "/v1/hypervisor/work-eligibility-matches/overview",
+            "/v1/goal-orchestration/work-eligibility-matches/overview",
             axum::routing::get(resource_capability_offer_routes::handle_match_overview),
         )
         .route(
-            "/v1/hypervisor/work-eligibility-matches/:id",
+            "/v1/goal-orchestration/work-eligibility-matches/:id",
             axum::routing::get(resource_capability_offer_routes::handle_match_get),
         )
         .route(
-            "/v1/hypervisor/attempts",
+            "/v1/goal-orchestration/attempts",
             axum::routing::get(attempt_finding_routes::handle_attempt_list)
                 .post(attempt_finding_routes::handle_attempt_create),
         )
         .route(
-            "/v1/hypervisor/attempts/overview",
+            "/v1/goal-orchestration/attempts/overview",
             axum::routing::get(attempt_finding_routes::handle_attempt_overview),
         )
         .route(
-            "/v1/hypervisor/attempts/:id",
+            "/v1/goal-orchestration/attempts/:id",
             axum::routing::get(attempt_finding_routes::handle_attempt_get),
         )
         .route(
-            "/v1/hypervisor/attempts/:id/transition",
+            "/v1/goal-orchestration/attempts/:id/transition",
             axum::routing::post(attempt_finding_routes::handle_attempt_transition),
         )
         .route(
-            "/v1/hypervisor/findings",
+            "/v1/goal-orchestration/findings",
             axum::routing::get(attempt_finding_routes::handle_finding_list)
                 .post(attempt_finding_routes::handle_finding_create),
         )
         .route(
-            "/v1/hypervisor/findings/overview",
+            "/v1/goal-orchestration/findings/overview",
             axum::routing::get(attempt_finding_routes::handle_finding_overview),
         )
         .route(
-            "/v1/hypervisor/findings/:id",
+            "/v1/goal-orchestration/findings/:id",
             axum::routing::get(attempt_finding_routes::handle_finding_get),
         )
         .route(
-            "/v1/hypervisor/findings/:id/transition",
+            "/v1/goal-orchestration/findings/:id/transition",
             axum::routing::post(attempt_finding_routes::handle_finding_transition),
         )
         .route(
-            "/v1/hypervisor/verifier-challenges",
+            "/v1/goal-orchestration/verifier-challenges",
             axum::routing::get(verifier_challenge_routes::handle_list)
                 .post(verifier_challenge_routes::handle_create),
         )
         .route(
-            "/v1/hypervisor/verifier-challenges/overview",
+            "/v1/goal-orchestration/verifier-challenges/overview",
             axum::routing::get(verifier_challenge_routes::handle_overview),
         )
         .route(
-            "/v1/hypervisor/verifier-challenges/:id",
+            "/v1/goal-orchestration/verifier-challenges/:id",
             axum::routing::get(verifier_challenge_routes::handle_get),
         )
         .route(
-            "/v1/hypervisor/verifier-challenges/:id/transition",
+            "/v1/goal-orchestration/verifier-challenges/:id/transition",
             axum::routing::post(verifier_challenge_routes::handle_transition),
         )
         .route(

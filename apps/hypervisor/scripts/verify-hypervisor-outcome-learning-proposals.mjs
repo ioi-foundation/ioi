@@ -48,9 +48,9 @@ function jd(method, url, body) {
   });
 }
 const launch = async (goal) => {
-  const a = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { goal, strategy: "direct" });
+  const a = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal, strategy: "direct" });
   const grant = mintApprovalGrant({ policyHash: a.j.approval.policy_hash, requestHash: a.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
+  return jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
 };
 
 async function run() {
@@ -106,7 +106,7 @@ async function run() {
 
   const skillsBefore = (await jd("GET", `/v1/hypervisor/skill-entries?q=vfyoutcome-${tag}`)).j?.skills || [];
   const affBefore = (await jd("GET", `/v1/hypervisor/automation-affinities?q=vfyoutcome-${tag}`)).j?.affinities || [];
-  const seedBefore = (await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
+  const seedBefore = (await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
   ok("no mutation on proposal creation (skills/affinities absent, seed unchanged)",
     skillsBefore.length === 0 && affBefore.length === 0 && seedBefore.protected === true && !String(seedBefore.description || "").includes(`learned ${tag}`));
   const applyEarly = await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${skillProp.improvement_id}/apply`);
@@ -136,13 +136,13 @@ async function run() {
   await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}`, { approval_request_ref: polGate.ref, release_control_ref: polRel.ref });
   const policyApplied = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/apply`)).j?.proposal || {};
   const cloneId = String(policyApplied.applied_ref || "").replace("ioi-agent-policy://", "");
-  const clone = (await jd("GET", `/v1/hypervisor/ioi-agent/launch-policies/${cloneId}`)).j?.policy || {};
-  const seedAfter = (await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
+  const clone = (await jd("GET", `/v1/goal-orchestration/ioi-agent/launch-policies/${cloneId}`)).j?.policy || {};
+  const seedAfter = (await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
   ok("policy suggestion applied to a CLONE; protected seed untouched",
     clone.protected === false && clone.cloned_from === "ioi-agent-policy://pol_fast_local"
     && String(clone.description || "").includes(`learned ${tag}`)
     && seedAfter.protected === true && !String(seedAfter.description || "").includes(`learned ${tag}`));
-  const directPatch = await jd("PATCH", "/v1/hypervisor/ioi-agent/launch-policies/pol_fast_local", { description: "hack" });
+  const directPatch = await jd("PATCH", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local", { description: "hack" });
   ok("direct mutation of protected seeds still fails closed", directPatch.status === 409);
 
   // ── Automation readiness: applies only through the approved path ──
@@ -190,7 +190,7 @@ async function run() {
   // ── Cleanup + posture restore ──
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skillRef.replace("skill-entry://", "")}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affRef.replace("automation-affinity://", "")}`, { status: "archived" });
-  await jd("DELETE", `/v1/hypervisor/ioi-agent/launch-policies/${cloneId}`);
+  await jd("DELETE", `/v1/goal-orchestration/ioi-agent/launch-policies/${cloneId}`);
   await jd("PATCH", `/v1/hypervisor/memory-entries/${privEntry.entry_id}`, { status: "archived" });
   await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${polGate.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${polRel.id}`);

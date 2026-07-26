@@ -48,15 +48,15 @@ function jd(method, url, body) {
   });
 }
 const launch = async (goal) => {
-  const a = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { goal, strategy: "direct" });
+  const a = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal, strategy: "direct" });
   const grant = mintApprovalGrant({ policyHash: a.j.approval.policy_hash, requestHash: a.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
+  return jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
 };
 const simulate = async (id, body) => jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${id}/simulate`, body || {});
 const proposalById = async (id) =>
   ((await jd("GET", "/v1/hypervisor/intelligence/improvement-proposals")).j?.proposals || []).find((p) => p.improvement_id === id) || {};
 const snapshot = async (tag) => JSON.stringify([
-  (await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies")).j,
+  (await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies")).j,
   (await jd("GET", `/v1/hypervisor/skill-entries?q=vfysim-${tag}`)).j,
   (await jd("GET", `/v1/hypervisor/automation-affinities?q=vfysim-${tag}`)).j,
 ]);
@@ -95,7 +95,7 @@ async function run() {
     [skillProp, policyProp, affProp].every((p) => p.state === "pending" && p.improvement_id));
 
   const before = await snapshot(tag);
-  const seedBefore = (await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
+  const seedBefore = (await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
 
   // ── Policy what-if: kernel-recomputed launch replay with blocker deltas ──
   const sim1 = (await simulate(policyProp.improvement_id)).j?.report || {};
@@ -151,7 +151,7 @@ async function run() {
   const stamped = await proposalById(policyProp.improvement_id);
   ok("proposal carries latest_simulation_ref + hash + high-impact flag",
     stamped.latest_simulation_ref === saved.simulation_ref && stamped.latest_simulation_hash === saved.report_hash && stamped.latest_simulation_high_impact === true);
-  const seedAfter = (await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
+  const seedAfter = (await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
   ok("protected seed policies untouched by simulation", JSON.stringify(seedAfter) === JSON.stringify(seedBefore) && seedAfter.protected === true);
 
   // ── Governance flow: simulate → approve → satisfy the (possibly high-impact) gate → apply ──

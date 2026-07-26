@@ -26,7 +26,7 @@ async function jd(method, url, body, headers) {
   return { status: r.status, j: await r.json().catch(() => ({})) };
 }
 const BASE = "ioi-agent-policy://pol_fast_local";
-const preview = async (extra, headers) => (await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", {
+const preview = async (extra, headers) => (await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", {
   goal: "probe derived rollout context", strategy: "direct", policy_ref: BASE, ...extra,
 }, headers)).j;
 
@@ -171,7 +171,7 @@ async function run() {
   await browser.close();
 
   // ── Receipts + ledger cite cohort refs ──
-  await jd("POST", `/v1/hypervisor/ioi-agent/launch-policies/${variantId}/rollout/rollback`);
+  await jd("POST", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}/rollout/rollback`);
   const ledger = (await jd("GET", "/v1/hypervisor/work-ledger")).j?.entries || [];
   const entry = ledger.find((e) => e.kind === "policy_rollout" && e.status === "rollback" && e.policy_ref === variantRef);
   ok("rollout receipts + Work Ledger cite cohort refs and mode",
@@ -181,7 +181,7 @@ async function run() {
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
   // ── Cleanup (evidence receipts remain by design) ──
-  await jd("DELETE", `/v1/hypervisor/ioi-agent/launch-policies/${variantId}`);
+  await jd("DELETE", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}`);
   await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${appr.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rel.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rawRC.id}`);

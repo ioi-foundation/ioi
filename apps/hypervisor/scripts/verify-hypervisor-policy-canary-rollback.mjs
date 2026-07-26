@@ -49,12 +49,12 @@ function jd(method, url, body) {
   });
 }
 const launch = async (body) => {
-  const a = await jd("POST", "/v1/hypervisor/ioi-agent/launch", body);
+  const a = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", body);
   if (a.status !== 403) return a;
   const grant = mintApprovalGrant({ policyHash: a.j.approval.policy_hash, requestHash: a.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
+  return jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
 };
-const preview = async (extra) => (await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", {
+const preview = async (extra) => (await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", {
   goal: "rollout probe goal for the canary lane", strategy: "direct",
   policy_ref: "ioi-agent-policy://pol_fast_local", ...extra,
 })).j;
@@ -71,7 +71,7 @@ async function run() {
   const l1 = await launch({ goal: `vfycrb${tag} exercise the rollout lane once`, strategy: "direct" });
   const l2 = await launch({ goal: `vfycrb${tag} exercise the rollout lane again`, strategy: "direct" });
   ok("two real launches executed as replay subjects", l1.status === 200 && l2.status === 200);
-  const seedBefore = (await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
+  const seedBefore = (await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
 
   // ── High-impact learned suggestion (benign: LOOSENS the private-local base to standard,
   // so every replayed launch flips posture — big, visible, but nothing blocks) ──
@@ -103,13 +103,13 @@ async function run() {
   const applied = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`)).j?.proposal || {};
   const variantRef = String(applied.applied_ref || "");
   const variantId = variantRef.replace("ioi-agent-policy://", "");
-  const variant = (await jd("GET", `/v1/hypervisor/ioi-agent/launch-policies/${variantId}`)).j?.policy || {};
+  const variant = (await jd("GET", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}`)).j?.policy || {};
   ok("apply creates a rollout-bound learned variant carrying full provenance",
     applied.state === "applied" && variant.rollout?.mode === "cohort" && variant.rollout?.state === "active"
     && variant.rollout?.base_policy_ref === BASE && variant.rollout?.release_control_ref === rel.ref
     && variant.rollout?.proposal_ref === prop.proposal_ref && String(variant.rollout?.simulation_ref || "").startsWith("simulation-report://")
     && String(variant.display_name || "").includes("cohort rollout"));
-  const seedAfter = (await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
+  const seedAfter = (await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local")).j?.policy || {};
   ok("protected seed base policy is NOT mutated",
     JSON.stringify(seedAfter) === JSON.stringify(seedBefore) && seedAfter.protected === true && !JSON.stringify(seedAfter).includes(marker));
 
@@ -154,7 +154,7 @@ async function run() {
     && await card.locator(`form[action*="/rollout/promote"] button`).count() === 1
     && await card.locator(`form[action*="/rollout/rollback"] button`).count() === 1);
   await Promise.all([page.waitForURL("**/agent-studio**"), card.locator(`form[action*="/rollout/promote"] button`).click()]);
-  const promoted = (await jd("GET", `/v1/hypervisor/ioi-agent/launch-policies/${variantId}`)).j?.policy || {};
+  const promoted = (await jd("GET", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}`)).j?.policy || {};
   const relPromoted = (await jd("GET", `/v1/hypervisor/governance/release-controls/${rel.id}`)).j?.release_control || {};
   ok("UI promote lands: variant promoted, ReleaseControl flipped to full with promoted_at",
     promoted.rollout?.state === "promoted" && !!promoted.rollout?.promoted_at
@@ -181,7 +181,7 @@ async function run() {
 
   // ── One REAL launch under the promoted overlay: runtime, not just preview ──
   const l3 = await launch({ goal: `vfycrb${tag} run under the promoted learned policy`, strategy: "direct", policy_ref: BASE });
-  const launches = (await jd("GET", "/v1/hypervisor/ioi-agent/launches")).j?.launches || [];
+  const launches = (await jd("GET", "/v1/goal-orchestration/ioi-agent/launches")).j?.launches || [];
   const l3rec = launches.find((l) => String(l.goal || "").includes("run under the promoted learned policy")) || {};
   ok("a real launch records the overlay: variant policy + rollout explanation on the launch record",
     l3.status === 200 && l3rec.policy_ref === variantRef && l3rec.policy_rollout?.reason_code === "rollout_promoted_full"
@@ -190,13 +190,13 @@ async function run() {
   // ── Rollback via the UI: base behavior everywhere, evidence retained ──
   await page.goto(`${SHELL}/__ioi/agent-studio#launch-policies`, { waitUntil: "networkidle" });
   await Promise.all([page.waitForURL("**/agent-studio**"), page.locator(`.lpcard[data-policy="${variantId}"] form[action*="/rollout/rollback"] button`).click()]);
-  const rolledBack = (await jd("GET", `/v1/hypervisor/ioi-agent/launch-policies/${variantId}`)).j?.policy || {};
+  const rolledBack = (await jd("GET", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}`)).j?.policy || {};
   const relRolled = (await jd("GET", `/v1/hypervisor/governance/release-controls/${rel.id}`)).j?.release_control || {};
   ok("rollback disables the overlay: variant rolled_back + disabled, ReleaseControl records it",
     rolledBack.rollout?.state === "rolled_back" && !!rolledBack.rollout?.rolled_back_at && rolledBack.status === "disabled"
     && relRolled.rollback_state === "rolled_back" && !!relRolled.rolled_back_at);
   const backToBase = await preview({ project_ref: projectId });
-  const explicitVariant = await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", { goal: "explicit variant probe", policy_ref: variantRef });
+  const explicitVariant = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: "explicit variant probe", policy_ref: variantRef });
   ok("all contexts return to base; explicit selection of the rolled-back variant fails closed",
     backToBase.policy_ref === BASE && backToBase.policy_rollout === null
     && explicitVariant.status === 409 && explicitVariant.j?.error?.code === "ioi_agent_policy_disabled");
@@ -232,7 +232,7 @@ async function run() {
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
   // ── Cleanup + posture restore (evidence receipts remain by design) ──
-  await jd("DELETE", `/v1/hypervisor/ioi-agent/launch-policies/${variantId}`);
+  await jd("DELETE", `/v1/goal-orchestration/ioi-agent/launch-policies/${variantId}`);
   await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${appr.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rel.id}`);
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_opencode/disable");

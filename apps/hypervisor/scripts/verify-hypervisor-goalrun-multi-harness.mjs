@@ -61,13 +61,13 @@ function jd(method, url, body) {
 const text = async (url) => fetch(`${SHELL}${url}`).then((r) => r.text()).catch(() => "");
 
 async function startWithGrant(grid) {
-  const challenge = await jd("POST", `/v1/hypervisor/goal-runs/${grid}/start`, {});
+  const challenge = await jd("POST", `/v1/goal-orchestration/goal-runs/${grid}/start`, {});
   const gated = challenge.status === 403 && challenge.j?.reason === "execution_authority_required";
   const grant = gated
     ? mintApprovalGrant({ policyHash: challenge.j.approval.policy_hash, requestHash: challenge.j.approval.request_hash })
     : null;
   const started = gated
-    ? await jd("POST", `/v1/hypervisor/goal-runs/${grid}/start`, { wallet_approval_grant: grant })
+    ? await jd("POST", `/v1/goal-orchestration/goal-runs/${grid}/start`, { wallet_approval_grant: grant })
     : challenge;
   return { gated, started };
 }
@@ -87,7 +87,7 @@ async function run() {
 
   // ── CREATE: kernel-admitted GoalRun with the full typed ladder.
   const marker = `goalrun-proof-${tag}.txt`;
-  const create = await jd("POST", "/v1/hypervisor/goal-runs", {
+  const create = await jd("POST", "/v1/goal-orchestration/goal-runs", {
     goal: `Create the file ${marker} containing the single word: orchestrated`,
     session_ref: targetRef,
   });
@@ -145,7 +145,7 @@ async function run() {
     && started.j.goal_run.verification_refs.every((r) => String(r).startsWith("agentgres://goal-run-verification/")));
 
   // ── RECONCILE: the only lane into the target workspace.
-  const rec = await jd("POST", `/v1/hypervisor/goal-runs/${grid}/reconcile`, {});
+  const rec = await jd("POST", `/v1/goal-orchestration/goal-runs/${grid}/reconcile`, {});
   const rr = rec.j?.reconciliation || {};
   ok("reconciliation admitted with verifier evidence + receipt + state_root",
     rec.status === 200
@@ -163,7 +163,7 @@ async function run() {
     && (rr.copy_errors || []).length === 0,
     (rr.final_changed_files || []).join(","));
   ok("GoalRun closed (complete / continue_or_close)", rec.j?.goal_run?.status === "complete" && rec.j?.goal_run?.active_loop_phase === "continue_or_close");
-  const doubleReconcile = await jd("POST", `/v1/hypervisor/goal-runs/${grid}/reconcile`, {});
+  const doubleReconcile = await jd("POST", `/v1/goal-orchestration/goal-runs/${grid}/reconcile`, {});
   ok("reconcile is one-shot (second call rejected)", doubleReconcile.status === 409, doubleReconcile.j?.error?.code);
 
   // ── PROJECTION: Work Ledger (daemon), Workbench panel, Run Timeline proof page.
@@ -185,7 +185,7 @@ async function run() {
   // ── FAILURE HANDLING: force one harness unavailable between create and start.
   const target2 = `session:goalrun-vfy-partial-${tag}`;
   await jd("POST", "/v1/hypervisor/sessions", { session_ref: target2 });
-  const create2 = await jd("POST", "/v1/hypervisor/goal-runs", {
+  const create2 = await jd("POST", "/v1/goal-orchestration/goal-runs", {
     goal: `Create the file partial-${tag}.txt containing the single word: partial`,
     session_ref: target2,
   });
@@ -202,7 +202,7 @@ async function run() {
     && partial.started.j?.partial_result === true,
     failed[0]?.blocker?.reason_code);
   ok("surviving implementer still completed", completed.length === 1, completed[0]?.harness);
-  const rec2 = await jd("POST", `/v1/hypervisor/goal-runs/${grid2}/reconcile`, {});
+  const rec2 = await jd("POST", `/v1/goal-orchestration/goal-runs/${grid2}/reconcile`, {});
   ok("partial run reconciles the surviving verified candidate (explicit reason)",
     rec2.status === 200
     && ["single_verified_candidate", "no_verified_candidate"].includes(rec2.j?.reconciliation?.reason_code),

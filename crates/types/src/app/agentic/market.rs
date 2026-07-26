@@ -12,8 +12,8 @@ pub enum AssetType {
     Skill,
     /// An autonomous worker with persona, tools, and policy (e.g., "Invoice Analyst").
     Agent,
-    /// Legacy wire name for a coordinated work graph of agents.
-    Swarm,
+    /// A coordinated work graph of agents.
+    WorkGraph,
 }
 
 /// A tradeable unit of intelligence.
@@ -25,8 +25,8 @@ pub enum IntelligenceAsset {
     Skill(SkillManifest),
     /// An autonomous worker with persona, tools, and policy (e.g., "Invoice Analyst").
     Agent(AgentManifest),
-    /// Legacy wire name for a coordinated work graph of agents.
-    Swarm(SwarmManifest),
+    /// A coordinated work graph of agents.
+    WorkGraph(SwarmManifest),
 }
 
 /// Represents a listing for a single atomic capability.

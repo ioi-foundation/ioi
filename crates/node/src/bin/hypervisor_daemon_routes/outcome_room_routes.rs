@@ -2201,7 +2201,7 @@ pub(crate) async fn handle_outcome_rooms_overview(
     )
 }
 
-/// POST /v1/hypervisor/outcome-rooms — admit a HOSTED room (fail-closed, atomic, receipted).
+/// POST /v1/goal-orchestration/outcome-rooms — admit a HOSTED room (fail-closed, atomic, receipted).
 pub(crate) async fn handle_outcome_room_create(
     State(st): State<Arc<DaemonState>>,
     Json(body): Json<Value>,
@@ -2689,7 +2689,7 @@ fn bind_room_backlink_room_locked_impl(
     Ok((updated, receipt))
 }
 
-/// POST /v1/hypervisor/outcome-rooms/:id/transition — admitted, receipted lifecycle transition.
+/// POST /v1/goal-orchestration/outcome-rooms/:id/transition — admitted, receipted lifecycle transition.
 pub(crate) async fn handle_outcome_room_transition(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -2886,7 +2886,7 @@ pub(crate) async fn handle_outcome_room_transition(
     }
 }
 
-/// POST /v1/hypervisor/outcome-rooms/:id/attach-goal-run — bind an EXISTING bounded GoalRun (by
+/// POST /v1/goal-orchestration/outcome-rooms/:id/attach-goal-run — bind an EXISTING bounded GoalRun (by
 /// its CANONICAL goal:// identity) into the room, stamping the reciprocal
 /// `GoalRun.outcome_room_ref` in the SAME atomic finalization. A run already belonging to ANY
 /// room refuses typed — singular room identity (#72 review finding 2).

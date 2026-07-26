@@ -32,19 +32,19 @@ const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 
 const MISSION_COLLECTIONS = {
-  "/v1/hypervisor/outcome-rooms": "outcome_rooms",
-  "/v1/hypervisor/room-participation-requests": "participation_requests",
-  "/v1/hypervisor/room-participant-leases": "participant_leases",
-  "/v1/hypervisor/work-frontier-items": "frontier_items",
-  "/v1/hypervisor/work-claim-leases": "work_claims",
-  "/v1/hypervisor/resource-offers": "resource_offers",
-  "/v1/hypervisor/capability-offers": "capability_offers",
-  "/v1/hypervisor/work-eligibility-matches": "eligibility_match_receipts",
-  "/v1/hypervisor/attempts": "attempts",
-  "/v1/hypervisor/findings": "findings",
+  "/v1/goal-orchestration/outcome-rooms": "outcome_rooms",
+  "/v1/goal-orchestration/room-participation-requests": "participation_requests",
+  "/v1/goal-orchestration/room-participant-leases": "participant_leases",
+  "/v1/goal-orchestration/work-frontier-items": "frontier_items",
+  "/v1/goal-orchestration/work-claim-leases": "work_claims",
+  "/v1/goal-orchestration/resource-offers": "resource_offers",
+  "/v1/goal-orchestration/capability-offers": "capability_offers",
+  "/v1/goal-orchestration/work-eligibility-matches": "eligibility_match_receipts",
+  "/v1/goal-orchestration/attempts": "attempts",
+  "/v1/goal-orchestration/findings": "findings",
   "/v1/hypervisor/work-results": "work_results",
-  "/v1/hypervisor/verifier-challenges": "verifier_challenges",
-  "/v1/hypervisor/goal-runs": "goal_runs",
+  "/v1/goal-orchestration/verifier-challenges": "verifier_challenges",
+  "/v1/goal-orchestration/goal-runs": "goal_runs",
 };
 
 function missionsFixtureFetch(overrides = {}) {
@@ -139,14 +139,14 @@ async function run() {
     ...missionsCtx,
     url: new URL(`http://x/__ioi/missions?room=${encodeURIComponent(fixtureRoom.outcome_room_id)}`),
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [fixtureRoom] } },
-      "/v1/hypervisor/room-participant-leases": { status: 503, body: { error: { code: "participants_unavailable" } } },
-      "/v1/hypervisor/work-frontier-items": { status: 503, body: { error: { code: "frontier_unavailable" } } },
-      "/v1/hypervisor/work-claim-leases": { status: 503, body: { error: { code: "claims_unavailable" } } },
-      "/v1/hypervisor/resource-offers": { status: 503, body: { error: { code: "offers_unavailable" } } },
-      "/v1/hypervisor/capability-offers": { status: 503, body: { error: { code: "capabilities_unavailable" } } },
-      "/v1/hypervisor/work-eligibility-matches": { status: 503, body: { error: { code: "matches_unavailable" } } },
-      "/v1/hypervisor/verifier-challenges": { status: 503, body: { error: { code: "challenges_unavailable" } } },
+      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [fixtureRoom] } },
+      "/v1/goal-orchestration/room-participant-leases": { status: 503, body: { error: { code: "participants_unavailable" } } },
+      "/v1/goal-orchestration/work-frontier-items": { status: 503, body: { error: { code: "frontier_unavailable" } } },
+      "/v1/goal-orchestration/work-claim-leases": { status: 503, body: { error: { code: "claims_unavailable" } } },
+      "/v1/goal-orchestration/resource-offers": { status: 503, body: { error: { code: "offers_unavailable" } } },
+      "/v1/goal-orchestration/capability-offers": { status: 503, body: { error: { code: "capabilities_unavailable" } } },
+      "/v1/goal-orchestration/work-eligibility-matches": { status: 503, body: { error: { code: "matches_unavailable" } } },
+      "/v1/goal-orchestration/verifier-challenges": { status: 503, body: { error: { code: "challenges_unavailable" } } },
     }),
   };
   const partialModel = await missions.load(partialCtx);
@@ -166,7 +166,7 @@ async function run() {
   const malformedCtx = {
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: { not: "an array" } } },
+      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: { not: "an array" } } },
     }),
   };
   const malformedModel = await missions.load(malformedCtx);
@@ -174,21 +174,21 @@ async function run() {
   const malformedRoomRowModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [{}] } },
+      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [{}] } },
     }),
   });
   const malformedRoomRowHtml = missions.render(malformedRoomRowModel, missionsCtx);
   const mixedRoomRowModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [fixtureRoom, {}] } },
+      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [fixtureRoom, {}] } },
     }),
   });
   const mixedRoomRowHtml = missions.render(mixedRoomRowModel, missionsCtx);
   const malformedGoalRunModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/goal-runs": { body: { goal_runs: [null] } },
+      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [null] } },
     }),
   });
   const malformedGoalRunHtml = missions.render(malformedGoalRunModel, missionsCtx);
@@ -224,7 +224,7 @@ async function run() {
     ...missionsCtx,
     planeTimeoutMs: 25,
     fetch: async (rawUrl, init) => {
-      if (new URL(rawUrl).pathname === "/v1/hypervisor/work-frontier-items") {
+      if (new URL(rawUrl).pathname === "/v1/goal-orchestration/work-frontier-items") {
         return new Promise(() => {
           init?.signal?.addEventListener("abort", () => {}, { once: true });
         });
@@ -242,7 +242,7 @@ async function run() {
     ...missionsCtx,
     planeTimeoutMs: 25,
     fetch: async (rawUrl, init) => {
-      if (new URL(rawUrl).pathname === "/v1/hypervisor/work-frontier-items") {
+      if (new URL(rawUrl).pathname === "/v1/goal-orchestration/work-frontier-items") {
         return {
           ok: true,
           status: 200,
@@ -306,8 +306,8 @@ async function run() {
   const validGraphModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [validRoom] } },
-      "/v1/hypervisor/room-participation-requests": {
+      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [validRoom] } },
+      "/v1/goal-orchestration/room-participation-requests": {
         body: {
           participation_requests: [{
             participation_request_id: validRequestRef,
@@ -318,7 +318,7 @@ async function run() {
           }],
         },
       },
-      "/v1/hypervisor/room-participant-leases": {
+      "/v1/goal-orchestration/room-participant-leases": {
         body: {
           participant_leases: [{
             participant_lease_id: validParticipantRef,
@@ -330,7 +330,7 @@ async function run() {
           }],
         },
       },
-      "/v1/hypervisor/work-frontier-items": {
+      "/v1/goal-orchestration/work-frontier-items": {
         body: {
           frontier_items: [{
             frontier_item_id: validFrontierRef,
@@ -341,7 +341,7 @@ async function run() {
           }],
         },
       },
-      "/v1/hypervisor/work-claim-leases": {
+      "/v1/goal-orchestration/work-claim-leases": {
         body: {
           work_claims: [{
             work_claim_id: validClaimRef,
@@ -352,7 +352,7 @@ async function run() {
           }],
         },
       },
-      "/v1/hypervisor/goal-runs": {
+      "/v1/goal-orchestration/goal-runs": {
         body: {
           goal_runs: [{
             goal_run_id: validGoalRunId,
@@ -374,7 +374,7 @@ async function run() {
           }],
         },
       },
-      "/v1/hypervisor/attempts": {
+      "/v1/goal-orchestration/attempts": {
         body: {
           attempts: [{
             attempt_id: validAttemptRef,
@@ -388,7 +388,7 @@ async function run() {
           }],
         },
       },
-      "/v1/hypervisor/findings": {
+      "/v1/goal-orchestration/findings": {
         body: {
           findings: [{
             finding_id: validFindingRef,
@@ -401,7 +401,7 @@ async function run() {
           }],
         },
       },
-      "/v1/hypervisor/verifier-challenges": {
+      "/v1/goal-orchestration/verifier-challenges": {
         body: {
           verifier_challenges: [{
             verifier_challenge_id: validChallengeRef,
@@ -428,7 +428,7 @@ async function run() {
   const orphanBacklinkModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/outcome-rooms": {
+      "/v1/goal-orchestration/outcome-rooms": {
         body: {
           outcome_rooms: [{
             ...fixtureRoom,
@@ -445,7 +445,7 @@ async function run() {
           }],
         },
       },
-      "/v1/hypervisor/room-participation-requests": {
+      "/v1/goal-orchestration/room-participation-requests": {
         body: {
           participation_requests: [{
             participation_request_id: orphanRequestRef,
@@ -466,7 +466,7 @@ async function run() {
   const danglingOwnerBacklinkModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/outcome-rooms": {
+      "/v1/goal-orchestration/outcome-rooms": {
         body: {
           outcome_rooms: [{
             ...fixtureRoom,
@@ -483,7 +483,7 @@ async function run() {
           }],
         },
       },
-      "/v1/hypervisor/work-frontier-items": { body: { frontier_items: [] } },
+      "/v1/goal-orchestration/work-frontier-items": { body: { frontier_items: [] } },
     }),
   });
   ok("missions: a room-owned backlink absent from its child plane makes that child plane unknown, not zero",
@@ -495,8 +495,8 @@ async function run() {
   const unresolvedAttemptModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [fixtureRoom] } },
-      "/v1/hypervisor/attempts": {
+      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [fixtureRoom] } },
+      "/v1/goal-orchestration/attempts": {
         body: {
           attempts: [{
             attempt_id: shapedAttemptRef,
@@ -566,10 +566,10 @@ async function run() {
   const crossRoomModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/outcome-rooms": { body: { outcome_rooms: [roomA, roomB] } },
-      "/v1/hypervisor/room-participation-requests": { body: { participation_requests: [requestA] } },
-      "/v1/hypervisor/room-participant-leases": { body: { participant_leases: [participantA] } },
-      "/v1/hypervisor/work-frontier-items": {
+      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [roomA, roomB] } },
+      "/v1/goal-orchestration/room-participation-requests": { body: { participation_requests: [requestA] } },
+      "/v1/goal-orchestration/room-participant-leases": { body: { participant_leases: [participantA] } },
+      "/v1/goal-orchestration/work-frontier-items": {
         body: {
           frontier_items: [{
             frontier_item_id: `frontier://wfi_${"e".repeat(64)}`,
@@ -580,7 +580,7 @@ async function run() {
           }],
         },
       },
-      "/v1/hypervisor/work-claim-leases": {
+      "/v1/goal-orchestration/work-claim-leases": {
         body: {
           work_claims: [{
             work_claim_id: crossRoomClaimRef,
@@ -608,7 +608,7 @@ async function run() {
   const cappedCtx = {
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/goal-runs": { body: { goal_runs: cappedGoalRuns } },
+      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: cappedGoalRuns } },
     }),
   };
   const cappedHtml = missions.render(await missions.load(cappedCtx), cappedCtx);

@@ -51,42 +51,42 @@ function jd(method, url, body) {
     req.end();
   });
 }
-const preview = (body) => jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", body);
+const preview = (body) => jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", body);
 
 async function run() {
   const tag = Date.now().toString(16);
   for (const id of ["hp_opencode", "hp_deepseek_tui"]) await jd("POST", `/v1/hypervisor/harness-profiles/${id}/enable`);
 
   // ── Records: defaults, round-trip, CRUD, protection ──
-  const list = await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies");
+  const list = await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies");
   const ids = (list.j?.policies || []).map((p) => p.policy_id);
   ok("seeded default policy set exists (5 protected, receipt-required)",
     ["pol_auto_default", "pol_fast_local", "pol_private_local", "pol_compare_before_write", "pol_high_assurance"].every((id) => ids.includes(id))
     && (list.j?.policies || []).filter((p) => p.origin === "seeded").every((p) => p.protected === true && p.receipt_required === true),
     ids.join(","));
-  const got = await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies/pol_fast_local");
+  const got = await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_fast_local");
   ok("policies list/get round-trip", got.status === 200 && got.j?.policy?.policy_ref === "ioi-agent-policy://pol_fast_local");
-  const created = await jd("POST", "/v1/hypervisor/ioi-agent/launch-policies", {
+  const created = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-policies", {
     display_name: `vfy-policy-${tag}`,
     strategy_preference: "direct",
     harness_preferences: { preferred_harness_refs: ["harness-profile:hp_deepseek_tui"], excluded_harness_refs: [], allow_fallback: true },
   });
   const cid = created.j?.policy?.policy_id || "";
   ok("create works (authored, unprotected)", created.status === 201 && created.j?.policy?.protected === false, cid);
-  const patched = await jd("PATCH", `/v1/hypervisor/ioi-agent/launch-policies/${cid}`, { description: "edited" });
+  const patched = await jd("PATCH", `/v1/goal-orchestration/ioi-agent/launch-policies/${cid}`, { description: "edited" });
   ok("edit works on authored policies", patched.status === 200 && patched.j?.policy?.description === "edited");
-  const cloned = await jd("POST", "/v1/hypervisor/ioi-agent/launch-policies/pol_high_assurance/clone", { display_name: `vfy-clone-${tag}` });
+  const cloned = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_high_assurance/clone", { display_name: `vfy-clone-${tag}` });
   const cloneId = cloned.j?.policy?.policy_id || "";
   ok("clone of a protected default yields an editable copy", cloned.status === 201 && cloned.j?.policy?.protected === false && cloned.j?.policy?.cloned_from === "ioi-agent-policy://pol_high_assurance", cloneId);
-  const protectedPatch = await jd("PATCH", "/v1/hypervisor/ioi-agent/launch-policies/pol_high_assurance", { description: "x" });
+  const protectedPatch = await jd("PATCH", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_high_assurance", { description: "x" });
   ok("protected defaults reject field edits with a clone hint", protectedPatch.status === 409 && protectedPatch.j?.error?.code === "ioi_agent_policy_seeded_protected");
-  const disabled = await jd("PATCH", `/v1/hypervisor/ioi-agent/launch-policies/${cid}`, { status: "disabled" });
+  const disabled = await jd("PATCH", `/v1/goal-orchestration/ioi-agent/launch-policies/${cid}`, { status: "disabled" });
   ok("disable works", disabled.status === 200 && disabled.j?.policy?.status === "disabled");
   const disabledUse = await preview({ goal: "Create a hello file", policy_ref: `ioi-agent-policy://${cid}` });
   ok("a disabled policy fails closed at plan time", disabledUse.j?.error?.code === "ioi_agent_policy_disabled");
   const unknownUse = await preview({ goal: "Create a hello file", policy_ref: "ioi-agent-policy://pol_nope" });
   ok("an unknown policy ref fails closed", unknownUse.j?.error?.code === "ioi_agent_policy_unresolved");
-  const noReceipts = await jd("POST", "/v1/hypervisor/ioi-agent/launch-policies", { display_name: "bad", receipt_required: false });
+  const noReceipts = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-policies", { display_name: "bad", receipt_required: false });
   ok("no policy may disable receipts", noReceipts.status === 403 && noReceipts.j?.error?.code === "ioi_agent_policy_receipts_mandatory");
 
   // ── Planner semantics per policy ──
@@ -107,9 +107,9 @@ async function run() {
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_deepseek_tui/disable");
   const blocked = await preview({ goal: "Create a hello file", policy_ref: "ioi-agent-policy://pol_compare_before_write" });
   ok("unsatisfiable policy constraints fail closed (allow_fallback off)", blocked.j?.error?.code === "ioi_agent_policy_compare_unsatisfiable");
-  const fallbackClone = await jd("POST", "/v1/hypervisor/ioi-agent/launch-policies/pol_compare_before_write/clone", { display_name: `vfy-fallback-${tag}` });
+  const fallbackClone = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-policies/pol_compare_before_write/clone", { display_name: `vfy-fallback-${tag}` });
   const fbId = fallbackClone.j?.policy?.policy_id;
-  await jd("PATCH", `/v1/hypervisor/ioi-agent/launch-policies/${fbId}`, { harness_preferences: { preferred_harness_refs: [], excluded_harness_refs: [], allow_fallback: true } });
+  await jd("PATCH", `/v1/goal-orchestration/ioi-agent/launch-policies/${fbId}`, { harness_preferences: { preferred_harness_refs: [], excluded_harness_refs: [], allow_fallback: true } });
   const relaxed = await preview({ goal: "Create a hello file", policy_ref: `ioi-agent-policy://${fbId}` });
   ok("allow_fallback relaxes explicitly (recorded, never silent)",
     relaxed.j?.planned_execution_kind === "direct"
@@ -152,13 +152,13 @@ async function run() {
   await browser.close();
 
   // ── One real policy-driven launch: policy_ref flows to result + proof surfaces ──
-  const phaseA = await jd("POST", "/v1/hypervisor/ioi-agent/launch", {
+  const phaseA = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", {
     goal: `Create the file policy-proof-${tag}.txt containing the word: governed`,
     policy_ref: "ioi-agent-policy://pol_compare_before_write",
   });
   ok("policy-driven launch relays the wallet challenge", phaseA.status === 403 && !!phaseA.j?.launch_id && String(phaseA.j?.goal_run_ref || "").startsWith("goal://"));
   const grant = mintApprovalGrant({ policyHash: phaseA.j.approval.policy_hash, requestHash: phaseA.j.approval.request_hash });
-  const phaseB = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { launch_id: phaseA.j.launch_id, wallet_approval_grant: grant });
+  const phaseB = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: phaseA.j.launch_id, wallet_approval_grant: grant });
   ok("launch result includes policy_ref in advanced proof",
     phaseB.status === 200 && phaseB.j?.advanced?.policy_ref === "ioi-agent-policy://pol_compare_before_write",
     phaseB.j?.execution_kind);
@@ -182,8 +182,8 @@ async function run() {
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
   // ── Fixture cleanup + posture restore ──
-  for (const id of [cid, cloneId, fbId].filter(Boolean)) await jd("DELETE", `/v1/hypervisor/ioi-agent/launch-policies/${id}`);
-  const after = await jd("GET", "/v1/hypervisor/ioi-agent/launch-policies");
+  for (const id of [cid, cloneId, fbId].filter(Boolean)) await jd("DELETE", `/v1/goal-orchestration/ioi-agent/launch-policies/${id}`);
+  const after = await jd("GET", "/v1/goal-orchestration/ioi-agent/launch-policies");
   ok("verifier fixtures cleaned (defaults intact)",
     (after.j?.policies || []).length === 5 && (after.j?.policies || []).every((p) => p.origin === "seeded"));
   for (const id of ["hp_opencode", "hp_deepseek_tui"]) await jd("POST", `/v1/hypervisor/harness-profiles/${id}/disable`);

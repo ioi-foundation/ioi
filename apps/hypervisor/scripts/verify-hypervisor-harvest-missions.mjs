@@ -66,7 +66,7 @@ async function run() {
 
   // 3. REBOUND WIRE (jobs) — the builds lane carries the daemon's run estate verbatim.
   const [grj, ssj, atj] = await Promise.all([
-    fetch(`${DAEMON}/v1/hypervisor/goal-runs`).then((r) => r.json()),
+    fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((r) => r.json()),
     fetch(`${DAEMON}/v1/hypervisor/sessions`).then((r) => r.json()),
     fetch(`${DAEMON}/v1/hypervisor/automations`).then((r) => r.json()),
   ]);

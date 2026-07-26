@@ -4325,7 +4325,7 @@ pub(crate) async fn complete_governed_frontier_claim_intents(data_dir: &str, max
     }
 }
 
-/// GET /v1/hypervisor/work-frontier-items[?room=outcome-room://...&status=open]
+/// GET /v1/goal-orchestration/work-frontier-items[?room=outcome-room://...&status=open]
 pub(crate) async fn handle_frontier_list(
     State(state): State<Arc<DaemonState>>,
     Query(query): Query<HashMap<String, String>>,
@@ -4378,7 +4378,7 @@ pub(crate) async fn handle_frontier_list(
     )
 }
 
-/// GET /v1/hypervisor/work-frontier-items/:id
+/// GET /v1/goal-orchestration/work-frontier-items/:id
 pub(crate) async fn handle_frontier_get(
     State(state): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -4396,7 +4396,7 @@ pub(crate) async fn handle_frontier_get(
     }
 }
 
-/// GET /v1/hypervisor/work-frontier-items/overview
+/// GET /v1/goal-orchestration/work-frontier-items/overview
 pub(crate) async fn handle_frontier_overview(
     State(state): State<Arc<DaemonState>>,
 ) -> (StatusCode, Json<Value>) {
@@ -4433,7 +4433,7 @@ pub(crate) async fn handle_frontier_overview(
     )
 }
 
-/// GET /v1/hypervisor/work-claim-leases[?room=...&participant=...&frontier=...&status=...]
+/// GET /v1/goal-orchestration/work-claim-leases[?room=...&participant=...&frontier=...&status=...]
 pub(crate) async fn handle_claim_list(
     State(state): State<Arc<DaemonState>>,
     Query(query): Query<HashMap<String, String>>,
@@ -4486,7 +4486,7 @@ pub(crate) async fn handle_claim_list(
     )
 }
 
-/// GET /v1/hypervisor/work-claim-leases/:id
+/// GET /v1/goal-orchestration/work-claim-leases/:id
 pub(crate) async fn handle_claim_get(
     State(state): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -4504,7 +4504,7 @@ pub(crate) async fn handle_claim_get(
     }
 }
 
-/// GET /v1/hypervisor/work-claim-leases/overview
+/// GET /v1/goal-orchestration/work-claim-leases/overview
 pub(crate) async fn handle_claim_overview(
     State(state): State<Arc<DaemonState>>,
 ) -> (StatusCode, Json<Value>) {

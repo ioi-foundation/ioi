@@ -61,18 +61,18 @@ async function run() {
   for (const id of ["hp_opencode", "hp_deepseek_tui"]) await jd("POST", `/v1/hypervisor/harness-profiles/${id}/enable`);
 
   // ── Daemon planner contract (launch-preview) ──
-  const auto = await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", { goal: "Create a tiny hello file", strategy: "auto" });
+  const auto = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: "Create a tiny hello file", strategy: "auto" });
   ok("preview is daemon-backed and Auto returns planned_execution_kind", auto.status === 200 && ["direct", "goal_run"].includes(auto.j?.planned_execution_kind) && (auto.j?.reason_codes || []).length >= 1, `${auto.j?.planned_execution_kind} ${auto.j?.reason_codes}`);
   ok("preview names coordination, isolation, and receipt classes", /IOI Agent will coordinate/.test(auto.j?.coordination || "") && !!auto.j?.expected_isolation && (auto.j?.expected_receipt_refs || []).length >= 2);
-  const autoBig = await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", { goal: "Compare two approaches to the retry helper and pick the safer one", strategy: "auto" });
+  const autoBig = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: "Compare two approaches to the retry helper and pick the safer one", strategy: "auto" });
   ok("Auto plans compare (goal_run) for compare-shaped work", autoBig.j?.planned_execution_kind === "goal_run", autoBig.j?.reason_codes?.join(","));
-  const priv = await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", { goal: "Create a tiny hello file", strategy: "private_local" });
+  const priv = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: "Create a tiny hello file", strategy: "private_local" });
   ok("Private local excludes remote/provider-gated slots with reasons",
     priv.j?.privacy_posture === "private_local" && priv.j?.remote_slots_disabled === true
     && (priv.j?.excluded_harnesses || []).filter((x) => x.reason_code === "private_local_excludes_remote_trust").length >= 2,
     JSON.stringify((priv.j?.excluded_harnesses || []).map((x) => x.reason_code)));
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_deepseek_tui/disable");
-  const compareBlocked = await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", { goal: "Create a tiny hello file", strategy: "compare" });
+  const compareBlocked = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: "Create a tiny hello file", strategy: "compare" });
   ok("Compare fails closed under two eligible implementers", compareBlocked.j?.error?.code === "ioi_agent_compare_insufficient_implementers");
   await jd("POST", "/v1/hypervisor/harness-profiles/hp_deepseek_tui/enable");
 
@@ -149,10 +149,10 @@ async function run() {
   const directTimeline = await page.locator('#ioi-ns-result a[href^="/__ioi/run-timeline/"]').getAttribute("href");
 
   // ── Compare launch (API two-phase; proves multi-harness under the same product lane) ──
-  const phaseA = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { goal: `Create the file cmp-agent-${tag}.txt containing the word: compared`, strategy: "compare" });
+  const phaseA = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal: `Create the file cmp-agent-${tag}.txt containing the word: compared`, strategy: "compare" });
   ok("Compare phase A relays the wallet challenge with launch identity", phaseA.status === 403 && phaseA.j?.reason === "execution_authority_required" && String(phaseA.j?.goal_run_ref || "").startsWith("goal://") && !!phaseA.j?.launch_id, phaseA.j?.launch_id);
   const grant = mintApprovalGrant({ policyHash: phaseA.j.approval.policy_hash, requestHash: phaseA.j.approval.request_hash });
-  const phaseB = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { launch_id: phaseA.j.launch_id, wallet_approval_grant: grant });
+  const phaseB = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: phaseA.j.launch_id, wallet_approval_grant: grant });
   const outcome = phaseB.j?.advanced?.outcome || {};
   ok("Compare launches a GoalRun with multiple local harness invocations",
     phaseB.status === 200 && phaseB.j?.execution_kind === "goal_run"

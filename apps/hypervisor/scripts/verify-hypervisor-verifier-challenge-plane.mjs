@@ -45,7 +45,7 @@ async function governed(call, resolver, principal, path, body) {
 }
 
 async function admitParticipant(call, resolver, roomRef) {
-  const submitted = await call("POST", "/v1/hypervisor/room-participation-requests", {
+  const submitted = await call("POST", "/v1/goal-orchestration/room-participation-requests", {
     outcome_room_ref: roomRef, requested_by_ref: "worker://independent-alloy-lab",
     coordination_topology: "hosted_admission", admission_owner_ref: "domain://acme-host",
     operator_and_home_domain_refs: ["org://lab", "domain://lab.example"],
@@ -55,7 +55,7 @@ async function admitParticipant(call, resolver, roomRef) {
     accepted_verifier_settlement_dispute_and_contribution_policy_refs: ["policy://contribution-v1"],
   });
   const request = submitted.body.participation_request;
-  const path = `/v1/hypervisor/room-participation-requests/${request.participation_request_id.replace("participation-request://", "")}/admit`;
+  const path = `/v1/goal-orchestration/room-participation-requests/${request.participation_request_id.replace("participation-request://", "")}/admit`;
   const admitted = await governed(call, resolver, "domain://acme-host", path, {
     admitted_role: "verifier", operator_ref: "org://lab", home_domain_ref: "agentgres://domain/lab", expected_revision: 1,
   });
@@ -116,7 +116,7 @@ async function run() {
   try {
     plane = await startIsolatedPlane({ serve: false, env: { ...resolver.env, IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "60000" }, dataDir });
     let call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
-    const room = (await call("POST", "/v1/hypervisor/outcome-rooms", ROOM)).body.outcome_room;
+    const room = (await call("POST", "/v1/goal-orchestration/outcome-rooms", ROOM)).body.outcome_room;
     const roomRef = room.outcome_room_id;
     const lease = await admitParticipant(call, resolver, roomRef);
     const resultAdmission = await call("POST", "/v1/hypervisor/work-results", {
@@ -133,28 +133,28 @@ async function run() {
     const input = challengeBody(roomRef, lease.participant_lease_id, findingRef, [attemptRef], {
       reverification_required: true,
     });
-    const secondRoom = (await call("POST", "/v1/hypervisor/outcome-rooms", {
+    const secondRoom = (await call("POST", "/v1/goal-orchestration/outcome-rooms", {
       ...ROOM, objective_ref: "goal://verifier-challenge-cross-room", objective: "Cross-room challenge refusal fixture.",
     })).body.outcome_room;
     const negativeBaseline = [names(dataDir, "verifier-challenges"), names(dataDir, "verifier-challenge-receipts"), names(dataDir, "verifier-challenge-intents")];
-    const unsupported = await call("POST", "/v1/hypervisor/verifier-challenges", {
+    const unsupported = await call("POST", "/v1/goal-orchestration/verifier-challenges", {
       ...input, challenged_ref: "benchmark://unresolved-owner",
     });
-    const ghost = await call("POST", "/v1/hypervisor/verifier-challenges", {
+    const ghost = await call("POST", "/v1/goal-orchestration/verifier-challenges", {
       ...input, challenged_ref: `attempt://att_${"7".repeat(64)}`, affected_attempt_refs: [`attempt://att_${"7".repeat(64)}`],
     });
-    const malformed = await call("POST", "/v1/hypervisor/verifier-challenges", { ...input, challenged_ref: "attempt://bad" });
-    const malformedAffected = await call("POST", "/v1/hypervisor/verifier-challenges", {
+    const malformed = await call("POST", "/v1/goal-orchestration/verifier-challenges", { ...input, challenged_ref: "attempt://bad" });
+    const malformedAffected = await call("POST", "/v1/goal-orchestration/verifier-challenges", {
       ...input, affected_attempt_refs: ["attempt://bad"],
     });
-    const crossRoom = await call("POST", "/v1/hypervisor/verifier-challenges", { ...input, outcome_room_ref: secondRoom.outcome_room_id });
+    const crossRoom = await call("POST", "/v1/goal-orchestration/verifier-challenges", { ...input, outcome_room_ref: secondRoom.outcome_room_id });
     const relocatedTail = `att_${"6".repeat(64)}`;
     writeFileSync(join(dataDir, "attempts", `${relocatedTail}.json`), JSON.stringify({
       schema_version: "ioi.hypervisor.attempt-envelope.v1", attempt_id: `attempt://att_${"5".repeat(64)}`,
       outcome_room_ref: roomRef, participant_ref: lease.participant_lease_id, work_result_ref: workResult.work_result_id,
       revision: 1, status: "admitted",
     }));
-    const relocated = await call("POST", "/v1/hypervisor/verifier-challenges", {
+    const relocated = await call("POST", "/v1/goal-orchestration/verifier-challenges", {
       ...input, challenged_ref: `attempt://${relocatedTail}`, affected_attempt_refs: [`attempt://${relocatedTail}`],
     });
     rmSync(join(dataDir, "attempts", `${relocatedTail}.json`));
@@ -164,11 +164,11 @@ async function run() {
       && crossRoom.status === 422 && JSON.stringify(negativeBaseline) === JSON.stringify([
         names(dataDir, "verifier-challenges"), names(dataDir, "verifier-challenge-receipts"), names(dataDir, "verifier-challenge-intents"),
       ]), `${unsupported.status}/${ghost.status}/${malformed.status}/${malformedAffected.status}/${relocated.status}/${crossRoom.status}`);
-    const missing = await call("POST", "/v1/hypervisor/verifier-challenges", input);
+    const missing = await call("POST", "/v1/goal-orchestration/verifier-challenges", input);
     if (!missing.body.error?.approval) throw new Error(`VerifierChallenge did not reach authority: ${JSON.stringify(missing)}`);
     const grant = resolver.mint(lease.participant_ref, missing.body.error.approval.policy_hash, missing.body.error.approval.request_hash);
     const beforeSwap = [names(dataDir, "verifier-challenges"), names(dataDir, "verifier-challenge-receipts")];
-    const swapped = await call("POST", "/v1/hypervisor/verifier-challenges", {
+    const swapped = await call("POST", "/v1/goal-orchestration/verifier-challenges", {
       ...input, challenge_kind: "exploit", challenge_evidence_refs: ["evidence://swapped"], wallet_approval_grant: grant,
     });
     ok("AUTHORITY: missing grant challenges and body-swapped grant refuses with zero mutation",
@@ -176,9 +176,9 @@ async function run() {
       && JSON.stringify(beforeSwap) === JSON.stringify([names(dataDir, "verifier-challenges"), names(dataDir, "verifier-challenge-receipts")]),
       `${missing.status}/${swapped.status}/${swapped.body.error?.code}`);
     const foreignGrant = resolver.mint("worker://replication-lab-two", missing.body.error.approval.policy_hash, missing.body.error.approval.request_hash);
-    const foreign = await call("POST", "/v1/hypervisor/verifier-challenges", { ...input, wallet_approval_grant: foreignGrant });
+    const foreign = await call("POST", "/v1/goal-orchestration/verifier-challenges", { ...input, wallet_approval_grant: foreignGrant });
     ok("AUTHORITY: same hashes with a foreign signer refuse", foreign.status === 403, `${foreign.status}/${foreign.body.error?.code}`);
-    const created = await call("POST", "/v1/hypervisor/verifier-challenges", { ...input, wallet_approval_grant: grant });
+    const created = await call("POST", "/v1/goal-orchestration/verifier-challenges", { ...input, wallet_approval_grant: grant });
     const challenge = created.body.verifier_challenge;
     const tail = challenge?.verifier_challenge_id?.replace("verifier-challenge://", "");
     const linkedResult = (await call("GET", `/v1/hypervisor/work-results/${workResult.work_result_id.replace("work-result://", "")}`)).body.work_result;
@@ -189,8 +189,8 @@ async function run() {
       && challenge.frozen_coordinates?.bound_attempt_ref === attemptRef
       && JSON.stringify(linkedResult.challenge_refs) === JSON.stringify([challenge.verifier_challenge_id]),
       `${created.status}/${created.body.error?.code || "ok"}`);
-    const replayedCreate = await call("POST", "/v1/hypervisor/verifier-challenges", { ...input, wallet_approval_grant: grant });
-    const staleAdmit = await call("POST", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+    const replayedCreate = await call("POST", "/v1/goal-orchestration/verifier-challenges", { ...input, wallet_approval_grant: grant });
+    const staleAdmit = await call("POST", `/v1/goal-orchestration/verifier-challenges/${tail}/transition`, {
       transition: "admit", expected_revision: 0,
     });
     ok("CONCURRENCY: replayed create grant and stale transition revision refuse",
@@ -198,7 +198,7 @@ async function run() {
       && staleAdmit.status === 409,
       `${replayedCreate.status}/${replayedCreate.body.error?.code}; ${staleAdmit.status}/${staleAdmit.body.error?.code}`);
 
-    const blockedAccept = await call("POST", `/v1/hypervisor/findings/${findingRef.replace("finding://", "")}/transition`, {
+    const blockedAccept = await call("POST", `/v1/goal-orchestration/findings/${findingRef.replace("finding://", "")}/transition`, {
       transition: "accept", expected_revision: 4,
     });
     ok("INTERLOCK: unresolved challenge blocks Finding acceptance before the existing unavailable contract",
@@ -208,7 +208,7 @@ async function run() {
     await plane.stop();
     plane = await startIsolatedPlane({ serve: false, env: { ...resolver.env, IOI_TEST_FORCE_DIRSYNC_UNCONFIRMED: "verifier-challenge-receipts" }, dataDir });
     call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
-    const pendingCreate = await governed(call, resolver, lease.participant_ref, "/v1/hypervisor/verifier-challenges",
+    const pendingCreate = await governed(call, resolver, lease.participant_ref, "/v1/goal-orchestration/verifier-challenges",
       challengeBody(roomRef, lease.participant_lease_id, secondAttemptRef, [secondAttemptRef], {
         challenge_kind: "mapping", challenge_evidence_refs: ["evidence://receipt-fault"],
       }));
@@ -227,7 +227,7 @@ async function run() {
     await plane.stop();
     plane = await startIsolatedPlane({ serve: false, env: { ...resolver.env, IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "60000" }, dataDir });
     call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
-    const crashConverged = await poll(call, `/v1/hypervisor/verifier-challenges/${crashTail}`,
+    const crashConverged = await poll(call, `/v1/goal-orchestration/verifier-challenges/${crashTail}`,
       (value) => value.status === 200 && value.body.verifier_challenge?.status === "proposed", 90_000);
     const crashRecordPath = join(dataDir, "verifier-challenges", `${crashTail}.json`);
     const workResultPath = join(dataDir, "work-result-registry", `${workResult.work_result_id.replace("work-result://", "")}.json`);
@@ -238,9 +238,9 @@ async function run() {
       && names(dataDir, "verifier-challenge-intents").length === 0,
       `${crashConverged.status}/${crashConverged.body.error?.code || crashConverged.body.verifier_challenge?.status}; challenge=${crashBytesExact}; workResult=${workResultBytesExact}; intents=${names(dataDir, "verifier-challenge-intents").length}`);
     const clearedFaultedCreate = await governed(call, resolver, lease.participant_ref,
-      `/v1/hypervisor/verifier-challenges/${crashTail}/transition`,
+      `/v1/goal-orchestration/verifier-challenges/${crashTail}/transition`,
       { transition: "withdraw", expected_revision: crashConverged.body.verifier_challenge.revision });
-    const admitted = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+    const admitted = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/verifier-challenges/${tail}/transition`, {
       transition: "admit", expected_revision: challenge.revision,
     });
     ok("DURABILITY: converged faulted creation can clear and the original lifecycle remains writable",
@@ -249,14 +249,14 @@ async function run() {
 
     let current = admitted.response.body.verifier_challenge;
     for (const [transition, expected] of [["investigate", "investigating"], ["uphold", "upheld"]]) {
-      const moved = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+      const moved = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/verifier-challenges/${tail}/transition`, {
         transition, expected_revision: current.revision,
       });
       current = moved.response.body.verifier_challenge;
       ok(`LIFECYCLE: host ${transition} -> ${expected}`, moved.response.status === 200 && current?.status === expected,
         `${moved.response.status}/${moved.response.body.error?.code || "ok"}`);
     }
-    const omitted = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+    const omitted = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/verifier-challenges/${tail}/transition`, {
       transition: "rule_changed", expected_revision: current.revision, reverification_required: true,
     });
     ok("RULE CHANGE: omitted rule versions refuse before mutation", omitted.response.status === 422,
@@ -267,10 +267,10 @@ async function run() {
       intents: names(dataDir, "verifier-challenge-intents"),
     };
     const earlyResolve = await governed(call, resolver, "domain://acme-host",
-      `/v1/hypervisor/verifier-challenges/${tail}/transition`,
+      `/v1/goal-orchestration/verifier-challenges/${tail}/transition`,
       { transition: "resolve", expected_revision: current.revision });
     const identicalRules = await governed(call, resolver, "domain://acme-host",
-      `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+      `/v1/goal-orchestration/verifier-challenges/${tail}/transition`, {
         transition: "rule_changed", expected_revision: current.revision,
         prior_rule_version_ref: "rubric://same", proposed_rule_version_ref: "rubric://same",
         affected_attempt_refs: [attemptRef], reverification_required: true,
@@ -285,7 +285,7 @@ async function run() {
       && identicalRules.response.body.error?.code === "verifier_challenge_rule_versions_identical"
       && lifecycleBypassZeroMutation,
       `${earlyResolve.response.status}/${earlyResolve.response.body.error?.code}; ${identicalRules.response.status}/${identicalRules.response.body.error?.code}; zero=${lifecycleBypassZeroMutation}`);
-    const substituted = await call("POST", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+    const substituted = await call("POST", `/v1/goal-orchestration/verifier-challenges/${tail}/transition`, {
       transition: "rule_changed", expected_revision: current.revision,
       prior_rule_version_ref: "rubric://v1", proposed_rule_version_ref: "rubric://v2",
       affected_attempt_refs: [secondAttemptRef], reverification_required: true,
@@ -293,7 +293,7 @@ async function run() {
     ok("RULE CHANGE: affected-Attempt substitution refuses before authorization and mutation",
       substituted.status === 422 && substituted.body.error?.code === "verifier_challenge_affected_attempt_substitution",
       `${substituted.status}/${substituted.body.error?.code}`);
-    const ruleChanged = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+    const ruleChanged = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/verifier-challenges/${tail}/transition`, {
       transition: "rule_changed", expected_revision: current.revision,
       prior_rule_version_ref: "rubric://v1", proposed_rule_version_ref: "rubric://v2",
       affected_attempt_refs: [attemptRef], reverification_required: true,
@@ -301,18 +301,18 @@ async function run() {
     current = ruleChanged.response.body.verifier_challenge;
     const beforeRuleResolve = readFileSync(join(dataDir, "verifier-challenges", `${tail}.json`), "utf8");
     const ruleResolve = await governed(call, resolver, "domain://acme-host",
-      `/v1/hypervisor/verifier-challenges/${tail}/transition`,
+      `/v1/goal-orchestration/verifier-challenges/${tail}/transition`,
       { transition: "resolve", expected_revision: current.revision });
     ok("LIFECYCLE: rule_changed cannot resolve before begin_reverification",
       ruleResolve.response.status === 422
       && ruleResolve.response.body.error?.code === "verifier_challenge_reverification_incomplete"
       && beforeRuleResolve === readFileSync(join(dataDir, "verifier-challenges", `${tail}.json`), "utf8"),
       `${ruleResolve.response.status}/${ruleResolve.response.body.error?.code}`);
-    const reverifying = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+    const reverifying = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/verifier-challenges/${tail}/transition`, {
       transition: "begin_reverification", expected_revision: current.revision,
     });
     current = reverifying.response.body.verifier_challenge;
-    const resolved = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${tail}/transition`, {
+    const resolved = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/verifier-challenges/${tail}/transition`, {
       transition: "resolve", expected_revision: current.revision,
     });
     current = resolved.response.body.verifier_challenge;
@@ -320,7 +320,7 @@ async function run() {
       ruleChanged.response.status === 200 && reverifying.response.status === 200 && resolved.response.status === 200
       && current.status === "resolved" && current.reverification_required === true,
       `${ruleChanged.response.status}/${reverifying.response.status}/${resolved.response.status}`);
-    const unavailableAccept = await call("POST", `/v1/hypervisor/findings/${findingRef.replace("finding://", "")}/transition`, {
+    const unavailableAccept = await call("POST", `/v1/goal-orchestration/findings/${findingRef.replace("finding://", "")}/transition`, {
       transition: "accept", expected_revision: 4,
     });
     ok("INTERLOCK: resolved challenge clears 409 and existing acceptance authority remains typed unavailable",
@@ -336,17 +336,17 @@ async function run() {
     plane = await startIsolatedPlane({ serve: false, env: { ...resolver.env, IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "60000" }, dataDir });
     call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
 
-    const negative = await governed(call, resolver, lease.participant_ref, "/v1/hypervisor/verifier-challenges",
+    const negative = await governed(call, resolver, lease.participant_ref, "/v1/goal-orchestration/verifier-challenges",
       challengeBody(roomRef, lease.participant_lease_id, attemptRef, [attemptRef], { challenge_kind: "metric", challenge_evidence_refs: ["evidence://metric-negative"] }));
     let negativeRecord = negative.response.body.verifier_challenge;
     const negativeTail = negativeRecord.verifier_challenge_id.replace("verifier-challenge://", "");
-    const derivedFindingBlocked = await call("POST", `/v1/hypervisor/findings/${findingRef.replace("finding://", "")}/transition`, {
+    const derivedFindingBlocked = await call("POST", `/v1/goal-orchestration/findings/${findingRef.replace("finding://", "")}/transition`, {
       transition: "accept", expected_revision: 4,
     });
-    const negativeAdmit = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${negativeTail}/transition`, { transition: "admit", expected_revision: negativeRecord.revision });
+    const negativeAdmit = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/verifier-challenges/${negativeTail}/transition`, { transition: "admit", expected_revision: negativeRecord.revision });
     negativeRecord = negativeAdmit.response.body.verifier_challenge;
-    const rejected = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/verifier-challenges/${negativeTail}/transition`, { transition: "reject", expected_revision: negativeRecord.revision });
-    const derivedFindingCleared = await call("POST", `/v1/hypervisor/findings/${findingRef.replace("finding://", "")}/transition`, {
+    const rejected = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/verifier-challenges/${negativeTail}/transition`, { transition: "reject", expected_revision: negativeRecord.revision });
+    const derivedFindingCleared = await call("POST", `/v1/goal-orchestration/findings/${findingRef.replace("finding://", "")}/transition`, {
       transition: "accept", expected_revision: 4,
     });
     ok("INTERLOCK: Attempt challenge blocks its derived Finding until rejection restores the existing 501",
@@ -356,11 +356,11 @@ async function run() {
       && derivedFindingCleared.status === 501 && derivedFindingCleared.body.error?.code === "finding_verdict_unavailable",
       `${derivedFindingBlocked.status}/${rejected.response.status}/${derivedFindingCleared.status}`);
 
-    const withdrawnCreated = await governed(call, resolver, lease.participant_ref, "/v1/hypervisor/verifier-challenges",
+    const withdrawnCreated = await governed(call, resolver, lease.participant_ref, "/v1/goal-orchestration/verifier-challenges",
       challengeBody(roomRef, lease.participant_lease_id, findingRef, [attemptRef], { challenge_kind: "mapping", challenge_evidence_refs: ["evidence://withdrawn"] }));
     const withdrawnRecord = withdrawnCreated.response.body.verifier_challenge;
     const withdrawn = await governed(call, resolver, lease.participant_ref,
-      `/v1/hypervisor/verifier-challenges/${withdrawnRecord.verifier_challenge_id.replace("verifier-challenge://", "")}/transition`,
+      `/v1/goal-orchestration/verifier-challenges/${withdrawnRecord.verifier_challenge_id.replace("verifier-challenge://", "")}/transition`,
       { transition: "withdraw", expected_revision: withdrawnRecord.revision });
     ok("WITHDRAW: active challenger can withdraw a proposed challenge", withdrawn.response.status === 200 && withdrawn.response.body.verifier_challenge?.status === "withdrawn");
 
@@ -370,23 +370,23 @@ async function run() {
     plane = await startIsolatedPlane({ serve: false, env: { ...resolver.env, IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "60000" }, dataDir });
     call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
 
-    const historical = await governed(call, resolver, lease.participant_ref, "/v1/hypervisor/verifier-challenges",
+    const historical = await governed(call, resolver, lease.participant_ref, "/v1/goal-orchestration/verifier-challenges",
       challengeBody(roomRef, lease.participant_lease_id, attemptRef, [attemptRef], { challenge_kind: "rule", challenge_evidence_refs: ["evidence://historical"] }));
     const historicalRecord = historical.response.body.verifier_challenge;
     const leaseTail = lease.participant_lease_id.replace("participant-lease://", "");
-    const liveLease = (await call("GET", `/v1/hypervisor/room-participant-leases/${leaseTail}`)).body.participant_lease;
-    const revoked = await governed(call, resolver, "domain://acme-host", `/v1/hypervisor/room-participant-leases/${leaseTail}/transition`, {
+    const liveLease = (await call("GET", `/v1/goal-orchestration/room-participant-leases/${leaseTail}`)).body.participant_lease;
+    const revoked = await governed(call, resolver, "domain://acme-host", `/v1/goal-orchestration/room-participant-leases/${leaseTail}/transition`, {
       transition: "revoke", expected_revision: liveLease.revision,
     });
     const beforeInactive = [names(dataDir, "verifier-challenges"), names(dataDir, "verifier-challenge-receipts"), names(dataDir, "verifier-challenge-intents")];
-    const inactive = await call("POST", "/v1/hypervisor/verifier-challenges", {
+    const inactive = await call("POST", "/v1/goal-orchestration/verifier-challenges", {
       ...challengeBody(roomRef, lease.participant_lease_id, findingRef, [attemptRef], { challenge_kind: "collusion", challenge_evidence_refs: ["evidence://inactive"] }),
     });
     const inactiveZeroMutation = JSON.stringify(beforeInactive) === JSON.stringify([
       names(dataDir, "verifier-challenges"), names(dataDir, "verifier-challenge-receipts"), names(dataDir, "verifier-challenge-intents"),
     ]);
     const historicalAdmit = await governed(call, resolver, "domain://acme-host",
-      `/v1/hypervisor/verifier-challenges/${historicalRecord.verifier_challenge_id.replace("verifier-challenge://", "")}/transition`,
+      `/v1/goal-orchestration/verifier-challenges/${historicalRecord.verifier_challenge_id.replace("verifier-challenge://", "")}/transition`,
       { transition: "admit", expected_revision: historicalRecord.revision });
     ok("PARTICIPATION: revoked participant cannot create; historical host lifecycle remains valid",
       revoked.response.status === 200 && inactive.status === 409 && inactive.body.error?.code === "verifier_challenge_participant_not_active"
@@ -394,7 +394,7 @@ async function run() {
       && historicalAdmit.response.status === 200,
       `${revoked.response.status}/${inactive.status}/${historicalAdmit.response.status}`);
 
-    const overview = await call("GET", "/v1/hypervisor/verifier-challenges/overview");
+    const overview = await call("GET", "/v1/goal-orchestration/verifier-challenges/overview");
     ok("OVERVIEW: unresolved blockers are projected by challenged ref and authority boundaries are honest",
       overview.status === 200 && overview.body.unresolved_blockers_by_challenged_ref?.[attemptRef]?.length === 1
       && overview.body.acceptance_authority === "not_provided" && overview.body.execution_authority === "not_provided");
@@ -405,8 +405,8 @@ async function run() {
     archivedFinding.revision += 1;
     writeFileSync(findingPath, JSON.stringify(archivedFinding));
     const roomTail = roomRef.replace("outcome-room://", "");
-    const roomBeforeClose = (await call("GET", `/v1/hypervisor/outcome-rooms/${roomTail}`)).body.outcome_room;
-    const blockedClose = await call("POST", `/v1/hypervisor/outcome-rooms/${roomTail}/transition`, {
+    const roomBeforeClose = (await call("GET", `/v1/goal-orchestration/outcome-rooms/${roomTail}`)).body.outcome_room;
+    const blockedClose = await call("POST", `/v1/goal-orchestration/outcome-rooms/${roomTail}/transition`, {
       transition: "close", expected_revision: roomBeforeClose.revision,
     });
     ok("RACE: room close refuses while an unresolved challenge remains",
@@ -421,7 +421,7 @@ async function run() {
     writeFileSync(participantPath, JSON.stringify(temporarilyActive));
     const targetPath = join(dataDir, "attempts", `${attemptRef.replace("attempt://", "")}.json`);
     chmodSync(targetPath, 0o000);
-    const unreadable = await call("POST", "/v1/hypervisor/verifier-challenges",
+    const unreadable = await call("POST", "/v1/goal-orchestration/verifier-challenges",
       challengeBody(roomRef, lease.participant_lease_id, attemptRef, [attemptRef], { challenge_kind: "exploit" }));
     chmodSync(targetPath, 0o600);
     writeFileSync(participantPath, revokedParticipantBytes);

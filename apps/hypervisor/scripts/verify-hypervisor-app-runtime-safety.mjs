@@ -92,7 +92,7 @@ async function startHostileOperationsDaemon() {
       "/v1/hypervisor/akash-deployments": { deployments: [], leases: [], redeploy_plans: [] },
       "/v1/hypervisor/failover/runs": { runs: [] },
       "/v1/hypervisor/failover/plans": { plans: [] },
-      "/v1/hypervisor/goal-runs": { goal_runs: [] },
+      "/v1/goal-orchestration/goal-runs": { goal_runs: [] },
       "/v1/hypervisor/work-ledger": { entries: [] },
     };
     const payload = pathname === "/v1/hypervisor/operations"

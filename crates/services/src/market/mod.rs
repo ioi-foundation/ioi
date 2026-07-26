@@ -128,7 +128,7 @@ impl MarketService {
         let (author, _price, asset_type) = match &params.asset {
             IntelligenceAsset::Skill(m) => (m.author, m.price, AssetType::Skill),
             IntelligenceAsset::Agent(m) => (m.author, m.price, AssetType::Agent),
-            IntelligenceAsset::Swarm(m) => (m.author, m.price, AssetType::Swarm),
+            IntelligenceAsset::WorkGraph(m) => (m.author, m.price, AssetType::WorkGraph),
         };
 
         if author != ctx.signer_account_id {
@@ -187,7 +187,7 @@ impl MarketService {
         let (price, asset_type, author) = match &asset {
             IntelligenceAsset::Skill(m) => (m.price, AssetType::Skill, m.author),
             IntelligenceAsset::Agent(m) => (m.price, AssetType::Agent, m.author),
-            IntelligenceAsset::Swarm(m) => (m.price, AssetType::Swarm, m.author),
+            IntelligenceAsset::WorkGraph(m) => (m.price, AssetType::WorkGraph, m.author),
         };
 
         // 3. Settlement (Atomic Transfer)

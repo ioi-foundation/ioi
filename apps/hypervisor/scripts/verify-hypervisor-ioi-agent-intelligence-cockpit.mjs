@@ -130,17 +130,17 @@ async function run() {
   ok("affinity matches by goal pattern", plan.automation_affinity_match?.affinity_ref === affinity.affinity_ref);
 
   // ── Launch integration: preview posture + Direct + Compare ──
-  const lpv = await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", { goal: `vfytoken-${tag} artifact` });
+  const lpv = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: `vfytoken-${tag} artifact` });
   ok("IOI Agent preview surfaces the intelligence posture",
     (lpv.j?.memory_space_refs || [])[0] === "memory-space://ms_workspace_default"
     && lpv.j?.intelligence_projection_preview?.counts?.included_entries >= 1
     && lpv.j?.intelligence_projection_preview?.automation_affinity_match?.affinity_ref === affinity.affinity_ref);
 
   const launch = async (body) => {
-    const a = await jd("POST", "/v1/hypervisor/ioi-agent/launch", body);
+    const a = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", body);
     if (a.status !== 403) return { a, b: a };
     const grant = mintApprovalGrant({ policyHash: a.j.approval.policy_hash, requestHash: a.j.approval.request_hash });
-    const b = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
+    const b = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
     return { a, b };
   };
   const direct = await launch({ goal: `Create the file intel-direct-${tag}.txt containing the word: direct`, strategy: "direct" });

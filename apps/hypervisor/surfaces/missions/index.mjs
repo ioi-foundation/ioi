@@ -441,19 +441,19 @@ export async function load(ctx) {
     ? Math.min(Math.floor(requestedTimeout), 30_000)
     : DEFAULT_PLANE_TIMEOUT_MS;
   const specs = [
-    ["rooms", "/v1/hypervisor/outcome-rooms", "outcome_rooms"],
-    ["requests", "/v1/hypervisor/room-participation-requests", "participation_requests"],
-    ["participants", "/v1/hypervisor/room-participant-leases", "participant_leases"],
-    ["frontier", "/v1/hypervisor/work-frontier-items", "frontier_items"],
-    ["claims", "/v1/hypervisor/work-claim-leases", "work_claims"],
-    ["resourceOffers", "/v1/hypervisor/resource-offers", "resource_offers"],
-    ["capabilityOffers", "/v1/hypervisor/capability-offers", "capability_offers"],
-    ["matches", "/v1/hypervisor/work-eligibility-matches", "eligibility_match_receipts"],
-    ["attempts", "/v1/hypervisor/attempts", "attempts"],
-    ["findings", "/v1/hypervisor/findings", "findings"],
+    ["rooms", "/v1/goal-orchestration/outcome-rooms", "outcome_rooms"],
+    ["requests", "/v1/goal-orchestration/room-participation-requests", "participation_requests"],
+    ["participants", "/v1/goal-orchestration/room-participant-leases", "participant_leases"],
+    ["frontier", "/v1/goal-orchestration/work-frontier-items", "frontier_items"],
+    ["claims", "/v1/goal-orchestration/work-claim-leases", "work_claims"],
+    ["resourceOffers", "/v1/goal-orchestration/resource-offers", "resource_offers"],
+    ["capabilityOffers", "/v1/goal-orchestration/capability-offers", "capability_offers"],
+    ["matches", "/v1/goal-orchestration/work-eligibility-matches", "eligibility_match_receipts"],
+    ["attempts", "/v1/goal-orchestration/attempts", "attempts"],
+    ["findings", "/v1/goal-orchestration/findings", "findings"],
     ["results", "/v1/hypervisor/work-results", "work_results"],
-    ["challenges", "/v1/hypervisor/verifier-challenges", "verifier_challenges"],
-    ["goalRuns", "/v1/hypervisor/goal-runs", "goal_runs"],
+    ["challenges", "/v1/goal-orchestration/verifier-challenges", "verifier_challenges"],
+    ["goalRuns", "/v1/goal-orchestration/goal-runs", "goal_runs"],
   ];
   const [values, operations] = await Promise.all([
     Promise.all(specs.map(([, path, key]) => readCollection(fetchImpl, ctx.daemon, path, key, rowValidators[key], timeoutMs))),

@@ -183,7 +183,7 @@ async function run() {
     !!pp.advisory && (pp.advisory.candidate_refs || []).length >= 2
     && JSON.stringify(pp.receipts_expected || []).includes("placement-advisory://")
     && JSON.stringify(pp.receipts_expected || []).includes("cloud-resource-candidate://"));
-  const lp = (await jd("POST", "/v1/hypervisor/ioi-agent/launch-preview", { goal: `candidate plane probe ${tag}` })).j;
+  const lp = (await jd("POST", "/v1/goal-orchestration/ioi-agent/launch-preview", { goal: `candidate plane probe ${tag}` })).j;
   ok("launch preview placement block snapshots advisory + candidate refs",
     lp.placement?.venue === "hypervisor_choose"
     && String(lp.placement?.advisory_ref || "").startsWith("placement-advisory://")

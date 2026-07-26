@@ -106,7 +106,7 @@ pub async fn fetch_work_graph_manifest(
     let key = [MARKET_ASSET_REGISTRY_PREFIX, &hash].concat();
     let bytes = state.get(&key).ok()??;
     match codec::from_bytes_canonical::<ioi_types::app::agentic::IntelligenceAsset>(&bytes).ok()? {
-        ioi_types::app::agentic::IntelligenceAsset::Swarm(manifest) => Some(manifest),
+        ioi_types::app::agentic::IntelligenceAsset::WorkGraph(manifest) => Some(manifest),
         _ => None,
     }
 }

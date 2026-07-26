@@ -49,9 +49,9 @@ function jd(method, url, body) {
   });
 }
 const launch = async (goal) => {
-  const a = await jd("POST", "/v1/hypervisor/ioi-agent/launch", { goal, strategy: "direct" });
+  const a = await jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { goal, strategy: "direct" });
   const grant = mintApprovalGrant({ policyHash: a.j.approval.policy_hash, requestHash: a.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
+  return jd("POST", "/v1/goal-orchestration/ioi-agent/launch", { launch_id: a.j.launch_id, wallet_approval_grant: grant });
 };
 const apply = (id) => jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${id}/apply`);
 const getProp = async (id) => (await jd("GET", `/v1/hypervisor/intelligence/improvement-proposals/${id}`)).j?.proposal || {};
@@ -209,7 +209,7 @@ async function run() {
   // ── Cleanup + posture restore ──
   for (const prop of [appliedA, bApplied]) {
     const pid = String(prop.applied_ref || "").replace("ioi-agent-policy://", "");
-    if (pid) await jd("DELETE", `/v1/hypervisor/ioi-agent/launch-policies/${pid}`);
+    if (pid) await jd("DELETE", `/v1/goal-orchestration/ioi-agent/launch-policies/${pid}`);
   }
   await jd("PATCH", `/v1/hypervisor/skill-entries/${String(appliedSkill.applied_ref || "").replace("skill-entry://", "")}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${String(appliedLow.applied_ref || "").replace("automation-affinity://", "")}`, { status: "archived" });

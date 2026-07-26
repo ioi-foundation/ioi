@@ -23,7 +23,7 @@ async function run() {
   ok("type chips render", ["Automation", "Harness", "IOI Agent", "Failover"].every((t) => page.text.includes(`data-job-type=`)) && page.text.includes('id="jobs-chips"'));
 
   const [ops, gr, led, fo] = await Promise.all([
-    jget("/v1/hypervisor/operations"), jget("/v1/hypervisor/goal-runs"), jget("/v1/hypervisor/work-ledger"), jget("/v1/hypervisor/failover/runs"),
+    jget("/v1/hypervisor/operations"), jget("/v1/goal-orchestration/goal-runs"), jget("/v1/hypervisor/work-ledger"), jget("/v1/hypervisor/failover/runs"),
   ]);
   const recent = ((ops || {}).runs || {}).recent || [];
   const goals = (gr || {}).goal_runs || [];
