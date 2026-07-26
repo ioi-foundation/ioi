@@ -129,3 +129,17 @@ signature so the owning cut can start from evidence rather than rediscovery.
 `docs/evidence/canon-maximal-ceiling-pass/2026-07-25-maximal-ceiling-pass.md`
 records the architecture pass this convergence builds on; its addendum
 records the ADR 0022 rulings. This record supersedes nothing there.
+
+## Addendum (2026-07-26) — required CI check, root cause, and fix
+
+PR #107's required CI check went red after the convergence push. Owner
+diagnosis, verified locally: CI restores a cached `target/debug/
+hypervisor-daemon`, and `scripts/lib/rust-hypervisor-daemon.mjs` returned any
+existing binary without building — so the workflow-edit contract ran against
+a stale pre-re-home daemon. After an explicit rebuild the focused
+workflow-edit contract passes 9/9. This was an infrastructure fault, not a
+product regression, and it is the same defect class INV-37 names: existence
+is not evidence of currentness. Fix (this branch): the existsSync shortcut is
+deleted — the resolver now always runs `cargo build` and lets cargo's
+fingerprinting make the fresh case a sub-second no-op;
+`IOI_HYPERVISOR_DAEMON_BIN` remains the explicit prebuilt override.

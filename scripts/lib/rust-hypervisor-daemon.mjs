@@ -4,7 +4,6 @@
 // (the model-mount facade retirement).
 
 import { spawn, spawnSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,7 +15,12 @@ export function resolveHypervisorDaemonBinary(evidence = { commands: [] }) {
   const binaryName =
     process.platform === "win32" ? "hypervisor-daemon.exe" : "hypervisor-daemon";
   const targetBinary = path.join(repoRoot, "target", "debug", binaryName);
-  if (fs.existsSync(targetBinary)) return targetBinary;
+  // Always build. A binary's existence is not evidence of its currentness —
+  // a restored CI cache satisfies existsSync with a stale daemon and every
+  // downstream contract then tests the wrong build. Cargo's own fingerprinting
+  // makes the already-fresh case a sub-second no-op, so there is nothing to
+  // save by skipping; IOI_HYPERVISOR_DAEMON_BIN remains the explicit override
+  // for callers that deliberately supply a prebuilt binary.
   const build = spawnSync(
     "cargo",
     ["build", "-p", "ioi-node", "--bin", "hypervisor-daemon"],
