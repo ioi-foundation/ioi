@@ -244,11 +244,11 @@ durable object.
 
 Rules that follow from the ruling:
 
-- Existing `Assistant*` exports may remain **temporarily** as deprecated
-  compatibility aliases. They are aliases, not a second concept.
+- `Assistant*` exports are deleted, not aliased (ADR 0022 Decision 2): the
+  canonical spellings are the only exports.
 - The canonical Session names — `startSessionTask`, `getSessionProjection`, and
-  peers — are primary. `startAssistantSession` and its peers become deprecated
-  adapters.
+  peers — are the only names; `startAssistantSession` and its peers are
+  deleted.
 - Generated TypeScript is changed **through its owning Rust or schema source**,
   never by hand-editing the generated file.
 
@@ -287,7 +287,7 @@ alias, legacy, historical, migration, or watchlist context.
 | `Providers / Environments` | `Environments` | The product surface is Environments; the pair name implied two surfaces. |
 | Request for Agent, RFA | Request for Worker, RFW | The acting party in public copy is the Worker. |
 | `HypervisorMission` | GoalRun or OutcomeRoom, optionally rendered as a Mission presentation profile | The generic Mission object is retired; typed physical mission contracts remain valid. |
-| `Workbench` (as owner name) | Developer Workspace | Retained as a compatibility alias only. |
+| `Workbench` (as owner name) | Developer Workspace | Retired label; deleted, not aliased (ADR 0022 Decision 2). |
 | Work Ledger | Provenance | Legacy family name for the Provenance application. |
 
 ## Retained Wire Identifiers
@@ -300,7 +300,7 @@ a second concept.
 | --- | --- | --- |
 | `run://`, `run_id`, `/v1/runs/{run_id}` | WorkRun | daemon run routes and generated architecture contracts |
 | `task://`, `task_id` | work request | generated architecture contracts and physical-action intent fixtures |
-| `goal://` | GoalRun | daemon GoalRun routes |
+| `goal://` | GoalRun | the goal-orchestration application's canonical ref scheme (ADR 0022); minted only by daemon admission |
 | `agent://` | Worker, when it denotes the accountable actor | principal ref namespace |
 
 The read-side legacy ref-scheme aliases are registered in

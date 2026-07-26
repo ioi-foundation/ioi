@@ -512,11 +512,9 @@ constraint, mask an unavailable required leaf, or turn a multi-controller
 action into an atomic hardware transaction. A later group revision or changed
 leaf set requires a new intent and envelope admission.
 
-Every new fixed-system unit binding uses `facility-system://`. The historical
-`facility_system://` spelling is a read-only compatibility alias only; it
-cannot cross physical admission or appear in an execution receipt. Alias
-normalization, where an implementation deliberately provides it, occurs before
-admission and carries no authority or safety evidence of its own.
+Every fixed-system unit binding uses `facility-system://`. The historical
+`facility_system://` spelling is deleted, not aliased (ADR 0022 Decision 2):
+it cannot be written, cross physical admission, or appear in any receipt.
 
 Physical safety owns when `SensorEvidenceReceipt`, `ActuatorCommandReceipt`,
 `PhysicalActionSegmentCommitmentReceipt`, and

@@ -1042,136 +1042,11 @@ The target response is an `ioi.runtime.hypervisor_core_taxonomy.v2` object:
   ],
   "normalized_record_contracts": [
     "HypervisorApplicationSurfaceRegistration",
-    "HypervisorRouteAliasRegistration",
     "HypervisorSurfaceReleaseRecord",
     "HypervisorSurfaceInstallationBinding",
     "HypervisorSystemInterfaceBinding",
     "HypervisorSurfaceServingBinding",
     "HypervisorProductSurfaceProjection"
-  ],
-  "route_alias_registrations": [
-    {
-      "route_alias_ref": "route-alias://hypervisor/sessions",
-      "owner_ref": "hypervisor-workspace://work",
-      "alias_route_pattern": "/sessions",
-      "resolution": {
-        "kind": "static_route",
-        "target_route_template": "/work/sessions"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    },
-    {
-      "route_alias_ref": "route-alias://hypervisor/missions",
-      "owner_ref": "hypervisor-workspace://work",
-      "alias_route_pattern": "/missions/{legacy_subject_id?}",
-      "resolution": {
-        "kind": "typed_resolver",
-        "resolver_kind": "legacy_work_subject",
-        "resolver_contract_ref": "api://hypervisor/legacy-work-subject-resolution"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    },
-    {
-      "route_alias_ref": "route-alias://hypervisor/workbench",
-      "owner_ref": "surface://hypervisor/developer-workspace",
-      "alias_route_pattern": "/workbench",
-      "resolution": {
-        "kind": "static_route",
-        "target_route_template": "/developer-workspace"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    },
-    {
-      "route_alias_ref": "route-alias://hypervisor/marketplace",
-      "owner_ref": "surface://hypervisor/packages",
-      "alias_route_pattern": "/marketplace",
-      "resolution": {
-        "kind": "static_route",
-        "target_route_template": "/packages/marketplace"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    },
-    {
-      "route_alias_ref": "route-alias://hypervisor/legacy-agent-studio",
-      "owner_ref": "surface://hypervisor/studio",
-      "alias_route_pattern": "/__ioi/agent-studio",
-      "resolution": {
-        "kind": "static_route",
-        "target_route_template": "/studio"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    },
-    {
-      "route_alias_ref": "route-alias://hypervisor/fleet",
-      "owner_ref": "surface://hypervisor/embodied-systems",
-      "alias_route_pattern": "/fleet",
-      "resolution": {
-        "kind": "typed_resolver",
-        "resolver_kind": "contextual_surface",
-        "resolver_contract_ref": "api://hypervisor/fleet-context-resolution"
-      },
-      "preserve_context": {
-        "query": true,
-        "hash": true,
-        "embed_and_return_state": true,
-        "open_application_identity_and_back_stack": true,
-        "typed_context_kinds": [
-          "organization", "project", "system", "goal_run", "outcome_room",
-          "automation_run", "session", "work_queue", "work_item", "work_run"
-        ]
-      },
-      "failure_mode": "fail_closed"
-    }
   ],
   "adapter_target_families": [
     { "id": "code_editor" },
@@ -1277,10 +1152,7 @@ hand-maintained card catalog.
         "workspace_ref": "hypervisor-workspace://work",
         "display_name": "Work",
         "canonical_route": "/work",
-        "route_alias_refs": [
-          "route-alias://hypervisor/sessions",
-          "route-alias://hypervisor/missions"
-        ],
+        "route_alias_refs": [],
         "launchable": true,
         "disabled_reason_codes": [],
         "launch_binding": {
@@ -1340,9 +1212,7 @@ hand-maintained card catalog.
         "group_kinds": ["first_party_applications"],
         "canonical_route": "/studio",
         "resolved_launch_route": "/studio",
-        "route_alias_refs": [
-          "route-alias://hypervisor/legacy-agent-studio"
-        ],
+        "route_alias_refs": [],
         "launchable": true,
         "disabled_reason_codes": [],
         "launch_binding": {
@@ -1390,7 +1260,7 @@ hand-maintained card catalog.
         "group_kinds": ["recommended"],
         "canonical_route": "/embodied-systems",
         "resolved_launch_route": null,
-        "route_alias_refs": ["route-alias://hypervisor/fleet"],
+        "route_alias_refs": [],
         "launchable": false,
         "disabled_reason_codes": ["planned"],
         "launch_binding": null,
@@ -2401,7 +2271,7 @@ restore material. Archive payloads are policy-bound restore material. Restore
 validity is operation-backed through Agentgres, artifact refs, state-root refs,
 policy refs, authority refs, and receipts.
 
-`POST /v1/sessions/{session_id}/restore` is a compatibility alias for preparing
+`POST /v1/sessions/{session_id}/restore` is a convenience entry point for preparing
 an `environment_restore` `HypervisorChangePlan`; it never combines preparation
 and apply. Preparation is read-only and target-nonmutating. Apply revalidates
 the exact prepared plan, authority, content commitments, target head, and writer
@@ -2500,16 +2370,13 @@ Adapter APIs resolve concrete connection profiles for editor, terminal,
 browser, VM/container, HypervisorOS, and hosted-worker targets. A raw editor
 name is not an execution or mediation contract.
 
-### Work Projection And Legacy Mission Aliases
+### Work Projection
 
 ```http
 GET  /v1/work
 GET  /v1/work/{subject_kind}/{subject_id}
 GET  /v1/projects/{project_id}/work
 GET  /v1/hypervisor/autonomous-systems/{system_id}/work
-
-GET  /v1/missions
-GET  /v1/missions/{legacy_mission_id}
 ```
 
 `/v1/work` is a policy-filtered read projection. Every row returns a canonical
@@ -2531,13 +2398,10 @@ approval-flow, and service behavior remains an `AutomationSpec`; one activation
 is an `AutomationRun`; durable bounded pursuit is a `GoalRun`; shared pursuit is
 an `OutcomeRoom`.
 
-The two `/v1/missions` reads are migration aliases only. A legacy identifier
-must resolve through an admitted alias/migration receipt to exactly one GoalRun
-or OutcomeRoom and return that typed subject and its canonical URL. New Mission
-writes, universal Mission updates, and Mission execution subresources are
-non-conformant. Clients start, disable, review, or reconcile work through the
-typed owner APIs. An ambiguous legacy record enters typed review and may not be
-silently guessed.
+There are no `/v1/missions` routes and no Mission aliases: the retired Mission
+namespace is deleted, not aliased (ADR 0022 Decision 2). Mission writes,
+updates, and execution subresources are non-conformant. Clients start,
+disable, review, or reconcile work through the typed owner APIs.
 
 ## Event Stream
 

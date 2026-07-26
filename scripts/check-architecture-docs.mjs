@@ -286,7 +286,6 @@ for (const required of [
   "adapter targets, not",
   "Generic `HypervisorMission` is not a canonical truth object",
   "Systems and Work are policy-filtered core workspaces",
-  "HypervisorRouteAliasRegistration",
   "package disposition, enablement state, capability depth, and operational state",
   "IOI Authority Gateway is the daemon sidecar/compatibility profile",
   "the daemon authorizes anything",
@@ -333,7 +332,6 @@ for (const required of [
   "`HypervisorWork`",
   "`HypervisorDeveloperWorkspace`",
   "`HypervisorApplicationSurfaceRegistration`",
-  "`HypervisorRouteAliasRegistration`",
   "`HypervisorProductSurfaceProjection`",
   "`HypervisorSurfaceReleaseRecord`",
   "`HypervisorSurfaceInstallationBinding`",
@@ -1558,18 +1556,15 @@ for (const required of [
   "system_ref: system://... | null",
   "work_queue |",
   "work_queue://...",
-  "legacy_ref: mission://...",
   "OutcomeContract",
   "ServiceOrder",
   "HypervisorProductSurfaceProjection:",
-  "HypervisorRouteAliasRegistration:",
   "HypervisorSurfaceReleaseRecord:",
   "HypervisorSurfaceInstallationBinding:",
   "HypervisorSystemInterfaceBinding:",
   "HypervisorSurfaceServingBinding:",
   "surface_id: surface://...",
   "surface_key: string",
-  "route_alias_ref: route-alias://...",
   "tool_surface_contract:",
   "required_when: surface_class == tool_surface",
   "permanent_shell | applications_catalog",
@@ -1581,7 +1576,7 @@ for (const required of [
   "resolved_launch_route: string | null",
   "effective_object_contract_refs:",
   "first_party_applications | tools_for_context",
-  "### Canonical Target Routes And Compatibility Aliases",
+  "### Canonical Target Routes",
 ]) {
   if (!coreSurfaces.includes(required)) {
     fail(`core-clients-surfaces.md missing taxonomy contract: ${required}.`);
@@ -1613,6 +1608,10 @@ for (const forbidden of [
   "hypervisor_work_item:...",
   "hypervisor_work_run:...",
   "legacy_ref: mission:...",
+  "legacy_ref: mission://...",
+  "HypervisorLegacyWorkSubjectAlias:",
+  "HypervisorRouteAliasRegistration:",
+  "route_alias_ref: route-alias://...",
   "Hypervisor Automation specification or run identity",
   "hypervisor_surface:...",
   "generated_or_installed_application",
@@ -2446,7 +2445,7 @@ const workProjectionRow = canonToCodeDelta
   .split(/\r?\n/)
   .find((line) =>
     line.startsWith(
-      "| `HypervisorWorkSubjectProjection`, `HypervisorLegacyWorkSubjectAlias` |",
+      "| `HypervisorWorkSubjectProjection` |",
     ),
   );
 if (!workProjectionRow) {
@@ -2900,9 +2899,6 @@ for (const required of [
   '"surface_class": "owner_application"',
   '"surface_availability": "planned"',
   '"launchable": false',
-  '"route_alias_registrations"',
-  '"alias_route_pattern": "/missions/{legacy_subject_id?}"',
-  '"alias_route_pattern": "/workbench"',
   '"workspace_ref": "hypervisor-workspace://work"',
   '"surface_ref": "surface://hypervisor/studio"',
   '"selected_release_ref"',
@@ -2910,7 +2906,6 @@ for (const required of [
   '"selected_system_enablement_state"',
   '"effective_enablement_state"',
   '"resolved_launch_route"',
-  '"open_application_identity_and_back_stack": true',
   '"request_context_hash"',
   "match that principal and an admitted tenant-membership binding",
   '"canonical_route": "/studio"',

@@ -33,15 +33,17 @@ navigation changes:
   extension applications while keeping publisher, creation method,
   distribution, availability, admission, installation, package disposition,
   enablement, capability depth, and operational state independent;
-- stop new generic `HypervisorMission` writes, create typed GoalRun,
-  OutcomeRoom, AutomationRun, Session, WorkItem, and WorkRun associations, and
-  emit reviewable alias/migration receipts for legacy records;
+- stop new generic `HypervisorMission` writes and create typed GoalRun,
+  OutcomeRoom, AutomationRun, Session, WorkItem, and WorkRun associations;
+  legacy generic records are deleted, not aliased or migration-receipted
+  (ADR 0022 Decision 2);
 - do not put Systems in the permanent rail until genesis, constitution,
   deployment, observed membership, and lifecycle read models can render honest
   inventory and detail;
 - do not replace the broad Sessions/Missions estate with Work until every row
-  has a policy-filtered typed subject and compatibility routes preserve query,
-  hash, embed, return-path, Project, System, and backing-subject context.
+  has a policy-filtered typed subject; at cutover the retired routes are
+  deleted, not aliased, and canonical routes preserve query, hash, embed,
+  return-path, Project, System, and backing-subject context.
 
 Packages/generated-interface/Embodied Systems UX remains pulled by its owning
 contracts and horizon. The taxonomy gate cannot become a competing feature

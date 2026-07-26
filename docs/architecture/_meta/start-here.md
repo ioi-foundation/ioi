@@ -215,7 +215,7 @@ extension applications and tools, and the conditional Embodied Systems
 `owner_application` registration with `surface_availability: planned` are
 clients, builder surfaces, or projections over the
 same Core. ODK is the developer kit beneath Ontology and Data; Workbench is a
-compatibility alias for Developer Workspace; the former Work Ledger card
+retired label whose owner is Developer Workspace; the former Work Ledger card
 converges in Provenance. None creates private runtime truth beside the daemon.
 
 The target shell opens new work through a keyboard-first `+ New` menu with

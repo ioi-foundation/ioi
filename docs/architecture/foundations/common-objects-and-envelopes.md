@@ -370,7 +370,6 @@ outcome-plan://...      ioi.ai read-projection identity over one exact Orchestra
 attempt-summary://...   product projection summarizing one admitted or proposed attempt
 outcome-graph://...     cross-session Goal Space outcome graph projection identity
 connector-escalation://... typed connector connection, scope, or approval escalation identity
-mission://...           legacy presentation alias resolving to exactly one goal://... or outcome-room://... subject; never canonical truth
 automation://...        Hypervisor AutomationSpec identity
 automation-run://...    one Hypervisor AutomationRun activation identity
 capability-request://... request for bounded executable capability or authority evaluation
@@ -411,7 +410,6 @@ ontology://...          domain ontology identity
 semantic-profile://... versioned negotiated semantic compatibility profile identity
 object-model://...      canonical object model identity
 data-recipe://...       immutable DataRecipe family or content-addressed revision
-recipe://...            legacy typed DataRecipe compatibility alias; never a generic RecipeEnvelope
 development-environment-recipe://... Hypervisor development-environment construction recipe identity
 session-launch-recipe://... Hypervisor session-launch composition recipe identity
 mapping://...           connector mapping identity
@@ -516,7 +514,6 @@ coordination-cell://... derived fenced same-system embodied coordination partiti
 robot://...             robot or humanoid embodied-unit identity
 drone://...             aerial, marine, or other drone embodied-unit identity
 facility-system://...   canonical facility, workcell, or fixed embodied-system unit identity
-facility_system://...   read-only legacy alias for facility-system://...; never emitted by new writes
 controller://...        controller identity for robot, facility, actuator, or bridge control
 controller-binding://... versioned binding between an embodied domain/unit and its admitted local controller
 heartbeat://...         participant, worker, controller, lease, or runtime liveness observation identity

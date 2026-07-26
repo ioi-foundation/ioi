@@ -37,7 +37,7 @@ Default presentation map:
 | Owner Term | Default Product Term |
 | --- | --- |
 | wallet.network | SSO, permissions, connected access, authority, recovery |
-| Agentgres | Provenance (legacy family name: Work Ledger), evidence, run history, receipts |
+| Agentgres | Provenance, evidence, run history, receipts |
 | Hypervisor Daemon | secure runtime, execution environment, worker runtime |
 | IOI L1 / mainnet | proof network, settlement, public commitment |
 | aiagent.xyz | agent marketplace, worker marketplace, agent supply |
@@ -1093,9 +1093,9 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   Packages, Developer Workspace, and Developer Console; the Environments and
   Operations substrate applications; extension applications and tools; and the
   conditional Embodied Systems `owner_application` registration with
-  `surface_availability: planned`. `Missions`,
-  `Sessions`, `Workbench`, `Marketplace`, and other compatibility labels may
-  resolve into these identities but are not peer truth owners.
+  `surface_availability: planned`. `Missions`, `Sessions`, `Workbench`, and
+  similar retired labels are deleted, not aliased (ADR 0022 Decision 2);
+  Marketplace is the optional mode of Packages, not a peer truth owner.
 - `HypervisorWeb`: the browser/team/remote client over Hypervisor Core. It may
   host web/operator/team versions of the same application surfaces while using
   the same daemon, authority, Agentgres, session, receipt, and adapter
@@ -1192,8 +1192,10 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `HypervisorSurfaceServingBinding`: one `surface-serving://...` route/runtime
   binding for an installation or System interface; owns operational state and
   health evidence, never definition, release, installation, or System truth.
-- `HypervisorSurfaceAlias`: a legacy or architectural-family label that maps to
-  a preferred product surface name. `Providers / Environments` maps to
+- `HypervisorSurfaceAlias`: a naming-dictionary entry only — a retired or
+  architectural-family label whose preferred product surface name is recorded
+  so old design material stays readable. It mints no route, registration, or
+  resolution machinery (ADR 0022 Decision 2). `Providers / Environments` maps to
   Environments; `Data / Knowledge`, `Data Studio`, `Ontology Studio`,
   `Workshop`, and `Domain Blueprints` map to the Ontology and Data
   applications (ODK remains the developer kit beneath them, not a surface
@@ -1207,12 +1209,9 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   `Patterns / Examples / Training` and `Learning Center` map to enablement
   facets in Home, Applications, Packages, Foundry, Ontology, Data, and
   onboarding; `Workbench` maps to Developer Workspace; `Marketplace` maps to
-  the optional marketplace mode of Packages; legacy `Sessions` routes map to
-  Work / Sessions and the New Session action; legacy `Missions` routes map to
-  Work / Goals or Work / Rooms according to the backing `GoalRun` or
-  `OutcomeRoom`; `Outcome Services / Delivery` maps to the optional marketplace
-  discovery/commerce mode. Aliases are not separate final product apps or
-  truth owners.
+  the optional marketplace mode of Packages; `Outcome Services / Delivery`
+  maps to the optional marketplace discovery/commerce mode. These are name
+  mappings, never routes, product apps, or truth owners.
 - `HypervisorPackages`: the owner application for package search, inspection,
   build/import, signing, policy review, install, update, disable, uninstall,
   recall, revocation, and local or organization publication. Marketplace is an
@@ -1229,12 +1228,7 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `HypervisorDeveloperWorkspace`: the code, repository, workspace, editor,
   terminal, browser, workflow, and debugging owner application over Hypervisor
   Core. It is the canonical code-oriented product identity. `Workbench` is a
-  compatibility alias only and must not receive an independent registration,
-  lifecycle, or truth boundary.
-- `HypervisorWorkbench`: compatibility alias for
-  `HypervisorDeveloperWorkspace`. Existing routes and records may preserve the
-  old name during migration, but it has no separate registration, lifecycle,
-  owner, or truth boundary.
+  retired label with no registration, route, lifecycle, or truth boundary.
 - `HypervisorAutomations`: the durable workflow, trigger, schedule, webhook,
   approval-flow, queue-worker, and service/API owner application over
   Hypervisor Core and the Workflow Compositor. It owns product-level
@@ -1390,11 +1384,6 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `GoalAppropriateSearchPolicy`: policy used by ioi.ai to decide whether a goal
   should stay lightweight or materialize multiple models, harnesses, workers,
   connectors, sessions, branches, or verifier lanes.
-- `CollaborativeMission`: retired compatibility label for an OutcomeRoom-backed
-  `MissionProfile`. ioi.ai Goal Space and Hypervisor Work / Rooms render the
-  same participant/frontier/claim/attempt/finding/evaluation graph through
-  different product lenses; neither creates a second mission lifecycle or
-  separate swarm runtime.
 - `StockfishStyleCodingSearch`: product shorthand for code and computer-use
   search over branches, snapshots, and sessions. Tests, static analysis, visual
   verification, runtime traces, benchmarks, and policy checks score attempts

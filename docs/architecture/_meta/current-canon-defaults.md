@@ -642,10 +642,9 @@ synchronized.
   inventory remains safely visible during partial dynamic-service failure;
   drafts never launch; recalls/revocations remove launch eligibility; tenant and
   System caches never cross boundaries;
-- compatibility routes are typed `HypervisorRouteAliasRegistration` records
-  with exactly one owning workspace/application and either one static target
-  route or one fail-closed typed resolver. Alias/canonical-route collisions,
-  orphan targets, and context-dropping redirects are invalid;
+- there are no compatibility routes: retired paths are deleted at cutover,
+  not aliased (ADR 0022 Decision 2), and canonical routes preserve typed
+  context; context-dropping redirects are invalid;
 - tools remain searchable and directly launchable but have exactly one primary
   owner and an owner breadcrumb. Generated or installed interfaces bind admitted
   package, surface descriptor, installation, audience/visibility, allowed
@@ -763,12 +762,12 @@ synchronized.
   Hypervisor Core, never runtime-truth owners.
   Agent Studio is Studio's agent lens, not a separate application; ODK is a
   developer kit whose artifacts surface through Ontology, Data, Studio, and
-  Developer Console; Work Ledger is a Provenance compatibility alias;
-  Workbench is a Developer Workspace compatibility alias; Sessions is a Work
-  view and route alias; Missions is a typed Work filter/profile alias;
+  Developer Console; Work Ledger, Workbench, Sessions-as-peer, and Missions
+  are retired labels — the owners are Provenance, Developer Workspace, and the
+  typed Work views, and retired labels are deleted, not aliased;
 - Hypervisor surface registrations carry stable identity, owner doc, primary
   object families, class, accountable publisher/origin, creation method,
-  availability, canonical route and typed route-alias refs, allowed placements
+  availability, canonical route, allowed placements
   and launch modes, supported roles,
   Organization/Project/System/GoalRun/OutcomeRoom/AutomationRun/Session/
   WorkQueue/WorkItem/WorkRun compatibility, daemon/API/Agentgres dependencies,
@@ -1005,7 +1004,7 @@ applicable;
   revocation or quarantine of affected sessions/factors, re-enrollment, and
   receipts;
 - Developer Workspace is the live code, files, terminal, ports, debugging, and
-  environment-bound hands-on surface; `Workbench` is its compatibility alias;
+  environment-bound hands-on surface; `Workbench` is a retired label;
 - editor integrations such as VS Code, Cursor, Windsurf, JetBrains, browser
   IDEs, terminals, VMs, local OS surfaces, and HypervisorOS nodes are
   adapter targets, not Hypervisor's product identity;

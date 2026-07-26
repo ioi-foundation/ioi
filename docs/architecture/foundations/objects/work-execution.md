@@ -88,10 +88,9 @@ TypedWorkSubjectBinding:
     order://... | intent://...
 ```
 
-The legacy `mission://...` namespace may survive only as a compatibility alias
-that resolves to exactly one `goal://...` or `outcome-room://...` backing
-subject. It cannot be written as canonical identity or carry independent
-authority, budget, lifecycle, evidence, receipts, or status.
+The retired `mission://...` namespace is deleted, not aliased: it cannot be
+written, read, or resolved as identity anywhere (ADR 0022 Decision 2); the
+typed backing subjects are `goal://...` and `outcome-room://...`.
 An `automation_run` binding always uses `automation-run://...`; the reusable
 AutomationSpec remains `automation://...`. A discriminator may not rescue an
 intrinsically ambiguous identity namespace.
