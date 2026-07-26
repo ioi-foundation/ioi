@@ -316,12 +316,28 @@
       "total_reviewed_entry_count": 1553,
       "total_reviewed_entry_set_sha256": "faa80bdde28900635a05f4bcc1ae47e527378aeee550ccdf6a21f3073de97fd9",
       "total_reviewed_identity_set_sha256": "8a2110321d0d7af3f4e80c6a3bf4a2725c4e497b46523b214e08d9cf7e673cf4"
+    },
+    {
+      "authorship_binding": "self_declared_unsigned",
+      "epoch_id": "canon-m1-m2-gap-resolutions-basis-rebind-review-2026-07-27",
+      "latest_epoch_identity_set_sha256": "2a7a164a920886681470e55feac05a2548da9352c7a646ad9d8b013661b33072",
+      "latest_epoch_reviewed_entry_count": 1298,
+      "latest_epoch_reviewed_entry_set_sha256": "6f7d469a978f32582add9c807d184fead00ff2568f7a28952e3a44ed0a4b07c9",
+      "predecessor_entry_sha256": "a74a8d4a73b828962b91d7ceb0bc3839703953076c01c34e4fc4117eee19c950",
+      "program_source_material_sha256": "6153d546aad4f6d8759b4fe0983df85462c18fef068e7ff5c2de87d113895d88",
+      "review_lock_sha256": "f29878d86daa17198e1f7bec1c8bb453fde15cb756e1ede8723c8e189beed6ac",
+      "reviewed_as_of": "2026-07-27",
+      "reviewer_id": "claude-fable-5-clean-slate-convergence",
+      "sequence": 16,
+      "total_reviewed_entry_count": 1553,
+      "total_reviewed_entry_set_sha256": "faa80bdde28900635a05f4bcc1ae47e527378aeee550ccdf6a21f3073de97fd9",
+      "total_reviewed_identity_set_sha256": "8a2110321d0d7af3f4e80c6a3bf4a2725c4e497b46523b214e08d9cf7e673cf4"
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "a74a8d4a73b828962b91d7ceb0bc3839703953076c01c34e4fc4117eee19c950",
-    "epoch_id": "rustfmt-ioi-agent-routes-locator-rebind-review-2026-07-27",
-    "sequence": 15
+    "entry_sha256": "af4518481002dedfc0d6547a38959176bdcde6262e4ab66482f0a7c70f45f730",
+    "epoch_id": "canon-m1-m2-gap-resolutions-basis-rebind-review-2026-07-27",
+    "sequence": 16
   }
 }

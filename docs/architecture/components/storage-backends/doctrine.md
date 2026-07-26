@@ -1,12 +1,12 @@
 # Storage Backends Doctrine
 
 Status: canonical architecture authority.
-Canonical owner: this file for storage backend byte-store doctrine underneath Agentgres-governed artifact refs.
+Canonical owner: this file for storage backend byte-store doctrine underneath Agentgres-governed artifact refs, the canonical `StorageProfile` contract, and the `ArtifactAvailabilityIncident` / `ArtifactRepairReceipt` shapes.
 Supersedes: component-level Filecoin/CAS wording when it implies storage backends own artifact meaning, authority, lifecycle, restore validity, or operational truth.
 Superseded by: none.
-Last alignment pass: 2026-05-30.
+Last alignment pass: 2026-07-26.
 Doctrine status: canonical
-Implementation status: partial (local_disk/cas/ipfs/filecoin backends built; S3/object-store and provider blob profiles planned)
+Implementation status: partial (local_disk/cas/ipfs/filecoin backends built; S3/object-store and provider blob profiles planned; the StorageProfile contract and typed incident/repair shapes are target canonical, not started)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
@@ -144,6 +144,92 @@ detect failure
   -> emit ArtifactRepairReceipt
   -> admit repaired refs or unrecoverable status through Agentgres
 ```
+
+## Storage Profiles
+
+`StorageProfile` is the canonical byte-custody contract this file previously
+implied but never declared: the immutable, successor-versioned declaration of
+how one class of payload bytes is held. It classifies custody only — an
+artifact's meaning, lifecycle, integrity, policy/authority linkage, and
+restore validity remain with its Agentgres ref (INV-8, INV-12), and a profile
+never becomes restore truth, availability truth, or authority.
+
+```yaml
+StorageProfile:
+  schema_version: ioi.storage-profile.v1
+  storage_profile_id: storage-profile://...
+  revision_ref: storage-profile://.../revision/...
+  predecessor_revision_ref: storage-profile://.../revision/... | null
+  content_hash: hash
+  owner_ref: org://... | system://... | project://... | domain://...
+  backend_class:
+    local_disk | s3_object_store | filecoin | cas_ipfs |
+    provider_blob | customer_vpc_blob | storage_engine
+  storage_durability_class:
+    single_copy | replicated_local | replicated_independent |
+    georedundant | sealed_archive
+  custody_posture_ref: policy://... | privacy_posture://...
+  encryption_at_rest_policy_ref: policy://...
+  region_and_jurisdiction_refs: []
+  retention_policy_ref: policy://...
+  retention_hold_policy_ref: policy://... | null
+  availability_incident_policy_ref: policy://...
+  repair_policy_ref: policy://...
+  cost_posture_ref: policy://... | null
+  status: draft | active | superseded | revoked
+```
+
+Rules, each testable:
+
+- **Refs bind the exact revision.** An artifact ref records the exact
+  `StorageProfile` revision/hash under which its bytes were placed. A profile
+  change is a successor revision plus receipted re-placement of affected
+  payloads — never a silent relabel of bytes already at rest.
+- **Declared durability is a claim about mechanism, not a proof of bytes.**
+  `storage_durability_class` declares the custody mechanism the profile
+  requires; whether bytes currently satisfy it is availability evidence, and
+  restore admits solely through fetch + hash + decrypt + state-root
+  validation (INV-12). Provider-claimed durability is evidence (INV-8).
+- **A retention hold protects live references.** When
+  `retention_hold_policy_ref` names an active hold, deletion, cleanup, and
+  provider-side lifecycle actions against held payloads are refused until the
+  hold's policy owner releases it — including cleanup obligations whose
+  parents were deleted. A hold never blocks reads, repair, or incident
+  handling; it blocks destruction.
+- **Backend selection consumes profiles.** The selection considerations below
+  are inputs to choosing or authoring a profile; work admits against a
+  profile revision, not against ad hoc per-write choices.
+
+The incident and repair objects this file names have these canonical shapes:
+
+```yaml
+ArtifactAvailabilityIncident:
+  incident_id: availability-incident://...
+  artifact_refs: []
+  backend_class: local_disk | s3_object_store | filecoin | cas_ipfs | provider_blob | customer_vpc_blob | storage_engine
+  storage_profile_revision_ref: storage-profile://.../revision/...
+  failure_class:
+    missing_bytes | invalid_hash_or_cid | decrypt_failure | stale_replica |
+    backend_timeout | expired_storage_lease | retention_mismatch |
+    policy_incompatible_location
+  detected_at: timestamp
+  evidence_refs: []
+  affected_work_refs: []
+  status: open | mitigating | repaired | unrecoverable | closed
+
+ArtifactRepairReceipt:
+  receipt_type: artifact_repair
+  incident_ref: availability-incident://...
+  repair_method: replica | archive | replacement_payload
+  verified_hash_or_cid: hash
+  bytes_verified: true
+  agentgres_operation_ref: agentgres://operation/...
+```
+
+An incident records; it does not repair. Repair changes artifact truth only
+when Agentgres admits the repair operation and its receipt, and
+`unrecoverable` is an honest terminal status, never silently converted to
+`closed`.
 
 ## Backend Selection Policy
 

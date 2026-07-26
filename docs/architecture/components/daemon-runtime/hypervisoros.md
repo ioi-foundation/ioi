@@ -3,13 +3,14 @@
 Status: canonical architecture authority.
 Canonical owner: this file for bare-metal Hypervisor nodes, Type 1 substrate
 mode for autonomous systems, measured node boot, daemon-rooted runtime control,
-node integrity receipts, and HypervisorOS deployment profiles.
+node integrity receipts, HypervisorOS deployment profiles, and the
+`EnforcementCoverageDeclaration` contract.
 Supersedes: wording that treats Hypervisor only as a hosted IDE, local daemon,
 Type-2 runtime, or cloud agent harness.
 Superseded by: none.
-Last alignment pass: 2026-07-19.
+Last alignment pass: 2026-07-26.
 Doctrine status: canonical
-Implementation status: speculative (bare-metal node profile design; no HypervisorOS build)
+Implementation status: speculative (bare-metal node profile design; no HypervisorOS build; no EnforcementCoverageDeclaration substrate is on current master — registry entry, schema, fixtures, projections, and the runtime lifecycle module were all lost or never landed in the refactor and must be (re)registered)
 Last implementation audit: 2026-07-19
 
 ## Canonical Definition
@@ -390,6 +391,73 @@ This is not a privacy substitute for cTEE. It is the node-control and evidence
 layer that blocks, detects, records, and receipts unsafe behavior such as
 unmanaged executable launches, unscoped egress, private-data leakage attempts,
 or daemon-bypass attempts.
+
+### EnforcementCoverageDeclaration
+
+This file is the canonical owner of `EnforcementCoverageDeclaration`, and this
+section is the anchor its consumers bind. The declaration is the
+content-bound evidence snapshot for one exact node-enforcement or Authority
+Gateway profile/adapter revision, platform, action surface, class, and scope.
+It answers one question honestly: for this exact surface, what can this
+deployment actually prove about its own enforcement — and it may never answer
+better than its evidence.
+
+```yaml
+EnforcementCoverageDeclaration:
+  schema_version: ioi.components.daemon-runtime.enforcement-coverage-declaration.v1
+  declaration_id: enforcement-coverage://...
+  subject_profile_ref: node_enforcement://... | adapter://...
+  subject_revision_ref: string
+  subject_content_hash: hash
+  platform: string
+  action_surface: string
+  action_class: string
+  scope_ref: scope-descriptor://... | string
+  coverage_facts:
+    discovered:    { claimed: boolean, mechanism_role_refs: [], verification_evidence_refs: [] }
+    observable:    { claimed: boolean, mechanism_role_refs: [], verification_evidence_refs: [] }
+    attributable:  { claimed: boolean, mechanism_role_refs: [], verification_evidence_refs: [] }
+    mediated:      { claimed: boolean, mechanism_role_refs: [], verification_evidence_refs: [] }
+    preventable:   { claimed: boolean, mechanism_role_refs: [], verification_evidence_refs: [] }
+    receipted:     { claimed: boolean, mechanism_role_refs: [], verification_evidence_refs: [] }
+  uncovered: boolean
+  privilege_and_bypass_assumptions: []
+  decision_source_ref: string | null
+  final_invoker_ref: string | null
+  availability_and_failure_posture: string | null
+  receipt_scope_note: string | null
+  verification_freshness_at: timestamp
+  known_gaps: []
+  limitations: []
+  status: draft | unverified | verified_current | expired | revoked | superseded
+```
+
+Rules, restating the register in
+[`vocabulary.md`](../../_meta/vocabulary.md) as owner doctrine:
+
+- The six capability facts use the canonical `coverage_fact` member set owned
+  by [`canonical-enums.md`](../../foundations/canonical-enums.md). Each fact
+  is **independently assessed**; no fact implies another, and audit, passive,
+  or receipt-ingestion mechanisms can never be upgraded into `mediated` or
+  `preventable` claims.
+- `uncovered: true` is a mutually exclusive exact-scope state: it forbids
+  every positive fact claim for that scope, and a positive claim forbids it.
+- Every positive claim binds a matching mechanism role and verification
+  evidence; a claim without both is invalid, not optimistic.
+- The declaration owns no policy, authority, admission, execution, receipt
+  truth, or durable runtime state, and schema validity alone is not runtime
+  verification. Only `verified_current` declarations may be advertised or
+  relied on by any profile.
+- Target registration: contract id
+  `schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1`
+  in the architecture contract registry, with this section as
+  `canonical_owner_ref`. That registration, its schema/invariant/fixture
+  files, generated projections, **and the runtime lifecycle module are all
+  absent from current master** — a pre-refactor audit recorded them, and the
+  refactor did not carry them forward. Nothing may claim registry residency
+  or runtime enforcement for this contract until it is (re)registered and
+  (re)landed. The honest current state is recorded in
+  [`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md).
 
 ## Minimal Implementation Objects
 
