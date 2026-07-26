@@ -1,6 +1,6 @@
 {
   "as_of_date": "2026-07-27",
-  "build_fingerprint": "aa0da6cd317ded79234c5eb671d46f2aa34455b9a010e772d10d8a544b8086ab",
+  "build_fingerprint": "9a62e40900f600588666c4a0fc2e5ebcc097b21d053ab684c5a47804c70d8b2f",
   "counts": {
     "by_classification": {
       "compatibility": 92,
@@ -5944,7 +5944,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "std::fs::remove_file"
       },
@@ -15662,7 +15662,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -15801,7 +15801,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -15919,8 +15919,8 @@
       "classification": "consequential",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 1824,
-        "sha256": "37567aec8bfc59c28f7d078ecb97ffa5bf83129fda80e862d0774556dc46b9f9"
+        "line": 1830,
+        "sha256": "cad57b307dd215f049cc866076969d8264524dc55293c8a42abb9802b5229d9d"
       },
       "discovery_source_anchor": {
         "line": 1716,
@@ -15939,16 +15939,16 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "spawn_mux_writer_cfg"
       },
       "handler": "ioi_agent_routes::handle_ioi_agent_launches_list",
       "handler_anchor": {
-        "line": 1824,
-        "sha256": "37567aec8bfc59c28f7d078ecb97ffa5bf83129fda80e862d0774556dc46b9f9"
+        "line": 1830,
+        "sha256": "cad57b307dd215f049cc866076969d8264524dc55293c8a42abb9802b5229d9d"
       },
-      "handler_anchor_sha256": "37567aec8bfc59c28f7d078ecb97ffa5bf83129fda80e862d0774556dc46b9f9",
+      "handler_anchor_sha256": "cad57b307dd215f049cc866076969d8264524dc55293c8a42abb9802b5229d9d",
       "handler_effect_calls": [
         "MuxEngine::open",
         "spawn_mux_writer_cfg"
@@ -16000,7 +16000,7 @@
         }
       },
       "reachable_handler_functions": [
-        "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs#handle_ioi_agent_launches_list:1824",
+        "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs#handle_ioi_agent_launches_list:1830",
         "crates/node/src/bin/hypervisor-daemon.rs#read_record_dir:6062",
         "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs#is_promoted:104",
         "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs#read_promoted:1682",
@@ -16036,8 +16036,8 @@
       "classification": "consequential",
       "command": null,
       "discovery_handler_anchor": {
-        "line": 1839,
-        "sha256": "b6860059b5938ec10591a9bb124625857fbbde3c7e34a4dfe32c4befda2f9c4d"
+        "line": 1845,
+        "sha256": "aaa8439a32ea0306f4a27fe9ff2d9484e79c175c0d57d4229900bf170e9f29c5"
       },
       "discovery_source_anchor": {
         "line": 1720,
@@ -16056,16 +16056,16 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "spawn_mux_writer_cfg"
       },
       "handler": "ioi_agent_routes::handle_ioi_agent_launch_get",
       "handler_anchor": {
-        "line": 1839,
-        "sha256": "b6860059b5938ec10591a9bb124625857fbbde3c7e34a4dfe32c4befda2f9c4d"
+        "line": 1845,
+        "sha256": "aaa8439a32ea0306f4a27fe9ff2d9484e79c175c0d57d4229900bf170e9f29c5"
       },
-      "handler_anchor_sha256": "b6860059b5938ec10591a9bb124625857fbbde3c7e34a4dfe32c4befda2f9c4d",
+      "handler_anchor_sha256": "aaa8439a32ea0306f4a27fe9ff2d9484e79c175c0d57d4229900bf170e9f29c5",
       "handler_effect_calls": [
         "MuxEngine::open",
         "spawn_mux_writer_cfg"
@@ -16117,7 +16117,7 @@
         }
       },
       "reachable_handler_functions": [
-        "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs#handle_ioi_agent_launch_get:1839",
+        "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs#handle_ioi_agent_launch_get:1845",
         "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs#load_launch:1275",
         "crates/node/src/bin/hypervisor-daemon.rs#read_record_dir:6062",
         "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs#is_promoted:104",
@@ -55816,7 +55816,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -65416,7 +65416,7 @@
       "command": null,
       "discovery_handler_anchor": {
         "line": 1281,
-        "sha256": "61b87778aa907c3a2ca0a304c810ffb28983ed498a3c8fb8b5c058034110aab6"
+        "sha256": "cc9e8ab77e507523b6742d0b87831d193fbe749e70146420f7de71780235c9d8"
       },
       "discovery_source_anchor": {
         "line": 1565,
@@ -65440,16 +65440,16 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "std::fs::write"
       },
       "handler": "ioi_agent_routes::handle_ioi_agent_launch",
       "handler_anchor": {
         "line": 1281,
-        "sha256": "61b87778aa907c3a2ca0a304c810ffb28983ed498a3c8fb8b5c058034110aab6"
+        "sha256": "cc9e8ab77e507523b6742d0b87831d193fbe749e70146420f7de71780235c9d8"
       },
-      "handler_anchor_sha256": "61b87778aa907c3a2ca0a304c810ffb28983ed498a3c8fb8b5c058034110aab6",
+      "handler_anchor_sha256": "cc9e8ab77e507523b6742d0b87831d193fbe749e70146420f7de71780235c9d8",
       "handler_effect_calls": [
         "MuxEngine::open",
         "spawn_mux_writer_cfg",
@@ -65538,7 +65538,7 @@
         "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs#dual_write:1694",
         "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs#soak_enabled:108",
         "crates/node/src/bin/hypervisor_daemon_routes/substrate_store.rs#soak_domains:114",
-        "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs#urlencoding_encode:1856",
+        "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs#urlencoding_encode:1862",
         "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs#plan:980",
         "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs#ensure_policy_seed:158",
         "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs#seed_policy:133",
@@ -65630,7 +65630,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -65773,7 +65773,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -65912,7 +65912,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -66054,7 +66054,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": "std::fs::write"
       },
@@ -66197,7 +66197,7 @@
         "claim_state": "candidate_or_handler_boundary_not_final",
         "note": "M0 found this effect-shaped call in the handler but does not claim it is the sole final leaf.",
         "resolution": "static_candidate_not_order_proven",
-        "source_anchor_sha256": "5c52040d90e152c6cd4d8f1b8ec82c82ed019997d5ce1598259b9192a920e296",
+        "source_anchor_sha256": "f5c65ee35834c495f7a20e29cfe31606d0ae318a029dc6573bf7cb0be03e75d2",
         "source_file": "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs",
         "symbol": ".send"
       },
