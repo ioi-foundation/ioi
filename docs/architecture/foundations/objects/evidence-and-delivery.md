@@ -1,7 +1,7 @@
 # Event, Receipt, Artifact, and Delivery Objects
 
 Status: canonical low-level reference.
-Canonical owner: this file for the shared object shapes of runtime events, receipt envelopes, artifact envelopes, and delivery envelopes.
+Canonical owner: this file for the shared object shapes of runtime events, receipt envelopes, the shared `ReceiptObligation` element, artifact envelopes, and delivery envelopes.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
 Last alignment pass: 2026-07-25.
@@ -99,6 +99,45 @@ of the exact closed v1
 domain-separated, indexed accumulator leaf. The signed checkpoint, inclusion
 witness, consistency witness, and export-manifest rules are owned by
 [`events-receipts-delivery-bundles.md`](../../components/daemon-runtime/events-receipts-delivery-bundles.md#receipt-checkpoints-and-offline-proofs).
+
+## ReceiptObligation
+
+`ReceiptObligation` is the shared element type behind every
+`receipt_obligations` array in this canon. It exists because a receipt
+obligation stated as a boolean (`receipt_required: true`) or as an untyped
+string array is a claim without a contract: it cannot say which boundary event
+must be receipted, with which registered receipt type, against which profile —
+so nothing can verify that the obligation was discharged.
+
+```yaml
+ReceiptObligation:
+  obligation_id: string
+  boundary_event: string
+  receipt_type: registered receipt type
+  receipt_profile_ref: schema://... | null
+  bound_fact_requirement_refs: []
+  required: boolean
+```
+
+Rules:
+
+- `boundary_event` names one declared boundary of the owning object's
+  lifecycle (its owner doc defines the legal set — e.g. `admission`,
+  `activation`, `invocation`, `reconciliation`, `cancellation`).
+- `receipt_type` must be a registered receipt type in the receipt registry
+  owned by
+  [`events-receipts-delivery-bundles.md`](../../components/daemon-runtime/events-receipts-delivery-bundles.md);
+  an obligation naming an unregistered type is itself undischargeable and
+  fails closed at admission of the owning object.
+- Discharge means a receipt of the named type whose
+  `attested_boundary_fact_refs` cover the obligation's
+  `bound_fact_requirement_refs`. A receipt of a different type, an event, or a
+  log line discharges nothing (INV-9).
+- Envelopes elsewhere in this canon that today carry `receipt_obligations: []`
+  as an untyped placeholder (AIIP packets, task offers/acceptances, runtime
+  assignments, routing decisions, genesis-family objects, gateway action
+  requests) adopt this element type as their arrays gain content; their owner
+  docs need no competing definition.
 
 ## ArtifactEnvelope
 

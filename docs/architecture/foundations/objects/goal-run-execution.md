@@ -6,7 +6,7 @@ Supersedes: the same object definitions when they were carried inside the single
 Superseded by: none.
 Last alignment pass: 2026-07-25.
 Doctrine status: canonical
-Implementation status: mixed (`InformationFlowLabel` v1 and `DeclassificationApproval` v1 have registered schemas, invariants, fixtures, and generated projections; a narrow software GoalRun and the harness-profile registry exist; production information-flow enforcement, ContextCell leasing, and typed handoff remain planned)
+Implementation status: mixed (`InformationFlowLabel` v1 and `DeclassificationApproval` v1 have registered schemas, invariants, fixtures, and generated projections; a narrow software GoalRun and the harness-profile registry exist; production information-flow enforcement, ContextCell leasing, typed handoff, and the GoalRun admission bindings for activation, source context, retained state root, and typed receipt obligations remain planned)
 Last implementation audit: 2026-07-25
 
 ## Purpose
@@ -54,6 +54,10 @@ GoalRunEnvelope:
   origin_surface:
     ioi_goal_chat | hypervisor_new_session | hypervisor_session |
     automation | marketplace_instance | api
+  activation_ref: goal-run-activation://... | null
+  source_context_binding:
+    target_session_ref: session://... | null
+    project_ref: project://... | null
   user_intent_ref: intent://... | prompt://...
   normalized_goal: string
   outcome_room_ref: outcome-room://... | null
@@ -97,6 +101,15 @@ GoalRunEnvelope:
     - verifier-challenge://...
   receipt_refs:
     - receipt://... | ledger://...
+  receipt_obligations:
+    - boundary_event:
+        admission | activation | invocation | reconciliation |
+        cancellation | close_or_escalate
+      receipt_type: string
+      receipt_profile_ref: schema://... | receipt://profile/...
+  admitted_state_root_ref: agentgres://state-root/goal-run/... | null
+  authority_scope_refs:
+    - scope:...
   continuation_state:
     open | waiting_on_user | waiting_on_frontier | sleeping | delegated |
     verifying | course_correcting | complete | blocked | superseded
@@ -131,6 +144,32 @@ The selected OrchestrationPlan revision ref/hash and decision receipt are all
 null before selection or all non-null after selection. Course correction appends
 a successor revision and decision receipt; it never mutates the selected plan
 body or makes a product `outcome-plan://` projection authoritative.
+
+Four admission bindings the record must retain, each fixing a defect this canon
+observed in its own runtime:
+
+- **Activation.** `origin_surface` is a provenance tag, never the crossing.
+  A GoalRun claiming an originating Session, WorkRun, work item, room claim,
+  automation step, gateway adapter context, or ioi.ai draft binds the admitted
+  `GoalRunActivationEnvelope` through `activation_ref`
+  (see [`goal-pursuit.md`](./goal-pursuit.md)); only the direct
+  `api | hypervisor_new_session` creation lane may leave it null.
+- **Source context.** When the run targets a workspace, `source_context_binding`
+  names the daemon-verified target Session and Project. Verifying that the
+  Session exists, is admitted, and has a provisioned workspace is part of the
+  admission contract itself, not a route convenience (INV-37 in
+  [`../invariants.md`](../invariants.md)).
+- **State commitment.** `admitted_state_root_ref` names the Agentgres state
+  root under which the run's truth is admitted, and the durable record retains
+  it. A prefix-shaped string with no admitted root behind it discharges
+  nothing (INV-8); replay verifies the record against the admitted root, and
+  restore-style claims follow INV-12.
+- **Receipt obligations.** `receipt_obligations` is the typed set of boundary
+  events this run must receipt and the exact receipt type/profile for each,
+  using the `ReceiptObligation` element owned by
+  [`evidence-and-delivery.md`](./evidence-and-delivery.md). A bare
+  `receipt_required: true` boolean is a claim, not a contract; it cannot say
+  which receipt binds which boundary, so it satisfies nothing on its own.
 
 ## GoalGroundingLoopEnvelope
 

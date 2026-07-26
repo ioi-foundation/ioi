@@ -6,7 +6,7 @@ Implementation status: mixed (each invariant lists where it is enforced today)
 Canonical owner: this file for the canonical one-sentence wording of cross-cutting invariants; subject owners apply them.
 Supersedes: repeated restatements of these invariants across foundations, components, and domains docs when wordings drift.
 Superseded by: none.
-Last alignment pass: 2026-07-22.
+Last alignment pass: 2026-07-25.
 
 ## Purpose
 
@@ -351,6 +351,19 @@ supplies evidence without issuing authority or admitting the final effect.
 Owner application:
 [`security-privacy-policy-invariants.md`](./security-privacy-policy-invariants.md),
 [`../components/daemon-runtime/platform-operability.md`](../components/daemon-runtime/platform-operability.md).
+
+**INV-37 — Admission evidence is resolved, never asserted.** An admission
+precondition is discharged only by evidence the admitting component resolves
+or independently verifies — a presented grant, a current head, an admitted
+root, a durable record, a recomputed hash — never by a value the transport
+layer, route handler, client, projection, or the requesting party writes into
+the request for the admission core to find. A route that supplies the
+constants its own admission core checks has not admitted anything, and the
+resulting decision is void for conformance purposes. The admission core, not
+the route, is the policy-enforcement point; routes transport, render, and
+collect — they do not satisfy preconditions.
+Owner application: [`../components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md),
+[`../components/daemon-runtime/api.md`](../components/daemon-runtime/api.md).
 
 ## Citation Rule
 

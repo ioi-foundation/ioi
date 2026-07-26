@@ -27,3 +27,6 @@ explain the accepted decision when that history remains useful.
 - [ADR 0016: Make Systems And Work The Hypervisor Product Spine](./0016-hypervisor-systems-work-and-application-taxonomy.md)
 - [ADR 0017: Separate Goal Pursuit, Directed Work, Skills, Harnesses, And Tools](./0017-goal-pursuit-workflow-skill-and-harness-taxonomy.md)
 - [ADR 0018: Adopt Bounded Recursive Improvement Campaigns Without An RSI Engine](./0018-bounded-recursive-improvement-campaign-taxonomy.md)
+- [ADR 0019: Adopt GoalRunActivation As The Product-Crossing Admission Contract](./0019-goal-run-activation-product-crossing.md)
+- [ADR 0020: Unify GoalRun Admission And Require Resolved Admission Evidence](./0020-unified-goal-run-admission-and-resolved-evidence.md)
+- [ADR 0021: Select Sovereign-Local Completeness As The First Flagship Proof](./0021-first-proof-selection-and-attach-lane-sequencing.md)

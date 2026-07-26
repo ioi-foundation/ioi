@@ -62,6 +62,8 @@ docs/evidence/*
 !docs/evidence/p0-collaboration-readiness/**
 !docs/evidence/canon-implementation-reconciliation/
 !docs/evidence/canon-implementation-reconciliation/**
+!docs/evidence/canon-maximal-ceiling-pass/
+!docs/evidence/canon-maximal-ceiling-pass/**
 
 # Keep public docs consumer-facing; internal plans/specs belong under internal-docs/.
 docs/plans/

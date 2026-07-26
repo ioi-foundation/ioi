@@ -340,6 +340,14 @@ product pitch or routine onboarding flow.
   pursue/verify/course-correct loop and may stand alone or participate in an
   OutcomeRoom. It is not a chat transcript or an adapter-/HarnessInvocation-
   local memory file.
+- `GoalRunActivation`: the typed, receipted, idempotent crossing that creates
+  or joins `goal://` identity from exactly one existing source context — an
+  ioi.ai draft, Hypervisor Session, WorkRun, work item, room claim, automation
+  workflow step, or gateway adapter context. Products draft and project it;
+  only daemon admission activates it. A correlation id, UI link, subscription,
+  facilitator selection, `origin_surface` tag, or untyped `activation_evidence`
+  payload is never the crossing. Owned by
+  [`objects/goal-pursuit.md`](../foundations/objects/goal-pursuit.md).
 - `GoalGroundingLoop`: low-level conductor-orientation loop for goal-shaped
   work: receive intent, classify risk, gather grounding, inspect current state,
   derive constraints and acceptance, select topology, lease context, open
@@ -837,6 +845,15 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   risk labels, eligibility labels, and claims. It is not authority; it makes
   candidate provenance inspectable before Wallet, Hypervisor, or policy can
   approve a consequential action.
+- `prim:*`: the primitive-capability ref family — what a runtime, tool, or
+  worker can physically do (`prim:fs.write`, `prim:net.http`). Feasibility
+  only; it conveys no permission (INV-4, ADR 0006). The boundary between
+  `prim:*` and `scope:*` is owned by
+  [`term-boundaries.md`](../foundations/term-boundaries.md).
+- `scope:*`: the authority-scope ref family — what a delegated subject is
+  authorized to do (`scope:gmail.send`, `scope:goal.run.orchestrate`). Issued
+  as scoped, expiring, revocable grants or leases; never collapsed into one
+  permission list with `prim:*` (INV-4, ADR 0006).
 - `CapabilityLease`: a scoped, expiring wallet.network lease that lets an app,
   agent, service, or runtime exercise a capability such as `scope:gmail.send`,
   `scope:broker.place_order`, or `scope:cloud.deploy` without receiving
@@ -1867,6 +1884,20 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   per-action, per-surface `EnforcementCoverageDeclaration` contract used by
   `NodeEnforcementProfile`; that declaration creates no new authority, policy,
   admission, execution, or truth owner.
+- `AuthorityGatewayProfile`: target canonical object declaring one Authority
+  Gateway adapter deployment's action surfaces, mediated control points,
+  required scopes, and posture — the exact subject an
+  `EnforcementCoverageDeclaration` describes. Owned by
+  [`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md). It
+  declares; it never authorizes, admits, executes, or claims coverage the
+  current verified declaration does not support.
+- `ActionRequestEnvelope`: target canonical object for one gateway-mediated
+  proposed action: adapter identity/revision, proposed action and risk class,
+  required primitive capabilities and authority scopes, policy decision and
+  hash, typed work-spine subject refs, and `ReceiptObligation` entries. Owned
+  by [`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md);
+  the older `run_id`/`thread_id`-only API sketch is wire compatibility, not
+  the contract.
 - `IOIKernelL0` or `L0Substrate`: the reusable IOI kernel substrate for
   instantiating application domains, sovereign execution domains,
   non-intelligent chains/state machines, and intelligent blockchains. It is not

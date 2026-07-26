@@ -187,6 +187,19 @@ When a user says "turn this into an automation," "make this run every day,"
 "expose this as an API," or similar, ioi.ai should create a draft handoff into
 Hypervisor Automations rather than storing the durable system as chat state.
 
+The reverse crossing is equally contracted. When work that already lives in a
+Hypervisor context — a Session, WorkRun, work item, room claim, automation
+step, or gateway adapter context — should become or join an admitted GoalRun
+("promote this session into a goal," "attach this work to my goal"), ioi.ai
+may draft, render, review, and submit a `GoalRunActivationEnvelope`
+([`goal-pursuit.md`](../../foundations/objects/goal-pursuit.md)), and only
+daemon admission activates it. A subscription, account linkage, chat link,
+correlation id, projection row, facilitator selection, or MCP call is never
+that crossing. This closes the previously recorded gap in which this canon
+defined rich handoffs out of ioi.ai but no object for moving work into an
+admitted GoalRun; ioi.ai's part of the contract is that its product surfaces
+draft and project the activation and must never admit it.
+
 When a user asks for an external account or connector action, ioi.ai should
 create a connector/auth escalation handoff rather than call the provider
 directly. The handoff should use Hypervisor Connectors / Tools / MCP contracts

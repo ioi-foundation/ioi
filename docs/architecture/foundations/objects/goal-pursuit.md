@@ -1,12 +1,12 @@
 # Goal-Pursuit Profile, Orchestration, and Budget Objects
 
 Status: canonical low-level reference.
-Canonical owner: this file for the shared object shapes of GoalRun profiles, orchestration constraints, orchestration policies, orchestration plans, and network goal budgets.
-Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
+Canonical owner: this file for the shared object shapes of GoalRun profiles, goal-run activations (the typed crossing that creates or joins goal identity from an existing context), orchestration constraints, orchestration policies, orchestration plans, and network goal budgets.
+Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file; untyped `activation_evidence` payloads as a claimed activation contract.
 Superseded by: none.
 Last alignment pass: 2026-07-25.
 Doctrine status: canonical
-Implementation status: partial (a narrow software GoalRun profile path exists; orchestration plan/policy objects and NetworkGoalBudget remain planned)
+Implementation status: partial (a narrow software GoalRun profile path exists; GoalRunActivation, orchestration plan/policy objects, and NetworkGoalBudget remain planned — the current runtime carries only an untyped `activation_evidence` field where the activation object must land)
 Last implementation audit: 2026-07-25
 
 ## Purpose
@@ -110,6 +110,118 @@ The revision body and `content_hash` are immutable. `registry_status` and
 `registry_lifecycle_ref` are registry projections excluded from that content
 hash. A revoked profile remains replayable by its exact hash even when it is no
 longer eligible for new admission.
+
+## GoalRunActivationEnvelope
+
+`GoalRunActivationEnvelope` is the typed crossing that carries work from an
+existing context into an admitted GoalRun. It closes the product-boundary hole
+this canon had recorded as an open gap: rich handoffs existed **out of** ioi.ai
+(`IoiAiGoalChatHandoff`), but no object carried work **into** goal identity
+from a Hypervisor Session, WorkRun, work item, room claim, or an ioi.ai draft.
+Without it, nothing prevented an implementation from treating a correlation
+id, UI link, subscription, MCP call, or facilitator selection as admission.
+
+The rule the object exists to make testable:
+
+> **Correlation is not admission.** A `goal_run_ref` pointer on a Session,
+> work item, WorkRun, Mission presentation profile, projection row, or AIIP
+> `correlation_ref` — and the `origin_surface` tag on a GoalRun — is
+> navigation and provenance only. Goal identity is created or joined only by
+> daemon admission of exactly one `GoalRunActivationEnvelope` (or by the
+> retained direct creation lane below). Cites INV-16, INV-17, and INV-37 in
+> [`../invariants.md`](../invariants.md).
+
+```yaml
+GoalRunActivationEnvelope:
+  schema_version: ioi.goal-run-activation.v1
+  activation_id: goal-run-activation://...
+  activation_mode: create | join_existing
+  source_context:
+    source_kind:
+      ioi_goal_draft | hypervisor_session | work_run | work_item |
+      outcome_room_claim | automation_workflow_step | gateway_adapter_context
+    source_ref:
+      intent://... | session://... | work_run://... | run://... |
+      work_item://... | work-claim://... | action://goal-run/activate/... |
+      adapter://...
+    source_owner_ref: org://... | project://... | system://... | user://...
+  requested_goal_run_profile_revision_ref: goal-run-profile://.../revision/... | null
+  requested_goal_run_profile_content_hash: hash | null
+  existing_goal_ref: goal://... | null
+  normalized_intent_ref: intent://... | prompt://... | null
+  carried_context_refs: []
+  requested_constraint_refs: []
+  requesting_principal_ref: wallet://... | user://... | agent://... | system://...
+  authority_decision_ref: grant://... | approval://...
+  review_requirement: none | explicit_user | policy_gate
+  review_decision_ref: receipt://... | approval://... | null
+  idempotency_key: string
+  admission_decision_ref: agentgres://object/... | null
+  admitted_goal_ref: goal://... | null
+  activation_receipt_ref: receipt://... | null
+  refusal_reason_code: string | null
+  expires_at: timestamp | null
+  status: draft | submitted | admitted | refused | superseded | expired
+  non_grants:
+    authority_widening: none
+    context_declassification: none
+    room_membership: none
+    budget_creation: none
+```
+
+Rules, each testable:
+
+- **Exactly one typed source.** `source_kind` and `source_ref` are required and
+  must agree; per-kind ref-scheme constraints are normative. `create` mode
+  requires the profile revision ref and content hash together and a null
+  `existing_goal_ref`; `join_existing` requires `existing_goal_ref` and null
+  profile fields. A join targets a GoalRun whose current lifecycle admits
+  joining under its declared policy; joining never rewrites the target's
+  admission tuple.
+- **The daemon admits; products draft.** ioi.ai facilitation, Goal Space
+  surfaces, and Hypervisor clients may draft, render, review, and submit an
+  activation. Only daemon admission — under the GoalRun admission contract in
+  [`daemon-runtime/doctrine.md`](../../components/daemon-runtime/doctrine.md)
+  — transitions it to `admitted`, and the admission must resolve the authority
+  decision, source-context existence, and profile resolution itself (INV-37);
+  a route or product surface cannot satisfy those preconditions by supplying
+  the values.
+- **Receipt-backed and idempotent.** Admission mints an activation receipt
+  binding the exact source context, authority decision, and admitted or joined
+  `goal://` identity. Resubmission with the same `idempotency_key` and body
+  converges on the same result; a changed body under a reused key is refused.
+- **Carried context is candidacy, never authority.** `carried_context_refs`
+  become ContextLease candidates under the receiving run's policy. The
+  crossing widens nothing: no authority, visibility, custody, retention, or
+  budget changes by activation alone (INV-16); carried participant input stays
+  tainted until admitted (INV-17).
+- **The automation lane keeps its owner.** `HypervisorGoalRunActivationContract`
+  in [`core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md)
+  remains the AutomationSpec workflow-step declaration and stays owned there;
+  its resolution admits through this family as
+  `source_kind: automation_workflow_step`. One crossing contract; the step
+  binding is not a second admission path.
+- **The attach lane graduates through the same crossing.** Work mediated by an
+  IOI Authority Gateway adapter enters the work spine as
+  `source_kind: gateway_adapter_context` with the adapter context as
+  `source_ref`. Attach-lane receipts remain valid evidence linkable through
+  `carried_context_refs`; they are never re-minted, and no attach-lane
+  approval or grant carries into the admitted run implicitly — the run-on lane
+  requests its own scopes (INV-1). The attach-lane doctrine itself is owned by
+  [`daemon-runtime/doctrine.md`](../../components/daemon-runtime/doctrine.md).
+- **The direct lane is retained and narrow.** Creating a stand-alone GoalRun
+  directly through the daemon API or the substrate New Goal surface needs no
+  activation object — there is no source context to carry. Such a run records
+  `origin_surface: api | hypervisor_new_session` and a null activation ref.
+  Any creation that claims an originating Session, WorkRun, work item, room
+  claim, automation step, or ioi.ai draft must cross this contract; an
+  untyped `activation_evidence` payload is not a substitute.
+
+`GoalRunEnvelope` binds the admitted crossing through its
+`activation_ref` field (see
+[`goal-run-execution.md`](./goal-run-execution.md)). Product-lane doctrine —
+what ioi.ai may draft and must never admit — is owned by
+[`control-plane.md`](../../domains/ioi-ai/control-plane.md).
 
 ## OrchestrationConstraintEnvelope
 

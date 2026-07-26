@@ -1048,7 +1048,12 @@ IoiAiConnectorAuthEscalation:
 `IoiAiGoalDraft` is pre-admission product state identified only by
 `intent://`; it cannot mint `goal://` identity or claim run lifecycle. On
 admission, the daemon creates a canonical GoalRun and ioi.ai renders
-`IoiAiGoalProjection` from that owner. Likewise,
+`IoiAiGoalProjection` from that owner. When the draft promotes work that
+already lives in a Hypervisor context, the crossing is the admitted
+`GoalRunActivationEnvelope`
+([`goal-pursuit.md`](../../foundations/objects/goal-pursuit.md)) with
+`source_kind: ioi_goal_draft`; ioi.ai drafts and projects that activation and
+never admits it. Likewise,
 `IoiAiOutcomePlanProjection` binds one exact immutable OrchestrationPlan
 revision/hash and its decision receipt. Its execution/evidence lists are
 derived navigation projections, not independently selected routes, workers,
