@@ -971,6 +971,17 @@ pub(crate) async fn handle_goal_runs_create(
         "active_loop_phase": "receive_intent",
         "continuation_state": "open",
         "status": "draft",
+        // Durable goal identity records HOW it was authorized. `explicit_activation`
+        // means a typed activation crossed admission; `legacy_implicit_creation`
+        // marks records minted by the retired goal-text heuristic, which are
+        // quarantined from execution and shown as legacy in projections. New records
+        // can only be one of the explicit forms.
+        "creation_provenance": if body.get("activation_evidence").is_some() {
+            "explicit_activation"
+        } else {
+            "direct_substrate_activation"
+        },
+        "activation_evidence": body.get("activation_evidence").cloned().unwrap_or(Value::Null),
         "created_at": now,
         "updated_at": now,
         "runtimeTruthSource": "daemon-runtime",
@@ -1390,6 +1401,22 @@ pub(crate) async fn handle_goal_run_start(
                 return Err((
                     "goal_run_already_started".to_string(),
                     "This GoalRun has already been started.".to_string(),
+                ));
+            }
+            // Legacy quarantine: a GoalRun minted by the retired goal-text heuristic
+            // never carried explicit activation evidence, so it was never admitted as
+            // durable goal identity. Those records must not execute. They are neither
+            // deleted nor retroactively given fabricated admission evidence -- they are
+            // refused until adopted through ordinary GoalRun admission, or cancelled.
+            let implicitly_created = fresh
+                .get("creation_provenance")
+                .and_then(Value::as_str)
+                .map(|v| v == "legacy_implicit_creation")
+                .unwrap_or(false);
+            if implicitly_created && fresh.get("activation_evidence").is_none() {
+                return Err((
+                    "goal_run_legacy_implicit_creation_requires_adoption".to_string(),
+                    "This GoalRun was created implicitly by the retired goal-text heuristic and was never explicitly activated. Adopt it through GoalRun admission with explicit activation evidence, or cancel it; it cannot execute as-is.".to_string(),
                 ));
             }
             Ok(())

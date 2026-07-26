@@ -1560,9 +1560,30 @@ pub(crate) async fn handle_ioi_agent_launch(
         .or_else(|| session_record.get("environment_ref").cloned())
         .unwrap_or(Value::Null);
 
-    // For goal_run: create the internal GoalRun (advanced/proof object; not the product mode).
+    // GoalRun identity is substrate-owned and is NEVER created implicitly.
+    //
+    // The planner's `planned_execution_kind` is a RECOMMENDATION derived from goal
+    // text (length and keywords). Auto / Pinned / Compare choose execution TACTICS,
+    // not durable object kinds. A recommendation, a prompt's wording, a subscription,
+    // or a facilitator selection cannot authorize durable goal identity: creation
+    // requires a typed, explicit activation — direct substrate New Goal / GoalRun
+    // activation, or an accepted ioi.ai Session-to-Goal handoff — carrying the exact
+    // profile revision, request/idempotency identity, source lineage, owner admission
+    // decision, and resulting receipt.
+    //
+    // An ordinary launch therefore creates a Session only, and surfaces the
+    // recommendation so the caller can take that explicit action.
     let mut goal_run_id = String::new();
-    if kind == "goal_run" {
+    let goal_run_recommended = kind == "goal_run";
+    let activation = body.get("goal_run_activation");
+    let explicitly_activated = activation
+        .and_then(|a| a.get("explicit"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
+    if goal_run_recommended && explicitly_activated {
+        // Explicit activation still crosses ordinary GoalRun admission; this route
+        // never mints identity on its own.
         let (gr_status, gr) = self_call(
             &format!("{}/v1/hypervisor/goal-runs", st.base_url),
             "POST",
@@ -1571,6 +1592,7 @@ pub(crate) async fn handle_ioi_agent_launch(
                 "session_ref": session_ref,
                 "model_route_ref": route_ref,
                 "policy_ref": selection.get("policy_ref").cloned().unwrap_or(Value::Null),
+                "activation_evidence": activation.cloned().unwrap_or(Value::Null),
             })),
         )
         .await;
@@ -1585,6 +1607,30 @@ pub(crate) async fn handle_ioi_agent_launch(
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_string();
+    }
+
+    // `Compare` coordinates bounded Session WorkRuns. That path is NOT implemented
+    // here, so it fails closed with an explicit recommendation rather than silently
+    // creating durable goal identity to get parallelism.
+    if goal_run_recommended && !explicitly_activated && text(&selection, "strategy") == "compare" {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({
+                "ok": false,
+                "reason": "compare_requires_bounded_session_work_runs_or_explicit_goal_run",
+                "recommendation": "goal_run",
+                "recommended_because": text(&selection, "strategy_reason"),
+                "session_ref": session_ref,
+                "explicit_activation_required": {
+                    "field": "goal_run_activation.explicit",
+                    "alternatives": [
+                        "substrate New Goal / GoalRun activation",
+                        "accepted ioi.ai Session-to-Goal handoff"
+                    ]
+                },
+                "nonclaim": "Compare is an execution tactic. Bounded Session WorkRun coordination is not implemented on this route, and a durable GoalRun is not created to substitute for it."
+            })),
+        );
     }
 
     // Portable intelligence: create the scoped, receipted MemoryProjection(s) NOW — before the
@@ -1673,6 +1719,24 @@ pub(crate) async fn handle_ioi_agent_launch(
         "goal": goal,
         "strategy": text(&selection, "strategy"),
         "execution_kind": kind,
+        // `kind` is the planner's RECOMMENDED tactic. It is not a durable object
+        // kind and it did not create one: goal_run_id is empty unless the caller
+        // supplied explicit activation evidence.
+        "goal_run_recommended": goal_run_recommended,
+        "goal_run_created": !goal_run_id.is_empty(),
+        "goal_run_activation": if goal_run_recommended && goal_run_id.is_empty() {
+            json!({
+                "required": true,
+                "field": "goal_run_activation.explicit",
+                "alternatives": [
+                    "substrate New Goal / GoalRun activation",
+                    "accepted ioi.ai Session-to-Goal handoff"
+                ],
+                "nonclaim": "A recommendation, prompt wording, subscription, or facilitator selection is not admission."
+            })
+        } else {
+            Value::Null
+        },
         "reason_codes": selection.get("reason_codes").cloned().unwrap_or(json!([])),
         "privacy_posture": text(&selection, "privacy_posture"),
         "session_ref": session_ref,

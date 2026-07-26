@@ -1177,8 +1177,8 @@ test("supplied entries form an internally coherent unsigned hash chain with the 
     reviewAnchor,
     programSource,
   ));
-  assert.equal(reviewAnchor.head.sequence, 11);
-  assert.equal(reviewAnchor.epochs.length, 11);
+  assert.equal(reviewAnchor.head.sequence, 12);
+  assert.equal(reviewAnchor.epochs.length, 12);
   assert.ok(
     reviewAnchor.epochs.slice(0, 6).every((entry) => "reviewer_evidence" in entry),
     "legacy entries must retain their historical claims verbatim",
@@ -2456,5 +2456,52 @@ test("no route-local .layer(...) hides a handler from discovery", () => {
     offenders,
     [],
     `route-local .layer(...) is unsupported by this branch's discovery; these handlers would be missed:\n${offenders.join("\n")}`,
+  );
+});
+
+// Product-identity ruling: GoalRun identity is substrate-owned and is never created
+// implicitly. Auto / Pinned / Compare choose execution TACTICS, not durable object
+// kinds; natural-language analysis may RECOMMEND a GoalRun but cannot authorize one.
+// Before this guard, handle_ioi_agent_launch created a Session and then durably
+// created a GoalRun bound to it whenever the planner's goal-text heuristic returned
+// "goal_run" -- so prompt wording alone minted durable goal identity.
+test("an IOI Agent launch never creates a GoalRun implicitly", () => {
+  const launch = fs.readFileSync(
+    path.join(repoRoot, "crates/node/src/bin/hypervisor_daemon_routes/ioi_agent_routes.rs"),
+    "utf8",
+  );
+
+  // Creation must be gated on explicit activation evidence, not on `kind` alone.
+  assert.match(
+    launch,
+    /let explicitly_activated = activation[\s\S]{0,200}?\.unwrap_or\(false\);/u,
+    "the launch route must read explicit activation evidence",
+  );
+  assert.match(
+    launch,
+    /if goal_run_recommended && explicitly_activated \{/u,
+    "GoalRun creation must require BOTH a recommendation and explicit activation",
+  );
+  assert.ok(
+    !/\n    if kind == "goal_run" \{\n        let \(gr_status, gr\) = self_call\(/u.test(launch),
+    "creation must not be gated on the planner's kind alone",
+  );
+
+  // Compare must fail closed rather than substitute durable identity for parallelism.
+  assert.match(
+    launch,
+    /compare_requires_bounded_session_work_runs_or_explicit_goal_run/u,
+    "Compare must fail closed with an explicit recommendation",
+  );
+
+  // The heuristic must be labelled recommendation-only at its source.
+  const admission = fs.readFileSync(
+    path.join(repoRoot, "crates/services/src/agentic/runtime/kernel/runtime_goal_run_admission.rs"),
+    "utf8",
+  );
+  assert.match(
+    admission,
+    /RECOMMENDATION ONLY[\s\S]{0,400}?let compare_shaped/u,
+    "the goal-text heuristic must be marked recommendation-only where it is computed",
   );
 });

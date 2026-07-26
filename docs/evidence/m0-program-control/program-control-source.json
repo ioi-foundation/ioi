@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-25",
+  "as_of_date": "2026-07-26",
   "baselines": [
     {
       "absence_evidence": "No qualifying end-to-end selected-profile product cohort exists as of the baseline date.",
@@ -342,17 +342,107 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/implementation-matrix.md",
-      "source_sha256": "a8a298a5ff6bf0f880696e61171e8527a8ae3f545e5d8b443b216438646c8f5c"
+      "source_sha256": "fb69399439937a89eb38d80adb7462b70db96330d58720e5d7db1187996f3b65"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/_meta/source-of-truth-map.md",
-      "source_sha256": "d91689ca126eab05aaa92b20b4e49aeab1f632893d67ced43ba582e2eee94e37"
+      "source_sha256": "86f0136af2c093ba8b2ad3e5bbaddd02b57e0c6f8a5aa64cb5c4781bd46d6df2"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/common-objects-and-envelopes.md",
-      "source_sha256": "ae64105d7bd6dcf088dd06c393324b64e4daa39114db00696728526698f87a63"
+      "source_sha256": "bd4650178513e12c531a228bf8fe0c3d469e94a4b0e7e21bdfda73d0d6d8fad9"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/term-boundaries.md",
+      "source_sha256": "6a461fd79097471c5769348b1e899f347b0a38446b528d5e86f83bb1475b3fb3"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/authority-and-access.md",
+      "source_sha256": "204fa490cb9f39fb2d37965fdacc82db189981763565a0280129d60f42b7b4b1"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/bounded-improvement.md",
+      "source_sha256": "8c76067ad4399f3e4d19d8655b6a74ecff344cc81a6861bd2d8be30a0d2d69da"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/bounded-system-genesis.md",
+      "source_sha256": "fcff48fb04c775629de6159f944deab1051100c8d3a98d4df0f2ead041cfe14a"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/collaborative-pursuit.md",
+      "source_sha256": "50048114eb93f27eba8d7019351e5c41030e53b8f70971a7cfe282ea86341cc2"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/economics-and-settlement.md",
+      "source_sha256": "2567801960bd39635c8bbeaffedf73ef4e22352928b0dce91a1e94551958e1d2"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/embodied-systems.md",
+      "source_sha256": "c9d8a2e5adafcb080b7391c8d8c13b70ba00c259fbfb9700d512cd2b6b7bba04"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/evidence-and-delivery.md",
+      "source_sha256": "ca04a135696508ac19feced44a134f3a5eebdd02578012e1cf7b85a327aa5ad6"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/goal-pursuit.md",
+      "source_sha256": "bf34d67a1c07909e86be1acc0135254ee61d785983688cebf9c33e54bfae299c"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/goal-run-execution.md",
+      "source_sha256": "69c78ab62e139153db686d89a1acc618bc6211df1309d2094152dcca12468b32"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/institutional-learning.md",
+      "source_sha256": "d4d2b4f4441c208ca89fe8c2b6f00dc976bb5e593f0b38eda3af18f24b4176bf"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/interop-and-collaboration-terms.md",
+      "source_sha256": "06500434c3286f5d45f202e81f985496820f878130d444354f4ef7bc1e295b88"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/memory-and-promotion.md",
+      "source_sha256": "48f41c551bf85e7bdf0f311664dc5410aa5eb7926e89f4333c57356116ff1d2b"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/model-foundry-and-training.md",
+      "source_sha256": "cb9daf1b8044dafd0e4f857fa3b9d41f77f1b00bd009fa092a4e87d070992bb7"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/reusable-work-definitions.md",
+      "source_sha256": "7b90ef9213b7b747bbbfba51c3c4d83c3de31162502e70156b4458f8d3d2d548"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/semantic-plane.md",
+      "source_sha256": "63923e39992aef52a564a41b2ea820a9cda572c580f64f460fb5cc8a763d3de1"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/work-execution.md",
+      "source_sha256": "d498bfc3acda3154105851920cdfbcb00493f97d23b7c83e19d0f1ba0aa74894"
+    },
+    {
+      "role": "landed owner canon",
+      "source_file": "docs/architecture/foundations/objects/work-results-and-lifecycle.md",
+      "source_sha256": "52409562e711e9d763a53f76c4734c0cd6523a85e2fcbb730e4c20b6e8a01a07"
     },
     {
       "role": "landed owner canon",
@@ -362,7 +452,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/foundations/invariants.md",
-      "source_sha256": "4caae2e869661e08b5998f325b7d425e3b600fc81d84314890e3867727710749"
+      "source_sha256": "a2553f11c82ac10f8ee91c62b272db709716c8599338ef9a92549cd6ddd57fa2"
     },
     {
       "role": "landed owner canon",
@@ -382,7 +472,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md",
-      "source_sha256": "0870893dcf815a397c39a6bf78337bacc509d7788fc53f4b6453b4ffe4dd9a96"
+      "source_sha256": "1e318e51a9ce2b9ae5b3323e7d891c6519a204b9b69cec36e0f4d83bf122be98"
     },
     {
       "role": "landed owner canon",
@@ -412,17 +502,17 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/agentgres/api-object-model.md",
-      "source_sha256": "ed1edda6f65628fadcae96c6a1416bc419d66825105a03746c6777127e2d6b76"
+      "source_sha256": "d9c0027e36a382df2fd326cc54f983e1593235ab0efb2ef987a8e4f59bee10c9"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
-      "source_sha256": "01d970d06d6a83ef609a4e91e03554d5459630bca314ed06eb7649725f78f772"
+      "source_sha256": "c2eba08f13500f57fd1d07872684c221a70915d89c23237783bc77f7f6be1214"
     },
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/components/hypervisor/identity-access-and-metering.md",
-      "source_sha256": "5c8c86e34c6631090326dbdd0f05403e8c2cf92d0255975be8888907be5261a2"
+      "source_sha256": "2f5d11705494ec21b97449a95a91e5141bcf2773e028e4b443a82a22c5d52fc1"
     },
     {
       "role": "landed owner canon",
@@ -432,7 +522,7 @@
     {
       "role": "landed owner canon",
       "source_file": "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
-      "source_sha256": "348f0f485746089a80cb76e33422cddd49067b519632d2a6980d575750cefa42"
+      "source_sha256": "c0c33423323cb749b92e3b9d98a2c810368d68efa88554c3ed22d7d81dbf75cc"
     },
     {
       "role": "landed owner canon",
@@ -1562,19 +1652,19 @@
       "snapshot_head_binding": "verified"
     },
     "attestation_format": "ioi.m0.program_control_source_review.v4",
-    "program_source_material_sha256": "543a8f127937657bc050b7808cb48dcb3ddb795f8a9d5846e98018eb27751e0d",
-    "review_epoch_id": "m1-continuity-projection-review-2026-07-25",
-    "review_lock_sha256": "3743f6cd2514c0682b3df3685c653cf5937de32fff00616999940fd14ab59818",
+    "program_source_material_sha256": "4f268a07692f21200216a1b9ba21523634b878cb94e61a59a82b4c1bb94444b6",
+    "review_epoch_id": "canon-modularization-and-loopback-posture-review-2026-07-26",
+    "review_lock_sha256": "7c81b8c41f15279294dcb42367213018430eda79b7d5b39bb510f1b6c9fba77e",
     "review_method": "unsigned_hash_chain_and_supplied_snapshot_consistency",
-    "reviewed_as_of": "2026-07-25",
-    "reviewed_entry_set_sha256": "60b486c50d460122ceb6b1194a15bae0db6a4a1c9f5d14142fdafc23baae405a",
+    "reviewed_as_of": "2026-07-26",
+    "reviewed_entry_set_sha256": "f7a7e599554cedd044c912c111922f1876f07d0607c360332f3bd9e4b06562a8",
     "reviewed_identity_set_sha256": "fce8aab13d56701d41b4fe565c4e773f9e9c8a848969b9374d922f6f445427bd",
-    "reviewer_label": "reviewer://ioi/m0-program-control-m1-exit-source-review",
+    "reviewer_label": "reviewer://ioi/m0-program-control-integrated-review",
     "reviewer_label_status": "self_declared_unsigned",
     "snapshot_anchor_file": "docs/evidence/m0-program-control/review-epoch-anchor.json",
-    "snapshot_head_entry_sha256": "ad88761c74adfa7b6cc3bc66d808cddf65e9dd426e1aa1530c88364d07b75ee4",
-    "snapshot_head_sequence": 11,
-    "snapshot_predecessor_entry_sha256": "ea5f152f4331fa03eec439c8841816afc130085ff106f97bb0abf0fcb76f2cf2",
+    "snapshot_head_entry_sha256": "a2b0bbd1159a3f8dadd5c3cebc01eb5ac8d4c267ecd1009c8529f720c9c1f4fe",
+    "snapshot_head_sequence": 12,
+    "snapshot_predecessor_entry_sha256": "ad88761c74adfa7b6cc3bc66d808cddf65e9dd426e1aa1530c88364d07b75ee4",
     "transition": "worksheet_unreviewed_to_supplied_snapshot_attested",
     "verification_scope": "supplied_repository_snapshot"
   },

@@ -506,6 +506,11 @@ impl RuntimeGoalRunAdmissionCore {
         if !policy_excluded.is_empty() {
             constraints_applied.push("policy_excluded_harnesses".to_string());
         }
+        // RECOMMENDATION ONLY. This heuristic may propose a GoalRun; it can never
+        // authorize one. Durable goal identity requires typed explicit activation
+        // (substrate New Goal / GoalRun activation, or an accepted ioi.ai
+        // Session-to-Goal handoff). See docs/architecture/foundations/term-boundaries.md
+        // and the launch route, which creates a Session only without that evidence.
         let compare_shaped = goal.len() >= 120
             || [
                 "compare",
