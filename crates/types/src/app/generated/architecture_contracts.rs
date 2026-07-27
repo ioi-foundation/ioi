@@ -247,6 +247,10 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
         "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
         "sha256:6a8401ac0ea076022e78b2103109842fac414269ab56a0fe39159f048491db4d",
     ),
+    (
+        "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        "sha256:53482584c42ada4e9b6eed4ad5f15dab0a83afcddad60276999f161eed1de21c",
+    ),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -31436,6 +31440,1278 @@ pub enum AutonomousSystemNetworkEnrollmentTransitionV1Status {
     Committed,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1 {
+    pub schema_version: EnforcementCoverageDeclarationV1SchemaVersion,
+    pub declaration_id: String,
+    pub subject: EnforcementCoverageDeclarationV1Subject,
+    pub scope: EnforcementCoverageDeclarationV1Scope,
+    pub claims: EnforcementCoverageDeclarationV1Claims,
+    pub mechanisms: Vec<EnforcementCoverageDeclarationV1MechanismsItem>,
+    pub platform: EnforcementCoverageDeclarationV1Platform,
+    pub required_privilege: EnforcementCoverageDeclarationV1RequiredPrivilege,
+    pub custom_os_kernel_module_required_for_claim: bool,
+    pub bypass: EnforcementCoverageDeclarationV1Bypass,
+    pub operating_mode: EnforcementCoverageDeclarationV1OperatingMode,
+    pub decision_source: EnforcementCoverageDeclarationV1DecisionSource,
+    pub final_invoker: EnforcementCoverageDeclarationV1FinalInvoker,
+    pub availability: EnforcementCoverageDeclarationV1Availability,
+    pub receipt: EnforcementCoverageDeclarationV1Receipt,
+    pub verification: EnforcementCoverageDeclarationV1Verification,
+    pub known_gaps: Vec<EnforcementCoverageDeclarationV1KnownGapsItem>,
+    pub limitations: Vec<String>,
+    pub status: EnforcementCoverageDeclarationV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","title":"EnforcementCoverageDeclaration","description":"One evidence-backed enforcement coverage declaration for an exact profile or adapter revision, platform, surface, action class, and scope. The declaration reports coverage facts without owning policy, authority, execution, or durable runtime truth. declaration_id is not self-authenticating: the consuming deployment evidence or operability index must bind the exact declaration artifact reference and content hash. Any change to claims, status, freshness, evidence, or other declaration bytes produces a new content-bound snapshot rather than mutating an accepted snapshot.","x-ioi-schema-version":"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1","type":"object","additionalProperties":false,"required":["schema_version","declaration_id","subject","scope","claims","mechanisms","platform","required_privilege","custom_os_kernel_module_required_for_claim","bypass","operating_mode","decision_source","final_invoker","availability","receipt","verification","known_gaps","limitations","status"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"},"declaration_id":{"type":"string","pattern":"^enforcement-coverage://[^\\s]{1,248}$","description":"Stable logical identifier only; consumers must separately verify the exact declaration artifact reference and content hash."},"subject":{"type":"object","additionalProperties":false,"required":["kind","profile_or_adapter_ref","version","content_hash","implementation_ref","deployment_profile_ref"],"properties":{"kind":{"enum":["node_enforcement_profile","authority_gateway_profile"]},"profile_or_adapter_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","pattern":"^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$","maxLength":256},"content_hash":{"$ref":"#/$defs/hash"},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"deployment_profile_ref":{"$ref":"#/$defs/canonicalRef"}}},"scope":{"type":"object","additionalProperties":false,"required":["surface","action_class","boundary","scope_ref"],"properties":{"surface":{"$ref":"#/$defs/canonicalName"},"action_class":{"$ref":"#/$defs/canonicalName"},"boundary":{"enum":["managed_workload","host","application","adapter","external_service","physical_unit","other_declared"]},"scope_ref":{"$ref":"#/$defs/canonicalRef"}}},"claims":{"type":"object","additionalProperties":false,"required":["discovered","observable","attributable","mediated","preventable","receipted","uncovered"],"properties":{"discovered":{"$ref":"#/$defs/claimState"},"observable":{"$ref":"#/$defs/claimState"},"attributable":{"$ref":"#/$defs/claimState"},"mediated":{"$ref":"#/$defs/claimState"},"preventable":{"$ref":"#/$defs/claimState"},"receipted":{"$ref":"#/$defs/claimState"},"uncovered":{"$ref":"#/$defs/claimState"}}},"mechanisms":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["mechanism_id","kind","implementation_ref","version","roles"],"properties":{"mechanism_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"kind":{"enum":["daemon_gate","sandbox","seccomp","ebpf","lsm","network_proxy","datawall","ctee_policy","tee_attestation","platform_native_user_space","platform_native_privileged","application_adapter","harness_adapter","mcp_gateway","shell_wrapper","filesystem_watcher","browser_extension","api_gateway","ci_gate","webhook_gate","receipt_ingestion","custom_os_kernel_module","other_declared"]},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","minLength":1,"maxLength":128},"roles":{"type":"array","items":{"enum":["discovery","observation","attribution","mediation","prevention","receipt_emission"]},"minItems":1,"maxItems":6,"uniqueItems":true}}},"maxItems":32,"uniqueItems":true},"platform":{"type":"object","additionalProperties":false,"required":["family","version","architecture","execution_context","native_security_facility_refs"],"properties":{"family":{"enum":["linux","macos","windows","portable","other_declared"]},"version":{"type":"string","minLength":1,"maxLength":128},"architecture":{"enum":["x86_64","aarch64","portable","other_declared"]},"execution_context":{"enum":["user_session","managed_host","container","vm","microvm","bare_metal","hosted_service","other_declared"]},"native_security_facility_refs":{"$ref":"#/$defs/canonicalRefs"}}},"required_privilege":{"enum":["user","elevated","os_privileged","kernel","hardware_backed"]},"custom_os_kernel_module_required_for_claim":{"type":"boolean"},"bypass":{"type":"object","additionalProperties":false,"required":["resistance","assumptions","known_bypass_refs"],"properties":{"resistance":{"enum":["none","cooperative","best_effort","managed_host","measured_host"]},"assumptions":{"type":"array","items":{"type":"string","minLength":1,"maxLength":512},"maxItems":32,"uniqueItems":true},"known_bypass_refs":{"$ref":"#/$defs/canonicalRefs"}}},"operating_mode":{"enum":["active_enforcement","audit_only","passive_observation","receipt_ingestion_only","uncovered"]},"decision_source":{"type":"object","additionalProperties":false,"required":["kind","decision_source_ref","policy_ref","authority_provider_ref"],"properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval","none","unknown"]},"decision_source_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"authority_provider_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"final_invoker":{"type":"object","additionalProperties":false,"required":["kind","invoker_ref"],"properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human","none","unknown"]},"invoker_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"availability":{"type":"object","additionalProperties":false,"required":["online_behavior","offline_behavior","failure_posture"],"properties":{"online_behavior":{"$ref":"#/$defs/availabilityBehavior"},"offline_behavior":{"$ref":"#/$defs/availabilityBehavior"},"failure_posture":{"enum":["fail_closed","fail_open","audit_only","quarantine","not_applicable","unknown"]}}},"receipt":{"type":"object","additionalProperties":false,"required":["scope","contract_refs","evidence_refs"],"properties":{"scope":{"enum":["none","observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}},"verification":{"type":"object","additionalProperties":false,"required":["verifier_ref","verification_method_ref","evidence_refs","evaluated_at","freshness_status","valid_until","freshness_policy_ref"],"properties":{"verifier_ref":{"$ref":"#/$defs/canonicalRef"},"verification_method_ref":{"$ref":"#/$defs/canonicalRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":128,"uniqueItems":true},"evaluated_at":{"$ref":"#/$defs/dateTime"},"freshness_status":{"enum":["current","stale","expired","unverified"]},"valid_until":{"anyOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]},"freshness_policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"known_gaps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["gap_id","description","affected_path","mitigation_ref"],"properties":{"gap_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"description":{"type":"string","minLength":1,"maxLength":1024},"affected_path":{"type":"string","minLength":1,"maxLength":512},"mitigation_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"maxItems":64,"uniqueItems":true},"limitations":{"type":"array","items":{"type":"string","minLength":1,"maxLength":1024},"maxItems":64,"uniqueItems":true},"status":{"enum":["draft","verified","stale","revoked"]}},"allOf":[{"if":{"properties":{"claims":{"type":"object","properties":{"uncovered":{"const":true}},"required":["uncovered"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"discovered":{"$ref":"#/$defs/notTrueClaimState"},"observable":{"$ref":"#/$defs/notTrueClaimState"},"attributable":{"$ref":"#/$defs/notTrueClaimState"},"mediated":{"$ref":"#/$defs/notTrueClaimState"},"preventable":{"$ref":"#/$defs/notTrueClaimState"},"receipted":{"$ref":"#/$defs/notTrueClaimState"}}},"operating_mode":{"const":"uncovered"}}}},{"if":{"properties":{"operating_mode":{"const":"uncovered"}},"required":["operating_mode"]},"then":{"properties":{"claims":{"type":"object","properties":{"uncovered":{"const":true}}}}}},{"if":{"properties":{"status":{"const":"verified"}},"required":["status"]},"then":{"properties":{"verification":{"type":"object","properties":{"freshness_status":{"const":"current"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}},"required":["mediated"]}},"required":["claims"]},"then":{"properties":{"decision_source":{"type":"object","properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval"]},"decision_source_ref":{"$ref":"#/$defs/canonicalRef"}}},"final_invoker":{"type":"object","properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human"]},"invoker_ref":{"$ref":"#/$defs/canonicalRef"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"preventable":{"const":true}},"required":["preventable"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"attributable":{"const":true}},"required":["attributable"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"observable":{"const":true}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"receipted":{"const":true}},"required":["receipted"]}},"required":["claims"]},"then":{"properties":{"receipt":{"type":"object","properties":{"scope":{"enum":["observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"operating_mode":{"enum":["audit_only","passive_observation","receipt_ingestion_only"]}},"required":["operating_mode"]},"then":{"properties":{"claims":{"type":"object","properties":{"mediated":{"$ref":"#/$defs/notTrueClaimState"},"preventable":{"$ref":"#/$defs/notTrueClaimState"}}}}}},{"if":{"properties":{"availability":{"type":"object","properties":{"failure_posture":{"const":"audit_only"}},"required":["failure_posture"]}},"required":["availability"]},"then":{"properties":{"claims":{"type":"object","properties":{"preventable":{"$ref":"#/$defs/notTrueClaimState"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"discovered":{"const":true}},"required":["discovered"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithDiscoveryRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"observable":{"const":true}},"required":["observable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithObservationRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"attributable":{"const":true}},"required":["attributable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithAttributionRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}},"required":["mediated"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithMediationRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"preventable":{"const":true}},"required":["preventable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithPreventionRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"receipted":{"const":true}},"required":["receipted"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithReceiptEmissionRole"}}}}},{"if":{"properties":{"custom_os_kernel_module_required_for_claim":{"const":true}},"required":["custom_os_kernel_module_required_for_claim"]},"then":{"properties":{"required_privilege":{"const":"kernel"},"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/customOsKernelModuleMechanism"}}}}}],"$defs":{"claimState":{"anyOf":[{"type":"boolean"},{"const":"unknown"}]},"notTrueClaimState":{"anyOf":[{"const":false},{"const":"unknown"}]},"mechanismWithDiscoveryRole":{"$ref":"#/$defs/mechanismRoleDiscovery"},"mechanismWithObservationRole":{"$ref":"#/$defs/mechanismRoleObservation"},"mechanismWithAttributionRole":{"$ref":"#/$defs/mechanismRoleAttribution"},"mechanismWithMediationRole":{"$ref":"#/$defs/mechanismRoleMediation"},"mechanismWithPreventionRole":{"$ref":"#/$defs/mechanismRolePrevention"},"mechanismWithReceiptEmissionRole":{"$ref":"#/$defs/mechanismRoleReceiptEmission"},"mechanismRoleDiscovery":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"discovery"}}},"required":["roles"]},"mechanismRoleObservation":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"observation"}}},"required":["roles"]},"mechanismRoleAttribution":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"attribution"}}},"required":["roles"]},"mechanismRoleMediation":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"mediation"}}},"required":["roles"]},"mechanismRolePrevention":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"prevention"}}},"required":["roles"]},"mechanismRoleReceiptEmission":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"receipt_emission"}}},"required":["roles"]},"customOsKernelModuleMechanism":{"type":"object","properties":{"kind":{"const":"custom_os_kernel_module"}},"required":["kind"]},"canonicalName":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$"},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact)://[^\\s]{1,248}$"},"evidenceRefs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":128,"uniqueItems":true},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"availabilityBehavior":{"enum":["enforce","audit","deny","queue","allow","quarantine","not_applicable","unknown"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<EnforcementCoverageDeclarationV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            declaration_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"declaration_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declaration_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject: serde_json::from_value::<EnforcementCoverageDeclarationV1Subject>(
+                object
+                    .remove(r#"subject"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope: serde_json::from_value::<EnforcementCoverageDeclarationV1Scope>(
+                object
+                    .remove(r#"scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            claims: serde_json::from_value::<EnforcementCoverageDeclarationV1Claims>(
+                object
+                    .remove(r#"claims"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claims"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mechanisms:
+                serde_json::from_value::<Vec<EnforcementCoverageDeclarationV1MechanismsItem>>(
+                    object
+                        .remove(r#"mechanisms"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"mechanisms"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            platform: serde_json::from_value::<EnforcementCoverageDeclarationV1Platform>(
+                object
+                    .remove(r#"platform"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"platform"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_privilege: serde_json::from_value::<
+                EnforcementCoverageDeclarationV1RequiredPrivilege,
+            >(
+                object
+                    .remove(r#"required_privilege"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_privilege"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            custom_os_kernel_module_required_for_claim: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"custom_os_kernel_module_required_for_claim"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"custom_os_kernel_module_required_for_claim"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bypass: serde_json::from_value::<EnforcementCoverageDeclarationV1Bypass>(
+                object
+                    .remove(r#"bypass"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bypass"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operating_mode:
+                serde_json::from_value::<EnforcementCoverageDeclarationV1OperatingMode>(
+                    object
+                        .remove(r#"operating_mode"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"operating_mode"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            decision_source:
+                serde_json::from_value::<EnforcementCoverageDeclarationV1DecisionSource>(
+                    object
+                        .remove(r#"decision_source"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"decision_source"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            final_invoker: serde_json::from_value::<EnforcementCoverageDeclarationV1FinalInvoker>(
+                object
+                    .remove(r#"final_invoker"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"final_invoker"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            availability: serde_json::from_value::<EnforcementCoverageDeclarationV1Availability>(
+                object
+                    .remove(r#"availability"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"availability"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt: serde_json::from_value::<EnforcementCoverageDeclarationV1Receipt>(
+                object
+                    .remove(r#"receipt"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verification: serde_json::from_value::<EnforcementCoverageDeclarationV1Verification>(
+                object
+                    .remove(r#"verification"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verification"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            known_gaps:
+                serde_json::from_value::<Vec<EnforcementCoverageDeclarationV1KnownGapsItem>>(
+                    object
+                        .remove(r#"known_gaps"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"known_gaps"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            limitations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"limitations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"limitations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<EnforcementCoverageDeclarationV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1SchemaVersion {
+    #[serde(rename = r#"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"#)]
+    IoiComponentsDaemonRuntimeEnforcementCoverageDeclarationV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1Subject {
+    pub kind: EnforcementCoverageDeclarationV1SubjectKind,
+    pub profile_or_adapter_ref: String,
+    pub version: String,
+    pub content_hash: String,
+    pub implementation_ref: String,
+    pub deployment_profile_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1Subject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","profile_or_adapter_ref","version","content_hash","implementation_ref","deployment_profile_ref"],"properties":{"kind":{"enum":["node_enforcement_profile","authority_gateway_profile"]},"profile_or_adapter_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","pattern":"^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$","maxLength":256},"content_hash":{"$ref":"#/$defs/hash"},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"deployment_profile_ref":{"$ref":"#/$defs/canonicalRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<EnforcementCoverageDeclarationV1SubjectKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_or_adapter_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_or_adapter_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_or_adapter_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            implementation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"implementation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"implementation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1SubjectKind {
+    #[serde(rename = r#"node_enforcement_profile"#)]
+    NodeEnforcementProfile,
+    #[serde(rename = r#"authority_gateway_profile"#)]
+    AuthorityGatewayProfile,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1Scope {
+    pub surface: String,
+    pub action_class: String,
+    pub boundary: EnforcementCoverageDeclarationV1ScopeBoundary,
+    pub scope_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1Scope {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["surface","action_class","boundary","scope_ref"],"properties":{"surface":{"$ref":"#/$defs/canonicalName"},"action_class":{"$ref":"#/$defs/canonicalName"},"boundary":{"enum":["managed_workload","host","application","adapter","external_service","physical_unit","other_declared"]},"scope_ref":{"$ref":"#/$defs/canonicalRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            surface: serde_json::from_value::<String>(
+                object
+                    .remove(r#"surface"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boundary: serde_json::from_value::<EnforcementCoverageDeclarationV1ScopeBoundary>(
+                object
+                    .remove(r#"boundary"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boundary"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1ScopeBoundary {
+    #[serde(rename = r#"managed_workload"#)]
+    ManagedWorkload,
+    #[serde(rename = r#"host"#)]
+    Host,
+    #[serde(rename = r#"application"#)]
+    Application,
+    #[serde(rename = r#"adapter"#)]
+    Adapter,
+    #[serde(rename = r#"external_service"#)]
+    ExternalService,
+    #[serde(rename = r#"physical_unit"#)]
+    PhysicalUnit,
+    #[serde(rename = r#"other_declared"#)]
+    OtherDeclared,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1Claims {
+    pub discovered: EnforcementCoverageDeclarationV1ClaimsDiscovered,
+    pub observable: EnforcementCoverageDeclarationV1ClaimsObservable,
+    pub attributable: EnforcementCoverageDeclarationV1ClaimsAttributable,
+    pub mediated: EnforcementCoverageDeclarationV1ClaimsMediated,
+    pub preventable: EnforcementCoverageDeclarationV1ClaimsPreventable,
+    pub receipted: EnforcementCoverageDeclarationV1ClaimsReceipted,
+    pub uncovered: EnforcementCoverageDeclarationV1ClaimsUncovered,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1Claims {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["discovered","observable","attributable","mediated","preventable","receipted","uncovered"],"properties":{"discovered":{"$ref":"#/$defs/claimState"},"observable":{"$ref":"#/$defs/claimState"},"attributable":{"$ref":"#/$defs/claimState"},"mediated":{"$ref":"#/$defs/claimState"},"preventable":{"$ref":"#/$defs/claimState"},"receipted":{"$ref":"#/$defs/claimState"},"uncovered":{"$ref":"#/$defs/claimState"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            discovered: serde_json::from_value::<EnforcementCoverageDeclarationV1ClaimsDiscovered>(
+                object
+                    .remove(r#"discovered"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"discovered"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observable: serde_json::from_value::<EnforcementCoverageDeclarationV1ClaimsObservable>(
+                object
+                    .remove(r#"observable"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observable"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attributable: serde_json::from_value::<
+                EnforcementCoverageDeclarationV1ClaimsAttributable,
+            >(
+                object
+                    .remove(r#"attributable"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attributable"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mediated: serde_json::from_value::<EnforcementCoverageDeclarationV1ClaimsMediated>(
+                object
+                    .remove(r#"mediated"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mediated"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            preventable:
+                serde_json::from_value::<EnforcementCoverageDeclarationV1ClaimsPreventable>(
+                    object
+                        .remove(r#"preventable"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"preventable"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            receipted: serde_json::from_value::<EnforcementCoverageDeclarationV1ClaimsReceipted>(
+                object
+                    .remove(r#"receipted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            uncovered: serde_json::from_value::<EnforcementCoverageDeclarationV1ClaimsUncovered>(
+                object
+                    .remove(r#"uncovered"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"uncovered"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum EnforcementCoverageDeclarationV1ClaimsDiscovered {
+    Branch1(bool),
+    Branch2(EnforcementCoverageDeclarationV1ClaimsDiscoveredBranch2),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1ClaimsDiscoveredBranch2 {
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum EnforcementCoverageDeclarationV1ClaimsObservable {
+    Branch1(bool),
+    Branch2(EnforcementCoverageDeclarationV1ClaimsObservableBranch2),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1ClaimsObservableBranch2 {
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum EnforcementCoverageDeclarationV1ClaimsAttributable {
+    Branch1(bool),
+    Branch2(EnforcementCoverageDeclarationV1ClaimsAttributableBranch2),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1ClaimsAttributableBranch2 {
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum EnforcementCoverageDeclarationV1ClaimsMediated {
+    Branch1(bool),
+    Branch2(EnforcementCoverageDeclarationV1ClaimsMediatedBranch2),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1ClaimsMediatedBranch2 {
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum EnforcementCoverageDeclarationV1ClaimsPreventable {
+    Branch1(bool),
+    Branch2(EnforcementCoverageDeclarationV1ClaimsPreventableBranch2),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1ClaimsPreventableBranch2 {
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum EnforcementCoverageDeclarationV1ClaimsReceipted {
+    Branch1(bool),
+    Branch2(EnforcementCoverageDeclarationV1ClaimsReceiptedBranch2),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1ClaimsReceiptedBranch2 {
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+pub enum EnforcementCoverageDeclarationV1ClaimsUncovered {
+    Branch1(bool),
+    Branch2(EnforcementCoverageDeclarationV1ClaimsUncoveredBranch2),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1ClaimsUncoveredBranch2 {
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1MechanismsItem {
+    pub mechanism_id: String,
+    pub kind: EnforcementCoverageDeclarationV1MechanismsItemKind,
+    pub implementation_ref: String,
+    pub version: String,
+    pub roles: Vec<EnforcementCoverageDeclarationV1MechanismsItemRolesItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1MechanismsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["mechanism_id","kind","implementation_ref","version","roles"],"properties":{"mechanism_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"kind":{"enum":["daemon_gate","sandbox","seccomp","ebpf","lsm","network_proxy","datawall","ctee_policy","tee_attestation","platform_native_user_space","platform_native_privileged","application_adapter","harness_adapter","mcp_gateway","shell_wrapper","filesystem_watcher","browser_extension","api_gateway","ci_gate","webhook_gate","receipt_ingestion","custom_os_kernel_module","other_declared"]},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","minLength":1,"maxLength":128},"roles":{"type":"array","items":{"enum":["discovery","observation","attribution","mediation","prevention","receipt_emission"]},"minItems":1,"maxItems":6,"uniqueItems":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mechanism_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mechanism_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mechanism_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            kind: serde_json::from_value::<EnforcementCoverageDeclarationV1MechanismsItemKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            implementation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"implementation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"implementation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            roles: serde_json::from_value::<
+                Vec<EnforcementCoverageDeclarationV1MechanismsItemRolesItem>,
+            >(
+                object
+                    .remove(r#"roles"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"roles"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1MechanismsItemKind {
+    #[serde(rename = r#"daemon_gate"#)]
+    DaemonGate,
+    #[serde(rename = r#"sandbox"#)]
+    Sandbox,
+    #[serde(rename = r#"seccomp"#)]
+    Seccomp,
+    #[serde(rename = r#"ebpf"#)]
+    Ebpf,
+    #[serde(rename = r#"lsm"#)]
+    Lsm,
+    #[serde(rename = r#"network_proxy"#)]
+    NetworkProxy,
+    #[serde(rename = r#"datawall"#)]
+    Datawall,
+    #[serde(rename = r#"ctee_policy"#)]
+    CteePolicy,
+    #[serde(rename = r#"tee_attestation"#)]
+    TeeAttestation,
+    #[serde(rename = r#"platform_native_user_space"#)]
+    PlatformNativeUserSpace,
+    #[serde(rename = r#"platform_native_privileged"#)]
+    PlatformNativePrivileged,
+    #[serde(rename = r#"application_adapter"#)]
+    ApplicationAdapter,
+    #[serde(rename = r#"harness_adapter"#)]
+    HarnessAdapter,
+    #[serde(rename = r#"mcp_gateway"#)]
+    McpGateway,
+    #[serde(rename = r#"shell_wrapper"#)]
+    ShellWrapper,
+    #[serde(rename = r#"filesystem_watcher"#)]
+    FilesystemWatcher,
+    #[serde(rename = r#"browser_extension"#)]
+    BrowserExtension,
+    #[serde(rename = r#"api_gateway"#)]
+    ApiGateway,
+    #[serde(rename = r#"ci_gate"#)]
+    CiGate,
+    #[serde(rename = r#"webhook_gate"#)]
+    WebhookGate,
+    #[serde(rename = r#"receipt_ingestion"#)]
+    ReceiptIngestion,
+    #[serde(rename = r#"custom_os_kernel_module"#)]
+    CustomOsKernelModule,
+    #[serde(rename = r#"other_declared"#)]
+    OtherDeclared,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1MechanismsItemRolesItem {
+    #[serde(rename = r#"discovery"#)]
+    Discovery,
+    #[serde(rename = r#"observation"#)]
+    Observation,
+    #[serde(rename = r#"attribution"#)]
+    Attribution,
+    #[serde(rename = r#"mediation"#)]
+    Mediation,
+    #[serde(rename = r#"prevention"#)]
+    Prevention,
+    #[serde(rename = r#"receipt_emission"#)]
+    ReceiptEmission,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1Platform {
+    pub family: EnforcementCoverageDeclarationV1PlatformFamily,
+    pub version: String,
+    pub architecture: EnforcementCoverageDeclarationV1PlatformArchitecture,
+    pub execution_context: EnforcementCoverageDeclarationV1PlatformExecutionContext,
+    pub native_security_facility_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1Platform {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["family","version","architecture","execution_context","native_security_facility_refs"],"properties":{"family":{"enum":["linux","macos","windows","portable","other_declared"]},"version":{"type":"string","minLength":1,"maxLength":128},"architecture":{"enum":["x86_64","aarch64","portable","other_declared"]},"execution_context":{"enum":["user_session","managed_host","container","vm","microvm","bare_metal","hosted_service","other_declared"]},"native_security_facility_refs":{"$ref":"#/$defs/canonicalRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            family: serde_json::from_value::<EnforcementCoverageDeclarationV1PlatformFamily>(
+                object
+                    .remove(r#"family"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"family"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            architecture: serde_json::from_value::<
+                EnforcementCoverageDeclarationV1PlatformArchitecture,
+            >(
+                object
+                    .remove(r#"architecture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"architecture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            execution_context: serde_json::from_value::<
+                EnforcementCoverageDeclarationV1PlatformExecutionContext,
+            >(
+                object
+                    .remove(r#"execution_context"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"execution_context"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            native_security_facility_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"native_security_facility_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"native_security_facility_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1PlatformFamily {
+    #[serde(rename = r#"linux"#)]
+    Linux,
+    #[serde(rename = r#"macos"#)]
+    Macos,
+    #[serde(rename = r#"windows"#)]
+    Windows,
+    #[serde(rename = r#"portable"#)]
+    Portable,
+    #[serde(rename = r#"other_declared"#)]
+    OtherDeclared,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1PlatformArchitecture {
+    #[serde(rename = r#"x86_64"#)]
+    X8664,
+    #[serde(rename = r#"aarch64"#)]
+    Aarch64,
+    #[serde(rename = r#"portable"#)]
+    Portable,
+    #[serde(rename = r#"other_declared"#)]
+    OtherDeclared,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1PlatformExecutionContext {
+    #[serde(rename = r#"user_session"#)]
+    UserSession,
+    #[serde(rename = r#"managed_host"#)]
+    ManagedHost,
+    #[serde(rename = r#"container"#)]
+    Container,
+    #[serde(rename = r#"vm"#)]
+    Vm,
+    #[serde(rename = r#"microvm"#)]
+    Microvm,
+    #[serde(rename = r#"bare_metal"#)]
+    BareMetal,
+    #[serde(rename = r#"hosted_service"#)]
+    HostedService,
+    #[serde(rename = r#"other_declared"#)]
+    OtherDeclared,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1RequiredPrivilege {
+    #[serde(rename = r#"user"#)]
+    User,
+    #[serde(rename = r#"elevated"#)]
+    Elevated,
+    #[serde(rename = r#"os_privileged"#)]
+    OsPrivileged,
+    #[serde(rename = r#"kernel"#)]
+    Kernel,
+    #[serde(rename = r#"hardware_backed"#)]
+    HardwareBacked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1Bypass {
+    pub resistance: EnforcementCoverageDeclarationV1BypassResistance,
+    pub assumptions: Vec<String>,
+    pub known_bypass_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1Bypass {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["resistance","assumptions","known_bypass_refs"],"properties":{"resistance":{"enum":["none","cooperative","best_effort","managed_host","measured_host"]},"assumptions":{"type":"array","items":{"type":"string","minLength":1,"maxLength":512},"maxItems":32,"uniqueItems":true},"known_bypass_refs":{"$ref":"#/$defs/canonicalRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            resistance: serde_json::from_value::<EnforcementCoverageDeclarationV1BypassResistance>(
+                object
+                    .remove(r#"resistance"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resistance"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assumptions: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"assumptions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assumptions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            known_bypass_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"known_bypass_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"known_bypass_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1BypassResistance {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"cooperative"#)]
+    Cooperative,
+    #[serde(rename = r#"best_effort"#)]
+    BestEffort,
+    #[serde(rename = r#"managed_host"#)]
+    ManagedHost,
+    #[serde(rename = r#"measured_host"#)]
+    MeasuredHost,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1OperatingMode {
+    #[serde(rename = r#"active_enforcement"#)]
+    ActiveEnforcement,
+    #[serde(rename = r#"audit_only"#)]
+    AuditOnly,
+    #[serde(rename = r#"passive_observation"#)]
+    PassiveObservation,
+    #[serde(rename = r#"receipt_ingestion_only"#)]
+    ReceiptIngestionOnly,
+    #[serde(rename = r#"uncovered"#)]
+    Uncovered,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1DecisionSource {
+    pub kind: EnforcementCoverageDeclarationV1DecisionSourceKind,
+    pub decision_source_ref: Option<String>,
+    pub policy_ref: Option<String>,
+    pub authority_provider_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1DecisionSource {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","decision_source_ref","policy_ref","authority_provider_ref"],"properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval","none","unknown"]},"decision_source_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"authority_provider_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<EnforcementCoverageDeclarationV1DecisionSourceKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_source_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"decision_source_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_source_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_provider_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"authority_provider_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_provider_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1DecisionSourceKind {
+    #[serde(rename = r#"daemon_policy_engine"#)]
+    DaemonPolicyEngine,
+    #[serde(rename = r#"owner_policy_service"#)]
+    OwnerPolicyService,
+    #[serde(rename = r#"adapter_local_policy"#)]
+    AdapterLocalPolicy,
+    #[serde(rename = r#"human_approval"#)]
+    HumanApproval,
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1FinalInvoker {
+    pub kind: EnforcementCoverageDeclarationV1FinalInvokerKind,
+    pub invoker_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1FinalInvoker {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","invoker_ref"],"properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human","none","unknown"]},"invoker_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<EnforcementCoverageDeclarationV1FinalInvokerKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invoker_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"invoker_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invoker_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1FinalInvokerKind {
+    #[serde(rename = r#"daemon"#)]
+    Daemon,
+    #[serde(rename = r#"workload_broker"#)]
+    WorkloadBroker,
+    #[serde(rename = r#"adapter"#)]
+    Adapter,
+    #[serde(rename = r#"application"#)]
+    Application,
+    #[serde(rename = r#"external_service"#)]
+    ExternalService,
+    #[serde(rename = r#"human"#)]
+    Human,
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1Availability {
+    pub online_behavior: EnforcementCoverageDeclarationV1AvailabilityOnlineBehavior,
+    pub offline_behavior: EnforcementCoverageDeclarationV1AvailabilityOfflineBehavior,
+    pub failure_posture: EnforcementCoverageDeclarationV1AvailabilityFailurePosture,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1Availability {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["online_behavior","offline_behavior","failure_posture"],"properties":{"online_behavior":{"$ref":"#/$defs/availabilityBehavior"},"offline_behavior":{"$ref":"#/$defs/availabilityBehavior"},"failure_posture":{"enum":["fail_closed","fail_open","audit_only","quarantine","not_applicable","unknown"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            online_behavior: serde_json::from_value::<
+                EnforcementCoverageDeclarationV1AvailabilityOnlineBehavior,
+            >(
+                object
+                    .remove(r#"online_behavior"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"online_behavior"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            offline_behavior: serde_json::from_value::<
+                EnforcementCoverageDeclarationV1AvailabilityOfflineBehavior,
+            >(
+                object
+                    .remove(r#"offline_behavior"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"offline_behavior"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failure_posture: serde_json::from_value::<
+                EnforcementCoverageDeclarationV1AvailabilityFailurePosture,
+            >(
+                object
+                    .remove(r#"failure_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failure_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1AvailabilityOnlineBehavior {
+    #[serde(rename = r#"enforce"#)]
+    Enforce,
+    #[serde(rename = r#"audit"#)]
+    Audit,
+    #[serde(rename = r#"deny"#)]
+    Deny,
+    #[serde(rename = r#"queue"#)]
+    Queue,
+    #[serde(rename = r#"allow"#)]
+    Allow,
+    #[serde(rename = r#"quarantine"#)]
+    Quarantine,
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1AvailabilityOfflineBehavior {
+    #[serde(rename = r#"enforce"#)]
+    Enforce,
+    #[serde(rename = r#"audit"#)]
+    Audit,
+    #[serde(rename = r#"deny"#)]
+    Deny,
+    #[serde(rename = r#"queue"#)]
+    Queue,
+    #[serde(rename = r#"allow"#)]
+    Allow,
+    #[serde(rename = r#"quarantine"#)]
+    Quarantine,
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1AvailabilityFailurePosture {
+    #[serde(rename = r#"fail_closed"#)]
+    FailClosed,
+    #[serde(rename = r#"fail_open"#)]
+    FailOpen,
+    #[serde(rename = r#"audit_only"#)]
+    AuditOnly,
+    #[serde(rename = r#"quarantine"#)]
+    Quarantine,
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1Receipt {
+    pub scope: EnforcementCoverageDeclarationV1ReceiptScope,
+    pub contract_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1Receipt {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["scope","contract_refs","evidence_refs"],"properties":{"scope":{"enum":["none","observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            scope: serde_json::from_value::<EnforcementCoverageDeclarationV1ReceiptScope>(
+                object
+                    .remove(r#"scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"contract_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contract_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1ReceiptScope {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"observation"#)]
+    Observation,
+    #[serde(rename = r#"decision"#)]
+    Decision,
+    #[serde(rename = r#"effect"#)]
+    Effect,
+    #[serde(rename = r#"observation_and_decision"#)]
+    ObservationAndDecision,
+    #[serde(rename = r#"observation_and_effect"#)]
+    ObservationAndEffect,
+    #[serde(rename = r#"decision_and_effect"#)]
+    DecisionAndEffect,
+    #[serde(rename = r#"observation_decision_and_effect"#)]
+    ObservationDecisionAndEffect,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1Verification {
+    pub verifier_ref: String,
+    pub verification_method_ref: String,
+    pub evidence_refs: Vec<String>,
+    pub evaluated_at: String,
+    pub freshness_status: EnforcementCoverageDeclarationV1VerificationFreshnessStatus,
+    pub valid_until: Option<String>,
+    pub freshness_policy_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1Verification {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["verifier_ref","verification_method_ref","evidence_refs","evaluated_at","freshness_status","valid_until","freshness_policy_ref"],"properties":{"verifier_ref":{"$ref":"#/$defs/canonicalRef"},"verification_method_ref":{"$ref":"#/$defs/canonicalRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":128,"uniqueItems":true},"evaluated_at":{"$ref":"#/$defs/dateTime"},"freshness_status":{"enum":["current","stale","expired","unverified"]},"valid_until":{"anyOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]},"freshness_policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            verifier_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verifier_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verification_method_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verification_method_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verification_method_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            freshness_status: serde_json::from_value::<
+                EnforcementCoverageDeclarationV1VerificationFreshnessStatus,
+            >(
+                object
+                    .remove(r#"freshness_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"freshness_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_until: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"valid_until"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_until"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            freshness_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"freshness_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"freshness_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1VerificationFreshnessStatus {
+    #[serde(rename = r#"current"#)]
+    Current,
+    #[serde(rename = r#"stale"#)]
+    Stale,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"unverified"#)]
+    Unverified,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnforcementCoverageDeclarationV1KnownGapsItem {
+    pub gap_id: String,
+    pub description: String,
+    pub affected_path: String,
+    pub mitigation_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for EnforcementCoverageDeclarationV1KnownGapsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["gap_id","description","affected_path","mitigation_ref"],"properties":{"gap_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"description":{"type":"string","minLength":1,"maxLength":1024},"affected_path":{"type":"string","minLength":1,"maxLength":512},"mitigation_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            gap_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"gap_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"gap_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected_path: serde_json::from_value::<String>(
+                object
+                    .remove(r#"affected_path"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"affected_path"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mitigation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"mitigation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mitigation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum EnforcementCoverageDeclarationV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"verified"#)]
+    Verified,
+    #[serde(rename = r#"stale"#)]
+    Stale,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -32810,6 +34086,174 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
         path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("enforcement_coverage.receipt.evidence.required_when_receipted"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("enforcement_coverage.gap.required_when_uncovered"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -36283,6 +37727,237 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -37881,6 +39556,10 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
         "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
         r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1","title":"AutonomousSystemNetworkEnrollmentTransition","description":"Committed compare-and-swap transition for local-only enrollment admission or exit.","x-ioi-schema-version":"ioi.autonomous-system-network-enrollment-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_transition_id","system_id","op","sequence","proposal_ref","proposal_root","decision_ref","decision_root","predecessor_state_root","resulting_state_root","predecessor_enrollment_ref","predecessor_enrollment_root","resulting_enrollment_ref","resulting_enrollment_root","operation_commitment","authority_effect_material","authority_grant_refs","receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-network-enrollment-transition.v1"},"lifecycle_transition_id":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"op":{"enum":["enroll_local","exit_local_enrollment"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"decision_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/hash"},"predecessor_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"predecessor_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_enrollment_root":{"$ref":"#/$defs/nullableHash"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","transition_kind","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","resulting_governing_authority_ref","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","constitution_ref","lifecycle_profile_ref","active_profile_set_ref","active_profile_set_root","chain_ref","current_network_enrollment_ref","current_network_enrollment_root","resulting_network_enrollment_ref","resulting_network_enrollment_root","trigger_evidence_refs","successor_candidate_ref","successor_authority_ref","successor_authority_binding","migration_destination_ack_ref","migration_destination_ack_root","migration_destination_ref","verified_migration_state_root","residual_disposition","live_effect_refs","identity_preserved","authority_widened","network_assurance_admitted","runtime_effect_admitted","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-authority-effect.v1"},"op":{"enum":["enroll_local","exit_local_enrollment"]},"transition_kind":{"type":"null"},"required_scope":{"enum":["scope:autonomous_system.network_enrollment.local.enroll","scope:autonomous_system.network_enrollment.local.exit"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"resulting_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_status":{"enum":["active","successor_governed"]},"predecessor_state_ref":{"type":"string","pattern":"^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"resulting_status":{"enum":["active","successor_governed"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"resulting_state_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"current_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"current_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"trigger_evidence_refs":{"type":"array","maxItems":0},"successor_candidate_ref":{"type":"null"},"successor_authority_ref":{"type":"null"},"successor_authority_binding":{"type":"null"},"migration_destination_ack_ref":{"type":"null"},"migration_destination_ack_root":{"type":"null"},"migration_destination_ref":{"type":"null"},"verified_migration_state_root":{"type":"null"},"residual_disposition":{"type":"null"},"live_effect_refs":{"type":"array","maxItems":0},"identity_preserved":{"const":true},"authority_widened":{"const":false},"network_assurance_admitted":{"const":false},"runtime_effect_admitted":{"const":false},"operation_commitment":{"type":"null"}}},"authority_grant_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}},"status":{"const":"committed"}},"allOf":[{"if":{"properties":{"op":{"const":"enroll_local"}}},"then":{"properties":{"resulting_enrollment_ref":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"resulting_enrollment_root":{"$ref":"#/$defs/hash"}}}},{"if":{"properties":{"op":{"const":"exit_local_enrollment"}}},"then":{"properties":{"predecessor_enrollment_ref":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"predecessor_enrollment_root":{"$ref":"#/$defs/hash"},"resulting_enrollment_ref":{"type":"null"},"resulting_enrollment_root":{"type":"null"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableEnrollment":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"nullableHash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}}"##,
     ),
+    (
+        "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","title":"EnforcementCoverageDeclaration","description":"One evidence-backed enforcement coverage declaration for an exact profile or adapter revision, platform, surface, action class, and scope. The declaration reports coverage facts without owning policy, authority, execution, or durable runtime truth. declaration_id is not self-authenticating: the consuming deployment evidence or operability index must bind the exact declaration artifact reference and content hash. Any change to claims, status, freshness, evidence, or other declaration bytes produces a new content-bound snapshot rather than mutating an accepted snapshot.","x-ioi-schema-version":"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1","type":"object","additionalProperties":false,"required":["schema_version","declaration_id","subject","scope","claims","mechanisms","platform","required_privilege","custom_os_kernel_module_required_for_claim","bypass","operating_mode","decision_source","final_invoker","availability","receipt","verification","known_gaps","limitations","status"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"},"declaration_id":{"type":"string","pattern":"^enforcement-coverage://[^\\s]{1,248}$","description":"Stable logical identifier only; consumers must separately verify the exact declaration artifact reference and content hash."},"subject":{"type":"object","additionalProperties":false,"required":["kind","profile_or_adapter_ref","version","content_hash","implementation_ref","deployment_profile_ref"],"properties":{"kind":{"enum":["node_enforcement_profile","authority_gateway_profile"]},"profile_or_adapter_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","pattern":"^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$","maxLength":256},"content_hash":{"$ref":"#/$defs/hash"},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"deployment_profile_ref":{"$ref":"#/$defs/canonicalRef"}}},"scope":{"type":"object","additionalProperties":false,"required":["surface","action_class","boundary","scope_ref"],"properties":{"surface":{"$ref":"#/$defs/canonicalName"},"action_class":{"$ref":"#/$defs/canonicalName"},"boundary":{"enum":["managed_workload","host","application","adapter","external_service","physical_unit","other_declared"]},"scope_ref":{"$ref":"#/$defs/canonicalRef"}}},"claims":{"type":"object","additionalProperties":false,"required":["discovered","observable","attributable","mediated","preventable","receipted","uncovered"],"properties":{"discovered":{"$ref":"#/$defs/claimState"},"observable":{"$ref":"#/$defs/claimState"},"attributable":{"$ref":"#/$defs/claimState"},"mediated":{"$ref":"#/$defs/claimState"},"preventable":{"$ref":"#/$defs/claimState"},"receipted":{"$ref":"#/$defs/claimState"},"uncovered":{"$ref":"#/$defs/claimState"}}},"mechanisms":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["mechanism_id","kind","implementation_ref","version","roles"],"properties":{"mechanism_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"kind":{"enum":["daemon_gate","sandbox","seccomp","ebpf","lsm","network_proxy","datawall","ctee_policy","tee_attestation","platform_native_user_space","platform_native_privileged","application_adapter","harness_adapter","mcp_gateway","shell_wrapper","filesystem_watcher","browser_extension","api_gateway","ci_gate","webhook_gate","receipt_ingestion","custom_os_kernel_module","other_declared"]},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","minLength":1,"maxLength":128},"roles":{"type":"array","items":{"enum":["discovery","observation","attribution","mediation","prevention","receipt_emission"]},"minItems":1,"maxItems":6,"uniqueItems":true}}},"maxItems":32,"uniqueItems":true},"platform":{"type":"object","additionalProperties":false,"required":["family","version","architecture","execution_context","native_security_facility_refs"],"properties":{"family":{"enum":["linux","macos","windows","portable","other_declared"]},"version":{"type":"string","minLength":1,"maxLength":128},"architecture":{"enum":["x86_64","aarch64","portable","other_declared"]},"execution_context":{"enum":["user_session","managed_host","container","vm","microvm","bare_metal","hosted_service","other_declared"]},"native_security_facility_refs":{"$ref":"#/$defs/canonicalRefs"}}},"required_privilege":{"enum":["user","elevated","os_privileged","kernel","hardware_backed"]},"custom_os_kernel_module_required_for_claim":{"type":"boolean"},"bypass":{"type":"object","additionalProperties":false,"required":["resistance","assumptions","known_bypass_refs"],"properties":{"resistance":{"enum":["none","cooperative","best_effort","managed_host","measured_host"]},"assumptions":{"type":"array","items":{"type":"string","minLength":1,"maxLength":512},"maxItems":32,"uniqueItems":true},"known_bypass_refs":{"$ref":"#/$defs/canonicalRefs"}}},"operating_mode":{"enum":["active_enforcement","audit_only","passive_observation","receipt_ingestion_only","uncovered"]},"decision_source":{"type":"object","additionalProperties":false,"required":["kind","decision_source_ref","policy_ref","authority_provider_ref"],"properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval","none","unknown"]},"decision_source_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"authority_provider_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"final_invoker":{"type":"object","additionalProperties":false,"required":["kind","invoker_ref"],"properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human","none","unknown"]},"invoker_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"availability":{"type":"object","additionalProperties":false,"required":["online_behavior","offline_behavior","failure_posture"],"properties":{"online_behavior":{"$ref":"#/$defs/availabilityBehavior"},"offline_behavior":{"$ref":"#/$defs/availabilityBehavior"},"failure_posture":{"enum":["fail_closed","fail_open","audit_only","quarantine","not_applicable","unknown"]}}},"receipt":{"type":"object","additionalProperties":false,"required":["scope","contract_refs","evidence_refs"],"properties":{"scope":{"enum":["none","observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}},"verification":{"type":"object","additionalProperties":false,"required":["verifier_ref","verification_method_ref","evidence_refs","evaluated_at","freshness_status","valid_until","freshness_policy_ref"],"properties":{"verifier_ref":{"$ref":"#/$defs/canonicalRef"},"verification_method_ref":{"$ref":"#/$defs/canonicalRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":128,"uniqueItems":true},"evaluated_at":{"$ref":"#/$defs/dateTime"},"freshness_status":{"enum":["current","stale","expired","unverified"]},"valid_until":{"anyOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]},"freshness_policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"known_gaps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["gap_id","description","affected_path","mitigation_ref"],"properties":{"gap_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"description":{"type":"string","minLength":1,"maxLength":1024},"affected_path":{"type":"string","minLength":1,"maxLength":512},"mitigation_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"maxItems":64,"uniqueItems":true},"limitations":{"type":"array","items":{"type":"string","minLength":1,"maxLength":1024},"maxItems":64,"uniqueItems":true},"status":{"enum":["draft","verified","stale","revoked"]}},"allOf":[{"if":{"properties":{"claims":{"type":"object","properties":{"uncovered":{"const":true}},"required":["uncovered"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"discovered":{"$ref":"#/$defs/notTrueClaimState"},"observable":{"$ref":"#/$defs/notTrueClaimState"},"attributable":{"$ref":"#/$defs/notTrueClaimState"},"mediated":{"$ref":"#/$defs/notTrueClaimState"},"preventable":{"$ref":"#/$defs/notTrueClaimState"},"receipted":{"$ref":"#/$defs/notTrueClaimState"}}},"operating_mode":{"const":"uncovered"}}}},{"if":{"properties":{"operating_mode":{"const":"uncovered"}},"required":["operating_mode"]},"then":{"properties":{"claims":{"type":"object","properties":{"uncovered":{"const":true}}}}}},{"if":{"properties":{"status":{"const":"verified"}},"required":["status"]},"then":{"properties":{"verification":{"type":"object","properties":{"freshness_status":{"const":"current"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}},"required":["mediated"]}},"required":["claims"]},"then":{"properties":{"decision_source":{"type":"object","properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval"]},"decision_source_ref":{"$ref":"#/$defs/canonicalRef"}}},"final_invoker":{"type":"object","properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human"]},"invoker_ref":{"$ref":"#/$defs/canonicalRef"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"preventable":{"const":true}},"required":["preventable"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"attributable":{"const":true}},"required":["attributable"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"observable":{"const":true}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"receipted":{"const":true}},"required":["receipted"]}},"required":["claims"]},"then":{"properties":{"receipt":{"type":"object","properties":{"scope":{"enum":["observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"operating_mode":{"enum":["audit_only","passive_observation","receipt_ingestion_only"]}},"required":["operating_mode"]},"then":{"properties":{"claims":{"type":"object","properties":{"mediated":{"$ref":"#/$defs/notTrueClaimState"},"preventable":{"$ref":"#/$defs/notTrueClaimState"}}}}}},{"if":{"properties":{"availability":{"type":"object","properties":{"failure_posture":{"const":"audit_only"}},"required":["failure_posture"]}},"required":["availability"]},"then":{"properties":{"claims":{"type":"object","properties":{"preventable":{"$ref":"#/$defs/notTrueClaimState"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"discovered":{"const":true}},"required":["discovered"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithDiscoveryRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"observable":{"const":true}},"required":["observable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithObservationRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"attributable":{"const":true}},"required":["attributable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithAttributionRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}},"required":["mediated"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithMediationRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"preventable":{"const":true}},"required":["preventable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithPreventionRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"receipted":{"const":true}},"required":["receipted"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithReceiptEmissionRole"}}}}},{"if":{"properties":{"custom_os_kernel_module_required_for_claim":{"const":true}},"required":["custom_os_kernel_module_required_for_claim"]},"then":{"properties":{"required_privilege":{"const":"kernel"},"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/customOsKernelModuleMechanism"}}}}}],"$defs":{"claimState":{"anyOf":[{"type":"boolean"},{"const":"unknown"}]},"notTrueClaimState":{"anyOf":[{"const":false},{"const":"unknown"}]},"mechanismWithDiscoveryRole":{"$ref":"#/$defs/mechanismRoleDiscovery"},"mechanismWithObservationRole":{"$ref":"#/$defs/mechanismRoleObservation"},"mechanismWithAttributionRole":{"$ref":"#/$defs/mechanismRoleAttribution"},"mechanismWithMediationRole":{"$ref":"#/$defs/mechanismRoleMediation"},"mechanismWithPreventionRole":{"$ref":"#/$defs/mechanismRolePrevention"},"mechanismWithReceiptEmissionRole":{"$ref":"#/$defs/mechanismRoleReceiptEmission"},"mechanismRoleDiscovery":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"discovery"}}},"required":["roles"]},"mechanismRoleObservation":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"observation"}}},"required":["roles"]},"mechanismRoleAttribution":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"attribution"}}},"required":["roles"]},"mechanismRoleMediation":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"mediation"}}},"required":["roles"]},"mechanismRolePrevention":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"prevention"}}},"required":["roles"]},"mechanismRoleReceiptEmission":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"receipt_emission"}}},"required":["roles"]},"customOsKernelModuleMechanism":{"type":"object","properties":{"kind":{"const":"custom_os_kernel_module"}},"required":["kind"]},"canonicalName":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$"},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact)://[^\\s]{1,248}$"},"evidenceRefs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":128,"uniqueItems":true},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"availabilityBehavior":{"enum":["enforce","audit","deny","queue","allow","quarantine","not_applicable","unknown"]}}}"##,
+    ),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -38088,6 +39767,10 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
         "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
         r#"[{"rule_id":"autonomous_system_network_enrollment_transition.operation_commitment.recomputes","description":"The operation commitment recomputes from the complete closed authority effect.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-continuity-operation-commitment-jcs-sha256.v1"},"effect":{"path":"$.authority_effect_material"}},"expected_path":"$.operation_commitment","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_network_enrollment_transition.op.matches_effect","description":"The portable transition and governed effect name the same operation.","expression":{"operator":"fields_equal","paths":["$.op","$.authority_effect_material.op"]}},{"rule_id":"autonomous_system_network_enrollment_transition.system.matches_effect","description":"The portable transition and governed effect bind the same System.","expression":{"operator":"fields_equal","paths":["$.system_id","$.authority_effect_material.system_id"]}},{"rule_id":"autonomous_system_network_enrollment_transition.sequence.matches_effect","description":"The portable transition and governed effect bind the same sequence.","expression":{"operator":"fields_equal","paths":["$.sequence","$.authority_effect_material.sequence"]}},{"rule_id":"autonomous_system_network_enrollment_transition.predecessor_state.matches_effect","description":"The predecessor state root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.predecessor_state_root","$.authority_effect_material.predecessor_state_root"]}},{"rule_id":"autonomous_system_network_enrollment_transition.resulting_state.matches_effect","description":"The resulting state root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.resulting_state_root","$.authority_effect_material.resulting_state_root"]}},{"rule_id":"autonomous_system_network_enrollment_transition.predecessor_enrollment.matches_effect","description":"The predecessor enrollment identity is not substitutable.","expression":{"operator":"fields_equal","paths":["$.predecessor_enrollment_ref","$.authority_effect_material.current_network_enrollment_ref"]}},{"rule_id":"autonomous_system_network_enrollment_transition.predecessor_enrollment_root.matches_effect","description":"The predecessor enrollment bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.predecessor_enrollment_root","$.authority_effect_material.current_network_enrollment_root"]}},{"rule_id":"autonomous_system_network_enrollment_transition.resulting_enrollment.matches_effect","description":"The resulting enrollment identity is not substitutable.","expression":{"operator":"fields_equal","paths":["$.resulting_enrollment_ref","$.authority_effect_material.resulting_network_enrollment_ref"]}},{"rule_id":"autonomous_system_network_enrollment_transition.resulting_enrollment_root.matches_effect","description":"The resulting enrollment bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.resulting_enrollment_root","$.authority_effect_material.resulting_network_enrollment_root"]}}]"#,
     ),
+    (
+        "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
+        r#"[{"rule_id":"enforcement_coverage.receipt.evidence.required_when_receipted","description":"A positive receipted claim binds at least one receipt evidence reference in addition to a non-none receipt scope.","expression":{"operator":"non_empty_when_in","path":"$.receipt.evidence_refs","when_path":"$.claims.receipted","values":[true]}},{"rule_id":"enforcement_coverage.gap.required_when_uncovered","description":"An uncovered claim identifies at least one exact known gap rather than relying on a node-wide label.","expression":{"operator":"non_empty_when_in","path":"$.known_gaps","when_path":"$.claims.uncovered","values":[true]}}]"#,
+    ),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -38138,6 +39821,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:evidence|receipt)://[^\s]{1,248}$"#,
         r#"^(?:evidence|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:evidence|receipt|artifact)://[^\s]{1,248}$"#,
+        r#"^(?:evidence|receipt|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:network|chain|domain)://[^\s]{1,248}$"#,
@@ -38226,6 +39913,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$"#,
     ),
     (
+        r#"^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$"#,
+        r#"^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$"#,
+    ),
+    (
         r#"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"#,
         r#"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"#,
     ),
@@ -38240,6 +39931,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^[a-z][a-z0-9+.-]*(?:://|:)[^\s]{1,248}$"#,
         r#"^[a-z][a-z0-9+.-]*(?:://|:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9+.-]*://[^\s]{1,248}$"#,
+        r#"^[a-z][a-z0-9+.-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^[a-z][a-z0-9+.-]*://\S+$"#,
@@ -38439,6 +40134,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^embodied-runtime-graph-manifest://[^\s]+$"#,
         r#"^embodied-runtime-graph-manifest://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^enforcement-coverage://[^\s]{1,248}$"#,
+        r#"^enforcement-coverage://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^estop://[^\s]+$"#,
@@ -40060,6 +41759,27 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -40318,6 +42038,11 @@ mod tests {
         },
         "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1" => {
             serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1" => {
+            serde_json::from_value::<EnforcementCoverageDeclarationV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -40582,6 +42307,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1" => {
+            let projection = serde_json::from_value::<EnforcementCoverageDeclarationV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -40718,8 +42448,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            171,
-            "the registered golden corpus must remain the explicit 171-fixture bar",
+            192,
+            "the registered golden corpus must remain the explicit 192-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -40938,7 +42668,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 194,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 198,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

@@ -10,7 +10,7 @@ Type-2 runtime, or cloud agent harness.
 Superseded by: none.
 Last alignment pass: 2026-07-26.
 Doctrine status: canonical
-Implementation status: speculative (bare-metal node profile design; no HypervisorOS build; no EnforcementCoverageDeclaration substrate is on current master — registry entry, schema, fixtures, projections, and the runtime lifecycle module were all lost or never landed in the refactor and must be (re)registered)
+Implementation status: mixed (bare-metal node profile design remains speculative with no HypervisorOS build; the EnforcementCoverageDeclaration substrate is (re)registered in this tree — registry entry, v1 schema, invariants, fixtures, generated projections, and the runtime lifecycle module `crates/services/src/agentic/runtime/enforcement_coverage.rs` — with no route producer or daemon admission wiring yet)
 Last implementation audit: 2026-07-19
 
 ## Canonical Definition
