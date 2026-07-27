@@ -496,6 +496,8 @@ const ACTIVE_JAVASCRIPT_EFFECT_SOURCE_COVERAGE = Object.freeze({
     "standing product UI daemon crossings and local preference file",
   "apps/hypervisor/scripts/serve-product-ui.mjs":
     "standing product UI server, proxy, and daemon crossings",
+  "apps/hypervisor/scripts/system-genesis-surfaces.mjs":
+    "M1.7 system-genesis surfaces: readouts and verbatim daemon proxies",
   "apps/hypervisor/src/dev/hypervisorDevHostBridge.ts":
     "Vite development replay mutation crossing",
   "apps/hypervisor/src/dev/hypervisorDevReplayClient.ts":
@@ -542,7 +544,7 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
     path: "/api/ioi.v1.UserService/SetPreference",
     active_state: "standing_serve_product_ui_compatibility_surface",
   }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6433":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6434":
     Object.freeze({
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_EXIT product-ui reference bundle unavailable",
@@ -550,7 +552,7 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
       path: "serve-product-ui process",
       active_state: "standing_serve_product_ui_startup_failure",
     }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6437":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6438":
     Object.freeze({
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_START product-ui reference server",
@@ -558,7 +560,7 @@ const JS_SYSTEM_EFFECT_ACTIONS = Object.freeze({
       path: "REF_SERVER",
       active_state: "standing_serve_product_ui_startup",
     }),
-  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6441":
+  "js-system-effect:apps/hypervisor/scripts/serve-product-ui.mjs#module_scope_line_6444":
     Object.freeze({
       surface: "hypervisor-product-ui-process",
       operation: "PROCESS_EXIT propagate product-ui reference server exit",
@@ -3038,7 +3040,7 @@ function sourceLock(repoRoot, relativePath, note) {
   };
 }
 
-function createDiscoverySourceCoverage(repoRoot) {
+export function createDiscoverySourceCoverage(repoRoot) {
   const groups = Object.entries(DISCOVERY_COVERAGE).map(([coverageId, coverage]) => ({
     coverage_id: coverageId,
     sources: Object.entries(coverage.files)

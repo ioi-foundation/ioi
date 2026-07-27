@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+  "title": "AutonomousSystemDissolutionReceipt",
+  "description": "The named dissolution receipt, minted exactly once by complete_dissolution over a fully terminal disposition record. It binds the active continuity-profile root, the dissolution-disposition record root, the eight per-domain outcome commitments, the initiate and complete transition roots, predecessor and resulting state roots, the tombstone commitment, and the predecessor chain root. The artifact root domain is ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1.",
+  "x-ioi-schema-version": "ioi.autonomous-system-dissolution-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dissolution_receipt_id", "system_id", "op", "sequence", "required_scope", "assurance_posture", "lifecycle_profile_ref", "lifecycle_profile_root", "dissolution_disposition_ref", "dissolution_disposition_root", "domain_outcome_commitments", "initiate_transition_ref", "initiate_transition_root", "complete_transition_ref", "complete_transition_root", "predecessor_state_root", "resulting_state_root", "tombstone_commitment", "predecessor_chain_root", "transition_receipt_ref", "created_at"],
+  "properties": {
+    "schema_version": {"const": "ioi.autonomous-system-dissolution-receipt.v1"},
+    "dissolution_receipt_id": {"type": "string", "pattern": "^dissolution-receipt://[^\\s]{1,248}$"},
+    "system_id": {"type": "string", "pattern": "^system://[^\\s]{1,248}$"},
+    "op": {"const": "complete_dissolution"},
+    "sequence": {"type": "integer", "minimum": 3, "maximum": 9007199254740991},
+    "required_scope": {"const": "scope:autonomous_system.continuity.complete_dissolution"},
+    "assurance_posture": {"const": "dissolution_committed"},
+    "lifecycle_profile_ref": {"type": "string", "pattern": "^lifecycle-profile://[^\\s]{1,248}$"},
+    "lifecycle_profile_root": {"$ref": "#/$defs/hash"},
+    "dissolution_disposition_ref": {"type": "string", "pattern": "^dissolution-disposition://[^\\s]{1,248}$"},
+    "dissolution_disposition_root": {"$ref": "#/$defs/hash"},
+    "domain_outcome_commitments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["active_work", "assets", "outstanding_obligations", "authority_revocation", "worker_and_node_shutdown", "data_export_retention_and_erasure", "network_exit", "tombstone"],
+      "properties": {
+        "active_work": {"$ref": "#/$defs/domainOutcomeCommitment"},
+        "assets": {"$ref": "#/$defs/domainOutcomeCommitment"},
+        "outstanding_obligations": {"$ref": "#/$defs/domainOutcomeCommitment"},
+        "authority_revocation": {"$ref": "#/$defs/domainOutcomeCommitment"},
+        "worker_and_node_shutdown": {"$ref": "#/$defs/domainOutcomeCommitment"},
+        "data_export_retention_and_erasure": {"$ref": "#/$defs/domainOutcomeCommitment"},
+        "network_exit": {"$ref": "#/$defs/domainOutcomeCommitment"},
+        "tombstone": {"$ref": "#/$defs/domainOutcomeCommitment"}
+      }
+    },
+    "initiate_transition_ref": {"type": "string", "pattern": "^lifecycle-transition://[^\\s]{1,248}$"},
+    "initiate_transition_root": {"$ref": "#/$defs/hash"},
+    "complete_transition_ref": {"type": "string", "pattern": "^lifecycle-transition://[^\\s]{1,248}$"},
+    "complete_transition_root": {"$ref": "#/$defs/hash"},
+    "predecessor_state_root": {"$ref": "#/$defs/hash"},
+    "resulting_state_root": {"$ref": "#/$defs/hash"},
+    "tombstone_commitment": {"$ref": "#/$defs/hash"},
+    "predecessor_chain_root": {"$ref": "#/$defs/hash"},
+    "transition_receipt_ref": {"type": "string", "pattern": "^receipt://[^\\s]{1,248}$"},
+    "created_at": {"type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "domainOutcomeCommitment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "outcome_commitment"],
+      "properties": {
+        "state": {"enum": ["completed", "waived_under_policy", "escalated"]},
+        "outcome_commitment": {"$ref": "#/$defs/hash"}
+      }
+    }
+  }
+}

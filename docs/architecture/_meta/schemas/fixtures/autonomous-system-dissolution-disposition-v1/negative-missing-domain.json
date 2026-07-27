@@ -1,0 +1,57 @@
+{
+  "schema_version": "ioi.autonomous-system-dissolution-disposition.v1",
+  "dissolution_disposition_id": "dissolution-disposition://acme/system-alpha/sequence/5",
+  "system_id": "system://acme/system-alpha",
+  "lifecycle_profile_ref": "lifecycle-profile://acme/system-alpha/v1",
+  "lifecycle_profile_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "initiate_transition_ref": "lifecycle-transition://acme/system-alpha/sequence/4",
+  "initiate_transition_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "outcome_domains": {
+    "active_work": {
+      "policy_ref": "policy://acme/system-alpha/dissolution/active-work/v1",
+      "state": "pending",
+      "evidence_refs": [],
+      "receipt_refs": []
+    },
+    "assets": {
+      "policy_ref": "policy://acme/system-alpha/dissolution/assets/v1",
+      "state": "pending",
+      "evidence_refs": [],
+      "receipt_refs": []
+    },
+    "outstanding_obligations": {
+      "policy_ref": "policy://acme/system-alpha/dissolution/obligations/v1",
+      "state": "pending",
+      "evidence_refs": [],
+      "receipt_refs": []
+    },
+    "authority_revocation": {
+      "policy_ref": "policy://acme/system-alpha/dissolution/authority-revocation/v1",
+      "state": "pending",
+      "evidence_refs": [],
+      "receipt_refs": []
+    },
+    "worker_and_node_shutdown": {
+      "policy_ref": "policy://acme/system-alpha/dissolution/shutdown/v1",
+      "state": "pending",
+      "evidence_refs": [],
+      "receipt_refs": []
+    },
+    "data_export_retention_and_erasure": {
+      "policy_ref": "policy://acme/system-alpha/dissolution/data/v1",
+      "state": "pending",
+      "evidence_refs": [],
+      "receipt_refs": []
+    },
+    "network_exit": {
+      "policy_ref": "policy://acme/system-alpha/dissolution/network-exit/v1",
+      "state": "pending",
+      "evidence_refs": [],
+      "receipt_refs": []
+    }
+  },
+  "escalation_decision_refs": [],
+  "complete_transition_ref": null,
+  "status": "open",
+  "created_at": "2026-07-25T12:00:00Z"
+}

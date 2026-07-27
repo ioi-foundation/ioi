@@ -364,12 +364,44 @@
       "predecessor_entry_sha256": "e53e8b4a209d3018b10a57db271c24f5fee7efcca0e3aac3e2ae602444e08ec3",
       "reviewer_id": "claude-fable-5-m0-closure",
       "sequence": 18
+    },
+    {
+      "epoch_id": "m1-5d-dissolution-disposition-locator-rebind-review-2026-07-27",
+      "latest_epoch_identity_set_sha256": "2a7a164a920886681470e55feac05a2548da9352c7a646ad9d8b013661b33072",
+      "latest_epoch_reviewed_entry_count": 1298,
+      "latest_epoch_reviewed_entry_set_sha256": "8f84105c8a108b200bc541126ca35051b32a025b527206b2d5a4cf3ba5d1a7db",
+      "program_source_material_sha256": "14e0950f6bab9a91122c22c96a865c7c8c244de53df145bea8e03bfabbda4345",
+      "review_lock_sha256": "294151d4bfd79e0fb4df97592bedae2fe5a8beb613ee32d8f2926991695cba52",
+      "reviewed_as_of": "2026-07-27",
+      "total_reviewed_entry_count": 1553,
+      "total_reviewed_entry_set_sha256": "4cb2b4725bc6a346c7059648faf1041a2951fe2b5c1a3d778a77d63538efb436",
+      "total_reviewed_identity_set_sha256": "8a2110321d0d7af3f4e80c6a3bf4a2725c4e497b46523b214e08d9cf7e673cf4",
+      "authorship_binding": "self_declared_unsigned",
+      "predecessor_entry_sha256": "12acdade1c23a0d6de6f6eecccadecc2d89c6bb2bbf8cb99249cbeede92ec606",
+      "reviewer_id": "claude-fable-5-m0-closure",
+      "sequence": 19
+    },
+    {
+      "epoch_id": "m1-7-product-surfaces-census-reentry-review-2026-07-27",
+      "latest_epoch_identity_set_sha256": "a81358ef702c171aec372ac3d3bd2c583c818ac40296dc8e933a2bd9e443caf5",
+      "latest_epoch_reviewed_entry_count": 1300,
+      "latest_epoch_reviewed_entry_set_sha256": "ad440483e2e4b4bc410b03e4557bcb20927433c0b747ea0621adfe0a5702d6c7",
+      "program_source_material_sha256": "f251ea8bd47310493ecd34924d4095c24ecd432357dfbd8b11e1ef54be849f1b",
+      "review_lock_sha256": "632d56a39afc62854186954b38fddc0b724db86493b411b2d1d2f78e9949e677",
+      "reviewed_as_of": "2026-07-27",
+      "total_reviewed_entry_count": 1553,
+      "total_reviewed_entry_set_sha256": "c6b22ac6bd63c48b0c0c4810276cd7acb18f52745bf6ce23d230bedcf5097a08",
+      "total_reviewed_identity_set_sha256": "27d8cc6048fe4cda818d186111bcf854dcb85b28e22bfabf514f9cf28857528e",
+      "authorship_binding": "self_declared_unsigned",
+      "predecessor_entry_sha256": "d28fa10c91ce3077cee69b2f5620d387b8dc312fb8200d90ec8eb48181b24030",
+      "reviewer_id": "claude-fable-5-m0-closure",
+      "sequence": 20
     }
   ],
   "evidence_format": "ioi.m0.review_epoch_anchor.v3",
   "head": {
-    "entry_sha256": "12acdade1c23a0d6de6f6eecccadecc2d89c6bb2bbf8cb99249cbeede92ec606",
-    "epoch_id": "m0-closure-canon-basis-rebind-review-2026-07-27",
-    "sequence": 18
+    "entry_sha256": "1b82b4c231d04a1ac209dc3bb01f182b718accffd24ce870424ffdc7855850eb",
+    "epoch_id": "m1-7-product-surfaces-census-reentry-review-2026-07-27",
+    "sequence": 20
   }
 }

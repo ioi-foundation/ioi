@@ -73,6 +73,8 @@ impl AuthorityContract {
             | "complete_succession"
             | "migrate"
             | "initiate_dissolution"
+            | "open_dissolution_disposition"
+            | "record_dissolution_domain_outcome"
             | "complete_dissolution" => {
                 format!("scope:autonomous_system.continuity.{op}")
             }

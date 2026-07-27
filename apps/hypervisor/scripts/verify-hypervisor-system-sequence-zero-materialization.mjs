@@ -249,7 +249,14 @@ const JOURNEY_PROOF_CENSUS = new Map([
         "M1.5d SUCCESSOR AMENDMENT: the former owner refuses and the verified successor alone executes the governed constitution change",
         "M1.5d LIVE EFFECT FLOOR: dissolution carrying a live effect refuses before authority",
         "M1.5d RESIDUAL FLOOR: caller-authored disposition evidence cannot close server-owned residual truth",
+        "M1.5d WRONG SCOPE: a record-outcome-scoped grant cannot authorize opening the dissolution disposition",
+        "M1.5d DISPOSITION OPEN: only the exact record body over the admitted initiation opens the dissolving ladder",
+        "M1.5d DISPOSITION SINGLETON: a second disposition record cannot open over the dissolving System",
+        "M1.5d DOMAIN OUTCOME: one policy-bound receipted outcome records exactly once per domain",
         "M1.5d REPLAY: a crash after exact wallet consumption converges one named transition on restart",
+        "M1.5d TERMINAL FLOOR: completion refuses over pending domains and admits only the fully terminal disposition record",
+        "M1.5d RECEIPT BINDING: the committed completion carries the record's receipt union and mints the dissolution receipt exactly once",
+        "M1.5d STATUS LADDER: dissolved is reachable only through the full disposition ladder while generic transitions refuse the dissolving System",
         "M1.5d CONTINUITY: local enrollment, exit, verified migration, succession, and residual-closed dissolution commit as one exact chain",
       ],
     },
@@ -1550,7 +1557,9 @@ async function jsonCall(base, method, path, body) {
   // Some governed routes synchronously wait on the real wallet fixture for
   // longer than undici's fixed 300s response-header limit under host load.
   // Keep the held proof above that production boundary while retaining a
-  // finite 15-minute transport ceiling.
+  // finite 30-minute transport ceiling: the deepest governed completion
+  // holds its POST through a ~15-minute wallet consumption plus persistence
+  // on the grown debug chain.
   const target = new URL(`${base}${path}`);
   const payload = body === undefined ? null : JSON.stringify(body);
   return await new Promise((resolve, reject) => {
@@ -1586,7 +1595,7 @@ async function jsonCall(base, method, path, body) {
       },
     );
     request.on("error", reject);
-    request.setTimeout(900_000, () => {
+    request.setTimeout(1_800_000, () => {
       request.destroy(new Error(`JSON call timed out: ${method} ${path}`));
     });
     if (payload !== null) request.write(payload);
@@ -5729,6 +5738,11 @@ const MIGRATION_ACK_FAMILY =
   "autonomous-system-migration-destination-acknowledgements";
 const MIGRATION_ACK_RECEIPT_FAMILY =
   "autonomous-system-migration-destination-acknowledgement-receipts";
+const DISSOLUTION_DISPOSITION_FAMILY =
+  "autonomous-system-dissolution-dispositions";
+const DISSOLUTION_RECEIPT_FAMILY = "autonomous-system-dissolution-receipts";
+const DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN =
+  "ioi.autonomous-system-dissolution-disposition-artifact-jcs-sha256.v1";
 
 async function runNamedContinuityJourney() {
   const resolver = await startOwnedWalletResolver();
@@ -6307,15 +6321,326 @@ async function runNamedContinuityJourney() {
       `${callerAuthoredResidual.status}/${callerAuthoredResidual.body.error?.code || "no-code"}`,
     );
 
-    const completeRequest = requestFor({
-      trigger_evidence_refs: ["evidence://acme/dissolution/approved"],
+    // The dissolution-disposition ladder: dissolution_pending -> dissolving ->
+    // per-domain outcomes -> terminal record -> complete_dissolution. The
+    // record body binds the exact admitted initiation and the active
+    // continuity profile; its status is server-derived, never caller-set.
+    const dissolutionFamilies = [
+      ...continuityFamilies,
+      DISSOLUTION_DISPOSITION_FAMILY,
+      DISSOLUTION_RECEIPT_FAMILY,
+      "autonomous-system-chain-revisions",
+    ];
+    const lifecycleProfile = fixture(
+      "lifecycle-continuity-profile-v1/positive-successor-governed.json",
+    );
+    const lifecycleProfileRoot = artifactHash(
+      "ioi.lifecycle-continuity-profile-artifact-jcs-sha256.v1",
+      lifecycleProfile,
+    );
+    const initiateTransitionRef = state.transition_ref;
+    const initiateTransitionRoot = state.transition_root;
+    const dispositionId = `dissolution-disposition://acme/system-alpha/initiate/${initiateTransitionRoot.slice("sha256:".length)}`;
+    const dissolutionPolicies = {
+      active_work: "policy://acme/lifecycle/work-disposition",
+      outstanding_obligations: "policy://acme/lifecycle/obligations",
+      authority_revocation: "policy://acme/lifecycle/revoke-authority",
+      worker_and_node_shutdown: "policy://acme/lifecycle/shutdown",
+      data_export_retention_and_erasure:
+        "policy://acme/lifecycle/data-disposition",
+      network_exit: "policy://acme/lifecycle/network-exit",
+      tombstone: "policy://acme/lifecycle/tombstone",
+    };
+    const recordedDomains = Object.keys(dissolutionPolicies);
+    const dispositionRecord = {
+      schema_version: "ioi.autonomous-system-dissolution-disposition.v1",
+      dissolution_disposition_id: dispositionId,
+      system_id: chain.system_id,
+      lifecycle_profile_ref: lifecycleProfile.lifecycle_profile_id,
+      lifecycle_profile_root: lifecycleProfileRoot,
+      initiate_transition_ref: initiateTransitionRef,
+      initiate_transition_root: initiateTransitionRoot,
+      outcome_domains: {
+        ...Object.fromEntries(
+          recordedDomains.map((domain) => [
+            domain,
+            {
+              policy_ref: dissolutionPolicies[domain],
+              state: "pending",
+              evidence_refs: [],
+              receipt_refs: [],
+            },
+          ]),
+        ),
+        // The admitted profile declares no asset contracts: the record waives
+        // against the profile's own null declaration, never a silent skip.
+        assets: {
+          policy_ref: "policy://profile-null-declaration",
+          state: "waived_under_policy",
+          evidence_refs: [],
+          receipt_refs: [],
+        },
+      },
+      escalation_decision_refs: [],
+      complete_transition_ref: null,
+      status: "open",
+      created_at: "2026-07-26T00:00:00Z",
+    };
+
+    // A grant minted for the record-outcome scope over the open request's
+    // exact coordinates cannot cross the open operation's wallet boundary.
+    const beforeWrongScope = familiesSnapshot(dataDir, dissolutionFamilies);
+    const wrongScopeOpenRequest = requestFor({
+      trigger_evidence_refs: [
+        "evidence://acme/dissolution/disposition-wrong-scope",
+      ],
+      dissolution_disposition: dispositionRecord,
     });
-    const completeAuthority = await challengeAndGrant(
+    const wrongScopeAuthority = await challengeAndWrongTargetGrant(
       call,
       resolver,
+      pathFor("open_dissolution_disposition"),
+      wrongScopeOpenRequest,
+      "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
+      expectedAuthority,
+    );
+    const wrongScope = await call(
+      "POST",
+      pathFor("open_dissolution_disposition"),
+      {
+        ...wrongScopeOpenRequest,
+        wallet_approval_grant: requireValue(
+          wrongScopeAuthority.grant,
+          "M1.5d lacks the intentionally mis-scoped disposition grant",
+        ),
+      },
+    );
+    ok(
+      "M1.5d WRONG SCOPE: a record-outcome-scoped grant cannot authorize opening the dissolution disposition",
+      wrongScope.status === 403 &&
+        wrongScope.body.error?.code ===
+          "system_lifecycle_wallet_consumption_refused" &&
+        beforeWrongScope === familiesSnapshot(dataDir, dissolutionFamilies),
+      `${wrongScope.status}/${wrongScope.body.error?.code || "no-code"}`,
+    );
+
+    const beforeOpenProbes = familiesSnapshot(dataDir, dissolutionFamilies);
+    const wrongInitiateRecord = clone(dispositionRecord);
+    wrongInitiateRecord.initiate_transition_root = `sha256:${"7".repeat(64)}`;
+    const wrongInitiate = await call(
+      "POST",
+      pathFor("open_dissolution_disposition"),
+      requestFor({ dissolution_disposition: wrongInitiateRecord }),
+    );
+    const wrongProfileRecord = clone(dispositionRecord);
+    wrongProfileRecord.lifecycle_profile_root = artifactHash(
+      "ioi.lifecycle-continuity-profile-artifact-jcs-sha256.v1",
+      { ...clone(lifecycleProfile), version: "9.9.9" },
+    );
+    const wrongProfile = await call(
+      "POST",
+      pathFor("open_dissolution_disposition"),
+      requestFor({ dissolution_disposition: wrongProfileRecord }),
+    );
+    const openProbesLeftNoEvidence =
+      beforeOpenProbes === familiesSnapshot(dataDir, dissolutionFamilies);
+    const opened = await commit(
+      "open_dissolution_disposition",
+      "scope:autonomous_system.continuity.open_dissolution_disposition",
+      { dissolution_disposition: dispositionRecord },
+    );
+    const openRoot = artifactHash(
+      DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN,
+      dispositionRecord,
+    );
+    const dissolvingGet = await call(
+      "GET",
+      pathFor("record_dissolution_domain_outcome"),
+    );
+    ok(
+      "M1.5d DISPOSITION OPEN: only the exact record body over the admitted initiation opens the dissolving ladder",
+      wrongInitiate.status === 422 &&
+        String(wrongInitiate.body.error?.message).includes(
+          "exact initiate_dissolution transition",
+        ) &&
+        wrongProfile.status === 422 &&
+        String(wrongProfile.body.error?.message).includes(
+          "does not root the active lifecycle profile",
+        ) &&
+        openProbesLeftNoEvidence &&
+        opened.sequence === 12 &&
+        opened.autonomous_system_chain?.status === "dissolving" &&
+        opened.transition?.schema_version ===
+          "ioi.autonomous-system-dissolution-disposition-transition.v1" &&
+        opened.transition?.predecessor_disposition_root === null &&
+        opened.transition?.recorded_domain === null &&
+        opened.transition?.resulting_disposition_root === openRoot &&
+        familyFiles(dataDir, DISSOLUTION_DISPOSITION_FAMILY).includes(
+          `asddr_${openRoot.slice("sha256:".length)}.json`,
+        ) &&
+        dissolvingGet.status === 200 &&
+        dissolvingGet.body.chain_head?.status === "dissolving" &&
+        dissolvingGet.body.eligible_now?.status_admitted === true,
+      `wrong-initiate=${wrongInitiate.status}/${wrongInitiate.body.error?.message || "no-message"} wrong-profile=${wrongProfile.status}/${wrongProfile.body.error?.message || "no-message"} opened=${opened.sequence}/${opened.autonomous_system_chain?.status} get=${dissolvingGet.body.chain_head?.status}`,
+    );
+
+    const beforeSecondOpen = familiesSnapshot(dataDir, dissolutionFamilies);
+    const secondOpen = await call(
+      "POST",
+      pathFor("open_dissolution_disposition"),
+      requestFor({ dissolution_disposition: dispositionRecord }),
+    );
+    const secondOpenGet = await call(
+      "GET",
+      pathFor("open_dissolution_disposition"),
+    );
+    ok(
+      "M1.5d DISPOSITION SINGLETON: a second disposition record cannot open over the dissolving System",
+      secondOpen.status === 422 &&
+        String(secondOpen.body.error?.message).includes(
+          "cannot lawfully leave dissolving",
+        ) &&
+        secondOpenGet.status === 200 &&
+        secondOpenGet.body.eligible_now?.status_admitted === false &&
+        secondOpenGet.body.eligible_now?.blockers?.some(
+          (blocker) => blocker.code === "predecessor_status_not_admitted",
+        ) &&
+        beforeSecondOpen === familiesSnapshot(dataDir, dissolutionFamilies),
+      `${secondOpen.status}/${secondOpen.body.error?.message || "no-message"} blockers=${canonicalJson(secondOpenGet.body.eligible_now?.blockers || null)}`,
+    );
+
+    // The dissolving status is reserved to the disposition ladder: the
+    // generic protected-transition route cannot lawfully leave it.
+    const beforeReserved = familiesSnapshot(dataDir, dissolutionFamilies);
+    const reservedStatus = await call(
+      "POST",
+      protectedPathFor("pause"),
+      requestFor(),
+    );
+    const reservedStatusLeftNoEvidence =
+      beforeReserved === familiesSnapshot(dataDir, dissolutionFamilies);
+
+    const outcomeFor = (domain, extra = {}) => ({
+      domain,
+      state: "completed",
+      policy_ref: dissolutionPolicies[domain],
+      evidence_refs: [`evidence://acme/dissolution/${domain}`],
+      receipt_refs: [`receipt://acme/dissolution/${domain}`],
+      ...extra,
+    });
+    const expectedDisposition = clone(dispositionRecord);
+    const applyExpected = (domain) => {
+      expectedDisposition.outcome_domains[domain] = {
+        policy_ref: dissolutionPolicies[domain],
+        state: "completed",
+        evidence_refs: [`evidence://acme/dissolution/${domain}`],
+        receipt_refs: [`receipt://acme/dissolution/${domain}`],
+      };
+      expectedDisposition.status = recordedDomains.every(
+        (name) => expectedDisposition.outcome_domains[name].state !== "pending",
+      )
+        ? "terminal_complete"
+        : "open";
+    };
+    const firstOutcome = await commit(
+      "record_dissolution_domain_outcome",
+      "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
+      { dissolution_domain_outcome: outcomeFor("active_work") },
+    );
+    applyExpected("active_work");
+    const activeWorkRoot = artifactHash(
+      DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN,
+      expectedDisposition,
+    );
+    const beforeOutcomeProbes = familiesSnapshot(dataDir, dissolutionFamilies);
+    const duplicate = await call(
+      "POST",
+      pathFor("record_dissolution_domain_outcome"),
+      requestFor({ dissolution_domain_outcome: outcomeFor("active_work") }),
+    );
+    const wrongPolicy = await call(
+      "POST",
+      pathFor("record_dissolution_domain_outcome"),
+      requestFor({
+        dissolution_domain_outcome: outcomeFor("outstanding_obligations", {
+          policy_ref: "policy://acme/other",
+        }),
+      }),
+    );
+    const escalatedWithoutDecision = await call(
+      "POST",
+      pathFor("record_dissolution_domain_outcome"),
+      requestFor({
+        dissolution_domain_outcome: outcomeFor("outstanding_obligations", {
+          state: "escalated",
+        }),
+      }),
+    );
+    ok(
+      "M1.5d DOMAIN OUTCOME: one policy-bound receipted outcome records exactly once per domain",
+      firstOutcome.sequence === 13 &&
+        firstOutcome.autonomous_system_chain?.status === "dissolving" &&
+        firstOutcome.transition?.recorded_domain === "active_work" &&
+        firstOutcome.transition?.predecessor_disposition_root === openRoot &&
+        firstOutcome.transition?.resulting_disposition_root ===
+          activeWorkRoot &&
+        duplicate.status === 422 &&
+        String(duplicate.body.error?.message).includes(
+          "recorded exactly once",
+        ) &&
+        wrongPolicy.status === 422 &&
+        String(wrongPolicy.body.error?.message).includes(
+          "does not bind a policy",
+        ) &&
+        escalatedWithoutDecision.status === 422 &&
+        String(escalatedWithoutDecision.body.error?.message).includes(
+          "escalation decision ref",
+        ) &&
+        beforeOutcomeProbes === familiesSnapshot(dataDir, dissolutionFamilies),
+      `first=${firstOutcome.sequence}/${firstOutcome.transition?.recorded_domain} duplicate=${duplicate.status}/${duplicate.body.error?.message || "no-message"} wrong-policy=${wrongPolicy.status}/${wrongPolicy.body.error?.message || "no-message"} escalated=${escalatedWithoutDecision.status}/${escalatedWithoutDecision.body.error?.message || "no-message"}`,
+    );
+
+    // Completion cannot cross the wallet boundary while any domain is still
+    // pending; the refusal is recompared after the ladder fully terminates.
+    const beforePendingComplete = familiesSnapshot(
+      dataDir,
+      dissolutionFamilies,
+    );
+    const pendingComplete = await call(
+      "POST",
       pathFor("complete_dissolution"),
-      completeRequest,
-      "scope:autonomous_system.continuity.complete_dissolution",
+      requestFor({
+        trigger_evidence_refs: ["evidence://acme/dissolution/approved"],
+      }),
+    );
+    const pendingCompleteLeftNoEvidence =
+      beforePendingComplete === familiesSnapshot(dataDir, dissolutionFamilies);
+    for (const domain of [
+      "outstanding_obligations",
+      "authority_revocation",
+      "worker_and_node_shutdown",
+      "data_export_retention_and_erasure",
+      "network_exit",
+    ]) {
+      await commit(
+        "record_dissolution_domain_outcome",
+        "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
+        { dissolution_domain_outcome: outcomeFor(domain) },
+      );
+      applyExpected(domain);
+    }
+
+    // Crash after the exact wallet consumption of the final domain outcome:
+    // restart converges the tombstone record exactly once from its intent.
+    const tombstoneRequest = requestFor({
+      dissolution_domain_outcome: outcomeFor("tombstone"),
+    });
+    const tombstoneAuthority = await challengeAndGrant(
+      call,
+      resolver,
+      pathFor("record_dissolution_domain_outcome"),
+      tombstoneRequest,
+      "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
       expectedAuthority,
     );
     await plane.stop();
@@ -6324,18 +6649,22 @@ async function runNamedContinuityJourney() {
       env: {
         ...resolver.env,
         IOI_TEST_FORCE_SYSTEM_CONTINUITY_AFTER_WALLET_CONSUMPTION:
-          "complete_dissolution",
+          "record_dissolution_domain_outcome",
       },
     });
     call = (method, path, body) =>
       jsonCall(plane.daemonUrl, method, path, body);
-    const interrupted = await call("POST", pathFor("complete_dissolution"), {
-      ...completeRequest,
-      wallet_approval_grant: requireValue(
-        completeAuthority.grant,
-        "M1.5d complete dissolution lacks a grant",
-      ),
-    });
+    const interrupted = await call(
+      "POST",
+      pathFor("record_dissolution_domain_outcome"),
+      {
+        ...tombstoneRequest,
+        wallet_approval_grant: requireValue(
+          tombstoneAuthority.grant,
+          "M1.5d tombstone outcome lacks a grant",
+        ),
+      },
+    );
     requireValue(
       interrupted.status === 500 &&
         familyFiles(dataDir, CONTINUITY_INTENT_FAMILY).length === 1,
@@ -6349,25 +6678,158 @@ async function runNamedContinuityJourney() {
       dataDir,
       CONTINUITY_INTENT_FAMILY,
     );
-    const final = await call("GET", pathFor("complete_dissolution"));
+    applyExpected("tombstone");
+    const terminalRoot = artifactHash(
+      DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN,
+      expectedDisposition,
+    );
+    const converged = await call(
+      "GET",
+      pathFor("record_dissolution_domain_outcome"),
+    );
     ok(
       "M1.5d REPLAY: a crash after exact wallet consumption converges one named transition on restart",
       cleared &&
-        final.status === 200 &&
-        final.body.chain_head?.latest_sequence === 12 &&
-        final.body.chain_head?.status === "dissolved" &&
-        final.body.committed_entries?.length === 1,
-      `cleared=${cleared} sequence=${final.body.chain_head?.latest_sequence} status=${final.body.chain_head?.status}`,
+        converged.status === 200 &&
+        converged.body.chain_head?.latest_sequence === 19 &&
+        converged.body.chain_head?.status === "dissolving" &&
+        converged.body.committed_entries?.length === 7 &&
+        familyFiles(dataDir, DISSOLUTION_DISPOSITION_FAMILY).includes(
+          `asddr_${terminalRoot.slice("sha256:".length)}.json`,
+        ),
+      `cleared=${cleared} sequence=${converged.body.chain_head?.latest_sequence} status=${converged.body.chain_head?.status} entries=${converged.body.committed_entries?.length}`,
+    );
+    chain = converged.body.chain_head;
+    state = { lifecycle_state_root: chain.latest_state_root };
+
+    const completed = await commit(
+      "complete_dissolution",
+      "scope:autonomous_system.continuity.complete_dissolution",
+      { trigger_evidence_refs: ["evidence://acme/dissolution/approved"] },
     );
     ok(
+      "M1.5d TERMINAL FLOOR: completion refuses over pending domains and admits only the fully terminal disposition record",
+      pendingComplete.status === 422 &&
+        String(pendingComplete.body.error?.message).includes(
+          "terminal disposition record",
+        ) &&
+        pendingCompleteLeftNoEvidence &&
+        completed.sequence === 20 &&
+        completed.autonomous_system_chain?.status === "dissolved" &&
+        completed.lifecycle_state?.status === "dissolved" &&
+        completed.transition?.transition_kind === "complete_dissolution",
+      `pending=${pendingComplete.status}/${pendingComplete.body.error?.message || "no-message"} completed=${completed.sequence}/${completed.autonomous_system_chain?.status}`,
+    );
+
+    const expectedReceiptUnion = recordedDomains
+      .map((domain) => `receipt://acme/dissolution/${domain}`)
+      .sort();
+    const finalDisposition = clone(expectedDisposition);
+    finalDisposition.complete_transition_ref =
+      "lifecycle-transition://acme/system-alpha/continuity/sequence/20";
+    const finalDispositionRoot = artifactHash(
+      DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN,
+      finalDisposition,
+    );
+    const dissolutionReceiptFiles = familyFiles(
+      dataDir,
+      DISSOLUTION_RECEIPT_FAMILY,
+    );
+    const dissolutionReceipt =
+      dissolutionReceiptFiles.length === 1
+        ? JSON.parse(
+            readFileSync(
+              join(
+                dataDir,
+                DISSOLUTION_RECEIPT_FAMILY,
+                dissolutionReceiptFiles[0],
+              ),
+              "utf8",
+            ),
+          )
+        : null;
+    const dissolutionReceiptRoot = dissolutionReceipt
+      ? artifactHash(
+          "ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1",
+          dissolutionReceipt,
+        )
+      : null;
+    const agentgresReceiptFrames = parseMuxFrames(
+      readFileSync(join(dataDir, "substrate", "muxlog.bin")),
+    ).filter(
+      (frame) =>
+        frame.value.frame === "Admitted" &&
+        frame.value.op?.domain === DISSOLUTION_RECEIPT_FAMILY,
+    );
+    ok(
+      "M1.5d RECEIPT BINDING: the committed completion carries the record's receipt union and mints the dissolution receipt exactly once",
+      sameJson(
+        completed.transition?.disposition_receipt_refs,
+        expectedReceiptUnion,
+      ) &&
+        dissolutionReceiptFiles.length === 1 &&
+        dissolutionReceiptRoot !== null &&
+        dissolutionReceiptFiles[0] ===
+          `asdr_${dissolutionReceiptRoot.slice("sha256:".length)}.json` &&
+        dissolutionReceipt?.op === "complete_dissolution" &&
+        dissolutionReceipt?.assurance_posture === "dissolution_committed" &&
+        dissolutionReceipt?.dissolution_disposition_ref === dispositionId &&
+        dissolutionReceipt?.dissolution_disposition_root ===
+          finalDispositionRoot &&
+        dissolutionReceipt?.initiate_transition_root ===
+          initiateTransitionRoot &&
+        sameJson(
+          Object.keys(
+            dissolutionReceipt?.domain_outcome_commitments || {},
+          ).sort(),
+          [...recordedDomains, "assets"].sort(),
+        ) &&
+        familyFiles(dataDir, DISSOLUTION_DISPOSITION_FAMILY).includes(
+          `asddr_${finalDispositionRoot.slice("sha256:".length)}.json`,
+        ) &&
+        agentgresReceiptFrames.length === 1 &&
+        sameJson(
+          agentgresReceiptFrames[0].value.op?.payload,
+          dissolutionReceipt,
+        ),
+      `union=${canonicalJson(completed.transition?.disposition_receipt_refs || null)} receipts=${dissolutionReceiptFiles.length} op=${dissolutionReceipt?.op || "none"} posture=${dissolutionReceipt?.assurance_posture || "none"} frames=${agentgresReceiptFrames.length}`,
+    );
+
+    const finalGet = await call("GET", pathFor("complete_dissolution"));
+    const ladderOps = completed.operation_log?.entries
+      ?.slice(-10)
+      .map((entry) => entry.operation_name);
+    ok(
+      "M1.5d STATUS LADDER: dissolved is reachable only through the full disposition ladder while generic transitions refuse the dissolving System",
+      reservedStatus.status === 422 &&
+        String(reservedStatus.body.error?.message).includes(
+          "outside the generic family",
+        ) &&
+        reservedStatusLeftNoEvidence &&
+        finalGet.status === 200 &&
+        finalGet.body.chain_head?.status === "dissolved" &&
+        finalGet.body.chain_head?.latest_sequence === 20 &&
+        finalGet.body.committed_entries?.length === 1 &&
+        sameJson(ladderOps, [
+          "initiate_dissolution",
+          "open_dissolution_disposition",
+          ...recordedDomains.map(() => "record_dissolution_domain_outcome"),
+          "complete_dissolution",
+        ]),
+      `reserved=${reservedStatus.status}/${reservedStatus.body.error?.code || "no-code"}/${reservedStatus.body.error?.message || "no-message"} ladder=${ladderOps?.join(",") || "none"} final=${finalGet.body.chain_head?.status}`,
+    );
+
+    ok(
       "M1.5d CONTINUITY: local enrollment, exit, verified migration, succession, and residual-closed dissolution commit as one exact chain",
-      final.status === 200 &&
-        final.body.chain_head?.latest_sequence === 12 &&
-        familyFiles(dataDir, CONTINUITY_RECEIPT_FAMILY).length === 7 &&
+      finalGet.status === 200 &&
+        finalGet.body.chain_head?.latest_sequence === 20 &&
+        familyFiles(dataDir, CONTINUITY_RECEIPT_FAMILY).length === 15 &&
         familyFiles(dataDir, MIGRATION_ACK_RECEIPT_FAMILY).length === 1 &&
-        familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length === 10 &&
-        final.body.chain_head?.network_enrollment_ref === null,
-      `receipts=${familyFiles(dataDir, CONTINUITY_RECEIPT_FAMILY).length} states=${familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length}`,
+        familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length === 18 &&
+        familyFiles(dataDir, DISSOLUTION_DISPOSITION_FAMILY).length === 9 &&
+        familyFiles(dataDir, DISSOLUTION_RECEIPT_FAMILY).length === 1 &&
+        finalGet.body.chain_head?.network_enrollment_ref === null,
+      `receipts=${familyFiles(dataDir, CONTINUITY_RECEIPT_FAMILY).length} states=${familyFiles(dataDir, LIFECYCLE_STATE_FAMILY).length} dispositions=${familyFiles(dataDir, DISSOLUTION_DISPOSITION_FAMILY).length}`,
     );
   } finally {
     if (peerPlane) await peerPlane.stop();

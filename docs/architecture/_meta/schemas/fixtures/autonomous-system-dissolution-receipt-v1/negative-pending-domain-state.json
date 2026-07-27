@@ -1,0 +1,57 @@
+{
+  "schema_version": "ioi.autonomous-system-dissolution-receipt.v1",
+  "dissolution_receipt_id": "dissolution-receipt://acme/system-alpha/sequence/8",
+  "system_id": "system://acme/system-alpha",
+  "op": "complete_dissolution",
+  "sequence": 8,
+  "required_scope": "scope:autonomous_system.continuity.complete_dissolution",
+  "assurance_posture": "dissolution_committed",
+  "lifecycle_profile_ref": "lifecycle-profile://acme/system-alpha/v1",
+  "lifecycle_profile_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "dissolution_disposition_ref": "dissolution-disposition://acme/system-alpha/sequence/5",
+  "dissolution_disposition_root": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "domain_outcome_commitments": {
+    "active_work": {
+      "state": "pending",
+      "outcome_commitment": "sha256:1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+    },
+    "assets": {
+      "state": "completed",
+      "outcome_commitment": "sha256:2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    "outstanding_obligations": {
+      "state": "waived_under_policy",
+      "outcome_commitment": "sha256:3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a"
+    },
+    "authority_revocation": {
+      "state": "completed",
+      "outcome_commitment": "sha256:4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a"
+    },
+    "worker_and_node_shutdown": {
+      "state": "completed",
+      "outcome_commitment": "sha256:5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+    },
+    "data_export_retention_and_erasure": {
+      "state": "completed",
+      "outcome_commitment": "sha256:6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a"
+    },
+    "network_exit": {
+      "state": "waived_under_policy",
+      "outcome_commitment": "sha256:7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a"
+    },
+    "tombstone": {
+      "state": "completed",
+      "outcome_commitment": "sha256:8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a"
+    }
+  },
+  "initiate_transition_ref": "lifecycle-transition://acme/system-alpha/sequence/4",
+  "initiate_transition_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "complete_transition_ref": "lifecycle-transition://acme/system-alpha/sequence/8",
+  "complete_transition_root": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "predecessor_state_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "resulting_state_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "tombstone_commitment": "sha256:8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a",
+  "predecessor_chain_root": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "transition_receipt_ref": "receipt://acme/system-alpha/continuity/sequence/8",
+  "created_at": "2026-07-25T12:00:00Z"
+}

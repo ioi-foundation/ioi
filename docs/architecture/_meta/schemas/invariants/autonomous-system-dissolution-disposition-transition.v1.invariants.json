@@ -1,0 +1,124 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-dissolution-disposition-transition/exact-effect/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.operation_commitment.recomputes",
+      "description": "The operation commitment recomputes from the complete closed authority effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-continuity-operation-commitment-jcs-sha256.v1"
+          },
+          "effect": {
+            "path": "$.authority_effect_material"
+          }
+        },
+        "expected_path": "$.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.op.matches_effect",
+      "description": "The portable transition and governed effect name the same operation.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.op",
+          "$.authority_effect_material.op"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.system.matches_effect",
+      "description": "The portable transition and governed effect bind the same System.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.system_id",
+          "$.authority_effect_material.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.sequence.matches_effect",
+      "description": "The portable transition and governed effect bind the same sequence.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.sequence",
+          "$.authority_effect_material.sequence"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.predecessor_state.matches_effect",
+      "description": "The predecessor state root is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_state_root",
+          "$.authority_effect_material.predecessor_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.resulting_state.matches_effect",
+      "description": "The resulting state root is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resulting_state_root",
+          "$.authority_effect_material.resulting_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.disposition_record.matches_effect",
+      "description": "The dissolution-disposition record identity is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.dissolution_disposition_ref",
+          "$.authority_effect_material.dissolution_disposition_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.predecessor_disposition_root.matches_effect",
+      "description": "The compare-and-swap predecessor disposition bytes are content-bound.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_disposition_root",
+          "$.authority_effect_material.predecessor_disposition_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.resulting_disposition_root.matches_effect",
+      "description": "The resulting disposition bytes are content-bound.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resulting_disposition_root",
+          "$.authority_effect_material.resulting_disposition_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.recorded_domain.matches_effect",
+      "description": "The recorded outcome domain is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.recorded_domain",
+          "$.authority_effect_material.recorded_dissolution_domain"
+        ]
+      }
+    }
+  ]
+}

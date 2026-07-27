@@ -1,0 +1,454 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+  "title": "AutonomousSystemDissolutionDispositionTransition",
+  "description": "Committed compare-and-swap transition that opens the dissolution-disposition record or records exactly one named domain outcome on it.",
+  "x-ioi-schema-version": "ioi.autonomous-system-dissolution-disposition-transition.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lifecycle_transition_id",
+    "system_id",
+    "op",
+    "sequence",
+    "proposal_ref",
+    "proposal_root",
+    "decision_ref",
+    "decision_root",
+    "predecessor_state_root",
+    "resulting_state_root",
+    "dissolution_disposition_ref",
+    "predecessor_disposition_root",
+    "resulting_disposition_root",
+    "recorded_domain",
+    "operation_commitment",
+    "authority_effect_material",
+    "authority_grant_refs",
+    "receipt_refs",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-dissolution-disposition-transition.v1"
+    },
+    "lifecycle_transition_id": {
+      "type": "string",
+      "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "op": {
+      "enum": [
+        "open_dissolution_disposition",
+        "record_dissolution_domain_outcome"
+      ]
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 9007199254740991
+    },
+    "proposal_ref": {
+      "type": "string",
+      "pattern": "^proposal://[^\\s]{1,248}$"
+    },
+    "proposal_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "decision_ref": {
+      "type": "string",
+      "pattern": "^decision://[^\\s]{1,248}$"
+    },
+    "decision_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "predecessor_state_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "resulting_state_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "dissolution_disposition_ref": {
+      "type": "string",
+      "pattern": "^dissolution-disposition://[^\\s]{1,248}$"
+    },
+    "predecessor_disposition_root": {
+      "$ref": "#/$defs/nullableHash"
+    },
+    "resulting_disposition_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "recorded_domain": {
+      "$ref": "#/$defs/nullableDomain"
+    },
+    "operation_commitment": {
+      "$ref": "#/$defs/hash"
+    },
+    "authority_effect_material": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "op",
+        "transition_kind",
+        "required_scope",
+        "sequence",
+        "system_id",
+        "genesis_ref",
+        "source_governing_authority_ref",
+        "resulting_governing_authority_ref",
+        "predecessor_status",
+        "predecessor_state_ref",
+        "predecessor_state_root",
+        "predecessor_chain_head_root",
+        "resulting_status",
+        "resulting_state_ref",
+        "resulting_state_root",
+        "constitution_ref",
+        "lifecycle_profile_ref",
+        "active_profile_set_ref",
+        "active_profile_set_root",
+        "chain_ref",
+        "current_network_enrollment_ref",
+        "current_network_enrollment_root",
+        "resulting_network_enrollment_ref",
+        "resulting_network_enrollment_root",
+        "trigger_evidence_refs",
+        "successor_candidate_ref",
+        "successor_authority_ref",
+        "successor_authority_binding",
+        "migration_destination_ack_ref",
+        "migration_destination_ack_root",
+        "migration_destination_ref",
+        "verified_migration_state_root",
+        "residual_disposition",
+        "live_effect_refs",
+        "identity_preserved",
+        "authority_widened",
+        "network_assurance_admitted",
+        "runtime_effect_admitted",
+        "operation_commitment",
+        "dissolution_disposition_ref",
+        "predecessor_disposition_root",
+        "resulting_disposition_root",
+        "recorded_dissolution_domain"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.autonomous-system-continuity-authority-effect.v1"
+        },
+        "op": {
+          "enum": [
+            "open_dissolution_disposition",
+            "record_dissolution_domain_outcome"
+          ]
+        },
+        "transition_kind": {
+          "type": "null"
+        },
+        "required_scope": {
+          "enum": [
+            "scope:autonomous_system.continuity.open_dissolution_disposition",
+            "scope:autonomous_system.continuity.record_dissolution_domain_outcome"
+          ]
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 9007199254740991
+        },
+        "system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,248}$"
+        },
+        "genesis_ref": {
+          "type": "string",
+          "pattern": "^genesis://[^\\s]{1,248}$"
+        },
+        "source_governing_authority_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "resulting_governing_authority_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "predecessor_status": {
+          "enum": [
+            "dissolution_pending",
+            "dissolving"
+          ]
+        },
+        "predecessor_state_ref": {
+          "type": "string",
+          "pattern": "^system-lifecycle-state://[^\\s]{1,248}$"
+        },
+        "predecessor_state_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "predecessor_chain_head_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "resulting_status": {
+          "const": "dissolving"
+        },
+        "resulting_state_ref": {
+          "type": "string",
+          "pattern": "^system-lifecycle-state://[^\\s]{1,248}$"
+        },
+        "resulting_state_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "constitution_ref": {
+          "type": "string",
+          "pattern": "^constitution://[^\\s]{1,248}$"
+        },
+        "lifecycle_profile_ref": {
+          "type": "string",
+          "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+        },
+        "active_profile_set_ref": {
+          "type": "string",
+          "pattern": "^active-profile-set://[^\\s]{1,248}$"
+        },
+        "active_profile_set_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "chain_ref": {
+          "type": "string",
+          "pattern": "^autonomous-system-chain://[^\\s]{1,248}$"
+        },
+        "current_network_enrollment_ref": {
+          "$ref": "#/$defs/nullableEnrollment"
+        },
+        "current_network_enrollment_root": {
+          "$ref": "#/$defs/nullableHash"
+        },
+        "resulting_network_enrollment_ref": {
+          "$ref": "#/$defs/nullableEnrollment"
+        },
+        "resulting_network_enrollment_root": {
+          "$ref": "#/$defs/nullableHash"
+        },
+        "trigger_evidence_refs": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "successor_candidate_ref": {
+          "type": "null"
+        },
+        "successor_authority_ref": {
+          "type": "null"
+        },
+        "successor_authority_binding": {
+          "type": "null"
+        },
+        "migration_destination_ack_ref": {
+          "type": "null"
+        },
+        "migration_destination_ack_root": {
+          "type": "null"
+        },
+        "migration_destination_ref": {
+          "type": "null"
+        },
+        "verified_migration_state_root": {
+          "type": "null"
+        },
+        "residual_disposition": {
+          "type": "null"
+        },
+        "live_effect_refs": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "identity_preserved": {
+          "const": true
+        },
+        "authority_widened": {
+          "const": false
+        },
+        "network_assurance_admitted": {
+          "const": false
+        },
+        "runtime_effect_admitted": {
+          "const": false
+        },
+        "operation_commitment": {
+          "type": "null"
+        },
+        "dissolution_disposition_ref": {
+          "type": "string",
+          "pattern": "^dissolution-disposition://[^\\s]{1,248}$"
+        },
+        "predecessor_disposition_root": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resulting_disposition_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "recorded_dissolution_domain": {
+          "oneOf": [
+            {
+              "enum": [
+                "active_work",
+                "assets",
+                "outstanding_obligations",
+                "authority_revocation",
+                "worker_and_node_shutdown",
+                "data_export_retention_and_erasure",
+                "network_exit",
+                "tombstone"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "authority_grant_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^grant://[^\\s]{1,248}$"
+      }
+    },
+    "receipt_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      }
+    },
+    "status": {
+      "const": "committed"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "open_dissolution_disposition"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "predecessor_disposition_root": {
+            "type": "null"
+          },
+          "recorded_domain": {
+            "type": "null"
+          },
+          "authority_effect_material": {
+            "type": "object",
+            "properties": {
+              "predecessor_status": {
+                "const": "dissolution_pending"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "op": {
+            "const": "record_dissolution_domain_outcome"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "predecessor_disposition_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "recorded_domain": {
+            "$ref": "#/$defs/domain"
+          },
+          "authority_effect_material": {
+            "type": "object",
+            "properties": {
+              "predecessor_status": {
+                "const": "dissolving"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "nullableHash": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/hash"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableEnrollment": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^network-enrollment://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "domain": {
+      "enum": [
+        "active_work",
+        "assets",
+        "outstanding_obligations",
+        "authority_revocation",
+        "worker_and_node_shutdown",
+        "data_export_retention_and_erasure",
+        "network_exit",
+        "tombstone"
+      ]
+    },
+    "nullableDomain": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/domain"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
