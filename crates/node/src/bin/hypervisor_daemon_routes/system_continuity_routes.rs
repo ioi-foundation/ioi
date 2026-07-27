@@ -51,6 +51,8 @@ pub(crate) const MIGRATION_ACK_RESERVATION_DIR: &str =
     "autonomous-system-migration-destination-acknowledgement-reservations";
 pub(crate) const MIGRATION_ACK_RECEIPT_DIR: &str =
     "autonomous-system-migration-destination-acknowledgement-receipts";
+pub(crate) const DISSOLUTION_DISPOSITION_DIR: &str = "autonomous-system-dissolution-dispositions";
+pub(crate) const DISSOLUTION_RECEIPT_DIR: &str = "autonomous-system-dissolution-receipts";
 
 const LIFECYCLE_TRANSITION_CONTRACT: &str = "schema://ioi/foundations/lifecycle-transition/v1";
 const CONTINUITY_STATE_CONTRACT: &str =
@@ -63,6 +65,14 @@ const OPERATION_LOG_CONTRACT: &str = "schema://ioi/foundations/autonomous-system
 const SYSTEM_CHAIN_CONTRACT: &str = "schema://ioi/foundations/autonomous-system-chain/v1";
 const MIGRATION_ACK_CONTRACT: &str =
     "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1";
+const DISSOLUTION_DISPOSITION_CONTRACT: &str =
+    "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1";
+const DISSOLUTION_DISPOSITION_TRANSITION_CONTRACT: &str =
+    "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1";
+const DISSOLUTION_RECEIPT_CONTRACT: &str =
+    "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1";
+const DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN: &str =
+    "ioi.autonomous-system-dissolution-disposition-artifact-jcs-sha256.v1";
 const MIGRATION_ACK_OP: &str = "acknowledge_migration_destination";
 const MIGRATION_ACK_SCOPE: &str =
     "scope:autonomous_system.continuity.migration_destination_acknowledge";
@@ -87,6 +97,8 @@ const SUCCESSOR_GOVERNANCE_SCOPES: &[&str] = &[
     "scope:autonomous_system.continuity.migrate",
     MIGRATION_ACK_SCOPE,
     "scope:autonomous_system.continuity.initiate_dissolution",
+    "scope:autonomous_system.continuity.open_dissolution_disposition",
+    "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
     "scope:autonomous_system.continuity.complete_dissolution",
     "scope:autonomous_system.network_enrollment.local.enroll",
     "scope:autonomous_system.network_enrollment.local.exit",
@@ -115,6 +127,45 @@ pub(crate) struct ContinuitySource {
     pub lifecycle_profile: Value,
     pub constitution_ref: String,
     pub current_enrollment: Option<Value>,
+    pub current_dissolution_disposition: Option<Value>,
+}
+
+/// Load the live dissolution-disposition record the latest chain step binds.
+/// A record exists exactly while the System is `dissolving`; the previous
+/// step's transition envelope pins its content root, so a swapped or edited
+/// durable record fails closed rather than loading.
+fn load_current_dissolution_disposition(
+    data_dir: &str,
+    previous_state: &Value,
+    previous_transition: &Value,
+) -> Result<Option<Value>, VErr> {
+    if previous_state.get("status").and_then(Value::as_str) != Some("dissolving") {
+        return Ok(None);
+    }
+    let root = previous_transition
+        .get("resulting_disposition_root")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            verr(
+                "system_lifecycle_artifact_mismatch",
+                "dissolving chain step lacks its exact disposition record root",
+            )
+        })?;
+    let record_tail = tail("asddr_", root)?;
+    let record = load_required_exact(data_dir, DISSOLUTION_DISPOSITION_DIR, &record_tail)?
+        .ok_or_else(|| {
+            verr(
+                "system_lifecycle_artifact_mismatch",
+                "dissolving chain lacks its exact local and Agentgres disposition record",
+            )
+        })?;
+    if artifact_root(DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN, &record)? != root {
+        return Err(verr(
+            "system_lifecycle_artifact_mismatch",
+            "current disposition record content root does not bind the committed step",
+        ));
+    }
+    Ok(Some(record))
 }
 
 fn load_current_enrollment(
@@ -222,11 +273,17 @@ pub(crate) fn load_continuity_source(data_dir: &str, key: &str) -> Result<Contin
     let constitution_ref = required(&base.chain_head, "/constitution_ref")?;
     let current_enrollment =
         load_current_enrollment(data_dir, &base.chain_head, &base.previous_step.state)?;
+    let current_dissolution_disposition = load_current_dissolution_disposition(
+        data_dir,
+        &base.previous_step.state,
+        &base.previous_step.transition,
+    )?;
     Ok(ContinuitySource {
         base,
         lifecycle_profile,
         constitution_ref,
         current_enrollment,
+        current_dissolution_disposition,
     })
 }
 
@@ -248,6 +305,7 @@ pub(crate) fn compile_from_source(
         declaration,
         trusted_successor_authority_binding,
         trusted_migration_destination_ack,
+        source.current_dissolution_disposition.as_ref(),
     )
     .map_err(|error| verr("system_continuity_plan_invalid", error))
 }
@@ -434,6 +492,17 @@ fn proposal(
     );
     let body = if let Some(enrollment) = plan.network_enrollment.clone() {
         enrollment
+    } else if matches!(
+        plan.op,
+        ContinuityTransitionOp::OpenDissolutionDisposition
+            | ContinuityTransitionOp::RecordDissolutionDomainOutcome
+    ) {
+        plan.dissolution_disposition.clone().ok_or_else(|| {
+            verr(
+                "system_continuity_plan_invalid",
+                "disposition step compiled without its record",
+            )
+        })?
     } else {
         json!({
             "schema_version":"ioi.lifecycle-transition.v1",
@@ -455,6 +524,12 @@ fn proposal(
     };
     let contract = if plan.network_enrollment.is_some() {
         NETWORK_ENROLLMENT_CONTRACT
+    } else if matches!(
+        plan.op,
+        ContinuityTransitionOp::OpenDissolutionDisposition
+            | ContinuityTransitionOp::RecordDissolutionDomainOutcome
+    ) {
+        DISSOLUTION_DISPOSITION_CONTRACT
     } else {
         LIFECYCLE_TRANSITION_CONTRACT
     };
@@ -509,7 +584,25 @@ pub(crate) fn build_continuity_artifacts(
     );
     let mut authority_effect_material = plan.authority_effect.clone();
     authority_effect_material["operation_commitment"] = Value::Null;
-    let transition = if plan.network_enrollment.is_some() {
+    let transition = if matches!(
+        plan.op,
+        ContinuityTransitionOp::OpenDissolutionDisposition
+            | ContinuityTransitionOp::RecordDissolutionDomainOutcome
+    ) {
+        json!({
+            "schema_version":"ioi.autonomous-system-dissolution-disposition-transition.v1",
+            "lifecycle_transition_id":transition_ref,"system_id":system_id,"op":plan.op.as_str(),"sequence":plan.sequence,
+            "proposal_ref":proposal_ref,"proposal_root":proposal_root,"decision_ref":decision_ref,"decision_root":decision_root,
+            "predecessor_state_root":plan.previous_step.state_root,"resulting_state_root":plan.resulting_state_root,
+            "dissolution_disposition_ref":plan.authority_effect["dissolution_disposition_ref"],
+            "predecessor_disposition_root":plan.authority_effect["predecessor_disposition_root"],
+            "resulting_disposition_root":plan.authority_effect["resulting_disposition_root"],
+            "recorded_domain":plan.authority_effect["recorded_dissolution_domain"],
+            "operation_commitment":plan.authority_effect["operation_commitment"],
+            "authority_effect_material":authority_effect_material,
+            "authority_grant_refs":[authority.authority_grant_ref],"receipt_refs":[receipt_ref],"status":"committed"
+        })
+    } else if plan.network_enrollment.is_some() {
         json!({
             "schema_version":"ioi.autonomous-system-network-enrollment-transition.v1",
             "lifecycle_transition_id":transition_ref,"system_id":system_id,"op":plan.op.as_str(),"sequence":plan.sequence,
@@ -538,12 +631,18 @@ pub(crate) fn build_continuity_artifacts(
             "operation_commitment":plan.authority_effect["operation_commitment"],"state_transition_commitment_ref":Value::Null,
             "lineage_ref":Value::Null,
             "identity_continuity_decision_ref":if plan.op==ContinuityTransitionOp::CompleteSuccession {Some(decision_ref.clone())} else {None},
-            "disposition_receipt_refs":if plan.op==ContinuityTransitionOp::CompleteDissolution {json!([receipt_ref])} else {json!([])},
+            "disposition_receipt_refs":if plan.op==ContinuityTransitionOp::CompleteDissolution {plan.authority_effect["disposition_receipt_refs"].clone()} else {json!([])},
             "receipt_refs":[receipt_ref],"public_commitment_ref":Value::Null,"status":"committed"
         })
     };
     validate_contract(
-        if plan.network_enrollment.is_some() {
+        if matches!(
+            plan.op,
+            ContinuityTransitionOp::OpenDissolutionDisposition
+                | ContinuityTransitionOp::RecordDissolutionDomainOutcome
+        ) {
+            DISSOLUTION_DISPOSITION_TRANSITION_CONTRACT
+        } else if plan.network_enrollment.is_some() {
             NETWORK_ENROLLMENT_TRANSITION_CONTRACT
         } else {
             LIFECYCLE_TRANSITION_CONTRACT
@@ -590,7 +689,13 @@ pub(crate) fn build_continuity_artifacts(
         transition_root: transition_root.clone(),
         receipt_root: receipt_root.clone(),
     };
-    let owner_contract = if plan.network_enrollment.is_some() {
+    let owner_contract = if matches!(
+        plan.op,
+        ContinuityTransitionOp::OpenDissolutionDisposition
+            | ContinuityTransitionOp::RecordDissolutionDomainOutcome
+    ) {
+        DISSOLUTION_DISPOSITION_CONTRACT
+    } else if plan.network_enrollment.is_some() {
         NETWORK_ENROLLMENT_CONTRACT
     } else {
         LIFECYCLE_TRANSITION_CONTRACT
@@ -671,6 +776,8 @@ fn declaration_from_body(body: &Value) -> Result<ContinuityTransitionDeclaration
         "residual_disposition_receipt_refs",
         "live_effect_refs",
         "network_enrollment",
+        "dissolution_disposition",
+        "dissolution_domain_outcome",
     ] {
         if let Some(field) = body.get(key) {
             value.insert(key.to_owned(), field.clone());
@@ -713,6 +820,8 @@ fn validate_request(body: &Value) -> Result<(), VErr> {
         "residual_disposition_receipt_refs",
         "live_effect_refs",
         "network_enrollment",
+        "dissolution_disposition",
+        "dissolution_domain_outcome",
     ];
     if let Some(key) = object.keys().find(|key| !ALLOWED.contains(&key.as_str())) {
         return Err(verr(
@@ -747,6 +856,85 @@ fn ensure_no_pending(data_dir: &str, key: &str) -> Result<(), VErr> {
         }
     }
     Ok(())
+}
+
+/// Mint the named dissolution receipt, exactly once, at completion. Every
+/// bound fact is resolved from the compiled plan and committed artifacts,
+/// never from the caller (INV-37).
+fn build_dissolution_receipt(
+    plan: &CompiledContinuityTransitionPlan,
+    artifacts: &ProtectedStepArtifacts,
+) -> Result<(Value, String), VErr> {
+    let record = plan.dissolution_disposition.as_ref().ok_or_else(|| {
+        verr(
+            "system_continuity_plan_invalid",
+            "completion compiled without its finalized disposition record",
+        )
+    })?;
+    let system_id = required(&plan.authority_effect, "/system_id")?;
+    let mut domain_commitments = serde_json::Map::new();
+    for domain in ioi_types::app::system_continuity_transitions::DISSOLUTION_OUTCOME_DOMAINS {
+        let outcome = record
+            .pointer(&format!("/outcome_domains/{domain}"))
+            .cloned()
+            .ok_or_else(|| {
+                verr(
+                    "system_continuity_plan_invalid",
+                    format!("finalized record lacks the {domain} domain"),
+                )
+            })?;
+        let state = required(&outcome, "/state")?;
+        let commitment = jcs_hash(&json!({
+            "domain":"ioi.autonomous-system-dissolution-domain-outcome-jcs-sha256.v1",
+            "system_id":system_id,
+            "dissolution_domain":domain,
+            "outcome":outcome,
+        }))?;
+        domain_commitments.insert(
+            domain.to_owned(),
+            json!({"state":state,"outcome_commitment":commitment}),
+        );
+    }
+    let tombstone_commitment = jcs_hash(&json!({
+        "domain":"ioi.autonomous-system-dissolution-tombstone-jcs-sha256.v1",
+        "system_id":system_id,
+        "tombstone_outcome":record.pointer("/outcome_domains/tombstone"),
+        "resulting_state_root":plan.resulting_state_root,
+    }))?;
+    let receipt = json!({
+        "schema_version":"ioi.autonomous-system-dissolution-receipt.v1",
+        "dissolution_receipt_id":format!("dissolution-receipt://{}/sequence/{}",ns(&system_id)?,plan.sequence),
+        "system_id":system_id,
+        "op":"complete_dissolution",
+        "sequence":plan.sequence,
+        "required_scope":"scope:autonomous_system.continuity.complete_dissolution",
+        "assurance_posture":"dissolution_committed",
+        "lifecycle_profile_ref":record["lifecycle_profile_ref"],
+        "lifecycle_profile_root":record["lifecycle_profile_root"],
+        "dissolution_disposition_ref":plan.authority_effect["dissolution_disposition_ref"],
+        "dissolution_disposition_root":plan.authority_effect["resulting_disposition_root"],
+        "domain_outcome_commitments":Value::Object(domain_commitments),
+        "initiate_transition_ref":record["initiate_transition_ref"],
+        "initiate_transition_root":record["initiate_transition_root"],
+        "complete_transition_ref":record["complete_transition_ref"],
+        "complete_transition_root":artifacts.step.transition_root,
+        "predecessor_state_root":plan.previous_step.state_root,
+        "resulting_state_root":plan.resulting_state_root,
+        "tombstone_commitment":tombstone_commitment,
+        "predecessor_chain_root":plan.authority_effect["predecessor_chain_head_root"],
+        "transition_receipt_ref":artifacts.step.receipt["receipt_id"],
+        "created_at":artifacts.step.state["created_at"],
+    });
+    validate_contract(
+        DISSOLUTION_RECEIPT_CONTRACT,
+        &receipt,
+        "dissolution receipt",
+    )?;
+    let receipt_root = artifact_root(
+        "ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1",
+        &receipt,
+    )?;
+    Ok((receipt, tail("asdr_", &receipt_root)?))
 }
 
 fn persist_graph(
@@ -846,6 +1034,22 @@ fn persist_graph(
                 enrollment,
             ),
         );
+    }
+    if let Some(record) = plan.dissolution_disposition.as_ref() {
+        let record_root = artifact_root(DISSOLUTION_DISPOSITION_ARTIFACT_DOMAIN, record)?;
+        records.push((
+            DISSOLUTION_DISPOSITION_DIR,
+            tail("asddr_", &record_root)?,
+            record,
+        ));
+    }
+    let dissolution_receipt = if plan.op == ContinuityTransitionOp::CompleteDissolution {
+        Some(build_dissolution_receipt(plan, artifacts)?)
+    } else {
+        None
+    };
+    if let Some((receipt, receipt_tail)) = dissolution_receipt.as_ref() {
+        records.push((DISSOLUTION_RECEIPT_DIR, receipt_tail.clone(), receipt));
     }
     for (family, record_tail, value) in records {
         persist_local(data_dir, family, &record_tail, value)?;
@@ -2016,7 +2220,9 @@ pub(crate) async fn handle_get_transition(
             | ContinuityTransitionOp::ExitLocalEnrollment => {
                 matches!(status.as_str(), "active" | "successor_governed")
             }
-            ContinuityTransitionOp::CompleteDissolution => status == "dissolution_pending",
+            ContinuityTransitionOp::OpenDissolutionDisposition => status == "dissolution_pending",
+            ContinuityTransitionOp::RecordDissolutionDomainOutcome
+            | ContinuityTransitionOp::CompleteDissolution => status == "dissolving",
         };
         let mut blockers = Vec::new();
         if !status_admitted {
@@ -2051,7 +2257,9 @@ pub(crate) async fn handle_get_transition(
                 "reissued_authority":op==ContinuityTransitionOp::CompleteSuccession,
                 "verified_migration_root":op==ContinuityTransitionOp::Migrate,
                 "residual_disposition":matches!(op,ContinuityTransitionOp::CompleteDissolution|ContinuityTransitionOp::ExitLocalEnrollment),
-                "local_enrollment_body":matches!(op,ContinuityTransitionOp::EnrollLocal|ContinuityTransitionOp::ExitLocalEnrollment)
+                "local_enrollment_body":matches!(op,ContinuityTransitionOp::EnrollLocal|ContinuityTransitionOp::ExitLocalEnrollment),
+                "dissolution_disposition_record":op==ContinuityTransitionOp::OpenDissolutionDisposition,
+                "dissolution_domain_outcome":op==ContinuityTransitionOp::RecordDissolutionDomainOutcome
             },
             "chain_head":source.base.chain_head,
             "operation_log_head":source.base.operation_log["head_entry"],
@@ -2101,6 +2309,11 @@ fn migration_ack_source_at_plan(
             )
         })?;
     let current_enrollment = load_current_enrollment(data_dir, &chain_head, &previous_step.state)?;
+    let current_dissolution_disposition = load_current_dissolution_disposition(
+        data_dir,
+        &previous_step.state,
+        &previous_step.transition,
+    )?;
     Ok(ContinuitySource {
         base: ProtectedTransitionSource {
             activation_effect,
@@ -2111,6 +2324,7 @@ fn migration_ack_source_at_plan(
         lifecycle_profile,
         constitution_ref: required(&chain_head, "/constitution_ref")?,
         current_enrollment,
+        current_dissolution_disposition,
     })
 }
 
@@ -2327,6 +2541,11 @@ fn source_at_plan(
             )
         })?;
     let current_enrollment = load_current_enrollment(data_dir, &chain_head, &previous_step.state)?;
+    let current_dissolution_disposition = load_current_dissolution_disposition(
+        data_dir,
+        &previous_step.state,
+        &previous_step.transition,
+    )?;
     Ok(ContinuitySource {
         base: ProtectedTransitionSource {
             activation_effect,
@@ -2337,6 +2556,7 @@ fn source_at_plan(
         lifecycle_profile,
         constitution_ref: required(&plan.authority_effect, "/constitution_ref")?,
         current_enrollment,
+        current_dissolution_disposition,
     })
 }
 
@@ -2662,6 +2882,7 @@ mod tests {
         ContinuitySource {
             constitution_ref: required_string(&chain, "/constitution_ref").unwrap().into(),
             current_enrollment: None,
+            current_dissolution_disposition: None,
             lifecycle_profile,
             base: ProtectedTransitionSource {
                 activation_effect,
@@ -2710,6 +2931,203 @@ mod tests {
         assert_eq!(
             AUTHORITY.operation_scope(MIGRATION_ACK_OP),
             MIGRATION_ACK_SCOPE
+        );
+    }
+
+    #[test]
+    fn dissolution_ladder_artifacts_validate_every_registered_envelope() {
+        // The full disposition ladder at unit speed: every committed-graph
+        // artifact (proposal body, transition envelope, receipt, state,
+        // operation log, chain, dissolution receipt) is validated inside
+        // build_continuity_artifacts against the registered contracts, so
+        // any schema-versus-implementation drift fails HERE in milliseconds
+        // instead of an hour into the live journey.
+        let mut source = source();
+        let system_id = required(&source.base.chain_head, "/system_id").expect("system id");
+        let auth = authority();
+        let timestamp = "2026-07-26T00:00:00Z";
+
+        let step = |source: &ContinuitySource,
+                    op: ContinuityTransitionOp,
+                    declaration: &ContinuityTransitionDeclaration,
+                    record: Option<&Value>|
+         -> ProtectedStepArtifacts {
+            let plan = compile_from_source(op, source, declaration, None, None)
+                .unwrap_or_else(|error| panic!("{} plan: {error:?}", op.as_str()));
+            // The trusted record rides the source; re-inject for ops that
+            // consume it since compile_from_source reads the source copy.
+            let _ = record;
+            let artifacts = build_continuity_artifacts(&plan, source, &auth, timestamp)
+                .unwrap_or_else(|error| panic!("{} artifacts: {error:?}", op.as_str()));
+            artifacts
+        };
+        let advance = |source: &mut ContinuitySource, artifacts: &ProtectedStepArtifacts| {
+            source.base.previous_step = artifacts.step.clone();
+            source.base.operation_log = artifacts.operation_log.clone();
+            source.base.chain_head = artifacts.chain.clone();
+        };
+
+        let mut declaration = ContinuityTransitionDeclaration {
+            trigger_evidence_refs: vec!["evidence://acme/dissolution/trigger".into()],
+            successor_candidate_ref: None,
+            successor_authority_ref: None,
+            migration_destination_ack_ref: None,
+            migration_destination_ack_root: None,
+            residual_disposition_receipt_refs: vec![],
+            live_effect_refs: vec![],
+            network_enrollment: None,
+            dissolution_disposition: None,
+            dissolution_domain_outcome: None,
+        };
+        let initiate = step(
+            &source,
+            ContinuityTransitionOp::InitiateDissolution,
+            &declaration,
+            None,
+        );
+        advance(&mut source, &initiate);
+
+        // The record binds the exact initiate transition and the active
+        // profile; the fixture profile declares no asset contracts, so the
+        // assets domain waives against the profile null declaration.
+        let profile_root = jcs_hash(&json!({
+            "domain": "ioi.lifecycle-continuity-profile-artifact-jcs-sha256.v1",
+            "artifact": source.lifecycle_profile,
+        }))
+        .expect("profile root");
+        let initiate_ref = required(&initiate.step.state, "/transition_ref").expect("initiate ref");
+        let initiate_root = initiate.step.transition_root.clone();
+        let root_tail = initiate_root.strip_prefix("sha256:").expect("root tail");
+        let domain_entry = |policy: &str| json!({"policy_ref": policy, "state": "pending", "evidence_refs": [], "receipt_refs": []});
+        let policies = [
+            ("active_work", "policy://acme/lifecycle/work-disposition"),
+            (
+                "outstanding_obligations",
+                "policy://acme/lifecycle/obligations",
+            ),
+            (
+                "authority_revocation",
+                "policy://acme/lifecycle/revoke-authority",
+            ),
+            (
+                "worker_and_node_shutdown",
+                "policy://acme/lifecycle/shutdown",
+            ),
+            (
+                "data_export_retention_and_erasure",
+                "policy://acme/lifecycle/data-disposition",
+            ),
+            ("network_exit", "policy://acme/lifecycle/network-exit"),
+            ("tombstone", "policy://acme/lifecycle/tombstone"),
+        ];
+        let mut outcome_domains = serde_json::Map::new();
+        for (domain, policy) in policies {
+            outcome_domains.insert(domain.to_owned(), domain_entry(policy));
+        }
+        outcome_domains.insert(
+            "assets".to_owned(),
+            json!({"policy_ref": "policy://profile-null-declaration",
+                "state": "waived_under_policy", "evidence_refs": [], "receipt_refs": []}),
+        );
+        let namespace_tail = system_id.strip_prefix("system://").expect("namespace");
+        let record = json!({
+            "schema_version": "ioi.autonomous-system-dissolution-disposition.v1",
+            "dissolution_disposition_id":
+                format!("dissolution-disposition://{namespace_tail}/initiate/{root_tail}"),
+            "system_id": system_id,
+            "lifecycle_profile_ref": source.lifecycle_profile["lifecycle_profile_id"],
+            "lifecycle_profile_root": profile_root,
+            "initiate_transition_ref": initiate_ref,
+            "initiate_transition_root": initiate_root,
+            "outcome_domains": Value::Object(outcome_domains),
+            "escalation_decision_refs": [],
+            "complete_transition_ref": Value::Null,
+            "status": "open",
+            "created_at": "2026-07-26T00:00:00Z",
+        });
+        declaration.trigger_evidence_refs = vec![];
+        declaration.dissolution_disposition = Some(record);
+        let opened = step(
+            &source,
+            ContinuityTransitionOp::OpenDissolutionDisposition,
+            &declaration,
+            None,
+        );
+        advance(&mut source, &opened);
+        declaration.dissolution_disposition = None;
+        // The opened record is the proposal body of the committed open step.
+        source.current_dissolution_disposition = Some(
+            opened
+                .step
+                .proposal
+                .get("proposal_body")
+                .cloned()
+                .expect("opened record body"),
+        );
+
+        for (domain, policy) in policies {
+            let mut d = declaration.clone();
+            d.dissolution_domain_outcome = Some(json!({
+                "domain": domain,
+                "state": "completed",
+                "policy_ref": policy,
+                "evidence_refs": [format!("evidence://dissolution/{domain}")],
+                "receipt_refs": [format!("receipt://dissolution/{domain}")],
+            }));
+            let recorded = step(
+                &source,
+                ContinuityTransitionOp::RecordDissolutionDomainOutcome,
+                &d,
+                None,
+            );
+            let updated = compile_from_source(
+                ContinuityTransitionOp::RecordDissolutionDomainOutcome,
+                &source,
+                &d,
+                None,
+                None,
+            )
+            .expect("record plan")
+            .dissolution_disposition
+            .expect("updated record");
+            advance(&mut source, &recorded);
+            source.current_dissolution_disposition = Some(updated);
+        }
+        assert_eq!(
+            source
+                .current_dissolution_disposition
+                .as_ref()
+                .and_then(|record| record.get("status"))
+                .and_then(Value::as_str),
+            Some("terminal_complete"),
+        );
+
+        let complete_plan = compile_from_source(
+            ContinuityTransitionOp::CompleteDissolution,
+            &source,
+            &declaration,
+            None,
+            None,
+        )
+        .expect("complete plan");
+        let completed = build_continuity_artifacts(&complete_plan, &source, &auth, timestamp)
+            .expect("complete artifacts");
+        assert_eq!(
+            completed
+                .step
+                .transition
+                .get("disposition_receipt_refs")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(7),
+        );
+        let (dissolution_receipt, _tail) =
+            build_dissolution_receipt(&complete_plan, &completed).expect("dissolution receipt");
+        assert_eq!(
+            dissolution_receipt
+                .get("assurance_posture")
+                .and_then(Value::as_str),
+            Some("dissolution_committed"),
         );
     }
 
@@ -2796,6 +3214,8 @@ mod tests {
             residual_disposition_receipt_refs: vec![],
             live_effect_refs: vec![],
             network_enrollment: None,
+            dissolution_disposition: None,
+            dissolution_domain_outcome: None,
         };
         let plan = compile_from_source(
             ContinuityTransitionOp::InitiateSuccession,
@@ -2825,6 +3245,7 @@ mod tests {
             lifecycle_profile: source.lifecycle_profile.clone(),
             constitution_ref: source.constitution_ref.clone(),
             current_enrollment: None,
+            current_dissolution_disposition: None,
         };
         successor_source.lifecycle_profile["succession"]["successor_candidate_refs"]
             .as_array_mut()
@@ -2839,6 +3260,8 @@ mod tests {
             residual_disposition_receipt_refs: vec![],
             live_effect_refs: vec![],
             network_enrollment: None,
+            dissolution_disposition: None,
+            dissolution_domain_outcome: None,
         };
         assert!(compile_from_source(
             ContinuityTransitionOp::CompleteSuccession,

@@ -217,11 +217,11 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1",
-        "sha256:a0ae601ec1c69c0e6b2717d1b776ec31cf98485bc74b95b3d57b88fdf306a0e8",
+        "sha256:7b89ff46bb3a8b37bea7e69281f86f9898ad66f6bee655ddc0f826e7fc30efad",
     ),
     (
         "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1",
-        "sha256:e0d60d363cab0d338cdc87058ba927a299cdd1bd240141ca326149b61678674c",
+        "sha256:720dc8327e315fe4c1d56470fdde3dd5103691f93a3d773182f2ffe5cb8db1ba",
     ),
     (
         "schema://ioi/foundations/autonomous-system-amendment-transition/v1",
@@ -241,11 +241,23 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-continuity-state/v1",
-        "sha256:ddae020709d8d73124c561a94812c2d8d3c3e12053d8ddee5c1fad0b4fe82d67",
+        "sha256:27a8e83f3f477e790c068fb817da51e41a9aa88aa2920ced929c199c74861374",
     ),
     (
         "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
         "sha256:6a8401ac0ea076022e78b2103109842fac414269ab56a0fe39159f048491db4d",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+        "sha256:6cd4afd940b5d7157144516ae9aeecad1c41159e7a1ee4d18ed9d2b151396f5b",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+        "sha256:64fc7bceebf6e18119387f16940b0cf4e68c2b8a1a5d6caed6b1a76502607513",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+        "sha256:7e303b8ded639767da86d7daf1941b05ea800a3f43ad22e5881a6986281cbecf",
     ),
 ];
 
@@ -28204,7 +28216,7 @@ impl<'de> serde::Deserialize<'de> for AutonomousSystemChainWriterReservationV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","title":"AutonomousSystemChainWriterReservation","description":"Expected-absent predecessor ownership reserved before wallet consumption so only one independent writer can materialize the next chain revision.","x-ioi-schema-version":"ioi.autonomous-system-chain-writer-reservation.v1","type":"object","additionalProperties":false,"required":["schema_version","reservation_ref","system_id","sequence","predecessor_chain_root","writer_plan_hash","operation_ref","operation_root","operation"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-writer-reservation.v1"},"reservation_ref":{"type":"string","pattern":"^chain-writer-reservation://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"writer_plan_hash":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","complete_dissolution","enroll_local","exit_local_enrollment"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","title":"AutonomousSystemChainWriterReservation","description":"Expected-absent predecessor ownership reserved before wallet consumption so only one independent writer can materialize the next chain revision.","x-ioi-schema-version":"ioi.autonomous-system-chain-writer-reservation.v1","type":"object","additionalProperties":false,"required":["schema_version","reservation_ref","system_id","sequence","predecessor_chain_root","writer_plan_hash","operation_ref","operation_root","operation"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-writer-reservation.v1"},"reservation_ref":{"type":"string","pattern":"^chain-writer-reservation://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"writer_plan_hash":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","open_dissolution_disposition","record_dissolution_domain_outcome","complete_dissolution","enroll_local","exit_local_enrollment"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -28319,6 +28331,10 @@ pub enum AutonomousSystemChainWriterReservationV1Operation {
     Migrate,
     #[serde(rename = r#"initiate_dissolution"#)]
     InitiateDissolution,
+    #[serde(rename = r#"open_dissolution_disposition"#)]
+    OpenDissolutionDisposition,
+    #[serde(rename = r#"record_dissolution_domain_outcome"#)]
+    RecordDissolutionDomainOutcome,
     #[serde(rename = r#"complete_dissolution"#)]
     CompleteDissolution,
     #[serde(rename = r#"enroll_local"#)]
@@ -28349,7 +28365,7 @@ impl<'de> serde::Deserialize<'de> for AutonomousSystemChainSuccessorClaimV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1","title":"AutonomousSystemChainSuccessorClaim","x-ioi-schema-version":"ioi.autonomous-system-chain-successor-claim.v1","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","system_id","sequence","predecessor_chain_root","successor_chain_root","operation_ref","operation_root","operation","committed_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-successor-claim.v1"},"claim_ref":{"type":"string","pattern":"^chain-successor-claim://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"successor_chain_root":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"type":"string","enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","complete_dissolution","enroll_local","exit_local_enrollment"]},"committed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1","title":"AutonomousSystemChainSuccessorClaim","x-ioi-schema-version":"ioi.autonomous-system-chain-successor-claim.v1","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","system_id","sequence","predecessor_chain_root","successor_chain_root","operation_ref","operation_root","operation","committed_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-successor-claim.v1"},"claim_ref":{"type":"string","pattern":"^chain-successor-claim://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"successor_chain_root":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"type":"string","enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","open_dissolution_disposition","record_dissolution_domain_outcome","complete_dissolution","enroll_local","exit_local_enrollment"]},"committed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -28470,6 +28486,10 @@ pub enum AutonomousSystemChainSuccessorClaimV1Operation {
     Migrate,
     #[serde(rename = r#"initiate_dissolution"#)]
     InitiateDissolution,
+    #[serde(rename = r#"open_dissolution_disposition"#)]
+    OpenDissolutionDisposition,
+    #[serde(rename = r#"record_dissolution_domain_outcome"#)]
+    RecordDissolutionDomainOutcome,
     #[serde(rename = r#"complete_dissolution"#)]
     CompleteDissolution,
     #[serde(rename = r#"enroll_local"#)]
@@ -30598,7 +30618,7 @@ impl<'de> serde::Deserialize<'de> for AutonomousSystemContinuityStateV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/foundations/autonomous-system-continuity-state/v1"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-continuity-state/v1","title":"AutonomousSystemContinuityState","description":"Committed state for named succession, migration, dissolution, and local-enrollment transitions.","x-ioi-schema-version":"ioi.autonomous-system-continuity-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","governing_authority_ref","pending_successor_candidate_ref","network_enrollment_ref","network_enrollment_root","migration_destination_ref","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"$ref":"#/$defs/hash"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","succession_pending","successor_governed","dissolution_pending","dissolved"]},"predecessor_state_root":{"$ref":"#/$defs/hash"},"transition_ref":{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},"transition_root":{"$ref":"#/$defs/hash"},"transition_receipt_ref":{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},"transition_receipt_root":{"$ref":"#/$defs/hash"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"governing_authority_ref":{"type":"string","pattern":"^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$"},"pending_successor_candidate_ref":{"oneOf":[{"type":"string","pattern":"^(?:principal|wallet|organization|org)://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_ref":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_root":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"migration_destination_ref":{"oneOf":[{"type":"string","pattern":"^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$"},{"type":"null"}]},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"status":{"const":"succession_pending"}}},"then":{"properties":{"pending_successor_candidate_ref":{"type":"string"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"null"}}},"then":{"properties":{"network_enrollment_root":{"type":"null"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"string"}}},"then":{"properties":{"network_enrollment_root":{"$ref":"#/$defs/hash"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-continuity-state/v1","title":"AutonomousSystemContinuityState","description":"Committed state for named succession, migration, dissolution, and local-enrollment transitions.","x-ioi-schema-version":"ioi.autonomous-system-continuity-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","governing_authority_ref","pending_successor_candidate_ref","network_enrollment_ref","network_enrollment_root","migration_destination_ref","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"$ref":"#/$defs/hash"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","succession_pending","successor_governed","dissolution_pending","dissolving","dissolved"]},"predecessor_state_root":{"$ref":"#/$defs/hash"},"transition_ref":{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},"transition_root":{"$ref":"#/$defs/hash"},"transition_receipt_ref":{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},"transition_receipt_root":{"$ref":"#/$defs/hash"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"governing_authority_ref":{"type":"string","pattern":"^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$"},"pending_successor_candidate_ref":{"oneOf":[{"type":"string","pattern":"^(?:principal|wallet|organization|org)://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_ref":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_root":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"migration_destination_ref":{"oneOf":[{"type":"string","pattern":"^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$"},{"type":"null"}]},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"status":{"const":"succession_pending"}}},"then":{"properties":{"pending_successor_candidate_ref":{"type":"string"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"null"}}},"then":{"properties":{"network_enrollment_root":{"type":"null"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"string"}}},"then":{"properties":{"network_enrollment_root":{"$ref":"#/$defs/hash"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -30752,6 +30772,8 @@ pub enum AutonomousSystemContinuityStateV1Status {
     SuccessorGoverned,
     #[serde(rename = r#"dissolution_pending"#)]
     DissolutionPending,
+    #[serde(rename = r#"dissolving"#)]
+    Dissolving,
     #[serde(rename = r#"dissolved"#)]
     Dissolved,
 }
@@ -31434,6 +31456,2278 @@ impl<'de> serde::Deserialize<'de>
 pub enum AutonomousSystemNetworkEnrollmentTransitionV1Status {
     #[serde(rename = r#"committed"#)]
     Committed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionV1 {
+    pub schema_version: AutonomousSystemDissolutionDispositionV1SchemaVersion,
+    pub dissolution_disposition_id: String,
+    pub system_id: String,
+    pub lifecycle_profile_ref: String,
+    pub lifecycle_profile_root: String,
+    pub initiate_transition_ref: String,
+    pub initiate_transition_root: String,
+    pub outcome_domains: AutonomousSystemDissolutionDispositionV1OutcomeDomains,
+    pub escalation_decision_refs: Vec<String>,
+    pub complete_transition_ref: Option<String>,
+    pub status: AutonomousSystemDissolutionDispositionV1Status,
+    pub created_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDissolutionDispositionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1","title":"AutonomousSystemDissolutionDisposition","description":"The named owner of dissolution residue: one record per dissolution binding every residual-disposition duty of the active continuity profile to a typed, evidenced, receipted outcome on one exact initiate_dissolution transition.","x-ioi-schema-version":"ioi.autonomous-system-dissolution-disposition.v1","type":"object","additionalProperties":false,"required":["schema_version","dissolution_disposition_id","system_id","lifecycle_profile_ref","lifecycle_profile_root","initiate_transition_ref","initiate_transition_root","outcome_domains","escalation_decision_refs","complete_transition_ref","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-dissolution-disposition.v1"},"dissolution_disposition_id":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"lifecycle_profile_root":{"$ref":"#/$defs/hash"},"initiate_transition_ref":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"initiate_transition_root":{"$ref":"#/$defs/hash"},"outcome_domains":{"type":"object","additionalProperties":false,"required":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"],"properties":{"active_work":{"$ref":"#/$defs/domainOutcome"},"assets":{"$ref":"#/$defs/domainOutcome"},"outstanding_obligations":{"$ref":"#/$defs/domainOutcome"},"authority_revocation":{"$ref":"#/$defs/domainOutcome"},"worker_and_node_shutdown":{"$ref":"#/$defs/domainOutcome"},"data_export_retention_and_erasure":{"$ref":"#/$defs/domainOutcome"},"network_exit":{"$ref":"#/$defs/domainOutcome"},"tombstone":{"$ref":"#/$defs/domainOutcome"}}},"escalation_decision_refs":{"type":"array","maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"}},"complete_transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["open","terminal_complete","terminal_with_escalations","superseded"]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"status":{"const":"open"}}},"then":{"properties":{"complete_transition_ref":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"terminal_complete"}}},"then":{"properties":{"complete_transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},{"type":"null"}]},"outcome_domains":{"type":"object","properties":{"active_work":{"$ref":"#/$defs/settledOutcome"},"assets":{"$ref":"#/$defs/settledOutcome"},"outstanding_obligations":{"$ref":"#/$defs/settledOutcome"},"authority_revocation":{"$ref":"#/$defs/settledOutcome"},"worker_and_node_shutdown":{"$ref":"#/$defs/settledOutcome"},"data_export_retention_and_erasure":{"$ref":"#/$defs/settledOutcome"},"network_exit":{"$ref":"#/$defs/settledOutcome"},"tombstone":{"$ref":"#/$defs/settledOutcome"}}}}}},{"if":{"properties":{"status":{"const":"terminal_with_escalations"}}},"then":{"properties":{"complete_transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},{"type":"null"}]},"outcome_domains":{"type":"object","properties":{"active_work":{"$ref":"#/$defs/terminalOutcome"},"assets":{"$ref":"#/$defs/terminalOutcome"},"outstanding_obligations":{"$ref":"#/$defs/terminalOutcome"},"authority_revocation":{"$ref":"#/$defs/terminalOutcome"},"worker_and_node_shutdown":{"$ref":"#/$defs/terminalOutcome"},"data_export_retention_and_erasure":{"$ref":"#/$defs/terminalOutcome"},"network_exit":{"$ref":"#/$defs/terminalOutcome"},"tombstone":{"$ref":"#/$defs/terminalOutcome"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"domainOutcome":{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}},"settledOutcome":{"type":"object","properties":{"state":{"enum":["completed","waived_under_policy"]}}},"terminalOutcome":{"type":"object","properties":{"state":{"enum":["completed","waived_under_policy","escalated"]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dissolution_disposition_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dissolution_disposition_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"dissolution_disposition_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_profile_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_profile_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_profile_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initiate_transition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"initiate_transition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"initiate_transition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initiate_transition_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"initiate_transition_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"initiate_transition_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_domains: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomains,
+            >(
+                object
+                    .remove(r#"outcome_domains"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_domains"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            escalation_decision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"escalation_decision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"escalation_decision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            complete_transition_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"complete_transition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"complete_transition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemDissolutionDispositionV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-dissolution-disposition.v1"#)]
+    IoiAutonomousSystemDissolutionDispositionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionV1OutcomeDomains {
+    pub active_work: AutonomousSystemDissolutionDispositionV1OutcomeDomainsActiveWork,
+    pub assets: AutonomousSystemDissolutionDispositionV1OutcomeDomainsAssets,
+    pub outstanding_obligations:
+        AutonomousSystemDissolutionDispositionV1OutcomeDomainsOutstandingObligations,
+    pub authority_revocation:
+        AutonomousSystemDissolutionDispositionV1OutcomeDomainsAuthorityRevocation,
+    pub worker_and_node_shutdown:
+        AutonomousSystemDissolutionDispositionV1OutcomeDomainsWorkerAndNodeShutdown,
+    pub data_export_retention_and_erasure:
+        AutonomousSystemDissolutionDispositionV1OutcomeDomainsDataExportRetentionAndErasure,
+    pub network_exit: AutonomousSystemDissolutionDispositionV1OutcomeDomainsNetworkExit,
+    pub tombstone: AutonomousSystemDissolutionDispositionV1OutcomeDomainsTombstone,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDissolutionDispositionV1OutcomeDomains {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"],"properties":{"active_work":{"$ref":"#/$defs/domainOutcome"},"assets":{"$ref":"#/$defs/domainOutcome"},"outstanding_obligations":{"$ref":"#/$defs/domainOutcome"},"authority_revocation":{"$ref":"#/$defs/domainOutcome"},"worker_and_node_shutdown":{"$ref":"#/$defs/domainOutcome"},"data_export_retention_and_erasure":{"$ref":"#/$defs/domainOutcome"},"network_exit":{"$ref":"#/$defs/domainOutcome"},"tombstone":{"$ref":"#/$defs/domainOutcome"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            active_work: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsActiveWork,
+            >(
+                object
+                    .remove(r#"active_work"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_work"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assets: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsAssets,
+            >(
+                object
+                    .remove(r#"assets"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assets"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outstanding_obligations: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsOutstandingObligations,
+            >(
+                object
+                    .remove(r#"outstanding_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outstanding_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_revocation: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsAuthorityRevocation,
+            >(
+                object
+                    .remove(r#"authority_revocation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_revocation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_and_node_shutdown: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsWorkerAndNodeShutdown,
+            >(
+                object
+                    .remove(r#"worker_and_node_shutdown"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"worker_and_node_shutdown"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_export_retention_and_erasure: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsDataExportRetentionAndErasure,
+            >(
+                object
+                    .remove(r#"data_export_retention_and_erasure"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"data_export_retention_and_erasure"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_exit: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsNetworkExit,
+            >(
+                object
+                    .remove(r#"network_exit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_exit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tombstone: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsTombstone,
+            >(
+                object
+                    .remove(r#"tombstone"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tombstone"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionV1OutcomeDomainsActiveWork {
+    pub policy_ref: String,
+    pub state: AutonomousSystemDissolutionDispositionV1OutcomeDomainsActiveWorkState,
+    pub evidence_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionDispositionV1OutcomeDomainsActiveWork
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsActiveWorkState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionV1OutcomeDomainsActiveWorkState {
+    #[serde(rename = r#"pending"#)]
+    Pending,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionV1OutcomeDomainsAssets {
+    pub policy_ref: String,
+    pub state: AutonomousSystemDissolutionDispositionV1OutcomeDomainsAssetsState,
+    pub evidence_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDissolutionDispositionV1OutcomeDomainsAssets {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsAssetsState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionV1OutcomeDomainsAssetsState {
+    #[serde(rename = r#"pending"#)]
+    Pending,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionV1OutcomeDomainsOutstandingObligations {
+    pub policy_ref: String,
+    pub state: AutonomousSystemDissolutionDispositionV1OutcomeDomainsOutstandingObligationsState,
+    pub evidence_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionDispositionV1OutcomeDomainsOutstandingObligations
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsOutstandingObligationsState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionV1OutcomeDomainsOutstandingObligationsState {
+    #[serde(rename = r#"pending"#)]
+    Pending,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionV1OutcomeDomainsAuthorityRevocation {
+    pub policy_ref: String,
+    pub state: AutonomousSystemDissolutionDispositionV1OutcomeDomainsAuthorityRevocationState,
+    pub evidence_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionDispositionV1OutcomeDomainsAuthorityRevocation
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsAuthorityRevocationState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionV1OutcomeDomainsAuthorityRevocationState {
+    #[serde(rename = r#"pending"#)]
+    Pending,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionV1OutcomeDomainsWorkerAndNodeShutdown {
+    pub policy_ref: String,
+    pub state: AutonomousSystemDissolutionDispositionV1OutcomeDomainsWorkerAndNodeShutdownState,
+    pub evidence_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionDispositionV1OutcomeDomainsWorkerAndNodeShutdown
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsWorkerAndNodeShutdownState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionV1OutcomeDomainsWorkerAndNodeShutdownState {
+    #[serde(rename = r#"pending"#)]
+    Pending,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionV1OutcomeDomainsDataExportRetentionAndErasure {
+    pub policy_ref: String,
+    pub state:
+        AutonomousSystemDissolutionDispositionV1OutcomeDomainsDataExportRetentionAndErasureState,
+    pub evidence_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionDispositionV1OutcomeDomainsDataExportRetentionAndErasure
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<AutonomousSystemDissolutionDispositionV1OutcomeDomainsDataExportRetentionAndErasureState>(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionV1OutcomeDomainsDataExportRetentionAndErasureState {
+    #[serde(rename = r#"pending"#)]
+    Pending,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionV1OutcomeDomainsNetworkExit {
+    pub policy_ref: String,
+    pub state: AutonomousSystemDissolutionDispositionV1OutcomeDomainsNetworkExitState,
+    pub evidence_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionDispositionV1OutcomeDomainsNetworkExit
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsNetworkExitState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionV1OutcomeDomainsNetworkExitState {
+    #[serde(rename = r#"pending"#)]
+    Pending,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionV1OutcomeDomainsTombstone {
+    pub policy_ref: String,
+    pub state: AutonomousSystemDissolutionDispositionV1OutcomeDomainsTombstoneState,
+    pub evidence_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionDispositionV1OutcomeDomainsTombstone
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionV1OutcomeDomainsTombstoneState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionV1OutcomeDomainsTombstoneState {
+    #[serde(rename = r#"pending"#)]
+    Pending,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionV1Status {
+    #[serde(rename = r#"open"#)]
+    Open,
+    #[serde(rename = r#"terminal_complete"#)]
+    TerminalComplete,
+    #[serde(rename = r#"terminal_with_escalations"#)]
+    TerminalWithEscalations,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionTransitionV1 {
+    pub schema_version: AutonomousSystemDissolutionDispositionTransitionV1SchemaVersion,
+    pub lifecycle_transition_id: String,
+    pub system_id: String,
+    pub op: AutonomousSystemDissolutionDispositionTransitionV1Op,
+    pub sequence: ArchitectureContractInteger,
+    pub proposal_ref: String,
+    pub proposal_root: String,
+    pub decision_ref: String,
+    pub decision_root: String,
+    pub predecessor_state_root: String,
+    pub resulting_state_root: String,
+    pub dissolution_disposition_ref: String,
+    pub predecessor_disposition_root: Option<String>,
+    pub resulting_disposition_root: String,
+    pub recorded_domain: Option<AutonomousSystemDissolutionDispositionTransitionV1RecordedDomain>,
+    pub operation_commitment: String,
+    pub authority_effect_material:
+        AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterial,
+    pub authority_grant_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub status: AutonomousSystemDissolutionDispositionTransitionV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDissolutionDispositionTransitionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1","title":"AutonomousSystemDissolutionDispositionTransition","description":"Committed compare-and-swap transition that opens the dissolution-disposition record or records exactly one named domain outcome on it.","x-ioi-schema-version":"ioi.autonomous-system-dissolution-disposition-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_transition_id","system_id","op","sequence","proposal_ref","proposal_root","decision_ref","decision_root","predecessor_state_root","resulting_state_root","dissolution_disposition_ref","predecessor_disposition_root","resulting_disposition_root","recorded_domain","operation_commitment","authority_effect_material","authority_grant_refs","receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-dissolution-disposition-transition.v1"},"lifecycle_transition_id":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"op":{"enum":["open_dissolution_disposition","record_dissolution_domain_outcome"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"decision_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/hash"},"dissolution_disposition_ref":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"predecessor_disposition_root":{"$ref":"#/$defs/nullableHash"},"resulting_disposition_root":{"$ref":"#/$defs/hash"},"recorded_domain":{"$ref":"#/$defs/nullableDomain"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","transition_kind","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","resulting_governing_authority_ref","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","constitution_ref","lifecycle_profile_ref","active_profile_set_ref","active_profile_set_root","chain_ref","current_network_enrollment_ref","current_network_enrollment_root","resulting_network_enrollment_ref","resulting_network_enrollment_root","trigger_evidence_refs","successor_candidate_ref","successor_authority_ref","successor_authority_binding","migration_destination_ack_ref","migration_destination_ack_root","migration_destination_ref","verified_migration_state_root","residual_disposition","live_effect_refs","identity_preserved","authority_widened","network_assurance_admitted","runtime_effect_admitted","operation_commitment","dissolution_disposition_ref","predecessor_disposition_root","resulting_disposition_root","recorded_dissolution_domain"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-authority-effect.v1"},"op":{"enum":["open_dissolution_disposition","record_dissolution_domain_outcome"]},"transition_kind":{"type":"null"},"required_scope":{"enum":["scope:autonomous_system.continuity.open_dissolution_disposition","scope:autonomous_system.continuity.record_dissolution_domain_outcome"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"resulting_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_status":{"enum":["dissolution_pending","dissolving"]},"predecessor_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"resulting_status":{"const":"dissolving"},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"resulting_state_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"current_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"current_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"trigger_evidence_refs":{"type":"array","maxItems":0},"successor_candidate_ref":{"type":"null"},"successor_authority_ref":{"type":"null"},"successor_authority_binding":{"type":"null"},"migration_destination_ack_ref":{"type":"null"},"migration_destination_ack_root":{"type":"null"},"migration_destination_ref":{"type":"null"},"verified_migration_state_root":{"type":"null"},"residual_disposition":{"type":"null"},"live_effect_refs":{"type":"array","maxItems":0},"identity_preserved":{"const":true},"authority_widened":{"const":false},"network_assurance_admitted":{"const":false},"runtime_effect_admitted":{"const":false},"operation_commitment":{"type":"null"},"dissolution_disposition_ref":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"predecessor_disposition_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_disposition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"recorded_dissolution_domain":{"oneOf":[{"enum":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"]},{"type":"null"}]}}},"authority_grant_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}},"status":{"const":"committed"}},"allOf":[{"if":{"properties":{"op":{"const":"open_dissolution_disposition"}}},"then":{"properties":{"predecessor_disposition_root":{"type":"null"},"recorded_domain":{"type":"null"},"authority_effect_material":{"type":"object","properties":{"predecessor_status":{"const":"dissolution_pending"}}}}}},{"if":{"properties":{"op":{"const":"record_dissolution_domain_outcome"}}},"then":{"properties":{"predecessor_disposition_root":{"$ref":"#/$defs/hash"},"recorded_domain":{"$ref":"#/$defs/domain"},"authority_effect_material":{"type":"object","properties":{"predecessor_status":{"const":"dissolving"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"nullableEnrollment":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"domain":{"enum":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"]},"nullableDomain":{"oneOf":[{"$ref":"#/$defs/domain"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionTransitionV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_transition_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_transition_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_transition_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1Op>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposal_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dissolution_disposition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dissolution_disposition_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"dissolution_disposition_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_disposition_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_disposition_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_disposition_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_disposition_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_disposition_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resulting_disposition_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recorded_domain: serde_json::from_value::<
+                Option<AutonomousSystemDissolutionDispositionTransitionV1RecordedDomain>,
+            >(
+                object
+                    .remove(r#"recorded_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recorded_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_effect_material: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterial,
+            >(
+                object
+                    .remove(r#"authority_effect_material"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_effect_material"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<
+                AutonomousSystemDissolutionDispositionTransitionV1Status,
+            >(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-dissolution-disposition-transition.v1"#)]
+    IoiAutonomousSystemDissolutionDispositionTransitionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1Op {
+    #[serde(rename = r#"open_dissolution_disposition"#)]
+    OpenDissolutionDisposition,
+    #[serde(rename = r#"record_dissolution_domain_outcome"#)]
+    RecordDissolutionDomainOutcome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1RecordedDomain {
+    #[serde(rename = r#"active_work"#)]
+    ActiveWork,
+    #[serde(rename = r#"assets"#)]
+    Assets,
+    #[serde(rename = r#"outstanding_obligations"#)]
+    OutstandingObligations,
+    #[serde(rename = r#"authority_revocation"#)]
+    AuthorityRevocation,
+    #[serde(rename = r#"worker_and_node_shutdown"#)]
+    WorkerAndNodeShutdown,
+    #[serde(rename = r#"data_export_retention_and_erasure"#)]
+    DataExportRetentionAndErasure,
+    #[serde(rename = r#"network_exit"#)]
+    NetworkExit,
+    #[serde(rename = r#"tombstone"#)]
+    Tombstone,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterial {
+    pub schema_version: AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialSchemaVersion,
+    pub op: AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialOp,
+    pub transition_kind: (),
+    pub required_scope: AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRequiredScope,
+    pub sequence: ArchitectureContractInteger,
+    pub system_id: String,
+    pub genesis_ref: String,
+    pub source_governing_authority_ref: String,
+    pub resulting_governing_authority_ref: String,
+    pub predecessor_status: AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialPredecessorStatus,
+    pub predecessor_state_ref: String,
+    pub predecessor_state_root: String,
+    pub predecessor_chain_head_root: String,
+    pub resulting_status: AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialResultingStatus,
+    pub resulting_state_ref: String,
+    pub resulting_state_root: String,
+    pub constitution_ref: String,
+    pub lifecycle_profile_ref: String,
+    pub active_profile_set_ref: String,
+    pub active_profile_set_root: String,
+    pub chain_ref: String,
+    pub current_network_enrollment_ref: Option<String>,
+    pub current_network_enrollment_root: Option<String>,
+    pub resulting_network_enrollment_ref: Option<String>,
+    pub resulting_network_enrollment_root: Option<String>,
+    pub trigger_evidence_refs: Vec<serde_json::Value>,
+    pub successor_candidate_ref: (),
+    pub successor_authority_ref: (),
+    pub successor_authority_binding: (),
+    pub migration_destination_ack_ref: (),
+    pub migration_destination_ack_root: (),
+    pub migration_destination_ref: (),
+    pub verified_migration_state_root: (),
+    pub residual_disposition: (),
+    pub live_effect_refs: Vec<serde_json::Value>,
+    pub identity_preserved: AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialIdentityPreserved,
+    pub authority_widened: AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialAuthorityWidened,
+    pub network_assurance_admitted: AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialNetworkAssuranceAdmitted,
+    pub runtime_effect_admitted: AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRuntimeEffectAdmitted,
+    pub operation_commitment: (),
+    pub dissolution_disposition_ref: String,
+    pub predecessor_disposition_root: Option<String>,
+    pub resulting_disposition_root: String,
+    pub recorded_dissolution_domain: Option<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRecordedDissolutionDomain>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterial
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","op","transition_kind","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","resulting_governing_authority_ref","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","constitution_ref","lifecycle_profile_ref","active_profile_set_ref","active_profile_set_root","chain_ref","current_network_enrollment_ref","current_network_enrollment_root","resulting_network_enrollment_ref","resulting_network_enrollment_root","trigger_evidence_refs","successor_candidate_ref","successor_authority_ref","successor_authority_binding","migration_destination_ack_ref","migration_destination_ack_root","migration_destination_ref","verified_migration_state_root","residual_disposition","live_effect_refs","identity_preserved","authority_widened","network_assurance_admitted","runtime_effect_admitted","operation_commitment","dissolution_disposition_ref","predecessor_disposition_root","resulting_disposition_root","recorded_dissolution_domain"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-authority-effect.v1"},"op":{"enum":["open_dissolution_disposition","record_dissolution_domain_outcome"]},"transition_kind":{"type":"null"},"required_scope":{"enum":["scope:autonomous_system.continuity.open_dissolution_disposition","scope:autonomous_system.continuity.record_dissolution_domain_outcome"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"resulting_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_status":{"enum":["dissolution_pending","dissolving"]},"predecessor_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"resulting_status":{"const":"dissolving"},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"resulting_state_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"current_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"current_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"trigger_evidence_refs":{"type":"array","maxItems":0},"successor_candidate_ref":{"type":"null"},"successor_authority_ref":{"type":"null"},"successor_authority_binding":{"type":"null"},"migration_destination_ack_ref":{"type":"null"},"migration_destination_ack_root":{"type":"null"},"migration_destination_ref":{"type":"null"},"verified_migration_state_root":{"type":"null"},"residual_disposition":{"type":"null"},"live_effect_refs":{"type":"array","maxItems":0},"identity_preserved":{"const":true},"authority_widened":{"const":false},"network_assurance_admitted":{"const":false},"runtime_effect_admitted":{"const":false},"operation_commitment":{"type":"null"},"dissolution_disposition_ref":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"predecessor_disposition_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_disposition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"recorded_dissolution_domain":{"oneOf":[{"enum":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"]},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialOp>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_kind: serde_json::from_value::<()>(
+                object
+                    .remove(r#"transition_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRequiredScope>(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_governing_authority_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_governing_authority_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_governing_authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_governing_authority_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_governing_authority_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_governing_authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_status: serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialPredecessorStatus>(
+                object
+                    .remove(r#"predecessor_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_chain_head_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_chain_head_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_chain_head_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_status: serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialResultingStatus>(
+                object
+                    .remove(r#"resulting_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_state_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constitution_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"constitution_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constitution_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_profile_set_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            active_profile_set_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"active_profile_set_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_profile_set_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chain_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"chain_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chain_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            current_network_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"current_network_enrollment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"current_network_enrollment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            current_network_enrollment_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"current_network_enrollment_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"current_network_enrollment_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_network_enrollment_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_network_enrollment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_network_enrollment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_network_enrollment_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"resulting_network_enrollment_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_network_enrollment_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trigger_evidence_refs: serde_json::from_value::<Vec<serde_json::Value>>(
+                object
+                    .remove(r#"trigger_evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"trigger_evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_candidate_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"successor_candidate_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"successor_candidate_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_authority_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"successor_authority_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"successor_authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_authority_binding: serde_json::from_value::<()>(
+                object
+                    .remove(r#"successor_authority_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"successor_authority_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration_destination_ack_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"migration_destination_ack_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration_destination_ack_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration_destination_ack_root: serde_json::from_value::<()>(
+                object
+                    .remove(r#"migration_destination_ack_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration_destination_ack_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration_destination_ref: serde_json::from_value::<()>(
+                object
+                    .remove(r#"migration_destination_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration_destination_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verified_migration_state_root: serde_json::from_value::<()>(
+                object
+                    .remove(r#"verified_migration_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verified_migration_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            residual_disposition: serde_json::from_value::<()>(
+                object
+                    .remove(r#"residual_disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"residual_disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            live_effect_refs: serde_json::from_value::<Vec<serde_json::Value>>(
+                object
+                    .remove(r#"live_effect_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"live_effect_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_preserved: serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialIdentityPreserved>(
+                object
+                    .remove(r#"identity_preserved"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"identity_preserved"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_widened: serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialAuthorityWidened>(
+                object
+                    .remove(r#"authority_widened"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_widened"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_assurance_admitted: serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialNetworkAssuranceAdmitted>(
+                object
+                    .remove(r#"network_assurance_admitted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_assurance_admitted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_effect_admitted: serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRuntimeEffectAdmitted>(
+                object
+                    .remove(r#"runtime_effect_admitted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_effect_admitted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<()>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dissolution_disposition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dissolution_disposition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dissolution_disposition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_disposition_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_disposition_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_disposition_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_disposition_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_disposition_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_disposition_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recorded_dissolution_domain: serde_json::from_value::<Option<AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRecordedDissolutionDomain>>(
+                object
+                    .remove(r#"recorded_dissolution_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recorded_dissolution_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialSchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-continuity-authority-effect.v1"#)]
+    IoiAutonomousSystemContinuityAuthorityEffectV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialOp {
+    #[serde(rename = r#"open_dissolution_disposition"#)]
+    OpenDissolutionDisposition,
+    #[serde(rename = r#"record_dissolution_domain_outcome"#)]
+    RecordDissolutionDomainOutcome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRequiredScope {
+    #[serde(rename = r#"scope:autonomous_system.continuity.open_dissolution_disposition"#)]
+    ScopeAutonomousSystemContinuityOpenDissolutionDisposition,
+    #[serde(rename = r#"scope:autonomous_system.continuity.record_dissolution_domain_outcome"#)]
+    ScopeAutonomousSystemContinuityRecordDissolutionDomainOutcome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialPredecessorStatus
+{
+    #[serde(rename = r#"dissolution_pending"#)]
+    DissolutionPending,
+    #[serde(rename = r#"dissolving"#)]
+    Dissolving,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialResultingStatus {
+    #[serde(rename = r#"dissolving"#)]
+    Dissolving,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialIdentityPreserved
+{
+    True,
+}
+
+impl serde::Serialize
+    for AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialIdentityPreserved
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialIdentityPreserved
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialAuthorityWidened {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialAuthorityWidened
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialAuthorityWidened
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialNetworkAssuranceAdmitted
+{
+    False,
+}
+
+impl serde::Serialize for AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialNetworkAssuranceAdmitted {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialNetworkAssuranceAdmitted {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal false"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRuntimeEffectAdmitted
+{
+    False,
+}
+
+impl serde::Serialize for AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRuntimeEffectAdmitted {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRuntimeEffectAdmitted {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal false"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1AuthorityEffectMaterialRecordedDissolutionDomain
+{
+    #[serde(rename = r#"active_work"#)]
+    ActiveWork,
+    #[serde(rename = r#"assets"#)]
+    Assets,
+    #[serde(rename = r#"outstanding_obligations"#)]
+    OutstandingObligations,
+    #[serde(rename = r#"authority_revocation"#)]
+    AuthorityRevocation,
+    #[serde(rename = r#"worker_and_node_shutdown"#)]
+    WorkerAndNodeShutdown,
+    #[serde(rename = r#"data_export_retention_and_erasure"#)]
+    DataExportRetentionAndErasure,
+    #[serde(rename = r#"network_exit"#)]
+    NetworkExit,
+    #[serde(rename = r#"tombstone"#)]
+    Tombstone,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionDispositionTransitionV1Status {
+    #[serde(rename = r#"committed"#)]
+    Committed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionReceiptV1 {
+    pub schema_version: AutonomousSystemDissolutionReceiptV1SchemaVersion,
+    pub dissolution_receipt_id: String,
+    pub system_id: String,
+    pub op: AutonomousSystemDissolutionReceiptV1Op,
+    pub sequence: ArchitectureContractInteger,
+    pub required_scope: AutonomousSystemDissolutionReceiptV1RequiredScope,
+    pub assurance_posture: AutonomousSystemDissolutionReceiptV1AssurancePosture,
+    pub lifecycle_profile_ref: String,
+    pub lifecycle_profile_root: String,
+    pub dissolution_disposition_ref: String,
+    pub dissolution_disposition_root: String,
+    pub domain_outcome_commitments: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitments,
+    pub initiate_transition_ref: String,
+    pub initiate_transition_root: String,
+    pub complete_transition_ref: String,
+    pub complete_transition_root: String,
+    pub predecessor_state_root: String,
+    pub resulting_state_root: String,
+    pub tombstone_commitment: String,
+    pub predecessor_chain_root: String,
+    pub transition_receipt_ref: String,
+    pub created_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDissolutionReceiptV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1","title":"AutonomousSystemDissolutionReceipt","description":"The named dissolution receipt, minted exactly once by complete_dissolution over a fully terminal disposition record. It binds the active continuity-profile root, the dissolution-disposition record root, the eight per-domain outcome commitments, the initiate and complete transition roots, predecessor and resulting state roots, the tombstone commitment, and the predecessor chain root. The artifact root domain is ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1.","x-ioi-schema-version":"ioi.autonomous-system-dissolution-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","dissolution_receipt_id","system_id","op","sequence","required_scope","assurance_posture","lifecycle_profile_ref","lifecycle_profile_root","dissolution_disposition_ref","dissolution_disposition_root","domain_outcome_commitments","initiate_transition_ref","initiate_transition_root","complete_transition_ref","complete_transition_root","predecessor_state_root","resulting_state_root","tombstone_commitment","predecessor_chain_root","transition_receipt_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-dissolution-receipt.v1"},"dissolution_receipt_id":{"type":"string","pattern":"^dissolution-receipt://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"op":{"const":"complete_dissolution"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"required_scope":{"const":"scope:autonomous_system.continuity.complete_dissolution"},"assurance_posture":{"const":"dissolution_committed"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"lifecycle_profile_root":{"$ref":"#/$defs/hash"},"dissolution_disposition_ref":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"dissolution_disposition_root":{"$ref":"#/$defs/hash"},"domain_outcome_commitments":{"type":"object","additionalProperties":false,"required":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"],"properties":{"active_work":{"$ref":"#/$defs/domainOutcomeCommitment"},"assets":{"$ref":"#/$defs/domainOutcomeCommitment"},"outstanding_obligations":{"$ref":"#/$defs/domainOutcomeCommitment"},"authority_revocation":{"$ref":"#/$defs/domainOutcomeCommitment"},"worker_and_node_shutdown":{"$ref":"#/$defs/domainOutcomeCommitment"},"data_export_retention_and_erasure":{"$ref":"#/$defs/domainOutcomeCommitment"},"network_exit":{"$ref":"#/$defs/domainOutcomeCommitment"},"tombstone":{"$ref":"#/$defs/domainOutcomeCommitment"}}},"initiate_transition_ref":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"initiate_transition_root":{"$ref":"#/$defs/hash"},"complete_transition_ref":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"complete_transition_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/hash"},"tombstone_commitment":{"$ref":"#/$defs/hash"},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"transition_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"domainOutcomeCommitment":{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemDissolutionReceiptV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dissolution_receipt_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dissolution_receipt_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dissolution_receipt_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1Op>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<
+                AutonomousSystemDissolutionReceiptV1RequiredScope,
+            >(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assurance_posture: serde_json::from_value::<
+                AutonomousSystemDissolutionReceiptV1AssurancePosture,
+            >(
+                object
+                    .remove(r#"assurance_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assurance_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_profile_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lifecycle_profile_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_profile_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dissolution_disposition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dissolution_disposition_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"dissolution_disposition_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dissolution_disposition_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dissolution_disposition_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"dissolution_disposition_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_outcome_commitments: serde_json::from_value::<
+                AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitments,
+            >(
+                object
+                    .remove(r#"domain_outcome_commitments"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"domain_outcome_commitments"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initiate_transition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"initiate_transition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"initiate_transition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initiate_transition_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"initiate_transition_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"initiate_transition_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            complete_transition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"complete_transition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"complete_transition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            complete_transition_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"complete_transition_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"complete_transition_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tombstone_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tombstone_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tombstone_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_chain_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_chain_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_chain_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transition_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-dissolution-receipt.v1"#)]
+    IoiAutonomousSystemDissolutionReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1Op {
+    #[serde(rename = r#"complete_dissolution"#)]
+    CompleteDissolution,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1RequiredScope {
+    #[serde(rename = r#"scope:autonomous_system.continuity.complete_dissolution"#)]
+    ScopeAutonomousSystemContinuityCompleteDissolution,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1AssurancePosture {
+    #[serde(rename = r#"dissolution_committed"#)]
+    DissolutionCommitted,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitments {
+    pub active_work: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsActiveWork,
+    pub assets: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAssets,
+    pub outstanding_obligations:
+        AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsOutstandingObligations,
+    pub authority_revocation:
+        AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAuthorityRevocation,
+    pub worker_and_node_shutdown:
+        AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsWorkerAndNodeShutdown,
+    pub data_export_retention_and_erasure:
+        AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsDataExportRetentionAndErasure,
+    pub network_exit: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsNetworkExit,
+    pub tombstone: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsTombstone,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitments {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"],"properties":{"active_work":{"$ref":"#/$defs/domainOutcomeCommitment"},"assets":{"$ref":"#/$defs/domainOutcomeCommitment"},"outstanding_obligations":{"$ref":"#/$defs/domainOutcomeCommitment"},"authority_revocation":{"$ref":"#/$defs/domainOutcomeCommitment"},"worker_and_node_shutdown":{"$ref":"#/$defs/domainOutcomeCommitment"},"data_export_retention_and_erasure":{"$ref":"#/$defs/domainOutcomeCommitment"},"network_exit":{"$ref":"#/$defs/domainOutcomeCommitment"},"tombstone":{"$ref":"#/$defs/domainOutcomeCommitment"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            active_work: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsActiveWork>(
+                object
+                    .remove(r#"active_work"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"active_work"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            assets: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAssets>(
+                object
+                    .remove(r#"assets"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"assets"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outstanding_obligations: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsOutstandingObligations>(
+                object
+                    .remove(r#"outstanding_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outstanding_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_revocation: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAuthorityRevocation>(
+                object
+                    .remove(r#"authority_revocation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_revocation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_and_node_shutdown: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsWorkerAndNodeShutdown>(
+                object
+                    .remove(r#"worker_and_node_shutdown"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_and_node_shutdown"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_export_retention_and_erasure: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsDataExportRetentionAndErasure>(
+                object
+                    .remove(r#"data_export_retention_and_erasure"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_export_retention_and_erasure"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            network_exit: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsNetworkExit>(
+                object
+                    .remove(r#"network_exit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"network_exit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tombstone: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsTombstone>(
+                object
+                    .remove(r#"tombstone"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tombstone"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsActiveWork {
+    pub state: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsActiveWorkState,
+    pub outcome_commitment: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsActiveWork
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsActiveWorkState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsActiveWorkState {
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAssets {
+    pub state: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAssetsState,
+    pub outcome_commitment: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAssets
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAssetsState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAssetsState {
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsOutstandingObligations {
+    pub state:
+        AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsOutstandingObligationsState,
+    pub outcome_commitment: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsOutstandingObligations
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            state: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsOutstandingObligationsState>(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsOutstandingObligationsState {
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAuthorityRevocation {
+    pub state: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAuthorityRevocationState,
+    pub outcome_commitment: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAuthorityRevocation
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            state: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAuthorityRevocationState>(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsAuthorityRevocationState {
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsWorkerAndNodeShutdown {
+    pub state:
+        AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsWorkerAndNodeShutdownState,
+    pub outcome_commitment: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsWorkerAndNodeShutdown
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            state: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsWorkerAndNodeShutdownState>(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsWorkerAndNodeShutdownState {
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsDataExportRetentionAndErasure {
+    pub state: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsDataExportRetentionAndErasureState,
+    pub outcome_commitment: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsDataExportRetentionAndErasure
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            state: serde_json::from_value::<AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsDataExportRetentionAndErasureState>(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsDataExportRetentionAndErasureState
+{
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsNetworkExit {
+    pub state: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsNetworkExitState,
+    pub outcome_commitment: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsNetworkExit
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsNetworkExitState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsNetworkExitState {
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsTombstone {
+    pub state: AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsTombstoneState,
+    pub outcome_commitment: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsTombstone
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            state: serde_json::from_value::<
+                AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsTombstoneState,
+            >(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"outcome_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDissolutionReceiptV1DomainOutcomeCommitmentsTombstoneState {
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"waived_under_policy"#)]
+    WaivedUnderPolicy,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32793,6 +35087,14 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-continuity-state/v1",
         path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
         expected_accept: false,
         expected_schema_accept: false,
@@ -32814,6 +35116,110 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_dissolution_disposition.escalated_domain_requires_decision.active_work"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_dissolution_disposition_transition.resulting_disposition_root.matches_effect"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_dissolution_receipt.transitions.distinct"),
     },
 ];
 
@@ -36250,6 +38656,17 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-continuity-state/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-continuity-state/v1"#,
         source_fixture_path: Some(
@@ -36280,6 +38697,149 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         mutation_id: None,
         value_json: None,
         ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
@@ -37851,11 +40411,11 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1",
-        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","title":"AutonomousSystemChainWriterReservation","description":"Expected-absent predecessor ownership reserved before wallet consumption so only one independent writer can materialize the next chain revision.","x-ioi-schema-version":"ioi.autonomous-system-chain-writer-reservation.v1","type":"object","additionalProperties":false,"required":["schema_version","reservation_ref","system_id","sequence","predecessor_chain_root","writer_plan_hash","operation_ref","operation_root","operation"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-writer-reservation.v1"},"reservation_ref":{"type":"string","pattern":"^chain-writer-reservation://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"writer_plan_hash":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","complete_dissolution","enroll_local","exit_local_enrollment"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","title":"AutonomousSystemChainWriterReservation","description":"Expected-absent predecessor ownership reserved before wallet consumption so only one independent writer can materialize the next chain revision.","x-ioi-schema-version":"ioi.autonomous-system-chain-writer-reservation.v1","type":"object","additionalProperties":false,"required":["schema_version","reservation_ref","system_id","sequence","predecessor_chain_root","writer_plan_hash","operation_ref","operation_root","operation"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-writer-reservation.v1"},"reservation_ref":{"type":"string","pattern":"^chain-writer-reservation://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"writer_plan_hash":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","open_dissolution_disposition","record_dissolution_domain_outcome","complete_dissolution","enroll_local","exit_local_enrollment"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
     ),
     (
         "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1",
-        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1","title":"AutonomousSystemChainSuccessorClaim","x-ioi-schema-version":"ioi.autonomous-system-chain-successor-claim.v1","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","system_id","sequence","predecessor_chain_root","successor_chain_root","operation_ref","operation_root","operation","committed_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-successor-claim.v1"},"claim_ref":{"type":"string","pattern":"^chain-successor-claim://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"successor_chain_root":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"type":"string","enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","complete_dissolution","enroll_local","exit_local_enrollment"]},"committed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1","title":"AutonomousSystemChainSuccessorClaim","x-ioi-schema-version":"ioi.autonomous-system-chain-successor-claim.v1","type":"object","additionalProperties":false,"required":["schema_version","claim_ref","system_id","sequence","predecessor_chain_root","successor_chain_root","operation_ref","operation_root","operation","committed_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-chain-successor-claim.v1"},"claim_ref":{"type":"string","pattern":"^chain-successor-claim://sha256:[0-9a-f]{64}$"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"successor_chain_root":{"$ref":"#/$defs/hash"},"operation_ref":{"type":"string","minLength":1},"operation_root":{"$ref":"#/$defs/hash"},"operation":{"type":"string","enum":["pause","resume","suspend","reinstate","enter_dormancy","wake","begin_recovery","complete_recovery","quarantine","release_quarantine","retire","archive","revoke","decommission","amend_constitution","initiate_succession","complete_succession","migrate","initiate_dissolution","open_dissolution_disposition","record_dissolution_domain_outcome","complete_dissolution","enroll_local","exit_local_enrollment"]},"committed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
     ),
     (
         "schema://ioi/foundations/autonomous-system-amendment-transition/v1",
@@ -37875,11 +40435,23 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ),
     (
         "schema://ioi/foundations/autonomous-system-continuity-state/v1",
-        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-continuity-state/v1","title":"AutonomousSystemContinuityState","description":"Committed state for named succession, migration, dissolution, and local-enrollment transitions.","x-ioi-schema-version":"ioi.autonomous-system-continuity-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","governing_authority_ref","pending_successor_candidate_ref","network_enrollment_ref","network_enrollment_root","migration_destination_ref","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"$ref":"#/$defs/hash"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","succession_pending","successor_governed","dissolution_pending","dissolved"]},"predecessor_state_root":{"$ref":"#/$defs/hash"},"transition_ref":{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},"transition_root":{"$ref":"#/$defs/hash"},"transition_receipt_ref":{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},"transition_receipt_root":{"$ref":"#/$defs/hash"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"governing_authority_ref":{"type":"string","pattern":"^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$"},"pending_successor_candidate_ref":{"oneOf":[{"type":"string","pattern":"^(?:principal|wallet|organization|org)://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_ref":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_root":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"migration_destination_ref":{"oneOf":[{"type":"string","pattern":"^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$"},{"type":"null"}]},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"status":{"const":"succession_pending"}}},"then":{"properties":{"pending_successor_candidate_ref":{"type":"string"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"null"}}},"then":{"properties":{"network_enrollment_root":{"type":"null"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"string"}}},"then":{"properties":{"network_enrollment_root":{"$ref":"#/$defs/hash"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-continuity-state/v1","title":"AutonomousSystemContinuityState","description":"Committed state for named succession, migration, dissolution, and local-enrollment transitions.","x-ioi-schema-version":"ioi.autonomous-system-continuity-state.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_state_ref","lifecycle_state_root","system_id","sequence","status","predecessor_state_root","transition_ref","transition_root","transition_receipt_ref","transition_receipt_root","active_profile_set_ref","active_profile_set_root","governing_authority_ref","pending_successor_candidate_ref","network_enrollment_ref","network_enrollment_root","migration_destination_ref","chain_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-state.v1"},"lifecycle_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[A-Za-z0-9._:/-]+$"},"lifecycle_state_root":{"$ref":"#/$defs/hash"},"system_id":{"type":"string","pattern":"^system://[A-Za-z0-9._:/-]+$"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"status":{"enum":["active","succession_pending","successor_governed","dissolution_pending","dissolving","dissolved"]},"predecessor_state_root":{"$ref":"#/$defs/hash"},"transition_ref":{"type":"string","pattern":"^lifecycle-transition://[A-Za-z0-9._:/-]+$"},"transition_root":{"$ref":"#/$defs/hash"},"transition_receipt_ref":{"type":"string","pattern":"^receipt://[A-Za-z0-9._:/-]+$"},"transition_receipt_root":{"$ref":"#/$defs/hash"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[A-Za-z0-9._:/-]+$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"governing_authority_ref":{"type":"string","pattern":"^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$"},"pending_successor_candidate_ref":{"oneOf":[{"type":"string","pattern":"^(?:principal|wallet|organization|org)://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_ref":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"network_enrollment_root":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"migration_destination_ref":{"oneOf":[{"type":"string","pattern":"^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$"},{"type":"null"}]},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[A-Za-z0-9._:/-]+$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"status":{"const":"succession_pending"}}},"then":{"properties":{"pending_successor_candidate_ref":{"type":"string"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"null"}}},"then":{"properties":{"network_enrollment_root":{"type":"null"}}}},{"if":{"properties":{"network_enrollment_ref":{"type":"string"}}},"then":{"properties":{"network_enrollment_root":{"$ref":"#/$defs/hash"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
     ),
     (
         "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
         r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1","title":"AutonomousSystemNetworkEnrollmentTransition","description":"Committed compare-and-swap transition for local-only enrollment admission or exit.","x-ioi-schema-version":"ioi.autonomous-system-network-enrollment-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_transition_id","system_id","op","sequence","proposal_ref","proposal_root","decision_ref","decision_root","predecessor_state_root","resulting_state_root","predecessor_enrollment_ref","predecessor_enrollment_root","resulting_enrollment_ref","resulting_enrollment_root","operation_commitment","authority_effect_material","authority_grant_refs","receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-network-enrollment-transition.v1"},"lifecycle_transition_id":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"op":{"enum":["enroll_local","exit_local_enrollment"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"decision_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/hash"},"predecessor_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"predecessor_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_enrollment_root":{"$ref":"#/$defs/nullableHash"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","transition_kind","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","resulting_governing_authority_ref","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","constitution_ref","lifecycle_profile_ref","active_profile_set_ref","active_profile_set_root","chain_ref","current_network_enrollment_ref","current_network_enrollment_root","resulting_network_enrollment_ref","resulting_network_enrollment_root","trigger_evidence_refs","successor_candidate_ref","successor_authority_ref","successor_authority_binding","migration_destination_ack_ref","migration_destination_ack_root","migration_destination_ref","verified_migration_state_root","residual_disposition","live_effect_refs","identity_preserved","authority_widened","network_assurance_admitted","runtime_effect_admitted","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-authority-effect.v1"},"op":{"enum":["enroll_local","exit_local_enrollment"]},"transition_kind":{"type":"null"},"required_scope":{"enum":["scope:autonomous_system.network_enrollment.local.enroll","scope:autonomous_system.network_enrollment.local.exit"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"resulting_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_status":{"enum":["active","successor_governed"]},"predecessor_state_ref":{"type":"string","pattern":"^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"resulting_status":{"enum":["active","successor_governed"]},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"resulting_state_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"current_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"current_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"trigger_evidence_refs":{"type":"array","maxItems":0},"successor_candidate_ref":{"type":"null"},"successor_authority_ref":{"type":"null"},"successor_authority_binding":{"type":"null"},"migration_destination_ack_ref":{"type":"null"},"migration_destination_ack_root":{"type":"null"},"migration_destination_ref":{"type":"null"},"verified_migration_state_root":{"type":"null"},"residual_disposition":{"type":"null"},"live_effect_refs":{"type":"array","maxItems":0},"identity_preserved":{"const":true},"authority_widened":{"const":false},"network_assurance_admitted":{"const":false},"runtime_effect_admitted":{"const":false},"operation_commitment":{"type":"null"}}},"authority_grant_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}},"status":{"const":"committed"}},"allOf":[{"if":{"properties":{"op":{"const":"enroll_local"}}},"then":{"properties":{"resulting_enrollment_ref":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"resulting_enrollment_root":{"$ref":"#/$defs/hash"}}}},{"if":{"properties":{"op":{"const":"exit_local_enrollment"}}},"then":{"properties":{"predecessor_enrollment_ref":{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},"predecessor_enrollment_root":{"$ref":"#/$defs/hash"},"resulting_enrollment_ref":{"type":"null"},"resulting_enrollment_root":{"type":"null"}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableEnrollment":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"nullableHash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1","title":"AutonomousSystemDissolutionDisposition","description":"The named owner of dissolution residue: one record per dissolution binding every residual-disposition duty of the active continuity profile to a typed, evidenced, receipted outcome on one exact initiate_dissolution transition.","x-ioi-schema-version":"ioi.autonomous-system-dissolution-disposition.v1","type":"object","additionalProperties":false,"required":["schema_version","dissolution_disposition_id","system_id","lifecycle_profile_ref","lifecycle_profile_root","initiate_transition_ref","initiate_transition_root","outcome_domains","escalation_decision_refs","complete_transition_ref","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-dissolution-disposition.v1"},"dissolution_disposition_id":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"lifecycle_profile_root":{"$ref":"#/$defs/hash"},"initiate_transition_ref":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"initiate_transition_root":{"$ref":"#/$defs/hash"},"outcome_domains":{"type":"object","additionalProperties":false,"required":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"],"properties":{"active_work":{"$ref":"#/$defs/domainOutcome"},"assets":{"$ref":"#/$defs/domainOutcome"},"outstanding_obligations":{"$ref":"#/$defs/domainOutcome"},"authority_revocation":{"$ref":"#/$defs/domainOutcome"},"worker_and_node_shutdown":{"$ref":"#/$defs/domainOutcome"},"data_export_retention_and_erasure":{"$ref":"#/$defs/domainOutcome"},"network_exit":{"$ref":"#/$defs/domainOutcome"},"tombstone":{"$ref":"#/$defs/domainOutcome"}}},"escalation_decision_refs":{"type":"array","maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"}},"complete_transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},{"type":"null"}]},"status":{"enum":["open","terminal_complete","terminal_with_escalations","superseded"]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"status":{"const":"open"}}},"then":{"properties":{"complete_transition_ref":{"type":"null"}}}},{"if":{"properties":{"status":{"const":"terminal_complete"}}},"then":{"properties":{"complete_transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},{"type":"null"}]},"outcome_domains":{"type":"object","properties":{"active_work":{"$ref":"#/$defs/settledOutcome"},"assets":{"$ref":"#/$defs/settledOutcome"},"outstanding_obligations":{"$ref":"#/$defs/settledOutcome"},"authority_revocation":{"$ref":"#/$defs/settledOutcome"},"worker_and_node_shutdown":{"$ref":"#/$defs/settledOutcome"},"data_export_retention_and_erasure":{"$ref":"#/$defs/settledOutcome"},"network_exit":{"$ref":"#/$defs/settledOutcome"},"tombstone":{"$ref":"#/$defs/settledOutcome"}}}}}},{"if":{"properties":{"status":{"const":"terminal_with_escalations"}}},"then":{"properties":{"complete_transition_ref":{"oneOf":[{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},{"type":"null"}]},"outcome_domains":{"type":"object","properties":{"active_work":{"$ref":"#/$defs/terminalOutcome"},"assets":{"$ref":"#/$defs/terminalOutcome"},"outstanding_obligations":{"$ref":"#/$defs/terminalOutcome"},"authority_revocation":{"$ref":"#/$defs/terminalOutcome"},"worker_and_node_shutdown":{"$ref":"#/$defs/terminalOutcome"},"data_export_retention_and_erasure":{"$ref":"#/$defs/terminalOutcome"},"network_exit":{"$ref":"#/$defs/terminalOutcome"},"tombstone":{"$ref":"#/$defs/terminalOutcome"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"domainOutcome":{"type":"object","additionalProperties":false,"required":["policy_ref","state","evidence_refs","receipt_refs"],"properties":{"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"},"state":{"enum":["pending","completed","waived_under_policy","escalated","failed_closed"]},"evidence_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}}}},"settledOutcome":{"type":"object","properties":{"state":{"enum":["completed","waived_under_policy"]}}},"terminalOutcome":{"type":"object","properties":{"state":{"enum":["completed","waived_under_policy","escalated"]}}}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1","title":"AutonomousSystemDissolutionDispositionTransition","description":"Committed compare-and-swap transition that opens the dissolution-disposition record or records exactly one named domain outcome on it.","x-ioi-schema-version":"ioi.autonomous-system-dissolution-disposition-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","lifecycle_transition_id","system_id","op","sequence","proposal_ref","proposal_root","decision_ref","decision_root","predecessor_state_root","resulting_state_root","dissolution_disposition_ref","predecessor_disposition_root","resulting_disposition_root","recorded_domain","operation_commitment","authority_effect_material","authority_grant_refs","receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-dissolution-disposition-transition.v1"},"lifecycle_transition_id":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"op":{"enum":["open_dissolution_disposition","record_dissolution_domain_outcome"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"proposal_root":{"$ref":"#/$defs/hash"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"decision_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/hash"},"dissolution_disposition_ref":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"predecessor_disposition_root":{"$ref":"#/$defs/nullableHash"},"resulting_disposition_root":{"$ref":"#/$defs/hash"},"recorded_domain":{"$ref":"#/$defs/nullableDomain"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","transition_kind","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","resulting_governing_authority_ref","predecessor_status","predecessor_state_ref","predecessor_state_root","predecessor_chain_head_root","resulting_status","resulting_state_ref","resulting_state_root","constitution_ref","lifecycle_profile_ref","active_profile_set_ref","active_profile_set_root","chain_ref","current_network_enrollment_ref","current_network_enrollment_root","resulting_network_enrollment_ref","resulting_network_enrollment_root","trigger_evidence_refs","successor_candidate_ref","successor_authority_ref","successor_authority_binding","migration_destination_ack_ref","migration_destination_ack_root","migration_destination_ref","verified_migration_state_root","residual_disposition","live_effect_refs","identity_preserved","authority_widened","network_assurance_admitted","runtime_effect_admitted","operation_commitment","dissolution_disposition_ref","predecessor_disposition_root","resulting_disposition_root","recorded_dissolution_domain"],"properties":{"schema_version":{"const":"ioi.autonomous-system-continuity-authority-effect.v1"},"op":{"enum":["open_dissolution_disposition","record_dissolution_domain_outcome"]},"transition_kind":{"type":"null"},"required_scope":{"enum":["scope:autonomous_system.continuity.open_dissolution_disposition","scope:autonomous_system.continuity.record_dissolution_domain_outcome"]},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"resulting_governing_authority_ref":{"type":"string","minLength":1,"maxLength":256},"predecessor_status":{"enum":["dissolution_pending","dissolving"]},"predecessor_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"predecessor_chain_head_root":{"$ref":"#/$defs/hash"},"resulting_status":{"const":"dissolving"},"resulting_state_ref":{"type":"string","pattern":"^system-lifecycle-state://[^\\s]{1,248}$"},"resulting_state_root":{"$ref":"#/$defs/hash"},"constitution_ref":{"type":"string","pattern":"^constitution://[^\\s]{1,248}$"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"active_profile_set_ref":{"type":"string","pattern":"^active-profile-set://[^\\s]{1,248}$"},"active_profile_set_root":{"$ref":"#/$defs/hash"},"chain_ref":{"type":"string","pattern":"^autonomous-system-chain://[^\\s]{1,248}$"},"current_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"current_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"resulting_network_enrollment_ref":{"$ref":"#/$defs/nullableEnrollment"},"resulting_network_enrollment_root":{"$ref":"#/$defs/nullableHash"},"trigger_evidence_refs":{"type":"array","maxItems":0},"successor_candidate_ref":{"type":"null"},"successor_authority_ref":{"type":"null"},"successor_authority_binding":{"type":"null"},"migration_destination_ack_ref":{"type":"null"},"migration_destination_ack_root":{"type":"null"},"migration_destination_ref":{"type":"null"},"verified_migration_state_root":{"type":"null"},"residual_disposition":{"type":"null"},"live_effect_refs":{"type":"array","maxItems":0},"identity_preserved":{"const":true},"authority_widened":{"const":false},"network_assurance_admitted":{"const":false},"runtime_effect_admitted":{"const":false},"operation_commitment":{"type":"null"},"dissolution_disposition_ref":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"predecessor_disposition_root":{"oneOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"resulting_disposition_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"recorded_dissolution_domain":{"oneOf":[{"enum":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"]},{"type":"null"}]}}},"authority_grant_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"}},"receipt_refs":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"}},"status":{"const":"committed"}},"allOf":[{"if":{"properties":{"op":{"const":"open_dissolution_disposition"}}},"then":{"properties":{"predecessor_disposition_root":{"type":"null"},"recorded_domain":{"type":"null"},"authority_effect_material":{"type":"object","properties":{"predecessor_status":{"const":"dissolution_pending"}}}}}},{"if":{"properties":{"op":{"const":"record_dissolution_domain_outcome"}}},"then":{"properties":{"predecessor_disposition_root":{"$ref":"#/$defs/hash"},"recorded_domain":{"$ref":"#/$defs/domain"},"authority_effect_material":{"type":"object","properties":{"predecessor_status":{"const":"dissolving"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"nullableEnrollment":{"oneOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,248}$"},{"type":"null"}]},"domain":{"enum":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"]},"nullableDomain":{"oneOf":[{"$ref":"#/$defs/domain"},{"type":"null"}]}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1","title":"AutonomousSystemDissolutionReceipt","description":"The named dissolution receipt, minted exactly once by complete_dissolution over a fully terminal disposition record. It binds the active continuity-profile root, the dissolution-disposition record root, the eight per-domain outcome commitments, the initiate and complete transition roots, predecessor and resulting state roots, the tombstone commitment, and the predecessor chain root. The artifact root domain is ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1.","x-ioi-schema-version":"ioi.autonomous-system-dissolution-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","dissolution_receipt_id","system_id","op","sequence","required_scope","assurance_posture","lifecycle_profile_ref","lifecycle_profile_root","dissolution_disposition_ref","dissolution_disposition_root","domain_outcome_commitments","initiate_transition_ref","initiate_transition_root","complete_transition_ref","complete_transition_root","predecessor_state_root","resulting_state_root","tombstone_commitment","predecessor_chain_root","transition_receipt_ref","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-dissolution-receipt.v1"},"dissolution_receipt_id":{"type":"string","pattern":"^dissolution-receipt://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"op":{"const":"complete_dissolution"},"sequence":{"type":"integer","minimum":3,"maximum":9007199254740991},"required_scope":{"const":"scope:autonomous_system.continuity.complete_dissolution"},"assurance_posture":{"const":"dissolution_committed"},"lifecycle_profile_ref":{"type":"string","pattern":"^lifecycle-profile://[^\\s]{1,248}$"},"lifecycle_profile_root":{"$ref":"#/$defs/hash"},"dissolution_disposition_ref":{"type":"string","pattern":"^dissolution-disposition://[^\\s]{1,248}$"},"dissolution_disposition_root":{"$ref":"#/$defs/hash"},"domain_outcome_commitments":{"type":"object","additionalProperties":false,"required":["active_work","assets","outstanding_obligations","authority_revocation","worker_and_node_shutdown","data_export_retention_and_erasure","network_exit","tombstone"],"properties":{"active_work":{"$ref":"#/$defs/domainOutcomeCommitment"},"assets":{"$ref":"#/$defs/domainOutcomeCommitment"},"outstanding_obligations":{"$ref":"#/$defs/domainOutcomeCommitment"},"authority_revocation":{"$ref":"#/$defs/domainOutcomeCommitment"},"worker_and_node_shutdown":{"$ref":"#/$defs/domainOutcomeCommitment"},"data_export_retention_and_erasure":{"$ref":"#/$defs/domainOutcomeCommitment"},"network_exit":{"$ref":"#/$defs/domainOutcomeCommitment"},"tombstone":{"$ref":"#/$defs/domainOutcomeCommitment"}}},"initiate_transition_ref":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"initiate_transition_root":{"$ref":"#/$defs/hash"},"complete_transition_ref":{"type":"string","pattern":"^lifecycle-transition://[^\\s]{1,248}$"},"complete_transition_root":{"$ref":"#/$defs/hash"},"predecessor_state_root":{"$ref":"#/$defs/hash"},"resulting_state_root":{"$ref":"#/$defs/hash"},"tombstone_commitment":{"$ref":"#/$defs/hash"},"predecessor_chain_root":{"$ref":"#/$defs/hash"},"transition_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"domainOutcomeCommitment":{"type":"object","additionalProperties":false,"required":["state","outcome_commitment"],"properties":{"state":{"enum":["completed","waived_under_policy","escalated"]},"outcome_commitment":{"$ref":"#/$defs/hash"}}}}}"##,
     ),
 ];
 
@@ -38087,6 +40659,18 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     (
         "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
         r#"[{"rule_id":"autonomous_system_network_enrollment_transition.operation_commitment.recomputes","description":"The operation commitment recomputes from the complete closed authority effect.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-continuity-operation-commitment-jcs-sha256.v1"},"effect":{"path":"$.authority_effect_material"}},"expected_path":"$.operation_commitment","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_network_enrollment_transition.op.matches_effect","description":"The portable transition and governed effect name the same operation.","expression":{"operator":"fields_equal","paths":["$.op","$.authority_effect_material.op"]}},{"rule_id":"autonomous_system_network_enrollment_transition.system.matches_effect","description":"The portable transition and governed effect bind the same System.","expression":{"operator":"fields_equal","paths":["$.system_id","$.authority_effect_material.system_id"]}},{"rule_id":"autonomous_system_network_enrollment_transition.sequence.matches_effect","description":"The portable transition and governed effect bind the same sequence.","expression":{"operator":"fields_equal","paths":["$.sequence","$.authority_effect_material.sequence"]}},{"rule_id":"autonomous_system_network_enrollment_transition.predecessor_state.matches_effect","description":"The predecessor state root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.predecessor_state_root","$.authority_effect_material.predecessor_state_root"]}},{"rule_id":"autonomous_system_network_enrollment_transition.resulting_state.matches_effect","description":"The resulting state root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.resulting_state_root","$.authority_effect_material.resulting_state_root"]}},{"rule_id":"autonomous_system_network_enrollment_transition.predecessor_enrollment.matches_effect","description":"The predecessor enrollment identity is not substitutable.","expression":{"operator":"fields_equal","paths":["$.predecessor_enrollment_ref","$.authority_effect_material.current_network_enrollment_ref"]}},{"rule_id":"autonomous_system_network_enrollment_transition.predecessor_enrollment_root.matches_effect","description":"The predecessor enrollment bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.predecessor_enrollment_root","$.authority_effect_material.current_network_enrollment_root"]}},{"rule_id":"autonomous_system_network_enrollment_transition.resulting_enrollment.matches_effect","description":"The resulting enrollment identity is not substitutable.","expression":{"operator":"fields_equal","paths":["$.resulting_enrollment_ref","$.authority_effect_material.resulting_network_enrollment_ref"]}},{"rule_id":"autonomous_system_network_enrollment_transition.resulting_enrollment_root.matches_effect","description":"The resulting enrollment bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.resulting_enrollment_root","$.authority_effect_material.resulting_network_enrollment_root"]}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+        r#"[{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.active_work","description":"An escalated active_work outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.active_work.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.assets","description":"An escalated assets outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.assets.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.outstanding_obligations","description":"An escalated outstanding_obligations outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.outstanding_obligations.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.authority_revocation","description":"An escalated authority_revocation outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.authority_revocation.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.worker_and_node_shutdown","description":"An escalated worker_and_node_shutdown outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.worker_and_node_shutdown.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.data_export_retention_and_erasure","description":"An escalated data_export_retention_and_erasure outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.data_export_retention_and_erasure.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.network_exit","description":"An escalated network_exit outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.network_exit.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.escalated_domain_requires_decision.tombstone","description":"An escalated tombstone outcome requires a recorded escalation decision ref.","expression":{"operator":"non_empty_when_in","when_path":"$.outcome_domains.tombstone.state","values":["escalated"],"path":"$.escalation_decision_refs"}},{"rule_id":"autonomous_system_dissolution_disposition.terminal_escalations.require_decisions","description":"A record terminal with escalations names at least one escalation decision.","expression":{"operator":"non_empty_when_in","when_path":"$.status","values":["terminal_with_escalations"],"path":"$.escalation_decision_refs"}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+        r#"[{"rule_id":"autonomous_system_dissolution_disposition_transition.operation_commitment.recomputes","description":"The operation commitment recomputes from the complete closed authority effect.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-continuity-operation-commitment-jcs-sha256.v1"},"effect":{"path":"$.authority_effect_material"}},"expected_path":"$.operation_commitment","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_dissolution_disposition_transition.op.matches_effect","description":"The portable transition and governed effect name the same operation.","expression":{"operator":"fields_equal","paths":["$.op","$.authority_effect_material.op"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.system.matches_effect","description":"The portable transition and governed effect bind the same System.","expression":{"operator":"fields_equal","paths":["$.system_id","$.authority_effect_material.system_id"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.sequence.matches_effect","description":"The portable transition and governed effect bind the same sequence.","expression":{"operator":"fields_equal","paths":["$.sequence","$.authority_effect_material.sequence"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.predecessor_state.matches_effect","description":"The predecessor state root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.predecessor_state_root","$.authority_effect_material.predecessor_state_root"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.resulting_state.matches_effect","description":"The resulting state root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.resulting_state_root","$.authority_effect_material.resulting_state_root"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.disposition_record.matches_effect","description":"The dissolution-disposition record identity is not substitutable.","expression":{"operator":"fields_equal","paths":["$.dissolution_disposition_ref","$.authority_effect_material.dissolution_disposition_ref"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.predecessor_disposition_root.matches_effect","description":"The compare-and-swap predecessor disposition bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.predecessor_disposition_root","$.authority_effect_material.predecessor_disposition_root"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.resulting_disposition_root.matches_effect","description":"The resulting disposition bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.resulting_disposition_root","$.authority_effect_material.resulting_disposition_root"]}},{"rule_id":"autonomous_system_dissolution_disposition_transition.recorded_domain.matches_effect","description":"The recorded outcome domain is not substitutable.","expression":{"operator":"fields_equal","paths":["$.recorded_domain","$.authority_effect_material.recorded_dissolution_domain"]}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+        r#"[{"rule_id":"autonomous_system_dissolution_receipt.transitions.distinct","description":"The initiate and complete transitions are distinct chain steps; a receipt naming one transition twice is not a completion proof.","expression":{"operator":"fields_not_equal","paths":["$.initiate_transition_ref","$.complete_transition_ref"]}},{"rule_id":"autonomous_system_dissolution_receipt.transition_roots.distinct","description":"The initiate and complete transition roots commit different transition bytes.","expression":{"operator":"fields_not_equal","paths":["$.initiate_transition_root","$.complete_transition_root"]}},{"rule_id":"autonomous_system_dissolution_receipt.state_roots.advance","description":"Completion moves the System to a distinct dissolved state; predecessor and resulting state roots cannot coincide.","expression":{"operator":"fields_not_equal","paths":["$.predecessor_state_root","$.resulting_state_root"]}},{"rule_id":"autonomous_system_dissolution_receipt.tombstone.retained","description":"The receipt retains the terminal identity commitment.","expression":{"operator":"non_empty","path":"$.tombstone_commitment"}}]"#,
     ),
 ];
 
@@ -38427,6 +41011,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^development-environment-recipe://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^development-environment-recipe://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^dissolution-disposition://[^\s]{1,248}$"#,
+        r#"^dissolution-disposition://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^dissolution-receipt://[^\s]{1,248}$"#,
+        r#"^dissolution-receipt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^effect://[^\s]+$"#,
@@ -40057,9 +42649,23 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json"))),
     ("docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -40318,6 +42924,21 @@ mod tests {
         },
         "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1" => {
             serde_json::from_value::<AutonomousSystemNetworkEnrollmentTransitionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1" => {
+            serde_json::from_value::<AutonomousSystemDissolutionDispositionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1" => {
+            serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1" => {
+            serde_json::from_value::<AutonomousSystemDissolutionReceiptV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -40582,6 +43203,21 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemDissolutionDispositionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemDissolutionDispositionTransitionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemDissolutionReceiptV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -40718,8 +43354,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            171,
-            "the registered golden corpus must remain the explicit 171-fixture bar",
+            185,
+            "the registered golden corpus must remain the explicit 185-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -40938,7 +43574,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 194,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 196,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

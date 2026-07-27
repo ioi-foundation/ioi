@@ -2572,7 +2572,7 @@ export type AutonomousSystemChainWriterReservationV1 = {
   writer_plan_hash: string;
   operation_ref: string;
   operation_root: string;
-  operation: "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission" | "amend_constitution" | "initiate_succession" | "complete_succession" | "migrate" | "initiate_dissolution" | "complete_dissolution" | "enroll_local" | "exit_local_enrollment";
+  operation: "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission" | "amend_constitution" | "initiate_succession" | "complete_succession" | "migrate" | "initiate_dissolution" | "open_dissolution_disposition" | "record_dissolution_domain_outcome" | "complete_dissolution" | "enroll_local" | "exit_local_enrollment";
 };
 
 export type AutonomousSystemChainSuccessorClaimV1 = {
@@ -2584,7 +2584,7 @@ export type AutonomousSystemChainSuccessorClaimV1 = {
   successor_chain_root: string;
   operation_ref: string;
   operation_root: string;
-  operation: "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission" | "amend_constitution" | "initiate_succession" | "complete_succession" | "migrate" | "initiate_dissolution" | "complete_dissolution" | "enroll_local" | "exit_local_enrollment";
+  operation: "pause" | "resume" | "suspend" | "reinstate" | "enter_dormancy" | "wake" | "begin_recovery" | "complete_recovery" | "quarantine" | "release_quarantine" | "retire" | "archive" | "revoke" | "decommission" | "amend_constitution" | "initiate_succession" | "complete_succession" | "migrate" | "initiate_dissolution" | "open_dissolution_disposition" | "record_dissolution_domain_outcome" | "complete_dissolution" | "enroll_local" | "exit_local_enrollment";
   committed_at: string;
 };
 
@@ -2807,7 +2807,7 @@ export type AutonomousSystemContinuityStateV1 = {
   lifecycle_state_root: string;
   system_id: string;
   sequence: number;
-  status: "active" | "succession_pending" | "successor_governed" | "dissolution_pending" | "dissolved";
+  status: "active" | "succession_pending" | "successor_governed" | "dissolution_pending" | "dissolving" | "dissolved";
   predecessor_state_root: string;
   transition_ref: string;
   transition_root: string;
@@ -2886,6 +2886,196 @@ export type AutonomousSystemNetworkEnrollmentTransitionV1 = {
   authority_grant_refs: Array<string>;
   receipt_refs: Array<string>;
   status: "committed";
+};
+
+export type AutonomousSystemDissolutionDispositionV1 = {
+  schema_version: "ioi.autonomous-system-dissolution-disposition.v1";
+  dissolution_disposition_id: string;
+  system_id: string;
+  lifecycle_profile_ref: string;
+  lifecycle_profile_root: string;
+  initiate_transition_ref: string;
+  initiate_transition_root: string;
+  outcome_domains: {
+      active_work: {
+            policy_ref: string;
+            state: "pending" | "completed" | "waived_under_policy" | "escalated" | "failed_closed";
+            evidence_refs: Array<string>;
+            receipt_refs: Array<string>;
+          };
+      assets: {
+            policy_ref: string;
+            state: "pending" | "completed" | "waived_under_policy" | "escalated" | "failed_closed";
+            evidence_refs: Array<string>;
+            receipt_refs: Array<string>;
+          };
+      outstanding_obligations: {
+            policy_ref: string;
+            state: "pending" | "completed" | "waived_under_policy" | "escalated" | "failed_closed";
+            evidence_refs: Array<string>;
+            receipt_refs: Array<string>;
+          };
+      authority_revocation: {
+            policy_ref: string;
+            state: "pending" | "completed" | "waived_under_policy" | "escalated" | "failed_closed";
+            evidence_refs: Array<string>;
+            receipt_refs: Array<string>;
+          };
+      worker_and_node_shutdown: {
+            policy_ref: string;
+            state: "pending" | "completed" | "waived_under_policy" | "escalated" | "failed_closed";
+            evidence_refs: Array<string>;
+            receipt_refs: Array<string>;
+          };
+      data_export_retention_and_erasure: {
+            policy_ref: string;
+            state: "pending" | "completed" | "waived_under_policy" | "escalated" | "failed_closed";
+            evidence_refs: Array<string>;
+            receipt_refs: Array<string>;
+          };
+      network_exit: {
+            policy_ref: string;
+            state: "pending" | "completed" | "waived_under_policy" | "escalated" | "failed_closed";
+            evidence_refs: Array<string>;
+            receipt_refs: Array<string>;
+          };
+      tombstone: {
+            policy_ref: string;
+            state: "pending" | "completed" | "waived_under_policy" | "escalated" | "failed_closed";
+            evidence_refs: Array<string>;
+            receipt_refs: Array<string>;
+          };
+    };
+  escalation_decision_refs: Array<string>;
+  complete_transition_ref: string | null;
+  status: "open" | "terminal_complete" | "terminal_with_escalations" | "superseded";
+  created_at: string;
+};
+
+export type AutonomousSystemDissolutionDispositionTransitionV1 = {
+  schema_version: "ioi.autonomous-system-dissolution-disposition-transition.v1";
+  lifecycle_transition_id: string;
+  system_id: string;
+  op: "open_dissolution_disposition" | "record_dissolution_domain_outcome";
+  sequence: number;
+  proposal_ref: string;
+  proposal_root: string;
+  decision_ref: string;
+  decision_root: string;
+  predecessor_state_root: string;
+  resulting_state_root: string;
+  dissolution_disposition_ref: string;
+  predecessor_disposition_root: string | null;
+  resulting_disposition_root: string;
+  recorded_domain: "active_work" | "assets" | "outstanding_obligations" | "authority_revocation" | "worker_and_node_shutdown" | "data_export_retention_and_erasure" | "network_exit" | "tombstone" | null;
+  operation_commitment: string;
+  authority_effect_material: {
+      schema_version: "ioi.autonomous-system-continuity-authority-effect.v1";
+      op: "open_dissolution_disposition" | "record_dissolution_domain_outcome";
+      transition_kind: null;
+      required_scope: "scope:autonomous_system.continuity.open_dissolution_disposition" | "scope:autonomous_system.continuity.record_dissolution_domain_outcome";
+      sequence: number;
+      system_id: string;
+      genesis_ref: string;
+      source_governing_authority_ref: string;
+      resulting_governing_authority_ref: string;
+      predecessor_status: "dissolution_pending" | "dissolving";
+      predecessor_state_ref: string;
+      predecessor_state_root: string;
+      predecessor_chain_head_root: string;
+      resulting_status: "dissolving";
+      resulting_state_ref: string;
+      resulting_state_root: string;
+      constitution_ref: string;
+      lifecycle_profile_ref: string;
+      active_profile_set_ref: string;
+      active_profile_set_root: string;
+      chain_ref: string;
+      current_network_enrollment_ref: string | null;
+      current_network_enrollment_root: string | null;
+      resulting_network_enrollment_ref: string | null;
+      resulting_network_enrollment_root: string | null;
+      trigger_evidence_refs: Array<unknown>;
+      successor_candidate_ref: null;
+      successor_authority_ref: null;
+      successor_authority_binding: null;
+      migration_destination_ack_ref: null;
+      migration_destination_ack_root: null;
+      migration_destination_ref: null;
+      verified_migration_state_root: null;
+      residual_disposition: null;
+      live_effect_refs: Array<unknown>;
+      identity_preserved: true;
+      authority_widened: false;
+      network_assurance_admitted: false;
+      runtime_effect_admitted: false;
+      operation_commitment: null;
+      dissolution_disposition_ref: string;
+      predecessor_disposition_root: string | null;
+      resulting_disposition_root: string;
+      recorded_dissolution_domain: "active_work" | "assets" | "outstanding_obligations" | "authority_revocation" | "worker_and_node_shutdown" | "data_export_retention_and_erasure" | "network_exit" | "tombstone" | null;
+    };
+  authority_grant_refs: Array<string>;
+  receipt_refs: Array<string>;
+  status: "committed";
+};
+
+export type AutonomousSystemDissolutionReceiptV1 = {
+  schema_version: "ioi.autonomous-system-dissolution-receipt.v1";
+  dissolution_receipt_id: string;
+  system_id: string;
+  op: "complete_dissolution";
+  sequence: number;
+  required_scope: "scope:autonomous_system.continuity.complete_dissolution";
+  assurance_posture: "dissolution_committed";
+  lifecycle_profile_ref: string;
+  lifecycle_profile_root: string;
+  dissolution_disposition_ref: string;
+  dissolution_disposition_root: string;
+  domain_outcome_commitments: {
+      active_work: {
+            state: "completed" | "waived_under_policy" | "escalated";
+            outcome_commitment: string;
+          };
+      assets: {
+            state: "completed" | "waived_under_policy" | "escalated";
+            outcome_commitment: string;
+          };
+      outstanding_obligations: {
+            state: "completed" | "waived_under_policy" | "escalated";
+            outcome_commitment: string;
+          };
+      authority_revocation: {
+            state: "completed" | "waived_under_policy" | "escalated";
+            outcome_commitment: string;
+          };
+      worker_and_node_shutdown: {
+            state: "completed" | "waived_under_policy" | "escalated";
+            outcome_commitment: string;
+          };
+      data_export_retention_and_erasure: {
+            state: "completed" | "waived_under_policy" | "escalated";
+            outcome_commitment: string;
+          };
+      network_exit: {
+            state: "completed" | "waived_under_policy" | "escalated";
+            outcome_commitment: string;
+          };
+      tombstone: {
+            state: "completed" | "waived_under_policy" | "escalated";
+            outcome_commitment: string;
+          };
+    };
+  initiate_transition_ref: string;
+  initiate_transition_root: string;
+  complete_transition_ref: string;
+  complete_transition_root: string;
+  predecessor_state_root: string;
+  resulting_state_root: string;
+  tombstone_commitment: string;
+  predecessor_chain_root: string;
+  transition_receipt_ref: string;
+  created_at: string;
 };
 
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
@@ -4244,6 +4434,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   },
   {
     "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -4265,6 +4463,110 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.active_work"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_dissolution_disposition_transition.resulting_disposition_root.matches_effect"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_dissolution_receipt.transitions.distinct"
   }
 ] as const;
 
@@ -8027,6 +8329,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
     "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
@@ -8044,6 +8353,97 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json",
     "contract_id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json",
     "mutation_id": null,
     "value_json": null
   },
@@ -9008,6 +9408,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^deployment-profile://[^\\s]{1,248}$",
   "^development-environment-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^dissolution-disposition://[^\\s]{1,248}$",
+  "^dissolution-receipt://[^\\s]{1,248}$",
   "^effect://[^\\s]+$",
   "^embodied-resource-group-revision://[^\\s]+$",
   "^embodied-runtime-graph-manifest://[^\\s]+$",
@@ -9157,14 +9559,17 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-operation-log/v2": "sha256:6f79fef38132de438bdff306c51f0fa88799729c00df3a52d5ea7a2ba516b0a5",
   "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1": "sha256:923b7fe73385964709853fa4c095766e470cf16d6a3d39e46fad5f3afb350288",
   "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1": "sha256:f5a4a88d18077080267ddf52e192562d50ae384752abdb328e970edb646c41b6",
-  "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1": "sha256:a0ae601ec1c69c0e6b2717d1b776ec31cf98485bc74b95b3d57b88fdf306a0e8",
-  "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1": "sha256:e0d60d363cab0d338cdc87058ba927a299cdd1bd240141ca326149b61678674c",
+  "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1": "sha256:7b89ff46bb3a8b37bea7e69281f86f9898ad66f6bee655ddc0f826e7fc30efad",
+  "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1": "sha256:720dc8327e315fe4c1d56470fdde3dd5103691f93a3d773182f2ffe5cb8db1ba",
   "schema://ioi/foundations/autonomous-system-amendment-transition/v1": "sha256:0707b57a8aa328c0938ef026ca265def6227eb4ab417371b4597c0437df21675",
   "schema://ioi/foundations/autonomous-system-amendment-receipt/v1": "sha256:73be7670baa1f25385bd3a04578bd186419422883c7dc48cc54a2a62de744502",
   "schema://ioi/foundations/autonomous-system-active-profile-set/v2": "sha256:051100663f24d5fad21c9a5336813d11b3a7afd935cf36ef9b8d012f349bf6e4",
   "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1": "sha256:5ad0f84a10bb89f930e5d04fd2f76a56fb902faa1a464670faad1058ddc7d261",
-  "schema://ioi/foundations/autonomous-system-continuity-state/v1": "sha256:ddae020709d8d73124c561a94812c2d8d3c3e12053d8ddee5c1fad0b4fe82d67",
-  "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1": "sha256:6a8401ac0ea076022e78b2103109842fac414269ab56a0fe39159f048491db4d"
+  "schema://ioi/foundations/autonomous-system-continuity-state/v1": "sha256:27a8e83f3f477e790c068fb817da51e41a9aa88aa2920ced929c199c74861374",
+  "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1": "sha256:6a8401ac0ea076022e78b2103109842fac414269ab56a0fe39159f048491db4d",
+  "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1": "sha256:6cd4afd940b5d7157144516ae9aeecad1c41159e7a1ee4d18ed9d2b151396f5b",
+  "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1": "sha256:64fc7bceebf6e18119387f16940b0cf4e68c2b8a1a5d6caed6b1a76502607513",
+  "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1": "sha256:7e303b8ded639767da86d7daf1941b05ea800a3f43ad22e5881a6986281cbecf"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -29035,6 +29440,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "complete_succession",
           "migrate",
           "initiate_dissolution",
+          "open_dissolution_disposition",
+          "record_dissolution_domain_outcome",
           "complete_dissolution",
           "enroll_local",
           "exit_local_enrollment"
@@ -29119,6 +29526,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "complete_succession",
           "migrate",
           "initiate_dissolution",
+          "open_dissolution_disposition",
+          "record_dissolution_domain_outcome",
           "complete_dissolution",
           "enroll_local",
           "exit_local_enrollment"
@@ -31406,6 +31815,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "succession_pending",
           "successor_governed",
           "dissolution_pending",
+          "dissolving",
           "dissolved"
         ]
       },
@@ -31928,6 +32338,954 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "null"
           }
         ]
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
+    "title": "AutonomousSystemDissolutionDisposition",
+    "description": "The named owner of dissolution residue: one record per dissolution binding every residual-disposition duty of the active continuity profile to a typed, evidenced, receipted outcome on one exact initiate_dissolution transition.",
+    "x-ioi-schema-version": "ioi.autonomous-system-dissolution-disposition.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "dissolution_disposition_id",
+      "system_id",
+      "lifecycle_profile_ref",
+      "lifecycle_profile_root",
+      "initiate_transition_ref",
+      "initiate_transition_root",
+      "outcome_domains",
+      "escalation_decision_refs",
+      "complete_transition_ref",
+      "status",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-dissolution-disposition.v1"
+      },
+      "dissolution_disposition_id": {
+        "type": "string",
+        "pattern": "^dissolution-disposition://[^\\s]{1,248}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "lifecycle_profile_ref": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "lifecycle_profile_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "initiate_transition_ref": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "initiate_transition_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "outcome_domains": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "active_work",
+          "assets",
+          "outstanding_obligations",
+          "authority_revocation",
+          "worker_and_node_shutdown",
+          "data_export_retention_and_erasure",
+          "network_exit",
+          "tombstone"
+        ],
+        "properties": {
+          "active_work": {
+            "$ref": "#/$defs/domainOutcome"
+          },
+          "assets": {
+            "$ref": "#/$defs/domainOutcome"
+          },
+          "outstanding_obligations": {
+            "$ref": "#/$defs/domainOutcome"
+          },
+          "authority_revocation": {
+            "$ref": "#/$defs/domainOutcome"
+          },
+          "worker_and_node_shutdown": {
+            "$ref": "#/$defs/domainOutcome"
+          },
+          "data_export_retention_and_erasure": {
+            "$ref": "#/$defs/domainOutcome"
+          },
+          "network_exit": {
+            "$ref": "#/$defs/domainOutcome"
+          },
+          "tombstone": {
+            "$ref": "#/$defs/domainOutcome"
+          }
+        }
+      },
+      "escalation_decision_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^decision://[^\\s]{1,248}$"
+        }
+      },
+      "complete_transition_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "open",
+          "terminal_complete",
+          "terminal_with_escalations",
+          "superseded"
+        ]
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "open"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "complete_transition_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "terminal_complete"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "complete_transition_ref": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "outcome_domains": {
+              "type": "object",
+              "properties": {
+                "active_work": {
+                  "$ref": "#/$defs/settledOutcome"
+                },
+                "assets": {
+                  "$ref": "#/$defs/settledOutcome"
+                },
+                "outstanding_obligations": {
+                  "$ref": "#/$defs/settledOutcome"
+                },
+                "authority_revocation": {
+                  "$ref": "#/$defs/settledOutcome"
+                },
+                "worker_and_node_shutdown": {
+                  "$ref": "#/$defs/settledOutcome"
+                },
+                "data_export_retention_and_erasure": {
+                  "$ref": "#/$defs/settledOutcome"
+                },
+                "network_exit": {
+                  "$ref": "#/$defs/settledOutcome"
+                },
+                "tombstone": {
+                  "$ref": "#/$defs/settledOutcome"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "terminal_with_escalations"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "complete_transition_ref": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "outcome_domains": {
+              "type": "object",
+              "properties": {
+                "active_work": {
+                  "$ref": "#/$defs/terminalOutcome"
+                },
+                "assets": {
+                  "$ref": "#/$defs/terminalOutcome"
+                },
+                "outstanding_obligations": {
+                  "$ref": "#/$defs/terminalOutcome"
+                },
+                "authority_revocation": {
+                  "$ref": "#/$defs/terminalOutcome"
+                },
+                "worker_and_node_shutdown": {
+                  "$ref": "#/$defs/terminalOutcome"
+                },
+                "data_export_retention_and_erasure": {
+                  "$ref": "#/$defs/terminalOutcome"
+                },
+                "network_exit": {
+                  "$ref": "#/$defs/terminalOutcome"
+                },
+                "tombstone": {
+                  "$ref": "#/$defs/terminalOutcome"
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "domainOutcome": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "policy_ref",
+          "state",
+          "evidence_refs",
+          "receipt_refs"
+        ],
+        "properties": {
+          "policy_ref": {
+            "type": "string",
+            "pattern": "^policy://[^\\s]{1,248}$"
+          },
+          "state": {
+            "enum": [
+              "pending",
+              "completed",
+              "waived_under_policy",
+              "escalated",
+              "failed_closed"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$"
+            }
+          },
+          "receipt_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^receipt://[^\\s]{1,248}$"
+            }
+          }
+        }
+      },
+      "settledOutcome": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "enum": [
+              "completed",
+              "waived_under_policy"
+            ]
+          }
+        }
+      },
+      "terminalOutcome": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "enum": [
+              "completed",
+              "waived_under_policy",
+              "escalated"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
+    "title": "AutonomousSystemDissolutionDispositionTransition",
+    "description": "Committed compare-and-swap transition that opens the dissolution-disposition record or records exactly one named domain outcome on it.",
+    "x-ioi-schema-version": "ioi.autonomous-system-dissolution-disposition-transition.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "lifecycle_transition_id",
+      "system_id",
+      "op",
+      "sequence",
+      "proposal_ref",
+      "proposal_root",
+      "decision_ref",
+      "decision_root",
+      "predecessor_state_root",
+      "resulting_state_root",
+      "dissolution_disposition_ref",
+      "predecessor_disposition_root",
+      "resulting_disposition_root",
+      "recorded_domain",
+      "operation_commitment",
+      "authority_effect_material",
+      "authority_grant_refs",
+      "receipt_refs",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-dissolution-disposition-transition.v1"
+      },
+      "lifecycle_transition_id": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "op": {
+        "enum": [
+          "open_dissolution_disposition",
+          "record_dissolution_domain_outcome"
+        ]
+      },
+      "sequence": {
+        "type": "integer",
+        "minimum": 3,
+        "maximum": 9007199254740991
+      },
+      "proposal_ref": {
+        "type": "string",
+        "pattern": "^proposal://[^\\s]{1,248}$"
+      },
+      "proposal_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "decision_ref": {
+        "type": "string",
+        "pattern": "^decision://[^\\s]{1,248}$"
+      },
+      "decision_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "resulting_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "dissolution_disposition_ref": {
+        "type": "string",
+        "pattern": "^dissolution-disposition://[^\\s]{1,248}$"
+      },
+      "predecessor_disposition_root": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "resulting_disposition_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "recorded_domain": {
+        "$ref": "#/$defs/nullableDomain"
+      },
+      "operation_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "authority_effect_material": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "op",
+          "transition_kind",
+          "required_scope",
+          "sequence",
+          "system_id",
+          "genesis_ref",
+          "source_governing_authority_ref",
+          "resulting_governing_authority_ref",
+          "predecessor_status",
+          "predecessor_state_ref",
+          "predecessor_state_root",
+          "predecessor_chain_head_root",
+          "resulting_status",
+          "resulting_state_ref",
+          "resulting_state_root",
+          "constitution_ref",
+          "lifecycle_profile_ref",
+          "active_profile_set_ref",
+          "active_profile_set_root",
+          "chain_ref",
+          "current_network_enrollment_ref",
+          "current_network_enrollment_root",
+          "resulting_network_enrollment_ref",
+          "resulting_network_enrollment_root",
+          "trigger_evidence_refs",
+          "successor_candidate_ref",
+          "successor_authority_ref",
+          "successor_authority_binding",
+          "migration_destination_ack_ref",
+          "migration_destination_ack_root",
+          "migration_destination_ref",
+          "verified_migration_state_root",
+          "residual_disposition",
+          "live_effect_refs",
+          "identity_preserved",
+          "authority_widened",
+          "network_assurance_admitted",
+          "runtime_effect_admitted",
+          "operation_commitment",
+          "dissolution_disposition_ref",
+          "predecessor_disposition_root",
+          "resulting_disposition_root",
+          "recorded_dissolution_domain"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.autonomous-system-continuity-authority-effect.v1"
+          },
+          "op": {
+            "enum": [
+              "open_dissolution_disposition",
+              "record_dissolution_domain_outcome"
+            ]
+          },
+          "transition_kind": {
+            "type": "null"
+          },
+          "required_scope": {
+            "enum": [
+              "scope:autonomous_system.continuity.open_dissolution_disposition",
+              "scope:autonomous_system.continuity.record_dissolution_domain_outcome"
+            ]
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 9007199254740991
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,248}$"
+          },
+          "genesis_ref": {
+            "type": "string",
+            "pattern": "^genesis://[^\\s]{1,248}$"
+          },
+          "source_governing_authority_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "resulting_governing_authority_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "predecessor_status": {
+            "enum": [
+              "dissolution_pending",
+              "dissolving"
+            ]
+          },
+          "predecessor_state_ref": {
+            "type": "string",
+            "pattern": "^system-lifecycle-state://[^\\s]{1,248}$"
+          },
+          "predecessor_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "predecessor_chain_head_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "resulting_status": {
+            "const": "dissolving"
+          },
+          "resulting_state_ref": {
+            "type": "string",
+            "pattern": "^system-lifecycle-state://[^\\s]{1,248}$"
+          },
+          "resulting_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "constitution_ref": {
+            "type": "string",
+            "pattern": "^constitution://[^\\s]{1,248}$"
+          },
+          "lifecycle_profile_ref": {
+            "type": "string",
+            "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+          },
+          "active_profile_set_ref": {
+            "type": "string",
+            "pattern": "^active-profile-set://[^\\s]{1,248}$"
+          },
+          "active_profile_set_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "chain_ref": {
+            "type": "string",
+            "pattern": "^autonomous-system-chain://[^\\s]{1,248}$"
+          },
+          "current_network_enrollment_ref": {
+            "$ref": "#/$defs/nullableEnrollment"
+          },
+          "current_network_enrollment_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "resulting_network_enrollment_ref": {
+            "$ref": "#/$defs/nullableEnrollment"
+          },
+          "resulting_network_enrollment_root": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "trigger_evidence_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "successor_candidate_ref": {
+            "type": "null"
+          },
+          "successor_authority_ref": {
+            "type": "null"
+          },
+          "successor_authority_binding": {
+            "type": "null"
+          },
+          "migration_destination_ack_ref": {
+            "type": "null"
+          },
+          "migration_destination_ack_root": {
+            "type": "null"
+          },
+          "migration_destination_ref": {
+            "type": "null"
+          },
+          "verified_migration_state_root": {
+            "type": "null"
+          },
+          "residual_disposition": {
+            "type": "null"
+          },
+          "live_effect_refs": {
+            "type": "array",
+            "maxItems": 0
+          },
+          "identity_preserved": {
+            "const": true
+          },
+          "authority_widened": {
+            "const": false
+          },
+          "network_assurance_admitted": {
+            "const": false
+          },
+          "runtime_effect_admitted": {
+            "const": false
+          },
+          "operation_commitment": {
+            "type": "null"
+          },
+          "dissolution_disposition_ref": {
+            "type": "string",
+            "pattern": "^dissolution-disposition://[^\\s]{1,248}$"
+          },
+          "predecessor_disposition_root": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resulting_disposition_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "recorded_dissolution_domain": {
+            "oneOf": [
+              {
+                "enum": [
+                  "active_work",
+                  "assets",
+                  "outstanding_obligations",
+                  "authority_revocation",
+                  "worker_and_node_shutdown",
+                  "data_export_retention_and_erasure",
+                  "network_exit",
+                  "tombstone"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^grant://[^\\s]{1,248}$"
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,248}$"
+        }
+      },
+      "status": {
+        "const": "committed"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "op": {
+              "const": "open_dissolution_disposition"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "predecessor_disposition_root": {
+              "type": "null"
+            },
+            "recorded_domain": {
+              "type": "null"
+            },
+            "authority_effect_material": {
+              "type": "object",
+              "properties": {
+                "predecessor_status": {
+                  "const": "dissolution_pending"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "op": {
+              "const": "record_dissolution_domain_outcome"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "predecessor_disposition_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "recorded_domain": {
+              "$ref": "#/$defs/domain"
+            },
+            "authority_effect_material": {
+              "type": "object",
+              "properties": {
+                "predecessor_status": {
+                  "const": "dissolving"
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nullableEnrollment": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^network-enrollment://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "domain": {
+        "enum": [
+          "active_work",
+          "assets",
+          "outstanding_obligations",
+          "authority_revocation",
+          "worker_and_node_shutdown",
+          "data_export_retention_and_erasure",
+          "network_exit",
+          "tombstone"
+        ]
+      },
+      "nullableDomain": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/domain"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
+    "title": "AutonomousSystemDissolutionReceipt",
+    "description": "The named dissolution receipt, minted exactly once by complete_dissolution over a fully terminal disposition record. It binds the active continuity-profile root, the dissolution-disposition record root, the eight per-domain outcome commitments, the initiate and complete transition roots, predecessor and resulting state roots, the tombstone commitment, and the predecessor chain root. The artifact root domain is ioi.autonomous-system-dissolution-receipt-artifact-jcs-sha256.v1.",
+    "x-ioi-schema-version": "ioi.autonomous-system-dissolution-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "dissolution_receipt_id",
+      "system_id",
+      "op",
+      "sequence",
+      "required_scope",
+      "assurance_posture",
+      "lifecycle_profile_ref",
+      "lifecycle_profile_root",
+      "dissolution_disposition_ref",
+      "dissolution_disposition_root",
+      "domain_outcome_commitments",
+      "initiate_transition_ref",
+      "initiate_transition_root",
+      "complete_transition_ref",
+      "complete_transition_root",
+      "predecessor_state_root",
+      "resulting_state_root",
+      "tombstone_commitment",
+      "predecessor_chain_root",
+      "transition_receipt_ref",
+      "created_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-dissolution-receipt.v1"
+      },
+      "dissolution_receipt_id": {
+        "type": "string",
+        "pattern": "^dissolution-receipt://[^\\s]{1,248}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "op": {
+        "const": "complete_dissolution"
+      },
+      "sequence": {
+        "type": "integer",
+        "minimum": 3,
+        "maximum": 9007199254740991
+      },
+      "required_scope": {
+        "const": "scope:autonomous_system.continuity.complete_dissolution"
+      },
+      "assurance_posture": {
+        "const": "dissolution_committed"
+      },
+      "lifecycle_profile_ref": {
+        "type": "string",
+        "pattern": "^lifecycle-profile://[^\\s]{1,248}$"
+      },
+      "lifecycle_profile_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "dissolution_disposition_ref": {
+        "type": "string",
+        "pattern": "^dissolution-disposition://[^\\s]{1,248}$"
+      },
+      "dissolution_disposition_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "domain_outcome_commitments": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "active_work",
+          "assets",
+          "outstanding_obligations",
+          "authority_revocation",
+          "worker_and_node_shutdown",
+          "data_export_retention_and_erasure",
+          "network_exit",
+          "tombstone"
+        ],
+        "properties": {
+          "active_work": {
+            "$ref": "#/$defs/domainOutcomeCommitment"
+          },
+          "assets": {
+            "$ref": "#/$defs/domainOutcomeCommitment"
+          },
+          "outstanding_obligations": {
+            "$ref": "#/$defs/domainOutcomeCommitment"
+          },
+          "authority_revocation": {
+            "$ref": "#/$defs/domainOutcomeCommitment"
+          },
+          "worker_and_node_shutdown": {
+            "$ref": "#/$defs/domainOutcomeCommitment"
+          },
+          "data_export_retention_and_erasure": {
+            "$ref": "#/$defs/domainOutcomeCommitment"
+          },
+          "network_exit": {
+            "$ref": "#/$defs/domainOutcomeCommitment"
+          },
+          "tombstone": {
+            "$ref": "#/$defs/domainOutcomeCommitment"
+          }
+        }
+      },
+      "initiate_transition_ref": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "initiate_transition_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "complete_transition_ref": {
+        "type": "string",
+        "pattern": "^lifecycle-transition://[^\\s]{1,248}$"
+      },
+      "complete_transition_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "resulting_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "tombstone_commitment": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_chain_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "transition_receipt_ref": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "domainOutcomeCommitment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "outcome_commitment"
+        ],
+        "properties": {
+          "state": {
+            "enum": [
+              "completed",
+              "waived_under_policy",
+              "escalated"
+            ]
+          },
+          "outcome_commitment": {
+            "$ref": "#/$defs/hash"
+          }
+        }
       }
     }
   }
@@ -36813,6 +38171,278 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1": [
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.active_work",
+      "description": "An escalated active_work outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.active_work.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.assets",
+      "description": "An escalated assets outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.assets.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.outstanding_obligations",
+      "description": "An escalated outstanding_obligations outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.outstanding_obligations.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.authority_revocation",
+      "description": "An escalated authority_revocation outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.authority_revocation.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.worker_and_node_shutdown",
+      "description": "An escalated worker_and_node_shutdown outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.worker_and_node_shutdown.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.data_export_retention_and_erasure",
+      "description": "An escalated data_export_retention_and_erasure outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.data_export_retention_and_erasure.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.network_exit",
+      "description": "An escalated network_exit outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.network_exit.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.escalated_domain_requires_decision.tombstone",
+      "description": "An escalated tombstone outcome requires a recorded escalation decision ref.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.outcome_domains.tombstone.state",
+        "values": [
+          "escalated"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition.terminal_escalations.require_decisions",
+      "description": "A record terminal with escalations names at least one escalation decision.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.status",
+        "values": [
+          "terminal_with_escalations"
+        ],
+        "path": "$.escalation_decision_refs"
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1": [
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.operation_commitment.recomputes",
+      "description": "The operation commitment recomputes from the complete closed authority effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-continuity-operation-commitment-jcs-sha256.v1"
+          },
+          "effect": {
+            "path": "$.authority_effect_material"
+          }
+        },
+        "expected_path": "$.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.op.matches_effect",
+      "description": "The portable transition and governed effect name the same operation.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.op",
+          "$.authority_effect_material.op"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.system.matches_effect",
+      "description": "The portable transition and governed effect bind the same System.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.system_id",
+          "$.authority_effect_material.system_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.sequence.matches_effect",
+      "description": "The portable transition and governed effect bind the same sequence.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.sequence",
+          "$.authority_effect_material.sequence"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.predecessor_state.matches_effect",
+      "description": "The predecessor state root is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_state_root",
+          "$.authority_effect_material.predecessor_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.resulting_state.matches_effect",
+      "description": "The resulting state root is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resulting_state_root",
+          "$.authority_effect_material.resulting_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.disposition_record.matches_effect",
+      "description": "The dissolution-disposition record identity is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.dissolution_disposition_ref",
+          "$.authority_effect_material.dissolution_disposition_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.predecessor_disposition_root.matches_effect",
+      "description": "The compare-and-swap predecessor disposition bytes are content-bound.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_disposition_root",
+          "$.authority_effect_material.predecessor_disposition_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.resulting_disposition_root.matches_effect",
+      "description": "The resulting disposition bytes are content-bound.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resulting_disposition_root",
+          "$.authority_effect_material.resulting_disposition_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_disposition_transition.recorded_domain.matches_effect",
+      "description": "The recorded outcome domain is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.recorded_domain",
+          "$.authority_effect_material.recorded_dissolution_domain"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1": [
+    {
+      "rule_id": "autonomous_system_dissolution_receipt.transitions.distinct",
+      "description": "The initiate and complete transitions are distinct chain steps; a receipt naming one transition twice is not a completion proof.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.initiate_transition_ref",
+          "$.complete_transition_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_receipt.transition_roots.distinct",
+      "description": "The initiate and complete transition roots commit different transition bytes.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.initiate_transition_root",
+          "$.complete_transition_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_receipt.state_roots.advance",
+      "description": "Completion moves the System to a distinct dissolved state; predecessor and resulting state roots cannot coincide.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.predecessor_state_root",
+          "$.resulting_state_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_dissolution_receipt.tombstone.retained",
+      "description": "The receipt retains the terminal identity commitment.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.tombstone_commitment"
+      }
+    }
   ]
 };
 
@@ -37956,4 +39586,22 @@ export function validateAutonomousSystemNetworkEnrollmentTransitionV1(
   value: unknown,
 ): value is AutonomousSystemNetworkEnrollmentTransitionV1 {
   return validateArchitectureContract("schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1", value).ok;
+}
+
+export function validateAutonomousSystemDissolutionDispositionV1(
+  value: unknown,
+): value is AutonomousSystemDissolutionDispositionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-dissolution-disposition/v1", value).ok;
+}
+
+export function validateAutonomousSystemDissolutionDispositionTransitionV1(
+  value: unknown,
+): value is AutonomousSystemDissolutionDispositionTransitionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1", value).ok;
+}
+
+export function validateAutonomousSystemDissolutionReceiptV1(
+  value: unknown,
+): value is AutonomousSystemDissolutionReceiptV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-dissolution-receipt/v1", value).ok;
 }

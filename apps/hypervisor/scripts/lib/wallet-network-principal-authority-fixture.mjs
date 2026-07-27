@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
+import { appendFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { connect as connectTcp } from "node:net";
 import { createServer as createTlsServer } from "node:tls";
@@ -38,7 +39,9 @@ const seeds = new Map([
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_PENDING_COMMANDS = 64;
 const MAX_COMMAND_BYTES = 64 * 1024;
-const COMMAND_TIMEOUT_MS = 180_000;
+const COMMAND_TIMEOUT_MS = Number(
+  process.env.IOI_WALLET_FIXTURE_COMMAND_TIMEOUT_MS || "900000",
+);
 const WALLET_FIXTURE_MIN_STACK_BYTES = 32 * 1024 * 1024;
 
 function publishFixtureOwnerMarker(
@@ -305,6 +308,15 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
           ? { IOI_HYPERVISOR_WALLET_FIXTURE_ROOT_SEED_HEX: normalizedRootSeed }
           : {}),
         IOI_GUARDIAN_KEY_PASS: "hypervisor-held-bar",
+        // Deep-journey blocks commit slowly on the debug fixture; the
+        // fixture's own approval submissions need the same patience the
+        // daemon's consumptions were granted.
+        IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS: "900",
+        // Diagnostic passthrough: surface wallet-chain execution logs when a
+        // caller needs to see WHY a transaction produced no receipt.
+        ...(process.env.IOI_WALLET_FIXTURE_RUST_LOG
+          ? { RUST_LOG: process.env.IOI_WALLET_FIXTURE_RUST_LOG }
+          : {}),
       },
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -323,9 +335,20 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   const ownedProcessGroupIdentityMatches = () =>
     walletFixtureProcessGroupStartTimeTicks(processGroupId) ===
       processGroupStartTimeTicks;
+  const teeLogPath = process.env.IOI_WALLET_FIXTURE_TEE_LOG || null;
   const capture = (chunk) => {
     output = `${output}${chunk}`;
     if (output.length > 32_000) output = output.slice(-32_000);
+    // Env-gated diagnostic tee: the rolling in-memory window is useless once
+    // the plane is torn down; a retained log is the only way to see a
+    // wallet-side transaction refusal that produced no receipt.
+    if (teeLogPath) {
+      try {
+        appendFileSync(teeLogPath, chunk);
+      } catch {
+        /* diagnostics never fail the fixture */
+      }
+    }
   };
   child.stdout.on("data", capture);
   child.stderr.on("data", capture);
@@ -592,7 +615,11 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
       // The in-process one-validator fixture intentionally executes and commits every lookup;
       // leave production's five-second default untouched, but do not make the positive held bar
       // flaky when the debug cluster is saturated by the full lifecycle journey.
-      IOI_WALLET_NETWORK_RESOLUTION_TIMEOUT_MS: "180000",
+      // Late-journey consumptions on the debug fixture legitimately take
+      // minutes as the IAVL chain deepens; match the estate's 900s
+      // held-operation ceiling rather than failing honest slow inclusion.
+      IOI_WALLET_NETWORK_RESOLUTION_TIMEOUT_MS: "900000",
+      IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS: "900",
       IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "45000",
     },
     capabilityAccountId,

@@ -34,13 +34,19 @@
       "minimum": 3,
       "maximum": 9007199254740991
     },
-    "predecessor_chain_root": { "$ref": "#/$defs/hash" },
-    "successor_chain_root": { "$ref": "#/$defs/hash" },
+    "predecessor_chain_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "successor_chain_root": {
+      "$ref": "#/$defs/hash"
+    },
     "operation_ref": {
       "type": "string",
       "minLength": 1
     },
-    "operation_root": { "$ref": "#/$defs/hash" },
+    "operation_root": {
+      "$ref": "#/$defs/hash"
+    },
     "operation": {
       "type": "string",
       "enum": [
@@ -63,6 +69,8 @@
         "complete_succession",
         "migrate",
         "initiate_dissolution",
+        "open_dissolution_disposition",
+        "record_dissolution_domain_outcome",
         "complete_dissolution",
         "enroll_local",
         "exit_local_enrollment"
