@@ -12,14 +12,14 @@ const React = window.React;
   /* ---------- per-product install meta ---------- */
   const INSTALL = {
     app: { verb: "Install", lines: ["$ brew install --cask hypervisor", "==> Hypervisor.app installed", "$ open -a Hypervisor", "✓ daemon running · workspace ready"] },
-    web: { verb: "Open Hypervisor Web", lines: ["> open https://app.hypervisor.io", "✓ signed in · org synced", "· shared projects loaded", "✓ ready — start a session"] },
-    cli: { verb: "Install", lines: ["$ curl -fsSL https://get.hypervisor.io | sh", "✓ hv 1.0 installed", "$ hv login", "✓ authenticated · scoped credentials ready"] },
+    web: { verb: "Open Hypervisor Web", lines: ["> open https://app.hypervisor.com", "✓ signed in · org synced", "· shared projects loaded", "✓ ready — start a session"] },
+    cli: { verb: "Install", lines: ["$ curl -fsSL https://get.hypervisor.com | sh", "✓ hv 1.0 installed", "$ hv login", "✓ authenticated · scoped credentials ready"] },
     sdk: { verb: "Install", lines: ["$ npm install @hypervisor/sdk", "added @hypervisor/sdk", "> import { Session } from \"@hypervisor/sdk\"", "✓ runtime primitives ready"] },
     adk: { verb: "Install", lines: ["$ npm install -g @hypervisor/adk", "✓ adk 1.0 installed", "$ hv adk init worker", "✓ manifest · harness · evals scaffolded"] },
     odk: { verb: "Install", lines: ["$ npm install -g @hypervisor/odk", "✓ odk 1.0 installed", "$ hv odk compile ontology.yaml", "✓ surfaces · domain app generated"] },
     mcp: { verb: "Create a profile", lines: ["$ hv mcp profile create reviewer", "✓ profile reviewer · scoped", "$ hv mcp grant --tools=code.read", "✓ revocable lease issued"] },
-    os: { verb: "Provision a node", lines: ["$ curl -fsSL https://get.hypervisor.io/os | sh", "✓ measured boot · node attested", "$ hv node join", "✓ governed compute online"] },
-    embodied: { verb: "Install", lines: ["$ npm install @hypervisor/embodied", "✓ runtime installed", "$ hv embodied register fleet.yaml", "✓ devices governed · safety gates armed"] },
+    os: { verb: "Read the architecture", lines: ["# design stage — specified in the IOI architecture canon", "· measured boot · attested join · kernel-level policy", "· no HypervisorOS build ships today", "→ track it at internetofintelligence.com/roadmap"] },
+    embodied: { verb: "Read the architecture", lines: ["# design stage — the authority model, extended to devices", "· safety gates · command queues · receipted telemetry", "· no Embodied Runtime build ships today", "→ track it at internetofintelligence.com/roadmap"] },
   };
 
   /* ---------- inverse dot-matrix panel (matches Core band) ---------- */
@@ -65,7 +65,7 @@ const React = window.React;
     return (
       <section style={{ paddingTop: "4.5rem" }}>
         <div style={{ ...wrap, textAlign: "center", maxWidth: "44rem" }}>
-          <PgEyebrow color={ACC}>Platform · {p.name}</PgEyebrow>
+          <PgEyebrow color={ACC}>Platform · {p.name}{p.status ? ` · ${p.status}` : ""}</PgEyebrow>
           <h1 style={{ fontFamily: "var(--font-serif)", fontWeight: 300, fontSize: "3.75rem", lineHeight: 1.03, letterSpacing: "-0.025em", margin: "1.25rem 0 0", color: INK }}>{p.name}</h1>
           <p style={{ fontFamily: "var(--font-sans)", fontSize: "1.1875rem", color: "var(--color-grey-800)", margin: "1.25rem auto 0", maxWidth: "48ch", lineHeight: 1.5 }}>{p.sub}</p>
           <div style={{ display: "flex", gap: "0.625rem", justifyContent: "center", marginTop: "2.25rem", alignItems: "center" }}>

@@ -225,7 +225,7 @@ const React = window.React;
             {["#ff5f57", "#ffbd2e", "#28c840"].map((c, i) => <span key={i} style={{ width: 11, height: 11, borderRadius: "50%", background: c }} />)}
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: 10, background: "#0c0c0f", borderRadius: 7, padding: "5px 14px", border: "1px solid rgba(255,255,255,0.07)", flex: 1, maxWidth: 360 }}>
               <span style={{ color: ACC, display: "flex" }}><AppLogo size={12} /></span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "rgba(255,255,255,0.5)" }}>app.hypervisor.io</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "rgba(255,255,255,0.5)" }}>app.hypervisor.com</span>
             </div>
             <span style={{ marginLeft: "auto", display: "flex", gap: 5 }}>
               {[0, 1, 2].map((i) => <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.25)" }} />)}

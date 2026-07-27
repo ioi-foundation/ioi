@@ -82,9 +82,8 @@ function Footer() {
             <HvByIOI height={13} />
           </div>
           <div style={{ marginTop: "1.25rem", display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--color-grey-700)", border: "0.5px solid var(--color-grey-500)", borderRadius: 6, padding: "5px 9px" }}>SOC 2</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--color-grey-700)", border: "0.5px solid var(--color-grey-500)", borderRadius: 6, padding: "5px 9px" }}>GDPR</span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--color-grey-700)", border: "0.5px solid var(--color-grey-500)", borderRadius: 6, padding: "5px 9px" }}>Web4</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6875rem", color: "var(--color-grey-700)", border: "0.5px solid var(--color-grey-500)", borderRadius: 6, padding: "5px 9px" }}>Private preview</span>
           </div>
           <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.9375rem", color: "var(--color-grey-800)", marginTop: "1.5rem", lineHeight: 1.5, maxWidth: "30ch" }}>
             The open operating environment for autonomous systems.
@@ -92,11 +91,10 @@ function Footer() {
         </div>
         <FCol title="Platform" links={[["Hypervisor App", "hv-app.html"], ["Web", "hv-web.html"], ["CLI", "hv-cli.html"], ["MCP gateway", "hv-mcp.html"], ["HypervisorOS", "hv-os.html"], ["Embodied Runtime", "hv-embodied.html"]]} />
         <FCol title="Solutions" links={[["Background work", "background-work.html"], ["Automations", "automations-fleets.html"], ["Modernization", "code-modernization.html"], ["Security agents", "runtime-security.html"]]} />
-        <FCol title="Developers" links={[["Docs", "docs.html"], ["SDK", "hv-sdk.html"], ["ADK", "hv-adk.html"], ["ODK", "hv-odk.html"], "API reference", "Changelog"]} />
-        <FCol title="Company" links={["About", "Careers", "Security", "Contact"]} />
+        <FCol title="Developers" links={[["Docs", "docs.html"], ["SDK", "hv-sdk.html"], ["ADK", "hv-adk.html"], ["ODK", "hv-odk.html"]]} />
+        <FCol title="IOI" links={[["Internet of Intelligence", "https://internetofintelligence.com"], ["Whitepaper", "https://internetofintelligence.com/papers/ioi-whitepaper"], ["Roadmap", "https://internetofintelligence.com/roadmap"], ["What is Web4", "https://internetofintelligence.com/what-is-web4"]]} />
       </div>
       <div className="hv-footer-bar" style={{ maxWidth: "75rem", margin: "0 auto", padding: "1.5rem 2.5rem 3rem", borderTop: "0.5px solid var(--color-grey-500)", display: "flex", gap: "1.5rem", flexWrap: "wrap", alignItems: "center" }}>
-        {["Terms", "Privacy", "Trust", "Status"].map((l) => <a key={l} href="#" onClick={(e) => e.preventDefault()} style={{ fontFamily: "var(--font-sans)", fontSize: "0.8125rem", color: "var(--color-grey-700)", textDecoration: "none" }}>{l}</a>)}
         <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--color-grey-700)" }}>© 2026 IOI, Inc. · hypervisor.com</span>
       </div>
     </footer>

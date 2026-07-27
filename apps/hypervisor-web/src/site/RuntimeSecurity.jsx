@@ -66,7 +66,7 @@ function AppMockup() {
           {["#ff5f57", "#ffbd2e", "#28c840"].map((c, i) => <span key={i} style={{ width: 11, height: 11, borderRadius: "50%", background: c }} />)}
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: 10, background: "#0d0d10", borderRadius: 7, padding: "5px 12px", border: "1px solid rgba(255,255,255,0.07)" }}>
             <span style={{ color: ACC }}>{rsIcon(SHIELD, 1.5)}</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "rgba(255,255,255,0.5)" }}>app.hypervisor.io/session/9f2c1</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "rgba(255,255,255,0.5)" }}>app.hypervisor.com/session/9f2c1</span>
           </div>
           <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, fontFamily: "var(--font-mono)", fontSize: 11, color: ACC, border: `1px solid color-mix(in srgb, ${ACC} 40%, transparent)`, borderRadius: 6, padding: "3px 9px" }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: ACC }} />governed
