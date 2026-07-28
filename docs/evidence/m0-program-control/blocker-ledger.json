@@ -1,5 +1,5 @@
 {
-  "as_of_date": "2026-07-27",
+  "as_of_date": "2026-07-28",
   "blockers": [
     {
       "blocker_id": "BLK-M0-SELECTED-PACKAGE-GENESIS",
@@ -306,7 +306,7 @@
     },
     {
       "blocker_id": "BLK-M0-FINAL-INVOKER-PROOF",
-      "reference_count": 674,
+      "reference_count": 693,
       "references": [
         "http:hypervisor-daemon:DELETE /scim/v2/Groups/:id",
         "http:hypervisor-daemon:DELETE /scim/v2/Users/:id",
@@ -397,8 +397,14 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/amendments",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/continuity/:op",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/initialize",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/membership/:op",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/membership/projection",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/topology/minimum",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/transitions/:op",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/writer/epoch",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/writer/lost-suffixes",
+        "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/:id/writer/transitions/:kind",
         "http:hypervisor-daemon:GET /v1/hypervisor/autonomous-systems/projection",
         "http:hypervisor-daemon:GET /v1/hypervisor/budget",
         "http:hypervisor-daemon:GET /v1/hypervisor/capability-leases",
@@ -426,6 +432,8 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/environments-summary",
         "http:hypervisor-daemon:GET /v1/hypervisor/environments/:id",
         "http:hypervisor-daemon:GET /v1/hypervisor/environments/:id/watch-state",
+        "http:hypervisor-daemon:GET /v1/hypervisor/environments/lifecycle/:op",
+        "http:hypervisor-daemon:GET /v1/hypervisor/environments/lifecycle/projection",
         "http:hypervisor-daemon:GET /v1/hypervisor/eval-suites",
         "http:hypervisor-daemon:GET /v1/hypervisor/eval-suites/:id",
         "http:hypervisor-daemon:GET /v1/hypervisor/eval-suites/overview",
@@ -448,6 +456,8 @@
         "http:hypervisor-daemon:GET /v1/hypervisor/harness-profiles/:id",
         "http:hypervisor-daemon:GET /v1/hypervisor/harness-profiles/:id/session-bindings",
         "http:hypervisor-daemon:GET /v1/hypervisor/harness-profiles/overview",
+        "http:hypervisor-daemon:GET /v1/hypervisor/hypervisoros/nodes/projection",
+        "http:hypervisor-daemon:GET /v1/hypervisor/hypervisoros/nodes/transitions/:op",
         "http:hypervisor-daemon:GET /v1/hypervisor/incidents",
         "http:hypervisor-daemon:GET /v1/hypervisor/intelligence/graph",
         "http:hypervisor-daemon:GET /v1/hypervisor/intelligence/improvement-proposals",
@@ -706,8 +716,13 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/continuity/:op",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/continuity/migration-destination-acknowledgements",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/initialize",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/membership/:op",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/membership/desired-topology",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/sequence-zero-materialization",
         "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/transitions/:op",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/writer/failover-profile",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/writer/lost-suffixes/resolution",
+        "http:hypervisor-daemon:POST /v1/hypervisor/autonomous-systems/:id/writer/transitions/:kind",
         "http:hypervisor-daemon:POST /v1/hypervisor/budget/reconcile",
         "http:hypervisor-daemon:POST /v1/hypervisor/cloud-candidates/candidates/refresh",
         "http:hypervisor-daemon:POST /v1/hypervisor/cloud-candidates/intents",
@@ -746,6 +761,7 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/environments/:id/ports/:port/unexpose",
         "http:hypervisor-daemon:POST /v1/hypervisor/environments/:id/pull-request-drafts",
         "http:hypervisor-daemon:POST /v1/hypervisor/environments/:id/scm/publish",
+        "http:hypervisor-daemon:POST /v1/hypervisor/environments/lifecycle/:op",
         "http:hypervisor-daemon:POST /v1/hypervisor/eval-suites",
         "http:hypervisor-daemon:POST /v1/hypervisor/exec",
         "http:hypervisor-daemon:POST /v1/hypervisor/failover/evaluate",
@@ -771,6 +787,9 @@
         "http:hypervisor-daemon:POST /v1/hypervisor/harness-profiles/:id/session-bindings",
         "http:hypervisor-daemon:POST /v1/hypervisor/harness-session-binding-admissions",
         "http:hypervisor-daemon:POST /v1/hypervisor/harness-session-terminal-attachments",
+        "http:hypervisor-daemon:POST /v1/hypervisor/hypervisoros/nodes/boot-profile",
+        "http:hypervisor-daemon:POST /v1/hypervisor/hypervisoros/nodes/temporal-profile",
+        "http:hypervisor-daemon:POST /v1/hypervisor/hypervisoros/nodes/transitions/:op",
         "http:hypervisor-daemon:POST /v1/hypervisor/intelligence/improvement-proposals",
         "http:hypervisor-daemon:POST /v1/hypervisor/intelligence/improvement-proposals/:id/apply",
         "http:hypervisor-daemon:POST /v1/hypervisor/intelligence/improvement-proposals/:id/approve",
@@ -1563,7 +1582,7 @@
       "type": "baseline_not_measured"
     }
   ],
-  "build_fingerprint": "c87bf0eed4e6bbf2d4cd2360c24297d39b622d0547a1107e9758aa3741832456",
+  "build_fingerprint": "2b14ea2f7169c3a51a68caf21e7776f460c918fab35f09291a799714fd2779af",
   "counts": {
     "by_state": {
       "open": 23,
