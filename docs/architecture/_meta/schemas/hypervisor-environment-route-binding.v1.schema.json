@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+  "title": "HypervisorEnvironmentRouteBinding",
+  "description": "One immutable admitted route-to-environment binding revision: exact route identity (hostname, path prefix, protocol), the owning principal and optional owning System, the bound environment/port target, provider and policy bindings, and compare-and-swap lineage over predecessor revisions. Desired activation, cutover, detach, and replacement flow through an admitted HypervisorChangePlan; observed DNS, certificate, endpoint, and provider facts are evidence and never mutate the binding. A binding revision is structurally incapable of asserting observed reachability, ownership currency, or TLS validity.",
+  "x-ioi-schema-version": "ioi.hypervisor-environment-route-binding.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "route_binding_ref",
+    "predecessor_route_binding_ref",
+    "route_binding_hash",
+    "owner_principal_ref",
+    "environment_ref",
+    "session_ref",
+    "system_ref",
+    "service_ref",
+    "port_ref",
+    "target_endpoint_ref",
+    "target_port",
+    "target_protocol",
+    "hostname_or_address",
+    "path_prefix",
+    "network_scope",
+    "route_provider_ref",
+    "dns_provider_ref",
+    "certificate_provider_ref",
+    "port_exposure_policy_ref",
+    "ownership_proof_requirement_ref",
+    "tls_policy_ref",
+    "renewal_policy_ref",
+    "traffic_policy_ref",
+    "privacy_and_information_flow_policy_refs",
+    "authority_requirement_refs",
+    "budget_or_quote_ref",
+    "expected_active_head_ref",
+    "activation_generation",
+    "expected_receipt_contract_refs",
+    "asserts_observed_route_truth"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor-environment-route-binding.v1"
+    },
+    "route_binding_ref": {
+      "type": "string",
+      "pattern": "^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$"
+    },
+    "predecessor_route_binding_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$"
+        },
+        { "type": "null" }
+      ]
+    },
+    "route_binding_hash": { "$ref": "#/$defs/hash" },
+    "owner_principal_ref": {
+      "type": "string",
+      "pattern": "^(?:wallet|org|project)://[^\\s]{1,240}$"
+    },
+    "environment_ref": {
+      "type": "string",
+      "pattern": "^environment://[^\\s]{1,240}$"
+    },
+    "session_ref": {
+      "anyOf": [
+        { "type": "string", "pattern": "^session://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "system_ref": {
+      "anyOf": [
+        { "type": "string", "pattern": "^system://[^\\s]{1,240}$" },
+        { "type": "null" }
+      ]
+    },
+    "service_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^environment-service://[^\\s]{1,240}$"
+        },
+        { "type": "null" }
+      ]
+    },
+    "port_ref": {
+      "type": "string",
+      "pattern": "^environment-port://[^\\s]{1,240}$"
+    },
+    "target_endpoint_ref": {
+      "type": "string",
+      "pattern": "^endpoint://[^\\s]{1,240}$"
+    },
+    "target_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "target_protocol": {
+      "enum": ["http", "https", "tcp", "udp", "websocket", "grpc"]
+    },
+    "hostname_or_address": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9.:-]{0,251}[a-z0-9]|)$"
+    },
+    "path_prefix": {
+      "anyOf": [
+        { "type": "string", "pattern": "^/[^\\s]{0,200}$" },
+        { "type": "null" }
+      ]
+    },
+    "network_scope": {
+      "enum": ["local", "private_network", "session_scoped", "public_internet"]
+    },
+    "route_provider_ref": { "$ref": "#/$defs/nullableProviderRef" },
+    "dns_provider_ref": { "$ref": "#/$defs/nullableProviderRef" },
+    "certificate_provider_ref": { "$ref": "#/$defs/nullableProviderRef" },
+    "port_exposure_policy_ref": { "$ref": "#/$defs/policyRef" },
+    "ownership_proof_requirement_ref": {
+      "anyOf": [{ "$ref": "#/$defs/policyRef" }, { "type": "null" }]
+    },
+    "tls_policy_ref": { "$ref": "#/$defs/policyRef" },
+    "renewal_policy_ref": {
+      "anyOf": [{ "$ref": "#/$defs/policyRef" }, { "type": "null" }]
+    },
+    "traffic_policy_ref": { "$ref": "#/$defs/policyRef" },
+    "privacy_and_information_flow_policy_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/policyRef" }
+    },
+    "authority_requirement_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/canonicalRef" }
+    },
+    "budget_or_quote_ref": {
+      "anyOf": [{ "$ref": "#/$defs/canonicalRef" }, { "type": "null" }]
+    },
+    "expected_active_head_ref": {
+      "anyOf": [{ "$ref": "#/$defs/canonicalRef" }, { "type": "null" }]
+    },
+    "activation_generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "expected_receipt_contract_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "type": "string", "pattern": "^schema://[^\\s]{1,240}$" }
+    },
+    "asserts_observed_route_truth": { "const": false }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "predecessor_route_binding_ref": { "type": "null" } }
+      },
+      "then": {
+        "properties": {
+          "activation_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1
+          },
+          "expected_active_head_ref": { "type": "null" }
+        }
+      },
+      "else": {
+        "properties": {
+          "activation_generation": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 9007199254740991
+          },
+          "expected_active_head_ref": { "$ref": "#/$defs/canonicalRef" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]{1,240}$" },
+    "canonicalRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"
+    },
+    "nullableProviderRef": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:provider|provider-account)://[^\\s]{1,240}$"
+        },
+        { "type": "null" }
+      ]
+    }
+  }
+}

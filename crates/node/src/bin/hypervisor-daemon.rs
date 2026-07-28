@@ -84,6 +84,8 @@ mod governance_routes;
 mod governed_authority;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
+#[path = "hypervisor_daemon_routes/hypervisor_environment_routes.rs"]
+mod hypervisor_environment_routes;
 #[path = "hypervisor_daemon_routes/hypervisoros_node_routes.rs"]
 mod hypervisoros_node_routes;
 #[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
@@ -485,6 +487,7 @@ async fn async_main() -> anyhow::Result<()> {
             system_membership_routes::MEMBERSHIP_INTENT_DIR,
             system_writer_routes::WRITER_INTENT_DIR,
             hypervisoros_node_routes::NODE_INTENT_DIR,
+            hypervisor_environment_routes::ENVIRONMENT_INTENT_DIR,
         ],
     )?;
     seed_default_state(&data_dir);
@@ -2129,6 +2132,18 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/autonomous-systems/:id/continuity/:op",
             get(system_continuity_routes::handle_get_transition)
                 .post(system_continuity_routes::handle_transition)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/environments/lifecycle/projection",
+            get(hypervisor_environment_routes::handle_get_environment_projection),
+        )
+        .route(
+            "/v1/hypervisor/environments/lifecycle/:op",
+            get(hypervisor_environment_routes::handle_get_environment_transition)
+                .post(hypervisor_environment_routes::handle_environment_transition)
                 .layer(DefaultBodyLimit::max(
                     system_activation_routes::MAX_REQUEST_BYTES,
                 )),

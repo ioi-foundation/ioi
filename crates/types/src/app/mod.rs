@@ -24,6 +24,10 @@ pub mod generated {
 pub mod guardianized;
 /// Workflow-addressable agent harness component contracts.
 pub mod harness;
+/// M2 environment lifecycle plane: owner-bound route bindings,
+/// manifest-complete backups, staged restore/activation plans, and durable
+/// cleanup obligations.
+pub mod hypervisor_environment_lifecycle;
 /// HypervisorOS node-attestation plane: boot profiles, boot receipts,
 /// sealed-identity binding, temporal freshness, and readiness derivation.
 pub mod hypervisoros_node_attestation;

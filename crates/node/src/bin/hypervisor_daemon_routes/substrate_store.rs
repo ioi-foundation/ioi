@@ -91,6 +91,14 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "hypervisoros-node-transitions",
     "hypervisoros-node-attestation-receipts",
     "hypervisoros-node-successor-claims",
+    "hypervisor-environment-route-bindings",
+    "hypervisor-environment-backups",
+    "hypervisor-change-plans",
+    "hypervisor-change-plan-stage-advances",
+    "hypervisor-resource-cleanup-obligations",
+    "hypervisor-environment-lifecycle-transitions",
+    "hypervisor-environment-lifecycle-receipts",
+    "hypervisor-environment-lifecycle-successor-claims",
 ];
 
 struct HandleSlot {
@@ -426,6 +434,10 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "predecessor_node_set_root",
             format!("sha256:{}", record_id.strip_prefix("hvnsc_").unwrap_or("")),
         ),
+        "hypervisor-environment-lifecycle-successor-claims" => (
+            "predecessor_plane_root",
+            format!("sha256:{}", record_id.strip_prefix("hvelsc_").unwrap_or("")),
+        ),
         "autonomous-system-lifecycle-authority-consumptions"
         | "autonomous-system-lifecycle-transitions"
         | "autonomous-system-initialize-transition-receipts"
@@ -446,6 +458,13 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "autonomous-system-writer-epoch-transitions"
         | "autonomous-system-writer-receipts"
         | "autonomous-system-lost-suffix-records"
+        | "hypervisor-environment-route-bindings"
+        | "hypervisor-environment-backups"
+        | "hypervisor-change-plans"
+        | "hypervisor-change-plan-stage-advances"
+        | "hypervisor-resource-cleanup-obligations"
+        | "hypervisor-environment-lifecycle-transitions"
+        | "hypervisor-environment-lifecycle-receipts"
         | "hypervisoros-boot-profiles"
         | "hypervisoros-temporal-profiles"
         | "hypervisoros-node-records"
@@ -784,6 +803,14 @@ fn validate_required_identity(
         "hypervisoros-node-transitions" => "hvnt_",
         "hypervisoros-node-attestation-receipts" => "hvnar_",
         "hypervisoros-node-successor-claims" => "hvnsc_",
+        "hypervisor-environment-route-bindings" => "hverb_",
+        "hypervisor-environment-backups" => "hveb_",
+        "hypervisor-change-plans" => "hvcp_",
+        "hypervisor-change-plan-stage-advances" => "hvcpsa_",
+        "hypervisor-resource-cleanup-obligations" => "hvrco_",
+        "hypervisor-environment-lifecycle-transitions" => "hvet_",
+        "hypervisor-environment-lifecycle-receipts" => "hvelr_",
+        "hypervisor-environment-lifecycle-successor-claims" => "hvelsc_",
         _ => unreachable!("required-admission domains are exhaustively matched"),
     };
     if !record_id.strip_prefix(required_prefix).is_some_and(|tail| {
@@ -980,6 +1007,91 @@ fn validate_required_identity(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres key does not match the timeless lost-suffix revision root",
+            ));
+        }
+        return Ok(());
+    }
+    if matches!(
+        record_dir,
+        "hypervisor-environment-route-bindings"
+            | "hypervisor-environment-backups"
+            | "hypervisor-change-plans"
+            | "hypervisor-change-plan-stage-advances"
+            | "hypervisor-environment-lifecycle-transitions"
+            | "hypervisor-environment-lifecycle-receipts"
+    ) {
+        // Environment-lifecycle records are named by their whole-record
+        // content root; declared commitments inside the record (route binding
+        // hash, plan hash, manifest root) are pinned separately by registered
+        // invariants and never stand in for observed truth.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        let (domain, identity_field) = match record_dir {
+            "hypervisor-environment-route-bindings" => (
+                "ioi.hypervisor-environment-lifecycle-artifact-jcs-sha256.v1",
+                "route_binding_ref",
+            ),
+            "hypervisor-environment-backups" => (
+                "ioi.hypervisor-environment-lifecycle-artifact-jcs-sha256.v1",
+                "backup_ref",
+            ),
+            "hypervisor-change-plans" | "hypervisor-change-plan-stage-advances" => (
+                "ioi.hypervisor-environment-lifecycle-artifact-jcs-sha256.v1",
+                "plan_ref",
+            ),
+            "hypervisor-environment-lifecycle-transitions" => (
+                "ioi.hypervisor-environment-lifecycle-transition-jcs-sha256.v1",
+                "transition_id",
+            ),
+            "hypervisor-environment-lifecycle-receipts" => (
+                "ioi.hypervisor-environment-lifecycle-receipt-jcs-sha256.v1",
+                "receipt_id",
+            ),
+            _ => unreachable!(),
+        };
+        if record.get(identity_field).and_then(Value::as_str).is_none() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("required Agentgres record lacks '{identity_field}'"),
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({"domain": domain, "artifact": record}))
+            .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the environment-lifecycle artifact root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "hypervisor-resource-cleanup-obligations" {
+        // An obligation revision is named by its content root; a revision can
+        // therefore never be silently rewritten, and parent loss can only
+        // append an escalated successor revision.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("cleanup_obligation_ref")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres cleanup obligation lacks 'cleanup_obligation_ref'",
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.hypervisor-resource-cleanup-obligation-revision-jcs-sha256.v1",
+            "record": record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the cleanup obligation revision root",
             ));
         }
         return Ok(());

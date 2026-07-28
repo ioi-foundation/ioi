@@ -1,0 +1,53 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-environment-backup/manifest-complete/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_environment_backup.manifest_rows.match_declared_count",
+      "description": "The manifest carries exactly one row per declared artifact; a silently dropped row breaks the record.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.manifest_rows",
+        "count_path": "$.manifest_artifact_count"
+      }
+    },
+    {
+      "rule_id": "hypervisor_environment_backup.artifact_refs.match_declared_count",
+      "description": "The top-level artifact refs and the declared artifact count agree; a payload artifact outside the manifest cannot exist.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.artifact_refs",
+        "count_path": "$.manifest_artifact_count"
+      }
+    },
+    {
+      "rule_id": "hypervisor_environment_backup.manifest_rows.unique",
+      "description": "Each payload artifact carries at most one manifest row.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.manifest_rows",
+        "fields": ["artifact_ref"]
+      }
+    },
+    {
+      "rule_id": "hypervisor_environment_backup.manifest_root.recomputes",
+      "description": "The manifest root recomputes over the exact per-artifact digest rows bound to this backup and its captured source state root; restore staging references the backup only through this commitment.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.hypervisor-environment-backup-manifest-jcs-sha256.v1"
+          },
+          "backup_ref": { "path": "$.backup_ref" },
+          "environment_ref": { "path": "$.environment_ref" },
+          "source_state_root_ref": { "path": "$.source_state_root_ref" },
+          "rows": { "path": "$.manifest_rows" }
+        },
+        "expected_path": "$.manifest_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

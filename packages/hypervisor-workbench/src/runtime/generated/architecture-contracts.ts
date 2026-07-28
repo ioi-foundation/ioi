@@ -3523,6 +3523,179 @@ export type LostSuffixRecordV1 = {
   recorded_at: string;
 };
 
+export type HypervisorEnvironmentRouteBindingV1 = {
+  schema_version: "ioi.hypervisor-environment-route-binding.v1";
+  route_binding_ref: string;
+  predecessor_route_binding_ref: string | null;
+  route_binding_hash: string;
+  owner_principal_ref: string;
+  environment_ref: string;
+  session_ref: string | null;
+  system_ref: string | null;
+  service_ref: string | null;
+  port_ref: string;
+  target_endpoint_ref: string;
+  target_port: number;
+  target_protocol: "http" | "https" | "tcp" | "udp" | "websocket" | "grpc";
+  hostname_or_address: string;
+  path_prefix: string | null;
+  network_scope: "local" | "private_network" | "session_scoped" | "public_internet";
+  route_provider_ref: string | null;
+  dns_provider_ref: string | null;
+  certificate_provider_ref: string | null;
+  port_exposure_policy_ref: string;
+  ownership_proof_requirement_ref: string | null;
+  tls_policy_ref: string;
+  renewal_policy_ref: string | null;
+  traffic_policy_ref: string;
+  privacy_and_information_flow_policy_refs: Array<string>;
+  authority_requirement_refs: Array<string>;
+  budget_or_quote_ref: string | null;
+  expected_active_head_ref: string | null;
+  activation_generation: number;
+  expected_receipt_contract_refs: Array<string>;
+  asserts_observed_route_truth: false;
+};
+
+export type HypervisorEnvironmentBackupV1 = {
+  schema_version: "ioi.hypervisor-environment-backup.v1";
+  backup_ref: string;
+  environment_ref: string;
+  session_ref: string | null;
+  system_ref: string | null;
+  work_subject_ref: string | null;
+  backup_policy_ref: string;
+  trigger: "manual" | "scheduled" | "webhook" | "pre_change" | "shutdown" | "policy";
+  actor_ref: string | null;
+  schedule_or_change_plan_ref: string | null;
+  source_state_root_ref: string;
+  source_object_head_refs: Array<string>;
+  source_checkpoint_or_suffix_boundary_refs: Array<string>;
+  capture_profile_ref: string;
+  execution_substrate_ref: string;
+  destination_ref: string;
+  custody_profile_ref: string;
+  artifact_refs: Array<string>;
+  manifest_artifact_ref: string | null;
+  manifest_root: string;
+  manifest_artifact_count: number;
+  manifest_rows: Array<{
+        artifact_ref: string;
+        sha256: string;
+        size_bytes: number;
+        role: "environment_backup_payload" | "workspace_snapshot" | "evidence" | "checkpoint";
+      }>;
+  content_commitment_refs: Array<string>;
+  encryption_ref: string | null;
+  key_epoch_ref: string | null;
+  retention_policy_ref: string;
+  expires_at: string | null;
+  hold_refs: Array<string>;
+  authority_requirement_refs: Array<string>;
+  authority_grant_refs: Array<string>;
+  daemon_operation_refs: Array<string>;
+  provider_operation_refs: Array<string>;
+  lifecycle_head_ref: string;
+  status: "requested" | "capturing" | "finalizing" | "complete" | "failed" | "cancelled" | "expired" | "pruned";
+  evidence_refs: Array<string>;
+  receipt_refs: Array<string>;
+};
+
+export type HypervisorChangePlanV1 = {
+  schema_version: "ioi.hypervisor-change-plan.v1";
+  plan_ref: string;
+  plan_hash: string;
+  target_ref: string;
+  observed_ref: string;
+  system_ref: string | null;
+  work_subject_ref: string | null;
+  plan_type: "environment_restore";
+  steps: Array<{
+        step_index: number;
+        kind: "read_only_preflight" | "restore_apply" | "post_restore_validation" | "activation" | "cleanup_reconciliation";
+        precondition_refs: Array<string>;
+        evidence_requirement_refs: Array<string>;
+      }>;
+  rollback_steps: Array<{
+        step_index: number;
+        kind: "read_only_preflight" | "restore_apply" | "post_restore_validation" | "activation" | "cleanup_reconciliation";
+        precondition_refs: Array<string>;
+        evidence_requirement_refs: Array<string>;
+      }>;
+  gate_refs: Array<string>;
+  affected_refs: Array<string>;
+  maintenance_window_ref: string | null;
+  suppression_window_ref: string | null;
+  authority_scope_refs: Array<string>;
+  temporal_verification_profile_ref: string | null;
+  authority_currentness_floor_ref: string | null;
+  lifecycle_continuity_floor_ref: string | null;
+  ordering_finality_profile_ref: string | null;
+  activation: {
+      activation_target_ref: string;
+      expected_active_head_ref: string | null;
+      candidate_ref: string;
+      candidate_generation: number;
+      adjudication_requirement_ref: string | null;
+    };
+  restore: {
+      source_backup_ref: string;
+      restore_manifest_ref: string | null;
+      restore_manifest_root: string;
+      restore_scope: "whole_environment" | "workspace" | "service" | "volume" | "declared_objects";
+      target_environment_ref: string;
+      target_generation_or_writer_fence_ref: string;
+      pre_restore_checkpoint_ref: string | null;
+      overwrite_or_clear_policy_ref: string;
+      compatibility_validation_refs: Array<string>;
+      source_root_and_head_expectations: {
+            source_state_root_ref: string;
+            source_object_head_refs: Array<string>;
+          };
+      suffix_disposition: "replay" | "import" | "explicitly_lost" | "not_applicable";
+      target_read_only_preflight_ref: string;
+      target_read_only_preflight_hash: string;
+      target_preflight_valid_until: string;
+      post_restore_readiness_gate_ref: string;
+      post_restore_root_validation_contract_ref: string;
+    };
+};
+
+export type HypervisorResourceCleanupObligationV1 = {
+  schema_version: "ioi.hypervisor-resource-cleanup-obligation.v1";
+  cleanup_obligation_ref: string;
+  revision: number;
+  predecessor_obligation_root: string | null;
+  originating_plan_ref: string | null;
+  originating_execution_ref: string | null;
+  originating_daemon_or_provider_operation_ref: string | null;
+  environment_ref: string | null;
+  session_ref: string | null;
+  provider_ref: string;
+  resource_refs: Array<{
+        resource_kind: "vm" | "container" | "image" | "volume" | "network" | "route" | "certificate" | "lease" | "reservation" | "other";
+        canonical_resource_ref: string | null;
+        provider_native_evidence_ref: string | null;
+        identity_commitment: string;
+      }>;
+  required_disposition: "destroy" | "detach" | "revoke" | "release" | "verify_absent" | "quarantine";
+  cause: "owner_deleted" | "rollback_incomplete" | "provider_unreachable" | "partial_execution" | "unknown_effect" | "superseded_change" | "policy";
+  reclaim_policy_ref: string;
+  required_authority_refs: Array<string>;
+  lifecycle_head_ref: string;
+  status: "pending" | "retry_scheduled" | "blocked" | "reconciling" | "escalated" | "completed" | "quarantined" | "abandoned";
+  escalation: {
+      escalation_reason: "parent_loss" | "provider_loss";
+      lost_parent_ref: string;
+      evidence_refs: Array<string>;
+    } | null;
+  attempt_count: number;
+  last_attempt_ref: string | null;
+  next_attempt_after: string | null;
+  evidence_refs: Array<string>;
+  receipt_refs: Array<string>;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -5516,6 +5689,174 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "lost_suffix_record.entries.match_declared_count"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-declared.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-successor.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_environment_route_binding.route_binding_hash.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-complete.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-requested.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-dropped-manifest-row.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_environment_backup.manifest_rows.match_declared_count"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-manifest-root-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_environment_backup.manifest_root.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-complete-without-rows.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-declared.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-successor.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_change_plan.plan_hash.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_change_plan.steps.unique"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-closed-without-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_resource_cleanup_obligation.closing_disposition.receipted"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-escalated-without-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-duplicate-resource.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "hypervisor_resource_cleanup_obligation.resource_refs.unique"
   }
 ] as const;
 
@@ -9838,6 +10179,153 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-declared.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-declared.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-successor.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-successor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-complete.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-complete.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-requested.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-requested.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-dropped-manifest-row.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-dropped-manifest-row.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-manifest-root-mismatch.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-manifest-root-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-complete-without-rows.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-complete-without-rows.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-declared.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-declared.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-successor.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-successor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-closed-without-receipt.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-closed-without-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-escalated-without-evidence.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-escalated-without-evidence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-duplicate-resource.json",
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-duplicate-resource.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -10714,6 +11202,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:agentgres|wallet|service)://[^\\s]{1,248}$",
   "^(?:agent|worker)://[^\\s]{1,248}$",
   "^(?:artifact|cid)://[^\\s]{1,248}$",
+  "^(?:commitment|evidence)://[^\\s]{1,240}$",
   "^(?:commitment|evidence)://[^\\s]{1,248}$",
   "^(?:commitment|settlement|tx)://[^\\s]+$",
   "^(?:commitment|settlement|tx)://[^\\s]{1,248}$",
@@ -10724,15 +11213,21 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,248}$",
   "^(?:evidence|receipt)://[^\\s]{1,248}$",
   "^(?:evidence|receipt|artifact)://[^\\s]{1,248}$",
+  "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$",
   "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$",
+  "^(?:gate|policy)://[^\\s]{1,240}$",
   "^(?:network|chain|domain)://[^\\s]{1,248}$",
+  "^(?:observed-state|agentgres)://[^\\s]{1,240}$",
   "^(?:policy|profile)://[^\\s]{1,248}$",
   "^(?:policy|schema|authority-requirement)://[^\\s]{1,248}$",
   "^(?:principal|wallet|organization|org)://[^\\s]{1,248}$",
+  "^(?:provider|provider-account)://[^\\s]{1,240}$",
   "^(?:receipt|evidence)://[^\\s]{1,248}$",
   "^(?:robot|drone|device|facility|facility-system|vehicle)://[^\\s]+$",
   "^(?:robot|facility|vehicle|device|drone|actuator)://[^\\s]+$",
   "^(?:runtime|authority)://[^\\s]{1,248}$",
+  "^(?:runtime|environment|provider|provider-account)://[^\\s]{1,240}$",
+  "^(?:schedule|change-plan|event)://[^\\s]{1,240}$",
   "^(?:schema|policy)://[^\\s]+$",
   "^(?:system-activation-state|system-lifecycle-state)://[A-Za-z0-9._:/-]+$",
   "^(?:system|agent|worker|runtime)://[^\\s]+$",
@@ -10740,16 +11235,20 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]+$",
   "^(?:system|wallet|org|policy)://[^\\s]+$",
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
+  "^(?:target-state|agentgres)://[^\\s]{1,240}$",
   "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$",
   "^(?:transition|decision)://[^\\s]{1,248}$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
+  "^(?:wallet|org|project)://[^\\s]{1,240}$",
   "^(?:wallet|org|project)://[^\\s]{1,248}$",
+  "^(?:wallet|org|project|runtime)://[^\\s]{1,240}$",
   "^(?:wallet|provider|org)://[^\\s]{1,248}$",
   "^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$",
   "^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$",
   "^(?:workflow|workflow-template)://[^\\s]{1,248}$",
   "^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$",
+  "^/[^\\s]{0,200}$",
   "^[ -~]{1,2048}$",
   "^[ -~]{1,256}$",
   "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$",
@@ -10762,6 +11261,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Za-z0-9_-]{86}$",
   "^[A-Za-z0-9_.-]+$",
   "^[^\\s][ -~]{0,2047}$",
+  "^[a-z0-9](?:[a-z0-9.:-]{0,251}[a-z0-9]|)$",
   "^[a-z0-9][a-z0-9._:/-]{0,127}$",
   "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$",
@@ -10770,6 +11270,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9-]*://[^\\s]+$",
   "^[a-z][a-z0-9.-]*(?:://|:)[^\\s]{1,248}$",
+  "^[a-z][a-z0-9.-]*://[^\\s]{1,240}$",
   "^[a-z][a-z0-9._-]*$",
   "^[a-z][a-z0-9._-]{0,127}$",
   "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
@@ -10792,9 +11293,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^appraiser://[^\\s]{1,248}$",
   "^approval://[A-Za-z0-9._~:/-]+$",
   "^artifact://[^\\s]+$",
+  "^artifact://[^\\s]{1,240}$",
   "^artifact://[^\\s]{1,248}$",
   "^assurance-evidence://[^\\s]+$",
   "^assurance-profile://[^\\s]{1,248}$",
+  "^attempt://[^\\s]{1,240}$",
   "^authority-request://[^\\s]+$",
   "^automation://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^autonomous-system-chain://[A-Za-z0-9._:/-]+$",
@@ -10805,7 +11308,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^chain-successor-claim://sha256:[0-9a-f]{64}$",
   "^chain-writer-reservation://sha256:[0-9a-f]{64}$",
   "^challenge://[^\\s]{1,248}$",
+  "^change-plan://[^\\s]{1,240}$",
   "^checkpoint://[^\\s]{1,248}$",
+  "^cleanup-obligation://[^\\s]{1,240}$",
   "^commitment://[^\\s]{1,248}$",
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
   "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$",
@@ -10826,9 +11331,18 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^effect://[^\\s]+$",
   "^embodied-resource-group-revision://[^\\s]+$",
   "^embodied-runtime-graph-manifest://[^\\s]+$",
+  "^encryption://[^\\s]{1,240}$",
   "^endorsement://[^\\s]{1,248}$",
+  "^endpoint://[^\\s]{1,240}$",
   "^enforcement-coverage://[^\\s]{1,248}$",
+  "^environment-backup://[^\\s]{1,240}$",
+  "^environment-port://[^\\s]{1,240}$",
+  "^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$",
+  "^environment-service://[^\\s]{1,240}$",
+  "^environment://[^\\s]{1,240}$",
   "^estop://[^\\s]+$",
+  "^evidence://[^\\s]{1,240}$",
+  "^execution://[^\\s]{1,240}$",
   "^failover-profile://[^\\s]{1,248}$",
   "^failure-domain://[^\\s]{1,248}$",
   "^fee-basis://[^\\s]{1,248}$",
@@ -10837,6 +11351,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^grant://[A-Za-z0-9._~:/-]+$",
   "^grant://[^\\s]+$",
+  "^grant://[^\\s]{1,240}$",
   "^grant://[^\\s]{1,248}$",
   "^grant://wallet[.]network/approval/sha256:[0-9a-f]{64}$",
   "^harness-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -10871,6 +11386,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^policy://[A-Za-z0-9._:/-]+$",
   "^policy://[A-Za-z0-9._~:/-]+$",
   "^policy://[^\\s]+$",
+  "^policy://[^\\s]{1,240}$",
   "^policy://[^\\s]{1,248}$",
   "^prim:[a-z0-9._-]+$",
   "^prim:[a-z][a-z0-9._-]*$",
@@ -10885,6 +11401,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://[A-Za-z0-9._:/-]+$",
   "^receipt://[A-Za-z0-9._~:/-]+$",
   "^receipt://[^\\s]+$",
+  "^receipt://[^\\s]{1,240}$",
   "^receipt://[^\\s]{1,248}$",
   "^receipt://asar_[0-9a-f]{64}$",
   "^receipt://aszmr_[0-9a-f]{64}$",
@@ -10895,15 +11412,18 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^runtime://[^\\s]{1,248}$",
   "^safety://[^\\s]+$",
   "^schema://[^\\s]+$",
+  "^schema://[^\\s]{1,240}$",
   "^schema://[^\\s]{1,248}$",
   "^scope:[a-z0-9._-]+$",
   "^scope:[a-z0-9._:-]{1,180}$",
+  "^scope:[a-z0-9_.:-]{1,120}$",
   "^scope:[a-z][a-z0-9._-]*$",
   "^scope:[a-z][a-z0-9._-]{0,127}$",
   "^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$",
   "^scope:autonomous_system[.]membership[.][a-z_]{1,64}$",
   "^sensor://[^\\s]+$",
   "^service://[^\\s]{1,248}$",
+  "^session://[^\\s]{1,240}$",
   "^settlement://[^\\s]+$",
   "^sha256:[0-9a-f]{64}$",
   "^sha256:[a-f0-9]{64}$",
@@ -10911,6 +11431,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^snapshot://[^\\s]+$",
   "^snapshot://[^\\s]{1,248}$",
+  "^state-root://sha256:[0-9a-f]{64}$",
+  "^storage://[^\\s]{1,240}$",
   "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$",
   "^system-activation-state://[^\\s]{1,248}$",
   "^system-home-domain-binding://[A-Za-z0-9._:/-]+$",
@@ -10927,6 +11449,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^system-sequence-zero-authority-consumption://aszmc_[0-9a-f]{64}$",
   "^system://[A-Za-z0-9._:/-]+$",
   "^system://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$",
+  "^system://[^\\s]{1,240}$",
   "^system://[^\\s]{1,248}$",
   "^task://[^\\s]+$",
   "^temporal-evaluation://[^\\s]{1,248}$",
@@ -11013,7 +11536,11 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1": "sha256:e1eb42bce64fa85e34a14241e3621470ff5a82cbbdda1657183bc7dea9af22e5",
   "schema://ioi/foundations/consequential-effect-fence-context/v1": "sha256:bd7b8489c056ab823a1ff21093a31abe118d41b71f13747d446c626bc1c9f951",
   "schema://ioi/foundations/ordering-finality-recovery/v1": "sha256:46db62b15166a669c4da0be29b85dbb60b14965fd64a56d1239dab71d2e0108c",
-  "schema://ioi/foundations/lost-suffix-record/v1": "sha256:1ded4482cebaa8bec1f16059aa88fab34dd15ca7bfb8faa185c5547d695123c6"
+  "schema://ioi/foundations/lost-suffix-record/v1": "sha256:1ded4482cebaa8bec1f16059aa88fab34dd15ca7bfb8faa185c5547d695123c6",
+  "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1": "sha256:6b8e05c397f5ce106af734c9684f4eff933846f012a937bdff341f6909674d86",
+  "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1": "sha256:c358a0e549989aac8d0ef688f68286317959b6bd77c1b2a2a43ded71c2f616a8",
+  "schema://ioi/components/hypervisor/hypervisor-change-plan/v1": "sha256:32d6b5365cdc15a5c05b83f196ac0101758fad6534a5dbef7b30d99b55e0abf0",
+  "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1": "sha256:1abc2124c1de5187571c0d42fc3065d97b950ca51fbe293bbd2b238b688b415d"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -39502,6 +40029,1480 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
       }
     }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
+    "title": "HypervisorEnvironmentRouteBinding",
+    "description": "One immutable admitted route-to-environment binding revision: exact route identity (hostname, path prefix, protocol), the owning principal and optional owning System, the bound environment/port target, provider and policy bindings, and compare-and-swap lineage over predecessor revisions. Desired activation, cutover, detach, and replacement flow through an admitted HypervisorChangePlan; observed DNS, certificate, endpoint, and provider facts are evidence and never mutate the binding. A binding revision is structurally incapable of asserting observed reachability, ownership currency, or TLS validity.",
+    "x-ioi-schema-version": "ioi.hypervisor-environment-route-binding.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "route_binding_ref",
+      "predecessor_route_binding_ref",
+      "route_binding_hash",
+      "owner_principal_ref",
+      "environment_ref",
+      "session_ref",
+      "system_ref",
+      "service_ref",
+      "port_ref",
+      "target_endpoint_ref",
+      "target_port",
+      "target_protocol",
+      "hostname_or_address",
+      "path_prefix",
+      "network_scope",
+      "route_provider_ref",
+      "dns_provider_ref",
+      "certificate_provider_ref",
+      "port_exposure_policy_ref",
+      "ownership_proof_requirement_ref",
+      "tls_policy_ref",
+      "renewal_policy_ref",
+      "traffic_policy_ref",
+      "privacy_and_information_flow_policy_refs",
+      "authority_requirement_refs",
+      "budget_or_quote_ref",
+      "expected_active_head_ref",
+      "activation_generation",
+      "expected_receipt_contract_refs",
+      "asserts_observed_route_truth"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor-environment-route-binding.v1"
+      },
+      "route_binding_ref": {
+        "type": "string",
+        "pattern": "^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$"
+      },
+      "predecessor_route_binding_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^environment-route-binding://[^\\s?#\\\\]{1,180}/revision/[1-9][0-9]{0,15}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "route_binding_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "owner_principal_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|org|project)://[^\\s]{1,240}$"
+      },
+      "environment_ref": {
+        "type": "string",
+        "pattern": "^environment://[^\\s]{1,240}$"
+      },
+      "session_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^session://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "system_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "service_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^environment-service://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "port_ref": {
+        "type": "string",
+        "pattern": "^environment-port://[^\\s]{1,240}$"
+      },
+      "target_endpoint_ref": {
+        "type": "string",
+        "pattern": "^endpoint://[^\\s]{1,240}$"
+      },
+      "target_port": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535
+      },
+      "target_protocol": {
+        "enum": [
+          "http",
+          "https",
+          "tcp",
+          "udp",
+          "websocket",
+          "grpc"
+        ]
+      },
+      "hostname_or_address": {
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9.:-]{0,251}[a-z0-9]|)$"
+      },
+      "path_prefix": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^/[^\\s]{0,200}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "network_scope": {
+        "enum": [
+          "local",
+          "private_network",
+          "session_scoped",
+          "public_internet"
+        ]
+      },
+      "route_provider_ref": {
+        "$ref": "#/$defs/nullableProviderRef"
+      },
+      "dns_provider_ref": {
+        "$ref": "#/$defs/nullableProviderRef"
+      },
+      "certificate_provider_ref": {
+        "$ref": "#/$defs/nullableProviderRef"
+      },
+      "port_exposure_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "ownership_proof_requirement_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "tls_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "renewal_policy_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "traffic_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "privacy_and_information_flow_policy_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "$ref": "#/$defs/policyRef"
+        }
+      },
+      "authority_requirement_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      },
+      "budget_or_quote_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "expected_active_head_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "activation_generation": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "expected_receipt_contract_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 8,
+        "items": {
+          "type": "string",
+          "pattern": "^schema://[^\\s]{1,240}$"
+        }
+      },
+      "asserts_observed_route_truth": {
+        "const": false
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "predecessor_route_binding_ref": {
+              "type": "null"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "activation_generation": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1
+            },
+            "expected_active_head_ref": {
+              "type": "null"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "activation_generation": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 9007199254740991
+            },
+            "expected_active_head_ref": {
+              "$ref": "#/$defs/canonicalRef"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,240}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"
+      },
+      "nullableProviderRef": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:provider|provider-account)://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
+    "title": "HypervisorEnvironmentBackup",
+    "description": "One durable environment backup aggregate: the captured source state root, the complete content manifest with one per-artifact digest row for every referenced payload artifact, custody/encryption/retention bindings, and the lifecycle status ladder. Only status 'complete' is eligible restore material, and completeness is structural: the declared artifact count, the manifest rows, and the top-level artifact refs must all agree, and the manifest root must recompute from the exact rows. A backup missing any manifest row is invalid, never merely degraded; restore staging references a backup only through this manifest commitment.",
+    "x-ioi-schema-version": "ioi.hypervisor-environment-backup.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "backup_ref",
+      "environment_ref",
+      "session_ref",
+      "system_ref",
+      "work_subject_ref",
+      "backup_policy_ref",
+      "trigger",
+      "actor_ref",
+      "schedule_or_change_plan_ref",
+      "source_state_root_ref",
+      "source_object_head_refs",
+      "source_checkpoint_or_suffix_boundary_refs",
+      "capture_profile_ref",
+      "execution_substrate_ref",
+      "destination_ref",
+      "custody_profile_ref",
+      "artifact_refs",
+      "manifest_artifact_ref",
+      "manifest_root",
+      "manifest_artifact_count",
+      "manifest_rows",
+      "content_commitment_refs",
+      "encryption_ref",
+      "key_epoch_ref",
+      "retention_policy_ref",
+      "expires_at",
+      "hold_refs",
+      "authority_requirement_refs",
+      "authority_grant_refs",
+      "daemon_operation_refs",
+      "provider_operation_refs",
+      "lifecycle_head_ref",
+      "status",
+      "evidence_refs",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor-environment-backup.v1"
+      },
+      "backup_ref": {
+        "type": "string",
+        "pattern": "^environment-backup://[^\\s]{1,240}$"
+      },
+      "environment_ref": {
+        "type": "string",
+        "pattern": "^environment://[^\\s]{1,240}$"
+      },
+      "session_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^session://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "system_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "work_subject_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "backup_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "trigger": {
+        "enum": [
+          "manual",
+          "scheduled",
+          "webhook",
+          "pre_change",
+          "shutdown",
+          "policy"
+        ]
+      },
+      "actor_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:wallet|org|project|runtime)://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "schedule_or_change_plan_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:schedule|change-plan|event)://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "source_state_root_ref": {
+        "type": "string",
+        "pattern": "^state-root://sha256:[0-9a-f]{64}$"
+      },
+      "source_object_head_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      },
+      "source_checkpoint_or_suffix_boundary_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      },
+      "capture_profile_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "execution_substrate_ref": {
+        "type": "string",
+        "pattern": "^(?:runtime|environment|provider|provider-account)://[^\\s]{1,240}$"
+      },
+      "destination_ref": {
+        "type": "string",
+        "pattern": "^storage://[^\\s]{1,240}$"
+      },
+      "custody_profile_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "artifact_refs": {
+        "type": "array",
+        "maxItems": 256,
+        "items": {
+          "$ref": "#/$defs/artifactRef"
+        }
+      },
+      "manifest_artifact_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/artifactRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "manifest_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "manifest_artifact_count": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 256
+      },
+      "manifest_rows": {
+        "type": "array",
+        "maxItems": 256,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifact_ref",
+            "sha256",
+            "size_bytes",
+            "role"
+          ],
+          "properties": {
+            "artifact_ref": {
+              "$ref": "#/$defs/artifactRef"
+            },
+            "sha256": {
+              "$ref": "#/$defs/hash"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "role": {
+              "enum": [
+                "environment_backup_payload",
+                "workspace_snapshot",
+                "evidence",
+                "checkpoint"
+              ]
+            }
+          }
+        }
+      },
+      "content_commitment_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:commitment|evidence)://[^\\s]{1,240}$"
+        }
+      },
+      "encryption_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^encryption://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "key_epoch_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "retention_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "expires_at": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalDateTime"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "hold_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      },
+      "authority_requirement_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^grant://[^\\s]{1,240}$"
+        }
+      },
+      "daemon_operation_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      },
+      "provider_operation_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      },
+      "lifecycle_head_ref": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "status": {
+        "enum": [
+          "requested",
+          "capturing",
+          "finalizing",
+          "complete",
+          "failed",
+          "cancelled",
+          "expired",
+          "pruned"
+        ]
+      },
+      "evidence_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$"
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,240}$"
+        }
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "complete"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "manifest_artifact_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 256
+            },
+            "manifest_rows": {
+              "type": "array",
+              "minItems": 1
+            },
+            "artifact_refs": {
+              "type": "array",
+              "minItems": 1
+            },
+            "content_commitment_refs": {
+              "type": "array",
+              "minItems": 1
+            },
+            "receipt_refs": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,240}$"
+      },
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,240}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-change-plan/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
+    "title": "HypervisorChangePlan",
+    "description": "The immutable, inspectable unit of environment change for the admitted plan type environment_restore: ordered stages with per-stage preconditions and evidence requirements, the restore binding that references source material only through its backup manifest commitment, and the forward-only activation binding over the exact expected active head and candidate generation. The plan hash covers the complete immutable body and excludes only itself; state roots, receipts, observations, execution output, and refusal reasons are never members of that preimage. Stage progress, admission, execution, and refusal are distinct committed records — they never rewrite this plan.",
+    "x-ioi-schema-version": "ioi.hypervisor-change-plan.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "plan_ref",
+      "plan_hash",
+      "target_ref",
+      "observed_ref",
+      "system_ref",
+      "work_subject_ref",
+      "plan_type",
+      "steps",
+      "rollback_steps",
+      "gate_refs",
+      "affected_refs",
+      "maintenance_window_ref",
+      "suppression_window_ref",
+      "authority_scope_refs",
+      "temporal_verification_profile_ref",
+      "authority_currentness_floor_ref",
+      "lifecycle_continuity_floor_ref",
+      "ordering_finality_profile_ref",
+      "activation",
+      "restore"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor-change-plan.v1"
+      },
+      "plan_ref": {
+        "type": "string",
+        "pattern": "^change-plan://[^\\s]{1,240}$"
+      },
+      "plan_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "target_ref": {
+        "type": "string",
+        "pattern": "^(?:target-state|agentgres)://[^\\s]{1,240}$"
+      },
+      "observed_ref": {
+        "type": "string",
+        "pattern": "^(?:observed-state|agentgres)://[^\\s]{1,240}$"
+      },
+      "system_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "work_subject_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "plan_type": {
+        "const": "environment_restore"
+      },
+      "steps": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "items": {
+          "$ref": "#/$defs/planStep"
+        }
+      },
+      "rollback_steps": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "$ref": "#/$defs/planStep"
+        }
+      },
+      "gate_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:gate|policy)://[^\\s]{1,240}$"
+        }
+      },
+      "affected_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      },
+      "maintenance_window_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "suppression_window_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^scope:[a-z0-9_.:-]{1,120}$"
+        }
+      },
+      "temporal_verification_profile_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "authority_currentness_floor_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "lifecycle_continuity_floor_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "ordering_finality_profile_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "activation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "activation_target_ref",
+          "expected_active_head_ref",
+          "candidate_ref",
+          "candidate_generation",
+          "adjudication_requirement_ref"
+        ],
+        "properties": {
+          "activation_target_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "expected_active_head_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/canonicalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "candidate_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "candidate_generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "adjudication_requirement_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/canonicalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "restore": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_backup_ref",
+          "restore_manifest_ref",
+          "restore_manifest_root",
+          "restore_scope",
+          "target_environment_ref",
+          "target_generation_or_writer_fence_ref",
+          "pre_restore_checkpoint_ref",
+          "overwrite_or_clear_policy_ref",
+          "compatibility_validation_refs",
+          "source_root_and_head_expectations",
+          "suffix_disposition",
+          "target_read_only_preflight_ref",
+          "target_read_only_preflight_hash",
+          "target_preflight_valid_until",
+          "post_restore_readiness_gate_ref",
+          "post_restore_root_validation_contract_ref"
+        ],
+        "properties": {
+          "source_backup_ref": {
+            "type": "string",
+            "pattern": "^environment-backup://[^\\s]{1,240}$"
+          },
+          "restore_manifest_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^artifact://[^\\s]{1,240}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "restore_manifest_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "restore_scope": {
+            "enum": [
+              "whole_environment",
+              "workspace",
+              "service",
+              "volume",
+              "declared_objects"
+            ]
+          },
+          "target_environment_ref": {
+            "type": "string",
+            "pattern": "^environment://[^\\s]{1,240}$"
+          },
+          "target_generation_or_writer_fence_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "pre_restore_checkpoint_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/canonicalRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "overwrite_or_clear_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "compatibility_validation_refs": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/$defs/canonicalRef"
+            }
+          },
+          "source_root_and_head_expectations": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_state_root_ref",
+              "source_object_head_refs"
+            ],
+            "properties": {
+              "source_state_root_ref": {
+                "type": "string",
+                "pattern": "^state-root://sha256:[0-9a-f]{64}$"
+              },
+              "source_object_head_refs": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "$ref": "#/$defs/canonicalRef"
+                }
+              }
+            }
+          },
+          "suffix_disposition": {
+            "enum": [
+              "replay",
+              "import",
+              "explicitly_lost",
+              "not_applicable"
+            ]
+          },
+          "target_read_only_preflight_ref": {
+            "type": "string",
+            "pattern": "^evidence://[^\\s]{1,240}$"
+          },
+          "target_read_only_preflight_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "target_preflight_valid_until": {
+            "$ref": "#/$defs/canonicalDateTime"
+          },
+          "post_restore_readiness_gate_ref": {
+            "type": "string",
+            "pattern": "^(?:gate|policy)://[^\\s]{1,240}$"
+          },
+          "post_restore_root_validation_contract_ref": {
+            "type": "string",
+            "pattern": "^schema://[^\\s]{1,240}$"
+          }
+        }
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,240}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "planStep": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step_index",
+          "kind",
+          "precondition_refs",
+          "evidence_requirement_refs"
+        ],
+        "properties": {
+          "step_index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
+          },
+          "kind": {
+            "enum": [
+              "read_only_preflight",
+              "restore_apply",
+              "post_restore_validation",
+              "activation",
+              "cleanup_reconciliation"
+            ]
+          },
+          "precondition_refs": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/$defs/canonicalRef"
+            }
+          },
+          "evidence_requirement_refs": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/$defs/canonicalRef"
+            }
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
+    "title": "HypervisorResourceCleanupObligation",
+    "description": "One durable provider-resource cleanup obligation revision that survives deletion or loss of its originating environment, session, plan, or provider connection. Every revision names the exact resource identity commitments, the required disposition, the originating cause, and its compare-and-swap predecessor revision. Closing statuses (completed, quarantined, abandoned) are admitted, receipted dispositions and structurally require at least one receipt; parent or provider loss escalates the obligation with named evidence and can never erase it. Provider not-found closes an obligation only through a receipted disposition, never by garbage-collection inference.",
+    "x-ioi-schema-version": "ioi.hypervisor-resource-cleanup-obligation.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "cleanup_obligation_ref",
+      "revision",
+      "predecessor_obligation_root",
+      "originating_plan_ref",
+      "originating_execution_ref",
+      "originating_daemon_or_provider_operation_ref",
+      "environment_ref",
+      "session_ref",
+      "provider_ref",
+      "resource_refs",
+      "required_disposition",
+      "cause",
+      "reclaim_policy_ref",
+      "required_authority_refs",
+      "lifecycle_head_ref",
+      "status",
+      "escalation",
+      "attempt_count",
+      "last_attempt_ref",
+      "next_attempt_after",
+      "evidence_refs",
+      "receipt_refs"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor-resource-cleanup-obligation.v1"
+      },
+      "cleanup_obligation_ref": {
+        "type": "string",
+        "pattern": "^cleanup-obligation://[^\\s]{1,240}$"
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "predecessor_obligation_root": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "originating_plan_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^change-plan://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "originating_execution_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^execution://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "originating_daemon_or_provider_operation_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "environment_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^environment://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "session_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^session://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "provider_ref": {
+        "type": "string",
+        "pattern": "^(?:provider|provider-account)://[^\\s]{1,240}$"
+      },
+      "resource_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "resource_kind",
+            "canonical_resource_ref",
+            "provider_native_evidence_ref",
+            "identity_commitment"
+          ],
+          "properties": {
+            "resource_kind": {
+              "enum": [
+                "vm",
+                "container",
+                "image",
+                "volume",
+                "network",
+                "route",
+                "certificate",
+                "lease",
+                "reservation",
+                "other"
+              ]
+            },
+            "canonical_resource_ref": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/canonicalRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "provider_native_evidence_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^evidence://[^\\s]{1,240}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "identity_commitment": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      },
+      "required_disposition": {
+        "enum": [
+          "destroy",
+          "detach",
+          "revoke",
+          "release",
+          "verify_absent",
+          "quarantine"
+        ]
+      },
+      "cause": {
+        "enum": [
+          "owner_deleted",
+          "rollback_incomplete",
+          "provider_unreachable",
+          "partial_execution",
+          "unknown_effect",
+          "superseded_change",
+          "policy"
+        ]
+      },
+      "reclaim_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "required_authority_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "$ref": "#/$defs/canonicalRef"
+        }
+      },
+      "lifecycle_head_ref": {
+        "$ref": "#/$defs/canonicalRef"
+      },
+      "status": {
+        "enum": [
+          "pending",
+          "retry_scheduled",
+          "blocked",
+          "reconciling",
+          "escalated",
+          "completed",
+          "quarantined",
+          "abandoned"
+        ]
+      },
+      "escalation": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/escalationRecord"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "attempt_count": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100000
+      },
+      "last_attempt_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^attempt://[^\\s]{1,240}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "next_attempt_after": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/canonicalDateTime"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "evidence_refs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$"
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,240}$"
+        }
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "escalated"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "escalation": {
+              "$ref": "#/$defs/escalationRecord"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "enum": [
+                "pending",
+                "retry_scheduled",
+                "blocked",
+                "reconciling"
+              ]
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "escalation": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "predecessor_obligation_root": {
+              "type": "null"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "predecessor_obligation_root": {
+              "$ref": "#/$defs/hash"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,240}$"
+      },
+      "canonicalRef": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9.-]*://[^\\s]{1,240}$"
+      },
+      "escalationRecord": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "escalation_reason",
+          "lost_parent_ref",
+          "evidence_refs"
+        ],
+        "properties": {
+          "escalation_reason": {
+            "enum": [
+              "parent_loss",
+              "provider_loss"
+            ]
+          },
+          "lost_parent_ref": {
+            "$ref": "#/$defs/canonicalRef"
+          },
+          "evidence_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,240}$"
+            }
+          }
+        }
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -45122,6 +47123,286 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1": [
+    {
+      "rule_id": "hypervisor_environment_route_binding.route_binding_hash.recomputes",
+      "description": "The route-binding hash recomputes over the complete immutable body including the allocated ref and exact nullable fields, excluding only route_binding_hash.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.hypervisor-environment-route-binding-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "route_binding_ref": {
+            "path": "$.route_binding_ref"
+          },
+          "predecessor_route_binding_ref": {
+            "path": "$.predecessor_route_binding_ref"
+          },
+          "owner_principal_ref": {
+            "path": "$.owner_principal_ref"
+          },
+          "environment_ref": {
+            "path": "$.environment_ref"
+          },
+          "session_ref": {
+            "path": "$.session_ref"
+          },
+          "system_ref": {
+            "path": "$.system_ref"
+          },
+          "service_ref": {
+            "path": "$.service_ref"
+          },
+          "port_ref": {
+            "path": "$.port_ref"
+          },
+          "target_endpoint_ref": {
+            "path": "$.target_endpoint_ref"
+          },
+          "target_port": {
+            "path": "$.target_port"
+          },
+          "target_protocol": {
+            "path": "$.target_protocol"
+          },
+          "hostname_or_address": {
+            "path": "$.hostname_or_address"
+          },
+          "path_prefix": {
+            "path": "$.path_prefix"
+          },
+          "network_scope": {
+            "path": "$.network_scope"
+          },
+          "route_provider_ref": {
+            "path": "$.route_provider_ref"
+          },
+          "dns_provider_ref": {
+            "path": "$.dns_provider_ref"
+          },
+          "certificate_provider_ref": {
+            "path": "$.certificate_provider_ref"
+          },
+          "port_exposure_policy_ref": {
+            "path": "$.port_exposure_policy_ref"
+          },
+          "ownership_proof_requirement_ref": {
+            "path": "$.ownership_proof_requirement_ref"
+          },
+          "tls_policy_ref": {
+            "path": "$.tls_policy_ref"
+          },
+          "renewal_policy_ref": {
+            "path": "$.renewal_policy_ref"
+          },
+          "traffic_policy_ref": {
+            "path": "$.traffic_policy_ref"
+          },
+          "privacy_and_information_flow_policy_refs": {
+            "path": "$.privacy_and_information_flow_policy_refs"
+          },
+          "authority_requirement_refs": {
+            "path": "$.authority_requirement_refs"
+          },
+          "budget_or_quote_ref": {
+            "path": "$.budget_or_quote_ref"
+          },
+          "expected_active_head_ref": {
+            "path": "$.expected_active_head_ref"
+          },
+          "activation_generation": {
+            "path": "$.activation_generation"
+          },
+          "expected_receipt_contract_refs": {
+            "path": "$.expected_receipt_contract_refs"
+          },
+          "asserts_observed_route_truth": {
+            "path": "$.asserts_observed_route_truth"
+          }
+        },
+        "expected_path": "$.route_binding_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1": [
+    {
+      "rule_id": "hypervisor_environment_backup.manifest_rows.match_declared_count",
+      "description": "The manifest carries exactly one row per declared artifact; a silently dropped row breaks the record.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.manifest_rows",
+        "count_path": "$.manifest_artifact_count"
+      }
+    },
+    {
+      "rule_id": "hypervisor_environment_backup.artifact_refs.match_declared_count",
+      "description": "The top-level artifact refs and the declared artifact count agree; a payload artifact outside the manifest cannot exist.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.artifact_refs",
+        "count_path": "$.manifest_artifact_count"
+      }
+    },
+    {
+      "rule_id": "hypervisor_environment_backup.manifest_rows.unique",
+      "description": "Each payload artifact carries at most one manifest row.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.manifest_rows",
+        "fields": [
+          "artifact_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_environment_backup.manifest_root.recomputes",
+      "description": "The manifest root recomputes over the exact per-artifact digest rows bound to this backup and its captured source state root; restore staging references the backup only through this commitment.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.hypervisor-environment-backup-manifest-jcs-sha256.v1"
+          },
+          "backup_ref": {
+            "path": "$.backup_ref"
+          },
+          "environment_ref": {
+            "path": "$.environment_ref"
+          },
+          "source_state_root_ref": {
+            "path": "$.source_state_root_ref"
+          },
+          "rows": {
+            "path": "$.manifest_rows"
+          }
+        },
+        "expected_path": "$.manifest_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-change-plan/v1": [
+    {
+      "rule_id": "hypervisor_change_plan.plan_hash.recomputes",
+      "description": "The plan hash covers the complete canonical immutable plan body including the allocated ref, exact nullable fields, and every ordered step, gate, rollback, restore, and activation input; it excludes only plan_hash. State roots, receipts, observations, execution output, and refusal reasons are never members of this preimage.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.hypervisor-change-plan-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "plan_ref": {
+            "path": "$.plan_ref"
+          },
+          "target_ref": {
+            "path": "$.target_ref"
+          },
+          "observed_ref": {
+            "path": "$.observed_ref"
+          },
+          "system_ref": {
+            "path": "$.system_ref"
+          },
+          "work_subject_ref": {
+            "path": "$.work_subject_ref"
+          },
+          "plan_type": {
+            "path": "$.plan_type"
+          },
+          "steps": {
+            "path": "$.steps"
+          },
+          "rollback_steps": {
+            "path": "$.rollback_steps"
+          },
+          "gate_refs": {
+            "path": "$.gate_refs"
+          },
+          "affected_refs": {
+            "path": "$.affected_refs"
+          },
+          "maintenance_window_ref": {
+            "path": "$.maintenance_window_ref"
+          },
+          "suppression_window_ref": {
+            "path": "$.suppression_window_ref"
+          },
+          "authority_scope_refs": {
+            "path": "$.authority_scope_refs"
+          },
+          "temporal_verification_profile_ref": {
+            "path": "$.temporal_verification_profile_ref"
+          },
+          "authority_currentness_floor_ref": {
+            "path": "$.authority_currentness_floor_ref"
+          },
+          "lifecycle_continuity_floor_ref": {
+            "path": "$.lifecycle_continuity_floor_ref"
+          },
+          "ordering_finality_profile_ref": {
+            "path": "$.ordering_finality_profile_ref"
+          },
+          "activation": {
+            "path": "$.activation"
+          },
+          "restore": {
+            "path": "$.restore"
+          }
+        },
+        "expected_path": "$.plan_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "hypervisor_change_plan.steps.unique",
+      "description": "Each ordered stage index appears at most once; a duplicated stage cannot smuggle re-entry.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.steps",
+        "fields": [
+          "step_index"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1": [
+    {
+      "rule_id": "hypervisor_resource_cleanup_obligation.resource_refs.unique",
+      "description": "Each resource identity commitment appears at most once; one obligation never double-counts a resource.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.resource_refs",
+        "fields": [
+          "identity_commitment"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_resource_cleanup_obligation.closing_disposition.receipted",
+      "description": "Completion, quarantine, or authorized abandonment is an admitted, receipted disposition, never garbage-collection inference: a closing status requires at least one receipt.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.receipt_refs",
+        "when_path": "$.status",
+        "values": [
+          "completed",
+          "quarantined",
+          "abandoned"
+        ]
+      }
+    }
   ]
 };
 
@@ -46343,4 +48624,28 @@ export function validateLostSuffixRecordV1(
   value: unknown,
 ): value is LostSuffixRecordV1 {
   return validateArchitectureContract("schema://ioi/foundations/lost-suffix-record/v1", value).ok;
+}
+
+export function validateHypervisorEnvironmentRouteBindingV1(
+  value: unknown,
+): value is HypervisorEnvironmentRouteBindingV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1", value).ok;
+}
+
+export function validateHypervisorEnvironmentBackupV1(
+  value: unknown,
+): value is HypervisorEnvironmentBackupV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-environment-backup/v1", value).ok;
+}
+
+export function validateHypervisorChangePlanV1(
+  value: unknown,
+): value is HypervisorChangePlanV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-change-plan/v1", value).ok;
+}
+
+export function validateHypervisorResourceCleanupObligationV1(
+  value: unknown,
+): value is HypervisorResourceCleanupObligationV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1", value).ok;
 }

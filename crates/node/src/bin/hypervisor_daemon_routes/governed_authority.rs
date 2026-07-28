@@ -43,6 +43,10 @@ pub(crate) enum AuthorityPolicyContext<'a> {
         estate_namespace: &'a str,
         node_id: &'a str,
     },
+    HypervisorEnvironment {
+        estate_namespace: &'a str,
+        subject_ref: &'a str,
+    },
 }
 
 #[derive(Clone, Copy)]
@@ -106,6 +110,15 @@ impl AuthorityContract {
             | "declare_failover_profile"
             | "resolve_lost_suffix" => {
                 format!("scope:autonomous_system.writer.{op}")
+            }
+            "declare_route_binding"
+            | "record_backup"
+            | "declare_change_plan"
+            | "advance_change_plan_stage"
+            | "open_cleanup_obligation"
+            | "satisfy_cleanup_obligation"
+            | "escalate_cleanup_obligation" => {
+                format!("scope:hypervisor_environment.{op}")
             }
             "enroll_local" => "scope:autonomous_system.network_enrollment.local.enroll".to_owned(),
             "exit_local_enrollment" => {
@@ -400,6 +413,13 @@ pub(crate) fn decision_policy_hash_for_context(
         } => {
             material.insert("estate_namespace".into(), json!(estate_namespace));
             material.insert("node_id".into(), json!(node_id));
+        }
+        AuthorityPolicyContext::HypervisorEnvironment {
+            estate_namespace,
+            subject_ref,
+        } => {
+            material.insert("estate_namespace".into(), json!(estate_namespace));
+            material.insert("environment_subject_ref".into(), json!(subject_ref));
         }
     }
     material.insert("required_authority_ref".into(), json!(required_authority));
