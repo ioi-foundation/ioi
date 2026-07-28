@@ -4012,6 +4012,205 @@ export type HarnessSessionTerminalAttachV1 = {
   terminal_attach_invariant: "The client may create and write to the host PTY only after the daemon binds the spawned command, readiness proof, authority scopes, receipt refs, transcript stream, and workspace root in this attach object.";
 };
 
+export type ArtifactAvailabilityIncidentV1 = {
+  schema_version: "ioi.runtime.artifact_availability_incident.v1";
+  incident_id: string;
+  artifact_ref: string;
+  payload_ref: string;
+  backend_ref: string;
+  incident_kind: "missing" | "unavailable" | "invalid_hash" | "invalid_cid" | "decrypt_failed" | "backend_unavailable" | "stale_replica";
+  lifecycle_state: "opened" | "fallback_attempted" | "repaired" | "quarantined" | "unrecoverable" | "closed";
+  expected_hash: string | null;
+  observed_hash: string | null;
+  expected_cid: string | null;
+  observed_cid: string | null;
+  agentgres_operation_refs: Array<string>;
+  repair_receipt_refs: Array<string>;
+  incident_receipt_refs: Array<string>;
+  fallback_backend_refs: Array<string>;
+  quarantine_refs: Array<string>;
+  affected_object_refs: Array<string>;
+  verification_refs: Array<string>;
+  restore_import_refs: Array<string>;
+  payload_bytes_mutated: boolean;
+  admitted_at: string;
+  runtimeTruthSource: "daemon-runtime";
+  agentgres_operation: {
+      schema_version: "ioi.agentgres.artifact_availability_incident_operation.v1";
+      operation_ref: string;
+      operation_kind: "artifact_availability_incident";
+      incident_id: string;
+      artifact_ref: string;
+      payload_ref: string;
+      backend_ref: string;
+      lifecycle_state: "opened" | "fallback_attempted" | "repaired" | "quarantined" | "unrecoverable" | "closed";
+      incident_kind: "missing" | "unavailable" | "invalid_hash" | "invalid_cid" | "decrypt_failed" | "backend_unavailable" | "stale_replica";
+      affected_object_refs: Array<string>;
+      incident_receipt_refs: Array<string>;
+      repair_receipt_refs: Array<string>;
+      verification_refs: Array<string>;
+      restore_import_refs: Array<string>;
+      fallback_backend_refs: Array<string>;
+      quarantine_refs: Array<string>;
+      payload_bytes_mutated: boolean;
+      restore_validity: "no_restore_import" | "restore_import_refs_bound";
+      state_root: string;
+      receipt_refs: Array<string>;
+      runtimeTruthSource: "daemon-runtime";
+      agentgresTruthSource: "agentgres-operation";
+    };
+};
+
+export type ArtifactAvailabilityIncidentOperationV1 = {
+  schema_version: "ioi.agentgres.artifact_availability_incident_operation.v1";
+  operation_ref: string;
+  operation_kind: "artifact_availability_incident";
+  incident_id: string;
+  artifact_ref: string;
+  payload_ref: string;
+  backend_ref: string;
+  lifecycle_state: "opened" | "fallback_attempted" | "repaired" | "quarantined" | "unrecoverable" | "closed";
+  incident_kind: "missing" | "unavailable" | "invalid_hash" | "invalid_cid" | "decrypt_failed" | "backend_unavailable" | "stale_replica";
+  affected_object_refs: Array<string>;
+  incident_receipt_refs: Array<string>;
+  repair_receipt_refs: Array<string>;
+  verification_refs: Array<string>;
+  restore_import_refs: Array<string>;
+  fallback_backend_refs: Array<string>;
+  quarantine_refs: Array<string>;
+  payload_bytes_mutated: boolean;
+  restore_validity: "no_restore_import" | "restore_import_refs_bound";
+  state_root: string;
+  receipt_refs: Array<string>;
+  runtimeTruthSource: "daemon-runtime";
+  agentgresTruthSource: "agentgres-operation";
+};
+
+export type ArtifactRepairReceiptV1 = {
+  schema_version: "ioi.hypervisor.artifact-repair-receipt.v1";
+  repair_id: string;
+  repair_ref: string;
+  archive_ref: string;
+  material_ref: string;
+  backend_ref: string;
+  source: "daemon_custody";
+  outcome: "repaired" | "repair_failed";
+  reason?: string;
+  old_commitment?: {
+      address: string;
+      stored_sha256: string;
+      size_bytes: number;
+      mode: "real_local" | "fixture_evidence" | "live_evidence";
+      path?: string;
+      read_back_verified: boolean;
+      warning?: string | null;
+      cid?: string;
+      endpoint?: string;
+      note?: string;
+    } | null;
+  new_commitment?: {
+      address: string;
+      stored_sha256: string;
+      size_bytes: number;
+      mode: "real_local" | "fixture_evidence" | "live_evidence";
+      path?: string;
+      read_back_verified: boolean;
+      warning?: string | null;
+      cid?: string;
+      endpoint?: string;
+      note?: string;
+    };
+  state_root?: string;
+  verification?: {
+      custody_state_root_verified?: true;
+      read_back_verified?: boolean | null;
+      actual?: string;
+      expected?: string;
+    } | null;
+  incident_refs: Array<string>;
+  admission_note?: "the replacement commitment preserves meaning ONLY because it is linked here to the same material_ref, state_root, and receipt chain — a new CID alone repairs nothing";
+  at: string;
+};
+
+export type StorageArchiveObjectV1 = {
+  schema_version: "ioi.hypervisor.storage-archive-object.v1";
+  archive_id: string;
+  archive_ref: string;
+  backend_ref: string;
+  backend_kind: "local_disk" | "cas" | "ipfs" | "filecoin";
+  material_ref: string;
+  environment_ref: string | null;
+  provider_account_ref: string | null;
+  state_root: string;
+  media_type: "application/x-tar+gzip";
+  payload_bytes: number;
+  commitment: {
+      address: string;
+      stored_sha256: string;
+      size_bytes: number;
+      mode: "real_local" | "fixture_evidence" | "live_evidence";
+      path?: string;
+      read_back_verified: boolean;
+      warning?: string | null;
+      cid?: string;
+      endpoint?: string;
+      note?: string;
+    };
+  encryption: {
+      scheme: "sealed_wallet_secret (Argon2id KDF + AEAD)";
+      key_source: "wallet-secret-pass" | "local-mode-fallback";
+      plaintext_at_backend: false;
+    };
+  status: "available" | "impaired";
+  availability_note: "storage availability is NOT restore truth — restore admits only after fetch + commitment hash + decrypt + admitted state_root all verify";
+  authority: "none — no CID, deal, pin, or backend id ever becomes authority or restore validity";
+  grant_ref: string;
+  receipt_refs: Array<string>;
+  exported_at: string;
+  last_verify?: {
+      ok: boolean;
+      incident_ref?: string;
+      stored_sha256?: string;
+      size_bytes?: number;
+      at: string;
+    };
+  repaired_at?: string;
+  repair_ref?: string;
+};
+
+export type StorageBackendWriteAdmissionV1 = {
+  schema_version: "ioi.storage_backend_write_admission.v1";
+  storage_backend_ref: string;
+  object_ref: string;
+  content_hash: string;
+  artifact_refs: Array<string>;
+  payload_refs: Array<string>;
+  receipt_refs: Array<string>;
+  admission_hash: string;
+};
+
+export type StorageArtifactAvailabilityIncidentV1 = {
+  schema_version: "ioi.hypervisor.artifact-availability-incident.v1";
+  incident_id: string;
+  incident_ref: string;
+  archive_ref: string;
+  material_ref: string | null;
+  backend_ref: string;
+  backend_kind: "local_disk" | "cas" | "ipfs" | "filecoin";
+  environment_ref: string | null;
+  kind: "missing_bytes" | "backend_unreachable" | "hash_mismatch" | "decrypt_failure";
+  detail: string;
+  evidence: Record<string, unknown>;
+  detections: number;
+  status: "open" | "repaired";
+  truth_note: "an availability incident quarantines the BYTES, not the artifact meaning — the daemon material record and admitted state_root remain the truth to repair against";
+  opened_at: string;
+  last_evidence?: Record<string, unknown>;
+  last_detected_at?: string;
+  repair_ref?: string;
+  closed_at?: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -6501,6 +6700,262 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-missing-opened.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-repaired-verified.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-invalid-hash-without-observed.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "artifact_availability_incident.observed_hash.required_for_invalid_hash"
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-repaired-without-verification.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "artifact_availability_incident.verification.required_for_terminal_repair"
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-silent-payload-mutation.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "artifact_availability_incident.repair_receipts.required_for_payload_mutation"
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-operation-lifecycle-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "artifact_availability_incident.operation.lifecycle_state_equal"
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-retired-alias.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-bad-artifact-prefix.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-opened.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-repaired-bound.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-unbound-restore-validity-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "artifact_availability_incident_operation.restore_validity.requires_imports"
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-repaired-without-verification.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "artifact_availability_incident_operation.verification.required_for_terminal_repair"
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-foreign-truth-source.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repaired.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repair-failed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repaired-without-verification.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-unverified-custody-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repair-ref-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "artifact_repair_receipt.repair_ref.binds_repair_id"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-available-local.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-impaired-quarantined.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-plaintext-at-backend.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-archive-ref-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "storage_archive_object.archive_ref.binds_archive_id"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-availability-as-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/positive-artifact-state-commit.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-agentgres-refs.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "storage_backend_write_admission.agentgres_ref.required"
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-open-missing-bytes.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-repaired-accreted.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-repaired-without-repair-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "storage_artifact_availability_incident.repair_ref.required_for_repaired"
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-canon-only-kind.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-incident-ref-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "storage_artifact_availability_incident.incident_ref.binds_incident_id"
   }
 ] as const;
 
@@ -11257,6 +11712,230 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-missing-opened.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-missing-opened.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-repaired-verified.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-repaired-verified.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-invalid-hash-without-observed.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-invalid-hash-without-observed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-repaired-without-verification.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-repaired-without-verification.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-silent-payload-mutation.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-silent-payload-mutation.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-operation-lifecycle-drift.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-operation-lifecycle-drift.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-retired-alias.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-retired-alias.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-bad-artifact-prefix.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-bad-artifact-prefix.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-opened.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-opened.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-repaired-bound.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-repaired-bound.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-unbound-restore-validity-claim.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-unbound-restore-validity-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-repaired-without-verification.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-repaired-without-verification.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-foreign-truth-source.json",
+    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-foreign-truth-source.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repaired.json",
+    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repaired.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repair-failed.json",
+    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repair-failed.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repaired-without-verification.json",
+    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repaired-without-verification.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-unverified-custody-claim.json",
+    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-unverified-custody-claim.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repair-ref-mismatch.json",
+    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repair-ref-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-available-local.json",
+    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-available-local.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-impaired-quarantined.json",
+    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-impaired-quarantined.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-plaintext-at-backend.json",
+    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-plaintext-at-backend.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-archive-ref-mismatch.json",
+    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-archive-ref-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-availability-as-authority.json",
+    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-availability-as-authority.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/positive-artifact-state-commit.json",
+    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/positive-artifact-state-commit.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-agentgres-refs.json",
+    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-agentgres-refs.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-receipt.json",
+    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json",
+    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-open-missing-bytes.json",
+    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-open-missing-bytes.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-repaired-accreted.json",
+    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-repaired-accreted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-repaired-without-repair-ref.json",
+    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-repaired-without-repair-ref.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-canon-only-kind.json",
+    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-canon-only-kind.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-incident-ref-mismatch.json",
+    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-incident-ref-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -12133,6 +12812,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:agentgres|wallet|service)://[^\\s]{1,248}$",
   "^(?:agent|worker)://[^\\s]{1,248}$",
   "^(?:artifact|cid)://[^\\s]{1,248}$",
+  "^(?:cas|local-cas|ipfs|filecoin)://[^\\s]+$",
   "^(?:commitment|evidence)://[^\\s]{1,240}$",
   "^(?:commitment|evidence)://[^\\s]{1,248}$",
   "^(?:commitment|settlement|tx)://[^\\s]+$",
@@ -12209,6 +12889,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9_-]*(?:://|:)[^\\s]{1,240}$",
   "^[a-z][a-z0-9_]*$",
   "^[a-z][a-z0-9_]{1,80}$",
+  "^aai_[0-9a-f]+$",
   "^acceptance://[^\\s]+$",
   "^action-schema://[^\\s]+$",
   "^active-profile-set://[A-Za-z0-9._:/-]+$",
@@ -12225,10 +12906,16 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^agentgres://operation/[^\\s]+$",
   "^agentgres://operation/[^\\s]{1,240}$",
   "^agentgres://state-root/[^\\s]{1,240}$",
+  "^agentgres://state-root/artifact-availability-incident/[^\\s]+$",
+  "^agentgres://storage-receipt/stc_[0-9a-f]+$",
   "^agentgres://trace/[^\\s]{1,240}$",
   "^appraisal://[^\\s]{1,248}$",
   "^appraiser://[^\\s]{1,248}$",
   "^approval://[A-Za-z0-9._~:/-]+$",
+  "^arr_[0-9a-f]+$",
+  "^artifact-availability-incident://[^\\s]+$",
+  "^artifact-availability-incident://aai_[0-9a-f]+$",
+  "^artifact-repair-receipt://arr_[0-9a-f]+$",
   "^artifact://[^\\s]+$",
   "^artifact://[^\\s]{1,240}$",
   "^artifact://[^\\s]{1,248}$",
@@ -12332,6 +13019,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^ordering-recovery://[^\\s]{1,248}$",
   "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$",
   "^package://[^\\s]{1,248}$",
+  "^payload://[^\\s]+$",
   "^physical-action-admission:[^\\s]+$",
   "^policy://[A-Za-z0-9._:/-]+$",
   "^policy://[A-Za-z0-9._~:/-]+$",
@@ -12368,6 +13056,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^run://[^\\s]+$",
   "^runtime://[^\\s]{1,248}$",
   "^safety://[^\\s]+$",
+  "^sao_[0-9a-f]+$",
   "^schema://[^\\s]+$",
   "^schema://[^\\s]{1,240}$",
   "^schema://[^\\s]{1,248}$",
@@ -12391,6 +13080,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^snapshot://[^\\s]+$",
   "^snapshot://[^\\s]{1,248}$",
   "^state-root://sha256:[0-9a-f]{64}$",
+  "^storage-archive://[^\\s]+$",
+  "^storage-archive://sao_[0-9a-f]+$",
+  "^storage-backend://[^\\s]+$",
+  "^storage://[^\\s]+$",
   "^storage://[^\\s]{1,240}$",
   "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$",
   "^system-activation-state://[^\\s]{1,248}$",
@@ -12509,7 +13202,13 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/harness-session-binding-admission/v1": "sha256:272fed9f39075b80d523e895f65815be3103e5266d75b59b759564dc028cd40a",
   "schema://ioi/components/hypervisor/harness-session-spawn/v1": "sha256:095dec4ddb3e6d0916c14fb155d08a815fa56e47f33816d9cf68ab2a9eb30c4a",
   "schema://ioi/components/hypervisor/harness-session-readiness/v1": "sha256:04971bfbd7dcff54d841cdc469bf646a25b2cdb2a6d2cfa245e52ed0fe713a0a",
-  "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1": "sha256:683e2b4c3db8a9e30a98d03bfb5e745c0e6e9dab3e59e2fda2eea4212c88fd1f"
+  "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1": "sha256:683e2b4c3db8a9e30a98d03bfb5e745c0e6e9dab3e59e2fda2eea4212c88fd1f",
+  "schema://ioi/components/agentgres/artifact-availability-incident/v1": "sha256:3c5e268d0f8c5ba9a670d1146ff1d6e298df6605995b9ecce001b3bcaaa26e0f",
+  "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1": "sha256:d48b8eb8c9449251774f15d72f00cd121e5aa68829122880bbde18bf1ed7590b",
+  "schema://ioi/components/hypervisor/artifact-repair-receipt/v1": "sha256:95d032532d7b6c996ef9d1176007aa658facdcd5f05c365896a81068ca7a9e9b",
+  "schema://ioi/components/hypervisor/storage-archive-object/v1": "sha256:23447556ad5e93292fbe613fb3cfc326424edb8599ab31d1e57aff1f96793fc3",
+  "schema://ioi/components/agentgres/storage-backend-write-admission/v1": "sha256:afde420387eea9baccfbdce3df97ad175fa2e17677a80beea5041ac93c3a7723",
+  "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1": "sha256:829cd261784b99f11a98ecef6bd3ad40767f54253f6115ed476b773c86737572"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -44720,6 +45419,1207 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
       }
     }
+  },
+  "schema://ioi/components/agentgres/artifact-availability-incident/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+    "title": "ArtifactAvailabilityIncident",
+    "description": "The runtime-kernel-admitted artifact availability incident record (RuntimeArtifactAvailabilityIncidentAdmissionCore::admit output). Corruption or loss of payload bytes surfaces as this admitted incident, never as silent success: hash/CID incidents structurally require expected and observed evidence, terminal repair states require repair receipts, verification refs, and restore/import refs (INV-37), and payload-byte mutation without a repair receipt is unrepresentable. The admitted record embeds the derived Agentgres operation envelope byte-for-byte.",
+    "x-ioi-schema-version": "ioi.runtime.artifact_availability_incident.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "incident_id",
+      "artifact_ref",
+      "payload_ref",
+      "backend_ref",
+      "incident_kind",
+      "lifecycle_state",
+      "expected_hash",
+      "observed_hash",
+      "expected_cid",
+      "observed_cid",
+      "agentgres_operation_refs",
+      "repair_receipt_refs",
+      "incident_receipt_refs",
+      "fallback_backend_refs",
+      "quarantine_refs",
+      "affected_object_refs",
+      "verification_refs",
+      "restore_import_refs",
+      "payload_bytes_mutated",
+      "admitted_at",
+      "runtimeTruthSource",
+      "agentgres_operation"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.runtime.artifact_availability_incident.v1"
+      },
+      "incident_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "artifact_ref": {
+        "$ref": "#/$defs/artifactRef"
+      },
+      "payload_ref": {
+        "$ref": "#/$defs/payloadRef"
+      },
+      "backend_ref": {
+        "$ref": "#/$defs/backendRef"
+      },
+      "incident_kind": {
+        "$ref": "#/$defs/incidentKind"
+      },
+      "lifecycle_state": {
+        "$ref": "#/$defs/lifecycleState"
+      },
+      "expected_hash": {
+        "$ref": "#/$defs/optionalEvidence"
+      },
+      "observed_hash": {
+        "$ref": "#/$defs/optionalEvidence"
+      },
+      "expected_cid": {
+        "$ref": "#/$defs/optionalEvidence"
+      },
+      "observed_cid": {
+        "$ref": "#/$defs/optionalEvidence"
+      },
+      "agentgres_operation_refs": {
+        "$ref": "#/$defs/requiredRefs"
+      },
+      "repair_receipt_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "incident_receipt_refs": {
+        "$ref": "#/$defs/requiredRefs"
+      },
+      "fallback_backend_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "quarantine_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "affected_object_refs": {
+        "$ref": "#/$defs/requiredRefs"
+      },
+      "verification_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "restore_import_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "payload_bytes_mutated": {
+        "type": "boolean"
+      },
+      "admitted_at": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "runtimeTruthSource": {
+        "const": "daemon-runtime"
+      },
+      "agentgres_operation": {
+        "$ref": "#/$defs/operationEnvelope"
+      }
+    },
+    "$defs": {
+      "artifactRef": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]+$",
+        "maxLength": 512
+      },
+      "payloadRef": {
+        "type": "string",
+        "pattern": "^payload://[^\\s]+$",
+        "maxLength": 512
+      },
+      "backendRef": {
+        "type": "string",
+        "pattern": "^storage://[^\\s]+$",
+        "maxLength": 512
+      },
+      "incidentKind": {
+        "enum": [
+          "missing",
+          "unavailable",
+          "invalid_hash",
+          "invalid_cid",
+          "decrypt_failed",
+          "backend_unavailable",
+          "stale_replica"
+        ]
+      },
+      "lifecycleState": {
+        "enum": [
+          "opened",
+          "fallback_attempted",
+          "repaired",
+          "quarantined",
+          "unrecoverable",
+          "closed"
+        ]
+      },
+      "optionalEvidence": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "requiredRefs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "operationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "operation_ref",
+          "operation_kind",
+          "incident_id",
+          "artifact_ref",
+          "payload_ref",
+          "backend_ref",
+          "lifecycle_state",
+          "incident_kind",
+          "affected_object_refs",
+          "incident_receipt_refs",
+          "repair_receipt_refs",
+          "verification_refs",
+          "restore_import_refs",
+          "fallback_backend_refs",
+          "quarantine_refs",
+          "payload_bytes_mutated",
+          "restore_validity",
+          "state_root",
+          "receipt_refs",
+          "runtimeTruthSource",
+          "agentgresTruthSource"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.agentgres.artifact_availability_incident_operation.v1"
+          },
+          "operation_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "operation_kind": {
+            "const": "artifact_availability_incident"
+          },
+          "incident_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "artifact_ref": {
+            "$ref": "#/$defs/artifactRef"
+          },
+          "payload_ref": {
+            "$ref": "#/$defs/payloadRef"
+          },
+          "backend_ref": {
+            "$ref": "#/$defs/backendRef"
+          },
+          "lifecycle_state": {
+            "$ref": "#/$defs/lifecycleState"
+          },
+          "incident_kind": {
+            "$ref": "#/$defs/incidentKind"
+          },
+          "affected_object_refs": {
+            "$ref": "#/$defs/requiredRefs"
+          },
+          "incident_receipt_refs": {
+            "$ref": "#/$defs/requiredRefs"
+          },
+          "repair_receipt_refs": {
+            "$ref": "#/$defs/refs"
+          },
+          "verification_refs": {
+            "$ref": "#/$defs/refs"
+          },
+          "restore_import_refs": {
+            "$ref": "#/$defs/refs"
+          },
+          "fallback_backend_refs": {
+            "$ref": "#/$defs/refs"
+          },
+          "quarantine_refs": {
+            "$ref": "#/$defs/refs"
+          },
+          "payload_bytes_mutated": {
+            "type": "boolean"
+          },
+          "restore_validity": {
+            "enum": [
+              "no_restore_import",
+              "restore_import_refs_bound"
+            ]
+          },
+          "state_root": {
+            "type": "string",
+            "pattern": "^agentgres://state-root/artifact-availability-incident/[^\\s]+$",
+            "maxLength": 512
+          },
+          "receipt_refs": {
+            "$ref": "#/$defs/requiredRefs"
+          },
+          "runtimeTruthSource": {
+            "const": "daemon-runtime"
+          },
+          "agentgresTruthSource": {
+            "const": "agentgres-operation"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
+    "title": "ArtifactAvailabilityIncidentOperation",
+    "description": "The Agentgres operation envelope the runtime kernel derives when it admits an artifact availability incident. The envelope is the lifecycle-transition admission: it binds the incident to its artifact/payload/backend refs, affected Agentgres objects, incident and repair receipts, verification and restore/import refs, and the incident state root. A restore-validity claim of restore_import_refs_bound structurally requires restore/import refs; a terminal repaired/closed lifecycle state requires repair receipts and verification refs (INV-37).",
+    "x-ioi-schema-version": "ioi.agentgres.artifact_availability_incident_operation.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "operation_ref",
+      "operation_kind",
+      "incident_id",
+      "artifact_ref",
+      "payload_ref",
+      "backend_ref",
+      "lifecycle_state",
+      "incident_kind",
+      "affected_object_refs",
+      "incident_receipt_refs",
+      "repair_receipt_refs",
+      "verification_refs",
+      "restore_import_refs",
+      "fallback_backend_refs",
+      "quarantine_refs",
+      "payload_bytes_mutated",
+      "restore_validity",
+      "state_root",
+      "receipt_refs",
+      "runtimeTruthSource",
+      "agentgresTruthSource"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.agentgres.artifact_availability_incident_operation.v1"
+      },
+      "operation_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "operation_kind": {
+        "const": "artifact_availability_incident"
+      },
+      "incident_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "artifact_ref": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]+$",
+        "maxLength": 512
+      },
+      "payload_ref": {
+        "type": "string",
+        "pattern": "^payload://[^\\s]+$",
+        "maxLength": 512
+      },
+      "backend_ref": {
+        "type": "string",
+        "pattern": "^storage://[^\\s]+$",
+        "maxLength": 512
+      },
+      "lifecycle_state": {
+        "enum": [
+          "opened",
+          "fallback_attempted",
+          "repaired",
+          "quarantined",
+          "unrecoverable",
+          "closed"
+        ]
+      },
+      "incident_kind": {
+        "enum": [
+          "missing",
+          "unavailable",
+          "invalid_hash",
+          "invalid_cid",
+          "decrypt_failed",
+          "backend_unavailable",
+          "stale_replica"
+        ]
+      },
+      "affected_object_refs": {
+        "$ref": "#/$defs/requiredRefs"
+      },
+      "incident_receipt_refs": {
+        "$ref": "#/$defs/requiredRefs"
+      },
+      "repair_receipt_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "verification_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "restore_import_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "fallback_backend_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "quarantine_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "payload_bytes_mutated": {
+        "type": "boolean"
+      },
+      "restore_validity": {
+        "enum": [
+          "no_restore_import",
+          "restore_import_refs_bound"
+        ]
+      },
+      "state_root": {
+        "type": "string",
+        "pattern": "^agentgres://state-root/artifact-availability-incident/[^\\s]+$",
+        "maxLength": 512
+      },
+      "receipt_refs": {
+        "$ref": "#/$defs/requiredRefs"
+      },
+      "runtimeTruthSource": {
+        "const": "daemon-runtime"
+      },
+      "agentgresTruthSource": {
+        "const": "agentgres-operation"
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "requiredRefs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/artifact-repair-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
+    "title": "ArtifactRepairReceipt",
+    "description": "The daemon storage-plane repair receipt (storage_backend_routes op_repair). A repaired outcome exists only with a verified replacement commitment: the daemon custody bytes re-hash to the admitted state root (custody_state_root_verified is structurally true), the replacement commitment is bound, and the closed incidents are named. A failed repair is an honest repair_failed receipt with its named reason — an unverified repair can never mint a repaired outcome (INV-37).",
+    "x-ioi-schema-version": "ioi.hypervisor.artifact-repair-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "repair_id",
+      "repair_ref",
+      "archive_ref",
+      "material_ref",
+      "backend_ref",
+      "source",
+      "outcome",
+      "incident_refs",
+      "at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.artifact-repair-receipt.v1"
+      },
+      "repair_id": {
+        "type": "string",
+        "pattern": "^arr_[0-9a-f]+$",
+        "maxLength": 64
+      },
+      "repair_ref": {
+        "type": "string",
+        "pattern": "^artifact-repair-receipt://arr_[0-9a-f]+$",
+        "maxLength": 96
+      },
+      "archive_ref": {
+        "type": "string",
+        "pattern": "^storage-archive://[^\\s]+$",
+        "maxLength": 512
+      },
+      "material_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "backend_ref": {
+        "type": "string",
+        "pattern": "^storage-backend://[^\\s]+$",
+        "maxLength": 512
+      },
+      "source": {
+        "const": "daemon_custody"
+      },
+      "outcome": {
+        "enum": [
+          "repaired",
+          "repair_failed"
+        ]
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "old_commitment": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/commitment"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "new_commitment": {
+        "$ref": "#/$defs/commitment"
+      },
+      "state_root": {
+        "$ref": "#/$defs/sha256Hash"
+      },
+      "verification": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/verificationEvidence"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "incident_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^artifact-availability-incident://[^\\s]+$",
+          "maxLength": 512
+        }
+      },
+      "admission_note": {
+        "const": "the replacement commitment preserves meaning ONLY because it is linked here to the same material_ref, state_root, and receipt chain — a new CID alone repairs nothing"
+      },
+      "at": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    },
+    "if": {
+      "properties": {
+        "outcome": {
+          "const": "repaired"
+        }
+      },
+      "required": [
+        "outcome"
+      ]
+    },
+    "then": {
+      "required": [
+        "old_commitment",
+        "new_commitment",
+        "state_root",
+        "verification",
+        "admission_note"
+      ],
+      "properties": {
+        "old_commitment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/commitment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "new_commitment": {
+          "$ref": "#/$defs/commitment"
+        },
+        "state_root": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "verification": {
+          "type": "object",
+          "required": [
+            "custody_state_root_verified",
+            "read_back_verified"
+          ],
+          "properties": {
+            "custody_state_root_verified": {
+              "const": true
+            },
+            "read_back_verified": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "admission_note": {
+          "const": "the replacement commitment preserves meaning ONLY because it is linked here to the same material_ref, state_root, and receipt chain — a new CID alone repairs nothing"
+        }
+      }
+    },
+    "else": {
+      "required": [
+        "reason"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      }
+    },
+    "$defs": {
+      "sha256Hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "commitment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "address",
+          "stored_sha256",
+          "size_bytes",
+          "mode",
+          "read_back_verified"
+        ],
+        "properties": {
+          "address": {
+            "type": "string",
+            "pattern": "^(?:cas|local-cas|ipfs|filecoin)://[^\\s]+$",
+            "maxLength": 512
+          },
+          "stored_sha256": {
+            "$ref": "#/$defs/sha256Hash"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "mode": {
+            "enum": [
+              "real_local",
+              "fixture_evidence",
+              "live_evidence"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "read_back_verified": {
+            "type": "boolean"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "endpoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      },
+      "verificationEvidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "custody_state_root_verified": {
+            "const": true
+          },
+          "read_back_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actual": {
+            "$ref": "#/$defs/sha256Hash"
+          },
+          "expected": {
+            "$ref": "#/$defs/sha256Hash"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/storage-archive-object/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+    "title": "StorageArchiveObject",
+    "description": "The daemon-produced sealed-state-archive artifact record (storage_backend_routes op_export). This is the realized in-tree ArtifactRef instance for the sealed_state_archive role: it binds the daemon-admitted state root, the storage-backend commitment (address + stored sha256 + size), the sealed encryption posture (plaintext never reaches a backend), the wallet grant, and the storage receipts. Availability status is only available or impaired — an impaired archive is quarantined bytes, never lost meaning.",
+    "x-ioi-schema-version": "ioi.hypervisor.storage-archive-object.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "archive_id",
+      "archive_ref",
+      "backend_ref",
+      "backend_kind",
+      "material_ref",
+      "environment_ref",
+      "provider_account_ref",
+      "state_root",
+      "media_type",
+      "payload_bytes",
+      "commitment",
+      "encryption",
+      "status",
+      "availability_note",
+      "authority",
+      "grant_ref",
+      "receipt_refs",
+      "exported_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.storage-archive-object.v1"
+      },
+      "archive_id": {
+        "type": "string",
+        "pattern": "^sao_[0-9a-f]+$",
+        "maxLength": 64
+      },
+      "archive_ref": {
+        "type": "string",
+        "pattern": "^storage-archive://sao_[0-9a-f]+$",
+        "maxLength": 96
+      },
+      "backend_ref": {
+        "type": "string",
+        "pattern": "^storage-backend://[^\\s]+$",
+        "maxLength": 512
+      },
+      "backend_kind": {
+        "enum": [
+          "local_disk",
+          "cas",
+          "ipfs",
+          "filecoin"
+        ]
+      },
+      "material_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "environment_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "provider_account_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "state_root": {
+        "$ref": "#/$defs/sha256Hash"
+      },
+      "media_type": {
+        "const": "application/x-tar+gzip"
+      },
+      "payload_bytes": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "commitment": {
+        "$ref": "#/$defs/commitment"
+      },
+      "encryption": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scheme",
+          "key_source",
+          "plaintext_at_backend"
+        ],
+        "properties": {
+          "scheme": {
+            "const": "sealed_wallet_secret (Argon2id KDF + AEAD)"
+          },
+          "key_source": {
+            "enum": [
+              "wallet-secret-pass",
+              "local-mode-fallback"
+            ]
+          },
+          "plaintext_at_backend": {
+            "const": false
+          }
+        }
+      },
+      "status": {
+        "enum": [
+          "available",
+          "impaired"
+        ]
+      },
+      "availability_note": {
+        "const": "storage availability is NOT restore truth — restore admits only after fetch + commitment hash + decrypt + admitted state_root all verify"
+      },
+      "authority": {
+        "const": "none — no CID, deal, pin, or backend id ever becomes authority or restore validity"
+      },
+      "grant_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^agentgres://storage-receipt/stc_[0-9a-f]+$",
+          "maxLength": 96
+        }
+      },
+      "exported_at": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "last_verify": {
+        "$ref": "#/$defs/lastVerify"
+      },
+      "repaired_at": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "repair_ref": {
+        "type": "string",
+        "pattern": "^artifact-repair-receipt://arr_[0-9a-f]+$",
+        "maxLength": 96
+      }
+    },
+    "$defs": {
+      "sha256Hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "commitment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "address",
+          "stored_sha256",
+          "size_bytes",
+          "mode",
+          "read_back_verified"
+        ],
+        "properties": {
+          "address": {
+            "type": "string",
+            "pattern": "^(?:cas|local-cas|ipfs|filecoin)://[^\\s]+$",
+            "maxLength": 512
+          },
+          "stored_sha256": {
+            "$ref": "#/$defs/sha256Hash"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "mode": {
+            "enum": [
+              "real_local",
+              "fixture_evidence",
+              "live_evidence"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "read_back_verified": {
+            "type": "boolean"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cid": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "endpoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      },
+      "lastVerify": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "at"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "incident_ref": {
+            "type": "string",
+            "pattern": "^artifact-availability-incident://[^\\s]+$",
+            "maxLength": 512
+          },
+          "stored_sha256": {
+            "$ref": "#/$defs/sha256Hash"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "at": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/components/agentgres/storage-backend-write-admission/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
+    "title": "StorageBackendWriteAdmission",
+    "description": "The runtime-kernel storage-backend write admission record (AgentgresAdmissionCore::admit_storage_backend_write). This is the enforced seam where the Agentgres artifact-ref plane binds every runtime-state byte write: a write without at least one Agentgres artifact ref or payload ref fails, a write without a receipt ref fails, and the content hash plus the admission hash commit the exact admitted write. Refs cross this seam as canonical strings; the full canonical ArtifactRef/PayloadRef objects are deferred canon.",
+    "x-ioi-schema-version": "ioi.storage_backend_write_admission.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "storage_backend_ref",
+      "object_ref",
+      "content_hash",
+      "artifact_refs",
+      "payload_refs",
+      "receipt_refs",
+      "admission_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.storage_backend_write_admission.v1"
+      },
+      "storage_backend_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "object_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256Hash"
+      },
+      "artifact_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "payload_refs": {
+        "$ref": "#/$defs/refs"
+      },
+      "receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "admission_hash": {
+        "$ref": "#/$defs/sha256Hash"
+      }
+    },
+    "$defs": {
+      "sha256Hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "refs": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+    "title": "StorageArtifactAvailabilityIncident",
+    "description": "The daemon storage-plane availability incident record (storage_backend_routes open_incident). Failed fetch, hash mismatch, or decrypt failure against a storage archive opens exactly one open incident per (archive, kind); repeat detections accrete evidence onto the same incident instead of minting rows. An incident quarantines the bytes, not the artifact meaning, and it leaves open status only through a named repair receipt — a repaired status without its repair_ref is unrepresentable.",
+    "x-ioi-schema-version": "ioi.hypervisor.artifact-availability-incident.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "incident_id",
+      "incident_ref",
+      "archive_ref",
+      "material_ref",
+      "backend_ref",
+      "backend_kind",
+      "environment_ref",
+      "kind",
+      "detail",
+      "evidence",
+      "detections",
+      "status",
+      "truth_note",
+      "opened_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.artifact-availability-incident.v1"
+      },
+      "incident_id": {
+        "type": "string",
+        "pattern": "^aai_[0-9a-f]+$",
+        "maxLength": 64
+      },
+      "incident_ref": {
+        "type": "string",
+        "pattern": "^artifact-availability-incident://aai_[0-9a-f]+$",
+        "maxLength": 96
+      },
+      "archive_ref": {
+        "type": "string",
+        "pattern": "^storage-archive://[^\\s]+$",
+        "maxLength": 512
+      },
+      "material_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "backend_ref": {
+        "type": "string",
+        "pattern": "^storage-backend://[^\\s]+$",
+        "maxLength": 512
+      },
+      "backend_kind": {
+        "enum": [
+          "local_disk",
+          "cas",
+          "ipfs",
+          "filecoin"
+        ]
+      },
+      "environment_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "kind": {
+        "enum": [
+          "missing_bytes",
+          "backend_unreachable",
+          "hash_mismatch",
+          "decrypt_failure"
+        ]
+      },
+      "detail": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      "evidence": {
+        "type": "object"
+      },
+      "detections": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "status": {
+        "enum": [
+          "open",
+          "repaired"
+        ]
+      },
+      "truth_note": {
+        "const": "an availability incident quarantines the BYTES, not the artifact meaning — the daemon material record and admitted state_root remain the truth to repair against"
+      },
+      "opened_at": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "last_evidence": {
+        "type": "object"
+      },
+      "last_detected_at": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "repair_ref": {
+        "type": "string",
+        "pattern": "^artifact-repair-receipt://arr_[0-9a-f]+$",
+        "maxLength": 96
+      },
+      "closed_at": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -50824,6 +52724,378 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/components/agentgres/artifact-availability-incident/v1": [
+    {
+      "rule_id": "artifact_availability_incident.expected_hash.required_for_invalid_hash",
+      "description": "An invalid-hash incident carries the expected hash it failed against; corruption is never claimed without the admitted commitment.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.expected_hash",
+        "when_path": "$.incident_kind",
+        "values": [
+          "invalid_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.observed_hash.required_for_invalid_hash",
+      "description": "An invalid-hash incident carries the observed hash as evidence; corruption is never claimed without the observed bytes' digest.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.observed_hash",
+        "when_path": "$.incident_kind",
+        "values": [
+          "invalid_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.expected_cid.required_for_invalid_cid",
+      "description": "An invalid-CID incident carries the expected CID it failed against.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.expected_cid",
+        "when_path": "$.incident_kind",
+        "values": [
+          "invalid_cid"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.observed_cid.required_for_invalid_cid",
+      "description": "An invalid-CID incident carries the observed CID as evidence.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.observed_cid",
+        "when_path": "$.incident_kind",
+        "values": [
+          "invalid_cid"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.repair_receipts.required_for_terminal_repair",
+      "description": "A repaired or closed lifecycle state requires at least one repair receipt; repair without a receipt is unrepresentable (INV-37).",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.repair_receipt_refs",
+        "when_path": "$.lifecycle_state",
+        "values": [
+          "repaired",
+          "closed"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.verification.required_for_terminal_repair",
+      "description": "A repaired or closed lifecycle state requires verification refs; an unverified repair can never mint a healthy status (INV-37).",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.verification_refs",
+        "when_path": "$.lifecycle_state",
+        "values": [
+          "repaired",
+          "closed"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.restore_import.required_for_repaired",
+      "description": "A repaired lifecycle state requires restore/import refs binding where the healthy bytes came from.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.restore_import_refs",
+        "when_path": "$.lifecycle_state",
+        "values": [
+          "repaired"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.fallback_backends.required_for_fallback",
+      "description": "A fallback_attempted lifecycle state names the fallback backends it tried.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.fallback_backend_refs",
+        "when_path": "$.lifecycle_state",
+        "values": [
+          "fallback_attempted"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.quarantine.required_for_quarantined",
+      "description": "A quarantined lifecycle state names the quarantine refs it produced.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.quarantine_refs",
+        "when_path": "$.lifecycle_state",
+        "values": [
+          "quarantined"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.repair_receipts.required_for_payload_mutation",
+      "description": "Payload bytes are never silently replaced or mutated: mutated bytes require a repair receipt.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.repair_receipt_refs",
+        "when_path": "$.payload_bytes_mutated",
+        "values": [
+          true
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.incident_id_equal",
+      "description": "The embedded operation envelope names the same incident id.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.incident_id",
+          "$.agentgres_operation.incident_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.artifact_ref_equal",
+      "description": "The embedded operation envelope binds the same artifact ref.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.artifact_ref",
+          "$.agentgres_operation.artifact_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.payload_ref_equal",
+      "description": "The embedded operation envelope binds the same payload ref.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.payload_ref",
+          "$.agentgres_operation.payload_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.backend_ref_equal",
+      "description": "The embedded operation envelope binds the same storage backend ref.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.backend_ref",
+          "$.agentgres_operation.backend_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.lifecycle_state_equal",
+      "description": "The embedded operation envelope admits the same lifecycle state; the envelope can never claim a different repair posture than the incident.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.lifecycle_state",
+          "$.agentgres_operation.lifecycle_state"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.incident_kind_equal",
+      "description": "The embedded operation envelope carries the same incident kind.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.incident_kind",
+          "$.agentgres_operation.incident_kind"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.repair_receipts_equal",
+      "description": "The embedded operation envelope carries the same repair receipts.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.repair_receipt_refs",
+          "$.agentgres_operation.repair_receipt_refs"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.verification_refs_equal",
+      "description": "The embedded operation envelope carries the same verification refs.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.verification_refs",
+          "$.agentgres_operation.verification_refs"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.restore_import_refs_equal",
+      "description": "The embedded operation envelope carries the same restore/import refs.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.restore_import_refs",
+          "$.agentgres_operation.restore_import_refs"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.restore_validity_bound",
+      "description": "A restore-validity claim of restore_import_refs_bound structurally requires restore/import refs on the envelope.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.agentgres_operation.restore_import_refs",
+        "when_path": "$.agentgres_operation.restore_validity",
+        "values": [
+          "restore_import_refs_bound"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1": [
+    {
+      "rule_id": "artifact_availability_incident_operation.repair_receipts.required_for_terminal_repair",
+      "description": "A repaired or closed lifecycle transition admits only with repair receipts; repair without a receipt is unrepresentable (INV-37).",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.repair_receipt_refs",
+        "when_path": "$.lifecycle_state",
+        "values": [
+          "repaired",
+          "closed"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident_operation.verification.required_for_terminal_repair",
+      "description": "A repaired or closed lifecycle transition admits only with verification refs; an unverified repair can never mint a healthy status (INV-37).",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.verification_refs",
+        "when_path": "$.lifecycle_state",
+        "values": [
+          "repaired",
+          "closed"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident_operation.restore_import.required_for_repaired",
+      "description": "A repaired lifecycle transition binds the restore/import refs its healthy bytes came from.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.restore_import_refs",
+        "when_path": "$.lifecycle_state",
+        "values": [
+          "repaired"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident_operation.restore_validity.requires_imports",
+      "description": "A restore-validity claim of restore_import_refs_bound structurally requires restore/import refs; the claim can never outrun its evidence.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.restore_import_refs",
+        "when_path": "$.restore_validity",
+        "values": [
+          "restore_import_refs_bound"
+        ]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident_operation.repair_receipts.required_for_payload_mutation",
+      "description": "Payload bytes are never silently replaced or mutated: mutated bytes require a repair receipt on the admitted transition.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.repair_receipt_refs",
+        "when_path": "$.payload_bytes_mutated",
+        "values": [
+          true
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/artifact-repair-receipt/v1": [
+    {
+      "rule_id": "artifact_repair_receipt.repair_ref.binds_repair_id",
+      "description": "The repair ref is derived from this exact repair id; a receipt can never point at a different repair. The verified-repair discipline itself is structural: a repaired outcome requires the replacement commitment, the admitted state root, custody_state_root_verified true, and the admission note, while repair_failed requires its named reason.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.repair_ref",
+        "prefix": "artifact-repair-receipt://",
+        "expected_path": "$.repair_id"
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/storage-archive-object/v1": [
+    {
+      "rule_id": "storage_archive_object.archive_ref.binds_archive_id",
+      "description": "The archive ref is derived from this exact archive id; an archive record can never point at different bytes' identity. Sealed custody is structural: encryption is pinned to the wallet-secret seal with plaintext_at_backend false, and status admits only available or impaired — an impaired archive is quarantined bytes, never lost meaning.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.archive_ref",
+        "prefix": "storage-archive://",
+        "expected_path": "$.archive_id"
+      }
+    }
+  ],
+  "schema://ioi/components/agentgres/storage-backend-write-admission/v1": [
+    {
+      "rule_id": "storage_backend_write_admission.agentgres_ref.required",
+      "description": "A storage backend write without an Agentgres ArtifactRef or PayloadRef fails: every admitted byte write binds at least one artifact ref or payload ref, so no payload can exist outside the artifact-ref plane.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.artifact_refs",
+          "$.payload_refs"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1": [
+    {
+      "rule_id": "storage_artifact_availability_incident.incident_ref.binds_incident_id",
+      "description": "The incident ref is derived from this exact incident id.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.incident_ref",
+        "prefix": "artifact-availability-incident://",
+        "expected_path": "$.incident_id"
+      }
+    },
+    {
+      "rule_id": "storage_artifact_availability_incident.repair_ref.required_for_repaired",
+      "description": "An incident leaves open status only through a named repair receipt: a repaired incident without its repair_ref is unrepresentable (INV-37).",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.repair_ref",
+        "when_path": "$.status",
+        "values": [
+          "repaired"
+        ]
+      }
+    },
+    {
+      "rule_id": "storage_artifact_availability_incident.closed_at.required_for_repaired",
+      "description": "A repaired incident records when it closed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.closed_at",
+        "when_path": "$.status",
+        "values": [
+          "repaired"
+        ]
+      }
+    }
   ]
 };
 
@@ -52117,4 +54389,40 @@ export function validateHarnessSessionTerminalAttachV1(
   value: unknown,
 ): value is HarnessSessionTerminalAttachV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/harness-session-terminal-attach/v1", value).ok;
+}
+
+export function validateArtifactAvailabilityIncidentV1(
+  value: unknown,
+): value is ArtifactAvailabilityIncidentV1 {
+  return validateArchitectureContract("schema://ioi/components/agentgres/artifact-availability-incident/v1", value).ok;
+}
+
+export function validateArtifactAvailabilityIncidentOperationV1(
+  value: unknown,
+): value is ArtifactAvailabilityIncidentOperationV1 {
+  return validateArchitectureContract("schema://ioi/components/agentgres/artifact-availability-incident-operation/v1", value).ok;
+}
+
+export function validateArtifactRepairReceiptV1(
+  value: unknown,
+): value is ArtifactRepairReceiptV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/artifact-repair-receipt/v1", value).ok;
+}
+
+export function validateStorageArchiveObjectV1(
+  value: unknown,
+): value is StorageArchiveObjectV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/storage-archive-object/v1", value).ok;
+}
+
+export function validateStorageBackendWriteAdmissionV1(
+  value: unknown,
+): value is StorageBackendWriteAdmissionV1 {
+  return validateArchitectureContract("schema://ioi/components/agentgres/storage-backend-write-admission/v1", value).ok;
+}
+
+export function validateStorageArtifactAvailabilityIncidentV1(
+  value: unknown,
+): value is StorageArtifactAvailabilityIncidentV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1", value).ok;
 }

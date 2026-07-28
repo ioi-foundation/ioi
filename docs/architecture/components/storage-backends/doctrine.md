@@ -6,7 +6,7 @@ Supersedes: component-level Filecoin/CAS wording when it implies storage backend
 Superseded by: none.
 Last alignment pass: 2026-07-26.
 Doctrine status: canonical
-Implementation status: partial (local_disk/cas/ipfs/filecoin backends built; S3/object-store and provider blob profiles planned; the StorageProfile contract and typed incident/repair shapes are target canonical, not started)
+Implementation status: partial (local_disk/cas/ipfs/filecoin backends built; S3/object-store and provider blob profiles planned; the StorageProfile contract is target canonical, not started; the storage-plane incident and repair-receipt shapes are registered wire contracts pinned to the daemon-produced records)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
@@ -147,6 +147,8 @@ detect failure
 
 ## Storage Profiles
 
+### StorageProfile
+
 `StorageProfile` is the canonical byte-custody contract this file previously
 implied but never declared: the immutable, successor-versioned declaration of
 how one class of payload bytes is held. It classifies custody only — an
@@ -200,7 +202,24 @@ Rules, each testable:
   are inputs to choosing or authoring a profile; work admits against a
   profile revision, not against ad hoc per-write choices.
 
+Registered wire contract: none for `StorageProfile` — deferred by the M2
+storage cut. The contract is canon-only ("target canonical, not started"
+above): no code produces, persists, or enforces a `StorageProfile` revision.
+The closest realized record, the daemon `StorageBackendAccount`
+(`ioi.hypervisor.storage-backend-account.v1`), is mutable per-backend account
+state (kind, endpoint mode, preflight posture), not an immutable
+successor-versioned custody declaration, so registering it under this family
+would misstate what exists. Consequence recorded for the M2 storage claim:
+the retention-hold rule below (`retention_hold_policy_ref`) has no enforcing
+code path yet — the registered structural hold surface today is
+`hold_refs` on `HypervisorEnvironmentBackup` plus the receipted-close
+discipline on `HypervisorResourceCleanupObligation`, and destruction of
+conversation artifacts is unrepresentable in the runtime control plane
+(no delete operation admits).
+
 The incident and repair objects this file names have these canonical shapes:
+
+### ArtifactAvailabilityIncident (storage plane)
 
 ```yaml
 ArtifactAvailabilityIncident:
@@ -216,7 +235,30 @@ ArtifactAvailabilityIncident:
   evidence_refs: []
   affected_work_refs: []
   status: open | mitigating | repaired | unrecoverable | closed
+```
 
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1`
+(wire literal `ioi.hypervisor.artifact-availability-incident.v1`, the daemon
+record `storage_backend_routes.rs open_incident` produces) with this section
+as `canonical_owner_ref`. The registered v1 pins the produced shape, which is
+narrower than the canonical envelope above: `incident_id` is `aai_<hex>` with
+ref scheme `artifact-availability-incident://`; the subject is one
+`archive_ref`/`material_ref`/`backend_ref` triple, not an `artifact_refs`
+array, and no `storage_profile_revision_ref` exists (profiles are deferred);
+the produced `kind` vocabulary is `missing_bytes | backend_unreachable |
+hash_mismatch | decrypt_failure` (canon's `stale_replica` surfaces as
+`hash_mismatch` evidence; `backend_timeout`, `expired_storage_lease`,
+`retention_mismatch`, and `policy_incompatible_location` are unproduced);
+status is only `open | repaired`. Structural rules registered: one open
+incident per (archive, kind) accretes `detections`/`last_evidence` instead of
+minting rows, and an incident leaves `open` only through a named
+`artifact-repair-receipt://` ref with its close time (INV-37) — a repaired
+incident without its repair receipt is unrepresentable.
+
+### ArtifactRepairReceipt
+
+```yaml
 ArtifactRepairReceipt:
   receipt_type: artifact_repair
   incident_ref: availability-incident://...
@@ -225,6 +267,24 @@ ArtifactRepairReceipt:
   bytes_verified: true
   agentgres_operation_ref: agentgres://operation/...
 ```
+
+Registered wire contract: contract id
+`schema://ioi/components/hypervisor/artifact-repair-receipt/v1` (wire literal
+`ioi.hypervisor.artifact-repair-receipt.v1`, the daemon record
+`storage_backend_routes.rs op_repair` produces for BOTH outcomes) with this
+section as `canonical_owner_ref`. Divergences from the canonical sketch
+above, recorded: the produced receipt has no `receipt_type`,
+`repair_method`, `verified_hash_or_cid`, `bytes_verified`, or
+`agentgres_operation_ref` fields; the realized repair source is always
+`daemon_custody` (replica/replacement-payload repair lanes are unbuilt), the
+verified commitment is the replacement `new_commitment` object plus the
+admitted `state_root`, and closed incidents are bound as `incident_refs`.
+The canonical verification discipline IS structural in the registered
+contract: a `repaired` outcome requires the replacement commitment, the
+admitted state root, `custody_state_root_verified: true`, and the admission
+note binding meaning to the same material/state-root/receipt chain, while
+`repair_failed` requires its named reason — an unverified repair cannot mint
+a `repaired` outcome (INV-37).
 
 An incident records; it does not repair. Repair changes artifact truth only
 when Agentgres admits the repair operation and its receipt, and

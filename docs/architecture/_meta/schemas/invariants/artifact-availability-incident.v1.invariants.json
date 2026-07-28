@@ -1,0 +1,189 @@
+{
+  "$id": "invariant://ioi/components/agentgres/artifact-availability-incident/no-silent-loss/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
+  "rules": [
+    {
+      "rule_id": "artifact_availability_incident.expected_hash.required_for_invalid_hash",
+      "description": "An invalid-hash incident carries the expected hash it failed against; corruption is never claimed without the admitted commitment.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.expected_hash",
+        "when_path": "$.incident_kind",
+        "values": ["invalid_hash"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.observed_hash.required_for_invalid_hash",
+      "description": "An invalid-hash incident carries the observed hash as evidence; corruption is never claimed without the observed bytes' digest.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.observed_hash",
+        "when_path": "$.incident_kind",
+        "values": ["invalid_hash"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.expected_cid.required_for_invalid_cid",
+      "description": "An invalid-CID incident carries the expected CID it failed against.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.expected_cid",
+        "when_path": "$.incident_kind",
+        "values": ["invalid_cid"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.observed_cid.required_for_invalid_cid",
+      "description": "An invalid-CID incident carries the observed CID as evidence.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.observed_cid",
+        "when_path": "$.incident_kind",
+        "values": ["invalid_cid"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.repair_receipts.required_for_terminal_repair",
+      "description": "A repaired or closed lifecycle state requires at least one repair receipt; repair without a receipt is unrepresentable (INV-37).",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.repair_receipt_refs",
+        "when_path": "$.lifecycle_state",
+        "values": ["repaired", "closed"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.verification.required_for_terminal_repair",
+      "description": "A repaired or closed lifecycle state requires verification refs; an unverified repair can never mint a healthy status (INV-37).",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.verification_refs",
+        "when_path": "$.lifecycle_state",
+        "values": ["repaired", "closed"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.restore_import.required_for_repaired",
+      "description": "A repaired lifecycle state requires restore/import refs binding where the healthy bytes came from.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.restore_import_refs",
+        "when_path": "$.lifecycle_state",
+        "values": ["repaired"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.fallback_backends.required_for_fallback",
+      "description": "A fallback_attempted lifecycle state names the fallback backends it tried.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.fallback_backend_refs",
+        "when_path": "$.lifecycle_state",
+        "values": ["fallback_attempted"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.quarantine.required_for_quarantined",
+      "description": "A quarantined lifecycle state names the quarantine refs it produced.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.quarantine_refs",
+        "when_path": "$.lifecycle_state",
+        "values": ["quarantined"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.repair_receipts.required_for_payload_mutation",
+      "description": "Payload bytes are never silently replaced or mutated: mutated bytes require a repair receipt.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.repair_receipt_refs",
+        "when_path": "$.payload_bytes_mutated",
+        "values": [true]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.incident_id_equal",
+      "description": "The embedded operation envelope names the same incident id.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.incident_id", "$.agentgres_operation.incident_id"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.artifact_ref_equal",
+      "description": "The embedded operation envelope binds the same artifact ref.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.artifact_ref", "$.agentgres_operation.artifact_ref"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.payload_ref_equal",
+      "description": "The embedded operation envelope binds the same payload ref.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.payload_ref", "$.agentgres_operation.payload_ref"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.backend_ref_equal",
+      "description": "The embedded operation envelope binds the same storage backend ref.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.backend_ref", "$.agentgres_operation.backend_ref"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.lifecycle_state_equal",
+      "description": "The embedded operation envelope admits the same lifecycle state; the envelope can never claim a different repair posture than the incident.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.lifecycle_state", "$.agentgres_operation.lifecycle_state"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.incident_kind_equal",
+      "description": "The embedded operation envelope carries the same incident kind.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.incident_kind", "$.agentgres_operation.incident_kind"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.repair_receipts_equal",
+      "description": "The embedded operation envelope carries the same repair receipts.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.repair_receipt_refs", "$.agentgres_operation.repair_receipt_refs"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.verification_refs_equal",
+      "description": "The embedded operation envelope carries the same verification refs.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.verification_refs", "$.agentgres_operation.verification_refs"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.restore_import_refs_equal",
+      "description": "The embedded operation envelope carries the same restore/import refs.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.restore_import_refs", "$.agentgres_operation.restore_import_refs"]
+      }
+    },
+    {
+      "rule_id": "artifact_availability_incident.operation.restore_validity_bound",
+      "description": "A restore-validity claim of restore_import_refs_bound structurally requires restore/import refs on the envelope.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.agentgres_operation.restore_import_refs",
+        "when_path": "$.agentgres_operation.restore_validity",
+        "values": ["restore_import_refs_bound"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "schema_version": "ioi.hypervisor.artifact-repair-receipt.v1",
+  "repair_id": "arr_1b2c3d4e5f60718",
+  "repair_ref": "artifact-repair-receipt://arr_1b2c3d4e5f60718",
+  "archive_ref": "storage-archive://sao_0a1b2c3d4e5f607",
+  "material_ref": "provider-material://pm_env-alpha-workspace",
+  "backend_ref": "storage-backend://sba_5e6f7a8b9c0d1e2",
+  "source": "daemon_custody",
+  "outcome": "repaired",
+  "old_commitment": {
+    "address": "cas://sha256/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "stored_sha256": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    "size_bytes": 2048,
+    "path": "/var/lib/ioi/storage-backends/sba_5e6f7a8b9c0d1e2/objects/9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08.bin",
+    "mode": "real_local",
+    "read_back_verified": true,
+    "warning": null
+  },
+  "new_commitment": {
+    "address": "cas://sha256/60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752",
+    "stored_sha256": "sha256:60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752",
+    "size_bytes": 2048,
+    "path": "/var/lib/ioi/storage-backends/sba_5e6f7a8b9c0d1e2/objects/60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752.bin",
+    "mode": "real_local",
+    "read_back_verified": true,
+    "warning": null
+  },
+  "state_root": "sha256:fd61a03af4f77d870fc21e05e7e80678095c92d808cfb3b5c279ee04c74aca13",
+  "verification": {
+    "custody_state_root_verified": false,
+    "read_back_verified": true
+  },
+  "incident_refs": [
+    "artifact-availability-incident://aai_9c8d7e6f5a4b3c2"
+  ],
+  "admission_note": "the replacement commitment preserves meaning ONLY because it is linked here to the same material_ref, state_root, and receipt chain — a new CID alone repairs nothing",
+  "at": "2026-07-28T12:10:00.000Z"
+}

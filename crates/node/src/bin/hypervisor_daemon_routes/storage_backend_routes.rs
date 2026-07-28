@@ -1471,6 +1471,268 @@ pub(crate) fn source_state(data_dir: &str) -> Value {
                       "open_incidents": open, "basis": "storage-backend-accounts + archive objects + incidents (daemon records)" } })
 }
 
+/// M2 storage contract proofs over THIS plane's real helpers: the registered
+/// storage-archive-object and storage-artifact-availability-incident contracts are pinned to
+/// what `store_bytes`/`fetch_bytes`/`open_incident`/`storage_receipt` actually produce, and the
+/// receipted-close discipline (`op_repair`) is structurally unrepresentable to fake.
+#[cfg(test)]
+mod m2_contract_tests {
+    use super::*;
+    use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
+
+    const ARCHIVE_CONTRACT: &str = "schema://ioi/components/hypervisor/storage-archive-object/v1";
+    const INCIDENT_CONTRACT: &str =
+        "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1";
+    const REPAIR_CONTRACT: &str = "schema://ioi/components/hypervisor/artifact-repair-receipt/v1";
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("ioi-m2-storage-{label}-{:x}", nanos()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        dir
+    }
+
+    fn local_account(id: &str) -> Value {
+        json!({
+            "schema_version": "ioi.hypervisor.storage-backend-account.v1",
+            "account_id": id,
+            "account_ref": format!("storage-backend://{id}"),
+            "display_name": "local_disk backend",
+            "kind": "local_disk",
+            "status": "verified",
+            "endpoint": {},
+        })
+    }
+
+    /// Export-shaped archive record over the REAL commitment `store_bytes` returned and a REAL
+    /// minted storage receipt (the op_export literal shape; the export handler itself needs the
+    /// daemon state + wallet lease, so the surrounding literals are pinned here).
+    fn export_shaped_archive(
+        account: &Value,
+        state_root: &str,
+        payload_bytes: usize,
+        commitment: &Value,
+        receipt_ref: &str,
+    ) -> Value {
+        let id = format!("sao_{:x}", nanos());
+        json!({
+            "schema_version": "ioi.hypervisor.storage-archive-object.v1",
+            "archive_id": id, "archive_ref": format!("storage-archive://{id}"),
+            "backend_ref": text(account, "account_ref"), "backend_kind": text(account, "kind"),
+            "material_ref": "provider-material://pm_env-alpha-workspace",
+            "environment_ref": "environment://local/env-alpha",
+            "provider_account_ref": "provider-account://pacc_3f2e1d0c",
+            "state_root": state_root,
+            "media_type": "application/x-tar+gzip",
+            "payload_bytes": payload_bytes,
+            "commitment": commitment,
+            "encryption": { "scheme": "sealed_wallet_secret (Argon2id KDF + AEAD)", "key_source": scm_key_source(), "plaintext_at_backend": false },
+            "status": "available",
+            "availability_note": "storage availability is NOT restore truth — restore admits only after fetch + commitment hash + decrypt + admitted state_root all verify",
+            "authority": "none — no CID, deal, pin, or backend id ever becomes authority or restore validity",
+            "grant_ref": "grant://wallet.network/storage-archive/export/test",
+            "receipt_refs": [receipt_ref],
+            "exported_at": iso_now(),
+        })
+    }
+
+    /// Dimension silent corruption/loss + unverified restore: the REAL sealed store round-trip
+    /// produces a verified commitment; the export-shaped archive record over it validates the
+    /// registered contract.
+    #[test]
+    fn sealed_store_commitment_and_archive_record_validate_registered_contract() {
+        let data = temp_dir("archive");
+        let data_dir = data.to_str().expect("utf8");
+        let account = local_account("sba_m2test01");
+        let plaintext = b"m2 storage cut custody bytes".to_vec();
+        let state_root = sha256_bytes(&plaintext);
+        let sealed = seal_archive_bytes(&plaintext).expect("seal");
+        let commitment = store_bytes(data_dir, &account, &sealed).expect("real local store");
+
+        // The commitment is REAL evidence: read-back verified, content-addressed, hash-bound.
+        assert_eq!(commitment["read_back_verified"], json!(true));
+        assert_eq!(commitment["stored_sha256"], json!(sha256_bytes(&sealed)));
+        assert!(text(&commitment, "address").starts_with("cas://sha256/"));
+
+        // The sealed round-trip restores the exact custody bytes (decrypt + state-root check).
+        let fetched = fetch_bytes(data_dir, &account, &commitment).expect("fetch");
+        let opened = open_archive_bytes(&fetched).expect("sealed bytes decrypt");
+        assert_eq!(sha256_bytes(&opened), state_root);
+
+        let receipt_ref = storage_receipt(
+            data_dir,
+            "local_disk",
+            "export",
+            "ok",
+            &json!({ "backend_ref": account["account_ref"] }),
+        );
+        let archive = export_shaped_archive(
+            &account,
+            &state_root,
+            plaintext.len(),
+            &commitment,
+            &receipt_ref,
+        );
+        validate_architecture_contract(ARCHIVE_CONTRACT, &archive)
+            .expect("export-shaped archive over the real commitment validates");
+    }
+
+    /// Dimension silent corruption/loss: corrupted or missing custody bytes surface as NAMED
+    /// availability incidents from the real helpers — never as a healthy read.
+    #[test]
+    fn corruption_and_loss_surface_as_named_incidents_never_silent_success() {
+        let data = temp_dir("incident");
+        let data_dir = data.to_str().expect("utf8");
+        let account = local_account("sba_m2test02");
+        let sealed = seal_archive_bytes(b"corruptible bytes").expect("seal");
+        let commitment = store_bytes(data_dir, &account, &sealed).expect("store");
+        let receipt_ref = storage_receipt(
+            data_dir,
+            "local_disk",
+            "export",
+            "ok",
+            &json!({ "backend_ref": account["account_ref"] }),
+        );
+        let archive = export_shaped_archive(
+            &account,
+            &sha256_bytes(b"corruptible bytes"),
+            17,
+            &commitment,
+            &receipt_ref,
+        );
+
+        // Corrupt the stored object: a fetchable-but-wrong object is stale/corrupt.
+        std::fs::write(text(&commitment, "path"), b"substituted bytes").expect("corrupt");
+        let fetched = fetch_bytes(data_dir, &account, &commitment).expect("still fetchable");
+        let actual = sha256_bytes(&fetched);
+        let expected = text(&commitment, "stored_sha256");
+        assert_ne!(actual, expected, "corruption is detectable, not silent");
+        let incident_ref = open_incident(
+            data_dir,
+            &account,
+            &archive,
+            "hash_mismatch",
+            format!("stored bytes hash {actual} but the admitted commitment is {expected}"),
+            json!({ "op": "verify", "actual": actual, "expected": expected }),
+        );
+        let incident = read_record_dir(data_dir, INCIDENT_KIND)
+            .into_iter()
+            .find(|record| text(record, "incident_ref") == incident_ref)
+            .expect("incident persisted");
+        assert_eq!(incident["status"], json!("open"));
+        validate_architecture_contract(INCIDENT_CONTRACT, &incident)
+            .expect("real open incident validates the registered contract");
+
+        // Repeat detection ACCRETES onto the same open incident — evidence, not rows.
+        let second_ref = open_incident(
+            data_dir,
+            &account,
+            &archive,
+            "hash_mismatch",
+            "re-detected".to_string(),
+            json!({ "op": "restore" }),
+        );
+        assert_eq!(
+            second_ref, incident_ref,
+            "one open incident per (archive, kind)"
+        );
+        let accreted = read_record_dir(data_dir, INCIDENT_KIND)
+            .into_iter()
+            .find(|record| text(record, "incident_ref") == incident_ref)
+            .expect("incident persisted");
+        assert_eq!(accreted["detections"], json!(2));
+        validate_architecture_contract(INCIDENT_CONTRACT, &accreted)
+            .expect("accreted incident still validates");
+
+        // Loss: missing bytes surface as the NAMED missing_bytes kind from the real helper.
+        std::fs::remove_file(text(&commitment, "path")).expect("lose bytes");
+        let (kind, _detail) = fetch_bytes(data_dir, &account, &commitment)
+            .expect_err("missing bytes are an error, never an empty success");
+        assert_eq!(kind, "missing_bytes");
+        let loss_ref = open_incident(
+            data_dir,
+            &account,
+            &archive,
+            &kind,
+            "backend object unreadable at its recorded address".to_string(),
+            json!({ "op": "verify" }),
+        );
+        assert_ne!(
+            loss_ref, incident_ref,
+            "a distinct failure kind opens its own incident"
+        );
+        let loss = read_record_dir(data_dir, INCIDENT_KIND)
+            .into_iter()
+            .find(|record| text(record, "incident_ref") == loss_ref)
+            .expect("loss incident persisted");
+        validate_architecture_contract(INCIDENT_CONTRACT, &loss).expect("loss incident validates");
+    }
+
+    /// Dimension unverified restore: an incident leaves `open` only through a named repair
+    /// receipt (the op_repair close discipline); a repaired incident without its repair_ref and
+    /// an unverified repaired receipt are both unrepresentable under the registered contracts.
+    #[test]
+    fn unreceipted_or_unverified_close_is_unrepresentable() {
+        let data = temp_dir("close");
+        let data_dir = data.to_str().expect("utf8");
+        let account = local_account("sba_m2test03");
+        let sealed = seal_archive_bytes(b"close discipline").expect("seal");
+        let commitment = store_bytes(data_dir, &account, &sealed).expect("store");
+        let receipt_ref = storage_receipt(
+            data_dir,
+            "local_disk",
+            "export",
+            "ok",
+            &json!({ "backend_ref": account["account_ref"] }),
+        );
+        let archive = export_shaped_archive(
+            &account,
+            &sha256_bytes(b"close discipline"),
+            16,
+            &commitment,
+            &receipt_ref,
+        );
+        let incident_ref = open_incident(
+            data_dir,
+            &account,
+            &archive,
+            "decrypt_failure",
+            "sealed archive bytes did not decrypt".to_string(),
+            json!({ "op": "restore" }),
+        );
+        let mut incident = read_record_dir(data_dir, INCIDENT_KIND)
+            .into_iter()
+            .find(|record| text(record, "incident_ref") == incident_ref)
+            .expect("incident persisted");
+
+        // Silent close: repaired without the repair receipt ref refuses.
+        incident["status"] = json!("repaired");
+        incident["closed_at"] = json!(iso_now());
+        validate_architecture_contract(INCIDENT_CONTRACT, &incident)
+            .expect_err("a repaired incident without its repair receipt is unrepresentable");
+
+        // The op_repair close shape (repair_ref + closed_at) validates.
+        incident["repair_ref"] = json!("artifact-repair-receipt://arr_1b2c3d4e5f60718");
+        validate_architecture_contract(INCIDENT_CONTRACT, &incident)
+            .expect("the receipted close validates");
+
+        // The registered repair-receipt contract refuses an unverified repaired claim.
+        let unverified = json!({
+            "schema_version": "ioi.hypervisor.artifact-repair-receipt.v1",
+            "repair_id": "arr_1b2c3d4e5f60718",
+            "repair_ref": "artifact-repair-receipt://arr_1b2c3d4e5f60718",
+            "archive_ref": text(&archive, "archive_ref"),
+            "material_ref": "provider-material://pm_env-alpha-workspace",
+            "backend_ref": text(&account, "account_ref"),
+            "source": "daemon_custody",
+            "outcome": "repaired",
+            "incident_refs": [incident_ref],
+            "at": iso_now(),
+        });
+        validate_architecture_contract(REPAIR_CONTRACT, &unverified)
+            .expect_err("repaired without commitment/state-root/verification is unrepresentable");
+    }
+}
+
 /// Storage-backend facts for the candidate plane (decentralized_cloud_routes) — verified
 /// accounts with honest posture; NEVER availability claims beyond daemon records.
 pub(crate) fn backend_facts(data_dir: &str) -> Vec<Value> {

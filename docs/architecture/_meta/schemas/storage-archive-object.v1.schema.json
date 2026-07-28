@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+  "title": "StorageArchiveObject",
+  "description": "The daemon-produced sealed-state-archive artifact record (storage_backend_routes op_export). This is the realized in-tree ArtifactRef instance for the sealed_state_archive role: it binds the daemon-admitted state root, the storage-backend commitment (address + stored sha256 + size), the sealed encryption posture (plaintext never reaches a backend), the wallet grant, and the storage receipts. Availability status is only available or impaired — an impaired archive is quarantined bytes, never lost meaning.",
+  "x-ioi-schema-version": "ioi.hypervisor.storage-archive-object.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "archive_id",
+    "archive_ref",
+    "backend_ref",
+    "backend_kind",
+    "material_ref",
+    "environment_ref",
+    "provider_account_ref",
+    "state_root",
+    "media_type",
+    "payload_bytes",
+    "commitment",
+    "encryption",
+    "status",
+    "availability_note",
+    "authority",
+    "grant_ref",
+    "receipt_refs",
+    "exported_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.storage-archive-object.v1"
+    },
+    "archive_id": {
+      "type": "string",
+      "pattern": "^sao_[0-9a-f]+$",
+      "maxLength": 64
+    },
+    "archive_ref": {
+      "type": "string",
+      "pattern": "^storage-archive://sao_[0-9a-f]+$",
+      "maxLength": 96
+    },
+    "backend_ref": {
+      "type": "string",
+      "pattern": "^storage-backend://[^\\s]+$",
+      "maxLength": 512
+    },
+    "backend_kind": {
+      "enum": [
+        "local_disk",
+        "cas",
+        "ipfs",
+        "filecoin"
+      ]
+    },
+    "material_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "environment_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "provider_account_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "state_root": {
+      "$ref": "#/$defs/sha256Hash"
+    },
+    "media_type": {
+      "const": "application/x-tar+gzip"
+    },
+    "payload_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "commitment": {
+      "$ref": "#/$defs/commitment"
+    },
+    "encryption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scheme",
+        "key_source",
+        "plaintext_at_backend"
+      ],
+      "properties": {
+        "scheme": {
+          "const": "sealed_wallet_secret (Argon2id KDF + AEAD)"
+        },
+        "key_source": {
+          "enum": [
+            "wallet-secret-pass",
+            "local-mode-fallback"
+          ]
+        },
+        "plaintext_at_backend": {
+          "const": false
+        }
+      }
+    },
+    "status": {
+      "enum": [
+        "available",
+        "impaired"
+      ]
+    },
+    "availability_note": {
+      "const": "storage availability is NOT restore truth — restore admits only after fetch + commitment hash + decrypt + admitted state_root all verify"
+    },
+    "authority": {
+      "const": "none — no CID, deal, pin, or backend id ever becomes authority or restore validity"
+    },
+    "grant_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "receipt_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^agentgres://storage-receipt/stc_[0-9a-f]+$",
+        "maxLength": 96
+      }
+    },
+    "exported_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "last_verify": {
+      "$ref": "#/$defs/lastVerify"
+    },
+    "repaired_at": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "repair_ref": {
+      "type": "string",
+      "pattern": "^artifact-repair-receipt://arr_[0-9a-f]+$",
+      "maxLength": 96
+    }
+  },
+  "$defs": {
+    "sha256Hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "commitment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "address",
+        "stored_sha256",
+        "size_bytes",
+        "mode",
+        "read_back_verified"
+      ],
+      "properties": {
+        "address": {
+          "type": "string",
+          "pattern": "^(?:cas|local-cas|ipfs|filecoin)://[^\\s]+$",
+          "maxLength": 512
+        },
+        "stored_sha256": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "mode": {
+          "enum": [
+            "real_local",
+            "fixture_evidence",
+            "live_evidence"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "read_back_verified": {
+          "type": "boolean"
+        },
+        "warning": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "lastVerify": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "at"
+      ],
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "incident_ref": {
+          "type": "string",
+          "pattern": "^artifact-availability-incident://[^\\s]+$",
+          "maxLength": 512
+        },
+        "stored_sha256": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    }
+  }
+}

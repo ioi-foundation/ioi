@@ -1,0 +1,35 @@
+{
+  "schema_version": "ioi.agentgres.artifact_availability_incident_operation.v1",
+  "operation_ref": "agentgres://operation/storage/incident/0002",
+  "operation_kind": "artifact_availability_incident",
+  "incident_id": "artifact-availability-incident:acme-workspace-snapshot:invalid-hash-repair",
+  "artifact_ref": "artifact://acme/system-alpha/workspace-snapshot/2026-07-27",
+  "payload_ref": "payload://acme/system-alpha/workspace-snapshot/2026-07-27",
+  "backend_ref": "storage://cas/replica-2",
+  "lifecycle_state": "repaired",
+  "incident_kind": "invalid_hash",
+  "affected_object_refs": [
+    "agentgres://object/workspace-snapshot/2026-07-27"
+  ],
+  "incident_receipt_refs": [
+    "receipt://storage/incident/0002"
+  ],
+  "repair_receipt_refs": [
+    "artifact-repair-receipt://arr_0f3a9c1b"
+  ],
+  "verification_refs": [],
+  "restore_import_refs": [
+    "restore://storage/import/0002"
+  ],
+  "fallback_backend_refs": [],
+  "quarantine_refs": [],
+  "payload_bytes_mutated": true,
+  "restore_validity": "restore_import_refs_bound",
+  "state_root": "agentgres://state-root/artifact-availability-incident/artifact-availability-incident_acme-workspace-snapshot_invalid-hash-repair",
+  "receipt_refs": [
+    "receipt://storage/incident/0002",
+    "artifact-repair-receipt://arr_0f3a9c1b"
+  ],
+  "runtimeTruthSource": "daemon-runtime",
+  "agentgresTruthSource": "agentgres-operation"
+}

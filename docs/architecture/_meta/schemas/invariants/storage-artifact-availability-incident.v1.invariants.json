@@ -1,0 +1,37 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/storage-artifact-availability-incident/receipted-close/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
+  "rules": [
+    {
+      "rule_id": "storage_artifact_availability_incident.incident_ref.binds_incident_id",
+      "description": "The incident ref is derived from this exact incident id.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.incident_ref",
+        "prefix": "artifact-availability-incident://",
+        "expected_path": "$.incident_id"
+      }
+    },
+    {
+      "rule_id": "storage_artifact_availability_incident.repair_ref.required_for_repaired",
+      "description": "An incident leaves open status only through a named repair receipt: a repaired incident without its repair_ref is unrepresentable (INV-37).",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.repair_ref",
+        "when_path": "$.status",
+        "values": ["repaired"]
+      }
+    },
+    {
+      "rule_id": "storage_artifact_availability_incident.closed_at.required_for_repaired",
+      "description": "A repaired incident records when it closed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.closed_at",
+        "when_path": "$.status",
+        "values": ["repaired"]
+      }
+    }
+  ]
+}

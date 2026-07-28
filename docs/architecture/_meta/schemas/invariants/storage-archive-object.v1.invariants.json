@@ -1,0 +1,17 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/storage-archive-object/sealed-custody/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
+  "rules": [
+    {
+      "rule_id": "storage_archive_object.archive_ref.binds_archive_id",
+      "description": "The archive ref is derived from this exact archive id; an archive record can never point at different bytes' identity. Sealed custody is structural: encryption is pinned to the wallet-secret seal with plaintext_at_backend false, and status admits only available or impaired — an impaired archive is quarantined bytes, never lost meaning.",
+      "expression": {
+        "operator": "prefixed_field_equals",
+        "path": "$.archive_ref",
+        "prefix": "storage-archive://",
+        "expected_path": "$.archive_id"
+      }
+    }
+  ]
+}
