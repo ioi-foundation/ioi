@@ -23,7 +23,7 @@ diff_snapshot.md
 ioi-data/
 /.agents/
 ./ioi-data/
-node_modules/
+node_modules
 dist/
 .DS_Store
 .tmp/
