@@ -594,6 +594,9 @@ fn primitive_capabilities_for(policy_target: &str) -> Vec<String> {
         "fs::read" => Some("prim:fs.read"),
         "fs::write" => Some("prim:fs.write"),
         _ if policy_target.starts_with("file__") => Some("prim:fs.write"),
+        // Accepting a change writes the accepted content to the target path, the
+        // same filesystem primitive as rollback restoring the prior content.
+        "workspace_change::accept" => Some("prim:fs.write"),
         "workspace_change::rollback" => Some("prim:fs.write"),
         "workspace_change::reject" => Some("prim:runtime.control"),
         "sys::exec" | "software::install_execute" => Some("prim:sys.exec"),
@@ -764,6 +767,22 @@ mod tests {
     fn workspace_change_rollback_contract_is_filesystem_mutation_by_handle() {
         let contract = runtime_tool_contract_for_definition(&tool("workspace_change__rollback"));
         assert_eq!(contract.policy_target, "workspace_change::rollback");
+        assert!(contract.is_effectful());
+        assert_eq!(contract.primitive_capabilities, vec!["prim:fs.write"]);
+        assert!(contract
+            .approval_scope_fields
+            .iter()
+            .any(|item| item == "change_id"));
+        assert!(contract
+            .evidence_requirements
+            .iter()
+            .any(|item| item == "diff_summary"));
+    }
+
+    #[test]
+    fn workspace_change_accept_contract_is_filesystem_mutation_by_handle() {
+        let contract = runtime_tool_contract_for_definition(&tool("workspace_change__accept"));
+        assert_eq!(contract.policy_target, "workspace_change::accept");
         assert!(contract.is_effectful());
         assert_eq!(contract.primitive_capabilities, vec!["prim:fs.write"]);
         assert!(contract

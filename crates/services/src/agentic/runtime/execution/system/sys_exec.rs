@@ -85,9 +85,17 @@ pub(super) async fn handle_sys_exec(
 
     let mut retained_snapshot: Option<RetainedCommandSnapshot> = None;
 
-    let result = if let Some(sleep_secs) =
+    // The foreground-sleep guard only applies to fully blocking launches. When the
+    // caller requests an async boundary (`wait_ms_before_async`), the command is
+    // retained after the boundary and cannot block the agent loop — that IS the
+    // "retained shell/session command" path this guard's error message recommends.
+    let blocking_foreground_sleep = if wait_ms_before_async.is_none() {
         foreground_sleep_duration_seconds(&invocation.command, &invocation.args, detach)
-    {
+    } else {
+        None
+    };
+
+    let result = if let Some(sleep_secs) = blocking_foreground_sleep {
         let mut result = ToolExecutionResult::failure(format!(
             "ERROR_CLASS=TimeoutOrHang Foreground sleep command would block for {} second(s). Re-run with detach=true or use a retained shell/session command.",
             sleep_secs
