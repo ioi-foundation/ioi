@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+  "title": "OrderingFinalityRecovery",
+  "description": "One admitted threshold, BFT, membership-reconfiguration, or external-finality recovery transition over an active ordering profile. Predecessor fields are compare-and-swap inputs, the recovery proof must satisfy the active profile, the resulting commitment preserves the cryptographic chain, and the object never invents authority. Single-writer promotion uses the writer-epoch-transition/fencing family instead of this envelope: no single-writer recovery class exists here.",
+  "x-ioi-schema-version": "ioi.ordering-finality-recovery.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ordering_recovery_id",
+    "system_id",
+    "failover_profile_ref",
+    "ordering_admission_finality_profile_ref",
+    "recovery_class",
+    "predecessor",
+    "trigger_evidence_refs",
+    "governing_decision_ref",
+    "authority_grant_refs",
+    "transition",
+    "result",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.ordering-finality-recovery.v1"
+    },
+    "ordering_recovery_id": {
+      "type": "string",
+      "pattern": "^ordering-recovery://[^\\s]{1,248}$"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "failover_profile_ref": {
+      "type": "string",
+      "pattern": "^failover-profile://[^\\s]{1,248}$"
+    },
+    "ordering_admission_finality_profile_ref": {
+      "type": "string",
+      "pattern": "^ordering-profile://[^\\s]{1,248}$"
+    },
+    "recovery_class": {
+      "enum": [
+        "threshold_view_or_round",
+        "bft_view_or_round",
+        "membership_reconfiguration",
+        "external_finality_rebind"
+      ]
+    },
+    "predecessor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "transition_commitment_ref",
+        "state_root",
+        "membership_root",
+        "view_or_round",
+        "external_finality_ref"
+      ],
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "transition_commitment_ref": {
+          "$ref": "#/$defs/commitmentRef"
+        },
+        "state_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "membership_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "view_or_round": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "external_finality_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/evidenceRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "trigger_evidence_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceRef"
+      },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "governing_decision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^decision://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "authority_grant_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^grant://[^\\s]{1,248}$"
+      },
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposed_view_or_round",
+        "membership_transition_ref",
+        "expected_membership_root",
+        "resulting_membership_root",
+        "threshold_or_consensus_proof_refs",
+        "external_finality_recovery_ref",
+        "recovery_proof_ref"
+      ],
+      "properties": {
+        "proposed_view_or_round": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "membership_transition_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:transition|decision)://[^\\s]{1,248}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected_membership_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "resulting_membership_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "threshold_or_consensus_proof_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceRef"
+          },
+          "maxItems": 64,
+          "uniqueItems": true
+        },
+        "external_finality_recovery_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/evidenceRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recovery_proof_ref": {
+          "$ref": "#/$defs/evidenceRef"
+        }
+      }
+    },
+    "result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sequence",
+            "transition_commitment_ref",
+            "state_root",
+            "finality_proof_ref",
+            "receipt_ref"
+          ],
+          "properties": {
+            "sequence": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "transition_commitment_ref": {
+              "$ref": "#/$defs/commitmentRef"
+            },
+            "state_root": {
+              "$ref": "#/$defs/hash"
+            },
+            "finality_proof_ref": {
+              "$ref": "#/$defs/evidenceRef"
+            },
+            "receipt_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^receipt://[^\\s]{1,248}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "evidence_pending",
+        "authorized",
+        "admitted",
+        "committed",
+        "rejected",
+        "failed_closed"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "committed"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "else": {
+        "properties": {
+          "result": {
+            "type": "null"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "authorized",
+              "admitted",
+              "committed"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "authority_grant_refs": {
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "recovery_class": {
+            "enum": [
+              "threshold_view_or_round",
+              "bft_view_or_round"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "transition": {
+            "properties": {
+              "proposed_view_or_round": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "threshold_or_consensus_proof_refs": {
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "recovery_class": {
+            "const": "membership_reconfiguration"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "transition": {
+            "properties": {
+              "membership_transition_ref": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "recovery_class": {
+            "const": "external_finality_rebind"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "transition": {
+            "properties": {
+              "external_finality_recovery_ref": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "commitmentRef": {
+      "type": "string",
+      "pattern": "^commitment://[^\\s]{1,248}$"
+    },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+    }
+  }
+}

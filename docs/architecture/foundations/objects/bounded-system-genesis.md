@@ -1232,7 +1232,7 @@ AutonomousSystemWriterEpochTransitionEnvelope:
     effects_admissible_not_before: timestamp
   timing_evidence:
     temporal_verification_profile_ref: policy://...
-    temporal_validity_evaluation_ref: evidence://... | receipt://...
+    temporal_validity_evaluation_ref: temporal-evaluation://... | evidence://... | receipt://...
     temporal_validity_evaluation_hash: hash
     observed_at: timestamp
     expires_at: timestamp
@@ -1290,6 +1290,7 @@ LostSuffixRecordEnvelope:
   system_id: system://...
   writer_epoch_transition_ref: writer-transition://...
   prior_writer_epoch: nonnegative_integer
+  successor_writer_epoch: positive_integer
   last_common:
     operation_offset: nonnegative_integer
     state_root: hash
@@ -1299,16 +1300,41 @@ LostSuffixRecordEnvelope:
   excluded_suffix:
     first_offset: nonnegative_integer
     last_offset: nonnegative_integer
+    operation_count: positive_integer
     commitment_refs: []
     custody_artifact_refs: []
+    entries:
+      - operation_offset: nonnegative_integer
+        operation_commitment_ref: commitment://... | evidence://...
+        custody_status: resolved | refused | retained_ambiguous
+        resolution_receipt_ref: receipt://... | null
+        resolution_evidence_refs: []
   classification:
     lost_unacknowledged | orphaned_acknowledged_below_required_durability | ambiguous
   reconciliation_policy_ref: policy://...
   disposition: retained_for_forensics | compensating_transition_required | adjudication_required | destroyed_under_policy
   disposition_receipt_refs: []
+  predecessor_record_root: hash | null
   status: open | reconciled | adjudicated | closed
   recorded_at: timestamp
 ```
+
+Rules, each testable:
+
+- **Both epochs are bound.** The record names the deposed epoch, the successor
+  epoch, and the exact writer-epoch transition that excluded the suffix.
+- **Per-entry custody is explicit.** Every excluded operation carries exactly
+  one custody row; `operation_count` equals the row count, so a silently
+  dropped row breaks the record. A row leaves `retained_ambiguous` only
+  through an explicit, receipted `resolved` or `refused` disposition; a
+  disposed row is immutable, and the record cannot leave `open` while any row
+  remains `retained_ambiguous`. Nothing here replays the suffix: `resolved`
+  records an admitted compensation or adjudication outcome, never a silent
+  re-application.
+- **Revisions are compare-and-swap.** A custody resolution produces a new
+  content-addressed revision citing the exact predecessor revision root in
+  `predecessor_record_root`; the volatile `recorded_at` stamp sits outside
+  the timeless revision identity.
 
 ### ConsequentialEffectFenceContext
 
@@ -1335,7 +1361,7 @@ ConsequentialEffectFenceContext:
   authority_revocation_snapshot_ref: snapshot://...
   authority_revocation_epoch: nonnegative_integer
   temporal_verification_profile_ref: policy://...
-  temporal_validity_evaluation_ref: evidence://... | receipt://...
+  temporal_validity_evaluation_ref: temporal-evaluation://... | evidence://... | receipt://...
   temporal_validity_evaluation_hash: hash
   read_consistency:
     cached_projection | projection_consistent | snapshot_consistent |
@@ -1345,7 +1371,13 @@ ConsequentialEffectFenceContext:
   idempotency_key: string
   evaluated_at: timestamp
   expires_at: timestamp
+  fence_commitment: hash
 ```
+
+The registered wire form adds the recomputable `fence_commitment` over every
+other field: a fence tuple whose commitment does not recompute was substituted
+after the policy enforcement point generated it and is refused as
+caller-authored before any field comparison.
 
 The effect owner record supplies `system_id`; trusted daemon startup/config
 supplies `executing_node_id`; and the PEP supplies its own exact resource and

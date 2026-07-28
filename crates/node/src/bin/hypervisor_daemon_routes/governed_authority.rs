@@ -99,6 +99,14 @@ impl AuthorityContract {
             | "declare_temporal_profile" => {
                 format!("scope:hypervisoros.node.{op}")
             }
+            "genesis"
+            | "same_node_restore"
+            | "replacement_restore"
+            | "promotion"
+            | "declare_failover_profile"
+            | "resolve_lost_suffix" => {
+                format!("scope:autonomous_system.writer.{op}")
+            }
             "enroll_local" => "scope:autonomous_system.network_enrollment.local.enroll".to_owned(),
             "exit_local_enrollment" => {
                 "scope:autonomous_system.network_enrollment.local.exit".to_owned()

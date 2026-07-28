@@ -79,6 +79,11 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-membership-transitions",
     "autonomous-system-membership-receipts",
     "autonomous-system-membership-successor-claims",
+    "autonomous-system-failover-profiles",
+    "autonomous-system-writer-epoch-transitions",
+    "autonomous-system-writer-receipts",
+    "autonomous-system-writer-successor-claims",
+    "autonomous-system-lost-suffix-records",
     "hypervisoros-boot-profiles",
     "hypervisoros-temporal-profiles",
     "hypervisoros-node-records",
@@ -413,6 +418,10 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "predecessor_membership_root",
             format!("sha256:{}", record_id.strip_prefix("asmsc_").unwrap_or("")),
         ),
+        "autonomous-system-writer-successor-claims" => (
+            "predecessor_claim_root",
+            format!("sha256:{}", record_id.strip_prefix("aswsc_").unwrap_or("")),
+        ),
         "hypervisoros-node-successor-claims" => (
             "predecessor_node_set_root",
             format!("sha256:{}", record_id.strip_prefix("hvnsc_").unwrap_or("")),
@@ -433,6 +442,10 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "autonomous-system-node-memberships"
         | "autonomous-system-membership-transitions"
         | "autonomous-system-membership-receipts"
+        | "autonomous-system-failover-profiles"
+        | "autonomous-system-writer-epoch-transitions"
+        | "autonomous-system-writer-receipts"
+        | "autonomous-system-lost-suffix-records"
         | "hypervisoros-boot-profiles"
         | "hypervisoros-temporal-profiles"
         | "hypervisoros-node-records"
@@ -759,6 +772,11 @@ fn validate_required_identity(
         "autonomous-system-membership-transitions" => "asmt_",
         "autonomous-system-membership-receipts" => "asmr_",
         "autonomous-system-membership-successor-claims" => "asmsc_",
+        "autonomous-system-failover-profiles" => "aswfp_",
+        "autonomous-system-writer-epoch-transitions" => "aswt_",
+        "autonomous-system-writer-receipts" => "aswr_",
+        "autonomous-system-writer-successor-claims" => "aswsc_",
+        "autonomous-system-lost-suffix-records" => "aslsr_",
         "hypervisoros-boot-profiles" => "hvbp_",
         "hypervisoros-temporal-profiles" => "hvtp_",
         "hypervisoros-node-records" => "hvnr_",
@@ -900,6 +918,68 @@ fn validate_required_identity(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres key does not match the desired topology root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-failover-profiles" {
+        // A declared failover profile is named by its content root over the
+        // whole declared body; it carries no self-root field and never stands
+        // in for an observed writer, health, or fencing fact.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("failover_profile_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres failover profile lacks 'failover_profile_id'",
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.autonomous-system-failover-profile-jcs-sha256.v1",
+            "profile": record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the failover profile root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-lost-suffix-records" {
+        // A lost-suffix revision is named by its timeless content root: the
+        // volatile recorded_at stamp is outside the identity so any stored
+        // revision recomputes byte-exactly.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("lost_suffix_record_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres lost-suffix revision lacks 'lost_suffix_record_id'",
+            ));
+        }
+        let mut timeless = record.clone();
+        timeless["recorded_at"] = Value::Null;
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.lost-suffix-record-revision-jcs-sha256.v1",
+            "record": timeless,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the timeless lost-suffix revision root",
             ));
         }
         return Ok(());
@@ -1143,6 +1223,8 @@ fn validate_required_identity(
             | "autonomous-system-amendment-receipts"
             | "autonomous-system-membership-transitions"
             | "autonomous-system-membership-receipts"
+            | "autonomous-system-writer-epoch-transitions"
+            | "autonomous-system-writer-receipts"
             | "hypervisoros-node-transitions"
             | "hypervisoros-node-attestation-receipts"
     ) {
@@ -1209,6 +1291,14 @@ fn validate_required_identity(
             ),
             "autonomous-system-membership-receipts" => (
                 "ioi.autonomous-system-membership-receipt-jcs-sha256.v1",
+                "receipt_id",
+            ),
+            "autonomous-system-writer-epoch-transitions" => (
+                "ioi.autonomous-system-writer-epoch-transition-artifact-jcs-sha256.v1",
+                "writer_epoch_transition_id",
+            ),
+            "autonomous-system-writer-receipts" => (
+                "ioi.autonomous-system-writer-receipt-jcs-sha256.v1",
                 "receipt_id",
             ),
             "hypervisoros-node-transitions" => (

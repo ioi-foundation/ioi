@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+  "title": "ConsequentialEffectFenceContext",
+  "description": "The per-invocation fence tuple generated and embedded at a policy enforcement point before a System-scoped consequential invoker is called: active writer epoch and transition binding, membership and deployment roots, resource and effect identity with the exact payload hash, authority grant and revocation posture, bound temporal evidence, and observed read posture. It is not a grant, lease, top-level runtime object, or source of owner identity; caller-authored fence contexts are refused before evaluation.",
+  "x-ioi-schema-version": "ioi.consequential-effect-fence-context.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "system_id",
+    "executing_node_id",
+    "resource_id",
+    "effect_kind",
+    "exact_payload_hash",
+    "deployment_profile_root",
+    "node_membership_epoch",
+    "node_membership_root",
+    "writer_epoch_transition_ref",
+    "writer_epoch_transition_hash",
+    "writer_epoch",
+    "writer_lease_expires_at",
+    "authority_grant_ref",
+    "authority_revocation_snapshot_ref",
+    "authority_revocation_epoch",
+    "temporal_verification_profile_ref",
+    "temporal_validity_evaluation_ref",
+    "temporal_validity_evaluation_hash",
+    "read_consistency",
+    "read_watermark",
+    "read_state_root",
+    "idempotency_key",
+    "evaluated_at",
+    "expires_at",
+    "fence_commitment"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.consequential-effect-fence-context.v1"
+    },
+    "system_id": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "executing_node_id": {
+      "type": "string",
+      "pattern": "^node://[^\\s]{1,248}$"
+    },
+    "resource_id": {
+      "$ref": "#/$defs/shortToken"
+    },
+    "effect_kind": {
+      "$ref": "#/$defs/shortToken"
+    },
+    "exact_payload_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "deployment_profile_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "node_membership_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "node_membership_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "writer_epoch_transition_ref": {
+      "type": "string",
+      "pattern": "^writer-transition://[^\\s]{1,248}$"
+    },
+    "writer_epoch_transition_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "writer_epoch": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "writer_lease_expires_at": {
+      "$ref": "#/$defs/dateTime"
+    },
+    "authority_grant_ref": {
+      "type": "string",
+      "pattern": "^grant://[^\\s]{1,248}$"
+    },
+    "authority_revocation_snapshot_ref": {
+      "type": "string",
+      "pattern": "^snapshot://[^\\s]{1,248}$"
+    },
+    "authority_revocation_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "temporal_verification_profile_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "temporal_validity_evaluation_ref": {
+      "type": "string",
+      "pattern": "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$"
+    },
+    "temporal_validity_evaluation_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "read_consistency": {
+      "enum": [
+        "cached_projection",
+        "projection_consistent",
+        "snapshot_consistent",
+        "state_root_consistent",
+        "linearized_domain",
+        "serializable_domain"
+      ]
+    },
+    "read_watermark": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "read_state_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "evaluated_at": {
+      "$ref": "#/$defs/dateTime"
+    },
+    "expires_at": {
+      "$ref": "#/$defs/dateTime"
+    },
+    "fence_commitment": {
+      "$ref": "#/$defs/hash"
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "shortToken": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._:/-]{0,127}$"
+    }
+  }
+}

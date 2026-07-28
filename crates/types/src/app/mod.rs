@@ -50,6 +50,8 @@ pub mod system_continuity_transitions;
 pub mod system_genesis;
 pub mod system_lifecycle_transitions;
 pub mod system_membership_transitions;
+/// Writer-epoch, final-invoker fence, and lost-suffix custody compilers.
+pub mod system_writer_fence;
 /// Data structures for deterministic block timing.
 pub mod timing; // [NEW]
 /// Data structures for wallet.network control-plane and session artifacts.

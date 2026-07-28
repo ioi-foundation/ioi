@@ -3344,6 +3344,185 @@ export type TemporalValidityEvaluationV1 = {
   evaluation_hash: string;
 };
 
+export type AutonomousSystemWriterEpochTransitionV1 = {
+  schema_version: "ioi.autonomous-system-writer-epoch-transition.v1";
+  writer_epoch_transition_id: string;
+  writer_epoch_transition_hash: string;
+  transition_kind: "genesis" | "same_node_restore" | "replacement_restore" | "promotion";
+  system_id: string;
+  deployment_profile_ref: string;
+  deployment_profile_root: string;
+  failover_profile_ref: string;
+  failover_profile_root: string;
+  ordering_profile_ref: string;
+  ordering_profile_root: string;
+  predecessor_transition_ref: string | null;
+  predecessor_transition_hash: string | null;
+  expected_membership_root: string | null;
+  resulting_membership_root: string;
+  prior_writer: {
+      node_membership_ref: string | null;
+      node_id: string | null;
+      membership_epoch: number | null;
+      writer_epoch: number;
+    };
+  successor_writer: {
+      node_membership_ref: string;
+      node_id: string;
+      membership_epoch: number;
+      writer_epoch: number;
+      writer_lease_ref: string;
+    };
+  continuity: {
+      verified_state_root: string;
+      checkpoint_ref: string | null;
+      operation_offset: number;
+      catchup_receipt_ref: string;
+      state_root_verification_ref: string;
+    };
+  continuity_cas: {
+      mechanism: "witness_quorum_cas" | "wallet_epoch_authority" | "external_coordination_service";
+      substrate_ref: string;
+      expected_head: string | null;
+      resulting_head: string;
+      proof_ref: string;
+    };
+  authority: {
+      authority_grant_refs: Array<string>;
+      authority_revocation_snapshot_ref: string;
+      authority_revocation_epoch: number;
+    };
+  displaced_writer_fencing: {
+      writer_fence_receipt_refs: Array<string>;
+      effect_lease_fence_receipt_refs: Array<string>;
+      effects_admissible_not_before: string;
+    };
+  timing_evidence: {
+      temporal_verification_profile_ref: string;
+      temporal_validity_evaluation_ref: string;
+      temporal_validity_evaluation_hash: string;
+      observed_at: string;
+      expires_at: string;
+      displaced_writer_leases_expire_at: string;
+      revocation_propagation_complete_at: string;
+      maximum_clock_skew_or_uncertainty_ms: number;
+      witness_evidence_refs: Array<string>;
+    };
+  resource_fences: Array<{
+        resource_id: string;
+        allowed_effect_kinds: Array<string>;
+        minimum_read_consistency: "cached_projection" | "projection_consistent" | "snapshot_consistent" | "state_root_consistent" | "linearized_domain" | "serializable_domain";
+        read_watermark: string;
+      }>;
+  lost_suffix_record_ref: string | null;
+  admission_receipt_ref: string;
+  committed_at: string;
+};
+
+export type ConsequentialEffectFenceContextV1 = {
+  schema_version: "ioi.consequential-effect-fence-context.v1";
+  system_id: string;
+  executing_node_id: string;
+  resource_id: string;
+  effect_kind: string;
+  exact_payload_hash: string;
+  deployment_profile_root: string;
+  node_membership_epoch: number;
+  node_membership_root: string;
+  writer_epoch_transition_ref: string;
+  writer_epoch_transition_hash: string;
+  writer_epoch: number;
+  writer_lease_expires_at: string;
+  authority_grant_ref: string;
+  authority_revocation_snapshot_ref: string;
+  authority_revocation_epoch: number;
+  temporal_verification_profile_ref: string;
+  temporal_validity_evaluation_ref: string;
+  temporal_validity_evaluation_hash: string;
+  read_consistency: "cached_projection" | "projection_consistent" | "snapshot_consistent" | "state_root_consistent" | "linearized_domain" | "serializable_domain";
+  read_watermark: string;
+  read_state_root: string;
+  idempotency_key: string;
+  evaluated_at: string;
+  expires_at: string;
+  fence_commitment: string;
+};
+
+export type OrderingFinalityRecoveryV1 = {
+  schema_version: "ioi.ordering-finality-recovery.v1";
+  ordering_recovery_id: string;
+  system_id: string;
+  failover_profile_ref: string;
+  ordering_admission_finality_profile_ref: string;
+  recovery_class: "threshold_view_or_round" | "bft_view_or_round" | "membership_reconfiguration" | "external_finality_rebind";
+  predecessor: {
+      sequence: number;
+      transition_commitment_ref: string;
+      state_root: string;
+      membership_root: string;
+      view_or_round: number | null;
+      external_finality_ref: string | null;
+    };
+  trigger_evidence_refs: Array<string>;
+  governing_decision_ref: string | null;
+  authority_grant_refs: Array<string>;
+  transition: {
+      proposed_view_or_round: number | null;
+      membership_transition_ref: string | null;
+      expected_membership_root: string;
+      resulting_membership_root: string;
+      threshold_or_consensus_proof_refs: Array<string>;
+      external_finality_recovery_ref: string | null;
+      recovery_proof_ref: string;
+    };
+  result: {
+      sequence: number;
+      transition_commitment_ref: string;
+      state_root: string;
+      finality_proof_ref: string;
+      receipt_ref: string | null;
+    } | null;
+  status: "proposed" | "evidence_pending" | "authorized" | "admitted" | "committed" | "rejected" | "failed_closed";
+};
+
+export type LostSuffixRecordV1 = {
+  schema_version: "ioi.lost-suffix-record.v1";
+  lost_suffix_record_id: string;
+  system_id: string;
+  writer_epoch_transition_ref: string;
+  prior_writer_epoch: number;
+  successor_writer_epoch: number;
+  last_common: {
+      operation_offset: number;
+      state_root: string;
+    };
+  authoritative_head: {
+      operation_offset: number;
+      state_root: string;
+    };
+  excluded_suffix: {
+      first_offset: number;
+      last_offset: number;
+      operation_count: number;
+      commitment_refs: Array<string>;
+      custody_artifact_refs: Array<string>;
+      entries: Array<{
+              operation_offset: number;
+              operation_commitment_ref: string;
+              custody_status: "resolved" | "refused" | "retained_ambiguous";
+              resolution_receipt_ref: string | null;
+              resolution_evidence_refs: Array<string>;
+            }>;
+    };
+  classification: "lost_unacknowledged" | "orphaned_acknowledged_below_required_durability" | "ambiguous";
+  reconciliation_policy_ref: string;
+  disposition: "retained_for_forensics" | "compensating_transition_required" | "adjudication_required" | "destroyed_under_policy";
+  disposition_receipt_refs: Array<string>;
+  predecessor_record_root: string | null;
+  status: "open" | "reconciled" | "adjudicated" | "closed";
+  recorded_at: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -5177,6 +5356,166 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-genesis.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-promotion.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-genesis-with-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-nongenesis-epoch-one.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-commitment-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_writer_epoch_transition.content_commitment.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-cas-head-detached.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_writer_epoch_transition.cas_resulting_head.binds_commitment"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-duplicate-resource-fence.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "autonomous_system_writer_epoch_transition.resource_fences.unique"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/positive-active-writer.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-caller-authored-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-writer-epoch-zero.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-commitment-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "consequential_effect_fence_context.fence_commitment.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/positive-committed-bft.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-single-writer-class.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-committed-without-result.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-progressed-without-trigger-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "ordering_finality_recovery.trigger_evidence.bound_when_progressed"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-open-retained.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-reconciled.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-closed-with-retained-ambiguous.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-resolved-without-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "lost_suffix_record.entries.match_declared_count"
   }
 ] as const;
 
@@ -9359,6 +9698,146 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-genesis.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-genesis.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-promotion.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-promotion.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-genesis-with-predecessor.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-genesis-with-predecessor.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-nongenesis-epoch-one.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-nongenesis-epoch-one.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-commitment-mismatch.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-commitment-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-cas-head-detached.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-cas-head-detached.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-duplicate-resource-fence.json",
+    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-duplicate-resource-fence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/positive-active-writer.json",
+    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/positive-active-writer.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-caller-authored-field.json",
+    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-caller-authored-field.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-writer-epoch-zero.json",
+    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-writer-epoch-zero.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-commitment-mismatch.json",
+    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-commitment-mismatch.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/positive-committed-bft.json",
+    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/positive-committed-bft.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-single-writer-class.json",
+    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-single-writer-class.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-committed-without-result.json",
+    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-committed-without-result.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-progressed-without-trigger-evidence.json",
+    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-progressed-without-trigger-evidence.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-open-retained.json",
+    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-open-retained.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-reconciled.json",
+    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-reconciled.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-closed-with-retained-ambiguous.json",
+    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-closed-with-retained-ambiguous.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-resolved-without-receipt.json",
+    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-resolved-without-receipt.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json",
+    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -10232,8 +10711,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
   "^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$",
   "^(?:agentgres|event)://[^\\s]{1,248}$",
+  "^(?:agentgres|wallet|service)://[^\\s]{1,248}$",
   "^(?:agent|worker)://[^\\s]{1,248}$",
   "^(?:artifact|cid)://[^\\s]{1,248}$",
+  "^(?:commitment|evidence)://[^\\s]{1,248}$",
   "^(?:commitment|settlement|tx)://[^\\s]+$",
   "^(?:commitment|settlement|tx)://[^\\s]{1,248}$",
   "^(?:decision|dispute)://[^\\s]+$",
@@ -10260,6 +10741,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|wallet|org|policy)://[^\\s]+$",
   "^(?:system|wallet|org|project)://[^\\s]{1,248}$",
   "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$",
+  "^(?:transition|decision)://[^\\s]{1,248}$",
   "^(?:user|wallet|org|project|system|governance)://[^\\s]{1,248}$",
   "^(?:verifier-path|verification|receipt)://[^\\s]+$",
   "^(?:wallet|org|project)://[^\\s]{1,248}$",
@@ -10280,6 +10762,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Za-z0-9_-]{86}$",
   "^[A-Za-z0-9_.-]+$",
   "^[^\\s][ -~]{0,2047}$",
+  "^[a-z0-9][a-z0-9._:/-]{0,127}$",
   "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$",
   "^[a-z][a-z0-9+.-]*://\\S+$",
@@ -10323,6 +10806,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^chain-writer-reservation://sha256:[0-9a-f]{64}$",
   "^challenge://[^\\s]{1,248}$",
   "^checkpoint://[^\\s]{1,248}$",
+  "^commitment://[^\\s]{1,248}$",
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
   "^commitment://ioi/system-sequence-zero/sha256:[0-9a-f]{64}$",
   "^conformance-profile://[^\\s]{1,248}$",
@@ -10368,6 +10852,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^lifecycle-profile://[^\\s]{1,248}$",
   "^lifecycle-transition://[A-Za-z0-9._:/-]+$",
   "^lifecycle-transition://[^\\s]{1,248}$",
+  "^lost-suffix://[^\\s]{1,248}$",
   "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^measurement-policy://[^\\s]{1,248}$",
@@ -10379,6 +10864,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^node://[^\\s]{1,248}$",
   "^oracle-evidence-profile://[^\\s]{1,248}$",
   "^ordering-profile://[^\\s]{1,248}$",
+  "^ordering-recovery://[^\\s]{1,248}$",
   "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$",
   "^package://[^\\s]{1,248}$",
   "^physical-action-admission:[^\\s]+$",
@@ -10424,6 +10910,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^skill-entry://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^skill://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^snapshot://[^\\s]+$",
+  "^snapshot://[^\\s]{1,248}$",
   "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$",
   "^system-activation-state://[^\\s]{1,248}$",
   "^system-home-domain-binding://[A-Za-z0-9._:/-]+$",
@@ -10449,6 +10936,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^transition://[^\\s]{1,248}$",
   "^vault://[^\\s]{1,248}$",
+  "^verification://[^\\s]{1,248}$",
   "^verifier://[^\\s]{1,248}$",
   "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$",
   "^wallet[.]network://approval-effect-consumption/[A-Za-z0-9._:/-]+$",
@@ -10521,7 +11009,11 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1": "sha256:daa7cb792f264a6897511d2f9a9e5f41c42d3aec64e020903fbf5e242c5f92b0",
   "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1": "sha256:f1d287f6f041a84b845de4bd0fd12faaf9157e0195d1f89200ed0dac8bce7335",
   "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1": "sha256:7167c45b6c2aee52b57bc607c4c7108c1f2d5c81feba36cd7412ba90504cd56f",
-  "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1": "sha256:8334e614af20034ffcd4af9fbefecb05184206665c8e1b21f9c5a4804ed79379"
+  "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1": "sha256:8334e614af20034ffcd4af9fbefecb05184206665c8e1b21f9c5a4804ed79379",
+  "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1": "sha256:e1eb42bce64fa85e34a14241e3621470ff5a82cbbdda1657183bc7dea9af22e5",
+  "schema://ioi/foundations/consequential-effect-fence-context/v1": "sha256:bd7b8489c056ab823a1ff21093a31abe118d41b71f13747d446c626bc1c9f951",
+  "schema://ioi/foundations/ordering-finality-recovery/v1": "sha256:46db62b15166a669c4da0be29b85dbb60b14965fd64a56d1239dab71d2e0108c",
+  "schema://ioi/foundations/lost-suffix-record/v1": "sha256:1ded4482cebaa8bec1f16059aa88fab34dd15ca7bfb8faa185c5547d695123c6"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -37506,6 +37998,1510 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         ]
       }
     }
+  },
+  "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+    "title": "AutonomousSystemWriterEpochTransition",
+    "description": "One immutable transition of a single System's active writer: genesis claim, same-node restore, replacement restore, or promotion, with strict continuity CAS, membership/profile root binding, displaced-writer fencing evidence, bound timing evidence, and declared resource fences. This is the only family that admits writer authority; the epoch is strictly monotonic and exactly one writer is active per System.",
+    "x-ioi-schema-version": "ioi.autonomous-system-writer-epoch-transition.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "writer_epoch_transition_id",
+      "writer_epoch_transition_hash",
+      "transition_kind",
+      "system_id",
+      "deployment_profile_ref",
+      "deployment_profile_root",
+      "failover_profile_ref",
+      "failover_profile_root",
+      "ordering_profile_ref",
+      "ordering_profile_root",
+      "predecessor_transition_ref",
+      "predecessor_transition_hash",
+      "expected_membership_root",
+      "resulting_membership_root",
+      "prior_writer",
+      "successor_writer",
+      "continuity",
+      "continuity_cas",
+      "authority",
+      "displaced_writer_fencing",
+      "timing_evidence",
+      "resource_fences",
+      "lost_suffix_record_ref",
+      "admission_receipt_ref",
+      "committed_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.autonomous-system-writer-epoch-transition.v1"
+      },
+      "writer_epoch_transition_id": {
+        "$ref": "#/$defs/writerTransitionRef"
+      },
+      "writer_epoch_transition_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "transition_kind": {
+        "enum": [
+          "genesis",
+          "same_node_restore",
+          "replacement_restore",
+          "promotion"
+        ]
+      },
+      "system_id": {
+        "$ref": "#/$defs/systemRef"
+      },
+      "deployment_profile_ref": {
+        "$ref": "#/$defs/deploymentRevisionRef"
+      },
+      "deployment_profile_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "failover_profile_ref": {
+        "type": "string",
+        "pattern": "^failover-profile://[^\\s]{1,248}$"
+      },
+      "failover_profile_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "ordering_profile_ref": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "ordering_profile_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "predecessor_transition_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/writerTransitionRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_transition_hash": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "expected_membership_root": {
+        "$ref": "#/$defs/nullableHash"
+      },
+      "resulting_membership_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "prior_writer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "node_membership_ref",
+          "node_id",
+          "membership_epoch",
+          "writer_epoch"
+        ],
+        "properties": {
+          "node_membership_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/nodeMembershipRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/nodeRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "membership_epoch": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "writer_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "successor_writer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "node_membership_ref",
+          "node_id",
+          "membership_epoch",
+          "writer_epoch",
+          "writer_lease_ref"
+        ],
+        "properties": {
+          "node_membership_ref": {
+            "$ref": "#/$defs/nodeMembershipRef"
+          },
+          "node_id": {
+            "$ref": "#/$defs/nodeRef"
+          },
+          "membership_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "writer_epoch": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "writer_lease_ref": {
+            "$ref": "#/$defs/leaseRef"
+          }
+        }
+      },
+      "continuity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verified_state_root",
+          "checkpoint_ref",
+          "operation_offset",
+          "catchup_receipt_ref",
+          "state_root_verification_ref"
+        ],
+        "properties": {
+          "verified_state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "checkpoint_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^checkpoint://[^\\s]{1,248}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "catchup_receipt_ref": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "state_root_verification_ref": {
+            "type": "string",
+            "pattern": "^verification://[^\\s]{1,248}$"
+          }
+        }
+      },
+      "continuity_cas": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mechanism",
+          "substrate_ref",
+          "expected_head",
+          "resulting_head",
+          "proof_ref"
+        ],
+        "properties": {
+          "mechanism": {
+            "enum": [
+              "witness_quorum_cas",
+              "wallet_epoch_authority",
+              "external_coordination_service"
+            ]
+          },
+          "substrate_ref": {
+            "type": "string",
+            "pattern": "^(?:agentgres|wallet|service)://[^\\s]{1,248}$"
+          },
+          "expected_head": {
+            "$ref": "#/$defs/nullableHash"
+          },
+          "resulting_head": {
+            "$ref": "#/$defs/hash"
+          },
+          "proof_ref": {
+            "type": "string",
+            "pattern": "^(?:evidence|receipt)://[^\\s]{1,248}$"
+          }
+        }
+      },
+      "authority": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_grant_refs",
+          "authority_revocation_snapshot_ref",
+          "authority_revocation_epoch"
+        ],
+        "properties": {
+          "authority_grant_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^grant://[^\\s]{1,248}$"
+            },
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true
+          },
+          "authority_revocation_snapshot_ref": {
+            "type": "string",
+            "pattern": "^snapshot://[^\\s]{1,248}$"
+          },
+          "authority_revocation_epoch": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "displaced_writer_fencing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "writer_fence_receipt_refs",
+          "effect_lease_fence_receipt_refs",
+          "effects_admissible_not_before"
+        ],
+        "properties": {
+          "writer_fence_receipt_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/receiptRef"
+            },
+            "maxItems": 16,
+            "uniqueItems": true
+          },
+          "effect_lease_fence_receipt_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/receiptRef"
+            },
+            "maxItems": 16,
+            "uniqueItems": true
+          },
+          "effects_admissible_not_before": {
+            "$ref": "#/$defs/dateTime"
+          }
+        }
+      },
+      "timing_evidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "temporal_verification_profile_ref",
+          "temporal_validity_evaluation_ref",
+          "temporal_validity_evaluation_hash",
+          "observed_at",
+          "expires_at",
+          "displaced_writer_leases_expire_at",
+          "revocation_propagation_complete_at",
+          "maximum_clock_skew_or_uncertainty_ms",
+          "witness_evidence_refs"
+        ],
+        "properties": {
+          "temporal_verification_profile_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "temporal_validity_evaluation_ref": {
+            "type": "string",
+            "pattern": "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$"
+          },
+          "temporal_validity_evaluation_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "observed_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "expires_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "displaced_writer_leases_expire_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "revocation_propagation_complete_at": {
+            "$ref": "#/$defs/dateTime"
+          },
+          "maximum_clock_skew_or_uncertainty_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "witness_evidence_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidenceRef"
+            },
+            "maxItems": 16,
+            "uniqueItems": true
+          }
+        }
+      },
+      "resource_fences": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "resource_id",
+            "allowed_effect_kinds",
+            "minimum_read_consistency",
+            "read_watermark"
+          ],
+          "properties": {
+            "resource_id": {
+              "$ref": "#/$defs/shortToken"
+            },
+            "allowed_effect_kinds": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/shortToken"
+              },
+              "minItems": 1,
+              "maxItems": 32,
+              "uniqueItems": true
+            },
+            "minimum_read_consistency": {
+              "$ref": "#/$defs/readConsistency"
+            },
+            "read_watermark": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        },
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      "lost_suffix_record_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^lost-suffix://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "admission_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "committed_at": {
+        "$ref": "#/$defs/dateTime"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "transition_kind": {
+              "const": "genesis"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "predecessor_transition_ref": {
+              "type": "null"
+            },
+            "predecessor_transition_hash": {
+              "type": "null"
+            },
+            "prior_writer": {
+              "type": "object",
+              "properties": {
+                "node_membership_ref": {
+                  "type": "null"
+                },
+                "node_id": {
+                  "type": "null"
+                },
+                "membership_epoch": {
+                  "type": "null"
+                },
+                "writer_epoch": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 0
+                }
+              }
+            },
+            "successor_writer": {
+              "type": "object",
+              "properties": {
+                "writer_epoch": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1
+                }
+              }
+            },
+            "continuity_cas": {
+              "type": "object",
+              "properties": {
+                "expected_head": {
+                  "type": "null"
+                }
+              }
+            },
+            "lost_suffix_record_ref": {
+              "type": "null"
+            }
+          }
+        },
+        "else": {
+          "type": "object",
+          "properties": {
+            "predecessor_transition_ref": {
+              "type": "string"
+            },
+            "predecessor_transition_hash": {
+              "type": "string"
+            },
+            "expected_membership_root": {
+              "type": "string"
+            },
+            "prior_writer": {
+              "type": "object",
+              "properties": {
+                "node_membership_ref": {
+                  "type": "string"
+                },
+                "node_id": {
+                  "type": "string"
+                },
+                "membership_epoch": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "writer_epoch": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                }
+              }
+            },
+            "successor_writer": {
+              "type": "object",
+              "properties": {
+                "writer_epoch": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 9007199254740991
+                }
+              }
+            },
+            "continuity_cas": {
+              "type": "object",
+              "properties": {
+                "expected_head": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableHash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "systemRef": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "nodeRef": {
+        "type": "string",
+        "pattern": "^node://[^\\s]{1,248}$"
+      },
+      "nodeMembershipRef": {
+        "type": "string",
+        "pattern": "^node-membership://[^\\s]{1,248}$"
+      },
+      "writerTransitionRef": {
+        "type": "string",
+        "pattern": "^writer-transition://[^\\s]{1,248}$"
+      },
+      "deploymentRevisionRef": {
+        "type": "string",
+        "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "leaseRef": {
+        "type": "string",
+        "pattern": "^lease://[^\\s]{1,248}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,248}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+      },
+      "shortToken": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._:/-]{0,127}$"
+      },
+      "readConsistency": {
+        "enum": [
+          "cached_projection",
+          "projection_consistent",
+          "snapshot_consistent",
+          "state_root_consistent",
+          "linearized_domain",
+          "serializable_domain"
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/consequential-effect-fence-context/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+    "title": "ConsequentialEffectFenceContext",
+    "description": "The per-invocation fence tuple generated and embedded at a policy enforcement point before a System-scoped consequential invoker is called: active writer epoch and transition binding, membership and deployment roots, resource and effect identity with the exact payload hash, authority grant and revocation posture, bound temporal evidence, and observed read posture. It is not a grant, lease, top-level runtime object, or source of owner identity; caller-authored fence contexts are refused before evaluation.",
+    "x-ioi-schema-version": "ioi.consequential-effect-fence-context.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "system_id",
+      "executing_node_id",
+      "resource_id",
+      "effect_kind",
+      "exact_payload_hash",
+      "deployment_profile_root",
+      "node_membership_epoch",
+      "node_membership_root",
+      "writer_epoch_transition_ref",
+      "writer_epoch_transition_hash",
+      "writer_epoch",
+      "writer_lease_expires_at",
+      "authority_grant_ref",
+      "authority_revocation_snapshot_ref",
+      "authority_revocation_epoch",
+      "temporal_verification_profile_ref",
+      "temporal_validity_evaluation_ref",
+      "temporal_validity_evaluation_hash",
+      "read_consistency",
+      "read_watermark",
+      "read_state_root",
+      "idempotency_key",
+      "evaluated_at",
+      "expires_at",
+      "fence_commitment"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.consequential-effect-fence-context.v1"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "executing_node_id": {
+        "type": "string",
+        "pattern": "^node://[^\\s]{1,248}$"
+      },
+      "resource_id": {
+        "$ref": "#/$defs/shortToken"
+      },
+      "effect_kind": {
+        "$ref": "#/$defs/shortToken"
+      },
+      "exact_payload_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "deployment_profile_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "node_membership_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "node_membership_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "writer_epoch_transition_ref": {
+        "type": "string",
+        "pattern": "^writer-transition://[^\\s]{1,248}$"
+      },
+      "writer_epoch_transition_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "writer_epoch": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "writer_lease_expires_at": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "authority_grant_ref": {
+        "type": "string",
+        "pattern": "^grant://[^\\s]{1,248}$"
+      },
+      "authority_revocation_snapshot_ref": {
+        "type": "string",
+        "pattern": "^snapshot://[^\\s]{1,248}$"
+      },
+      "authority_revocation_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "temporal_verification_profile_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "temporal_validity_evaluation_ref": {
+        "type": "string",
+        "pattern": "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$"
+      },
+      "temporal_validity_evaluation_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "read_consistency": {
+        "enum": [
+          "cached_projection",
+          "projection_consistent",
+          "snapshot_consistent",
+          "state_root_consistent",
+          "linearized_domain",
+          "serializable_domain"
+        ]
+      },
+      "read_watermark": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "read_state_root": {
+        "$ref": "#/$defs/hash"
+      },
+      "idempotency_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evaluated_at": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "expires_at": {
+        "$ref": "#/$defs/dateTime"
+      },
+      "fence_commitment": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "shortToken": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._:/-]{0,127}$"
+      }
+    }
+  },
+  "schema://ioi/foundations/ordering-finality-recovery/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+    "title": "OrderingFinalityRecovery",
+    "description": "One admitted threshold, BFT, membership-reconfiguration, or external-finality recovery transition over an active ordering profile. Predecessor fields are compare-and-swap inputs, the recovery proof must satisfy the active profile, the resulting commitment preserves the cryptographic chain, and the object never invents authority. Single-writer promotion uses the writer-epoch-transition/fencing family instead of this envelope: no single-writer recovery class exists here.",
+    "x-ioi-schema-version": "ioi.ordering-finality-recovery.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "ordering_recovery_id",
+      "system_id",
+      "failover_profile_ref",
+      "ordering_admission_finality_profile_ref",
+      "recovery_class",
+      "predecessor",
+      "trigger_evidence_refs",
+      "governing_decision_ref",
+      "authority_grant_refs",
+      "transition",
+      "result",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.ordering-finality-recovery.v1"
+      },
+      "ordering_recovery_id": {
+        "type": "string",
+        "pattern": "^ordering-recovery://[^\\s]{1,248}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "failover_profile_ref": {
+        "type": "string",
+        "pattern": "^failover-profile://[^\\s]{1,248}$"
+      },
+      "ordering_admission_finality_profile_ref": {
+        "type": "string",
+        "pattern": "^ordering-profile://[^\\s]{1,248}$"
+      },
+      "recovery_class": {
+        "enum": [
+          "threshold_view_or_round",
+          "bft_view_or_round",
+          "membership_reconfiguration",
+          "external_finality_rebind"
+        ]
+      },
+      "predecessor": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence",
+          "transition_commitment_ref",
+          "state_root",
+          "membership_root",
+          "view_or_round",
+          "external_finality_ref"
+        ],
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "transition_commitment_ref": {
+            "$ref": "#/$defs/commitmentRef"
+          },
+          "state_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "membership_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "view_or_round": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "external_finality_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/evidenceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "trigger_evidence_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/evidenceRef"
+        },
+        "maxItems": 32,
+        "uniqueItems": true
+      },
+      "governing_decision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^decision://[^\\s]{1,248}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^grant://[^\\s]{1,248}$"
+        },
+        "maxItems": 8,
+        "uniqueItems": true
+      },
+      "transition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposed_view_or_round",
+          "membership_transition_ref",
+          "expected_membership_root",
+          "resulting_membership_root",
+          "threshold_or_consensus_proof_refs",
+          "external_finality_recovery_ref",
+          "recovery_proof_ref"
+        ],
+        "properties": {
+          "proposed_view_or_round": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "membership_transition_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:transition|decision)://[^\\s]{1,248}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_membership_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "resulting_membership_root": {
+            "$ref": "#/$defs/hash"
+          },
+          "threshold_or_consensus_proof_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidenceRef"
+            },
+            "maxItems": 64,
+            "uniqueItems": true
+          },
+          "external_finality_recovery_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/evidenceRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recovery_proof_ref": {
+            "$ref": "#/$defs/evidenceRef"
+          }
+        }
+      },
+      "result": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sequence",
+              "transition_commitment_ref",
+              "state_root",
+              "finality_proof_ref",
+              "receipt_ref"
+            ],
+            "properties": {
+              "sequence": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "transition_commitment_ref": {
+                "$ref": "#/$defs/commitmentRef"
+              },
+              "state_root": {
+                "$ref": "#/$defs/hash"
+              },
+              "finality_proof_ref": {
+                "$ref": "#/$defs/evidenceRef"
+              },
+              "receipt_ref": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^receipt://[^\\s]{1,248}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "evidence_pending",
+          "authorized",
+          "admitted",
+          "committed",
+          "rejected",
+          "failed_closed"
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "committed"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "result": {
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "else": {
+          "properties": {
+            "result": {
+              "type": "null"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "enum": [
+                "authorized",
+                "admitted",
+                "committed"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "authority_grant_refs": {
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recovery_class": {
+              "enum": [
+                "threshold_view_or_round",
+                "bft_view_or_round"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "transition": {
+              "properties": {
+                "proposed_view_or_round": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "threshold_or_consensus_proof_refs": {
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recovery_class": {
+              "const": "membership_reconfiguration"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "transition": {
+              "properties": {
+                "membership_transition_ref": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "recovery_class": {
+              "const": "external_finality_rebind"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "transition": {
+              "properties": {
+                "external_finality_recovery_ref": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "commitmentRef": {
+        "type": "string",
+        "pattern": "^commitment://[^\\s]{1,248}$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+      }
+    }
+  },
+  "schema://ioi/foundations/lost-suffix-record/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/lost-suffix-record/v1",
+    "title": "LostSuffixRecord",
+    "description": "Recovery custody of the operations acknowledged under a deposed writer epoch but excluded from the new authoritative history. The record binds both writer epochs through its writer-epoch transition, retains one custody row per excluded operation with an explicit resolved | refused | retained_ambiguous status, and can never close while any row remains retained_ambiguous: ambiguous outcomes are retained for reconciliation, never silently dropped and never silently replayed.",
+    "x-ioi-schema-version": "ioi.lost-suffix-record.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "lost_suffix_record_id",
+      "system_id",
+      "writer_epoch_transition_ref",
+      "prior_writer_epoch",
+      "successor_writer_epoch",
+      "last_common",
+      "authoritative_head",
+      "excluded_suffix",
+      "classification",
+      "reconciliation_policy_ref",
+      "disposition",
+      "disposition_receipt_refs",
+      "predecessor_record_root",
+      "status",
+      "recorded_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.lost-suffix-record.v1"
+      },
+      "lost_suffix_record_id": {
+        "type": "string",
+        "pattern": "^lost-suffix://[^\\s]{1,248}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,248}$"
+      },
+      "writer_epoch_transition_ref": {
+        "type": "string",
+        "pattern": "^writer-transition://[^\\s]{1,248}$"
+      },
+      "prior_writer_epoch": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "successor_writer_epoch": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "last_common": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_offset",
+          "state_root"
+        ],
+        "properties": {
+          "operation_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "state_root": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "authoritative_head": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "operation_offset",
+          "state_root"
+        ],
+        "properties": {
+          "operation_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "state_root": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "excluded_suffix": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "first_offset",
+          "last_offset",
+          "operation_count",
+          "commitment_refs",
+          "custody_artifact_refs",
+          "entries"
+        ],
+        "properties": {
+          "first_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "last_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "operation_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          },
+          "commitment_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?:commitment|evidence)://[^\\s]{1,248}$"
+            },
+            "maxItems": 128,
+            "uniqueItems": true
+          },
+          "custody_artifact_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^artifact://[^\\s]{1,248}$"
+            },
+            "maxItems": 128,
+            "uniqueItems": true
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "operation_offset",
+                "operation_commitment_ref",
+                "custody_status",
+                "resolution_receipt_ref",
+                "resolution_evidence_refs"
+              ],
+              "properties": {
+                "operation_offset": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "operation_commitment_ref": {
+                  "type": "string",
+                  "pattern": "^(?:commitment|evidence)://[^\\s]{1,248}$"
+                },
+                "custody_status": {
+                  "enum": [
+                    "resolved",
+                    "refused",
+                    "retained_ambiguous"
+                  ]
+                },
+                "resolution_receipt_ref": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^receipt://[^\\s]{1,248}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "resolution_evidence_refs": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/evidenceRef"
+                  },
+                  "maxItems": 16,
+                  "uniqueItems": true
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "custody_status": {
+                        "enum": [
+                          "resolved",
+                          "refused"
+                        ]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "then": {
+                    "properties": {
+                      "resolution_receipt_ref": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "else": {
+                    "properties": {
+                      "resolution_receipt_ref": {
+                        "type": "null"
+                      }
+                    },
+                    "type": "object"
+                  }
+                }
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 256
+          }
+        }
+      },
+      "classification": {
+        "enum": [
+          "lost_unacknowledged",
+          "orphaned_acknowledged_below_required_durability",
+          "ambiguous"
+        ]
+      },
+      "reconciliation_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,248}$"
+      },
+      "disposition": {
+        "enum": [
+          "retained_for_forensics",
+          "compensating_transition_required",
+          "adjudication_required",
+          "destroyed_under_policy"
+        ]
+      },
+      "disposition_receipt_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^receipt://[^\\s]{1,248}$"
+        },
+        "maxItems": 16,
+        "uniqueItems": true
+      },
+      "predecessor_record_root": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "open",
+          "reconciled",
+          "adjudicated",
+          "closed"
+        ]
+      },
+      "recorded_at": {
+        "$ref": "#/$defs/dateTime"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "enum": [
+                "reconciled",
+                "adjudicated",
+                "closed"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "excluded_suffix": {
+              "properties": {
+                "entries": {
+                  "items": {
+                    "properties": {
+                      "custody_status": {
+                        "enum": [
+                          "resolved",
+                          "refused"
+                        ]
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "disposition_receipt_refs": {
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "disposition": {
+              "const": "destroyed_under_policy"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "disposition_receipt_refs": {
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "dateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "evidenceRef": {
+        "type": "string",
+        "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -42784,6 +44780,348 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1": [
+    {
+      "rule_id": "autonomous_system_writer_epoch_transition.content_commitment.recomputes",
+      "description": "The transition hash recomputes over every field except writer_epoch_transition_hash and continuity_cas.resulting_head.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-writer-epoch-transition-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "writer_epoch_transition_id": {
+            "path": "$.writer_epoch_transition_id"
+          },
+          "transition_kind": {
+            "path": "$.transition_kind"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "deployment_profile_ref": {
+            "path": "$.deployment_profile_ref"
+          },
+          "deployment_profile_root": {
+            "path": "$.deployment_profile_root"
+          },
+          "failover_profile_ref": {
+            "path": "$.failover_profile_ref"
+          },
+          "failover_profile_root": {
+            "path": "$.failover_profile_root"
+          },
+          "ordering_profile_ref": {
+            "path": "$.ordering_profile_ref"
+          },
+          "ordering_profile_root": {
+            "path": "$.ordering_profile_root"
+          },
+          "predecessor_transition_ref": {
+            "path": "$.predecessor_transition_ref"
+          },
+          "predecessor_transition_hash": {
+            "path": "$.predecessor_transition_hash"
+          },
+          "expected_membership_root": {
+            "path": "$.expected_membership_root"
+          },
+          "resulting_membership_root": {
+            "path": "$.resulting_membership_root"
+          },
+          "prior_writer": {
+            "path": "$.prior_writer"
+          },
+          "successor_writer": {
+            "path": "$.successor_writer"
+          },
+          "continuity": {
+            "path": "$.continuity"
+          },
+          "continuity_cas_mechanism": {
+            "path": "$.continuity_cas.mechanism"
+          },
+          "continuity_cas_substrate_ref": {
+            "path": "$.continuity_cas.substrate_ref"
+          },
+          "continuity_cas_expected_head": {
+            "path": "$.continuity_cas.expected_head"
+          },
+          "continuity_cas_proof_ref": {
+            "path": "$.continuity_cas.proof_ref"
+          },
+          "authority": {
+            "path": "$.authority"
+          },
+          "displaced_writer_fencing": {
+            "path": "$.displaced_writer_fencing"
+          },
+          "timing_evidence": {
+            "path": "$.timing_evidence"
+          },
+          "resource_fences": {
+            "path": "$.resource_fences"
+          },
+          "lost_suffix_record_ref": {
+            "path": "$.lost_suffix_record_ref"
+          },
+          "admission_receipt_ref": {
+            "path": "$.admission_receipt_ref"
+          },
+          "committed_at": {
+            "path": "$.committed_at"
+          }
+        },
+        "expected_path": "$.writer_epoch_transition_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_writer_epoch_transition.cas_resulting_head.binds_commitment",
+      "description": "The durable continuity CAS resulting head equals the same content commitment, so the CAS binds the exact immutable transition.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-writer-epoch-transition-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "writer_epoch_transition_id": {
+            "path": "$.writer_epoch_transition_id"
+          },
+          "transition_kind": {
+            "path": "$.transition_kind"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "deployment_profile_ref": {
+            "path": "$.deployment_profile_ref"
+          },
+          "deployment_profile_root": {
+            "path": "$.deployment_profile_root"
+          },
+          "failover_profile_ref": {
+            "path": "$.failover_profile_ref"
+          },
+          "failover_profile_root": {
+            "path": "$.failover_profile_root"
+          },
+          "ordering_profile_ref": {
+            "path": "$.ordering_profile_ref"
+          },
+          "ordering_profile_root": {
+            "path": "$.ordering_profile_root"
+          },
+          "predecessor_transition_ref": {
+            "path": "$.predecessor_transition_ref"
+          },
+          "predecessor_transition_hash": {
+            "path": "$.predecessor_transition_hash"
+          },
+          "expected_membership_root": {
+            "path": "$.expected_membership_root"
+          },
+          "resulting_membership_root": {
+            "path": "$.resulting_membership_root"
+          },
+          "prior_writer": {
+            "path": "$.prior_writer"
+          },
+          "successor_writer": {
+            "path": "$.successor_writer"
+          },
+          "continuity": {
+            "path": "$.continuity"
+          },
+          "continuity_cas_mechanism": {
+            "path": "$.continuity_cas.mechanism"
+          },
+          "continuity_cas_substrate_ref": {
+            "path": "$.continuity_cas.substrate_ref"
+          },
+          "continuity_cas_expected_head": {
+            "path": "$.continuity_cas.expected_head"
+          },
+          "continuity_cas_proof_ref": {
+            "path": "$.continuity_cas.proof_ref"
+          },
+          "authority": {
+            "path": "$.authority"
+          },
+          "displaced_writer_fencing": {
+            "path": "$.displaced_writer_fencing"
+          },
+          "timing_evidence": {
+            "path": "$.timing_evidence"
+          },
+          "resource_fences": {
+            "path": "$.resource_fences"
+          },
+          "lost_suffix_record_ref": {
+            "path": "$.lost_suffix_record_ref"
+          },
+          "admission_receipt_ref": {
+            "path": "$.admission_receipt_ref"
+          },
+          "committed_at": {
+            "path": "$.committed_at"
+          }
+        },
+        "expected_path": "$.continuity_cas.resulting_head",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_writer_epoch_transition.resource_fences.unique",
+      "description": "Each consequential resource carries at most one declared fence.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.resource_fences",
+        "fields": [
+          "resource_id"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/consequential-effect-fence-context/v1": [
+    {
+      "rule_id": "consequential_effect_fence_context.fence_commitment.recomputes",
+      "description": "The fence commitment recomputes over the complete presented tuple, so no field can be substituted after the policy enforcement point generated the context.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.consequential-effect-fence-context-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "executing_node_id": {
+            "path": "$.executing_node_id"
+          },
+          "resource_id": {
+            "path": "$.resource_id"
+          },
+          "effect_kind": {
+            "path": "$.effect_kind"
+          },
+          "exact_payload_hash": {
+            "path": "$.exact_payload_hash"
+          },
+          "deployment_profile_root": {
+            "path": "$.deployment_profile_root"
+          },
+          "node_membership_epoch": {
+            "path": "$.node_membership_epoch"
+          },
+          "node_membership_root": {
+            "path": "$.node_membership_root"
+          },
+          "writer_epoch_transition_ref": {
+            "path": "$.writer_epoch_transition_ref"
+          },
+          "writer_epoch_transition_hash": {
+            "path": "$.writer_epoch_transition_hash"
+          },
+          "writer_epoch": {
+            "path": "$.writer_epoch"
+          },
+          "writer_lease_expires_at": {
+            "path": "$.writer_lease_expires_at"
+          },
+          "authority_grant_ref": {
+            "path": "$.authority_grant_ref"
+          },
+          "authority_revocation_snapshot_ref": {
+            "path": "$.authority_revocation_snapshot_ref"
+          },
+          "authority_revocation_epoch": {
+            "path": "$.authority_revocation_epoch"
+          },
+          "temporal_verification_profile_ref": {
+            "path": "$.temporal_verification_profile_ref"
+          },
+          "temporal_validity_evaluation_ref": {
+            "path": "$.temporal_validity_evaluation_ref"
+          },
+          "temporal_validity_evaluation_hash": {
+            "path": "$.temporal_validity_evaluation_hash"
+          },
+          "read_consistency": {
+            "path": "$.read_consistency"
+          },
+          "read_watermark": {
+            "path": "$.read_watermark"
+          },
+          "read_state_root": {
+            "path": "$.read_state_root"
+          },
+          "idempotency_key": {
+            "path": "$.idempotency_key"
+          },
+          "evaluated_at": {
+            "path": "$.evaluated_at"
+          },
+          "expires_at": {
+            "path": "$.expires_at"
+          }
+        },
+        "expected_path": "$.fence_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/ordering-finality-recovery/v1": [
+    {
+      "rule_id": "ordering_finality_recovery.trigger_evidence.bound_when_progressed",
+      "description": "A recovery past proposal binds nonempty trigger evidence; authority is never invented from a bare status string.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.status",
+        "values": [
+          "evidence_pending",
+          "authorized",
+          "admitted",
+          "committed"
+        ],
+        "path": "$.trigger_evidence_refs"
+      }
+    }
+  ],
+  "schema://ioi/foundations/lost-suffix-record/v1": [
+    {
+      "rule_id": "lost_suffix_record.entries.match_declared_count",
+      "description": "The custody rows cover exactly the declared excluded-operation count: a silently dropped row breaks the record.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.excluded_suffix.entries",
+        "count_path": "$.excluded_suffix.operation_count"
+      }
+    },
+    {
+      "rule_id": "lost_suffix_record.entries.unique_offsets",
+      "description": "Each excluded operation offset has exactly one custody row.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.excluded_suffix.entries",
+        "fields": [
+          "operation_offset"
+        ]
+      }
+    }
   ]
 };
 
@@ -43981,4 +46319,28 @@ export function validateTemporalValidityEvaluationV1(
   value: unknown,
 ): value is TemporalValidityEvaluationV1 {
   return validateArchitectureContract("schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1", value).ok;
+}
+
+export function validateAutonomousSystemWriterEpochTransitionV1(
+  value: unknown,
+): value is AutonomousSystemWriterEpochTransitionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1", value).ok;
+}
+
+export function validateConsequentialEffectFenceContextV1(
+  value: unknown,
+): value is ConsequentialEffectFenceContextV1 {
+  return validateArchitectureContract("schema://ioi/foundations/consequential-effect-fence-context/v1", value).ok;
+}
+
+export function validateOrderingFinalityRecoveryV1(
+  value: unknown,
+): value is OrderingFinalityRecoveryV1 {
+  return validateArchitectureContract("schema://ioi/foundations/ordering-finality-recovery/v1", value).ok;
+}
+
+export function validateLostSuffixRecordV1(
+  value: unknown,
+): value is LostSuffixRecordV1 {
+  return validateArchitectureContract("schema://ioi/foundations/lost-suffix-record/v1", value).ok;
 }

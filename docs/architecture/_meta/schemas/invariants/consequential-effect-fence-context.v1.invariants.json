@@ -1,0 +1,55 @@
+{
+  "$id": "invariant://ioi/foundations/consequential-effect-fence-context/exact-tuple/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+  "rules": [
+    {
+      "rule_id": "consequential_effect_fence_context.fence_commitment.recomputes",
+      "description": "The fence commitment recomputes over the complete presented tuple, so no field can be substituted after the policy enforcement point generated the context.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.consequential-effect-fence-context-commitment-jcs-sha256.v1"
+          },
+          "schema_version": { "path": "$.schema_version" },
+          "system_id": { "path": "$.system_id" },
+          "executing_node_id": { "path": "$.executing_node_id" },
+          "resource_id": { "path": "$.resource_id" },
+          "effect_kind": { "path": "$.effect_kind" },
+          "exact_payload_hash": { "path": "$.exact_payload_hash" },
+          "deployment_profile_root": { "path": "$.deployment_profile_root" },
+          "node_membership_epoch": { "path": "$.node_membership_epoch" },
+          "node_membership_root": { "path": "$.node_membership_root" },
+          "writer_epoch_transition_ref": { "path": "$.writer_epoch_transition_ref" },
+          "writer_epoch_transition_hash": { "path": "$.writer_epoch_transition_hash" },
+          "writer_epoch": { "path": "$.writer_epoch" },
+          "writer_lease_expires_at": { "path": "$.writer_lease_expires_at" },
+          "authority_grant_ref": { "path": "$.authority_grant_ref" },
+          "authority_revocation_snapshot_ref": {
+            "path": "$.authority_revocation_snapshot_ref"
+          },
+          "authority_revocation_epoch": { "path": "$.authority_revocation_epoch" },
+          "temporal_verification_profile_ref": {
+            "path": "$.temporal_verification_profile_ref"
+          },
+          "temporal_validity_evaluation_ref": {
+            "path": "$.temporal_validity_evaluation_ref"
+          },
+          "temporal_validity_evaluation_hash": {
+            "path": "$.temporal_validity_evaluation_hash"
+          },
+          "read_consistency": { "path": "$.read_consistency" },
+          "read_watermark": { "path": "$.read_watermark" },
+          "read_state_root": { "path": "$.read_state_root" },
+          "idempotency_key": { "path": "$.idempotency_key" },
+          "evaluated_at": { "path": "$.evaluated_at" },
+          "expires_at": { "path": "$.expires_at" }
+        },
+        "expected_path": "$.fence_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

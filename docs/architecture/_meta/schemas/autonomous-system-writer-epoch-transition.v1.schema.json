@@ -1,0 +1,605 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+  "title": "AutonomousSystemWriterEpochTransition",
+  "description": "One immutable transition of a single System's active writer: genesis claim, same-node restore, replacement restore, or promotion, with strict continuity CAS, membership/profile root binding, displaced-writer fencing evidence, bound timing evidence, and declared resource fences. This is the only family that admits writer authority; the epoch is strictly monotonic and exactly one writer is active per System.",
+  "x-ioi-schema-version": "ioi.autonomous-system-writer-epoch-transition.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "writer_epoch_transition_id",
+    "writer_epoch_transition_hash",
+    "transition_kind",
+    "system_id",
+    "deployment_profile_ref",
+    "deployment_profile_root",
+    "failover_profile_ref",
+    "failover_profile_root",
+    "ordering_profile_ref",
+    "ordering_profile_root",
+    "predecessor_transition_ref",
+    "predecessor_transition_hash",
+    "expected_membership_root",
+    "resulting_membership_root",
+    "prior_writer",
+    "successor_writer",
+    "continuity",
+    "continuity_cas",
+    "authority",
+    "displaced_writer_fencing",
+    "timing_evidence",
+    "resource_fences",
+    "lost_suffix_record_ref",
+    "admission_receipt_ref",
+    "committed_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.autonomous-system-writer-epoch-transition.v1"
+    },
+    "writer_epoch_transition_id": {
+      "$ref": "#/$defs/writerTransitionRef"
+    },
+    "writer_epoch_transition_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "transition_kind": {
+      "enum": [
+        "genesis",
+        "same_node_restore",
+        "replacement_restore",
+        "promotion"
+      ]
+    },
+    "system_id": {
+      "$ref": "#/$defs/systemRef"
+    },
+    "deployment_profile_ref": {
+      "$ref": "#/$defs/deploymentRevisionRef"
+    },
+    "deployment_profile_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "failover_profile_ref": {
+      "type": "string",
+      "pattern": "^failover-profile://[^\\s]{1,248}$"
+    },
+    "failover_profile_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "ordering_profile_ref": {
+      "type": "string",
+      "pattern": "^ordering-profile://[^\\s]{1,248}$"
+    },
+    "ordering_profile_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "predecessor_transition_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/writerTransitionRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "predecessor_transition_hash": {
+      "$ref": "#/$defs/nullableHash"
+    },
+    "expected_membership_root": {
+      "$ref": "#/$defs/nullableHash"
+    },
+    "resulting_membership_root": {
+      "$ref": "#/$defs/hash"
+    },
+    "prior_writer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_membership_ref",
+        "node_id",
+        "membership_epoch",
+        "writer_epoch"
+      ],
+      "properties": {
+        "node_membership_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/nodeMembershipRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "node_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/nodeRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "membership_epoch": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "writer_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "successor_writer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_membership_ref",
+        "node_id",
+        "membership_epoch",
+        "writer_epoch",
+        "writer_lease_ref"
+      ],
+      "properties": {
+        "node_membership_ref": {
+          "$ref": "#/$defs/nodeMembershipRef"
+        },
+        "node_id": {
+          "$ref": "#/$defs/nodeRef"
+        },
+        "membership_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "writer_epoch": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "writer_lease_ref": {
+          "$ref": "#/$defs/leaseRef"
+        }
+      }
+    },
+    "continuity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verified_state_root",
+        "checkpoint_ref",
+        "operation_offset",
+        "catchup_receipt_ref",
+        "state_root_verification_ref"
+      ],
+      "properties": {
+        "verified_state_root": {
+          "$ref": "#/$defs/hash"
+        },
+        "checkpoint_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^checkpoint://[^\\s]{1,248}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operation_offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "catchup_receipt_ref": {
+          "$ref": "#/$defs/receiptRef"
+        },
+        "state_root_verification_ref": {
+          "type": "string",
+          "pattern": "^verification://[^\\s]{1,248}$"
+        }
+      }
+    },
+    "continuity_cas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mechanism",
+        "substrate_ref",
+        "expected_head",
+        "resulting_head",
+        "proof_ref"
+      ],
+      "properties": {
+        "mechanism": {
+          "enum": [
+            "witness_quorum_cas",
+            "wallet_epoch_authority",
+            "external_coordination_service"
+          ]
+        },
+        "substrate_ref": {
+          "type": "string",
+          "pattern": "^(?:agentgres|wallet|service)://[^\\s]{1,248}$"
+        },
+        "expected_head": {
+          "$ref": "#/$defs/nullableHash"
+        },
+        "resulting_head": {
+          "$ref": "#/$defs/hash"
+        },
+        "proof_ref": {
+          "type": "string",
+          "pattern": "^(?:evidence|receipt)://[^\\s]{1,248}$"
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_grant_refs",
+        "authority_revocation_snapshot_ref",
+        "authority_revocation_epoch"
+      ],
+      "properties": {
+        "authority_grant_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^grant://[^\\s]{1,248}$"
+          },
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "authority_revocation_snapshot_ref": {
+          "type": "string",
+          "pattern": "^snapshot://[^\\s]{1,248}$"
+        },
+        "authority_revocation_epoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "displaced_writer_fencing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "writer_fence_receipt_refs",
+        "effect_lease_fence_receipt_refs",
+        "effects_admissible_not_before"
+      ],
+      "properties": {
+        "writer_fence_receipt_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "effect_lease_fence_receipt_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/receiptRef"
+          },
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "effects_admissible_not_before": {
+          "$ref": "#/$defs/dateTime"
+        }
+      }
+    },
+    "timing_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "temporal_verification_profile_ref",
+        "temporal_validity_evaluation_ref",
+        "temporal_validity_evaluation_hash",
+        "observed_at",
+        "expires_at",
+        "displaced_writer_leases_expire_at",
+        "revocation_propagation_complete_at",
+        "maximum_clock_skew_or_uncertainty_ms",
+        "witness_evidence_refs"
+      ],
+      "properties": {
+        "temporal_verification_profile_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "temporal_validity_evaluation_ref": {
+          "type": "string",
+          "pattern": "^(?:temporal-evaluation|evidence|receipt)://[^\\s]{1,248}$"
+        },
+        "temporal_validity_evaluation_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "observed_at": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "displaced_writer_leases_expire_at": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "revocation_propagation_complete_at": {
+          "$ref": "#/$defs/dateTime"
+        },
+        "maximum_clock_skew_or_uncertainty_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "witness_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceRef"
+          },
+          "maxItems": 16,
+          "uniqueItems": true
+        }
+      }
+    },
+    "resource_fences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "resource_id",
+          "allowed_effect_kinds",
+          "minimum_read_consistency",
+          "read_watermark"
+        ],
+        "properties": {
+          "resource_id": {
+            "$ref": "#/$defs/shortToken"
+          },
+          "allowed_effect_kinds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/shortToken"
+            },
+            "minItems": 1,
+            "maxItems": 32,
+            "uniqueItems": true
+          },
+          "minimum_read_consistency": {
+            "$ref": "#/$defs/readConsistency"
+          },
+          "read_watermark": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "lost_suffix_record_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^lost-suffix://[^\\s]{1,248}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "admission_receipt_ref": {
+      "$ref": "#/$defs/receiptRef"
+    },
+    "committed_at": {
+      "$ref": "#/$defs/dateTime"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "transition_kind": {
+            "const": "genesis"
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "predecessor_transition_ref": {
+            "type": "null"
+          },
+          "predecessor_transition_hash": {
+            "type": "null"
+          },
+          "prior_writer": {
+            "type": "object",
+            "properties": {
+              "node_membership_ref": {
+                "type": "null"
+              },
+              "node_id": {
+                "type": "null"
+              },
+              "membership_epoch": {
+                "type": "null"
+              },
+              "writer_epoch": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 0
+              }
+            }
+          },
+          "successor_writer": {
+            "type": "object",
+            "properties": {
+              "writer_epoch": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1
+              }
+            }
+          },
+          "continuity_cas": {
+            "type": "object",
+            "properties": {
+              "expected_head": {
+                "type": "null"
+              }
+            }
+          },
+          "lost_suffix_record_ref": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "type": "object",
+        "properties": {
+          "predecessor_transition_ref": {
+            "type": "string"
+          },
+          "predecessor_transition_hash": {
+            "type": "string"
+          },
+          "expected_membership_root": {
+            "type": "string"
+          },
+          "prior_writer": {
+            "type": "object",
+            "properties": {
+              "node_membership_ref": {
+                "type": "string"
+              },
+              "node_id": {
+                "type": "string"
+              },
+              "membership_epoch": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "writer_epoch": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            }
+          },
+          "successor_writer": {
+            "type": "object",
+            "properties": {
+              "writer_epoch": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 9007199254740991
+              }
+            }
+          },
+          "continuity_cas": {
+            "type": "object",
+            "properties": {
+              "expected_head": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "nullableHash": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/hash"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "systemRef": {
+      "type": "string",
+      "pattern": "^system://[^\\s]{1,248}$"
+    },
+    "nodeRef": {
+      "type": "string",
+      "pattern": "^node://[^\\s]{1,248}$"
+    },
+    "nodeMembershipRef": {
+      "type": "string",
+      "pattern": "^node-membership://[^\\s]{1,248}$"
+    },
+    "writerTransitionRef": {
+      "type": "string",
+      "pattern": "^writer-transition://[^\\s]{1,248}$"
+    },
+    "deploymentRevisionRef": {
+      "type": "string",
+      "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "leaseRef": {
+      "type": "string",
+      "pattern": "^lease://[^\\s]{1,248}$"
+    },
+    "receiptRef": {
+      "type": "string",
+      "pattern": "^receipt://[^\\s]{1,248}$"
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,248}$"
+    },
+    "evidenceRef": {
+      "type": "string",
+      "pattern": "^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"
+    },
+    "shortToken": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._:/-]{0,127}$"
+    },
+    "readConsistency": {
+      "enum": [
+        "cached_projection",
+        "projection_consistent",
+        "snapshot_consistent",
+        "state_root_consistent",
+        "linearized_domain",
+        "serializable_domain"
+      ]
+    }
+  }
+}

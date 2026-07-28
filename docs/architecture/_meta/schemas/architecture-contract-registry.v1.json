@@ -3328,6 +3328,246 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
+      "canonical_name": "AutonomousSystemWriterEpochTransition",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemwriterepochtransitionenvelope",
+      "schema_version": "ioi.autonomous-system-writer-epoch-transition.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "autonomous-system-writer-epoch-transition.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-writer-epoch-transition/content-commitment/v1",
+          "path": "invariants/autonomous-system-writer-epoch-transition.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemWriterEpochTransitionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemWriterEpochTransitionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-writer-epoch-transition-v1/positive-genesis.json",
+        "fixtures/autonomous-system-writer-epoch-transition-v1/positive-promotion.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-writer-epoch-transition-v1/negative-genesis-with-predecessor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-writer-epoch-transition-v1/negative-nongenesis-epoch-one.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-writer-epoch-transition-v1/negative-commitment-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_writer_epoch_transition.content_commitment.recomputes"
+        },
+        {
+          "path": "fixtures/autonomous-system-writer-epoch-transition-v1/negative-cas-head-detached.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_writer_epoch_transition.cas_resulting_head.binds_commitment"
+        },
+        {
+          "path": "fixtures/autonomous-system-writer-epoch-transition-v1/negative-duplicate-resource-fence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_writer_epoch_transition.resource_fences.unique"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
+      "canonical_name": "ConsequentialEffectFenceContext",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#consequentialeffectfencecontext",
+      "schema_version": "ioi.consequential-effect-fence-context.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "consequential-effect-fence-context.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/consequential-effect-fence-context/exact-tuple/v1",
+          "path": "invariants/consequential-effect-fence-context.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ConsequentialEffectFenceContextV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ConsequentialEffectFenceContextV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/consequential-effect-fence-context-v1/positive-active-writer.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/consequential-effect-fence-context-v1/negative-caller-authored-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/consequential-effect-fence-context-v1/negative-writer-epoch-zero.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/consequential-effect-fence-context-v1/negative-commitment-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "consequential_effect_fence_context.fence_commitment.recomputes"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
+      "canonical_name": "OrderingFinalityRecovery",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#orderingfinalityrecoveryenvelope",
+      "schema_version": "ioi.ordering-finality-recovery.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "ordering-finality-recovery.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/ordering-finality-recovery/cas-proof/v1",
+          "path": "invariants/ordering-finality-recovery.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OrderingFinalityRecoveryV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OrderingFinalityRecoveryV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/ordering-finality-recovery-v1/positive-committed-bft.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/ordering-finality-recovery-v1/negative-single-writer-class.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ordering-finality-recovery-v1/negative-committed-without-result.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/ordering-finality-recovery-v1/negative-progressed-without-trigger-evidence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "ordering_finality_recovery.trigger_evidence.bound_when_progressed"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
+      "canonical_name": "LostSuffixRecord",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#lostsuffixrecordenvelope",
+      "schema_version": "ioi.lost-suffix-record.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "lost-suffix-record.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/lost-suffix-record/retained-custody/v1",
+          "path": "invariants/lost-suffix-record.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "LostSuffixRecordV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "LostSuffixRecordV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/lost-suffix-record-v1/positive-open-retained.json",
+        "fixtures/lost-suffix-record-v1/positive-reconciled.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/lost-suffix-record-v1/negative-closed-with-retained-ambiguous.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/lost-suffix-record-v1/negative-resolved-without-receipt.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/lost-suffix-record-v1/negative-dropped-entry.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "lost_suffix_record.entries.match_declared_count"
+        }
+      ]
     }
   ]
 }

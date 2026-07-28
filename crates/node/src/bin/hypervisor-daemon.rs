@@ -154,6 +154,8 @@ mod system_projection_routes;
 mod system_protected_transition_routes;
 #[path = "hypervisor_daemon_routes/system_sequence_zero_routes.rs"]
 mod system_sequence_zero_routes;
+#[path = "hypervisor_daemon_routes/system_writer_routes.rs"]
+mod system_writer_routes;
 #[path = "hypervisor_daemon_routes/transformation_run_routes.rs"]
 mod transformation_run_routes;
 #[path = "hypervisor_daemon_routes/vast_candidate_source.rs"]
@@ -481,6 +483,7 @@ async fn async_main() -> anyhow::Result<()> {
             system_continuity_routes::MIGRATION_ACK_INTENT_DIR,
             system_continuity_routes::MIGRATION_ACK_RESERVATION_DIR,
             system_membership_routes::MEMBERSHIP_INTENT_DIR,
+            system_writer_routes::WRITER_INTENT_DIR,
             hypervisoros_node_routes::NODE_INTENT_DIR,
         ],
     )?;
@@ -2168,6 +2171,34 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/autonomous-systems/:id/membership/:op",
             get(system_membership_routes::handle_get_transition)
                 .post(system_membership_routes::handle_transition)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/writer/epoch",
+            get(system_writer_routes::handle_get_epoch),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/writer/failover-profile",
+            post(system_writer_routes::handle_declare_failover_profile).layer(
+                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
+            ),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/writer/lost-suffixes",
+            get(system_writer_routes::handle_get_lost_suffixes),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/writer/lost-suffixes/resolution",
+            post(system_writer_routes::handle_lost_suffix_resolution).layer(
+                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
+            ),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/writer/transitions/:kind",
+            get(system_writer_routes::handle_get_transition)
+                .post(system_writer_routes::handle_transition)
                 .layer(DefaultBodyLimit::max(
                     system_activation_routes::MAX_REQUEST_BYTES,
                 )),
