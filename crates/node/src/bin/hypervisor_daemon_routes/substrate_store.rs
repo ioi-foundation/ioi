@@ -74,6 +74,11 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-constitution-amendment-approval-decisions",
     "autonomous-system-constitution-amendment-approval-authority-evidence",
     "autonomous-system-constitutions",
+    "autonomous-system-desired-topologies",
+    "autonomous-system-node-memberships",
+    "autonomous-system-membership-transitions",
+    "autonomous-system-membership-receipts",
+    "autonomous-system-membership-successor-claims",
 ];
 
 struct HandleSlot {
@@ -397,6 +402,10 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "predecessor_chain_root",
             format!("sha256:{}", record_id.strip_prefix("ascwr_").unwrap_or("")),
         ),
+        "autonomous-system-membership-successor-claims" => (
+            "predecessor_membership_root",
+            format!("sha256:{}", record_id.strip_prefix("asmsc_").unwrap_or("")),
+        ),
         "autonomous-system-lifecycle-authority-consumptions"
         | "autonomous-system-lifecycle-transitions"
         | "autonomous-system-initialize-transition-receipts"
@@ -408,7 +417,11 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
         | "autonomous-system-network-enrollments"
         | "autonomous-system-amendment-receipts"
         | "autonomous-system-constitution-amendments"
-        | "autonomous-system-constitutions" => {
+        | "autonomous-system-constitutions"
+        | "autonomous-system-desired-topologies"
+        | "autonomous-system-node-memberships"
+        | "autonomous-system-membership-transitions"
+        | "autonomous-system-membership-receipts" => {
             unreachable!("identity is validated by the family-specific branch")
         }
         _ => unreachable!("required-admission domains are exhaustively matched"),
@@ -724,6 +737,11 @@ fn validate_required_identity(
         "autonomous-system-chain-revisions" => "asc_",
         "autonomous-system-chain-successor-claims" => "ascsc_",
         "autonomous-system-chain-writer-reservations" => "ascwr_",
+        "autonomous-system-desired-topologies" => "asdt_",
+        "autonomous-system-node-memberships" => "asnm_",
+        "autonomous-system-membership-transitions" => "asmt_",
+        "autonomous-system-membership-receipts" => "asmr_",
+        "autonomous-system-membership-successor-claims" => "asmsc_",
         _ => unreachable!("required-admission domains are exhaustively matched"),
     };
     if !record_id.strip_prefix(required_prefix).is_some_and(|tail| {
@@ -832,6 +850,80 @@ fn validate_required_identity(
         }
         return Ok(());
     }
+    if record_dir == "autonomous-system-desired-topologies" {
+        // A desired topology is named by its candidate-style content root over
+        // the whole declared body; it carries no self-root field and can never
+        // stand in for observed membership truth.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("desired_topology_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres desired topology lacks 'desired_topology_id'",
+            ));
+        }
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.autonomous-system-desired-topology-jcs-sha256.v1",
+            "topology": record,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the desired topology root",
+            ));
+        }
+        return Ok(());
+    }
+    if record_dir == "autonomous-system-node-memberships" {
+        // A node membership revision is named by its timeless content root:
+        // volatile observation timestamps are outside the identity so the root
+        // recomputes from any stored revision exactly as the compiler derived
+        // it before the wallet clock existed.
+        let encoded = record_id
+            .strip_prefix(required_prefix)
+            .expect("required prefix was validated");
+        if record
+            .get("node_membership_id")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres node membership lacks 'node_membership_id'",
+            ));
+        }
+        let mut timeless = record.clone();
+        if let Some(assignments) = timeless
+            .get_mut("role_assignments")
+            .and_then(Value::as_array_mut)
+        {
+            for assignment in assignments {
+                assignment["valid_from"] = Value::Null;
+            }
+        }
+        timeless["synchronization"]["verified_at"] = Value::Null;
+        timeless["observation"]["last_heartbeat_at"] = Value::Null;
+        timeless["observation"]["last_observed_at"] = Value::Null;
+        timeless["observation"]["observation_expires_at"] = Value::Null;
+        let bytes = serde_jcs::to_vec(&json!({
+            "domain": "ioi.autonomous-system-node-membership-record-jcs-sha256.v1",
+            "record": timeless,
+        }))
+        .map_err(std::io::Error::other)?;
+        if hex::encode(sha2::Sha256::digest(bytes)) != encoded {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "required Agentgres key does not match the timeless membership record root",
+            ));
+        }
+        return Ok(());
+    }
     if record_dir == "autonomous-system-constitution-amendments" {
         // The retained declaration carries no self-root field; its identity
         // is the content-addressed declaration root under the compiler's
@@ -928,6 +1020,8 @@ fn validate_required_identity(
             | "autonomous-system-migration-destination-acknowledgement-receipts"
             | "autonomous-system-network-enrollments"
             | "autonomous-system-amendment-receipts"
+            | "autonomous-system-membership-transitions"
+            | "autonomous-system-membership-receipts"
     ) {
         let encoded = record_id
             .strip_prefix(required_prefix)
@@ -985,6 +1079,14 @@ fn validate_required_identity(
             "autonomous-system-network-enrollments" => (
                 "ioi.autonomous-system-network-enrollment-artifact-jcs-sha256.v1",
                 "network_enrollment_id",
+            ),
+            "autonomous-system-membership-transitions" => (
+                "ioi.autonomous-system-membership-transition-jcs-sha256.v1",
+                "membership_transition_id",
+            ),
+            "autonomous-system-membership-receipts" => (
+                "ioi.autonomous-system-membership-receipt-jcs-sha256.v1",
+                "receipt_id",
             ),
             "autonomous-system-amendment-receipts" => (
                 match record.get("schema_version").and_then(Value::as_str) {

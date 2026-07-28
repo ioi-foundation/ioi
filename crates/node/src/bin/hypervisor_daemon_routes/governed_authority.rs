@@ -79,6 +79,15 @@ impl AuthorityContract {
             "acknowledge_migration_destination" => {
                 "scope:autonomous_system.continuity.migration_destination_acknowledge".to_owned()
             }
+            "admit_node"
+            | "attest_readiness"
+            | "advance_catchup"
+            | "promote_role"
+            | "drain_node"
+            | "remove_node"
+            | "declare_desired_topology" => {
+                format!("scope:autonomous_system.membership.{op}")
+            }
             "enroll_local" => "scope:autonomous_system.network_enrollment.local.enroll".to_owned(),
             "exit_local_enrollment" => {
                 "scope:autonomous_system.network_enrollment.local.exit".to_owned()

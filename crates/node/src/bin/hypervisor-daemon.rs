@@ -144,6 +144,8 @@ mod system_amendment_routes;
 mod system_continuity_routes;
 #[path = "hypervisor_daemon_routes/system_genesis_routes.rs"]
 mod system_genesis_routes;
+#[path = "hypervisor_daemon_routes/system_membership_routes.rs"]
+mod system_membership_routes;
 #[path = "hypervisor_daemon_routes/system_projection_routes.rs"]
 mod system_projection_routes;
 #[path = "hypervisor_daemon_routes/system_protected_transition_routes.rs"]
@@ -476,6 +478,7 @@ async fn async_main() -> anyhow::Result<()> {
             system_continuity_routes::CONTINUITY_INTENT_DIR,
             system_continuity_routes::MIGRATION_ACK_INTENT_DIR,
             system_continuity_routes::MIGRATION_ACK_RESERVATION_DIR,
+            system_membership_routes::MEMBERSHIP_INTENT_DIR,
         ],
     )?;
     seed_default_state(&data_dir);
@@ -2120,6 +2123,24 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/autonomous-systems/:id/continuity/:op",
             get(system_continuity_routes::handle_get_transition)
                 .post(system_continuity_routes::handle_transition)
+                .layer(DefaultBodyLimit::max(
+                    system_activation_routes::MAX_REQUEST_BYTES,
+                )),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/membership/projection",
+            get(system_membership_routes::handle_get_projection),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/membership/desired-topology",
+            post(system_membership_routes::handle_declare_desired_topology).layer(
+                DefaultBodyLimit::max(system_activation_routes::MAX_REQUEST_BYTES),
+            ),
+        )
+        .route(
+            "/v1/hypervisor/autonomous-systems/:id/membership/:op",
+            get(system_membership_routes::handle_get_transition)
+                .post(system_membership_routes::handle_transition)
                 .layer(DefaultBodyLimit::max(
                     system_activation_routes::MAX_REQUEST_BYTES,
                 )),

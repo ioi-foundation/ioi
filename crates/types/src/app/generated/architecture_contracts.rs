@@ -251,6 +251,18 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
         "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
         "sha256:53482584c42ada4e9b6eed4ad5f15dab0a83afcddad60276999f161eed1de21c",
     ),
+    (
+        "schema://ioi/foundations/autonomous-system-node-membership/v1",
+        "sha256:5d24c7d31fb3197f26d51870ca20c8bbb2866b11d59317b419963e60f066cead",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+        "sha256:298f8b5d54e8d8b95091260c297094087b45525d8e5c0ff57ee5e08c8ae079c2",
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-desired-topology/v1",
+        "sha256:2cd27e392f77ffeadd5689f598963eb07dc4ad8b3ed07cdacb3a74a700416b7a",
+    ),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -32712,6 +32724,1521 @@ pub enum EnforcementCoverageDeclarationV1Status {
     Revoked,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemNodeMembershipV1 {
+    pub schema_version: AutonomousSystemNodeMembershipV1SchemaVersion,
+    pub node_membership_id: String,
+    pub system_id: String,
+    pub deployment_profile_ref: String,
+    pub node_id: String,
+    pub node_owner_ref: String,
+    pub membership_epoch: ArchitectureContractInteger,
+    pub membership_lease_ref: String,
+    pub role_assignments: Vec<AutonomousSystemNodeMembershipV1RoleAssignmentsItem>,
+    pub failure_domain_refs: Vec<String>,
+    pub failure_independence_evidence_refs: Vec<String>,
+    pub node_attestation_refs: Vec<String>,
+    pub conformance_profile_refs: Vec<String>,
+    pub admission: AutonomousSystemNodeMembershipV1Admission,
+    pub synchronization: AutonomousSystemNodeMembershipV1Synchronization,
+    pub writer_fencing: AutonomousSystemNodeMembershipV1WriterFencing,
+    pub observation: AutonomousSystemNodeMembershipV1Observation,
+    pub status: AutonomousSystemNodeMembershipV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemNodeMembershipV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-node-membership/v1","title":"AutonomousSystemNodeMembership","description":"Observed per-node membership record for one bounded System: admitted identity, roles, readiness posture, catch-up watermark, state-root binding, and the canonical status ladder. This is observed truth only; desired topology lives in a distinct record and never fabricates any field here.","x-ioi-schema-version":"ioi.autonomous-system-node-membership.v1","type":"object","additionalProperties":false,"required":["schema_version","node_membership_id","system_id","deployment_profile_ref","node_id","node_owner_ref","membership_epoch","membership_lease_ref","role_assignments","failure_domain_refs","failure_independence_evidence_refs","node_attestation_refs","conformance_profile_refs","admission","synchronization","writer_fencing","observation","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-node-membership.v1"},"node_membership_id":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"system_id":{"$ref":"#/$defs/systemRef"},"deployment_profile_ref":{"$ref":"#/$defs/deploymentRevisionRef"},"node_id":{"$ref":"#/$defs/nodeRef"},"node_owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"membership_lease_ref":{"$ref":"#/$defs/leaseRef"},"role_assignments":{"type":"array","maxItems":16,"items":{"type":"object","additionalProperties":false,"required":["role","role_scope_refs","authority_grant_refs","role_lease_ref","admitted_epoch","valid_from","expires_at"],"properties":{"role":{"$ref":"#/$defs/nodeRole"},"role_scope_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"authority_grant_refs":{"type":"array","items":{"$ref":"#/$defs/grantRef"},"maxItems":32,"uniqueItems":true},"role_lease_ref":{"$ref":"#/$defs/nullableLeaseRef"},"admitted_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"valid_from":{"$ref":"#/$defs/nullableDateTime"},"expires_at":{"$ref":"#/$defs/nullableDateTime"}}}},"failure_domain_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"failure_independence_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"node_attestation_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"conformance_profile_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"admission":{"type":"object","additionalProperties":false,"required":["proposal_ref","decision_ref","admitted_constitution_root","admitted_manifest_root","admitted_deployment_profile_root"],"properties":{"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"admitted_constitution_root":{"$ref":"#/$defs/hash"},"admitted_manifest_root":{"$ref":"#/$defs/hash"},"admitted_deployment_profile_root":{"$ref":"#/$defs/hash"}}},"synchronization":{"type":"object","additionalProperties":false,"required":["checkpoint_ref","operation_offset","verified_state_root","catchup_receipt_ref","verified_at"],"properties":{"checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^checkpoint://[^\\s]{1,248}$"},{"type":"null"}]},"operation_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"verified_state_root":{"$ref":"#/$defs/nullableHash"},"catchup_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"verified_at":{"$ref":"#/$defs/nullableDateTime"}}},"writer_fencing":{"type":"object","additionalProperties":false,"required":["writer_epoch","writer_epoch_transition_ref","writer_epoch_transition_hash","writer_lease_ref","promotion_receipt_ref"],"properties":{"writer_epoch":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"writer_epoch_transition_ref":{"anyOf":[{"type":"string","pattern":"^writer-transition://[^\\s]{1,248}$"},{"type":"null"}]},"writer_epoch_transition_hash":{"$ref":"#/$defs/nullableHash"},"writer_lease_ref":{"$ref":"#/$defs/nullableLeaseRef"},"promotion_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"}},"if":{"type":"object","properties":{"writer_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"then":{"type":"object","properties":{"writer_epoch_transition_ref":{"type":"string"},"writer_epoch_transition_hash":{"type":"string"},"writer_lease_ref":{"type":"string"},"promotion_receipt_ref":{"type":"string"}}}},"observation":{"type":"object","additionalProperties":false,"required":["readiness","health_observation_ref","heartbeat_ref","readiness_evidence_refs","last_heartbeat_at","last_observed_at","observation_expires_at"],"properties":{"readiness":{"enum":["unknown","syncing","ready","degraded","unreachable","failed_closed"]},"health_observation_ref":{"anyOf":[{"type":"string","pattern":"^(?:agentgres|event)://[^\\s]{1,248}$"},{"type":"null"}]},"heartbeat_ref":{"anyOf":[{"type":"string","pattern":"^(?:event|receipt)://[^\\s]{1,248}$"},{"type":"null"}]},"readiness_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"last_heartbeat_at":{"$ref":"#/$defs/nullableDateTime"},"last_observed_at":{"$ref":"#/$defs/nullableDateTime"},"observation_expires_at":{"$ref":"#/$defs/nullableDateTime"}}},"status":{"enum":["candidate","attesting","admitted","active","draining","suspended","revoked","left","failed_closed"]}},"allOf":[{"if":{"type":"object","properties":{"observation":{"type":"object","properties":{"readiness":{"const":"ready"}},"required":["readiness"]}},"required":["observation"]},"then":{"type":"object","properties":{"synchronization":{"type":"object","properties":{"verified_state_root":{"type":"string"},"catchup_receipt_ref":{"type":"string"}},"required":["verified_state_root","catchup_receipt_ref"]}},"required":["synchronization"]}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"nodeRef":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"deploymentRevisionRef":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"leaseRef":{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},"nullableLeaseRef":{"anyOf":[{"$ref":"#/$defs/leaseRef"},{"type":"null"}]},"nullableReceiptRef":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},{"type":"null"}]},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"nodeRole":{"enum":["admission_writer","hot_standby","state_replica","projection_replica","execution_worker","artifact_replica","verifier","availability_witness","gateway","authority_member","consensus_member"]},"nullableDateTime":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<AutonomousSystemNodeMembershipV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            node_membership_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"node_membership_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_membership_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"node_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"node_owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"membership_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_lease_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            role_assignments: serde_json::from_value::<
+                Vec<AutonomousSystemNodeMembershipV1RoleAssignmentsItem>,
+            >(
+                object
+                    .remove(r#"role_assignments"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role_assignments"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failure_domain_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"failure_domain_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failure_domain_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failure_independence_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"failure_independence_evidence_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"failure_independence_evidence_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_attestation_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"node_attestation_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_attestation_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conformance_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"conformance_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"conformance_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission: serde_json::from_value::<AutonomousSystemNodeMembershipV1Admission>(
+                object
+                    .remove(r#"admission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            synchronization: serde_json::from_value::<
+                AutonomousSystemNodeMembershipV1Synchronization,
+            >(
+                object
+                    .remove(r#"synchronization"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"synchronization"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            writer_fencing:
+                serde_json::from_value::<AutonomousSystemNodeMembershipV1WriterFencing>(
+                    object
+                        .remove(r#"writer_fencing"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"writer_fencing"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            observation: serde_json::from_value::<AutonomousSystemNodeMembershipV1Observation>(
+                object
+                    .remove(r#"observation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemNodeMembershipV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNodeMembershipV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-node-membership.v1"#)]
+    IoiAutonomousSystemNodeMembershipV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemNodeMembershipV1RoleAssignmentsItem {
+    pub role: AutonomousSystemNodeMembershipV1RoleAssignmentsItemRole,
+    pub role_scope_refs: Vec<String>,
+    pub authority_grant_refs: Vec<String>,
+    pub role_lease_ref: Option<String>,
+    pub admitted_epoch: ArchitectureContractInteger,
+    pub valid_from: Option<String>,
+    pub expires_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemNodeMembershipV1RoleAssignmentsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["role","role_scope_refs","authority_grant_refs","role_lease_ref","admitted_epoch","valid_from","expires_at"],"properties":{"role":{"$ref":"#/$defs/nodeRole"},"role_scope_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"authority_grant_refs":{"type":"array","items":{"$ref":"#/$defs/grantRef"},"maxItems":32,"uniqueItems":true},"role_lease_ref":{"$ref":"#/$defs/nullableLeaseRef"},"admitted_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"valid_from":{"$ref":"#/$defs/nullableDateTime"},"expires_at":{"$ref":"#/$defs/nullableDateTime"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            role:
+                serde_json::from_value::<AutonomousSystemNodeMembershipV1RoleAssignmentsItemRole>(
+                    object
+                        .remove(r#"role"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"role"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            role_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"role_scope_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role_scope_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            role_lease_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"role_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"admitted_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_from: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"valid_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNodeMembershipV1RoleAssignmentsItemRole {
+    #[serde(rename = r#"admission_writer"#)]
+    AdmissionWriter,
+    #[serde(rename = r#"hot_standby"#)]
+    HotStandby,
+    #[serde(rename = r#"state_replica"#)]
+    StateReplica,
+    #[serde(rename = r#"projection_replica"#)]
+    ProjectionReplica,
+    #[serde(rename = r#"execution_worker"#)]
+    ExecutionWorker,
+    #[serde(rename = r#"artifact_replica"#)]
+    ArtifactReplica,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"availability_witness"#)]
+    AvailabilityWitness,
+    #[serde(rename = r#"gateway"#)]
+    Gateway,
+    #[serde(rename = r#"authority_member"#)]
+    AuthorityMember,
+    #[serde(rename = r#"consensus_member"#)]
+    ConsensusMember,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemNodeMembershipV1Admission {
+    pub proposal_ref: String,
+    pub decision_ref: String,
+    pub admitted_constitution_root: String,
+    pub admitted_manifest_root: String,
+    pub admitted_deployment_profile_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemNodeMembershipV1Admission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["proposal_ref","decision_ref","admitted_constitution_root","admitted_manifest_root","admitted_deployment_profile_root"],"properties":{"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"admitted_constitution_root":{"$ref":"#/$defs/hash"},"admitted_manifest_root":{"$ref":"#/$defs/hash"},"admitted_deployment_profile_root":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            proposal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_constitution_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_constitution_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"admitted_constitution_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_manifest_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_manifest_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_manifest_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_deployment_profile_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_deployment_profile_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"admitted_deployment_profile_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemNodeMembershipV1Synchronization {
+    pub checkpoint_ref: Option<String>,
+    pub operation_offset: ArchitectureContractInteger,
+    pub verified_state_root: Option<String>,
+    pub catchup_receipt_ref: Option<String>,
+    pub verified_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemNodeMembershipV1Synchronization {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["checkpoint_ref","operation_offset","verified_state_root","catchup_receipt_ref","verified_at"],"properties":{"checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^checkpoint://[^\\s]{1,248}$"},{"type":"null"}]},"operation_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"verified_state_root":{"$ref":"#/$defs/nullableHash"},"catchup_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"verified_at":{"$ref":"#/$defs/nullableDateTime"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            checkpoint_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"checkpoint_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_offset: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"operation_offset"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_offset"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verified_state_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"verified_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verified_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            catchup_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"catchup_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"catchup_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verified_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"verified_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verified_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemNodeMembershipV1WriterFencing {
+    pub writer_epoch: Option<ArchitectureContractInteger>,
+    pub writer_epoch_transition_ref: Option<String>,
+    pub writer_epoch_transition_hash: Option<String>,
+    pub writer_lease_ref: Option<String>,
+    pub promotion_receipt_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemNodeMembershipV1WriterFencing {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["writer_epoch","writer_epoch_transition_ref","writer_epoch_transition_hash","writer_lease_ref","promotion_receipt_ref"],"properties":{"writer_epoch":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"writer_epoch_transition_ref":{"anyOf":[{"type":"string","pattern":"^writer-transition://[^\\s]{1,248}$"},{"type":"null"}]},"writer_epoch_transition_hash":{"$ref":"#/$defs/nullableHash"},"writer_lease_ref":{"$ref":"#/$defs/nullableLeaseRef"},"promotion_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"}},"if":{"type":"object","properties":{"writer_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"then":{"type":"object","properties":{"writer_epoch_transition_ref":{"type":"string"},"writer_epoch_transition_hash":{"type":"string"},"writer_lease_ref":{"type":"string"},"promotion_receipt_ref":{"type":"string"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            writer_epoch: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"writer_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"writer_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            writer_epoch_transition_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"writer_epoch_transition_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"writer_epoch_transition_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            writer_epoch_transition_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"writer_epoch_transition_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"writer_epoch_transition_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            writer_lease_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"writer_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"writer_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            promotion_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"promotion_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"promotion_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemNodeMembershipV1Observation {
+    pub readiness: AutonomousSystemNodeMembershipV1ObservationReadiness,
+    pub health_observation_ref: Option<String>,
+    pub heartbeat_ref: Option<String>,
+    pub readiness_evidence_refs: Vec<String>,
+    pub last_heartbeat_at: Option<String>,
+    pub last_observed_at: Option<String>,
+    pub observation_expires_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemNodeMembershipV1Observation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["readiness","health_observation_ref","heartbeat_ref","readiness_evidence_refs","last_heartbeat_at","last_observed_at","observation_expires_at"],"properties":{"readiness":{"enum":["unknown","syncing","ready","degraded","unreachable","failed_closed"]},"health_observation_ref":{"anyOf":[{"type":"string","pattern":"^(?:agentgres|event)://[^\\s]{1,248}$"},{"type":"null"}]},"heartbeat_ref":{"anyOf":[{"type":"string","pattern":"^(?:event|receipt)://[^\\s]{1,248}$"},{"type":"null"}]},"readiness_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"last_heartbeat_at":{"$ref":"#/$defs/nullableDateTime"},"last_observed_at":{"$ref":"#/$defs/nullableDateTime"},"observation_expires_at":{"$ref":"#/$defs/nullableDateTime"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            readiness:
+                serde_json::from_value::<AutonomousSystemNodeMembershipV1ObservationReadiness>(
+                    object
+                        .remove(r#"readiness"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"readiness"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            health_observation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"health_observation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"health_observation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            heartbeat_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"heartbeat_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"heartbeat_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            readiness_evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"readiness_evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"readiness_evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            last_heartbeat_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"last_heartbeat_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"last_heartbeat_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            last_observed_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"last_observed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"last_observed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observation_expires_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"observation_expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observation_expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNodeMembershipV1ObservationReadiness {
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+    #[serde(rename = r#"syncing"#)]
+    Syncing,
+    #[serde(rename = r#"ready"#)]
+    Ready,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+    #[serde(rename = r#"unreachable"#)]
+    Unreachable,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemNodeMembershipV1Status {
+    #[serde(rename = r#"candidate"#)]
+    Candidate,
+    #[serde(rename = r#"attesting"#)]
+    Attesting,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"draining"#)]
+    Draining,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"left"#)]
+    Left,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemMembershipTransitionV1 {
+    pub schema_version: AutonomousSystemMembershipTransitionV1SchemaVersion,
+    pub membership_transition_id: String,
+    pub system_id: String,
+    pub op: AutonomousSystemMembershipTransitionV1Op,
+    pub sequence: ArchitectureContractInteger,
+    pub node_membership_ref: String,
+    pub node_id: String,
+    pub predecessor_membership_root: String,
+    pub resulting_membership_root: String,
+    pub predecessor_record_root: Option<String>,
+    pub resulting_record_root: String,
+    pub operation_commitment: String,
+    pub authority_effect_material: AutonomousSystemMembershipTransitionV1AuthorityEffectMaterial,
+    pub evidence_refs: Vec<String>,
+    pub authority_grant_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub status: AutonomousSystemMembershipTransitionV1Status,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemMembershipTransitionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-membership-transition/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-membership-transition/v1","title":"AutonomousSystemMembershipTransition","description":"Committed compare-and-swap step of one System's observed membership set: admission, readiness attestation, catch-up advance, role promotion, drain, or removal, with predecessor and resulting membership roots and a closed governed effect. Writer authority is constantly not admitted here.","x-ioi-schema-version":"ioi.autonomous-system-membership-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","membership_transition_id","system_id","op","sequence","node_membership_ref","node_id","predecessor_membership_root","resulting_membership_root","predecessor_record_root","resulting_record_root","operation_commitment","authority_effect_material","evidence_refs","authority_grant_refs","receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-membership-transition.v1"},"membership_transition_id":{"type":"string","pattern":"^membership-transition://[^\\s]{1,248}$"},"system_id":{"$ref":"#/$defs/systemRef"},"op":{"$ref":"#/$defs/membershipOp"},"sequence":{"type":"integer","minimum":1,"maximum":9007199254740991},"node_membership_ref":{"$ref":"#/$defs/nodeMembershipRef"},"node_id":{"$ref":"#/$defs/nodeRef"},"predecessor_membership_root":{"$ref":"#/$defs/hash"},"resulting_membership_root":{"$ref":"#/$defs/hash"},"predecessor_record_root":{"$ref":"#/$defs/nullableHash"},"resulting_record_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","node_membership_ref","node_id","node_owner_ref","membership_epoch","deployment_profile_ref","deployment_profile_root","desired_topology_ref","desired_topology_root","predecessor_status","resulting_status","predecessor_membership_root","resulting_membership_root","predecessor_record_root","resulting_record_root","declared_readiness","readiness_attestation_ref","catchup_operation_offset","catchup_receipt_ref","verified_state_root","target_role","role_lease_ref","evidence_refs","desired_topology_is_observed_truth","writer_authority_admitted","authority_widened","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-membership-authority-effect.v1"},"op":{"$ref":"#/$defs/membershipOp"},"required_scope":{"type":"string","pattern":"^scope:autonomous_system[.]membership[.][a-z_]{1,64}$"},"sequence":{"type":"integer","minimum":1,"maximum":9007199254740991},"system_id":{"$ref":"#/$defs/systemRef"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"$ref":"#/$defs/canonicalRef"},"node_membership_ref":{"$ref":"#/$defs/nodeMembershipRef"},"node_id":{"$ref":"#/$defs/nodeRef"},"node_owner_ref":{"anyOf":[{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,248}$"},{"type":"null"}]},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"deployment_profile_ref":{"$ref":"#/$defs/deploymentRevisionRef"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"desired_topology_ref":{"$ref":"#/$defs/desiredTopologyRef"},"desired_topology_root":{"$ref":"#/$defs/hash"},"predecessor_status":{"anyOf":[{"$ref":"#/$defs/membershipStatus"},{"type":"null"}]},"resulting_status":{"$ref":"#/$defs/membershipStatus"},"predecessor_membership_root":{"$ref":"#/$defs/hash"},"resulting_membership_root":{"$ref":"#/$defs/hash"},"predecessor_record_root":{"$ref":"#/$defs/nullableHash"},"resulting_record_root":{"$ref":"#/$defs/hash"},"declared_readiness":{"anyOf":[{"enum":["ready","degraded"]},{"type":"null"}]},"readiness_attestation_ref":{"$ref":"#/$defs/nullableEvidenceRef"},"catchup_operation_offset":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"catchup_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},{"type":"null"}]},"verified_state_root":{"$ref":"#/$defs/nullableHash"},"target_role":{"anyOf":[{"$ref":"#/$defs/nodeRole"},{"type":"null"}]},"role_lease_ref":{"anyOf":[{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},{"type":"null"}]},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"desired_topology_is_observed_truth":{"const":false},"writer_authority_admitted":{"const":false},"authority_widened":{"const":false},"operation_commitment":{"type":"null"}}},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"receipt_refs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"status":{"const":"committed"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"nodeRef":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"nodeMembershipRef":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"desiredTopologyRef":{"type":"string","pattern":"^desired-topology://[^\\s]{1,248}$"},"deploymentRevisionRef":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"nullableEvidenceRef":{"anyOf":[{"$ref":"#/$defs/evidenceRef"},{"type":"null"}]},"membershipOp":{"enum":["admit_node","attest_readiness","advance_catchup","promote_role","drain_node","remove_node"]},"membershipStatus":{"enum":["candidate","attesting","admitted","active","draining","suspended","revoked","left","failed_closed"]},"nodeRole":{"enum":["admission_writer","hot_standby","state_replica","projection_replica","execution_worker","artifact_replica","verifier","availability_witness","gateway","authority_member","consensus_member"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                AutonomousSystemMembershipTransitionV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_transition_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_transition_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"membership_transition_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<AutonomousSystemMembershipTransitionV1Op>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_membership_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"node_membership_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_membership_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"node_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_membership_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_membership_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_membership_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_membership_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_membership_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resulting_membership_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_record_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_record_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_record_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_record_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_record_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_record_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_effect_material: serde_json::from_value::<
+                AutonomousSystemMembershipTransitionV1AuthorityEffectMaterial,
+            >(
+                object
+                    .remove(r#"authority_effect_material"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_effect_material"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemMembershipTransitionV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMembershipTransitionV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-membership-transition.v1"#)]
+    IoiAutonomousSystemMembershipTransitionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMembershipTransitionV1Op {
+    #[serde(rename = r#"admit_node"#)]
+    AdmitNode,
+    #[serde(rename = r#"attest_readiness"#)]
+    AttestReadiness,
+    #[serde(rename = r#"advance_catchup"#)]
+    AdvanceCatchup,
+    #[serde(rename = r#"promote_role"#)]
+    PromoteRole,
+    #[serde(rename = r#"drain_node"#)]
+    DrainNode,
+    #[serde(rename = r#"remove_node"#)]
+    RemoveNode,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemMembershipTransitionV1AuthorityEffectMaterial {
+    pub schema_version: AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialSchemaVersion,
+    pub op: AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialOp,
+    pub required_scope: String,
+    pub sequence: ArchitectureContractInteger,
+    pub system_id: String,
+    pub genesis_ref: String,
+    pub source_governing_authority_ref: String,
+    pub node_membership_ref: String,
+    pub node_id: String,
+    pub node_owner_ref: Option<String>,
+    pub membership_epoch: ArchitectureContractInteger,
+    pub deployment_profile_ref: String,
+    pub deployment_profile_root: String,
+    pub desired_topology_ref: String,
+    pub desired_topology_root: String,
+    pub predecessor_status:
+        Option<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialPredecessorStatus>,
+    pub resulting_status:
+        AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialResultingStatus,
+    pub predecessor_membership_root: String,
+    pub resulting_membership_root: String,
+    pub predecessor_record_root: Option<String>,
+    pub resulting_record_root: String,
+    pub declared_readiness:
+        Option<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialDeclaredReadiness>,
+    pub readiness_attestation_ref: Option<String>,
+    pub catchup_operation_offset: Option<ArchitectureContractInteger>,
+    pub catchup_receipt_ref: Option<String>,
+    pub verified_state_root: Option<String>,
+    pub target_role:
+        Option<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialTargetRole>,
+    pub role_lease_ref: Option<String>,
+    pub evidence_refs: Vec<String>,
+    pub desired_topology_is_observed_truth:
+        AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialDesiredTopologyIsObservedTruth,
+    pub writer_authority_admitted:
+        AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialWriterAuthorityAdmitted,
+    pub authority_widened:
+        AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialAuthorityWidened,
+    pub operation_commitment: (),
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemMembershipTransitionV1AuthorityEffectMaterial
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-membership-transition/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","node_membership_ref","node_id","node_owner_ref","membership_epoch","deployment_profile_ref","deployment_profile_root","desired_topology_ref","desired_topology_root","predecessor_status","resulting_status","predecessor_membership_root","resulting_membership_root","predecessor_record_root","resulting_record_root","declared_readiness","readiness_attestation_ref","catchup_operation_offset","catchup_receipt_ref","verified_state_root","target_role","role_lease_ref","evidence_refs","desired_topology_is_observed_truth","writer_authority_admitted","authority_widened","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-membership-authority-effect.v1"},"op":{"$ref":"#/$defs/membershipOp"},"required_scope":{"type":"string","pattern":"^scope:autonomous_system[.]membership[.][a-z_]{1,64}$"},"sequence":{"type":"integer","minimum":1,"maximum":9007199254740991},"system_id":{"$ref":"#/$defs/systemRef"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"$ref":"#/$defs/canonicalRef"},"node_membership_ref":{"$ref":"#/$defs/nodeMembershipRef"},"node_id":{"$ref":"#/$defs/nodeRef"},"node_owner_ref":{"anyOf":[{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,248}$"},{"type":"null"}]},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"deployment_profile_ref":{"$ref":"#/$defs/deploymentRevisionRef"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"desired_topology_ref":{"$ref":"#/$defs/desiredTopologyRef"},"desired_topology_root":{"$ref":"#/$defs/hash"},"predecessor_status":{"anyOf":[{"$ref":"#/$defs/membershipStatus"},{"type":"null"}]},"resulting_status":{"$ref":"#/$defs/membershipStatus"},"predecessor_membership_root":{"$ref":"#/$defs/hash"},"resulting_membership_root":{"$ref":"#/$defs/hash"},"predecessor_record_root":{"$ref":"#/$defs/nullableHash"},"resulting_record_root":{"$ref":"#/$defs/hash"},"declared_readiness":{"anyOf":[{"enum":["ready","degraded"]},{"type":"null"}]},"readiness_attestation_ref":{"$ref":"#/$defs/nullableEvidenceRef"},"catchup_operation_offset":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"catchup_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},{"type":"null"}]},"verified_state_root":{"$ref":"#/$defs/nullableHash"},"target_role":{"anyOf":[{"$ref":"#/$defs/nodeRole"},{"type":"null"}]},"role_lease_ref":{"anyOf":[{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},{"type":"null"}]},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"desired_topology_is_observed_truth":{"const":false},"writer_authority_admitted":{"const":false},"authority_widened":{"const":false},"operation_commitment":{"type":"null"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialSchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialOp>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_scope: serde_json::from_value::<String>(
+                object
+                    .remove(r#"required_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sequence: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sequence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sequence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            genesis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"genesis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"genesis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_governing_authority_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_governing_authority_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_governing_authority_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_membership_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"node_membership_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_membership_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"node_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            node_owner_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"node_owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"node_owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_epoch: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"membership_epoch"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_epoch"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            desired_topology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"desired_topology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"desired_topology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            desired_topology_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"desired_topology_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"desired_topology_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_status: serde_json::from_value::<Option<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialPredecessorStatus>>(
+                object
+                    .remove(r#"predecessor_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_status: serde_json::from_value::<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialResultingStatus>(
+                object
+                    .remove(r#"resulting_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_membership_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"predecessor_membership_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_membership_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_membership_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_membership_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_membership_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_record_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_record_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"predecessor_record_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resulting_record_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resulting_record_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resulting_record_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_readiness: serde_json::from_value::<Option<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialDeclaredReadiness>>(
+                object
+                    .remove(r#"declared_readiness"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_readiness"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            readiness_attestation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"readiness_attestation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"readiness_attestation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            catchup_operation_offset: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"catchup_operation_offset"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"catchup_operation_offset"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            catchup_receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"catchup_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"catchup_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verified_state_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"verified_state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verified_state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_role: serde_json::from_value::<Option<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialTargetRole>>(
+                object
+                    .remove(r#"target_role"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_role"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            role_lease_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"role_lease_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role_lease_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            desired_topology_is_observed_truth: serde_json::from_value::<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialDesiredTopologyIsObservedTruth>(
+                object
+                    .remove(r#"desired_topology_is_observed_truth"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"desired_topology_is_observed_truth"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            writer_authority_admitted: serde_json::from_value::<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialWriterAuthorityAdmitted>(
+                object
+                    .remove(r#"writer_authority_admitted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"writer_authority_admitted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_widened: serde_json::from_value::<AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialAuthorityWidened>(
+                object
+                    .remove(r#"authority_widened"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_widened"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_commitment: serde_json::from_value::<()>(
+                object
+                    .remove(r#"operation_commitment"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_commitment"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialSchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-membership-authority-effect.v1"#)]
+    IoiAutonomousSystemMembershipAuthorityEffectV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialOp {
+    #[serde(rename = r#"admit_node"#)]
+    AdmitNode,
+    #[serde(rename = r#"attest_readiness"#)]
+    AttestReadiness,
+    #[serde(rename = r#"advance_catchup"#)]
+    AdvanceCatchup,
+    #[serde(rename = r#"promote_role"#)]
+    PromoteRole,
+    #[serde(rename = r#"drain_node"#)]
+    DrainNode,
+    #[serde(rename = r#"remove_node"#)]
+    RemoveNode,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialPredecessorStatus {
+    #[serde(rename = r#"candidate"#)]
+    Candidate,
+    #[serde(rename = r#"attesting"#)]
+    Attesting,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"draining"#)]
+    Draining,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"left"#)]
+    Left,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialResultingStatus {
+    #[serde(rename = r#"candidate"#)]
+    Candidate,
+    #[serde(rename = r#"attesting"#)]
+    Attesting,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"draining"#)]
+    Draining,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"left"#)]
+    Left,
+    #[serde(rename = r#"failed_closed"#)]
+    FailedClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialDeclaredReadiness {
+    #[serde(rename = r#"ready"#)]
+    Ready,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialTargetRole {
+    #[serde(rename = r#"admission_writer"#)]
+    AdmissionWriter,
+    #[serde(rename = r#"hot_standby"#)]
+    HotStandby,
+    #[serde(rename = r#"state_replica"#)]
+    StateReplica,
+    #[serde(rename = r#"projection_replica"#)]
+    ProjectionReplica,
+    #[serde(rename = r#"execution_worker"#)]
+    ExecutionWorker,
+    #[serde(rename = r#"artifact_replica"#)]
+    ArtifactReplica,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"availability_witness"#)]
+    AvailabilityWitness,
+    #[serde(rename = r#"gateway"#)]
+    Gateway,
+    #[serde(rename = r#"authority_member"#)]
+    AuthorityMember,
+    #[serde(rename = r#"consensus_member"#)]
+    ConsensusMember,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialDesiredTopologyIsObservedTruth
+{
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialDesiredTopologyIsObservedTruth
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialDesiredTopologyIsObservedTruth
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialWriterAuthorityAdmitted {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialWriterAuthorityAdmitted
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialWriterAuthorityAdmitted
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialAuthorityWidened {
+    False,
+}
+
+impl serde::Serialize
+    for AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialAuthorityWidened
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for AutonomousSystemMembershipTransitionV1AuthorityEffectMaterialAuthorityWidened
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemMembershipTransitionV1Status {
+    #[serde(rename = r#"committed"#)]
+    Committed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDesiredTopologyV1 {
+    pub schema_version: AutonomousSystemDesiredTopologyV1SchemaVersion,
+    pub desired_topology_id: String,
+    pub system_id: String,
+    pub deployment_profile_ref: String,
+    pub deployment_profile_root: String,
+    pub failover_profile_ref: String,
+    pub role_targets: Vec<AutonomousSystemDesiredTopologyV1RoleTargetsItem>,
+    pub catchup_floor: AutonomousSystemDesiredTopologyV1CatchupFloor,
+    pub observation_ttl_ms: ArchitectureContractInteger,
+    pub membership_policy_ref: String,
+    pub asserts_observed_truth: AutonomousSystemDesiredTopologyV1AssertsObservedTruth,
+    pub predecessor_desired_topology_root: Option<String>,
+    pub status: AutonomousSystemDesiredTopologyV1Status,
+    pub created_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDesiredTopologyV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-desired-topology/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-desired-topology/v1","title":"AutonomousSystemDesiredTopology","description":"Owner-declared desired topology for one bounded System: per-role targets, catch-up floor, and failover-profile binding over the exact live deployment-profile revision. Structurally incapable of asserting observed admission, readiness, role, root, watermark, or catch-up truth.","x-ioi-schema-version":"ioi.autonomous-system-desired-topology.v1","type":"object","additionalProperties":false,"required":["schema_version","desired_topology_id","system_id","deployment_profile_ref","deployment_profile_root","failover_profile_ref","role_targets","catchup_floor","observation_ttl_ms","membership_policy_ref","asserts_observed_truth","predecessor_desired_topology_root","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-desired-topology.v1"},"desired_topology_id":{"type":"string","pattern":"^desired-topology://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"failover_profile_ref":{"type":"string","pattern":"^failover-profile://[^\\s]{1,248}$"},"role_targets":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"object","additionalProperties":false,"required":["role","minimum_ready_nodes","maximum_active_nodes","colocation_allowed"],"properties":{"role":{"enum":["admission_writer","hot_standby","state_replica","projection_replica","execution_worker","artifact_replica","verifier","availability_witness","gateway","authority_member","consensus_member"]},"minimum_ready_nodes":{"type":"integer","minimum":0,"maximum":4096},"maximum_active_nodes":{"anyOf":[{"type":"integer","minimum":1,"maximum":4096},{"type":"null"}]},"colocation_allowed":{"type":"boolean"}}}},"catchup_floor":{"type":"object","additionalProperties":false,"required":["minimum_operation_offset","catchup_policy_ref"],"properties":{"minimum_operation_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"catchup_policy_ref":{"$ref":"#/$defs/policyRef"}}},"observation_ttl_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"membership_policy_ref":{"$ref":"#/$defs/policyRef"},"asserts_observed_truth":{"const":false},"predecessor_desired_topology_root":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"status":{"enum":["declared","superseded"]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<AutonomousSystemDesiredTopologyV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            desired_topology_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"desired_topology_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"desired_topology_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deployment_profile_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"deployment_profile_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deployment_profile_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failover_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"failover_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failover_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            role_targets: serde_json::from_value::<
+                Vec<AutonomousSystemDesiredTopologyV1RoleTargetsItem>,
+            >(
+                object
+                    .remove(r#"role_targets"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role_targets"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            catchup_floor: serde_json::from_value::<AutonomousSystemDesiredTopologyV1CatchupFloor>(
+                object
+                    .remove(r#"catchup_floor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"catchup_floor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observation_ttl_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"observation_ttl_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observation_ttl_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"membership_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            asserts_observed_truth: serde_json::from_value::<
+                AutonomousSystemDesiredTopologyV1AssertsObservedTruth,
+            >(
+                object
+                    .remove(r#"asserts_observed_truth"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"asserts_observed_truth"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_desired_topology_root: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_desired_topology_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_desired_topology_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<AutonomousSystemDesiredTopologyV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDesiredTopologyV1SchemaVersion {
+    #[serde(rename = r#"ioi.autonomous-system-desired-topology.v1"#)]
+    IoiAutonomousSystemDesiredTopologyV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDesiredTopologyV1RoleTargetsItem {
+    pub role: AutonomousSystemDesiredTopologyV1RoleTargetsItemRole,
+    pub minimum_ready_nodes: ArchitectureContractInteger,
+    pub maximum_active_nodes: Option<ArchitectureContractInteger>,
+    pub colocation_allowed: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDesiredTopologyV1RoleTargetsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-desired-topology/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["role","minimum_ready_nodes","maximum_active_nodes","colocation_allowed"],"properties":{"role":{"enum":["admission_writer","hot_standby","state_replica","projection_replica","execution_worker","artifact_replica","verifier","availability_witness","gateway","authority_member","consensus_member"]},"minimum_ready_nodes":{"type":"integer","minimum":0,"maximum":4096},"maximum_active_nodes":{"anyOf":[{"type":"integer","minimum":1,"maximum":4096},{"type":"null"}]},"colocation_allowed":{"type":"boolean"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            role: serde_json::from_value::<AutonomousSystemDesiredTopologyV1RoleTargetsItemRole>(
+                object
+                    .remove(r#"role"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            minimum_ready_nodes: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"minimum_ready_nodes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"minimum_ready_nodes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            maximum_active_nodes: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"maximum_active_nodes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"maximum_active_nodes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            colocation_allowed: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"colocation_allowed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"colocation_allowed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDesiredTopologyV1RoleTargetsItemRole {
+    #[serde(rename = r#"admission_writer"#)]
+    AdmissionWriter,
+    #[serde(rename = r#"hot_standby"#)]
+    HotStandby,
+    #[serde(rename = r#"state_replica"#)]
+    StateReplica,
+    #[serde(rename = r#"projection_replica"#)]
+    ProjectionReplica,
+    #[serde(rename = r#"execution_worker"#)]
+    ExecutionWorker,
+    #[serde(rename = r#"artifact_replica"#)]
+    ArtifactReplica,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"availability_witness"#)]
+    AvailabilityWitness,
+    #[serde(rename = r#"gateway"#)]
+    Gateway,
+    #[serde(rename = r#"authority_member"#)]
+    AuthorityMember,
+    #[serde(rename = r#"consensus_member"#)]
+    ConsensusMember,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AutonomousSystemDesiredTopologyV1CatchupFloor {
+    pub minimum_operation_offset: ArchitectureContractInteger,
+    pub catchup_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDesiredTopologyV1CatchupFloor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/autonomous-system-desired-topology/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["minimum_operation_offset","catchup_policy_ref"],"properties":{"minimum_operation_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"catchup_policy_ref":{"$ref":"#/$defs/policyRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            minimum_operation_offset: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"minimum_operation_offset"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"minimum_operation_offset"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            catchup_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"catchup_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"catchup_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutonomousSystemDesiredTopologyV1AssertsObservedTruth {
+    False,
+}
+
+impl serde::Serialize for AutonomousSystemDesiredTopologyV1AssertsObservedTruth {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AutonomousSystemDesiredTopologyV1AssertsObservedTruth {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AutonomousSystemDesiredTopologyV1Status {
+    #[serde(rename = r#"declared"#)]
+    Declared,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -34258,6 +35785,118 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-node-membership/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-admitted.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-node-membership/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-active-ready.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-node-membership/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-verified-root.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-node-membership/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-writer-epoch-unbound.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-node-membership/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-duplicate-role.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_node_membership.roles.unique"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-node-membership/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_node_membership.readiness.evidence_required"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/positive-admit-node.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-status-open.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-writer-authority-claimed.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-commitment-mismatch.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_membership_transition.operation_commitment.recomputes"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-node-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_membership_transition.node.matches_effect"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-desired-topology/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/positive-declared.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-desired-topology/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-asserts-observed.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/autonomous-system-desired-topology/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-duplicate-role-target.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("autonomous_system_desired_topology.role_targets.unique"),
     },
 ];
 
@@ -37958,6 +39597,160 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-admitted.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-admitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-active-ready.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-active-ready.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-verified-root.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-verified-root.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-writer-epoch-unbound.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-writer-epoch-unbound.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-duplicate-role.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-duplicate-role.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-evidence.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-node-membership/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/positive-admit-node.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-membership-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/positive-admit-node.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-status-open.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-membership-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-status-open.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-writer-authority-claimed.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-membership-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-writer-authority-claimed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-commitment-mismatch.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-membership-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-commitment-mismatch.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-node-substituted.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-membership-transition/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-node-substituted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/positive-declared.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-desired-topology/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/positive-declared.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-asserts-observed.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-desired-topology/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-asserts-observed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-duplicate-role-target.json"#,
+        contract_id: r#"schema://ioi/foundations/autonomous-system-desired-topology/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-duplicate-role-target.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -39560,6 +41353,18 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
         "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
         r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","title":"EnforcementCoverageDeclaration","description":"One evidence-backed enforcement coverage declaration for an exact profile or adapter revision, platform, surface, action class, and scope. The declaration reports coverage facts without owning policy, authority, execution, or durable runtime truth. declaration_id is not self-authenticating: the consuming deployment evidence or operability index must bind the exact declaration artifact reference and content hash. Any change to claims, status, freshness, evidence, or other declaration bytes produces a new content-bound snapshot rather than mutating an accepted snapshot.","x-ioi-schema-version":"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1","type":"object","additionalProperties":false,"required":["schema_version","declaration_id","subject","scope","claims","mechanisms","platform","required_privilege","custom_os_kernel_module_required_for_claim","bypass","operating_mode","decision_source","final_invoker","availability","receipt","verification","known_gaps","limitations","status"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.enforcement-coverage-declaration.v1"},"declaration_id":{"type":"string","pattern":"^enforcement-coverage://[^\\s]{1,248}$","description":"Stable logical identifier only; consumers must separately verify the exact declaration artifact reference and content hash."},"subject":{"type":"object","additionalProperties":false,"required":["kind","profile_or_adapter_ref","version","content_hash","implementation_ref","deployment_profile_ref"],"properties":{"kind":{"enum":["node_enforcement_profile","authority_gateway_profile"]},"profile_or_adapter_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","pattern":"^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$","maxLength":256},"content_hash":{"$ref":"#/$defs/hash"},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"deployment_profile_ref":{"$ref":"#/$defs/canonicalRef"}}},"scope":{"type":"object","additionalProperties":false,"required":["surface","action_class","boundary","scope_ref"],"properties":{"surface":{"$ref":"#/$defs/canonicalName"},"action_class":{"$ref":"#/$defs/canonicalName"},"boundary":{"enum":["managed_workload","host","application","adapter","external_service","physical_unit","other_declared"]},"scope_ref":{"$ref":"#/$defs/canonicalRef"}}},"claims":{"type":"object","additionalProperties":false,"required":["discovered","observable","attributable","mediated","preventable","receipted","uncovered"],"properties":{"discovered":{"$ref":"#/$defs/claimState"},"observable":{"$ref":"#/$defs/claimState"},"attributable":{"$ref":"#/$defs/claimState"},"mediated":{"$ref":"#/$defs/claimState"},"preventable":{"$ref":"#/$defs/claimState"},"receipted":{"$ref":"#/$defs/claimState"},"uncovered":{"$ref":"#/$defs/claimState"}}},"mechanisms":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["mechanism_id","kind","implementation_ref","version","roles"],"properties":{"mechanism_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"kind":{"enum":["daemon_gate","sandbox","seccomp","ebpf","lsm","network_proxy","datawall","ctee_policy","tee_attestation","platform_native_user_space","platform_native_privileged","application_adapter","harness_adapter","mcp_gateway","shell_wrapper","filesystem_watcher","browser_extension","api_gateway","ci_gate","webhook_gate","receipt_ingestion","custom_os_kernel_module","other_declared"]},"implementation_ref":{"$ref":"#/$defs/canonicalRef"},"version":{"type":"string","minLength":1,"maxLength":128},"roles":{"type":"array","items":{"enum":["discovery","observation","attribution","mediation","prevention","receipt_emission"]},"minItems":1,"maxItems":6,"uniqueItems":true}}},"maxItems":32,"uniqueItems":true},"platform":{"type":"object","additionalProperties":false,"required":["family","version","architecture","execution_context","native_security_facility_refs"],"properties":{"family":{"enum":["linux","macos","windows","portable","other_declared"]},"version":{"type":"string","minLength":1,"maxLength":128},"architecture":{"enum":["x86_64","aarch64","portable","other_declared"]},"execution_context":{"enum":["user_session","managed_host","container","vm","microvm","bare_metal","hosted_service","other_declared"]},"native_security_facility_refs":{"$ref":"#/$defs/canonicalRefs"}}},"required_privilege":{"enum":["user","elevated","os_privileged","kernel","hardware_backed"]},"custom_os_kernel_module_required_for_claim":{"type":"boolean"},"bypass":{"type":"object","additionalProperties":false,"required":["resistance","assumptions","known_bypass_refs"],"properties":{"resistance":{"enum":["none","cooperative","best_effort","managed_host","measured_host"]},"assumptions":{"type":"array","items":{"type":"string","minLength":1,"maxLength":512},"maxItems":32,"uniqueItems":true},"known_bypass_refs":{"$ref":"#/$defs/canonicalRefs"}}},"operating_mode":{"enum":["active_enforcement","audit_only","passive_observation","receipt_ingestion_only","uncovered"]},"decision_source":{"type":"object","additionalProperties":false,"required":["kind","decision_source_ref","policy_ref","authority_provider_ref"],"properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval","none","unknown"]},"decision_source_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"},"authority_provider_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"final_invoker":{"type":"object","additionalProperties":false,"required":["kind","invoker_ref"],"properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human","none","unknown"]},"invoker_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"availability":{"type":"object","additionalProperties":false,"required":["online_behavior","offline_behavior","failure_posture"],"properties":{"online_behavior":{"$ref":"#/$defs/availabilityBehavior"},"offline_behavior":{"$ref":"#/$defs/availabilityBehavior"},"failure_posture":{"enum":["fail_closed","fail_open","audit_only","quarantine","not_applicable","unknown"]}}},"receipt":{"type":"object","additionalProperties":false,"required":["scope","contract_refs","evidence_refs"],"properties":{"scope":{"enum":["none","observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"$ref":"#/$defs/canonicalRefs"},"evidence_refs":{"$ref":"#/$defs/evidenceRefs"}}},"verification":{"type":"object","additionalProperties":false,"required":["verifier_ref","verification_method_ref","evidence_refs","evaluated_at","freshness_status","valid_until","freshness_policy_ref"],"properties":{"verifier_ref":{"$ref":"#/$defs/canonicalRef"},"verification_method_ref":{"$ref":"#/$defs/canonicalRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":128,"uniqueItems":true},"evaluated_at":{"$ref":"#/$defs/dateTime"},"freshness_status":{"enum":["current","stale","expired","unverified"]},"valid_until":{"anyOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]},"freshness_policy_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"known_gaps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["gap_id","description","affected_path","mitigation_ref"],"properties":{"gap_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"description":{"type":"string","minLength":1,"maxLength":1024},"affected_path":{"type":"string","minLength":1,"maxLength":512},"mitigation_ref":{"$ref":"#/$defs/nullableCanonicalRef"}}},"maxItems":64,"uniqueItems":true},"limitations":{"type":"array","items":{"type":"string","minLength":1,"maxLength":1024},"maxItems":64,"uniqueItems":true},"status":{"enum":["draft","verified","stale","revoked"]}},"allOf":[{"if":{"properties":{"claims":{"type":"object","properties":{"uncovered":{"const":true}},"required":["uncovered"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"discovered":{"$ref":"#/$defs/notTrueClaimState"},"observable":{"$ref":"#/$defs/notTrueClaimState"},"attributable":{"$ref":"#/$defs/notTrueClaimState"},"mediated":{"$ref":"#/$defs/notTrueClaimState"},"preventable":{"$ref":"#/$defs/notTrueClaimState"},"receipted":{"$ref":"#/$defs/notTrueClaimState"}}},"operating_mode":{"const":"uncovered"}}}},{"if":{"properties":{"operating_mode":{"const":"uncovered"}},"required":["operating_mode"]},"then":{"properties":{"claims":{"type":"object","properties":{"uncovered":{"const":true}}}}}},{"if":{"properties":{"status":{"const":"verified"}},"required":["status"]},"then":{"properties":{"verification":{"type":"object","properties":{"freshness_status":{"const":"current"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}},"required":["mediated"]}},"required":["claims"]},"then":{"properties":{"decision_source":{"type":"object","properties":{"kind":{"enum":["daemon_policy_engine","owner_policy_service","adapter_local_policy","human_approval"]},"decision_source_ref":{"$ref":"#/$defs/canonicalRef"}}},"final_invoker":{"type":"object","properties":{"kind":{"enum":["daemon","workload_broker","adapter","application","external_service","human"]},"invoker_ref":{"$ref":"#/$defs/canonicalRef"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"preventable":{"const":true}},"required":["preventable"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"attributable":{"const":true}},"required":["attributable"]}},"required":["claims"]},"then":{"properties":{"claims":{"type":"object","properties":{"observable":{"const":true}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"receipted":{"const":true}},"required":["receipted"]}},"required":["claims"]},"then":{"properties":{"receipt":{"type":"object","properties":{"scope":{"enum":["observation","decision","effect","observation_and_decision","observation_and_effect","decision_and_effect","observation_decision_and_effect"]},"contract_refs":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"operating_mode":{"enum":["audit_only","passive_observation","receipt_ingestion_only"]}},"required":["operating_mode"]},"then":{"properties":{"claims":{"type":"object","properties":{"mediated":{"$ref":"#/$defs/notTrueClaimState"},"preventable":{"$ref":"#/$defs/notTrueClaimState"}}}}}},{"if":{"properties":{"availability":{"type":"object","properties":{"failure_posture":{"const":"audit_only"}},"required":["failure_posture"]}},"required":["availability"]},"then":{"properties":{"claims":{"type":"object","properties":{"preventable":{"$ref":"#/$defs/notTrueClaimState"}}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"discovered":{"const":true}},"required":["discovered"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithDiscoveryRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"observable":{"const":true}},"required":["observable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithObservationRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"attributable":{"const":true}},"required":["attributable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithAttributionRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"mediated":{"const":true}},"required":["mediated"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithMediationRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"preventable":{"const":true}},"required":["preventable"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithPreventionRole"}}}}},{"if":{"properties":{"claims":{"type":"object","properties":{"receipted":{"const":true}},"required":["receipted"]}},"required":["claims"]},"then":{"properties":{"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/mechanismWithReceiptEmissionRole"}}}}},{"if":{"properties":{"custom_os_kernel_module_required_for_claim":{"const":true}},"required":["custom_os_kernel_module_required_for_claim"]},"then":{"properties":{"required_privilege":{"const":"kernel"},"mechanisms":{"type":"array","minItems":1,"contains":{"$ref":"#/$defs/customOsKernelModuleMechanism"}}}}}],"$defs":{"claimState":{"anyOf":[{"type":"boolean"},{"const":"unknown"}]},"notTrueClaimState":{"anyOf":[{"const":false},{"const":"unknown"}]},"mechanismWithDiscoveryRole":{"$ref":"#/$defs/mechanismRoleDiscovery"},"mechanismWithObservationRole":{"$ref":"#/$defs/mechanismRoleObservation"},"mechanismWithAttributionRole":{"$ref":"#/$defs/mechanismRoleAttribution"},"mechanismWithMediationRole":{"$ref":"#/$defs/mechanismRoleMediation"},"mechanismWithPreventionRole":{"$ref":"#/$defs/mechanismRolePrevention"},"mechanismWithReceiptEmissionRole":{"$ref":"#/$defs/mechanismRoleReceiptEmission"},"mechanismRoleDiscovery":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"discovery"}}},"required":["roles"]},"mechanismRoleObservation":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"observation"}}},"required":["roles"]},"mechanismRoleAttribution":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"attribution"}}},"required":["roles"]},"mechanismRoleMediation":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"mediation"}}},"required":["roles"]},"mechanismRolePrevention":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"prevention"}}},"required":["roles"]},"mechanismRoleReceiptEmission":{"type":"object","properties":{"roles":{"type":"array","contains":{"const":"receipt_emission"}}},"required":["roles"]},"customOsKernelModuleMechanism":{"type":"object","properties":{"kind":{"const":"custom_os_kernel_module"}},"required":["kind"]},"canonicalName":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$"},"nullableCanonicalRef":{"anyOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"canonicalRefs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":128,"uniqueItems":true},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact)://[^\\s]{1,248}$"},"evidenceRefs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":128,"uniqueItems":true},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"availabilityBehavior":{"enum":["enforce","audit","deny","queue","allow","quarantine","not_applicable","unknown"]}}}"##,
     ),
+    (
+        "schema://ioi/foundations/autonomous-system-node-membership/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-node-membership/v1","title":"AutonomousSystemNodeMembership","description":"Observed per-node membership record for one bounded System: admitted identity, roles, readiness posture, catch-up watermark, state-root binding, and the canonical status ladder. This is observed truth only; desired topology lives in a distinct record and never fabricates any field here.","x-ioi-schema-version":"ioi.autonomous-system-node-membership.v1","type":"object","additionalProperties":false,"required":["schema_version","node_membership_id","system_id","deployment_profile_ref","node_id","node_owner_ref","membership_epoch","membership_lease_ref","role_assignments","failure_domain_refs","failure_independence_evidence_refs","node_attestation_refs","conformance_profile_refs","admission","synchronization","writer_fencing","observation","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-node-membership.v1"},"node_membership_id":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"system_id":{"$ref":"#/$defs/systemRef"},"deployment_profile_ref":{"$ref":"#/$defs/deploymentRevisionRef"},"node_id":{"$ref":"#/$defs/nodeRef"},"node_owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,248}$"},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"membership_lease_ref":{"$ref":"#/$defs/leaseRef"},"role_assignments":{"type":"array","maxItems":16,"items":{"type":"object","additionalProperties":false,"required":["role","role_scope_refs","authority_grant_refs","role_lease_ref","admitted_epoch","valid_from","expires_at"],"properties":{"role":{"$ref":"#/$defs/nodeRole"},"role_scope_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"authority_grant_refs":{"type":"array","items":{"$ref":"#/$defs/grantRef"},"maxItems":32,"uniqueItems":true},"role_lease_ref":{"$ref":"#/$defs/nullableLeaseRef"},"admitted_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"valid_from":{"$ref":"#/$defs/nullableDateTime"},"expires_at":{"$ref":"#/$defs/nullableDateTime"}}}},"failure_domain_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"failure_independence_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"node_attestation_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"conformance_profile_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"admission":{"type":"object","additionalProperties":false,"required":["proposal_ref","decision_ref","admitted_constitution_root","admitted_manifest_root","admitted_deployment_profile_root"],"properties":{"proposal_ref":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"decision_ref":{"type":"string","pattern":"^decision://[^\\s]{1,248}$"},"admitted_constitution_root":{"$ref":"#/$defs/hash"},"admitted_manifest_root":{"$ref":"#/$defs/hash"},"admitted_deployment_profile_root":{"$ref":"#/$defs/hash"}}},"synchronization":{"type":"object","additionalProperties":false,"required":["checkpoint_ref","operation_offset","verified_state_root","catchup_receipt_ref","verified_at"],"properties":{"checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^checkpoint://[^\\s]{1,248}$"},{"type":"null"}]},"operation_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"verified_state_root":{"$ref":"#/$defs/nullableHash"},"catchup_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"},"verified_at":{"$ref":"#/$defs/nullableDateTime"}}},"writer_fencing":{"type":"object","additionalProperties":false,"required":["writer_epoch","writer_epoch_transition_ref","writer_epoch_transition_hash","writer_lease_ref","promotion_receipt_ref"],"properties":{"writer_epoch":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"writer_epoch_transition_ref":{"anyOf":[{"type":"string","pattern":"^writer-transition://[^\\s]{1,248}$"},{"type":"null"}]},"writer_epoch_transition_hash":{"$ref":"#/$defs/nullableHash"},"writer_lease_ref":{"$ref":"#/$defs/nullableLeaseRef"},"promotion_receipt_ref":{"$ref":"#/$defs/nullableReceiptRef"}},"if":{"type":"object","properties":{"writer_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991}}},"then":{"type":"object","properties":{"writer_epoch_transition_ref":{"type":"string"},"writer_epoch_transition_hash":{"type":"string"},"writer_lease_ref":{"type":"string"},"promotion_receipt_ref":{"type":"string"}}}},"observation":{"type":"object","additionalProperties":false,"required":["readiness","health_observation_ref","heartbeat_ref","readiness_evidence_refs","last_heartbeat_at","last_observed_at","observation_expires_at"],"properties":{"readiness":{"enum":["unknown","syncing","ready","degraded","unreachable","failed_closed"]},"health_observation_ref":{"anyOf":[{"type":"string","pattern":"^(?:agentgres|event)://[^\\s]{1,248}$"},{"type":"null"}]},"heartbeat_ref":{"anyOf":[{"type":"string","pattern":"^(?:event|receipt)://[^\\s]{1,248}$"},{"type":"null"}]},"readiness_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"last_heartbeat_at":{"$ref":"#/$defs/nullableDateTime"},"last_observed_at":{"$ref":"#/$defs/nullableDateTime"},"observation_expires_at":{"$ref":"#/$defs/nullableDateTime"}}},"status":{"enum":["candidate","attesting","admitted","active","draining","suspended","revoked","left","failed_closed"]}},"allOf":[{"if":{"type":"object","properties":{"observation":{"type":"object","properties":{"readiness":{"const":"ready"}},"required":["readiness"]}},"required":["observation"]},"then":{"type":"object","properties":{"synchronization":{"type":"object","properties":{"verified_state_root":{"type":"string"},"catchup_receipt_ref":{"type":"string"}},"required":["verified_state_root","catchup_receipt_ref"]}},"required":["synchronization"]}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"nodeRef":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"deploymentRevisionRef":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"leaseRef":{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},"nullableLeaseRef":{"anyOf":[{"$ref":"#/$defs/leaseRef"},{"type":"null"}]},"nullableReceiptRef":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},{"type":"null"}]},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"grantRef":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"nodeRole":{"enum":["admission_writer","hot_standby","state_replica","projection_replica","execution_worker","artifact_replica","verifier","availability_witness","gateway","authority_member","consensus_member"]},"nullableDateTime":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-membership-transition/v1","title":"AutonomousSystemMembershipTransition","description":"Committed compare-and-swap step of one System's observed membership set: admission, readiness attestation, catch-up advance, role promotion, drain, or removal, with predecessor and resulting membership roots and a closed governed effect. Writer authority is constantly not admitted here.","x-ioi-schema-version":"ioi.autonomous-system-membership-transition.v1","type":"object","additionalProperties":false,"required":["schema_version","membership_transition_id","system_id","op","sequence","node_membership_ref","node_id","predecessor_membership_root","resulting_membership_root","predecessor_record_root","resulting_record_root","operation_commitment","authority_effect_material","evidence_refs","authority_grant_refs","receipt_refs","status"],"properties":{"schema_version":{"const":"ioi.autonomous-system-membership-transition.v1"},"membership_transition_id":{"type":"string","pattern":"^membership-transition://[^\\s]{1,248}$"},"system_id":{"$ref":"#/$defs/systemRef"},"op":{"$ref":"#/$defs/membershipOp"},"sequence":{"type":"integer","minimum":1,"maximum":9007199254740991},"node_membership_ref":{"$ref":"#/$defs/nodeMembershipRef"},"node_id":{"$ref":"#/$defs/nodeRef"},"predecessor_membership_root":{"$ref":"#/$defs/hash"},"resulting_membership_root":{"$ref":"#/$defs/hash"},"predecessor_record_root":{"$ref":"#/$defs/nullableHash"},"resulting_record_root":{"$ref":"#/$defs/hash"},"operation_commitment":{"$ref":"#/$defs/hash"},"authority_effect_material":{"type":"object","additionalProperties":false,"required":["schema_version","op","required_scope","sequence","system_id","genesis_ref","source_governing_authority_ref","node_membership_ref","node_id","node_owner_ref","membership_epoch","deployment_profile_ref","deployment_profile_root","desired_topology_ref","desired_topology_root","predecessor_status","resulting_status","predecessor_membership_root","resulting_membership_root","predecessor_record_root","resulting_record_root","declared_readiness","readiness_attestation_ref","catchup_operation_offset","catchup_receipt_ref","verified_state_root","target_role","role_lease_ref","evidence_refs","desired_topology_is_observed_truth","writer_authority_admitted","authority_widened","operation_commitment"],"properties":{"schema_version":{"const":"ioi.autonomous-system-membership-authority-effect.v1"},"op":{"$ref":"#/$defs/membershipOp"},"required_scope":{"type":"string","pattern":"^scope:autonomous_system[.]membership[.][a-z_]{1,64}$"},"sequence":{"type":"integer","minimum":1,"maximum":9007199254740991},"system_id":{"$ref":"#/$defs/systemRef"},"genesis_ref":{"type":"string","pattern":"^genesis://[^\\s]{1,248}$"},"source_governing_authority_ref":{"$ref":"#/$defs/canonicalRef"},"node_membership_ref":{"$ref":"#/$defs/nodeMembershipRef"},"node_id":{"$ref":"#/$defs/nodeRef"},"node_owner_ref":{"anyOf":[{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,248}$"},{"type":"null"}]},"membership_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991},"deployment_profile_ref":{"$ref":"#/$defs/deploymentRevisionRef"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"desired_topology_ref":{"$ref":"#/$defs/desiredTopologyRef"},"desired_topology_root":{"$ref":"#/$defs/hash"},"predecessor_status":{"anyOf":[{"$ref":"#/$defs/membershipStatus"},{"type":"null"}]},"resulting_status":{"$ref":"#/$defs/membershipStatus"},"predecessor_membership_root":{"$ref":"#/$defs/hash"},"resulting_membership_root":{"$ref":"#/$defs/hash"},"predecessor_record_root":{"$ref":"#/$defs/nullableHash"},"resulting_record_root":{"$ref":"#/$defs/hash"},"declared_readiness":{"anyOf":[{"enum":["ready","degraded"]},{"type":"null"}]},"readiness_attestation_ref":{"$ref":"#/$defs/nullableEvidenceRef"},"catchup_operation_offset":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]},"catchup_receipt_ref":{"anyOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},{"type":"null"}]},"verified_state_root":{"$ref":"#/$defs/nullableHash"},"target_role":{"anyOf":[{"$ref":"#/$defs/nodeRole"},{"type":"null"}]},"role_lease_ref":{"anyOf":[{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},{"type":"null"}]},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"desired_topology_is_observed_truth":{"const":false},"writer_authority_admitted":{"const":false},"authority_widened":{"const":false},"operation_commitment":{"type":"null"}}},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":64,"uniqueItems":true},"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"receipt_refs":{"type":"array","items":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"status":{"const":"committed"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"systemRef":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"nodeRef":{"type":"string","pattern":"^node://[^\\s]{1,248}$"},"nodeMembershipRef":{"type":"string","pattern":"^node-membership://[^\\s]{1,248}$"},"desiredTopologyRef":{"type":"string","pattern":"^desired-topology://[^\\s]{1,248}$"},"deploymentRevisionRef":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*(?:://|:)[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"nullableEvidenceRef":{"anyOf":[{"$ref":"#/$defs/evidenceRef"},{"type":"null"}]},"membershipOp":{"enum":["admit_node","attest_readiness","advance_catchup","promote_role","drain_node","remove_node"]},"membershipStatus":{"enum":["candidate","attesting","admitted","active","draining","suspended","revoked","left","failed_closed"]},"nodeRole":{"enum":["admission_writer","hot_standby","state_replica","projection_replica","execution_worker","artifact_replica","verifier","availability_witness","gateway","authority_member","consensus_member"]}}}"##,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-desired-topology/v1",
+        r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/autonomous-system-desired-topology/v1","title":"AutonomousSystemDesiredTopology","description":"Owner-declared desired topology for one bounded System: per-role targets, catch-up floor, and failover-profile binding over the exact live deployment-profile revision. Structurally incapable of asserting observed admission, readiness, role, root, watermark, or catch-up truth.","x-ioi-schema-version":"ioi.autonomous-system-desired-topology.v1","type":"object","additionalProperties":false,"required":["schema_version","desired_topology_id","system_id","deployment_profile_ref","deployment_profile_root","failover_profile_ref","role_targets","catchup_floor","observation_ttl_ms","membership_policy_ref","asserts_observed_truth","predecessor_desired_topology_root","status","created_at"],"properties":{"schema_version":{"const":"ioi.autonomous-system-desired-topology.v1"},"desired_topology_id":{"type":"string","pattern":"^desired-topology://[^\\s]{1,248}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,248}$"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"deployment_profile_root":{"$ref":"#/$defs/hash"},"failover_profile_ref":{"type":"string","pattern":"^failover-profile://[^\\s]{1,248}$"},"role_targets":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"object","additionalProperties":false,"required":["role","minimum_ready_nodes","maximum_active_nodes","colocation_allowed"],"properties":{"role":{"enum":["admission_writer","hot_standby","state_replica","projection_replica","execution_worker","artifact_replica","verifier","availability_witness","gateway","authority_member","consensus_member"]},"minimum_ready_nodes":{"type":"integer","minimum":0,"maximum":4096},"maximum_active_nodes":{"anyOf":[{"type":"integer","minimum":1,"maximum":4096},{"type":"null"}]},"colocation_allowed":{"type":"boolean"}}}},"catchup_floor":{"type":"object","additionalProperties":false,"required":["minimum_operation_offset","catchup_policy_ref"],"properties":{"minimum_operation_offset":{"type":"integer","minimum":0,"maximum":9007199254740991},"catchup_policy_ref":{"$ref":"#/$defs/policyRef"}}},"observation_ttl_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"membership_policy_ref":{"$ref":"#/$defs/policyRef"},"asserts_observed_truth":{"const":false},"predecessor_desired_topology_root":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"status":{"enum":["declared","superseded"]},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,248}$"}}}"##,
+    ),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -39771,6 +41576,18 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
         "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
         r#"[{"rule_id":"enforcement_coverage.receipt.evidence.required_when_receipted","description":"A positive receipted claim binds at least one receipt evidence reference in addition to a non-none receipt scope.","expression":{"operator":"non_empty_when_in","path":"$.receipt.evidence_refs","when_path":"$.claims.receipted","values":[true]}},{"rule_id":"enforcement_coverage.gap.required_when_uncovered","description":"An uncovered claim identifies at least one exact known gap rather than relying on a node-wide label.","expression":{"operator":"non_empty_when_in","path":"$.known_gaps","when_path":"$.claims.uncovered","values":[true]}}]"#,
     ),
+    (
+        "schema://ioi/foundations/autonomous-system-node-membership/v1",
+        r#"[{"rule_id":"autonomous_system_node_membership.roles.unique","description":"A node never holds two live assignments of the same role.","expression":{"operator":"array_unique_by_fields","array_path":"$.role_assignments","fields":["role"]}},{"rule_id":"autonomous_system_node_membership.readiness.evidence_required","description":"A claimed or degraded posture is evidence-bearing, never a bare assertion.","expression":{"operator":"non_empty_when_in","path":"$.observation.readiness_evidence_refs","when_path":"$.observation.readiness","values":["ready","degraded"]}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+        r#"[{"rule_id":"autonomous_system_membership_transition.operation_commitment.recomputes","description":"The operation commitment recomputes from the complete closed authority effect.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.autonomous-system-membership-operation-commitment-jcs-sha256.v1"},"effect":{"path":"$.authority_effect_material"}},"expected_path":"$.operation_commitment","expected_encoding":"sha256_string"}},{"rule_id":"autonomous_system_membership_transition.op.matches_effect","description":"The portable transition and governed effect name the same operation.","expression":{"operator":"fields_equal","paths":["$.op","$.authority_effect_material.op"]}},{"rule_id":"autonomous_system_membership_transition.system.matches_effect","description":"The portable transition and governed effect bind the same System.","expression":{"operator":"fields_equal","paths":["$.system_id","$.authority_effect_material.system_id"]}},{"rule_id":"autonomous_system_membership_transition.sequence.matches_effect","description":"The portable transition and governed effect bind the same membership sequence.","expression":{"operator":"fields_equal","paths":["$.sequence","$.authority_effect_material.sequence"]}},{"rule_id":"autonomous_system_membership_transition.node.matches_effect","description":"The node identity is not substitutable.","expression":{"operator":"fields_equal","paths":["$.node_id","$.authority_effect_material.node_id"]}},{"rule_id":"autonomous_system_membership_transition.node_membership.matches_effect","description":"The node membership identity is not substitutable.","expression":{"operator":"fields_equal","paths":["$.node_membership_ref","$.authority_effect_material.node_membership_ref"]}},{"rule_id":"autonomous_system_membership_transition.predecessor_membership_root.matches_effect","description":"The compare-and-swap predecessor membership root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.predecessor_membership_root","$.authority_effect_material.predecessor_membership_root"]}},{"rule_id":"autonomous_system_membership_transition.resulting_membership_root.matches_effect","description":"The resulting membership root is not substitutable.","expression":{"operator":"fields_equal","paths":["$.resulting_membership_root","$.authority_effect_material.resulting_membership_root"]}},{"rule_id":"autonomous_system_membership_transition.predecessor_record_root.matches_effect","description":"The predecessor record bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.predecessor_record_root","$.authority_effect_material.predecessor_record_root"]}},{"rule_id":"autonomous_system_membership_transition.resulting_record_root.matches_effect","description":"The resulting record bytes are content-bound.","expression":{"operator":"fields_equal","paths":["$.resulting_record_root","$.authority_effect_material.resulting_record_root"]}}]"#,
+    ),
+    (
+        "schema://ioi/foundations/autonomous-system-desired-topology/v1",
+        r#"[{"rule_id":"autonomous_system_desired_topology.role_targets.unique","description":"Each role is declared at most once.","expression":{"operator":"array_unique_by_fields","array_path":"$.role_targets","fields":["role"]}}]"#,
+    ),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -39785,6 +41602,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:agentgres|deployment-profile|artifact)://[^\s]{1,248}$"#,
         r#"^(?:agentgres|deployment-profile|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:agentgres|event)://[^\s]{1,248}$"#,
+        r#"^(?:agentgres|event)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:agent|worker)://[^\s]{1,248}$"#,
@@ -39807,6 +41628,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:decision|dispute)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^(?:event|receipt)://[^\s]{1,248}$"#,
+        r#"^(?:event|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^(?:evidence|artifact|receipt)://[^\s]{1,248}$"#,
         r#"^(?:evidence|artifact|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -39825,6 +41650,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:evidence|receipt|artifact)://[^\s]{1,248}$"#,
         r#"^(?:evidence|receipt|artifact)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:evidence|receipt|artifact|attestation)://[^\s]{1,248}$"#,
+        r#"^(?:evidence|receipt|artifact|attestation)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:network|chain|domain)://[^\s]{1,248}$"#,
@@ -39889,6 +41718,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:verifier-path|verification|receipt)://[^\s]+$"#,
         r#"^(?:verifier-path|verification|receipt)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:wallet|org|project)://[^\s]{1,248}$"#,
+        r#"^(?:wallet|org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^(?:worker|service|org|domain|agentgres)://[^\s]{1,248}$"#,
@@ -40064,6 +41897,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^chain-writer-reservation://sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^checkpoint://[^\s]{1,248}$"#,
+        r#"^checkpoint://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"#,
         r#"^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$"#,
     ),
@@ -40118,6 +41955,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^deployment-profile://[^\s]{1,248}$"#,
         r#"^deployment-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^desired-topology://[^\s]{1,248}$"#,
+        r#"^desired-topology://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^development-environment-recipe://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -40212,6 +42053,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^keyset://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^lease://[^\s]{1,248}$"#,
+        r#"^lease://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^lifecycle-profile://[^\s]{1,248}$"#,
         r#"^lifecycle-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -40232,6 +42077,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^mcp-gateway://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^membership-transition://[^\s]{1,248}$"#,
+        r#"^membership-transition://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
         r#"^migration-destination-acknowledgement://[^\s]{1,248}$"#,
         r#"^migration-destination-acknowledgement://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -40242,6 +42091,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^node-membership://[^\s]{1,248}$"#,
         r#"^node-membership://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^node://[^\s]{1,248}$"#,
+        r#"^node://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^oracle-evidence-profile://[^\s]{1,248}$"#,
@@ -40377,6 +42230,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$"#,
         r#"^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$"#,
+    ),
+    (
+        r#"^scope:autonomous_system[.]membership[.][a-z_]{1,64}$"#,
+        r#"^scope:autonomous_system[.]membership[.][a-z_]{1,64}$"#,
     ),
     (
         r#"^sensor://[^\s]+$"#,
@@ -40519,6 +42376,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^workflow-template://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^workflow-template://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^writer-transition://[^\s]{1,248}$"#,
+        r#"^writer-transition://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
         r#"^zone://[^\s]+$"#,
@@ -41780,6 +43641,20 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json"))),
     ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json"))),
     ("docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-admitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-admitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-active-ready.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-active-ready.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-verified-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-verified-root.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-writer-epoch-unbound.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-writer-epoch-unbound.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-duplicate-role.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-duplicate-role.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/positive-admit-node.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/positive-admit-node.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-status-open.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-status-open.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-writer-authority-claimed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-writer-authority-claimed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-commitment-mismatch.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-commitment-mismatch.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-node-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-node-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/positive-declared.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/positive-declared.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-asserts-observed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-asserts-observed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-duplicate-role-target.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-duplicate-role-target.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -42043,6 +43918,21 @@ mod tests {
         },
         "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1" => {
             serde_json::from_value::<EnforcementCoverageDeclarationV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-node-membership/v1" => {
+            serde_json::from_value::<AutonomousSystemNodeMembershipV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-membership-transition/v1" => {
+            serde_json::from_value::<AutonomousSystemMembershipTransitionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-desired-topology/v1" => {
+            serde_json::from_value::<AutonomousSystemDesiredTopologyV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -42312,6 +44202,21 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/autonomous-system-node-membership/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemNodeMembershipV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-membership-transition/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemMembershipTransitionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/autonomous-system-desired-topology/v1" => {
+            let projection = serde_json::from_value::<AutonomousSystemDesiredTopologyV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -42448,8 +44353,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            192,
-            "the registered golden corpus must remain the explicit 192-fixture bar",
+            206,
+            "the registered golden corpus must remain the explicit 206-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -42668,7 +44573,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 198,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 209,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

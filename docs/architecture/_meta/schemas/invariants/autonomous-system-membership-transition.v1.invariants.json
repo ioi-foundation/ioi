@@ -1,0 +1,112 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-membership-transition/exact-effect/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_membership_transition.operation_commitment.recomputes",
+      "description": "The operation commitment recomputes from the complete closed authority effect.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.autonomous-system-membership-operation-commitment-jcs-sha256.v1"
+          },
+          "effect": {
+            "path": "$.authority_effect_material"
+          }
+        },
+        "expected_path": "$.operation_commitment",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "autonomous_system_membership_transition.op.matches_effect",
+      "description": "The portable transition and governed effect name the same operation.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.op", "$.authority_effect_material.op"]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_membership_transition.system.matches_effect",
+      "description": "The portable transition and governed effect bind the same System.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.system_id", "$.authority_effect_material.system_id"]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_membership_transition.sequence.matches_effect",
+      "description": "The portable transition and governed effect bind the same membership sequence.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.sequence", "$.authority_effect_material.sequence"]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_membership_transition.node.matches_effect",
+      "description": "The node identity is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.node_id", "$.authority_effect_material.node_id"]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_membership_transition.node_membership.matches_effect",
+      "description": "The node membership identity is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.node_membership_ref",
+          "$.authority_effect_material.node_membership_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_membership_transition.predecessor_membership_root.matches_effect",
+      "description": "The compare-and-swap predecessor membership root is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_membership_root",
+          "$.authority_effect_material.predecessor_membership_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_membership_transition.resulting_membership_root.matches_effect",
+      "description": "The resulting membership root is not substitutable.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resulting_membership_root",
+          "$.authority_effect_material.resulting_membership_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_membership_transition.predecessor_record_root.matches_effect",
+      "description": "The predecessor record bytes are content-bound.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.predecessor_record_root",
+          "$.authority_effect_material.predecessor_record_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_membership_transition.resulting_record_root.matches_effect",
+      "description": "The resulting record bytes are content-bound.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resulting_record_root",
+          "$.authority_effect_material.resulting_record_root"
+        ]
+      }
+    }
+  ]
+}

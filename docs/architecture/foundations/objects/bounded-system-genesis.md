@@ -962,6 +962,118 @@ membership or role lease does not prove a healthy node; stale heartbeat,
 readiness, or root evidence makes the observation `unknown`, `degraded`, or
 `unreachable` under policy and cannot satisfy promotion or availability claims.
 
+### AutonomousSystemDesiredTopologyEnvelope
+
+The desired side of the membership plane, admitted as an owner-authorized
+record distinct from every observed membership record. It binds the exact
+live deployment-profile revision and the failover profile, declares per-role
+targets and the catch-up floor, and is structurally incapable of asserting
+observed admission, readiness, role, root, watermark, or catch-up truth.
+
+```yaml
+AutonomousSystemDesiredTopologyEnvelope:
+  schema_version: ioi.autonomous-system-desired-topology.v1
+  desired_topology_id: desired-topology://...
+  system_id: system://...
+  deployment_profile_ref: deployment-profile://.../revision/sha256:...
+  deployment_profile_root: hash
+  failover_profile_ref: failover-profile://...
+  role_targets:
+    - role: autonomous_system_node_role
+      minimum_ready_nodes: nonnegative_integer
+      maximum_active_nodes: positive_integer | null
+      colocation_allowed: boolean
+  catchup_floor:
+    minimum_operation_offset: nonnegative_integer
+    catchup_policy_ref: policy://...
+  observation_ttl_ms: positive_integer
+  membership_policy_ref: policy://...
+  asserts_observed_truth: false
+  predecessor_desired_topology_root: hash | null
+  status: declared | superseded
+  created_at: timestamp
+```
+
+Rules, each testable:
+
+- **Desired never fabricates observed.** `asserts_observed_truth` is
+  constantly `false`; the record carries no node, readiness, root, watermark,
+  epoch, or lease field. A projection joins this record with observed
+  membership records and labels divergence; it never reconciles silently and
+  never copies a desired target into an observed claim.
+- **Exact live binding.** `deployment_profile_ref` and
+  `deployment_profile_root` must equal the live chain head's admitted
+  deployment-profile revision at declaration and at every membership
+  compile; a desired topology bound to another revision fails closed.
+- **Replacement is compare-and-swap.** A redeclaration cites the exact
+  predecessor record root in `predecessor_desired_topology_root`; at most one
+  record per System is `declared` at a time.
+- **Role targets are unique per role** and roles come from the closed
+  `autonomous_system_node_role` enum.
+
+### AutonomousSystemMembershipTransitionEnvelope
+
+One immutable compare-and-swap step of a single System's observed membership
+set. The membership log is the durable truth from which the observed side of
+the topology projection is rebuilt after restart; no rebuildable head or
+projection record stands in for it.
+
+```yaml
+AutonomousSystemMembershipTransitionEnvelope:
+  schema_version: ioi.autonomous-system-membership-transition.v1
+  membership_transition_id: membership-transition://...
+  system_id: system://...
+  op: admit_node | attest_readiness | advance_catchup | promote_role | drain_node | remove_node
+  sequence: positive_integer
+  node_membership_ref: node-membership://...
+  node_id: node://...
+  predecessor_membership_root: hash
+  resulting_membership_root: hash
+  predecessor_record_root: hash | null
+  resulting_record_root: hash
+  operation_commitment: hash
+  authority_effect_material: closed_effect_with_null_operation_commitment
+  evidence_refs: []
+  authority_grant_refs: [grant://...]
+  receipt_refs: [receipt://...]
+  status: committed
+```
+
+Rules, each testable:
+
+- **Every admission input is resolved, never asserted (`INV-37`).** The
+  compiler resolves the current membership record set, the declared desired
+  topology, readiness attestations, and catch-up receipts from durable owner
+  truth; a caller-supplied readiness, watermark, root, or epoch value that
+  is not bound by resolved evidence fails closed.
+- **Strict CAS.** `predecessor_membership_root` must equal the root derived
+  from the exact durable membership record set, and exactly one successor
+  may claim one predecessor root. A stale predecessor root — including
+  either loser of a drain/removal race — is refused, never merged.
+- **Foreign nodes are refused.** `node_id` must live inside the System's
+  namespace; admission of a node identity outside it is not compilable.
+- **Readiness is bound evidence.** `attest_readiness` requires a resolved
+  attestation bound to the node's admitted identity, membership epoch, and
+  current verified state root; a declared posture that contradicts its
+  attestation is refused, and a `degraded` posture is recorded as degraded —
+  it can never satisfy `ready` or promotion.
+- **Catch-up cannot be skipped.** `ready` and role promotion require the
+  node's resolved catch-up watermark to reach the declared floor of the
+  admitted desired topology; the watermark never regresses, and advancing it
+  reverts observed readiness to `syncing` until re-attested against the new
+  verified root.
+- **Role leases are one-use.** `promote_role` requires a fresh role lease;
+  a lease already consumed by any committed transition or held by any live
+  role assignment is refused.
+- **No writer authority.** `promote_role` never admits `admission_writer`:
+  writer promotion belongs exclusively to the governed
+  `AutonomousSystemWriterEpochTransitionEnvelope` family with fencing and
+  continuity CAS. The membership transition's closed effect constantly
+  declares `writer_authority_admitted: false`.
+- **Removal is two-step.** `remove_node` is admissible only from `draining`;
+  the removed node's final record revision survives as content-addressed
+  evidence while the resulting membership set excludes it.
+
 ### AutonomousSystemFailoverProfileEnvelope
 
 ```yaml

@@ -46,6 +46,7 @@ pub mod system_continuity_transitions;
 /// Pure compiler for package-bound proposed System genesis artifacts.
 pub mod system_genesis;
 pub mod system_lifecycle_transitions;
+pub mod system_membership_transitions;
 /// Data structures for deterministic block timing.
 pub mod timing; // [NEW]
 /// Data structures for wallet.network control-plane and session artifacts.

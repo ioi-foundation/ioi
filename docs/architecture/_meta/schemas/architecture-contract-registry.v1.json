@@ -2609,16 +2609,45 @@
       "stability": "provisional",
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {"successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed"},
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
       "schema_ref": "autonomous-system-migration-destination-acknowledgement.v1.schema.json",
-      "cross_field_invariant_refs": [{"invariant_id": "invariant://ioi/foundations/autonomous-system-migration-destination-acknowledgement/exact-effect/v1", "path": "invariants/autonomous-system-migration-destination-acknowledgement.v1.invariants.json"}],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-migration-destination-acknowledgement/exact-effect/v1",
+          "path": "invariants/autonomous-system-migration-destination-acknowledgement.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
-        {"kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "AutonomousSystemMigrationDestinationAcknowledgementV1"},
-        {"kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "AutonomousSystemMigrationDestinationAcknowledgementV1"}
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemMigrationDestinationAcknowledgementV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemMigrationDestinationAcknowledgementV1"
+        }
       ],
-      "positive_fixture_refs": ["fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json"],
-      "negative_fixture_refs": [{"path": "fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json", "expected_failure": "invariant", "expected_rule_id": "autonomous_system_migration_destination_acknowledgement.root.recomputes"}]
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_migration_destination_acknowledgement.root.recomputes"
+        }
+      ]
     },
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
@@ -2629,16 +2658,44 @@
       "stability": "provisional",
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {"successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed"},
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
       "schema_ref": "autonomous-system-continuity-state.v1.schema.json",
-      "cross_field_invariant_refs": [{"invariant_id": "invariant://ioi/foundations/autonomous-system-continuity-state/root/v1", "path": "invariants/autonomous-system-continuity-state.v1.invariants.json"}],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-continuity-state/root/v1",
+          "path": "invariants/autonomous-system-continuity-state.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
-        {"kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "AutonomousSystemContinuityStateV1"},
-        {"kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "AutonomousSystemContinuityStateV1"}
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemContinuityStateV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemContinuityStateV1"
+        }
       ],
-      "positive_fixture_refs": ["fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json"],
-      "negative_fixture_refs": [{"path": "fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json", "expected_failure": "schema"}]
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
+          "expected_failure": "schema"
+        }
+      ]
     },
     {
       "contract_id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
@@ -2649,16 +2706,44 @@
       "stability": "provisional",
       "wire_format": "json",
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
-      "evolution": {"successor_of": null, "successor_contract_id": null, "compatibility": "initial", "migration_policy": "none", "predecessor_remains_valid": false, "wire_mutation_policy": "forbidden", "hash_impact": "signature_preimage_changed"},
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
       "schema_ref": "autonomous-system-network-enrollment-transition.v1.schema.json",
-      "cross_field_invariant_refs": [{"invariant_id": "invariant://ioi/foundations/autonomous-system-network-enrollment-transition/exact-effect/v1", "path": "invariants/autonomous-system-network-enrollment-transition.v1.invariants.json"}],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-network-enrollment-transition/exact-effect/v1",
+          "path": "invariants/autonomous-system-network-enrollment-transition.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
-        {"kind": "typescript_projection", "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts", "symbol": "AutonomousSystemNetworkEnrollmentTransitionV1"},
-        {"kind": "rust_projection", "path": "crates/types/src/app/generated/architecture_contracts.rs", "symbol": "AutonomousSystemNetworkEnrollmentTransitionV1"}
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemNetworkEnrollmentTransitionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemNetworkEnrollmentTransitionV1"
+        }
       ],
-      "positive_fixture_refs": ["fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json"],
-      "negative_fixture_refs": [{"path": "fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json", "expected_failure": "schema"}]
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json",
+          "expected_failure": "schema"
+        }
+      ]
     },
     {
       "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
@@ -2774,6 +2859,184 @@
         {
           "path": "fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
           "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-node-membership/v1",
+      "canonical_name": "AutonomousSystemNodeMembership",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemnodemembershipenvelope",
+      "schema_version": "ioi.autonomous-system-node-membership.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "autonomous-system-node-membership.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-node-membership/observed-honesty/v1",
+          "path": "invariants/autonomous-system-node-membership.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemNodeMembershipV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemNodeMembershipV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-node-membership-v1/positive-admitted.json",
+        "fixtures/autonomous-system-node-membership-v1/positive-active-ready.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-node-membership-v1/negative-ready-without-verified-root.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-node-membership-v1/negative-writer-epoch-unbound.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-node-membership-v1/negative-duplicate-role.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_node_membership.roles.unique"
+        },
+        {
+          "path": "fixtures/autonomous-system-node-membership-v1/negative-ready-without-evidence.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_node_membership.readiness.evidence_required"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-membership-transition/v1",
+      "canonical_name": "AutonomousSystemMembershipTransition",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemmembershiptransitionenvelope",
+      "schema_version": "ioi.autonomous-system-membership-transition.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "autonomous-system-membership-transition.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-membership-transition/exact-effect/v1",
+          "path": "invariants/autonomous-system-membership-transition.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemMembershipTransitionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemMembershipTransitionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-membership-transition-v1/positive-admit-node.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-membership-transition-v1/negative-status-open.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-membership-transition-v1/negative-writer-authority-claimed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-membership-transition-v1/negative-commitment-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_membership_transition.operation_commitment.recomputes"
+        },
+        {
+          "path": "fixtures/autonomous-system-membership-transition-v1/negative-node-substituted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_membership_transition.node.matches_effect"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/autonomous-system-desired-topology/v1",
+      "canonical_name": "AutonomousSystemDesiredTopology",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-system-genesis.md#autonomoussystemdesiredtopologyenvelope",
+      "schema_version": "ioi.autonomous-system-desired-topology.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "autonomous-system-desired-topology.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/autonomous-system-desired-topology/declared-only/v1",
+          "path": "invariants/autonomous-system-desired-topology.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AutonomousSystemDesiredTopologyV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AutonomousSystemDesiredTopologyV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/autonomous-system-desired-topology-v1/positive-declared.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/autonomous-system-desired-topology-v1/negative-asserts-observed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/autonomous-system-desired-topology-v1/negative-duplicate-role-target.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "autonomous_system_desired_topology.role_targets.unique"
         }
       ]
     }

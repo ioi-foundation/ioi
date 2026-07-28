@@ -1,0 +1,26 @@
+{
+  "$id": "invariant://ioi/foundations/autonomous-system-node-membership/observed-honesty/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/autonomous-system-node-membership/v1",
+  "rules": [
+    {
+      "rule_id": "autonomous_system_node_membership.roles.unique",
+      "description": "A node never holds two live assignments of the same role.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.role_assignments",
+        "fields": ["role"]
+      }
+    },
+    {
+      "rule_id": "autonomous_system_node_membership.readiness.evidence_required",
+      "description": "A claimed or degraded posture is evidence-bearing, never a bare assertion.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.observation.readiness_evidence_refs",
+        "when_path": "$.observation.readiness",
+        "values": ["ready", "degraded"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/autonomous-system-desired-topology/v1",
+  "title": "AutonomousSystemDesiredTopology",
+  "description": "Owner-declared desired topology for one bounded System: per-role targets, catch-up floor, and failover-profile binding over the exact live deployment-profile revision. Structurally incapable of asserting observed admission, readiness, role, root, watermark, or catch-up truth.",
+  "x-ioi-schema-version": "ioi.autonomous-system-desired-topology.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "desired_topology_id",
+    "system_id",
+    "deployment_profile_ref",
+    "deployment_profile_root",
+    "failover_profile_ref",
+    "role_targets",
+    "catchup_floor",
+    "observation_ttl_ms",
+    "membership_policy_ref",
+    "asserts_observed_truth",
+    "predecessor_desired_topology_root",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.autonomous-system-desired-topology.v1" },
+    "desired_topology_id": {
+      "type": "string",
+      "pattern": "^desired-topology://[^\\s]{1,248}$"
+    },
+    "system_id": { "type": "string", "pattern": "^system://[^\\s]{1,248}$" },
+    "deployment_profile_ref": {
+      "type": "string",
+      "pattern": "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "deployment_profile_root": { "$ref": "#/$defs/hash" },
+    "failover_profile_ref": {
+      "type": "string",
+      "pattern": "^failover-profile://[^\\s]{1,248}$"
+    },
+    "role_targets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "minimum_ready_nodes", "maximum_active_nodes", "colocation_allowed"],
+        "properties": {
+          "role": {
+            "enum": [
+              "admission_writer",
+              "hot_standby",
+              "state_replica",
+              "projection_replica",
+              "execution_worker",
+              "artifact_replica",
+              "verifier",
+              "availability_witness",
+              "gateway",
+              "authority_member",
+              "consensus_member"
+            ]
+          },
+          "minimum_ready_nodes": { "type": "integer", "minimum": 0, "maximum": 4096 },
+          "maximum_active_nodes": {
+            "anyOf": [
+              { "type": "integer", "minimum": 1, "maximum": 4096 },
+              { "type": "null" }
+            ]
+          },
+          "colocation_allowed": { "type": "boolean" }
+        }
+      }
+    },
+    "catchup_floor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_operation_offset", "catchup_policy_ref"],
+      "properties": {
+        "minimum_operation_offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "catchup_policy_ref": { "$ref": "#/$defs/policyRef" }
+      }
+    },
+    "observation_ttl_ms": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "membership_policy_ref": { "$ref": "#/$defs/policyRef" },
+    "asserts_observed_truth": { "const": false },
+    "predecessor_desired_topology_root": {
+      "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }]
+    },
+    "status": { "enum": ["declared", "superseded"] },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]{1,248}$" }
+  }
+}
