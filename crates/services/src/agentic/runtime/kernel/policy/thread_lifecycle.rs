@@ -5311,9 +5311,23 @@ mod tests {
             .run
             .get("skill_hook_materialization_request")
             .is_none());
+        // Manifest id contract: `skill_hook_manifest_{run_id}_{manifestHash[..12]}`
+        // (content-addressed suffix from the materializer). The runtime task record
+        // must link to exactly that manifest id.
+        let manifest_hash = record.run["activeSkillHookManifest"]["manifestHash"]
+            .as_str()
+            .expect("manifest hash");
+        let expected_manifest_id = format!(
+            "skill_hook_manifest_run_create_one_{}",
+            &manifest_hash[..12]
+        );
+        assert_eq!(
+            record.run["activeSkillHookManifest"]["manifestId"],
+            Value::String(expected_manifest_id.clone())
+        );
         assert_eq!(
             record.run["runtimeTask"]["activeSkillHookManifestId"],
-            "skill_hook_manifest_run_create_one"
+            Value::String(expected_manifest_id)
         );
         assert!(record.run["runtimeTask"]["evidenceRefs"]
             .as_array()

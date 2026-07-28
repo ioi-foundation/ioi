@@ -971,7 +971,11 @@ async fn shell_terminate_stops_retained_command() {
     )
     .await;
 
-    assert!(result.success);
+    assert!(
+        result.success,
+        "retained launch should succeed: error={:?}",
+        result.error
+    );
     let launch_payload = retained_payload(&result);
     let command_id = launch_payload
         .get("command_id")
