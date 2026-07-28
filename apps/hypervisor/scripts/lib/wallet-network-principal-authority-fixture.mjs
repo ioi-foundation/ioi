@@ -250,6 +250,7 @@ async function startPinnedTlsProxy(upstreamAddr, fixtureDir) {
 export async function startRealWalletNetworkPrincipalAuthorityFixture({
   baseEnv = process.env,
   rootSeedHex,
+  resumeResourceDir,
 } = {}) {
   const normalizedRootSeed = rootSeedHex == null
     ? null
@@ -260,11 +261,32 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
   if (ownerStartTimeTicks === null) {
     throw new Error("wallet.network fixture parent lacks a process identity");
   }
-  const fixtureDir = path.join(
-    tmpdir(),
-    `ioi-wallet-network-pa-${process.pid}-${ownerStartTimeTicks}-${randomUUID()}`,
-  );
-  mkdirSync(fixtureDir, { mode: 0o700 });
+  let fixtureDir;
+  if (resumeResourceDir == null) {
+    fixtureDir = path.join(
+      tmpdir(),
+      `ioi-wallet-network-pa-${process.pid}-${ownerStartTimeTicks}-${randomUUID()}`,
+    );
+    mkdirSync(fixtureDir, { mode: 0o700 });
+  } else {
+    // Checkpoint-lane resume: reclaim the EXACT recorded fixture path so any
+    // absolute-path reference a restored daemon plane carries stays valid.
+    // The wallet chain state itself lives in the cargo test's private
+    // TestCluster tempdirs (crates/cli/src/testing) and cannot be resumed
+    // from this directory; the fixture re-initializes its deterministic
+    // authority topology (same seeds, same chain_id) at the same path.
+    fixtureDir = path.resolve(String(resumeResourceDir));
+    if (
+      path.dirname(fixtureDir) !== path.resolve(tmpdir()) ||
+      !path.basename(fixtureDir).startsWith("ioi-wallet-network-pa-")
+    ) {
+      throw new Error(
+        "wallet.network fixture resume path must be a verifier-owned wallet fixture directory",
+      );
+    }
+    rmSync(fixtureDir, { recursive: true, force: true });
+    mkdirSync(fixtureDir, { mode: 0o700 });
+  }
   try {
     publishFixtureOwnerMarker(
       fixtureDir,
@@ -640,7 +662,7 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
     },
     recordApproval,
     revokePrincipalAuthority,
-    stop() {
+    stop({ preserveResourceDir = false } = {}) {
       if (cleanupFinished) return Promise.resolve();
       if (stopPromise) return stopPromise;
       stopPromise = (async () => {
@@ -662,7 +684,11 @@ export async function startRealWalletNetworkPrincipalAuthorityFixture({
           try { tlsProxy.destroy(); } catch { /* best effort */ }
           // The fixture directory is removed only after cargo has emitted exit, so a subsequent
           // fixture cannot overlap a still-exiting process that retains handles into this tree.
-          rmSync(fixtureDir, { recursive: true, force: true });
+          // Checkpoint capture preserves the exited directory for archival; its caller owns the
+          // removal that every other stop() performs here.
+          if (!preserveResourceDir) {
+            rmSync(fixtureDir, { recursive: true, force: true });
+          }
           process.off("exit", exitCleanup);
         }
         if (ownedProcessGroupIdentityMatches()) {
